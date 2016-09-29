@@ -776,6 +776,32 @@ namespace vg {
                 REQUIRE(path.mapping(1).edit(0).sequence().empty());
                 
             }
+
+            SECTION( "Global banded aligner doesn't explode" ) {
+
+                string json_graph = "{\"node\": [{\"sequence\": \"GT\", \"id\": 86051}, {\"sequence\": \"G\", \"id\": 86052}, {\"sequence\": \"A\", \"id\": 86053}, {\"sequence\": \"TGCCCAGTTCTAGACAATT\", \"id\": 86054}, {\"sequence\": \"T\", \"id\": 86055}, {\"sequence\": \"A\", \"id\": 86056}, {\"sequence\": \"CAA\", \"id\": 86057}, {\"sequence\": \"C\", \"id\": 86058}, {\"sequence\": \"A\", \"id\": 86059}, {\"sequence\": \"C\", \"id\": 86060}, {\"sequence\": \"T\", \"id\": 86061}, {\"sequence\": \"C\", \"id\": 86062}, {\"sequence\": \"CAACAAGCTCAGTGCATTTGCCACTT\", \"id\": 86063}, {\"sequence\": \"GATAAGTGCTGAGCTGAATGGTTTGC\", \"id\": 86064}, {\"sequence\": \"AGGTGTTACCTCAAATTCATGCCCAT\", \"id\": 86065}, {\"sequence\": \"CATGCTTAATAAGGTCAAAACC\", \"id\": 86066}], \"edge\": [{\"from\": 86051, \"to\": 86052}, {\"from\": 86051, \"to\": 86053}, {\"from\": 86052, \"to\": 86054}, {\"from\": 86053, \"to\": 86054}, {\"from\": 86054, \"to\": 86055}, {\"from\": 86054, \"to\": 86056}, {\"from\": 86055, \"to\": 86057}, {\"from\": 86056, \"to\": 86057}, {\"from\": 86057, \"to\": 86058}, {\"from\": 86057, \"to\": 86059}, {\"from\": 86058, \"to\": 86060}, {\"from\": 86059, \"to\": 86060}, {\"from\": 86060, \"to\": 86061}, {\"from\": 86060, \"to\": 86062}, {\"from\": 86061, \"to\": 86063}, {\"from\": 86062, \"to\": 86063}, {\"from\": 86063, \"to\": 86064}, {\"from\": 86064, \"to\": 86065}, {\"from\": 86065, \"to\": 86066}]}";
+
+                Graph fail_graph;
+                json2pb(fail_graph, json_graph.c_str(), json_graph.size());
+
+                VG graph;
+                graph.extend(fail_graph);
+
+                Aligner aligner;
+                
+                string read = "CTATTGTTTCTGATGGGGTCTCAGTGGTGCCCAAAGCAACAGATCCCCATGGCAGAGGGA";
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_padding = 1;
+                aligner.align_global_banded(aln, graph.graph, band_padding);
+                
+                const Path& path = aln.path();
+                
+                // is a global alignment
+                REQUIRE(path.mapping(0).position().offset() == 0);
+                
+            }
         }
         
         TEST_CASE( "Banded global aligner produces correct alignments with different graph structures",

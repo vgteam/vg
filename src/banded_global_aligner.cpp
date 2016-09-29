@@ -299,7 +299,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
             idx = i * ncols;
             up_idx = (i - 1) * ncols;
             // score of a match in this cell
-            int8_t match_score;
+            int8_t match_score = 0;
             if (qual_adjusted) {
                 match_score = score_mat[25 * base_quality[top_diag + i] + 5 * nt_table[node_seq[0]] + nt_table[read[top_diag + i]]];
             }
@@ -340,7 +340,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
         // handle special logic for lead column insertions
         idx = iter_start * ncols;
         
-        int8_t match_score;
+        int8_t match_score = 0;
         if (qual_adjusted) {
             match_score = score_mat[25 * base_quality[iter_start + top_diag] + 5 * nt_table[node_seq[0]] + nt_table[read[iter_start + top_diag]]];
         }
@@ -452,7 +452,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
                 
                 // extend a match
                 diag_idx = (diag - seed_next_top_diag) * seed_node_seq_len + seed_node_seq_len - 1;
-                int8_t match_score;
+                int8_t match_score = 0;
                 if (qual_adjusted) {
                     match_score = score_mat[25 * base_quality[diag] + 5 * nt_table[node_seq[0]] + nt_table[read[diag]]];
                 }
@@ -553,7 +553,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
         
         idx = iter_start * ncols + j;
         
-        int8_t match_score;
+        int8_t match_score = 0;
         if (qual_adjusted) {
             match_score = score_mat[25 * base_quality[iter_start + top_diag + j] + 5 * nt_table[node_seq[j]] + nt_table[read[iter_start + top_diag + j]]];
         }
@@ -700,13 +700,13 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
     int64_t ncols = node->sequence().length();
     int64_t node_id = node->id();
     
-    int64_t idx, next_idx;
+    int64_t idx = 0, next_idx = 0;
     int64_t i = start_row, j = start_col;
     matrix_t curr_mat = start_mat;
-    int8_t curr_score;
-    int8_t source_score;
-    int8_t score_diff;
-    int8_t alt_score;
+    int8_t curr_score = 0;
+    int8_t source_score = 0;
+    int8_t score_diff = 0;
+    int8_t alt_score = 0;
     int8_t curr_traceback_score = traceback_stack.current_traceback_score();
     
     // do node traceback unless we are in the lead gap implied at the edge of the DP matrix or we
@@ -777,7 +777,7 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
                 curr_score = match[idx];
                 next_idx = i * ncols + j - 1;
                 
-                int8_t match_score;
+                int8_t match_score = 0;
                 if (qual_adjusted) {
                     match_score = score_mat[25 * base_quality[i + top_diag + j] + 5 * nt_table[node_seq[j]] + nt_table[read[i + top_diag + j]]];
                 }
@@ -1070,7 +1070,7 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
             cerr << "[BAMatrix::traceback_internal] at boundary, looking for predecessor node" << endl;
 #endif
             
-            int8_t match_score;
+            int8_t match_score = 0;
             switch (curr_mat) {
                 case Match:
                 {
@@ -2004,7 +2004,7 @@ void BandedGlobalAligner::traceback(int8_t* score_mat, int8_t* nt_table, int8_t 
     AltTracebackStack traceback_stack(max_multi_alns, sink_node_matrices);
     
     for (; traceback_stack.has_next(); traceback_stack.next()) {
-        int64_t end_node_id;
+        int64_t end_node_id = 0;
         matrix_t end_matrix;
         traceback_stack.get_alignment_start(end_node_id, end_matrix);
         int64_t end_node_idx = node_id_to_idx[end_node_id];
