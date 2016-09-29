@@ -25,7 +25,9 @@ namespace vg {
     // This class is the outward-facing interface for banded global graph alignment. It computes
     // optimal alignment of a DNA sequence to a DAG with POA. The alignment will start at any source
     // node in the graph and end at any sink node. It is also restricted to falling within a certain
-    // diagonal band from the start node.
+    // diagonal band from the start node. Any signed integer type can be used for the dynamic programming
+    // matrices, but there are no checks for overflow.
+    template <class IntType>
     class BandedGlobalAligner {
     public:
         
@@ -79,8 +81,11 @@ namespace vg {
          *
          */
         void align(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend);
+        // these are not IntType so that they can interact well with Aligner
+        
         
     private:
+        
         class BAMatrix;
         class BABuilder;
         class AltTracebackStack;
@@ -110,7 +115,7 @@ namespace vg {
                             bool adjust_for_base_quality = false);
         
         // traceback an alignment
-        void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, int8_t min_inf);
+        void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, IntType min_inf);
         
         // construction functions
         void graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list);
@@ -125,7 +130,8 @@ namespace vg {
     };
 
     // the band from the DP matrix for one node in the graph
-    class BandedGlobalAligner::BAMatrix {
+    template <class IntType>
+    class BandedGlobalAligner<IntType>::BAMatrix {
     private:
 
         // these indicate the diagonals in this matrix that the band passes through
@@ -143,14 +149,14 @@ namespace vg {
         BAMatrix** seeds;
         int64_t num_seeds;
         
-        int8_t* match;
-        int8_t* insert_col;
-        int8_t* insert_row;
+        IntType* match;
+        IntType* insert_col;
+        IntType* insert_row;
         
         void traceback_internal(BABuilder& builder, AltTracebackStack& traceback_stack, int64_t start_row,
                                 int64_t start_col, matrix_t start_mat, bool in_lead_gap, int8_t* score_mat,
                                 int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
-                                int8_t min_inf);
+                                IntType min_inf);
         
         void print_matrix(matrix_t which_mat);
         void print_band(matrix_t which_mat);
@@ -162,10 +168,10 @@ namespace vg {
         
         // use DP to fill the band with alignment scores
         void fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
-                         int8_t min_inf);
+                         IntType min_inf);
         
         void traceback(BABuilder& builder, AltTracebackStack& traceback_stack, matrix_t start_mat, int8_t* score_mat,
-                       int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, int8_t min_inf);
+                       int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf);
         
         // debugging functions
         void print_full_matrices();
@@ -176,7 +182,8 @@ namespace vg {
     };
     
     // maintains a stack of directions to find the top scoring tracebacks
-    class BandedGlobalAligner::AltTracebackStack {
+    template <class IntType>
+    class BandedGlobalAligner<IntType>::AltTracebackStack {
     public:
         AltTracebackStack(int64_t max_multi_alns, vector<BAMatrix*> sink_node_matrices);
         ~AltTracebackStack();
@@ -189,11 +196,11 @@ namespace vg {
         inline bool has_next();
         
         // check if a deflection from the current traceback
-        inline void propose_deflection(const int8_t score, const int64_t from_node_id, const int64_t row_idx,
+        inline void propose_deflection(const IntType score, const int64_t from_node_id, const int64_t row_idx,
                                        const int64_t col_idx, const int64_t to_node_id, const matrix_t to_matrix);
         
         // score of the current traceback
-        inline int8_t current_traceback_score();
+        inline IntType current_traceback_score();
         
         // are these the coordinates of the next deflection?
         inline bool at_next_deflection(int64_t node_id, int64_t row_idx, int64_t col_idx);
@@ -208,18 +215,18 @@ namespace vg {
         
         int64_t max_multi_alns;
         // pairs contain scores of alignments and the places where their traceback differs from the optimum
-        list<pair<vector<Deflection>, int8_t>> alt_tracebacks;
+        list<pair<vector<Deflection>, IntType>> alt_tracebacks;
         
-        list<pair<vector<Deflection>, int8_t>>::iterator curr_traceback;
-        vector<Deflection>::iterator curr_deflxn;
+        typename list<pair<vector<Deflection>, IntType>>::iterator curr_traceback;
+        typename vector<Deflection>::iterator curr_deflxn;
         
-        inline void insert_traceback(const vector<Deflection>& traceback_prefix, const int8_t score,
+        inline void insert_traceback(const vector<Deflection>& traceback_prefix, const IntType score,
                                      const int64_t from_node_id, const int64_t row_idx,
                                      const int64_t col_idx, const int64_t to_node_id, const matrix_t to_matrix);
     };
     
-    
-    class BandedGlobalAligner::AltTracebackStack::Deflection {
+    template <class IntType>
+    class BandedGlobalAligner<IntType>::AltTracebackStack::Deflection {
     public:
         Deflection(const int64_t from_node_id, const int64_t row_idx, const int64_t col_idx,
                    const int64_t to_node_id, const matrix_t to_matrix);
@@ -235,7 +242,8 @@ namespace vg {
     };
     
     // translates a traceback path into a Path object and stores it in an Alignment object
-    class BandedGlobalAligner::BABuilder {
+    template <class IntType>
+    class BandedGlobalAligner<IntType>::BABuilder {
     private:
         Alignment& alignment;
         
@@ -260,6 +268,12 @@ namespace vg {
         // call after concluding traceback to finish adding edits to alignment
         void finalize_alignment();
     };
+    
+    // define aligners for allowed integer types
+    template class BandedGlobalAligner<int8_t>;
+    template class BandedGlobalAligner<int16_t>;
+    template class BandedGlobalAligner<int32_t>;
+    template class BandedGlobalAligner<int64_t>;
 }
 
 #endif /* banded_global_aligner_hpp */
