@@ -183,24 +183,14 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool banded_global) {
     // check if we have a cached aligner for this thread
     if (aln.quality().empty()) {
-        //auto aligner = get_regular_aligner();
-        Aligner aligner;
+        auto aligner = get_regular_aligner();
         //aligner.align_global_banded(aln, graph.graph, band_padding);
-        return vg.align(aln,
-                        &aligner,
-                        1000,
-                        0,
-                        false,
-                        true,
-                        false);
-        /*
         return vg.align(aln,
                         aligner,
                         max_query_graph_ratio,
                         pinned_node_id,
                         pin_left,
                         banded_global);
-        */
     } else {
         auto aligner = get_qual_adj_aligner();
         if (adjust_alignments_for_base_quality) {

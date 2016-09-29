@@ -7487,7 +7487,7 @@ Alignment VG::align(const Alignment& alignment,
         character = toupper(character);
     }
     */
-    cerr << "aligning " << pb2json(alignment) << " to " << pb2json(graph) << endl;
+    //cerr << "aligning " << pb2json(alignment) << " to " << pb2json(graph) << endl;
 
     auto do_align = [&](Graph& g) {
         if (aligner && qual_adj_aligner) {
