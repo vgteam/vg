@@ -282,26 +282,26 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 void Aligner::align_global_banded(Alignment& alignment, Graph& g,
                                   int32_t band_padding, bool permissive_banding) {
     
-    
-    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
-                                                         g,
-                                                         band_padding,
-                                                         permissive_banding,
-                                                         false);
+    BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
+                                                                           g,
+                                                                           band_padding,
+                                                                           permissive_banding,
+                                                                           false);
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+
 }
 
 void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                         int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
     
-    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
-                                                         g,
-                                                         alt_alignments,
-                                                         max_alt_alns,
-                                                         band_padding,
-                                                         permissive_banding,
-                                                         false);
+    BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
+                                                                           g,
+                                                                           alt_alignments,
+                                                                           max_alt_alns,
+                                                                           band_padding,
+                                                                           permissive_banding,
+                                                                           false);
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
@@ -935,28 +935,29 @@ void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, int64_t pinned
 void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
                                   int32_t band_padding, bool permissive_banding) {
     
-    
-    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
-                                                         g,
-                                                         band_padding,
-                                                         permissive_banding,
-                                                         true);
+    BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
+                                                                           g,
+                                                                           band_padding,
+                                                                           permissive_banding,
+                                                                           true);
     
     band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
+    
 }
 
 void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                                int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
     
-    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
-                                                         g,
-                                                         alt_alignments,
-                                                         max_alt_alns,
-                                                         band_padding,
-                                                         permissive_banding,
-                                                         true);
+    BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
+                                                                           g,
+                                                                           alt_alignments,
+                                                                           max_alt_alns,
+                                                                           band_padding,
+                                                                           permissive_banding,
+                                                                           true);
     
     band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
+    
 }
 
 int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {

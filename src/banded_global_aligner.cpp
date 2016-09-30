@@ -16,23 +16,26 @@
 
 using namespace vg;
 
-BandedGlobalAligner::BABuilder::BABuilder(Alignment& alignment) :
-                                          alignment(alignment),
-                                          matrix_state(Match),
-                                          matching(false),
-                                          current_node(nullptr),
-                                          edit_length(0),
-                                          edit_read_end_idx(0)
+template<class IntType>
+BandedGlobalAligner<IntType>::BABuilder::BABuilder(Alignment& alignment) :
+                                                   alignment(alignment),
+                                                   matrix_state(Match),
+                                                   matching(false),
+                                                   current_node(nullptr),
+                                                   edit_length(0),
+                                                   edit_read_end_idx(0)
 {
     // nothing to do
 }
 
-BandedGlobalAligner::BABuilder::~BABuilder() {
+template<class IntType>
+BandedGlobalAligner<IntType>::BABuilder::~BABuilder() {
     // does not own any heap objects, nothing to do
 }
 
-void BandedGlobalAligner::BABuilder::update_state(matrix_t matrix, Node* node,
-                                                  int64_t read_idx, int64_t node_idx) {
+template<class IntType>
+void BandedGlobalAligner<IntType>::BABuilder::update_state(matrix_t matrix, Node* node,
+                                                           int64_t read_idx, int64_t node_idx) {
 #ifdef debug_banded_aligner_traceback
     cerr << "[BABuilder::update_state] beginning state update for read index " << read_idx << ", node seq index " << node_idx << endl;
 #endif
@@ -84,7 +87,8 @@ void BandedGlobalAligner::BABuilder::update_state(matrix_t matrix, Node* node,
 #endif
 }
 
-void BandedGlobalAligner::BABuilder::finish_current_edit() {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BABuilder::finish_current_edit() {
     
 #ifdef debug_banded_aligner_traceback
     cerr << "[BABuilder::finish_current_edit] finishing edit" << endl;
@@ -123,7 +127,8 @@ void BandedGlobalAligner::BABuilder::finish_current_edit() {
     }
 }
 
-void BandedGlobalAligner::BABuilder::finish_current_node() {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BABuilder::finish_current_node() {
 
     // sentinel for first iteration
     if (current_node == nullptr) {
@@ -149,7 +154,8 @@ void BandedGlobalAligner::BABuilder::finish_current_node() {
     // note: global alignment always starts at beginning of node, default offset 0 is correct
 }
 
-void BandedGlobalAligner::BABuilder::finalize_alignment() {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BABuilder::finalize_alignment() {
     
     finish_current_node();
     
@@ -174,19 +180,20 @@ void BandedGlobalAligner::BABuilder::finalize_alignment() {
 #endif
 }
 
-BandedGlobalAligner::BAMatrix::BAMatrix(Alignment& alignment, Node* node, int64_t top_diag,
-                                        int64_t bottom_diag, BAMatrix** seeds, int64_t num_seeds,
-                                        int64_t cumulative_seq_len) :
-                                        node(node),
-                                        top_diag(top_diag),
-                                        bottom_diag(bottom_diag),
-                                        seeds(seeds),
-                                        alignment(alignment),
-                                        num_seeds(num_seeds),
-                                        cumulative_seq_len(cumulative_seq_len),
-                                        match(nullptr),
-                                        insert_col(nullptr),
-                                        insert_row(nullptr)
+template <class IntType>
+BandedGlobalAligner<IntType>::BAMatrix::BAMatrix(Alignment& alignment, Node* node, int64_t top_diag,
+                                                 int64_t bottom_diag, BAMatrix** seeds, int64_t num_seeds,
+                                                 int64_t cumulative_seq_len) :
+                                                 node(node),
+                                                 top_diag(top_diag),
+                                                 bottom_diag(bottom_diag),
+                                                 seeds(seeds),
+                                                 alignment(alignment),
+                                                 num_seeds(num_seeds),
+                                                 cumulative_seq_len(cumulative_seq_len),
+                                                 match(nullptr),
+                                                 insert_col(nullptr),
+                                                 insert_row(nullptr)
 {
     // nothing to do
 #ifdef debug_banded_aligner_objects
@@ -194,7 +201,8 @@ BandedGlobalAligner::BAMatrix::BAMatrix(Alignment& alignment, Node* node, int64_
 #endif
 }
 
-BandedGlobalAligner::BAMatrix::~BAMatrix() {
+template <class IntType>
+BandedGlobalAligner<IntType>::BAMatrix::~BAMatrix() {
 #ifdef debug_banded_aligner_objects
     if (node != nullptr) {
         cerr << "[BAMatrix::~BAMatrix] destructing matrix for node " << node->id() << endl;
@@ -209,8 +217,9 @@ BandedGlobalAligner::BAMatrix::~BAMatrix() {
     free(seeds);
 }
 
-void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
-                                                int8_t gap_extend, bool qual_adjusted, int8_t min_inf) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
+                                                         int8_t gap_extend, bool qual_adjusted, IntType min_inf) {
     
 #ifdef debug_banded_aligner_fill_matrix
     cerr << "[BAMatrix::fill_matrix] beginning DP on matrix for node " << node->id() << endl;;
@@ -229,9 +238,9 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
     const string& read = alignment.sequence();
     const string& base_quality = alignment.quality();
     
-    match = (int8_t*) malloc(sizeof(int8_t) * band_size);
-    insert_col = (int8_t*) malloc(sizeof(int8_t) * band_size);
-    insert_row = (int8_t*) malloc(sizeof(int8_t) * band_size);
+    match = (IntType*) malloc(sizeof(IntType) * band_size);
+    insert_col = (IntType*) malloc(sizeof(IntType) * band_size);
+    insert_row = (IntType*) malloc(sizeof(IntType) * band_size);
     /* these represent a band in a matrix, but we store it as a rectangle with chopped
      * corners
      *
@@ -299,7 +308,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
             idx = i * ncols;
             up_idx = (i - 1) * ncols;
             // score of a match in this cell
-            int8_t match_score = 0;
+            IntType match_score;
             if (qual_adjusted) {
                 match_score = score_mat[25 * base_quality[top_diag + i] + 5 * nt_table[node_seq[0]] + nt_table[read[top_diag + i]]];
             }
@@ -340,7 +349,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
         // handle special logic for lead column insertions
         idx = iter_start * ncols;
         
-        int8_t match_score = 0;
+        IntType match_score;
         if (qual_adjusted) {
             match_score = score_mat[25 * base_quality[iter_start + top_diag] + 5 * nt_table[node_seq[0]] + nt_table[read[iter_start + top_diag]]];
         }
@@ -427,7 +436,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
                 else {
                     match_score = score_mat[5 * nt_table[node_seq[0]] + nt_table[read[seed_next_top_diag_iter]]];
                 }
-                match[idx] = max<int8_t>(match_score + max<int8_t>(max<int8_t>(seed->match[diag_idx],
+                match[idx] = max<IntType>(match_score + max<IntType>(max<IntType>(seed->match[diag_idx],
                                                                                seed->insert_row[diag_idx]),
                                                                    seed->insert_col[diag_idx]), match[idx]);
             }
@@ -437,7 +446,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
                 cerr << "[BAMatrix::fill_matrix]: seed band is greater than height 1, can extend column gap into first row" << endl;
 #endif
                 left_idx = (seed_next_top_diag_iter - seed_next_top_diag + 2) * seed_node_seq_len - 1;
-                insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
+                insert_col[idx] = max<IntType>(max<IntType>(max<IntType>(seed->match[left_idx] - gap_open,
                                                                       seed->insert_row[left_idx] - gap_open),
                                                           seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
             }
@@ -452,7 +461,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
                 
                 // extend a match
                 diag_idx = (diag - seed_next_top_diag) * seed_node_seq_len + seed_node_seq_len - 1;
-                int8_t match_score = 0;
+                IntType match_score;
                 if (qual_adjusted) {
                     match_score = score_mat[25 * base_quality[diag] + 5 * nt_table[node_seq[0]] + nt_table[read[diag]]];
                 }
@@ -464,7 +473,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
                 cerr << "[BAMatrix::fill_matrix]: extending match from rectangular coord (" << diag - seed_next_top_diag << ", " << seed_node_seq_len - 1 << ")" << " with match score " << (int) match_score << ", scores are " << (int) seed->match[diag_idx] << " (M), " << (int) seed->insert_row[diag_idx] << " (Ir), and " << (int) seed->insert_col[diag_idx] << " (Ic), current score is " << (int) match[idx] << endl;
 #endif
                 
-                match[idx] = max<int8_t>(match_score + max<int8_t>(max<int8_t>(seed->match[diag_idx],
+                match[idx] = max<IntType>(match_score + max<IntType>(max<IntType>(seed->match[diag_idx],
                                                                                seed->insert_row[diag_idx]),
                                                                    seed->insert_col[diag_idx]), match[idx]);
                 
@@ -475,7 +484,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
 #ifdef debug_banded_aligner_fill_matrix
                 cerr << "[BAMatrix::fill_matrix]: extending match from rectangular coord (" << diag - seed_next_top_diag + 1 << ", " << seed_node_seq_len - 1 << ")" << ", scores are " << (int) seed->match[left_idx] << " (M), " << (int) seed->insert_row[left_idx] << " (Ir), and " << (int) seed->insert_col[left_idx] << " (Ic), current score is " << (int) insert_col[idx] << endl;
 #endif
-                insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
+                insert_col[idx] = max<IntType>(max<IntType>(max<IntType>(seed->match[left_idx] - gap_open,
                                                                       seed->insert_row[left_idx] - gap_open),
                                                           seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
                 
@@ -504,7 +513,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
 #ifdef debug_banded_aligner_fill_matrix
                 cerr << "[BAMatrix::fill_matrix]: extending match from rectangular coord (" << seed_next_bottom_diag_iter - seed_next_top_diag << ", " << seed_node_seq_len - 1 << ")" << " with match score " << (int) match_score << ", scores are " << (int) seed->match[diag_idx] << " (M), " << (int) seed->insert_row[diag_idx] << " (Ir), and " << (int) seed->insert_col[diag_idx] << " (Ic), current score is " << (int) match[idx] << endl;
 #endif
-                match[idx] = max<int8_t>(match_score + max<int8_t>(max<int8_t>(seed->match[diag_idx],
+                match[idx] = max<IntType>(match_score + max<IntType>(max<IntType>(seed->match[diag_idx],
                                                                                seed->insert_row[diag_idx]),
                                                                    seed->insert_col[diag_idx]), match[idx]);
 
@@ -515,7 +524,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
                     cerr << "[BAMatrix::fill_matrix]: can also extend a column gap since already reached edge of matrix" << endl;
 #endif
                     left_idx = (seed_next_bottom_diag_iter - seed_next_top_diag + 2) * seed_node_seq_len - 1;
-                    insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
+                    insert_col[idx] = max<IntType>(max<IntType>(max<IntType>(seed->match[left_idx] - gap_open,
                                                                           seed->insert_row[left_idx] - gap_open),
                                                               seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
                 }
@@ -553,7 +562,7 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
         
         idx = iter_start * ncols + j;
         
-        int8_t match_score = 0;
+        IntType match_score;
         if (qual_adjusted) {
             match_score = score_mat[25 * base_quality[iter_start + top_diag + j] + 5 * nt_table[node_seq[j]] + nt_table[read[iter_start + top_diag + j]]];
         }
@@ -661,9 +670,10 @@ void BandedGlobalAligner::BAMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_ta
 #endif
 }
 
-void BandedGlobalAligner::BAMatrix::traceback(BABuilder& builder, AltTracebackStack& traceback_stack, matrix_t start_mat,
-                                              int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend,
-                                              bool qual_adjusted, int8_t min_inf) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::traceback(BABuilder& builder, AltTracebackStack& traceback_stack, matrix_t start_mat,
+                                                       int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend,
+                                                       bool qual_adjusted, IntType min_inf) {
     
     // get coordinates of bottom right corner
     const string& read = alignment.sequence();
@@ -681,10 +691,12 @@ void BandedGlobalAligner::BAMatrix::traceback(BABuilder& builder, AltTracebackSt
                        qual_adjusted, min_inf);
 }
 
-void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTracebackStack& traceback_stack, int64_t start_row,
-                                                       int64_t start_col, matrix_t start_mat, bool in_lead_gap, int8_t* score_mat,
-                                                       int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
-                                                       int8_t min_inf) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& builder, AltTracebackStack& traceback_stack,
+                                                                int64_t start_row, int64_t start_col, matrix_t start_mat,
+                                                                bool in_lead_gap, int8_t* score_mat, int8_t* nt_table,
+                                                                int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
+                                                                IntType min_inf) {
     
 #ifdef debug_banded_aligner_traceback
     cerr << "[BAMatrix::traceback_internal] starting traceback back through node " << node->id() << " from rectangular coordinates (" << start_row << ", " << start_col << "), currently " << (in_lead_gap ? "" : "not ") << "in a lead gap" << endl;
@@ -700,14 +712,14 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
     int64_t ncols = node->sequence().length();
     int64_t node_id = node->id();
     
-    int64_t idx = 0, next_idx = 0;
+    int64_t idx, next_idx;
     int64_t i = start_row, j = start_col;
     matrix_t curr_mat = start_mat;
-    int8_t curr_score = 0;
-    int8_t source_score = 0;
-    int8_t score_diff = 0;
-    int8_t alt_score = 0;
-    int8_t curr_traceback_score = traceback_stack.current_traceback_score();
+    IntType curr_score;
+    IntType source_score;
+    IntType score_diff;
+    IntType alt_score;
+    IntType curr_traceback_score = traceback_stack.current_traceback_score();
     
     // do node traceback unless we are in the lead gap implied at the edge of the DP matrix or we
     // are already at a node boundary trying to get across
@@ -777,7 +789,7 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
                 curr_score = match[idx];
                 next_idx = i * ncols + j - 1;
                 
-                int8_t match_score = 0;
+                IntType match_score;
                 if (qual_adjusted) {
                     match_score = score_mat[25 * base_quality[i + top_diag + j] + 5 * nt_table[node_seq[j]] + nt_table[read[i + top_diag + j]]];
                 }
@@ -961,7 +973,7 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
                 }
                 
                 if (!found_trace) {
-                    cerr << "error:[BandedGlobalAligner] traceback stuck in insert row matrix interior" << endl;
+                    cerr << "error:[BandedGlobalAligner] traceback stuck in insert column matrix interior" << endl;
                     assert(0);
                 }
                 
@@ -1070,7 +1082,7 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
             cerr << "[BAMatrix::traceback_internal] at boundary, looking for predecessor node" << endl;
 #endif
             
-            int8_t match_score = 0;
+            IntType match_score;
             switch (curr_mat) {
                 case Match:
                 {
@@ -1368,7 +1380,8 @@ void BandedGlobalAligner::BAMatrix::traceback_internal(BABuilder& builder, AltTr
     }
 }
 
-void BandedGlobalAligner::BAMatrix::print_full_matrices() {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::print_full_matrices() {
     if (match == nullptr) {
         cerr << "error:[BandedGlobalAligner] cannot print matrix before performing dynamic programming" << endl;
         assert(0);
@@ -1382,7 +1395,8 @@ void BandedGlobalAligner::BAMatrix::print_full_matrices() {
 
 }
 
-void BandedGlobalAligner::BAMatrix::print_rectangularized_bands() {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::print_rectangularized_bands() {
     if (match == nullptr) {
         cerr << "error:[BandedGlobalAligner] cannot print band before performing dynamic programming" << endl;
         assert(0);
@@ -1395,12 +1409,13 @@ void BandedGlobalAligner::BAMatrix::print_rectangularized_bands() {
     }
 }
 
-void BandedGlobalAligner::BAMatrix::print_matrix(matrix_t which_mat) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::print_matrix(matrix_t which_mat) {
 
     const string& read = alignment.sequence();
     const string& node_seq = node->sequence();
     
-    int8_t* band_rect;
+    IntType* band_rect;
     switch (which_mat) {
         case Match:
             cout << "match:" << endl;
@@ -1445,12 +1460,13 @@ void BandedGlobalAligner::BAMatrix::print_matrix(matrix_t which_mat) {
     }
 }
 
-void BandedGlobalAligner::BAMatrix::print_band(matrix_t which_mat) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::BAMatrix::print_band(matrix_t which_mat) {
     
     const string& read = alignment.sequence();
     const string& node_seq = node->sequence();
     
-    int8_t* band_rect;
+    IntType* band_rect;
     switch (which_mat) {
         case Match:
             cout << "match:" << endl;
@@ -1505,28 +1521,30 @@ void BandedGlobalAligner::BAMatrix::print_band(matrix_t which_mat) {
     cout << endl;
 }
 
-BandedGlobalAligner::BandedGlobalAligner(Alignment& alignment, Graph& g,
-                                         int64_t band_padding, bool permissive_banding,
-                                         bool adjust_for_base_quality) :
-                                         BandedGlobalAligner(alignment, g,
-                                                             nullptr, 1,
-                                                             band_padding,
-                                                             permissive_banding,
-                                                             adjust_for_base_quality)
+template <class IntType>
+BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g,
+                                                  int64_t band_padding, bool permissive_banding,
+                                                  bool adjust_for_base_quality) :
+                                                  BandedGlobalAligner(alignment, g,
+                                                                      nullptr, 1,
+                                                                      band_padding,
+                                                                      permissive_banding,
+                                                                      adjust_for_base_quality)
 {
     // nothing to do, just funnel into internal constructor
 }
 
-BandedGlobalAligner::BandedGlobalAligner(Alignment& alignment, Graph& g,
-                                         vector<Alignment>& alt_alignments,
-                                         int64_t max_multi_alns, int64_t band_padding,
-                                         bool permissive_banding,
-                                         bool adjust_for_base_quality) :
-                                         BandedGlobalAligner(alignment, g,
-                                                             &alt_alignments,
-                                                             max_multi_alns,
-                                                             permissive_banding,
-                                                             adjust_for_base_quality)
+template <class IntType>
+BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g,
+                                                  vector<Alignment>& alt_alignments,
+                                                  int64_t max_multi_alns, int64_t band_padding,
+                                                  bool permissive_banding,
+                                                  bool adjust_for_base_quality) :
+                                                  BandedGlobalAligner(alignment, g,
+                                                                      &alt_alignments,
+                                                                      max_multi_alns,
+                                                                      permissive_banding,
+                                                                      adjust_for_base_quality)
 {
     // check data integrity and funnel into internal constructor
     if (!alt_alignments.empty()) {
@@ -1535,17 +1553,17 @@ BandedGlobalAligner::BandedGlobalAligner(Alignment& alignment, Graph& g,
     }
 }
 
-
-BandedGlobalAligner::BandedGlobalAligner(Alignment& alignment, Graph& g,
-                                         vector<Alignment>* alt_alignments,
-                                         int64_t max_multi_alns,
-                                         int64_t band_padding,
-                                         bool permissive_banding,
-                                         bool adjust_for_base_quality) :
-                                         alignment(alignment),
-                                         alt_alignments(alt_alignments),
-                                         max_multi_alns(max_multi_alns),
-                                         adjust_for_base_quality(adjust_for_base_quality)
+template <class IntType>
+BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g,
+                                                  vector<Alignment>* alt_alignments,
+                                                  int64_t max_multi_alns,
+                                                  int64_t band_padding,
+                                                  bool permissive_banding,
+                                                  bool adjust_for_base_quality) :
+                                                  alignment(alignment),
+                                                  alt_alignments(alt_alignments),
+                                                  max_multi_alns(max_multi_alns),
+                                                  adjust_for_base_quality(adjust_for_base_quality)
 {
     if (adjust_for_base_quality) {
         if (alignment.quality().empty()) {
@@ -1692,7 +1710,8 @@ BandedGlobalAligner::BandedGlobalAligner(Alignment& alignment, Graph& g,
     }
 }
 
-BandedGlobalAligner::~BandedGlobalAligner() {
+template <class IntType>
+BandedGlobalAligner<IntType>::~BandedGlobalAligner() {
     
     for (BAMatrix* banded_matrix : banded_matrices) {
         delete banded_matrix;
@@ -1701,7 +1720,8 @@ BandedGlobalAligner::~BandedGlobalAligner() {
 }
 
 // fills a vector with vectors ids that have edges to/from each node
-void BandedGlobalAligner::graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list) {
     if (outgoing_edges) {
         out_edge_list = vector<vector<int64_t>>(g.node_size());
         for (int64_t i = 0; i < g.edge_size(); i++) {
@@ -1719,10 +1739,11 @@ void BandedGlobalAligner::graph_edge_lists(Graph& g, bool outgoing_edges, vector
 }
 
 // standard DFS-based topological sort algorithm
-// NOTE: this is only valid if the Graph g has been dag-ified first and there are from_start
+// NOTE: this is only valid if the Graph g has been dag-ified first and there are no from_start
 // or to_end edges.
-void BandedGlobalAligner::topological_sort(Graph& g, vector<vector<int64_t>>& node_edges_out,
-                                           vector<Node*>& out_topological_order) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::topological_sort(Graph& g, vector<vector<int64_t>>& node_edges_out,
+                                                    vector<Node*>& out_topological_order) {
     if (g.node_size() == 0) {
         cerr << "warning:[BandedGlobalAligner] attempted to perform topological sort on empty graph" << endl;
         return;
@@ -1767,9 +1788,10 @@ void BandedGlobalAligner::topological_sort(Graph& g, vector<vector<int64_t>>& no
     }
 }
 
-void BandedGlobalAligner::path_lengths_to_sinks(const string& read, vector<vector<int64_t>>& node_edges_in,
-                                                vector<int64_t>& shortest_path_to_sink,
-                                                vector<int64_t>& longest_path_to_sink) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::path_lengths_to_sinks(const string& read, vector<vector<int64_t>>& node_edges_in,
+                                                         vector<int64_t>& shortest_path_to_sink,
+                                                         vector<int64_t>& longest_path_to_sink) {
 #ifdef debug_banded_aligner_graph_processing
     cerr << "[BandedGlobalAligner::path_lengths_to_sinks]: finding longest and shortest paths to sink node" << endl;
 #endif
@@ -1824,11 +1846,12 @@ void BandedGlobalAligner::path_lengths_to_sinks(const string& read, vector<vecto
 
 
 // fills vectors with whether nodes are masked by the band width, and the band ends of each node
-void BandedGlobalAligner::find_banded_paths(const string& read, bool permissive_banding,
-                                            vector<vector<int64_t>>& node_edges_in,
-                                            vector<vector<int64_t>>& node_edges_out,
-                                            int64_t band_padding, vector<bool>& node_masked,
-                                            vector<pair<int64_t, int64_t>>& band_ends) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::find_banded_paths(const string& read, bool permissive_banding,
+                                                     vector<vector<int64_t>>& node_edges_in,
+                                                     vector<vector<int64_t>>& node_edges_out,
+                                                     int64_t band_padding, vector<bool>& node_masked,
+                                                     vector<pair<int64_t, int64_t>>& band_ends) {
     
     // find the longest and shortest path from each node to any sink
     vector<int64_t> shortest_path_to_sink;
@@ -1929,9 +1952,10 @@ void BandedGlobalAligner::find_banded_paths(const string& read, bool permissive_
 
 
 // returns the shortest sequence from any source node to each node
-void BandedGlobalAligner::shortest_seq_paths(vector<vector<int64_t>>& node_edges_out,
-                                             vector<int64_t>& seq_lens_out,
-                                             unordered_set<Node*> source_nodes) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::shortest_seq_paths(vector<vector<int64_t>>& node_edges_out,
+                                                      vector<int64_t>& seq_lens_out,
+                                                      unordered_set<Node*> source_nodes) {
     
     // initialize vector with min identity to store sequence lengths
     seq_lens_out = vector<int64_t>(topological_order.size(), numeric_limits<int64_t>::max());
@@ -1955,14 +1979,15 @@ void BandedGlobalAligner::shortest_seq_paths(vector<vector<int64_t>>& node_edges
     }
 }
 
-void BandedGlobalAligner::align(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::align(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend) {
     
     // small enough number to never be accepted in alignment but also not trigger underflow
-    int8_t max_mismatch = numeric_limits<int8_t>::max();
+    IntType max_mismatch = numeric_limits<IntType>::max();
     for (int i = 0; i < 25; i++) {
-        max_mismatch = min<int8_t>(max_mismatch, score_mat[i]);
+        max_mismatch = min<IntType>(max_mismatch, score_mat[i]);
     }
-    int8_t min_inf = numeric_limits<int8_t>::min() + max<int8_t>((int8_t) -max_mismatch, max<int8_t>(gap_open, gap_extend));
+    IntType min_inf = numeric_limits<IntType>::min() + max<IntType>((IntType) -max_mismatch, max<IntType>(gap_open, gap_extend));
     
     
     // fill each nodes matrix in topological order
@@ -1991,7 +2016,8 @@ void BandedGlobalAligner::align(int8_t* score_mat, int8_t* nt_table, int8_t gap_
     traceback(score_mat, nt_table, gap_open, gap_extend, min_inf);
 }
 
-void BandedGlobalAligner::traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, int8_t min_inf) {
+template <class IntType>
+void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, IntType min_inf) {
     
     // get the sink node matrices for alignment stack
     vector<BAMatrix*> sink_node_matrices;
@@ -2004,7 +2030,7 @@ void BandedGlobalAligner::traceback(int8_t* score_mat, int8_t* nt_table, int8_t 
     AltTracebackStack traceback_stack(max_multi_alns, sink_node_matrices);
     
     for (; traceback_stack.has_next(); traceback_stack.next()) {
-        int64_t end_node_id = 0;
+        int64_t end_node_id;
         matrix_t end_matrix;
         traceback_stack.get_alignment_start(end_node_id, end_matrix);
         int64_t end_node_idx = node_id_to_idx[end_node_id];
@@ -2049,8 +2075,8 @@ void BandedGlobalAligner::traceback(int8_t* score_mat, int8_t* nt_table, int8_t 
     }
 }
 
-// TODO: should find a way to initialize it with the optimal alignments from the sink nodes in the constructor
-BandedGlobalAligner::AltTracebackStack::AltTracebackStack(int64_t max_multi_alns,
+template <class IntType>
+BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_multi_alns,
                                                           vector<BAMatrix*> sink_node_matrices) :
                                                           max_multi_alns(max_multi_alns)
 {
@@ -2092,11 +2118,13 @@ BandedGlobalAligner::AltTracebackStack::AltTracebackStack(int64_t max_multi_alns
     curr_deflxn = (*curr_traceback).first.begin();
 }
 
-BandedGlobalAligner::AltTracebackStack::~AltTracebackStack() {
+template <class IntType>
+BandedGlobalAligner<IntType>::AltTracebackStack::~AltTracebackStack() {
     // nothing to do
 }
 
-inline void BandedGlobalAligner::AltTracebackStack::get_alignment_start(int64_t& node_id, matrix_t& matrix) {
+template <class IntType>
+inline void BandedGlobalAligner<IntType>::AltTracebackStack::get_alignment_start(int64_t& node_id, matrix_t& matrix) {
     
     // move to next traceback
     if (curr_traceback != alt_tracebacks.end()) {
@@ -2114,7 +2142,8 @@ inline void BandedGlobalAligner::AltTracebackStack::get_alignment_start(int64_t&
     }
 }
 
-inline void BandedGlobalAligner::AltTracebackStack::next() {
+template <class IntType>
+inline void BandedGlobalAligner<IntType>::AltTracebackStack::next() {
     if (curr_deflxn != (*curr_traceback).first.end()) {
         cerr << "warning:[BandedGlobalAligner] moving on to next alternate alignment without taking all deflections" << endl;
     }
@@ -2122,13 +2151,15 @@ inline void BandedGlobalAligner::AltTracebackStack::next() {
     curr_traceback++;
 }
 
-inline bool BandedGlobalAligner::AltTracebackStack::has_next() {
+template <class IntType>
+inline bool BandedGlobalAligner<IntType>::AltTracebackStack::has_next() {
     return (curr_traceback != alt_tracebacks.end());
 }
 
-inline void BandedGlobalAligner::AltTracebackStack::propose_deflection(const int8_t score, const int64_t from_node_id,
-                                                                       const int64_t row_idx, const int64_t col_idx,
-                                                                       const int64_t to_node_id, const matrix_t to_matrix) {
+template <class IntType>
+inline void BandedGlobalAligner<IntType>::AltTracebackStack::propose_deflection(const IntType score, const int64_t from_node_id,
+                                                                                const int64_t row_idx, const int64_t col_idx,
+                                                                                const int64_t to_node_id, const matrix_t to_matrix) {
     // only propose deflections if we're going through a new untraversed section of the traceback
     if (curr_deflxn != (*curr_traceback).first.end()) {
         return;
@@ -2142,10 +2173,11 @@ inline void BandedGlobalAligner::AltTracebackStack::propose_deflection(const int
     insert_traceback((*curr_traceback).first, score, from_node_id, row_idx, col_idx, to_node_id, to_matrix);
 }
 
-inline void BandedGlobalAligner::AltTracebackStack::insert_traceback(const vector<Deflection>& traceback_prefix,
-                                                                     const int8_t score, const int64_t from_node_id,
-                                                                     const int64_t row_idx, const int64_t col_idx,
-                                                                     const int64_t to_node_id, const matrix_t to_matrix) {
+template <class IntType>
+inline void BandedGlobalAligner<IntType>::AltTracebackStack::insert_traceback(const vector<Deflection>& traceback_prefix,
+                                                                              const IntType score, const int64_t from_node_id,
+                                                                              const int64_t row_idx, const int64_t col_idx,
+                                                                              const int64_t to_node_id, const matrix_t to_matrix) {
 #ifdef debug_banded_aligner_traceback
     cerr << "[AltTracebackStack::insert_traceback] adding traceback with score " << (int) score << ", new deflection at (" << row_idx << ", " << col_idx << ") on node " << from_node_id << " to " << (to_matrix == Match ? "match" : (to_matrix == InsertRow ? "insert row" : "insert column")) << " matrix on node " << to_node_id << endl;
 #endif
@@ -2184,18 +2216,20 @@ inline void BandedGlobalAligner::AltTracebackStack::insert_traceback(const vecto
     
 #ifdef debug_banded_aligner_traceback
     cerr << "[AltTracebackStack::insert_traceback] scores in alt traceback stack currently ";
-    for (pair<vector<Deflection>, int8_t> trace : alt_tracebacks) {
+    for (pair<vector<Deflection>, IntType> trace : alt_tracebacks) {
         cerr << (int) trace.second << " -> ";
     }
     cerr << endl;
 #endif
 }
 
-inline int8_t BandedGlobalAligner::AltTracebackStack::current_traceback_score() {
+template <class IntType>
+inline IntType BandedGlobalAligner<IntType>::AltTracebackStack::current_traceback_score() {
     return (*curr_traceback).second;
 }
 
-inline bool BandedGlobalAligner::AltTracebackStack::at_next_deflection(int64_t node_id, int64_t row_idx,
+template <class IntType>
+inline bool BandedGlobalAligner<IntType>::AltTracebackStack::at_next_deflection(int64_t node_id, int64_t row_idx,
                                                                        int64_t col_idx) {
     // taken all deflections already?
     if (curr_deflxn == (*curr_traceback).first.end()) {
@@ -2214,34 +2248,38 @@ inline bool BandedGlobalAligner::AltTracebackStack::at_next_deflection(int64_t n
     return true;
 }
 
-inline BandedGlobalAligner::matrix_t BandedGlobalAligner::AltTracebackStack::deflect_to_matrix() {
+template <class IntType>
+inline typename BandedGlobalAligner<IntType>::matrix_t BandedGlobalAligner<IntType>::AltTracebackStack::deflect_to_matrix() {
     matrix_t mat = (*curr_deflxn).to_matrix;
     curr_deflxn++;
     return mat;
 }
 
-inline BandedGlobalAligner::matrix_t BandedGlobalAligner::AltTracebackStack::deflect_to_matrix(int64_t& to_node_id) {
+template <class IntType>
+inline typename BandedGlobalAligner<IntType>::matrix_t BandedGlobalAligner<IntType>::AltTracebackStack::deflect_to_matrix(int64_t& to_node_id) {
     matrix_t mat = (*curr_deflxn).to_matrix;
     to_node_id = (*curr_deflxn).to_node_id;
     curr_deflxn++;
     return mat;
 }
 
-BandedGlobalAligner::AltTracebackStack::Deflection::Deflection(const int64_t from_node_id,
-                                                               const int64_t row_idx,
-                                                               const int64_t col_idx,
-                                                               const int64_t to_node_id,
-                                                               const matrix_t to_matrix) :
-                                                               from_node_id(from_node_id),
-                                                               row_idx(row_idx),
-                                                               col_idx(col_idx),
-                                                               to_node_id(to_node_id),
-                                                               to_matrix(to_matrix)
+template <class IntType>
+BandedGlobalAligner<IntType>::AltTracebackStack::Deflection::Deflection(const int64_t from_node_id,
+                                                                        const int64_t row_idx,
+                                                                        const int64_t col_idx,
+                                                                        const int64_t to_node_id,
+                                                                        const matrix_t to_matrix) :
+                                                                        from_node_id(from_node_id),
+                                                                        row_idx(row_idx),
+                                                                        col_idx(col_idx),
+                                                                        to_node_id(to_node_id),
+                                                                        to_matrix(to_matrix)
 {
     // only set values
 }
 
-BandedGlobalAligner::AltTracebackStack::Deflection::~Deflection() {
+template <class IntType>
+BandedGlobalAligner<IntType>::AltTracebackStack::Deflection::~Deflection() {
     // nothing to do
 }
 
