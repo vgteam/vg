@@ -875,8 +875,7 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
             }
             
-            SECTION( "Banded global aligner produces correct alignment against a singleton graph",
-                    "[alignment][banded][mapping]" ) {
+            SECTION( "Banded global aligner produces correct alignment against a singleton graph" ) {
                 
                 VG graph;
                 
@@ -905,6 +904,57 @@ namespace vg {
                 REQUIRE(path.mapping(0).edit(0).from_length() == 1);
                 REQUIRE(path.mapping(0).edit(0).to_length() == 1);
                 REQUIRE(path.mapping(0).edit(0).sequence() == "A");
+                
+            }
+            
+            SECTION( "Banded global aligner can align to a graph that is not topologically sorted" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("CTAG");
+                Node* n1 = graph.create_node("T");
+                Node* n2 = graph.create_node("CC");
+                Node* n3 = graph.create_node("GTA");
+                
+                graph.create_edge(n2, n0);
+                graph.create_edge(n2, n1);
+                graph.create_edge(n0, n3);
+                graph.create_edge(n1, n3);
+
+                
+                string read = string("CCCTAGGTA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_padding = 1;
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding);
+                
+                const Path& path = aln.path();
+                                
+                // is a global alignment
+                REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(3).sequence().length());
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 3);
+                REQUIRE(path.mapping(1).position().node_id() == 1);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 2);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 2);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 4);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 4);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 3);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 3);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
             }
             
             SECTION( "Banded global aligner produces correct alignment when a node is masked" ) {
@@ -1267,7 +1317,7 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).to_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
             }
-                        
+            
             SECTION( "Banded global aligner does not have overflow errors when scores are in the 100s" ) {
                 
                 VG graph;
