@@ -6252,6 +6252,10 @@ int main_index(int argc, char** argv) {
             store_threads = true;
             break;
 
+        case 'o':
+            discard_overlaps = true;
+            break;
+
         case 'N':
             store_node_alignments = true;
             break;
