@@ -59,10 +59,10 @@ namespace vg{
     }
 
     Alignment Filter::depth_filter(Alignment& aln){
-        if (avg && window){
+        if (use_avg && window_length){
 
         }
-        else if (avg){
+        else if (use_avg){
 
         }
         else{
@@ -325,21 +325,24 @@ namespace vg{
 
     }
 
-    pair<Locus, Locus> Filter::deletion_filter(Alignment& aln_first, Alignment& aln_second){
+    pair<Alignment, Alignment> Filter::deletion_filter(Alignment& aln_first, Alignment& aln_second){
         // path_length, split read
         // REFINE USING SOFT CLIPS
         pair<Alignment, Alignment> ret_alns = path_length_filter(aln_first, aln_second);
         //pair<Alignment, Alignment> x_alns = split_read_filter(ret_alns.first, ret_alns.second);
-        if (ret_alns.first.name() == "" || ret_alns.second.name() == ""){
-            cerr << "CANDIDATE DEL" << endl;
-            string POS = to_string(1);
-            string LEN = to_string(1);
-            string name = "_DEL_" + POS + "_" + LEN;
-            Path p = Path();
-            Support x = Support();
-        }
         
-        return make_pair(Locus(), Locus());
+        bool found = false;
+        if (inverse | (ret_alns.first.name() != "" || ret_alns.second.name() != "")){
+            found = true;
+        }
+
+        
+        if (found){
+            return ret_alns;
+        }
+        else {
+            return make_pair(Alignment(), Alignment());
+        }
 
     }
 
