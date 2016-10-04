@@ -17,7 +17,7 @@ CWD:=$(shell pwd)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
-LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected  -lsonlib
+LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib
 
 ifeq ($(shell uname -s),Darwin)
     # We may need libraries from Macports
@@ -300,7 +300,7 @@ $(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTES
 
 $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
-	 
+
 $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 

@@ -6970,7 +6970,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, aligner, 0, debug);
+        alignment = graph->align(seq, &aligner, 0, 0, false, false, debug);
     }
 
     if (!seq_name.empty()) {

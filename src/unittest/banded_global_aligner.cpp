@@ -783,7 +783,7 @@ namespace vg {
                 
                 Aligner aligner;
                 
-                Node* n0 = graph.create_node("A");
+                Node* n0 = graph.create_node("AATG");
                 Node* n1 = graph.create_node("C");
                 
                 graph.create_edge(n0, n1);
@@ -807,7 +807,7 @@ namespace vg {
                 REQUIRE(path.mapping(1).position().node_id() == 2);
                 
                 // has corrects edits
-                REQUIRE(path.mapping(0).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(0).edit(0).from_length() == 4);
                 REQUIRE(path.mapping(0).edit(0).to_length() == 0);
                 REQUIRE(path.mapping(0).edit(0).sequence().empty());
                 

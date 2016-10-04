@@ -74,7 +74,12 @@ private:
     // constructor.
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     
-    Alignment align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio);
+    Alignment align_to_graph(const Alignment& aln,
+                             VG& vg,
+                             size_t max_query_graph_ratio,
+                             int64_t pinned_node_id = 0,
+                             bool pin_left = false,
+                             bool global = false);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
@@ -178,6 +183,7 @@ public:
     Alignment mem_to_alignment(MaximalExactMatch& mem);
     // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment
     Alignment patch_alignment(const Alignment& aln);
+    int32_t score_alignment(const Alignment& aln);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -255,6 +261,8 @@ public:
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1, int max_mem_length = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
+    // walks the graph one base at a time from pos1 until we find pos2
+    int graph_distance(pos_t pos1, pos_t pos2, int maximum = 1e3);
     // use the xg index to get a character at a particular position (rc or foward)
     char pos_char(pos_t pos);
     // the next positions and their characters following the same strand of the graph
