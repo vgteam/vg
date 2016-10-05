@@ -1,8 +1,10 @@
 #include <iostream>
 #include <vector>
 #include <getopt.h>
+#include <functional>
 #include "stream.hpp"
 #include "index.hpp"
+#include "position.hpp"
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "srpe.hpp"
@@ -88,7 +90,7 @@ int main_srpe(int argc, char** argv){
     SRPE srpe;
     vector<pair<Alignment, Alignment> > discords;
     std::function<void(Alignment&, Alignment&)> lambda = [&srpe, &discords](Alignment& aln_one, Alignment& aln_two){
-        
+
         /* For each alignment in the gam:
          * Find the node the alignment maps to
          * find its mate read, if it has one
@@ -108,7 +110,9 @@ int main_srpe(int argc, char** argv){
 
     };
 
-    
+
+
+
     /*
      * now that we've been through every read, check for erroneous depth signals
      * read the gam
@@ -123,7 +127,9 @@ int main_srpe(int argc, char** argv){
 
     xg::XG xg_ind;
     Index gamind;
-    
+
+    vg::VG* graph;
+
     if (!xg_name.empty()){
         ifstream in(xg_name);
         xg_ind.load(in);
@@ -136,7 +142,8 @@ int main_srpe(int argc, char** argv){
     }
 
     if (!graph_name.empty()){
-
+        ifstream in(graph_name);
+        graph = new VG(in, false);
     }
     else{
 
@@ -148,13 +155,14 @@ int main_srpe(int argc, char** argv){
      */
 
 
+
     vector<Locus> sigs;
     std::function<void(Alignment&, Alignment&)> aln_to_sig_del = [&xg_ind, &sigs](Alignment& aln_one, Alignment& aln_two){
-            // create a Path from the last non-clipped base in X and the first non-clipped base in X'
-            // where X ---->     X' <-----
-            // Include the match portion of the reads because why not.
+        // create a Path from the last non-clipped base in X and the first non-clipped base in X'
+        // where X ---->     X' <-----
+        // Include the match portion of the reads because why not.
 
-#pragma omp critical
+//#pragma omp critical
         {
             Locus ll;
             ll.set_name( aln_one.name() + "_L" );
@@ -170,88 +178,98 @@ int main_srpe(int argc, char** argv){
             for (int i =  p_one.mapping_size() - 1; i >= 0; --i){
                 Mapping m_curr = p_one.mapping(i);
                 if (m_curr.edit_size() > 0){
-                for (int j = m_curr.edit_size() - 1; j >= 0; --j){
-                    Edit e = m_curr.edit(j);
-                    if (e.from_length() != e.to_length()){
-                        continue;
+                    for (int j = m_curr.edit_size() - 1; j >= 0; --j){
+                        Edit e = m_curr.edit(j);
+                        if (e.from_length() != e.to_length()){
+                            continue;
+                        }
+                        else{
+                            p_left = m_curr.position();
+                            Mapping* m_new = l_p.add_mapping();
+                            *m_new->mutable_position() = p_left;
+                            Edit* e_new = m_new->add_edit();
+                            e_new->set_from_length(1);
+                            e_new->set_to_length(1);
+                            found_one = true;
+                            break;
+                        }
                     }
-                    else{
-                        p_left = m_curr.position();
-                        Mapping* m_new = l_p.add_mapping();
-                        *m_new->mutable_position() = p_left;
-                        Edit* e_new = m_new->add_edit();
-                        e_new->set_from_length(1);
-                        e_new->set_to_length(1);
-                        found_one = true;
-                        break;
-                    }
-                }
                 }
             }
-                        //Add the second match portion.
-                        //
-            Mapping* m_new_right;
+            //Add the second match portion.
+            //
+            //Mapping* m_new_right;
+            Mapping m;
             for (int i = 0; i < p_two.mapping_size(); i++){
-                Mapping m = p_two.mapping(i);
+                m = p_two.mapping(i);
                 if (m.edit_size() > 0){
-                for (int j = m.edit_size() - 1; j >= 0; --j){
-                    Edit e = m.edit(j);
-                    if (e.from_length() == e.to_length()){
-                        continue;
+                    for (int j = m.edit_size() - 1; j >= 0; --j){
+                        Edit e = m.edit(j);
+                        if (e.from_length() != e.to_length()){
+                            continue;
+                        }
+                        else{
+                            p_right = m.position();
+                            found_two = true;
+                            //m_new_right = l_p.add_mapping();
+                            //*m_new_right->mutable_position() = p_right;
+                            //Edit* e_new = m_new_right->add_edit();
+                            //e_new->set_from_length(1);
+                            //e_new->set_to_length(1);
+                            break;
+                        }   
                     }
-                    else{
-                        p_right = m.position();
-                        found_two = true;
-                        //m_new_right = l_p.add_mapping();
-                        //*m_new_right->mutable_position() = p_right;
-                        //Edit* e_new = m_new_right->add_edit();
-                        //e_new->set_from_length(1);
-                        //e_new->set_to_length(1);
-                        break;
-                    }   
-                }
                 }
             }
-            
+
             // Add a large edge via:
             // 1. A from_length the size of the deletion.
             // Get length of farthest clip -> nearest clip
             if (found_one && found_two){
-                map<string, vector<size_t> > path_to_node_pos_left = xg_ind.node_positions_in_paths(p_left.node_id());
-                map<string, vector<size_t> > path_to_node_pos_right = xg_ind.node_positions_in_paths(p_right.node_id());
-                Path p;
-                for (auto x_path : path_to_node_pos_left){
-                    p = xg_ind.path(x_path.first);
-                }
-            // Add an edit with from_length of this length
-            // and to_length = 0
-            xg::size_t p_rank = xg_ind.path_rank(p.name());
-            cerr << p.name() << " has been found." << endl;
-            if ((p_left.node_id() < p_right.node_id()) && !p_left.is_reverse()){
-                int64_t next_id = p_left.node_id();
-                while (next_id != p_right.node_id()){
-                    if (next_id == p_left.node_id()){
+                //cerr << p_left.node_id() << " <- " << p_right.node_id() << endl;
+                int64_t low_pos = (p_left.node_id() < p_right.node_id()) ? p_left.node_id() : p_right.node_id();
+                int64_t high_pos = (p_left.node_id() > p_right.node_id()) ? p_left.node_id() : p_right.node_id();
+                //           map<string, vector<size_t> > path_to_node_pos_left = xg_ind.node_positions_in_paths(p_left.node_id());
+                //           map<string, vector<size_t> > path_to_node_pos_right = xg_ind.node_positions_in_paths(p_right.node_id());
+                //           Path p;
+                //           for (auto x_path : path_to_node_pos_left){
+                //               p = xg_ind.path(x_path.first);
+                //           }
+                // Add an edit with from_length of this length
+                // and to_length = 0
+                vector<size_t> p_of_n = xg_ind.paths_of_node(low_pos);
+                int64_t p_id = xg_ind.rank_to_id(p_of_n[0]);
+                xg::size_t p_rank = xg_ind.id_to_rank(p_id);
+                //cerr << xg_ind.path_name(p_rank) << " has been found." << endl;
+
+                int64_t next_id = low_pos;
+                while ((next_id != high_pos) && (next_id != 0)){
+                    if (next_id != low_pos){
+                        Mapping* mm = l_p.add_mapping();
+                        Position pp;
+                        pp.set_node_id(next_id);
+                        *mm->mutable_position() = make_position(next_id, false, 0);
+                        Edit* ee = mm->add_edit();
+                        ee->set_to_length(0);
+                        ee->set_from_length( xg_ind.node_length(next_id) );
 
                     }
-                    else{
-                    Mapping mm = *l_p.add_mapping();
-                    Position pp = *mm.mutable_position();
-                    pp.set_node_id(next_id);
-                    Edit* ee = mm.add_edit();
-                    ee->set_to_length(0);
-                    ee->set_from_length( xg_ind.node_length(next_id) );
 
-                    cerr << next_id << " -> ";
-                    }
+                    //cerr << next_id << " -> ";
+                    ++next_id;
                     next_id = xg_ind.prev_path_node_by_id(p_rank, next_id);
 
                 }
-            }
-            cerr << endl;
 
-            *ll.add_allele() = l_p;
-           //err << ll.DebugString(); 
-            sigs.push_back(ll);
+                Mapping* far_right = l_p.add_mapping();
+                *far_right = m;
+                //cerr << l_p.DebugString() << endl;
+                //cerr << endl;
+
+                *ll.add_allele() = l_p;
+                //err << ll.DebugString(); 
+#pragma omp critical
+                sigs.push_back(ll);
 
             }
             else {
@@ -268,18 +286,132 @@ int main_srpe(int argc, char** argv){
 
     if (!gam_name.empty()){
         ifstream gamfi(gam_name);
-        gam_paired_interleaved_for_each_parallel(gamfi, aln_to_sig_del);
+        gam_paired_interleaved_for_each_parallel(gamfi, lambda);
     }
     else{
         cerr << "NO GAM PROVIDED" << endl;
     }
 
 
+    std::function<double(vector<pair<Alignment, Alignment> >)> score_paired_alignments = [](vector<pair<Alignment, Alignment> > alns){
+        double MAX_MAPQ = 684;
+        double MAX_SCORE = MAX_MAPQ * alns.size();
+        double score = 0.0;
+
+        double sum_mapq = 0.0;
+        double sum_softlcip = 0.0;
+        double cost_inverted_readpair = 2.0;
+        double cost_one_end_anchored = 4.0;
+        
+        int ploidy = 2;
+        double ploidy_score = 0.0 ;
+
+        for (auto a : alns){
+            sum_mapq += a.first.mapping_quality();
+            sum_mapq += a.second.mapping_quality();
+            if (a.first.path().mapping_size() == 0){
+
+            }
+            else{
+
+            }
+            if (a.second.path().mapping_size() == 0){
+
+            }
+            else{
+
+            }
+        }
+
+        return (score / MAX_SCORE);
+    };
+
+    std::function<double(vector<Alignment>)> score_single_alignments = [](vector<Alignment> alns){
+        double MAX_MAPQ = 684;
+        double MAX_SCORE = MAX_MAPQ * alns.size();
+        double score = 0.0;
+
+        double sum_mapq = 0.0;
+        double sum_softlcip = 0.0;
+        
+        int ploidy = 2;
+        double ploidy_score = 0.0 ;
+
+        for (auto a : alns){
+            sum_mapq += a.mapping_quality();
+            sum_mapq += a.mapping_quality();
+            if (a.path().mapping_size() == 0){
+
+            }
+            else{
+
+            }
+        }
+
+        return (score / MAX_SCORE);
+
+    };
+
+    
+    
+    vector<Path> paths_to_add;
+    std::function<void(vector<Locus>)> homogenize_loci = [&paths_to_add](vector<Locus> loci){
+        
+    };
+
+    std::function<void(int64_t, double&)> get_local_depth_at_node = [](int64_t node_id, double& avg_d){
+
+    };
+
+    //std::function<void(int64_t, int64_t, double&) frac_homozygous = [](int64_t start, int64_t end, double& score{
+    //
+    //};
+
+    std::function<void(int64_t, int64_t, double&)> depth_in_range = [](int64_t front, int64_t back, double& avg_d){};
+
+    double best_score = 0;
+    for (auto ll : sigs){
+        // Add that sig
+        paths_to_add.push_back(ll.allele(0));
+        //graph->edit(paths_to_add);
+        ///remap_subgraph();
+        // Score that sig
+        //score = score_alns_paired();
+        // Is it the best sig?
+        // if (score > best_score){
+        //  // Pop the old sig
+        //
+        //  // Push the new sig
+        //  // best_score = score
+        // }
+        // else if (score == best_score){
+        //   I guess include both?
+        // }
+        // else{
+        //  continue;
+        // } 
+    }
+    
+    graph->edit(paths_to_add);
+
+    graph->serialize_to_ostream(cout);
+    delete graph;
+
 
     /**
      * We'll need to homogenize nearby records.
+     * Homogenization process:
+     *  1. for all variation w/in <WINDOW> bp:
+     *      - Get subgraph
+     *      - Remove all other variation in this window.
+     *      - Map reads over nodes in thei region (and unmapped reads!)
+     *      - Score it
+     *  Take the variant(s) with the highest score; no idea how to decide this.
+     *  Maybe just take the top N within some limit of each other.
      */
-    
+
+
+
     // TODO CHECK SIGS; if two within 10bp of start and 10 bp of end, homogenize them.
 
 
@@ -292,7 +424,8 @@ int main_srpe(int argc, char** argv){
      *  4. Add in new variation / remove variation with low scores.
      */ 
 
-    for (auto x : sigs){
-    }
+    //for (auto x : sigs){
+        //cerr << x.name() << endl;
+    //}
 
 }
