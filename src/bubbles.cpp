@@ -319,6 +319,7 @@ static void ultrabubble_recurse(VG& graph, stList* chains_list,
             // add a node to our output tree
             BubbleTree::Node* new_node = new BubbleTree::Node();
             out_node->children.push_back(new_node);
+            new_node->parent = out_node;
             
             stUltraBubble* child_bubble = (stUltraBubble*)stList_get(cactus_chain, j);
 

@@ -186,6 +186,8 @@ template<typename T>
 struct TreeNode {
     T v;
     vector<TreeNode<T>*> children;
+    TreeNode<T>* parent;
+    TreeNode() : parent(0) {}
     ~TreeNode() { for (auto c : children) { delete c; } }
     void for_each_preorder(function<void(TreeNode<T>*)> lambda) {
         lambda(this);
@@ -205,7 +207,7 @@ template<typename T>
 struct Tree {
     typedef TreeNode<T> Node;
     Node* root;
-    Tree(Node* r = 0) : root(r) {}
+    Tree(Node* r = 0) : root(r) { }
     ~Tree() { delete root; }
     void for_each_preorder(function<void(Node*)> lambda) {
         if (root) root->for_each_preorder(lambda);
