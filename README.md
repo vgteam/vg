@@ -30,6 +30,8 @@ At present, you will need GCC version 4.9 or greater to compile vg. (Check your 
 
 Other libraries may be required. Please report any build difficulties.
 
+Note that a 64-bit OS is required. Ubuntu 16.04 should work.
+
 Now, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/vgteam/vg.git
