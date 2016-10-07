@@ -528,10 +528,18 @@ public:
         // called when we meet an edge in the current tree component
         const function<void(Edge*)>& edge_curr_fn,
         // called when we meet an edge in an already-traversed tree component
-        const function<void(Edge*)>& edge_cross_fn);
+        const function<void(Edge*)>& edge_cross_fn,
+        // start only at these node traversals
+        const vector<NodeTraversal>* sources,
+        // when hitting a sink, don't keep walking
+        const set<NodeTraversal>* sinks);         
+
     // specialization of dfs for only handling nodes
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
-             const function<void(NodeTraversal)>& node_end_fn);
+             const function<void(NodeTraversal)>& node_end_fn,
+             const vector<NodeTraversal>* sources = NULL,
+             const set<NodeTraversal>* sinks = NULL);         
+
     // specialization of dfs for only handling nodes + break function
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
              const function<void(NodeTraversal)>& node_end_fn,
@@ -700,7 +708,7 @@ public:
                 bool color_variants = false,
                 bool superbubble_ranking = false,
                 bool superbubble_labeling = false,
-                bool cactusbubble_labeling = false,
+                bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
                 int random_seed = 0);
 

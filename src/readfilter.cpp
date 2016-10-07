@@ -170,9 +170,15 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // Return the total number of leaves in all subtrees that match the full
     // target sequence, and the depth in bases of the shallowest point at which
     // multiple subtrees with full lenght matches are unified.
+
+    // We keep a maximum number of visited nodes here, just to prevent recursion
+    // from going on forever in worst-case-type graphs
+    size_t dfs_visit_count = 0;
     function<pair<size_t, size_t>(id_t, bool, size_t)> do_dfs = 
         [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
-        
+
+        ++dfs_visit_count;
+      
         // Grab the node sequence and match more of the target sequence.
         string node_sequence = index->node_sequence(node_id);
         if(is_reverse) {
@@ -250,19 +256,29 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         vector<pair<size_t, size_t>> child_results;
         
         for(auto& edge : edges) {
-            if(edge.from() == node_id && edge.from_start() == is_reverse) {
-                // The end we are leaving matches this edge's from, so we can
-                // just go to its to end and recurse on it.
-                child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
-            } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
-                // The end we are leaving matches this edge's to, so we can just
-                // recurse on its from end.
-                child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
-            } else {
-                // XG is feeding us nonsense up with which we should not put.
-                throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
-                    to_string(node_id) + (is_reverse ? " start" : " end"));
+            // check the user-supplied visit count before recursing any more
+            if (dfs_visit_count < defray_count) {
+                if(edge.from() == node_id && edge.from_start() == is_reverse) {
+                    // The end we are leaving matches this edge's from, so we can
+                    // just go to its to end and recurse on it.
+                    child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
+                } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
+                    // The end we are leaving matches this edge's to, so we can just
+                    // recurse on its from end.
+                    child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
+                } else {
+                    // XG is feeding us nonsense up with which we should not put.
+                    throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
+                                        to_string(node_id) + (is_reverse ? " start" : " end"));
+                }
             }
+#ifdef debug
+            else {
+                #pragma omp critical(cerr)
+                cerr << "Aborting read filter DFS at node " << node_id << " after " << dfs_visit_count << " visited" << endl;
+            }
+#endif
+            
         }
         
         // Sum up the total leaf matches, which will be our leaf match count.

@@ -3975,7 +3975,9 @@ void VG::dfs(
     const function<void(Edge*)>& edge_fn,       // called when an edge is encountered
     const function<void(Edge*)>& tree_fn,       // called when an edge forms part of the DFS spanning tree
     const function<void(Edge*)>& edge_curr_fn,  // called when we meet an edge in the current tree component
-    const function<void(Edge*)>& edge_cross_fn  // called when we meet an edge in an already-traversed tree component
+    const function<void(Edge*)>& edge_cross_fn, // called when we meet an edge in an already-traversed tree component
+    const vector<NodeTraversal>* sources,       // start only at these node traversals
+    const set<NodeTraversal>* sinks             // when hitting a sink, don't keep walking
     ) {
 
     // to maintain search state
@@ -3997,82 +3999,79 @@ void VG::dfs(
     // records when we're on the stack
     set<NodeTraversal> in_frame;
 
-    // attempt the search rooted at all NodeTraversals
-    for (id_t i = 0; i < graph.node_size(); ++i) {
-        Node* root_node = graph.mutable_node(i);
-        
-        for(int orientation = 0; orientation < 2; orientation++) {
-            // Try both orientations
-            NodeTraversal root(root_node, (bool)orientation);
-        
-            // to store the stack frames
-            deque<Frame> todo;
-            if (state[root] == SearchState::PRE) {
-                state[root] = SearchState::CURR;
+    // do dfs from given root.  returns true if terminated via break condition, false otherwise
+    function<bool(NodeTraversal&)> dfs_single_source = [&](NodeTraversal& root) {
                 
-                // Collect all the edges attached to the outgoing side of the
-                // traversal.
-                auto& es = edges[root];
-                for(auto& next : travs_from(root)) {
-                    // Every NodeTraversal following on from this one has an
-                    // edge we take to get to it.
-                    Edge* edge = get_edge(root, next);
-                    assert(edge != nullptr);
-                    es.push_back(edge);
-                }
+        // to store the stack frames
+        deque<Frame> todo;
+        if (state[root] == SearchState::PRE) {
+            state[root] = SearchState::CURR;
                 
-                todo.push_back(Frame(root, es.begin(), es.end()));
-                // run our discovery-time callback
-                node_begin_fn(root);
-                // and check if we should break
-                if (break_fn()) {
-                    break;
-                }
+            // Collect all the edges attached to the outgoing side of the
+            // traversal.
+            auto& es = edges[root];
+            for(auto& next : travs_from(root)) {
+                // Every NodeTraversal following on from this one has an
+                // edge we take to get to it.
+                Edge* edge = get_edge(root, next);
+                assert(edge != nullptr);
+                es.push_back(edge);
             }
-            // now begin the search rooted at this NodeTraversal
-            while (!todo.empty()) {
-                // get the frame
-                auto& frame = todo.back();
-                todo.pop_back();
-                // and set up reference to it
-                auto trav = frame.trav;
-                auto edges_begin = frame.begin;
-                auto edges_end = frame.end;
-                // run through the edges to handle
-                while (edges_begin != edges_end) {
-                    auto edge = *edges_begin;
-                    // run the edge callback
-                    edge_fn(edge);
+                
+            todo.push_back(Frame(root, es.begin(), es.end()));
+            // run our discovery-time callback
+            node_begin_fn(root);
+            // and check if we should break
+            if (break_fn()) {
+                return true;
+            }
+        }
+        // now begin the search rooted at this NodeTraversal
+        while (!todo.empty()) {
+            // get the frame
+            auto& frame = todo.back();
+            todo.pop_back();
+            // and set up reference to it
+            auto trav = frame.trav;
+            auto edges_begin = frame.begin;
+            auto edges_end = frame.end;
+            // run through the edges to handle
+            while (edges_begin != edges_end) {
+                auto edge = *edges_begin;
+                // run the edge callback
+                edge_fn(edge);
                     
-                    // what's the traversal we'd get to following this edge
-                    NodeTraversal target;
-                    if(edge->from() == trav.node->id() && edge->to() != trav.node->id()) {
-                        // We want the to side
-                        target.node = get_node(edge->to());
-                    } else if(edge->to() == trav.node->id() && edge->from() != trav.node->id()) {
-                        // We want the from side
-                        target.node = get_node(edge->from());
-                    } else {
-                        // It's a self loop, because we have to be on at least
-                        // one end of the edge.
-                        target.node = trav.node;
-                    }
-                    // When we follow this edge, do we reverse traversal orientation?
-                    bool is_reversing = (edge->from_start() != edge->to_end());
-                    target.backward = trav.backward != is_reversing;
+                // what's the traversal we'd get to following this edge
+                NodeTraversal target;
+                if(edge->from() == trav.node->id() && edge->to() != trav.node->id()) {
+                    // We want the to side
+                    target.node = get_node(edge->to());
+                } else if(edge->to() == trav.node->id() && edge->from() != trav.node->id()) {
+                    // We want the from side
+                    target.node = get_node(edge->from());
+                } else {
+                    // It's a self loop, because we have to be on at least
+                    // one end of the edge.
+                    target.node = trav.node;
+                }
+                // When we follow this edge, do we reverse traversal orientation?
+                bool is_reversing = (edge->from_start() != edge->to_end());
+                target.backward = trav.backward != is_reversing;
                     
-                    auto search_state = state[target];
-                    // if we've not seen it, follow it
-                    if (search_state == SearchState::PRE) {
-                        tree_fn(edge);
-                        // save the rest of the search for this NodeTraversal on the stack
-                        todo.push_back(Frame(trav, ++edges_begin, edges_end));
-                        // switch our focus to the NodeTraversal at the other end of the edge
-                        trav = target;
-                        // and store it on the stack
-                        state[trav] = SearchState::CURR;
-                        auto& es = edges[trav];
-                    
+                auto search_state = state[target];
+                // if we've not seen it, follow it
+                if (search_state == SearchState::PRE) {
+                    tree_fn(edge);
+                    // save the rest of the search for this NodeTraversal on the stack
+                    todo.push_back(Frame(trav, ++edges_begin, edges_end));
+                    // switch our focus to the NodeTraversal at the other end of the edge
+                    trav = target;
+                    // and store it on the stack
+                    state[trav] = SearchState::CURR;
+                    auto& es = edges[trav];
+
+                    // only walk out of traversals that are not the sink
+                    if (sinks == NULL || sinks->count(trav) == false) {
                         for(auto& next : travs_from(trav)) {
                             // Every NodeTraversal following on from this one has an
                             // edge we take to get to it.
@@ -4080,32 +4079,52 @@ void VG::dfs(
                             assert(edge != nullptr);
                             es.push_back(edge);
                         }
-                    
-                        edges_begin = es.begin();
-                        edges_end = es.end();
-                        // run our discovery-time callback
-                        node_begin_fn(trav);
-                    } else if (search_state == SearchState::CURR) {
-                        // if it's on the stack
-                        edge_curr_fn(edge);
-                        ++edges_begin;
-                    } else {
-                        // it's already been handled, so in another part of the tree
-                        edge_cross_fn(edge);
-                        ++edges_begin;
                     }
+                    
+                    edges_begin = es.begin();
+                    edges_end = es.end();
+                    // run our discovery-time callback
+                    node_begin_fn(trav);
+                } else if (search_state == SearchState::CURR) {
+                    // if it's on the stack
+                    edge_curr_fn(edge);
+                    ++edges_begin;
+                } else {
+                    // it's already been handled, so in another part of the tree
+                    edge_cross_fn(edge);
+                    ++edges_begin;
                 }
-                state[trav] = SearchState::POST;
-                node_end_fn(trav);
-                edges.erase(trav); // clean up edge cache
             }
+            state[trav] = SearchState::POST;
+            node_end_fn(trav);
+            edges.erase(trav); // clean up edge cache
+        }
+
+        return false;
+    };
+
+    if (sources == NULL) {
+        // attempt the search rooted at all NodeTraversals
+        for (id_t i = 0; i < graph.node_size(); ++i) {
+            Node* root_node = graph.mutable_node(i);
+        
+            for(int orientation = 0; orientation < 2; orientation++) {
+                // Try both orientations
+                NodeTraversal root(root_node, (bool)orientation);
+                dfs_single_source(root);
+            }
+        }
+    } else {
+        for (auto source : *sources) {
+            dfs_single_source(source);
         }
     }
 }
 
-
 void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
-             const function<void(NodeTraversal)>& node_end_fn) {
+             const function<void(NodeTraversal)>& node_end_fn,
+             const vector<NodeTraversal>* sources,
+             const set<NodeTraversal>* sinks) {
     auto edge_noop = [](Edge* e) { };
     dfs(node_begin_fn,
         node_end_fn,
@@ -4113,7 +4132,9 @@ void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
         edge_noop,
         edge_noop,
         edge_noop,
-        edge_noop);
+        edge_noop,
+        sources,
+        sinks);
 }
 
 void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
@@ -4126,7 +4147,9 @@ void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
         edge_noop,
         edge_noop,
         edge_noop,
-        edge_noop);
+        edge_noop,
+        NULL,
+        NULL);
 }
 
 // recursion-free version of Tarjan's strongly connected components algorithm
@@ -6583,7 +6606,7 @@ void VG::to_dot(ostream& out,
                 bool color_variants,
                 bool superbubble_ranking,
                 bool superbubble_labeling,
-                bool cactusbubble_labeling,
+                bool ultrabubble_labeling,
                 bool skip_missing_nodes,
                 int random_seed) {
 
@@ -6599,11 +6622,11 @@ void VG::to_dot(ostream& out,
 
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
-    if (superbubble_labeling || cactusbubble_labeling) {
+    if (superbubble_labeling || ultrabubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         map<pair<id_t, id_t>, vector<id_t> > sb =
-            (cactusbubble_labeling ? cactusbubbles(*this) : superbubbles(*this));
+            (ultrabubble_labeling ? ultrabubbles(*this) : superbubbles(*this));
         for (auto& bub : sb) {
             auto start_node = bub.first.first;
             auto end_node = bub.first.second;
@@ -6625,7 +6648,7 @@ void VG::to_dot(ostream& out,
         auto node_paths = paths.of_node(n->id());
 
         stringstream inner_label;
-        if (superbubble_labeling || cactusbubble_labeling) {
+        if (superbubble_labeling || ultrabubble_labeling) {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
             for(auto& string_and_color : symbols_for_node[n->id()]) {
@@ -6656,7 +6679,7 @@ void VG::to_dot(ostream& out,
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
-        } else if (superbubble_labeling || cactusbubble_labeling) {
+        } else if (superbubble_labeling || ultrabubble_labeling) {
             //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";      
         } else {

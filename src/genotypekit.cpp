@@ -16,21 +16,8 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
     // Set up our output vector
     vector<NestedSite> to_return;
     
-    // get endpoints using node ranks
-    pair<NodeSide, NodeSide> source_sink = graph.paths.has_path(hint_path_name) ? 
-        get_cactus_source_sink(graph, hint_path_name, 50)
-        : get_cactus_source_sink(graph);
-        
-    // Don't keep going if we can't find sources/sinks
-    assert(graph.has_node(source_sink.first.node));
-    assert(graph.has_node(source_sink.second.node));
-
     // Get the bubble tree in Cactus format
-    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
-
-    // Temporary workaround for duplicate node problem in tree
-    bubble_up_bubbles(bubble_tree);
-    bubble_down_bubbles(bubble_tree);
+    BubbleTree* bubble_tree = ultrabubble_tree(graph);
 
     // Convert to NestedSites
     
@@ -38,11 +25,11 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
     // are ready to be converted.
     map<BubbleTree::Node*, NestedSite> converted_children;
 
-    bubble_tree.for_each_postorder([&](BubbleTree::Node* node) {
+    bubble_tree->for_each_postorder([&](BubbleTree::Node* node) {
         // Process children before parents so we can embed them in the parent.
         
         Bubble& bubble = node->v;
-        if (node != bubble_tree.root) {
+        if (node != bubble_tree->root) {
             // If we aren't the root node of the tree, we need to be a NestedSite
             
             // We're going to fill in this NestedSite.
@@ -137,6 +124,8 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
             
         } 
     });
+
+    delete bubble_tree;
     
     // Now emit all the top-level sites
     

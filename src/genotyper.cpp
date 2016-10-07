@@ -708,22 +708,13 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     // cactus needs the nodes to be sorted in order to find a source and sink
     graph.sort();
     
-    // get endpoints using node ranks
-    pair<NodeSide, NodeSide> source_sink = ref_path_name.empty() ?
-        get_cactus_source_sink(graph)
-        : get_cactus_source_sink(graph, ref_path_name);
-
     // todo: use deomposition instead of converting tree into flat structure
-    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
+    BubbleTree* bubble_tree = ultrabubble_tree(graph);
 
-    // copy nodes up to bubbles that contain their bubble
-    bubble_up_bubbles(bubble_tree);
-
-    bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
+    bubble_tree->for_each_preorder([&](BubbleTree::Node* node) {
             Bubble& bubble = node->v;
             // cut root to be consistent with superbubbles()
-            if (bubble.start != bubble_tree.root->v.start ||
-                bubble.end != bubble_tree.root->v.end) {
+            if (node != bubble_tree->root) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
                 NodeTraversal start(graph.get_node(bubble.start.node), !bubble.start.is_end);
                 NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
@@ -737,7 +728,9 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
                 // Save the site
                 to_return.emplace_back(std::move(site));
             }
-        });    
+        });
+    
+    delete bubble_tree;
 
     return to_return;
 }

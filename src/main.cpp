@@ -215,7 +215,9 @@ void help_filter(char** argv) {
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
+         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl;
+    
 }
 
 int main_filter(int argc, char** argv) {
@@ -256,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
+                {"defray-count", required_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -318,6 +321,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'D':
             filter.defray_length = atoi(optarg);
+            break;
+        case 'C':
+            filter.defray_count = atoi(optarg);
             break;          
 
         case 'h':
@@ -1177,7 +1183,7 @@ void help_call(char** argv) {
          << "    -l, --length INT           override total sequence length in VCF" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
          << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
@@ -1228,14 +1234,14 @@ int main_call(int argc, char** argv) {
     // What should the total sequence length reported in the VCF header be?
     int64_t lengthOverride = -1;
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    double minFractionForCall = 0.2;
+    double minFractionForCall = 0;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 4;
+    double maxRefHetBias = 4;
     // How many times more bias do we allow for indels?
     double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
@@ -1383,7 +1389,7 @@ int main_call(int argc, char** argv) {
         case 'R':
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
-            maxRefBias = std::stod(optarg);
+            maxRefHetBias = std::stod(optarg);
             break;
         case 'M':
             // Set multiplier for bias limits for indels
@@ -1549,7 +1555,7 @@ int main_call(int argc, char** argv) {
                         pileupAnnotate ? pileup_file_name : string(),
                         minFractionForCall,
                         maxHetBias,
-                        maxRefBias,
+                        maxRefHetBias,
                         indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
@@ -1579,7 +1585,7 @@ void help_genotype(char** argv) {
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -C, --cactus            use cactus ultrabubbles for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
@@ -4552,7 +4558,7 @@ void help_stats(char** argv) {
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
+         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -4581,7 +4587,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool superbubbles = false;
-    bool cactus = false;
+    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -4608,7 +4614,7 @@ int main_stats(int argc, char** argv) {
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
-            {"cactusbubbles", no_argument, 0, 'C'},
+            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -4616,7 +4622,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4677,8 +4683,8 @@ int main_stats(int argc, char** argv) {
             superbubbles = true;
             break;
 
-        case 'C':
-            cactus = true;
+        case 'u':
+            ultrabubbles = true;
             break;
 
         case 'A':
@@ -4767,8 +4773,8 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles || cactus) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+    if (superbubbles || ultrabubbles) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
         for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
@@ -8008,7 +8014,7 @@ void help_view(char** argv) {
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
-         << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -Y, --ultra-label    same as -Y but using ultrabubbles" << endl
          << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
@@ -8069,7 +8075,7 @@ int main_view(int argc, char** argv) {
     bool color_variants = false;
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
-    bool cactusbubble_labeling = false;
+    bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
 
     int c;
@@ -8107,7 +8113,7 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
-                {"cactus-label", no_argument, 0, 'Y'},
+                {"ultra-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
                 {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
@@ -8139,7 +8145,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'Y':
-            cactusbubble_labeling = true;
+            ultrabubble_labeling = true;
             break;
 
         case 'B':
@@ -8589,7 +8595,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       superbubble_ranking,
                       superbubble_labeling,
-                      cactusbubble_labeling,
+                      ultrabubble_labeling,
                       skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
