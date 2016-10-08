@@ -721,6 +721,54 @@ public:
     void topological_sort(deque<NodeTraversal>& l);
     void swap_nodes(Node* a, Node* b);
 
+    //sorts graph using max-flow algorithm	
+    void max_flow(const string& ref_name);
+    void max_flow_sort(deque<NodeTraversal>& sorted_nodes, const string& ref_name);
+    //Structure for holding weighted edges of the graph
+    struct WeightedGraph {
+        EdgeMapping edges_out_nodes;
+        EdgeMapping edges_in_nodes;
+        map<Edge*, int> edge_weight;
+      
+        WeightedGraph(EdgeMapping& edges_out_nodes,
+            EdgeMapping& edges_in_nodes,
+            map<Edge*, int>& edge_weight)
+            : edges_out_nodes(std::move(edges_out_nodes)),
+            edges_in_nodes(std::move(edges_in_nodes)),
+            edge_weight(std::move(edge_weight))
+            { };
+    };
+    WeightedGraph get_weighted_graph(const string& ref_name);
+    struct InOutGrowth {
+        set<id_t> nodes;
+        set<id_t> backbone;
+        list<id_t> ref_path;
+      
+        InOutGrowth(set<id_t> nodes,
+            set<id_t> backbone,
+            list<id_t> ref_path)
+            : nodes(std::move(nodes)),
+            backbone(std::move(backbone)),
+            ref_path(std::move(ref_path))
+            { };
+    };    
+    bool bfs(int* rGraph, id_t s, id_t t, vector<id_t>& parent, id_t graph_size);
+    void dfs(int* rGraph, id_t s, vector<bool>& visited, id_t graph_size);
+    void find_in_out_web(   deque<NodeTraversal>& sorted_nodes, 
+                            InOutGrowth in_out_growth,
+                            WeightedGraph weighted_graph);
+    void process_in_out_growth( EdgeMapping edges_out_nodes, id_t current_id,
+                                InOutGrowth in_out_growth,
+                                WeightedGraph weighted_graph,
+                                vector<bool>& visited,
+                                deque<NodeTraversal>& sorted_nodes, 
+                                bool reverse);
+    void mark_dfs(EdgeMapping graph_matrix, id_t s, set<id_t>& sorted_nodes, 
+                vector<bool>& visited, bool reverse);
+    vector<pair<id_t,id_t>> min_cut(int* graph, id_t s, id_t t, id_t graph_size,
+                EdgeMapping& edges_out_nodes, EdgeMapping& edges_in_nodes);
+    void remove_edge(EdgeMapping& nodes_to_edges, id_t node, id_t to, bool reverse);
+    
     // Use a topological sort to order and orient the nodes, and then flip some
     // nodes around so that they are oriented the way they are in the sort.
     // Populates nodes_flipped with the ids of the nodes that have had their

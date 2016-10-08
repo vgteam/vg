@@ -2,6 +2,11 @@
 #define VG_TYPES_H
 
 #include <tuple>
+#include <map>
+#include <string>
+#include <set>
+#include <vector>
+#include "vg.pb.h"
 
 namespace vg {
 
@@ -13,6 +18,12 @@ typedef size_t off_t;
 
 // position type: id, direction, offset
 typedef std::tuple<id_t, bool, off_t> pos_t;
+
+// node to path mapping
+typedef std::map<std::string, std::set<Mapping*>> NodeMapping;
+
+//node to edges mapping
+typedef std::map<id_t, std::vector<Edge*>> EdgeMapping;
 
 }
 

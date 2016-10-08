@@ -1,0 +1,71 @@
+H	VN:Z:1.0
+S	1	C
+P	1	ref	1	+	1M
+P	1	alt2	1	+	1M
+P	1	alt3	1	+	1M
+P	1	alt4	1	+	1M
+P	1	alt5	1	+	1M
+P	1	alt6	1	+	1M
+S	2	G
+P	2	ref	2	+	1M
+P	2	alt1	2	+	1M
+P	2	alt2	2	+	1M
+P	2	alt3	2	+	1M
+P	2	alt5	2	+	1M
+L	1	+	2	+	1M
+S	3	C
+P	3	alt1	4	+	1M
+P	3	alt2	4	+	1M
+S	4	G
+P	4	alt2	5	+	1M
+S	5	C
+P	5	alt1	5	+	1M
+P	5	alt2	6	+	1M
+S	6	T
+P	6	alt4	2	+	1M
+P	6	alt6	2	+	1M
+S	7	C
+P	7	alt6	3	+	1M
+S	8	A
+P	8	alt4	3	+	1M
+P	8	alt6	4	+	1M
+S	9	C
+P	9	alt4	5	+	1M
+P	9	alt6	5	+	1M
+S	10	G
+P	10	alt3	3	+	1M
+P	10	alt5	3	+	1M
+S	11	A
+L	2	+	10	+	1M
+L	2	+	11	+	1M
+P	11	ref	3	+	1M
+P	11	alt1	3	+	1M
+P	11	alt2	3	+	1M
+P	11	alt1	6	+	1M
+S	12	T
+L	11	+	12	+	1M
+P	12	ref	4	+	1M
+P	12	alt4	4	+	1M
+P	12	alt5	5	+	1M
+P	12	alt6	6	+	1M
+P	12	alt1	7	+	1M
+P	12	alt2	8	+	1M
+S	13	C
+L	12	+	13	+	1M
+P	13	ref	5	+	1M
+P	13	alt4	6	+	1M
+L	10	+	12	+	1M
+L	10	+	12	+	1M
+L	1	+	6	+	1M
+L	6	+	8	+	1M
+L	10	+	9	+	1M
+L	6	+	7	+	1M
+L	7	+	7	+	1M
+L	7	+	8	+	1M
+L	8	+	9	+	1M
+L	11	+	3	+	1M
+L	3	+	5	+	1M
+L	3	+	4	+	1M
+L	4	+	5	+	1M
+L	5	+	11	+	1M
+L	12	-	9	-	1M
