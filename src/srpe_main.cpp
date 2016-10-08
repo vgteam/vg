@@ -38,7 +38,7 @@ int main_srpe(int argc, char** argv){
 
     int max_iter = 0;
     int max_frag_len = -1;
-    int max_softclip = -1;
+    int max_soft_clip = -1;
 
     /*
      * int sc_cutoff
@@ -88,28 +88,6 @@ int main_srpe(int argc, char** argv){
 
 
     SRPE srpe;
-    vector<pair<Alignment, Alignment> > discords;
-    std::function<void(Alignment&, Alignment&)> lambda = [&srpe, &discords](Alignment& aln_one, Alignment& aln_two){
-
-        /* For each alignment in the gam:
-         * Find the node the alignment maps to
-         * find its mate read, if it has one
-         * Check if alignment/mate fail any filters
-         * if they do:
-         *  find all the alignments that map to that node
-         *  Look for matching signatures on other reads at the node
-         *  Check the depth at the Locus, and update it as well
-         *
-         */
-        srpe.ff.set_inverse(true);
-        pair<Alignment, Alignment> intermeds = srpe.ff.deletion_filter(aln_one, aln_two);
-        if (aln_one.name() != ""){
-            discords.push_back(intermeds);
-        }
-        srpe.ff.set_inverse(false);
-
-    };
-
 
 
 
@@ -153,6 +131,87 @@ int main_srpe(int argc, char** argv){
      * so that we can generate signatures for each SVTYPE.
      * We assume that our GAM contains these.
      */
+    vector<pair<Alignment, Alignment> > discords;
+    vector<pair<Alignment, Alignment> > fraggles;
+    vector<pair<Alignment, Alignment> > clippies;
+    std::function<void(Alignment&, Alignment&)> lambda = [&srpe, &discords, &clippies, &fraggles, &max_soft_clip](Alignment& aln_one, Alignment& aln_two){
+
+        /* For each alignment in the gam:
+         * Find the node the alignment maps to
+         * find its mate read, if it has one
+         * Check if alignment/mate fail any filters
+         * if they do:
+         *  find all the alignments that map to that node
+         *  Look for matching signatures on other reads at the node
+         *  Check the depth at the Locus, and update it as well
+         *
+         */
+        srpe.ff.set_inverse(true);
+        pair<Alignment, Alignment> intermeds = srpe.ff.deletion_filter(aln_one, aln_two);
+        if (intermeds.first.name() != ""){
+            discords.push_back(intermeds);
+        }
+
+        srpe.ff.set_soft_clip_limit(max_soft_clip);
+        intermeds = srpe.ff.soft_clip_filter(aln_one, aln_two);
+        if (intermeds.first.name() != ""){
+            clippies.push_back(intermeds);
+        }
+
+        //TODO set path_length limit
+        srpe.ff.max_path_length = 500;
+        intermeds = srpe.ff.path_length_filter(aln_one, aln_two);
+        if (intermeds.first.name() != ""){
+            fraggles.push_back(intermeds);
+        }
+
+        srpe.ff.set_inverse(false);
+
+    };
+
+
+
+    for (int i = 0; i < clippies.size(); i++){
+        Alignment a = clippies[i].first;
+        int64_t clipped_id = 0;
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            clipped_id = (left_overhang >= right_overhang) ? path.mapping(0).position().node_id() : path.mapping(path.mapping_size() - 1).position().node_id();
+        }
+
+        int est_frag = 0;
+        std::function<void(const Alignment&)> frag_len_fil = [&](const Alignment& x){
+            Alignment ret = srpe.ff.path_length_filter( (Alignment&) x);
+            if (ret.name() != ""){
+                for (int fi = 0; fi < ret.fragment_size(); fi++)
+                est_frag = ret.fragment(i).length();
+            }
+        };
+
+        // Create a mapper
+        //
+        // find SMEMs
+        //
+        // Create edge
+        //
+        // get subgraph, index, remap
+
+
+        //gamind.for_alignment_in_range(p.node_id() - 1, p.node_id() + 1, frag_len_fil);
+        // gam_index.for_alignment_in_range();  // get all those alignments within the clipped region and 1 adj node each side,
+        // and check if they have discordant frag_lens
+        // if they do, get those fragment lens, determine the insert size,
+        // and tuck an edge there. Remap that soft-clipped  alignments; expect their score to go up (hopefully).
+        //
+        // vector<MaximalExactMatch> find_smems(const string& seq, int max_length);
+        //
+        // 
+    }
+
 
 
 
@@ -162,7 +221,7 @@ int main_srpe(int argc, char** argv){
         // where X ---->     X' <-----
         // Include the match portion of the reads because why not.
 
-//#pragma omp critical
+        //#pragma omp critical
         {
             Locus ll;
             ll.set_name( aln_one.name() + "_L" );
@@ -302,7 +361,7 @@ int main_srpe(int argc, char** argv){
         double sum_softlcip = 0.0;
         double cost_inverted_readpair = 2.0;
         double cost_one_end_anchored = 4.0;
-        
+
         int ploidy = 2;
         double ploidy_score = 0.0 ;
 
@@ -333,7 +392,7 @@ int main_srpe(int argc, char** argv){
 
         double sum_mapq = 0.0;
         double sum_softlcip = 0.0;
-        
+
         int ploidy = 2;
         double ploidy_score = 0.0 ;
 
@@ -352,11 +411,11 @@ int main_srpe(int argc, char** argv){
 
     };
 
-    
-    
+
+
     vector<Path> paths_to_add;
     std::function<void(vector<Locus>)> homogenize_loci = [&paths_to_add](vector<Locus> loci){
-        
+
     };
 
     std::function<void(int64_t, double&)> get_local_depth_at_node = [](int64_t node_id, double& avg_d){
@@ -391,7 +450,7 @@ int main_srpe(int argc, char** argv){
         //  continue;
         // } 
     }
-    
+
     graph->edit(paths_to_add);
 
     graph->serialize_to_ostream(cout);
@@ -425,7 +484,7 @@ int main_srpe(int argc, char** argv){
      */ 
 
     //for (auto x : sigs){
-        //cerr << x.name() << endl;
+    //cerr << x.name() << endl;
     //}
 
 }

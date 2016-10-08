@@ -132,6 +132,7 @@ namespace vg{
                 return inverse ? Alignment() : aln;
             }
             else{
+                return inverse ? aln : Alignment();
             }
         }
 
