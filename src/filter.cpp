@@ -59,10 +59,10 @@ namespace vg{
     }
 
     Alignment Filter::depth_filter(Alignment& aln){
-        if (avg && window){
+        if (use_avg && window_length != 0){
 
         }
-        else if (avg){
+        else if (use_avg != 0){
 
         }
         else{

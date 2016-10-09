@@ -12,8 +12,12 @@ using namespace vg;
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
         << "Options: " << endl
-        << "-m / --max-iter <MaximumIterations> max number of iterations for homogenization."
+        << "-m / --max-iter <MaximumIterations> max number of iterations for homogenization." << endl
+        
         << endl;
+        //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
+        
+
 
 }
 
@@ -21,7 +25,7 @@ void help_srpe(char** argv){
 
 int main_srpe(int argc, char** argv){
     string gam_name = "";
-    string index_name = "";
+    string gam_index_name = "";
     string graph_name = "";
     int max_iter = 0;
     int max_frag_len = -1;
@@ -43,12 +47,12 @@ int main_srpe(int argc, char** argv){
     while (true) {
         static struct option long_options[] =
         {
-            {"index", required_argument, 0, 'i'},
+            {"max-iter", required_argument, 0, 'm'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "i:",
+        c = getopt_long (argc, argv, "m:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -57,8 +61,8 @@ int main_srpe(int argc, char** argv){
 
         switch (c)
         {
-            case 'i':
-                index_name = optarg;
+            case 'm':
+                max_iter = atoi(optarg);
                 break;
             case 'h':
             case '?':
@@ -77,52 +81,37 @@ int main_srpe(int argc, char** argv){
 
 
     SRPE srpe;
+    Filter ff;
     vector<Alignment> alns;
-    vector<string> positions;
-    std::function<void(Alignment&)> lambda = [&srpe, &alns, &positions, &buffer](Alignment& aln){
+    vector<string> sigtypes;
+    vector<string> searches = {"DEL"};
+    std::function<void(Alignment&, Alignment&)> flag_signature_read_support = [&ff, &alns, &sigtypes, &buffer](Alignment& aln_first, Alignment& aln_second){
         
         //srpe.apply(aln, alns);
-        srpe.apply(aln, positions);
-        /* For each alignment in the gam:
-         * Find the node the alignment maps to
-         * find its mate read, if it has one
-         * Check if alignment/mate fail any filters
-         * if they do:
-         *  find all the alignments that map to that node
-         *  Look for matching signatures on other reads at the node
-         *  Check the depth at the Locus, and update it as well
-         *
-         */
+        //srpe.apply(aln, positions);
 
+        
     };
-
-    
-    /*
-     * now that we've been through every read, check for erroneous depth signals
-     */
 
 
     gam_name = argv[optind];
+    gam_index_name = argv[++optind];
+    graph_name = argv[++optind];
 
-    if (gam_name == "-"){
-        stream::for_each_parallel(cin, lambda);
-    }
-    else{
-        ifstream in;
-        in.open(gam_name);
-        if (in.good()){
-            stream::for_each_parallel(in, lambda);
-        }
-        else{
-            cerr << "Could not open " << gam_name << endl;
-            help_srpe(argv);
-        }
-    }
+    // Read in GAM and filter for Sigs
+    
+    // Convert sigs to edges and nodes
 
-    if (buffer.size() > 0) {
-        stream::write(cout, buffer.size(), write_buffer);
-        buffer.clear();
-    }
+    // Find newly incorporated nodes / edges within X nodes or Y bp of each other
+    // and remap reads to refine them.
+    // Refinement: for N variant edges/nodes within X bp/nodes of one another, calculate the
+    // sig quality ~ (reads mapped, mapping qual of reads, soft clipping, fragment length consistency,
+    // )
+    // Take the X highest-scoring edges / nodes and remap reads to just these.
+    // Repeat this process until convergence, or after max-iter iterations
+
+    // Can now emit refined variant calls.
+
 
 
 }

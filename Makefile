@@ -290,6 +290,9 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(DEPS)
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
+$(OBJ_DIR)/srpe.o: $(SRC_DIR)/srpe.cpp $(SRC_DIR)/srpe.hpp $(OBJ_DIR)/filter.o $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
 ###################################
 ## VG unit test compilation begins here
 ####################################
