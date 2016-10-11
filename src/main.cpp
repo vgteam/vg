@@ -8645,10 +8645,10 @@ void help_prehap(char** argv){
     cerr << "Usage: " << argv[0] << " prehap [options] input.loci input.gam.index/ " << endl;
 }
 
-int main_prehap(char** argv){
+int main_prehap(int argc, char** argv){
     string gamind_str = "";
     string locifile_str = "";
-    Index gamind;
+    Index gam_ind;
 
 
     if (argc <= 2){
@@ -8657,35 +8657,35 @@ int main_prehap(char** argv){
     }
 
     if (!gamind_str.empty()){
-        gamind.open_read_only(gamind_str);
+        gam_ind.open_read_only(gamind_str);
     }
 
 
-    std::map<Alignment&, set<Locus> > aln_to_loci;
 
-    std::function<vector<string>(string, char)> strsplit = [](string x, char delim){
+    std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
         vector<string> ret;
         stringstream ss;
         std::string tok;
-        while (getline(ss, tok, delim){
+        while (getline(ss, tok, delim)){
             ret.push_back(tok);
         }
+        return ret;
 
     };
 
     int count = 0;
     std::function<void(Locus&)> lambda = [&](Locus& l){
        string n = l.name();
-       vector<string> node_pos = strsplit(n, "_");
-       int first_node = stoi( strsplit(node_pos[0], "-")[0]);
-        int second_node = stoi(strsplit(node_pos[1], "-")[1]);
+       vector<string> node_pos = strsplit(n, '_');
+       int first_node = stoi( strsplit(node_pos[0], '-')[0]);
+        int second_node = stoi(strsplit(node_pos[1], '-')[1]);
 
        // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
  
         vector<Alignment> l_alns;
 
-        std::function<void(Alignment&)> fill_alns = [&](Alignment& a){
+        std::function<void(const Alignment&)> fill_alns = [&](const Alignment& a){
             l_alns.push_back(a);
         };
 
@@ -9193,6 +9193,8 @@ int main(int argc, char *argv[])
         return main_version(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
+    } else if (command == "prehap"){
+        return main_prehap(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
