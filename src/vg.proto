@@ -115,6 +115,7 @@ message Alignment {
     bool is_secondary = 15; // All but one maximal-scoring alignment of a given read in a GAM file must be secondary.
     double identity = 16; // Portion of aligned bases that are perfect matches, or 0 if no bases are aligned.
     repeated Path fragment = 17; // an estimate of the length of the fragment if this is paired
+    repeated Locus locus = 18; // the loci that this alignment supports
 }
 
 // used to serialize kmer matches

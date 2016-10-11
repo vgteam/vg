@@ -8634,26 +8634,80 @@ void help_deconstruct(char** argv){
          << endl;
 }
 
-void help_prehap(char** argv){
-    cerr << "Usage: " << argv[0] << " prehap [options] input.loci input.gam.index/ " << endl;
+void help_locify(char** argv){
+    cerr << "usage: " << argv[0] << " locify [options] " << endl
+         << "    -l, --loci FILE     input loci over which to locify the alignments" << endl
+         << "    -a, --aln-idx DIR   use this rocksdb alignment index (from vg index -N)" << endl
+         << "    -x, --xg-idx FILE   use this xg index" << endl
+         << "    -n, --name-alleles  generate names for each allele rather than using full Paths" << endl;
+        // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
-int main_prehap(int argc, char** argv){
-    string gamind_str = "";
-    string locifile_str = "";
-    Index gam_ind;
-
+int main_locify(int argc, char** argv){
+    string gam_idx_name;
+    string loci_file;
+    Index gam_idx;
+    string xg_idx_name;
+    bool name_alleles = false;
 
     if (argc <= 2){
-       help_prehap(argv);
-       exit(1);
+        help_locify(argv);
+        exit(1);
     }
 
-    if (!gamind_str.empty()){
-        gam_ind.open_read_only(gamind_str);
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+        {
+            {"help", no_argument, 0, 'h'},
+            {"gam-idx", required_argument, 0, 'g'},
+            {"loci", required_argument, 0, 'l'},
+            {"xg-idx", required_argument, 0, 'x'},
+            {"name-alleles", no_argument, 0, 'n'},
+            {0, 0, 0, 0}
+        };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hl:x:g:n",
+                long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'g':
+            gam_idx_name = optarg;
+            break;
+
+        case 'l':
+            loci_file = optarg;
+            break;
+
+        case 'x':
+            xg_idx_name = optarg;
+            break;
+
+        case 'n':
+            name_alleles = true;
+            break;
+
+        case 'h':
+        case '?':
+            help_locify(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
     }
 
-
+    if (!gam_idx_name.empty()) {
+        gam_idx.open_read_only(gam_idx_name);
+    }
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
@@ -8667,46 +8721,83 @@ int main_prehap(int argc, char** argv){
 
     };
 
+    map<string, map<string, int > > locus_allele_names;
+    map<string, Alignment> alignments_with_loci;
     int count = 0;
     std::function<void(Locus&)> lambda = [&](Locus& l){
-       string n = l.name();
-       vector<string> node_pos = strsplit(n, '_');
-       int first_node = stoi( strsplit(node_pos[0], '-')[0]);
-        int second_node = stoi(strsplit(node_pos[1], '-')[1]);
-
-       // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
- 
-        vector<Alignment> l_alns;
-
+        set<vg::id_t> nodes_in_locus;
+        for (int i = 0; i < l.allele_size(); ++i) {
+            auto& allele = l.allele(i);
+            for (int j = 0; j < allele.mapping_size(); ++j) {
+                auto& position = allele.mapping(j).position();
+                nodes_in_locus.insert(position.node_id());
+            }
+        }
+        // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
         std::function<void(const Alignment&)> fill_alns = [&](const Alignment& a){
-            l_alns.push_back(a);
+            // TODO reverse complementing alleles ?
+            // overlap is stranded
+            //matching
+            // find the most-matching allele
+            map<double, vector<int> > matches;
+            for (int i = 0; i < l.allele_size(); ++i) {
+                auto& allele = l.allele(i);
+                matches[overlap(a.path(), allele)].push_back(i);
+            }
+            assert(l.allele_size());
+            int best = matches.rbegin()->second.front();
+            Locus matching;
+            matching.set_name(l.name());
+            if (name_alleles) {
+                stringstream ss;
+                //map<string, map<string, int > > locus_allele_names;
+                auto& allele = l.allele(best);
+                string s;
+                allele.SerializeToString(&s);
+                auto& l_names = locus_allele_names[l.name()];
+                auto f = l_names.find(s);
+                if (f == l_names.end()) {
+                    int next_id = l_names.size() + 1;
+                    l_names[s] = next_id;
+                    ss << next_id;
+                } else {
+                    ss << f->second;
+                }
+                Path p;
+                p.set_name(ss.str());
+                *matching.add_allele() = p;
+            } else {
+                *matching.add_allele() = l.allele(best);
+                // TODO get quality score relative to this specific allele / alignment
+                // record in the alignment we'll save
+            }
+            if (alignments_with_loci.find(a.name()) == alignments_with_loci.end()) {
+                alignments_with_loci[a.name()] = a;
+            }
+            Alignment& aln = alignments_with_loci[a.name()];
+            *aln.add_locus() = matching;
         };
-
-      
-       gam_ind.for_alignment_in_range( (int64_t) first_node, (int64_t) second_node, fill_alns);
-
-       cout << pb2json(l);
-
-       for (auto a : l_alns){
-        cout << pb2json(a);
-       }
-
+        vector<vg::id_t> nodes_vec;
+        for (auto& id : nodes_in_locus) nodes_vec.push_back(id);
+        gam_idx.for_alignment_to_nodes(nodes_vec, fill_alns);
     };
 
-    
-
-
-    if (!locifile_str.empty()){
-        ifstream ifi(locifile_str);
-
+    if (!loci_file.empty()){
+        ifstream ifi(loci_file);
         stream::for_each(ifi, lambda);
     }
 
-
     // barf PB structures {Alignment : list(Locus)} as JSON objects
     //
+    vector<Alignment> output_buf;
+    for (auto& aln : alignments_with_loci) {
+        // TODO order the loci by their order in the alignment
+        output_buf.push_back(aln.second);
+        stream::write_buffered(cout, output_buf, 100);
+    }
+    stream::write_buffered(cout, output_buf, 0);        
     
-   return 0;
+    return 0;
 }
 
 int main_deconstruct(int argc, char** argv){
@@ -9186,8 +9277,8 @@ int main(int argc, char *argv[])
         return main_version(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
-    } else if (command == "prehap"){
-        return main_prehap(argc, argv);
+    } else if (command == "locify"){
+        return main_locify(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
