@@ -183,7 +183,7 @@ SB_Input VG::vg_to_sb_input(){
 
     id_t VG::get_node_at_nucleotide(string pathname, int nuc){
         Path p = paths.path(pathname);
-        
+
         int nt_start = 0;
         int nt_end = 0;
         for (int i = 0; i < p.mapping_size(); i++){
@@ -202,7 +202,7 @@ SB_Input VG::vg_to_sb_input(){
         }
 
     }
- 
+
  map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
     map<id_t, vcflib::Variant> ret;
     vcflib::Variant var;
@@ -2119,7 +2119,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         // unique, even if there are multiple variant records at the same
         // position in the VCF. Also, we don't necessarily have every variant in
         // the VCF in our records vector.
-        string var_name = get_or_make_variant_id(var);
+        string var_name = make_variant_id(var);
 
         // decompose to alts
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
@@ -2913,7 +2913,7 @@ void VG::from_gfa(istream& in, bool showp) {
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
-    std::function<id_t(const string&)> get_add_id = [&](const string& name) -> id_t { 
+    std::function<id_t(const string&)> get_add_id = [&](const string& name) -> id_t {
         if (is_number(name)) {
             return std::stol(name);
         } else {
@@ -2988,7 +2988,7 @@ void VG::bluntify(void) {
                 //cerr << "claimed overlap " << edge->overlap() << endl;
                 // derive and check the overlap seqs
                 auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
-                //string from_overlap = 
+                //string from_overlap =
                 //from_overlap = from_overlap.substr(from_overlap.size() - edge->overlap());
                 auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
@@ -3029,7 +3029,7 @@ void VG::bluntify(void) {
                         edge->set_overlap(0);
                         // we should axe the edge so as to not generate spurious sequences in the graph
                     }
-                    
+
                 } else {
                     //cerr << "overlap as expected" << endl;
                     //overlap_node[edge] = create_node(to_seq);
@@ -3212,10 +3212,10 @@ void VG::bluntify(void) {
             edges_to_create.insert(make_pair(prev_trav, node_trav));
         }
 
-        // if we matched 
+        // if we matched
         // walk forward until we reach a bifurcation
         // or we are no longer matching sequence
-        
+
         // we reattach the overlap node to that point
         // later, normalization will remove the superfluous parts
     }
@@ -3277,7 +3277,7 @@ void VG::bluntify(void) {
     for (auto& id : nodes_to_destroy) {
         destroy_node(id);
     }
-    
+
 }
 
 static
@@ -3495,7 +3495,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     // our chunk size isn't going to reach into the range where we'll have issues (>several megs)
     // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
     //
-    
+
     for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
 
         //string& seq_name = *t;
@@ -3594,7 +3594,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 var.position -= 1; // convert to 0-based
                 if (allowed_variants == nullptr
                     || allowed_variants->count(vrepr)) {
-                    records.push_back(var);                    
+                    records.push_back(var);
                 }
             }
             if (++i % 1000 == 0) update_progress(var.position-start_pos);
@@ -3942,7 +3942,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         }
         return true;
     };
-    
+
     for_each_node([&](Node* node) {
             if (!all_upper(node->sequence())){
                 cerr << "WARNING: Lower case letters found during construction" << endl;
@@ -4000,16 +4000,16 @@ void VG::dfs(
     // attempt the search rooted at all NodeTraversals
     for (id_t i = 0; i < graph.node_size(); ++i) {
         Node* root_node = graph.mutable_node(i);
-        
+
         for(int orientation = 0; orientation < 2; orientation++) {
             // Try both orientations
             NodeTraversal root(root_node, (bool)orientation);
-        
+
             // to store the stack frames
             deque<Frame> todo;
             if (state[root] == SearchState::PRE) {
                 state[root] = SearchState::CURR;
-                
+
                 // Collect all the edges attached to the outgoing side of the
                 // traversal.
                 auto& es = edges[root];
@@ -4020,7 +4020,7 @@ void VG::dfs(
                     assert(edge != nullptr);
                     es.push_back(edge);
                 }
-                
+
                 todo.push_back(Frame(root, es.begin(), es.end()));
                 // run our discovery-time callback
                 node_begin_fn(root);
@@ -4043,7 +4043,7 @@ void VG::dfs(
                     auto edge = *edges_begin;
                     // run the edge callback
                     edge_fn(edge);
-                    
+
                     // what's the traversal we'd get to following this edge
                     NodeTraversal target;
                     if(edge->from() == trav.node->id() && edge->to() != trav.node->id()) {
@@ -4060,7 +4060,7 @@ void VG::dfs(
                     // When we follow this edge, do we reverse traversal orientation?
                     bool is_reversing = (edge->from_start() != edge->to_end());
                     target.backward = trav.backward != is_reversing;
-                    
+
                     auto search_state = state[target];
                     // if we've not seen it, follow it
                     if (search_state == SearchState::PRE) {
@@ -4072,7 +4072,7 @@ void VG::dfs(
                         // and store it on the stack
                         state[trav] = SearchState::CURR;
                         auto& es = edges[trav];
-                    
+
                         for(auto& next : travs_from(trav)) {
                             // Every NodeTraversal following on from this one has an
                             // edge we take to get to it.
@@ -4080,7 +4080,7 @@ void VG::dfs(
                             assert(edge != nullptr);
                             es.push_back(edge);
                         }
-                    
+
                         edges_begin = es.begin();
                         edges_end = es.end();
                         // run our discovery-time callback
@@ -4263,7 +4263,7 @@ bool VG::is_acyclic(void) {
         },
         [&](NodeTraversal trav) {
             // When we leave a node orientation
-            
+
             // Remove it from the seen array. We may later start from a
             // different root and see a way into this node in this orientation,
             // but it's only a cycle if there's a way into this node in this
@@ -6658,7 +6658,7 @@ void VG::to_dot(ostream& out,
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
         } else if (superbubble_labeling || cactusbubble_labeling) {
             //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
-            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";      
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         } else {
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         }
@@ -6846,13 +6846,13 @@ void VG::to_dot(ostream& out,
         alnid++;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
-            
+
             if(!has_node(m.position().node_id()) && skip_missing_nodes) {
                 // We don't have the node this is aligned to. We probably are
                 // looking at a subset graph, and the user asked us to skip it.
                 continue;
             }
-            
+
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
@@ -6986,7 +6986,7 @@ void VG::to_dot(ostream& out,
                         out << "    " << pathid-1 << " -> " << path_starts[path.name()]
                             << " [dir=none,color=\"" << color << "\",constraint=false];" << endl;
                     }
-                    
+
                 }
             }
             if (walk_paths) {
@@ -7475,7 +7475,7 @@ Alignment VG::align(const Alignment& alignment,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio,
                     bool print_score_matrices) {
-    
+
     auto aln = alignment;
 
     /*
@@ -7504,7 +7504,7 @@ Alignment VG::align(const Alignment& alignment,
         sort();
         // run the alignment
         do_align(this->graph);
-        
+
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
         // might need that node ID.
@@ -7566,7 +7566,7 @@ Alignment VG::align(const Alignment& alignment,
                 return get_node(node_id)->sequence().size();
             });
         //check_aln(*this, aln);
-        
+
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
         // might need that node ID.
@@ -7595,7 +7595,7 @@ Alignment VG::align(const string& sequence,
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio, print_score_matrices);
 }
-    
+
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
                     bool print_score_matrices) {
