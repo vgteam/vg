@@ -882,11 +882,13 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             id_t id = gcsa::Node::id(node);
             size_t offset = gcsa::Node::offset(node);
             bool is_rev = gcsa::Node::rc(node);
+            //cerr << "on " << id << (is_rev ? "-" : "+") << ":" << offset << endl;
             for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
                 auto& name = ref.first;
                 for (auto pos : ref.second) {
                     auto chrom = make_pair(name, is_rev);
                     by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
+                    //cerr << "@ " << name << (is_rev ? "-" : "+") << " " << pos + offset << endl;
                 }
             }
         }
@@ -923,12 +925,14 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         set<int> used_in_cluster;
         for (auto& p : seq_map) {
             auto& pos = p.first;
+            //cerr << b.first.first << " " << pos << endl;
             if (used_in_cluster.count(pos)) continue;
+            cerr << "making cluster" << endl;
             clusters.emplace_back();
             auto& cluster = clusters.back();
             set<MaximalExactMatch*> in_cluster;
             auto x = seq_map.find(pos);
-            // extend until we hit the end of the chrom or exceed 3x the length of the alignment sequence
+            // extend until we hit the end of the chrom or jum over the length of the neighboring MEMs
             while (x != seq_map.end() && x->first - pos < aln.sequence().size()*3) {
                 // record that we've walked through here, so we don't start new clusters from here
                 used_in_cluster.insert(x->first);
@@ -947,11 +951,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     }
                 }
                 assert(mem != nullptr);
-                //cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
+                cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
                 if (!cluster.empty() && cluster.back().begin > mem->begin
                     || in_cluster.count(mem)) {
                     ++x; // step to the next position
                 } else {
+                    cerr << "adding mem to cluster" << endl;
                     auto new_mem = *mem;
                     new_mem.nodes.clear();
                     new_mem.nodes.push_back(node);
@@ -960,10 +965,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     // get the thing at least one past the end of this MEM
                     x = seq_map.upper_bound(x->first);//+mem->length());
                 }
+                cerr << cluster.size() << " in cluster now" << endl;
             }
         }
     }
 
+    // todo cache this as sort will call it a lot
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
         for (auto& mem : cluster) {
@@ -993,7 +1000,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
                         auto& name = ref.first;
                         for (auto pos : ref.second) {
-                            cerr << name << (is_rev?"-":"+") << pos + offset;
+                            //cerr << name << (is_rev?"-":"+") << pos + offset;
                             cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
                         }
                     }
@@ -2264,13 +2271,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     auto qual_adj_aligner = (QualAdjAligner*) aligner;
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
-        //cerr << "looking at mapping " << pb2json(mapping) << endl;
+        if (debug) cerr << "looking at mapping " << pb2json(mapping) << endl;
         pos_t ref_pos = make_pos_t(mapping.position());
         Mapping* new_mapping = patched.mutable_path()->add_mapping();
         *new_mapping->mutable_position() = mapping.position();
         for (int j = 0; j < mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
-            //cerr << "looking at edit " << pb2json(edit) << endl;
+            if (debug) cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 if (!aln.quality().empty()) {
@@ -2365,6 +2372,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     //cerr << "end of alignment" << endl;
                     // nothing to do
                 }
+                pos_t next_pos = second_cut;
 
                 //cerr << "first_cut before " << first_cut << endl;
                 //cerr << "second_cut before " << second_cut << endl;
@@ -2596,16 +2604,23 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     // do the alignment
                     bool banded_global = (!soft_clip_to_left && !soft_clip_to_right);
+                    id_t pinned_id = 0;
+                    bool pinned_reverse = false;
+                    /*
+                    // TODO : we want to use the pinning here
+                      if (banded_global) {
+                      if (soft_clip_to_left) {
+                      pinned_id = id(second_cut);
+                      pinned_reverse = true;
+                      } else {
+                      pinned_id = id(first_cut);
+                      }
+                      }
+                    */
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
-                                           0, false, banded_global);
-                    // TODO : we want to use the pinning here
-                    // to improve handling of soft clips
-                    /*
-                                           id(first_cut),
-                                           soft_clip_to_left);
-                    */
+                                           pinned_id, pinned_reverse, banded_global);
 
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
@@ -2849,6 +2864,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     if (mem_threading && xindex->max_path_rank()) {
         return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps);
     } else {
+        cerr << xindex->max_path_rank() << endl;
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
     }
 

@@ -2375,22 +2375,38 @@ int main_msga(int argc, char** argv) {
         names_in_order.push_back(name);
     }
 
+    // always go from biggest to smallest in progression
+    sort(names_in_order.begin(), names_in_order.end(),
+         [&strings](const string& s1, const string& s2) {
+             return strings[s1].size() > strings[s2].size(); });
+
     // align, include, repeat
 
     if (debug) cerr << "preparing initial graph" << endl;
 
+    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
+    // limit max node size
+    if (!node_max) node_max = 2*idx_kmer_size;
+
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
-        auto build_graph = [&graph](const string& seq, const string& name) {
-            auto node = graph->create_node(seq);
-            Path path;
+        auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
+            graph->create_node(seq);
+            graph->dice_nodes(node_max);
+            graph->sort();
+            graph->compact_ids();
+            // the graph will have a single embedded path in it
+            Path& path = *graph->graph.add_path();
             path.set_name(name);
-            auto mapping = path.add_mapping();
-            mapping->mutable_position()->set_node_id(node->id());
-            auto edit = mapping->add_edit();
-            edit->set_from_length(node->sequence().size());
-            edit->set_to_length(node->sequence().size());
+            graph->for_each_node([&path](Node* node) {
+                    auto mapping = path.add_mapping();
+                    mapping->mutable_position()->set_node_id(node->id());
+                    auto edit = mapping->add_edit();
+                    edit->set_from_length(node->sequence().size());
+                    edit->set_to_length(node->sequence().size());
+                });
             graph->paths.extend(path);
+            graph->sync_paths(); // sync the paths
         };
         // what's the first sequence?
         if (base_seq_name.empty()) {
@@ -2400,12 +2416,7 @@ int main_msga(int argc, char** argv) {
         build_graph(strings[base_seq_name], base_seq_name);
     }
 
-    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
-    // limit max node size
-    if (!node_max) node_max = 2*idx_kmer_size;
-    graph->dice_nodes(node_max);
-    graph->sort();
-    graph->compact_ids();
+    //cerr << "path going in " << pb2json(graph->graph.path(0)) << endl;
 
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
@@ -2419,13 +2430,17 @@ int main_msga(int argc, char** argv) {
 
     auto rebuild = [&](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
-
+        graph->sort();
+        graph->sync_paths();
+        graph->rebuild_indexes();
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
         if (lcpidx) delete lcpidx;
 
         if (debug) cerr << "building xg index" << endl;
+        graph->sync_paths();
+        graph->paths.to_graph(graph->graph);
         xgidx = new xg::XG(graph->graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;
@@ -2476,11 +2491,16 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& name : names_in_order) {
+        cerr << "do... " << name << " ?" << endl;
         if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         auto& seq = strings[name];
-        //graph->serialize_to_file("msga-pre-" + name + ".vg");
+        cerr << "doing... " << name << endl;
+        graph->serialize_to_file("msga-pre-" + name + ".vg");
+        ofstream db_out("msga-pre-" + name + ".xg");
+        xgidx->serialize(db_out);
+        db_out.close();
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
@@ -2539,13 +2559,13 @@ int main_msga(int argc, char** argv) {
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
-            //graph->serialize_to_file(name + "-pre-index.vg");
+            graph->serialize_to_file(name + "-pre-index.vg");
             // update the paths
             graph->graph.clear_path();
             graph->paths.to_graph(graph->graph);
             // and rebuild the indexes
             rebuild(graph);
-            //graph->serialize_to_file(name + "-post-index.vg");
+            graph->serialize_to_file(name + "-post-index.vg");
 
             // verfy validity of path
             bool is_valid = graph->is_valid();
