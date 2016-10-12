@@ -174,6 +174,9 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 $(INC_DIR)/vg_git_version.hpp: .git
 	echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
 
+# Not important if .git isn't real
+.git:
+
 ###################################
 ## VG source code compilation begins here
 ####################################
