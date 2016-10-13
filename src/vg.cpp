@@ -4880,8 +4880,14 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
         if (pos < 0 || pos > node->sequence().size()) {
     #pragma omp critical (cerr)
             {
-                cerr << omp_get_thread_num() << ": cannot divide node " << node->id() << ":" << node->sequence()
-                     << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
+                cerr << omp_get_thread_num() << ": cannot divide node " << node->id();
+                
+                if(node->sequence().size() <= 1000) {
+                    // Add sequences for short nodes
+                    cerr << ":" << node->sequence();
+                }
+                
+                cerr << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
                      << node->sequence().size() << ")" << endl;
                 exit(1);
             }
@@ -4905,7 +4911,12 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
 #pragma omp critical (cerr)
     {
         for(auto* part : parts) {
-            cerr << "\tCreated node " << part->id() << ": " << part->sequence() << endl;
+            cerr << "\tCreated node " << part->id() << " (" << part->sequence().size() << ")";
+            if(part->sequence().size() <= 1000) {
+                // Add sequences for short nodes
+                cerr << ": " << part->sequence();
+            }
+            cerr << endl;
         }
     }
 
