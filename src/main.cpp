@@ -6269,7 +6269,7 @@ int main_index(int argc, char** argv) {
         string file_name = argv[optind++];
         file_names.push_back(file_name);
     }
-
+    
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
@@ -6316,6 +6316,12 @@ int main_index(int argc, char** argv) {
         map<string, Path> alt_paths;
         // This is matched against the entire string.
         regex is_alt("_alt_.+_[0-9]+");
+
+        if(file_names.empty()) {
+            // VGset or something segfaults when we feed it no graphs.
+            cerr << "error:[vg index] at least one graph is required to build an xg index" << endl;
+            return 1;
+        }
 
         // store the graphs
         VGset graphs(file_names);
