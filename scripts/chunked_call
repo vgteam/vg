@@ -52,13 +52,15 @@ def merge_call_opts(contig, offset, length, call_opts, sample_name):
     """ combine input vg call  options with generated options, by adding user offset
     and overriding contigs, sample and sequence lenght"""
     user_opts = call_opts.split()
-    user_offset, user_contig, user_sample, user_length  = None, None, None, None
+    user_offset, user_contig, user_ref, user_sample, user_length  = None, None, None, None, None
     for i, uo in enumerate(user_opts):
         if uo in ["-o", "--offset"]:
             user_offset = int(user_opts[i + 1])
             user_opts[i + 1] = str(user_offset + offset)
         elif uo in ["-c", "--contig"]:
             user_contig = user_opts[i + 1]
+        elif uo in ["-r", "--ref"]:
+            user_ref = user_opts[i + 1]
         elif uo in ["-S", "--sample"]:
             user_sample = user_opts[i + 1]
             user_opts[i + 1] = sample_name
@@ -69,6 +71,8 @@ def merge_call_opts(contig, offset, length, call_opts, sample_name):
         opts += " -o {}".format(offset)
     if user_contig is None:
         opts += " -c {}".format(contig)
+    if user_ref is None:
+        opts += " -r {}".format(contig)        
     if user_sample is None:
         opts += " -S {}".format(sample_name)
     if user_length is None:
