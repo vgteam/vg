@@ -1215,7 +1215,7 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 int64_t Mapper::get_node_length(int64_t node_id) {
     if(xindex) {
         // Grab the node sequence only from the XG index and get its size.
-        return xindex->node_sequence(node_id).size();
+        return xindex->node_length(node_id);
     } else if(index) {
         // Get a 1-element range from the index and then use that.
         VG one_node_graph;
