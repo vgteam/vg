@@ -8646,7 +8646,8 @@ void help_locify(char** argv){
          << "    -l, --loci FILE     input loci over which to locify the alignments" << endl
          << "    -a, --aln-idx DIR   use this rocksdb alignment index (from vg index -N)" << endl
          << "    -x, --xg-idx FILE   use this xg index" << endl
-         << "    -n, --name-alleles  generate names for each allele rather than using full Paths" << endl;
+         << "    -n, --name-alleles  generate names for each allele rather than using full Paths" << endl
+         << "    -f, --forwardize    flip alignments on the reverse strand to the forward" << endl;
         // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
@@ -8656,6 +8657,7 @@ int main_locify(int argc, char** argv){
     Index gam_idx;
     string xg_idx_name;
     bool name_alleles = false;
+    bool forwardize = false;
 
     if (argc <= 2){
         help_locify(argv);
@@ -8672,11 +8674,12 @@ int main_locify(int argc, char** argv){
             {"loci", required_argument, 0, 'l'},
             {"xg-idx", required_argument, 0, 'x'},
             {"name-alleles", no_argument, 0, 'n'},
+            {"forwardize", no_argument, 0, 'f'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:x:g:n",
+        c = getopt_long (argc, argv, "hl:x:g:nf",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -8701,6 +8704,10 @@ int main_locify(int argc, char** argv){
             name_alleles = true;
             break;
 
+        case 'f':
+            forwardize = true;
+            break;
+
         case 'h':
         case '?':
             help_locify(argv);
@@ -8715,6 +8722,13 @@ int main_locify(int argc, char** argv){
     if (!gam_idx_name.empty()) {
         gam_idx.open_read_only(gam_idx_name);
     }
+
+    if (xg_idx_name.empty()) {
+        cerr << "[vg locify] Error: no xg index provided" << endl;
+        return 1;
+    }
+    ifstream xgstream(xg_idx_name);
+    xg::XG xgidx(xgstream);
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
@@ -8799,7 +8813,16 @@ int main_locify(int argc, char** argv){
     vector<Alignment> output_buf;
     for (auto& aln : alignments_with_loci) {
         // TODO order the loci by their order in the alignment
-        output_buf.push_back(aln.second);
+        if (forwardize) {
+            if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
+                output_buf.push_back(reverse_complement_alignment(aln.second,
+                                                                  [&xgidx](int64_t id) { return xgidx.node_length(id); }));
+            } else {
+                output_buf.push_back(aln.second);
+            }
+        } else {
+            output_buf.push_back(aln.second);
+        }
         stream::write_buffered(cout, output_buf, 100);
     }
     stream::write_buffered(cout, output_buf, 0);        
