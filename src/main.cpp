@@ -8637,10 +8637,12 @@ void help_deconstruct(char** argv){
 
 void help_locify(char** argv){
     cerr << "usage: " << argv[0] << " locify [options] " << endl
-         << "    -l, --loci FILE     input loci over which to locify the alignments" << endl
-         << "    -a, --aln-idx DIR   use this rocksdb alignment index (from vg index -N)" << endl
-         << "    -x, --xg-idx FILE   use this xg index" << endl
-         << "    -n, --name-alleles  generate names for each allele rather than using full Paths" << endl;
+         << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
+         << "    -a, --aln-idx DIR    use this rocksdb alignment index (from vg index -N)" << endl
+         << "    -x, --xg-idx FILE    use this xg index" << endl
+         << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
+         << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
+         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl;
         // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
@@ -8650,6 +8652,8 @@ int main_locify(int argc, char** argv){
     Index gam_idx;
     string xg_idx_name;
     bool name_alleles = false;
+    bool forwardize = false;
+    string loci_out;
 
     if (argc <= 2){
         help_locify(argv);
@@ -8666,11 +8670,13 @@ int main_locify(int argc, char** argv){
             {"loci", required_argument, 0, 'l'},
             {"xg-idx", required_argument, 0, 'x'},
             {"name-alleles", no_argument, 0, 'n'},
+            {"forwardize", no_argument, 0, 'f'},
+            {"loci-out", required_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:x:g:n",
+        c = getopt_long (argc, argv, "hl:x:g:nfo:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -8695,6 +8701,14 @@ int main_locify(int argc, char** argv){
             name_alleles = true;
             break;
 
+        case 'f':
+            forwardize = true;
+            break;
+
+        case 'o':
+            loci_out = optarg;
+            break;
+
         case 'h':
         case '?':
             help_locify(argv);
@@ -8710,6 +8724,13 @@ int main_locify(int argc, char** argv){
         gam_idx.open_read_only(gam_idx_name);
     }
 
+    if (xg_idx_name.empty()) {
+        cerr << "[vg locify] Error: no xg index provided" << endl;
+        return 1;
+    }
+    ifstream xgstream(xg_idx_name);
+    xg::XG xgidx(xgstream);
+
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
         vector<string> ret;
@@ -8722,16 +8743,29 @@ int main_locify(int argc, char** argv){
 
     };
 
+    vector<string> locus_names;
     map<string, map<string, int > > locus_allele_names;
     map<string, Alignment> alignments_with_loci;
+    map<pos_t, set<string> > pos_to_loci;
+    map<string, set<pos_t> > locus_to_pos;
     int count = 0;
     std::function<void(Locus&)> lambda = [&](Locus& l){
+        locus_names.push_back(l.name());
         set<vg::id_t> nodes_in_locus;
         for (int i = 0; i < l.allele_size(); ++i) {
             auto& allele = l.allele(i);
             for (int j = 0; j < allele.mapping_size(); ++j) {
                 auto& position = allele.mapping(j).position();
                 nodes_in_locus.insert(position.node_id());
+            }
+            // for position in mapping
+            map<pos_t, int> ref_positions;
+            map<int, Edit> edits;
+            decompose(allele, ref_positions, edits);
+            // warning: uses only reference positions!!!
+            for (auto& pos : ref_positions) {
+                pos_to_loci[pos.first].insert(l.name());
+                locus_to_pos[l.name()].insert(pos.first);
             }
         }
         // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
@@ -8786,14 +8820,53 @@ int main_locify(int argc, char** argv){
     if (!loci_file.empty()){
         ifstream ifi(loci_file);
         stream::for_each(ifi, lambda);
+    } else {
+        cerr << "[vg locify] Warning: empty locus file given, could not annotate alignments with loci." << endl;
     }
 
-    // barf PB structures {Alignment : list(Locus)} as JSON objects
-    //
+    // find the non-nested loci
+    vector<string> non_nested_loci;
+    for (auto& name : locus_names) {
+        // is it nested?
+        auto& positions = locus_to_pos[name];
+        int min_loci = 0;
+        for (auto& pos : positions) {
+            auto& loci = pos_to_loci[pos];
+            min_loci = (min_loci == 0 ? (int)loci.size() : min(min_loci, (int)loci.size()));
+        }
+        if (min_loci == 1) {
+            // not fully contained in any other locus
+            non_nested_loci.push_back(name);
+        }
+    }
+
+    // sort them using... ? ids?
+    sort(non_nested_loci.begin(), non_nested_loci.end(),
+         [&locus_to_pos](const string& s1, const string& s2) {
+             return *locus_to_pos[s1].begin() < *locus_to_pos[s2].begin();
+         });
+
+    if (!loci_out.empty()) {
+        ofstream outloci(loci_out);
+        for (auto& name : non_nested_loci) {
+            outloci << name << endl;
+        }
+        outloci.close();
+    }
+
     vector<Alignment> output_buf;
     for (auto& aln : alignments_with_loci) {
-        // TODO order the loci by their order in the alignment
-        output_buf.push_back(aln.second);
+        // TODO order the loci by their order in the alignments
+        if (forwardize) {
+            if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
+                output_buf.push_back(reverse_complement_alignment(aln.second,
+                                                                  [&xgidx](int64_t id) { return xgidx.node_length(id); }));
+            } else {
+                output_buf.push_back(aln.second);
+            }
+        } else {
+            output_buf.push_back(aln.second);
+        }
         stream::write_buffered(cout, output_buf, 100);
     }
     stream::write_buffered(cout, output_buf, 0);        
