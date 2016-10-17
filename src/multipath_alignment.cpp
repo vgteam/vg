@@ -36,109 +36,19 @@ namespace vg {
     // TODO: should I switch to a custom linked list implementation so that I can keep static locations
     // in the node-to-location map instead of iterators when I swap segments of haplotypes?
     
-    int32_t optimal_score_on_path(const MultipathAlignment& multipath_aln, const VG& graph, const list<NodeTraversal>& path,
-                                  const unordered_map<int64_t, vector<list<NodeTraversal>::iterator>& node_locations) {
+    void index_node_locations_on_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iterator>& node_locations_out) {
         
-        int32_t optimal_score = 0;
+        node_locations_out.clear();
         
-        // find the places in the path where the alignment might start
-        set<list<NodeTraversal>::iterator> candidate_start_positions;
-        for (int i = 0; i < multipath_aln.start_size(); i++) {
-            // a starting subpath in the multipath alignment
-            Subpath* start_subpath = multipath_aln.subpath(multipath_aln.start(i));
-            const Position& start_pos = start_subpath.path().mapping(0).position();
-            
-            // add each location the start nodes occur in the path to the candidate starts
-            if (node_locations.count(start_pos.node_id())) {
-                const vector<list<NodeTraversal>::iterator>& subpath_matches = node_locations[start_pos.node_id()]
-                candidate_start_positions.insert(subpath_matches.begin(), subpath_matches.end());
+        for (list<NodeTraversal>::iterator iter = path.begin(); iter != path.end(); iter++) {
+            int64_t node_id = (*iter).node->id();
+            if (node_locations_out.count(node_id)) {
+                node_locations_out[node_id].push_back(iter);
+            }
+            else {
+                node_locations_out[node_id] = vector<list<NodeTraversal>::iterator>(1, iter);
             }
         }
-        
-        // check alignments starting at each node in the path that has a source subpath starting on it
-        for (list<NodeTraversal>::iterator& path_start_node : candidate_start_positions) {
-            
-            // match up forward and backward traversal on the path to forward and backward traversal through
-            // the multipath alignment
-            auto move_forward = [path](list<NodeTraversal>::iterator& path_node) { path_node++; };
-            auto move_backward = [path](list<NodeTraversal>::iterator& path_node) {
-                if (path_node == path.begin()) {
-                    path_node = path.end();
-                }
-                else {
-                    path--;
-                }
-            };
-            if (start_pos.is_reverse() != (*path_node).backward) {
-                swap(move_forward, move_backward);
-            }
-            
-            // initialize 2 dynamic programming structures:
-            // pointer to place in path corresponding to the beginning of a subpath
-            vector<list<NodeTraversal>::iterator> subpath_nodes = vector<list<NodeTraversal>::iterator>(multipath_aln.subpath_size(),
-                                                                                                        path.end());
-            // score of the best preceding path before this subpath
-            vector<int32_t> subpath_prefix_score = vector<int32_t>(multipath_aln.subpath_size(), 0);
-            
-            // set DP base case with the subpaths that start at this path node
-            for (int i = 0; i < multipath_aln.start_size(); i++) {
-                Subpath* start_subpath = multipath_aln.subpath(multipath_aln.start(i));
-                const Position& start_pos = first_path_position(start_subpath.path());
-                
-                if (start_pos.node_id() == (*path_start_node).node->id()) {
-                    subpath_nodes[multipath_aln.start(i)] = path_start_node;
-                }
-            }
-            
-            for (int i = 0; i < multipath_aln.subpath_size(); i++) {
-                list<NodeTraversal>::iterator subpath_node = subpath_nodes[i];
-                
-                // this subpath may be unreachable from subpaths consistent with the path
-                if (subpath_node == path.end()) {
-                    continue;
-                }
-                
-                const Subpath& subpath = multipath_aln.subpath(i);
-                
-                // iterate through mappings in this subpath (assumes one mapping per node)
-                bool subpath_follows_path = true;
-                for (int j = 0; j < subpath.path().mapping_size(); j++, move_forward(subpath_node)) {
-                    // check if mapping corresponds to the next node in the path
-                    if (subpath.path().mapping(j).position().node_id() != (*subpath_node).node->id()) {
-                        subpath_follows_path = false;
-                        break;
-                    }
-                }
-                
-                // update subsequent subpaths or record completed alignment if this subpath didn't fall off the path
-                if (subpath_follows_path) {
-                    int32_t extended_prefix_score = subpath_prefix_score[j] + subpath.score();
-                    if (subpath.next_size() == 0) {
-                        // reached a sink subpath (thereby completing an alignment), check for optimality
-                        if (extended_prefix_score > optimal_score) {
-                            optimal_score = extended_prefix_score;
-                        }
-                    }
-                    else {
-                        // edge case: check if subpath_node was improperly incremented from a mapping that ended in the
-                        // middle of a node
-                        Position end_pos = last_path_position(subpath.path());
-                        if (end_pos.offset() != graph.get_node(end_pos.node_id())->sequence().length()) {
-                            move_backward(subpath_node);
-                        }
-                        
-                        for (int j = 0; j < subpath.next_size(); j++) {
-                            if (subpath_prefix_score[subpath.next(j)] < extended_prefix_score) {
-                                subpath_prefix_score[subpath.next(j)] = extended_prefix_score;
-                                subpath_nodes[subpath.next(j)] = subpath_node;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        return optimal_score;
     }
     
     void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out) {

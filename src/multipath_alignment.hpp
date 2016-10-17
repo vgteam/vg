@@ -26,20 +26,9 @@ namespace vg {
     // them in the 'start' field of the MultipathAlignment
     void identify_start_subpaths(MultipathAlignment& multipath_aln)
     
-    // returns the score of the highest scoring alignment contained in the multipath alignment
-    // that is restricted to the path or 0 if there is no such alignment exists
-    //
-    // note: assumes that MultipathAlignment has 'start' field filled in
-    //
-    //  Args:
-    //    multipath_aln     multipath alignment to score
-    //    graph             graph against which the read was aligned
-    //    path              path to restrict multipath alignment to
-    //    node_locations    map from nodes to their location(s) in the path
-    //
-    int32_t optimal_score_on_path(const MultipathAlignment& multipath_aln, const VG& graph,
-                                  const list<NodeTraversal>& path,
-                                  const unordered_map<Node* vector<list<NodeTraversal>::iterator>& node_locations);
+    // TODO: document once this is stable
+    void index_node_locations_on_path(list<NodeTraversal>& path,
+                                      vector<list<NodeTraversal>::iterator>& node_locations_out);
     
     // stores the highest scoring alignment contained in the MultipathAlignment in an Alignment
     //
