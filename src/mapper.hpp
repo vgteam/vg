@@ -66,47 +66,44 @@ public:
 class MEMMarkovModel {
 public:
     // the MEMs
-    const vector<MaximalExactMatch>& matches;
+    vector<MaximalExactMatch>& matches;
     struct MEMMarkovModelVertex {
         MaximalExactMatch* mem;
         // maps from weights
-        map<MEMMarkovModelVertex*, double> next_cost;
-        map<MEMMarkovModelVertex*> prev_score;
-        //vector<pair<double, MEMMarkovModelVertex*> > prev;
-        double score; // not clear if needed
+        vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
+        vector<MEMMarkovModelVertex*> prev; // for traceback
+        double score;
     };
     vector<MEMMarkovModelVertex> model;
     // function to build
-    MEMMarkovModel(const vector<MaximalExactMatch>& mts,
+    MEMMarkovModel(vector<MaximalExactMatch>& mts,
                    function<pair<double, bool>(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight)
         : matches(mts) {
-        for (auto& mem : matches) {
+        for (vector<MaximalExactMatch>::iterator m = matches.begin(); m != matches.end(); ++m) {
             // store the MEMs in the model
             MEMMarkovModelVertex memmm;
-            memmm.mem = &mem;
+            memmm.mem = &*m;
         }
-        for (auto::iterator m = model.begin(); m != model.end(); ++m) {
+        for (vector<MEMMarkovModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
             // fill the nexts using banding constraints
             // banding means we stop looking along the MEMs when the score_transition function returns value/false
             // as a result changing the score function to return 0 at a given threshold induces local banding
             auto n = m;
             ++n;
             while (n != model.end()) {
-                pair<double, bool> weight = transition_weight(m->mem, n->mem);
+                // todo how do we handle MEMs at the same starting position
+                // these are duplicates which we need to introduce...
+                pair<double, bool> weight = transition_weight(*m->mem, *n->mem);
                 if (!weight.second) break; // band exhausted
-                weight.first;
+                m->next_cost.push_back(make_pair(&*n, weight.first));
+                n->prev.push_back(&*m);
                 ++n;
             } 
-            /*
-                // record in the nexts of m
-                m.next.push_back(make_pair(score, n));
-                // step to the next
-                ++n;
-                
-            }
-            */
-            // sort the nexts.... why?
-            
+            // sort the nexts to make later traversal easier
+            sort(m->next_cost.begin(), m->next_cost.end(),
+                 [](const pair<MEMMarkovModelVertex*, double>& x,
+                    const pair<MEMMarkovModelVertex*, double>& y)
+                 { return x.second < y.second; });
         }
     }
     // function to extract best hits
