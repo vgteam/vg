@@ -63,6 +63,57 @@ public:
 
 };
 
+class MEMMarkovModel {
+public:
+    // the MEMs
+    const vector<MaximalExactMatch>& matches;
+    struct MEMMarkovModelVertex {
+        MaximalExactMatch* mem;
+        // maps from weights
+        map<MEMMarkovModelVertex*, double> next_cost;
+        map<MEMMarkovModelVertex*> prev_score;
+        //vector<pair<double, MEMMarkovModelVertex*> > prev;
+        double score; // not clear if needed
+    };
+    vector<MEMMarkovModelVertex> model;
+    // function to build
+    MEMMarkovModel(const vector<MaximalExactMatch>& mts,
+                   function<pair<double, bool>(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight)
+        : matches(mts) {
+        for (auto& mem : matches) {
+            // store the MEMs in the model
+            MEMMarkovModelVertex memmm;
+            memmm.mem = &mem;
+        }
+        for (auto::iterator m = model.begin(); m != model.end(); ++m) {
+            // fill the nexts using banding constraints
+            // banding means we stop looking along the MEMs when the score_transition function returns value/false
+            // as a result changing the score function to return 0 at a given threshold induces local banding
+            auto n = m;
+            ++n;
+            while (n != model.end()) {
+                pair<double, bool> weight = transition_weight(m->mem, n->mem);
+                if (!weight.second) break; // band exhausted
+                weight.first;
+                ++n;
+            } 
+            /*
+                // record in the nexts of m
+                m.next.push_back(make_pair(score, n));
+                // step to the next
+                ++n;
+                
+            }
+            */
+            // sort the nexts.... why?
+            
+        }
+    }
+    // function to extract best hits
+    //  --- walk through the best
+    //      but remove it and re-score (?)
+};
+
 
 class Mapper {
 

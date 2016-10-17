@@ -873,6 +873,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     
     // sort by position, make the SMEM node list only contain the matched position
     map<pair<string, bool>, map<int, vector<pair<MaximalExactMatch*, gcsa::node_type> > > > by_start_pos;
+    // 
+    //map<int, vector<pair<MaximalExactMatch*, gcsa::node_type> > > by_read_pos;
 
     // run through the mems
     // collecting their positions relative to the forward path
@@ -916,6 +918,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 
+    // go through the ordered MEMs
+    // build the clustering model
+    // find the alignments that are the best-scoring walks through it
+    
+    
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
     vector<vector<MaximalExactMatch> > clusters;
     // for each path and orientation
@@ -2864,7 +2871,6 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     if (mem_threading && xindex->max_path_rank()) {
         return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps);
     } else {
-        cerr << xindex->max_path_rank() << endl;
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
     }
 
