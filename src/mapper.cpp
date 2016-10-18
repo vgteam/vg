@@ -869,6 +869,7 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
 vector<Alignment>
 Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
+    auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + additional_multimaps;
     
     // sort by position, make the SMEM node list only contain the matched position
@@ -921,7 +922,22 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // go through the ordered MEMs
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
-    
+    /*
+    MEMMarkovModel markov_model(mems,
+                                [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+                                    double weight;
+                                    // find the difference in m1.end and m2.begin
+                                    // find the positional difference in the graph between m1.end and m2.begin
+                                    for (auto& node : mem.nodes) {
+                                        id_t id = gcsa::Node::id(node);
+                                        size_t offset = gcsa::Node::offset(node);
+                                        bool is_rev = gcsa::Node::rc(node);
+                                        //cerr << "on " << id << (is_rev ? "-" : "+") << ":" << offset << endl;
+                                        for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
+                                        }
+                                    return make_pair(weight, (weight > threshold));
+                                });
+    */
     
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
     vector<vector<MaximalExactMatch> > clusters;
