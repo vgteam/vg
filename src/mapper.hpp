@@ -106,6 +106,31 @@ public:
                  { return x.second < y.second; });
         }
     }
+    // show model
+    void display(ostream& out) {
+        for (auto& vertex : model) {
+            out << vertex.mem->sequence() << " ";
+            for (auto& node : vertex.mem->nodes) {
+                id_t id = gcsa::Node::id(node);
+                size_t offset = gcsa::Node::offset(node);
+                bool is_rev = gcsa::Node::rc(node);
+                out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+            }
+            out << "next: ";
+            for (auto& p : vertex.next_cost) {
+                auto& next = p.first;
+                out << p.second << "@";
+                for (auto& node : next->mem->nodes) {
+                    id_t id = gcsa::Node::id(node);
+                    size_t offset = gcsa::Node::offset(node);
+                    bool is_rev = gcsa::Node::rc(node);
+                    out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+                }
+                out << " ; ";
+            }
+            out << endl;
+        }
+    }
     // function to extract best hits
     //  --- walk through the best
     //      but remove it and re-score (?)
