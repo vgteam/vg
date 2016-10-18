@@ -88,7 +88,7 @@ public:
     vector<MEMMarkovModelVertex> model;
     // function to build
     MEMMarkovModel(const vector<MaximalExactMatch>& matches,
-                   function<pair<double, bool>(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight) {
+                   const function<pair<double, bool>(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight) {
         // store the MEMs in the model
         for (auto& mem : matches) {
             // copy the MEM for each specific hit in the base graph

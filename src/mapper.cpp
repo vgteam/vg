@@ -922,22 +922,54 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // go through the ordered MEMs
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
-    /*
-    MEMMarkovModel markov_model(mems,
-                                [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-                                    double weight;
-                                    // find the difference in m1.end and m2.begin
-                                    // find the positional difference in the graph between m1.end and m2.begin
-                                    for (auto& node : mem.nodes) {
-                                        id_t id = gcsa::Node::id(node);
-                                        size_t offset = gcsa::Node::offset(node);
-                                        bool is_rev = gcsa::Node::rc(node);
-                                        //cerr << "on " << id << (is_rev ? "-" : "+") << ":" << offset << endl;
-                                        for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
-                                        }
-                                    return make_pair(weight, (weight > threshold));
-                                });
-    */
+    int MAX_DISTANCE = 1e6;
+    double threshold = aln.sequence().size() * aligner->match;
+    auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+        // find the difference in m1.end and m2.begin
+        // find the positional difference in the graph between m1.end and m2.begin
+        auto graph_positions = [&](const MaximalExactMatch& mem) {
+            map<pair<string, bool>, vector<int> > positions;
+            // assert that the MEMs we are getting have been made single-node
+            assert(mem.nodes.size() == 1);
+            auto node = mem.nodes.front();
+            id_t id = gcsa::Node::id(node);
+            size_t offset = gcsa::Node::offset(node);
+            bool is_rev = gcsa::Node::rc(node);
+            // take the min?
+            for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
+                auto& name = ref.first;
+                auto chrom = make_pair(name, is_rev);
+                for (auto pos : ref.second) {
+                    positions[chrom].push_back(pos+offset);
+                }
+            }                                        
+            return positions;
+        };
+        auto m1_pos = graph_positions(m1);
+        auto m2_pos = graph_positions(m2);
+        // take as graph distance the minimum distance that we find in any of the chroms
+        // if we are never in the same chrom, then set a really high weight (MAX_DISTANCE)
+        int distance = MAX_DISTANCE;
+        for (auto& c : m1_pos) {
+            auto p = m2_pos.find(c.first);
+            if (p != m2_pos.end()) {
+                // this O(NM) loop could get nasty could get nasty if there are cycling paths
+                for (auto& pos1 : c.second) {
+                    for (auto& pos2 : p->second) {
+                        distance = min(distance, pos2 - pos1);
+                    }
+                }
+            }
+            // TODO detect and score inversions and reversals
+        }
+        double weight = (abs(m2.begin - m1.end) + abs(distance)) * aligner->gap_extension;
+        return make_pair(weight, (weight > threshold));
+    };
+
+    // build the model
+    MEMMarkovModel markov_model(mems, transition_weight);
+
+    if (debug) markov_model.display(cerr);
     
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
     vector<vector<MaximalExactMatch> > clusters;
