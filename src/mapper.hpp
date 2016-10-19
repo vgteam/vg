@@ -66,7 +66,7 @@ public:
     MaximalExactMatch(MaximalExactMatch&&) = default;                    // Move constructor
     MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // MaximalExactMatchopy assignment operator
     MaximalExactMatch& operator=(MaximalExactMatch&&) & = default;       // Move assignment operator
-    virtual ~MaximalExactMatch() { }                     // Destructor
+    //virtual ~MaximalExactMatch() { }                     // Destructor
 
 };
 
@@ -83,7 +83,7 @@ public:
         MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
         MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
         MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
-        virtual ~MEMMarkovModelVertex() { }                     // Destructor
+        //virtual ~MEMMarkovModelVertex() { }                     // Destructor
     };
     vector<MEMMarkovModelVertex> model;
     // function to build

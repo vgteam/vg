@@ -963,7 +963,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             // TODO detect and score inversions and reversals
         }
         double weight = (abs(m2.begin - m1.end) + abs(distance)) * aligner->gap_extension;
-        return make_pair(weight, (weight > threshold));
+        //return make_pair(weight, (weight > threshold));
+        return make_pair(weight, true);//(weight < threshold));
     };
 
     // build the model
