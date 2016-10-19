@@ -1,9 +1,5 @@
 //
 //  multipath_alignment.cpp
-//  
-//
-//  Created by Jordan Eizenga on 10/10/16.
-//
 //
 
 #include "multipath_alignment.hpp"
@@ -33,29 +29,11 @@ namespace vg {
         }
     }
     
-    // TODO: should I switch to a custom linked list implementation so that I can keep static locations
-    // in the node-to-location map instead of iterators when I swap segments of haplotypes?
-    
-    void index_node_locations_on_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iterator>& node_locations_out) {
-        
-        node_locations_out.clear();
-        
-        for (list<NodeTraversal>::iterator iter = path.begin(); iter != path.end(); iter++) {
-            int64_t node_id = (*iter).node->id();
-            if (node_locations_out.count(node_id)) {
-                node_locations_out[node_id].push_back(iter);
-            }
-            else {
-                node_locations_out[node_id] = vector<list<NodeTraversal>::iterator>(1, iter);
-            }
-        }
-    }
-    
     void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out) {
         
         // transfer read information over to alignment
         aln_out.set_sequence(multipath_aln.sequence());
-        aln_out.set_quality(multipath_aln.set_quality());
+        aln_out.set_quality(multipath_aln.quality());
         aln_out.set_name(multipath_aln.name());
         aln_out.set_sample_name(multipath_aln.sample_name());
         aln_out.set_read_group(multipath_aln.read_group());
@@ -67,21 +45,16 @@ namespace vg {
         // previous subpath for traceback (we refer to subpaths by their index)
         vector<int> prev_subpath = vector<int>(multipath_aln.subpath_size());
         
-        // identify source nodes if necessary
-        if (multipath_aln.start_size() == 0) {
-            identify_start_subpaths(multipath_aln);
-        }
-        
         // add sentinel for alignment start as base case
         for (int i = 0; i < multipath_aln.start_size(); i++) {
             prev_subpath[multipath_aln.start(i)] = -1;
         }
         
         int opt_score = 0;
-        int opt_subpath = 0; we refer to subpaths by their index
+        int opt_subpath = 0; // we refer to subpaths by their index
         
         for (int i = 0; i < multipath_aln.subpath_size(); i++) {
-            const Subpath subpath& = multipath_aln.subpath(i);
+            const Subpath& subpath = multipath_aln.subpath(i);
             int32_t extended_score = prefix_score[i] + subpath.score();
             // are there outgoing subpaths?
             if (subpath.next_size() > 0) {
@@ -98,20 +71,20 @@ namespace vg {
                 // check if optimal alignment ends here
                 if (extended_score > opt_score) {
                     opt_score = extended_score;
-                    final_subpath = i;
+                    opt_subpath = i;
                 }
             }
         }
         
         // traceback the optimal subpaths until hitting sentinel (-1)
-        vector<Path*> optimal_path_chunks;
+        vector<const Path*> optimal_path_chunks;
         while (opt_subpath >= 0) {
-            optimal_path_chunks.push_back(multipath_aln.subpath(opt_subpath).mutable_path());
+            optimal_path_chunks.push_back(&(multipath_aln.subpath(opt_subpath).path()));
             opt_subpath = prev_subpath[opt_subpath];
         }
         
         // merge the subpaths into one optimal path in the Alignment object
-        aln_out.set_path(*(optimal_path_chunks[0]));
+        *(aln_out.mutable_path()) = *(optimal_path_chunks[0]);
         Path* opt_path = aln_out.mutable_path();
         for (int i = 1; i < optimal_path_chunks.size(); i++) {
             Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
@@ -121,17 +94,17 @@ namespace vg {
             const Mapping& next_start_mapping = next_path.mapping(0);
             
             // merge mappings if they occur on the same node and same strand
-            if (curr_end_mapping->position().node_id() == next_start_mapping->position().node_id()
-                && curr_end_mapping->position().is_reverse() == next_start_mapping->position().is_reverse()) {
-                *curr_end_mapping = concat_mappings(*curr_end_mapping, *next_start_mapping);
+            if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
+                && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                *curr_end_mapping = concat_mappings(*curr_end_mapping, next_start_mapping);
             }
             else {
-                opt_path.add_mapping(next_start_mapping);
+                *(opt_path->add_mapping()) = next_start_mapping;
             }
             
             // append the rest of the mappings
             for (int j = 1; j < next_path.mapping_size(); j++) {
-                opt_path->add_mapping(next_path.mapping(j));
+                *(opt_path->add_mapping()) = next_path.mapping(j);
             }
         }
     }
@@ -150,7 +123,7 @@ namespace vg {
     inline void rev_comp_subpath(const Subpath& subpath, const function<int64_t(int64_t)>& node_length,
                           Subpath& rev_comp_out) {
         
-        rev_comp_out.set_path(reverse_complement_path(subpath.path(), node_length))
+        *(rev_comp_out.mutable_path()) = reverse_complement_path(subpath.path(), node_length);
         rev_comp_out.set_score(subpath.score());
         // leave reversing the edges to the multipath alignment
     }
@@ -163,7 +136,7 @@ namespace vg {
         // reverse base qualities
         rev_comp_out.set_quality(string(multipath_aln.quality().rbegin(), multipath_aln.quality().rend()));
         
-        vector<vector<int>> reverse_edge_lists = vector<vector<size_t>>(multipath_aln.subpath_size());
+        vector< vector<int> > reverse_edge_lists = vector< vector<int> >(multipath_aln.subpath_size());
         vector<int> reverse_starts;
         
         // remove subpaths to avoid duplicating
@@ -172,8 +145,8 @@ namespace vg {
         // add subpaths in reverse order to maintain topological ordering
         for (int i = multipath_aln.subpath_size() - 1; i >= 0; i--) {
             const Subpath& subpath = multipath_aln.subpath(i);
-            Subpath* rev_comp_subpath = rev_comp_out.add_subpath();
-            rev_comp_subpath(subpath, *rev_comp_subpath);
+            Subpath* rc_subpath = rev_comp_out.add_subpath();
+            rev_comp_subpath(subpath, node_length, *rc_subpath);
             
             if (subpath.next_size() > 0) {
                 // collect edges by their target (for reversing)
@@ -189,10 +162,10 @@ namespace vg {
         
         // add reversed edges
         for (int i = 0; i < multipath_aln.subpath_size(); i++) {
-            Subpath* rev_comp_subpath = rev_comp_out.mutable_subpath(i);
-            vector<int>& reverse_edge_list = reverse_edge_lists[i]
+            Subpath* rc_subpath = rev_comp_out.mutable_subpath(i);
+            vector<int>& reverse_edge_list = reverse_edge_lists[i];
             for (int j = 0; j < reverse_edge_list.size(); j++) {
-                rev_comp_subpath->add_next(reverse_edge_list[j]);
+                rc_subpath->add_next(reverse_edge_list[j]);
             }
         }
         

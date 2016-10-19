@@ -73,6 +73,9 @@ struct NestedSite {
     NodeTraversal start;
     NodeTraversal end;
     
+    inline bool operator==(const NestedSite& other) const {
+        return start == other.start && end == other.end;
+    }
 };
 
 // For genotypes we use the protobuf Genotype object, in the context of the

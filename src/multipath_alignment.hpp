@@ -1,9 +1,7 @@
 //
 //  multipath_alignment.hpp
-//  
 //
-//  Created by Jordan Eizenga on 10/10/16.
-//
+// utility functions for the MultipathAlignment protobuf object
 //
 
 #ifndef multipath_alignment_hpp
@@ -24,15 +22,12 @@ namespace vg {
     
     // finds the start subpaths (i.e. the source nodes of the multipath DAG) and stores
     // them in the 'start' field of the MultipathAlignment
-    void identify_start_subpaths(MultipathAlignment& multipath_aln)
-    
-    // TODO: document once this is stable
-    void index_node_locations_on_path(list<NodeTraversal>& path,
-                                      vector<list<NodeTraversal>::iterator>& node_locations_out);
+    void identify_start_subpaths(MultipathAlignment& multipath_aln);
     
     // stores the highest scoring alignment contained in the MultipathAlignment in an Alignment
     //
-    // note: assumes that each subpath's Path object uses one Mapping per node
+    // note: assumes that each subpath's Path object uses one Mapping per node and that
+    // subpaths have been identified
     //
     //  Args:
     //    multipath_aln     multipath alignment to find optimal path through
