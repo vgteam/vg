@@ -62,11 +62,12 @@ SHA1_DIR:=deps/sha1
 DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
+DYNAMIC_FLAGS=-ljemalloc
 
 .PHONY: clean get-deps test set-path static .pre-build
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(DYNAMIC_FLAGS) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
