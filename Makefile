@@ -37,7 +37,7 @@ endif
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o
+OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o $(OBJ_DIR)/multipath_alignment.o $(OBJ_DIR)/phased_genome.o 
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o
@@ -186,7 +186,7 @@ $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
 
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
 
-$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc src/vg.proto
+$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)
 
@@ -276,6 +276,12 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+$(OBJ_DIR)/phased_genome.o: $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/phased_genome.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+$(OBJ_DIR)/multipath_alignment.o: $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/multipath_alignment.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 ###################################
