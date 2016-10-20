@@ -201,10 +201,7 @@ void help_filter(char** argv) {
          << "options:" << endl
          << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
-         << "    -d, --min-sec-delta N   mininum (primary - secondary) score delta to keep secondary alignment [default=0]" << endl
-         << "    -e, --min-pri-delta N   minimum (primary - secondary) score delta to keep primary alignment [default=0]" << endl
          << "    -f, --frac-score        normalize score based on length" << endl
-         << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
@@ -216,8 +213,8 @@ void help_filter(char** argv) {
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
-         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl;
-    
+         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
+         << "    -t, --threads N         number of threads [1]" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -243,10 +240,7 @@ int main_filter(int argc, char** argv) {
             {
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
-                {"min-sec-delta", required_argument, 0, 'd'},
-                {"min-pri-delta", required_argument, 0, 'e'},
                 {"frac-score", required_argument, 0, 'f'},
-                {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -259,11 +253,12 @@ int main_filter(int argc, char** argv) {
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -278,17 +273,8 @@ int main_filter(int argc, char** argv) {
         case 'r':
             filter.min_primary = atof(optarg);
             break;
-        case 'd':
-            filter.min_sec_delta = atof(optarg);
-            break;
-        case 'e':
-            filter.min_pri_delta = atof(optarg);
-            break;
         case 'f':
             filter.frac_score = true;
-            break;
-        case 'a':
-            filter.frac_delta = true;
             break;
         case 'u':
             filter.sub_score = true;
@@ -325,6 +311,9 @@ int main_filter(int argc, char** argv) {
         case 'C':
             filter.defray_count = atoi(optarg);
             break;          
+        case 't':
+            filter.threads = atoi(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -338,6 +327,8 @@ int main_filter(int argc, char** argv) {
         }
     }
 
+    omp_set_num_threads(filter.threads);
+    
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
