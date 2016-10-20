@@ -109,7 +109,7 @@ def chunk_base_name(path_name, out_dir, chunk_i = None, tag= ""):
         bn += "-{}".format(chunk_i)
     return "{}{}".format(bn, tag)
 
-def chunk_gam(gam_path, xg_path, path_name, out_dir, chunks, filter_opts, overwrite):
+def chunk_gam(gam_path, xg_path, path_name, out_dir, chunks, filter_opts, threads, overwrite):
     """ use vg filter to chunk up the gam """
     # make bed chunks
     chunk_path = os.path.join(out_dir, path_name + "_chunks.bed")
@@ -120,9 +120,9 @@ def chunk_gam(gam_path, xg_path, path_name, out_dir, chunks, filter_opts, overwr
     if overwrite or not any(
             os.path.isfile(chunk_base_name(path_name, out_dir, i, ".gam")) \
                for i in range(len(chunks))):
-        run("vg filter {} -x {} -R {} -B {} {}".format(
+        run("vg filter {} -x {} -R {} -B {} {} -t {}".format(
             gam_path, xg_path, chunk_path,
-            os.path.join(out_dir, path_name + "-chunk"), filter_opts))
+            os.path.join(out_dir, path_name + "-chunk"), filter_opts, threads))
 
 def xg_path_node_id(xg_path, path_name, offset):
     """ use vg find to get the node containing a given path position """
@@ -297,7 +297,8 @@ def main(args):
     # split the gam in one go
     chunk_gam(options.gam_path, options.xg_path,
               options.path_name, options.out_dir,
-              chunks, options.filter_opts, options.overwrite)
+              chunks, options.filter_opts, options.threads,
+              options.overwrite)
 
     # call every chunk in series
     for chunk_i, chunk in enumerate(chunks):
