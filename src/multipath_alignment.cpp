@@ -37,6 +37,7 @@ namespace vg {
         aln_out.set_name(multipath_aln.name());
         aln_out.set_sample_name(multipath_aln.sample_name());
         aln_out.set_read_group(multipath_aln.read_group());
+        aln_out.set_mapping_quality(multipath_aln.mapping_quality());
         
         // initialize DP structures
         
@@ -84,13 +85,15 @@ namespace vg {
         }
         
         // merge the subpaths into one optimal path in the Alignment object
-        *(aln_out.mutable_path()) = *(optimal_path_chunks[0]);
+        auto iter = optimal_path_chunks.rbegin();
         Path* opt_path = aln_out.mutable_path();
-        for (int i = 1; i < optimal_path_chunks.size(); i++) {
+        *opt_path = *(*iter);
+        iter++;
+        for (int i = 0; iter != optimal_path_chunks.rend(); iter++, i++) {
             Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
             
             // get the first mapping of the next path
-            const Path& next_path = *(optimal_path_chunks[i]);
+            const Path& next_path = *(*iter);
             const Mapping& next_start_mapping = next_path.mapping(0);
             
             // merge mappings if they occur on the same node and same strand
@@ -107,6 +110,8 @@ namespace vg {
                 *(opt_path->add_mapping()) = next_path.mapping(j);
             }
         }
+        
+        aln_out.set_score(opt_score);
     }
     
     // stores the reverse complement of a Subpath in another Subpath
@@ -179,6 +184,27 @@ namespace vg {
                 rev_comp_out.add_start(reverse_starts[i]);
             }
         }
+    }
+    
+    void to_multipath_alignment(const Alignment& aln, MultipathAlignment& multipath_aln_out) {
+        
+        // clear repeated fields
+        multipath_aln_out.clear_subpath();
+        multipath_aln_out.clear_start();
+        
+        // transfer read and alignment metadata
+        multipath_aln_out.set_sequence(aln.sequence());
+        multipath_aln_out.set_quality(aln.quality());
+        multipath_aln_out.set_read_group(aln.read_group());
+        multipath_aln_out.set_name(aln.name());
+        multipath_aln_out.set_sample_name(aln.sample_name());
+        multipath_aln_out.set_mapping_quality(aln.mapping_quality());
+        
+        // transfer alignment and score
+        Subpath* subpath = multipath_aln_out.add_subpath();
+        subpath->set_score(aln.score());
+        *(subpath->mutable_path()) = aln.path();
+        
     }
 }
 

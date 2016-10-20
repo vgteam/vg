@@ -38,8 +38,6 @@ namespace vg {
     
     // stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     //
-    // note: read name, sample, and read group are not copied to the reverse complement
-    //
     //  Args:
     //    multipath_aln     multipath alignment to reverse complement
     //    node_length       a function that returns the length of a node sequence from its node ID
@@ -49,6 +47,14 @@ namespace vg {
     void rev_comp_multipath_alignment(const MultipathAlignment& multipath_aln,
                                       const function<int64_t(int64_t)>& node_length,
                                       MultipathAlignment& rev_comp_out);
+    
+    // converts a Alignment into a Multipath alignment with one Subpath and stores it in an object
+    //
+    //  Args:
+    //    aln               alignment to convert
+    //    multipath_aln     empty multipath alignment to store converted alignment in (data may be
+    //                      be overwritten if not empty)
+    void to_multipath_alignment(const Alignment& aln, MultipathAlignment& multipath_aln_out);
 }
 
 
