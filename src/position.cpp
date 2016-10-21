@@ -207,7 +207,7 @@ set<pos_t> xg_cached_next_pos(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& no
 }
 
 int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum) {
-
+    if (pos1 == pos2) return 0;
     set<pos_t> seen;
     set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
     int distance = 0;
@@ -216,10 +216,13 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Nod
         for (auto& next : nexts) {
             if (!seen.count(next)) {
                 seen.insert(next);
-                todo.insert(next);
+                //set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
                 if (next == pos2) {
                     todo.clear();
-                    break;
+                    return distance+1;
+                }
+                for (auto& x : xg_cached_next_pos(next, xgidx, node_cache)) {
+                    todo.insert(x);
                 }
             }
         }
@@ -231,7 +234,7 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Nod
         ++distance;
     }
 
-    return distance;
+    return maximum;
 }
 
 }
