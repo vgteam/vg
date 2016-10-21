@@ -277,30 +277,33 @@ pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_na
 
     list<Mapping>& path = graph.paths.get_path(path_name);
     
-    NodeSide source(path.front().position().node_id(), true);
-    NodeSide sink(path.back().position().node_id(), false);
+    NodeSide source(path.front().position().node_id(), !path.front().position().is_reverse());
+    NodeSide sink(path.back().position().node_id(), path.back().position().is_reverse());
     
     // search context of path ends for actual head and tail nodes
-    function<pair<id_t, id_t>(id_t)> find_endpoints = [&](id_t node_id) -> pair<id_t, id_t> {
+    function<pair<id_t, id_t>(id_t, pair<id_t, id_t>)> find_endpoints =
+       [&](id_t node_id, pair<id_t, id_t> other_ends) -> pair<id_t, id_t> {
         pair<id_t, id_t> found_ends(graph.is_head_node(node_id) ? node_id : 0,
                                     graph.is_tail_node(node_id) ? node_id : 0);
         VG context;
         graph.nonoverlapping_node_context_without_paths(graph.get_node(node_id), context);
         graph.expand_context(context, steps, false);
         context.for_each_node([&](Node* node) {
-                if (found_ends.first == 0 && graph.is_head_node(node->id())) {
+                if (found_ends.first == 0 && other_ends.first != node->id() &&
+                    graph.is_head_node(node->id())) {
                     // todo: pick best from many?
                     found_ends.first = node->id();
                 }
-                if (found_ends.second == 0 && graph.is_tail_node(node->id())) {
+                if (found_ends.second == 0 && other_ends.second != node->id() &&
+                    graph.is_tail_node(node->id())) {
                     found_ends.second = node->id();
                 }
             });
         return found_ends;
     };
 
-    auto source_ends = find_endpoints(source.node);
-    auto sink_ends = find_endpoints(sink.node);
+    auto source_ends = find_endpoints(source.node, pair<id_t, id_t>(0, 0));
+    auto sink_ends = find_endpoints(sink.node, source_ends);
 
     // favour  head/tail or tail/head matchup
     if (source_ends.first > 0 && sink_ends.second > 0) {

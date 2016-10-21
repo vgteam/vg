@@ -201,10 +201,7 @@ void help_filter(char** argv) {
          << "options:" << endl
          << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
-         << "    -d, --min-sec-delta N   mininum (primary - secondary) score delta to keep secondary alignment [default=0]" << endl
-         << "    -e, --min-pri-delta N   minimum (primary - secondary) score delta to keep primary alignment [default=0]" << endl
          << "    -f, --frac-score        normalize score based on length" << endl
-         << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
@@ -215,7 +212,9 @@ void help_filter(char** argv) {
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
+         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
+         << "    -t, --threads N         number of threads [1]" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -241,10 +240,7 @@ int main_filter(int argc, char** argv) {
             {
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
-                {"min-sec-delta", required_argument, 0, 'd'},
-                {"min-pri-delta", required_argument, 0, 'e'},
                 {"frac-score", required_argument, 0, 'f'},
-                {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -256,11 +252,13 @@ int main_filter(int argc, char** argv) {
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
+                {"defray-count", required_argument, 0, 'C'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -275,17 +273,8 @@ int main_filter(int argc, char** argv) {
         case 'r':
             filter.min_primary = atof(optarg);
             break;
-        case 'd':
-            filter.min_sec_delta = atof(optarg);
-            break;
-        case 'e':
-            filter.min_pri_delta = atof(optarg);
-            break;
         case 'f':
             filter.frac_score = true;
-            break;
-        case 'a':
-            filter.frac_delta = true;
             break;
         case 'u':
             filter.sub_score = true;
@@ -319,6 +308,12 @@ int main_filter(int argc, char** argv) {
         case 'D':
             filter.defray_length = atoi(optarg);
             break;
+        case 'C':
+            filter.defray_count = atoi(optarg);
+            break;          
+        case 't':
+            filter.threads = atoi(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -332,6 +327,8 @@ int main_filter(int argc, char** argv) {
         }
     }
 
+    omp_set_num_threads(filter.threads);
+    
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
@@ -1177,7 +1174,7 @@ void help_call(char** argv) {
          << "    -l, --length INT           override total sequence length in VCF" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
          << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
@@ -1228,14 +1225,14 @@ int main_call(int argc, char** argv) {
     // What should the total sequence length reported in the VCF header be?
     int64_t lengthOverride = -1;
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    double minFractionForCall = 0.2;
+    double minFractionForCall = 0;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 4;
+    double maxRefHetBias = 4;
     // How many times more bias do we allow for indels?
     double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
@@ -1383,7 +1380,7 @@ int main_call(int argc, char** argv) {
         case 'R':
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
-            maxRefBias = std::stod(optarg);
+            maxRefHetBias = std::stod(optarg);
             break;
         case 'M':
             // Set multiplier for bias limits for indels
@@ -1549,7 +1546,7 @@ int main_call(int argc, char** argv) {
                         pileupAnnotate ? pileup_file_name : string(),
                         minFractionForCall,
                         maxHetBias,
-                        maxRefBias,
+                        maxRefHetBias,
                         indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
