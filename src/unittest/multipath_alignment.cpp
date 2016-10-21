@@ -423,9 +423,6 @@ namespace vg {
             auto node_length = [&graph](int64_t node_id) { return graph.get_node(node_id)->sequence().length(); };
             rev_comp_multipath_alignment(multipath_aln, node_length, rc_multipath_aln);
             
-            cerr << "original:" << endl << pb2json(multipath_aln) << endl;
-            cerr << "rev comp:" << endl << pb2json(rc_multipath_aln) << endl;
-            
             // all subpaths preserved
             REQUIRE(rc_multipath_aln.subpath_size() == multipath_aln.subpath_size());
             
@@ -444,7 +441,7 @@ namespace vg {
             
             // offsets set correctly
             REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).position().offset() == 0);
-            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).position().offset() == 4);
+            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).position().offset() == 1);
             REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).position().offset() == 0);
             REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).position().offset() == 0);
             REQUIRE(rc_multipath_aln.subpath(4).path().mapping(0).position().offset() == 0);
