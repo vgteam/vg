@@ -70,133 +70,35 @@ public:
 
 };
 
+
+class MEMMarkovModelVertex {
+public:
+    MaximalExactMatch mem;
+    vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
+    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for traceback
+    double weight;
+    double score;
+    MEMMarkovModelVertex* prev;
+    MEMMarkovModelVertex(void) = default;                                      // Copy constructor
+    MEMMarkovModelVertex(const MEMMarkovModelVertex&) = default;               // Copy constructor
+    MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
+    MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
+    MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
+};
+
 class MEMMarkovModel {
 public:
-    class MEMMarkovModelVertex {
-    public:
-        MaximalExactMatch mem;
-        vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
-        vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for traceback
-        double weight;
-        double score;
-        MEMMarkovModelVertex* prev;
-        MEMMarkovModelVertex(void) = default;                                      // Copy constructor
-        MEMMarkovModelVertex(const MEMMarkovModelVertex&) = default;               // Copy constructor
-        MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
-        MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
-        MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
-        //virtual ~MEMMarkovModelVertex() { }                     // Destructor
-    };
     vector<MEMMarkovModelVertex> model;
-    // function to build
     MEMMarkovModel(
         const Alignment& aln,
         const vector<MaximalExactMatch>& matches,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-        int band_width = 10) {
-        // store the MEMs in the model
-        for (auto& mem : matches) {
-            // copy the MEM for each specific hit in the base graph
-            // and add it in as a vertex
-            for (auto& node : mem.nodes) {
-                //model.emplace_back();
-                //auto m = model.back();
-                MEMMarkovModelVertex m;
-                m.weight = (double) mem.length() / (double)aln.sequence().size();
-                m.prev = nullptr;
-                m.score = 0;
-                m.mem = mem;
-                m.mem.nodes.clear();
-                m.mem.nodes.push_back(node);
-                model.push_back(m);
-            }
-        }
-        for (vector<MEMMarkovModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
-            // fill the nexts using banding constraints
-            // banding means we stop looking along the MEMs when the score_transition function returns value/false
-            // as a result changing the score function to return 0 at a given threshold induces local banding
-            auto n = m;
-            ++n;
-            int i = 0;
-            while (n != model.end()) {
-                // skip past MEMs at the same position in the read
-                if (n->mem.begin == m->mem.begin) {
-                    ++n; continue;
-                    if (n == model.end()) break;
-                }
-                // todo how do we handle MEMs at the same starting position
-                // these are duplicates which we need to introduce...
-                double weight = transition_weight(m->mem, n->mem);
-                if (++i > band_width) break;
-                if (weight >= 0) {
-                    // save if we got a weight
-                    m->next_cost.push_back(make_pair(&*n, weight));
-                    n->prev_cost.push_back(make_pair(&*m, weight));
-                }
-                ++n;
-                ++i;
-            }
-            // sort the nexts to make later traversal easier
-            sort(m->next_cost.begin(), m->next_cost.end(),
-                 [](const pair<MEMMarkovModelVertex*, double>& x,
-                    const pair<MEMMarkovModelVertex*, double>& y)
-                 { return x.second < y.second; });
-        }
-        // propagate the scores in the model
-        for (auto& m : model) {
-            // score is equal to the max inbound + mem.weight
-            for (auto& p : m.prev_cost) {
-                double proposal = m.weight + p.second + p.first->score;
-                if (proposal > m.score) {
-                    m.prev = p.first;
-                    m.score = proposal;
-                }
-            }
-        }
-    }
-    // show model
-    void display(ostream& out) {
-        for (auto& vertex : model) {
-            out << vertex.mem.sequence() << " " << &vertex << ":" << vertex.score << "@";
-            for (auto& node : vertex.mem.nodes) {
-                id_t id = gcsa::Node::id(node);
-                size_t offset = gcsa::Node::offset(node);
-                bool is_rev = gcsa::Node::rc(node);
-                out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
-            }
-            out << "prev: ";
-            for (auto& p : vertex.prev_cost) {
-                auto& next = p.first;
-                out << p.first << ":" << p.second << "@";
-                for (auto& node : next->mem.nodes) {
-                    id_t id = gcsa::Node::id(node);
-                    size_t offset = gcsa::Node::offset(node);
-                    bool is_rev = gcsa::Node::rc(node);
-                    out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
-                }
-                out << " ; ";
-            }
-            out << " next: ";
-            for (auto& p : vertex.next_cost) {
-                auto& next = p.first;
-                out << p.first << ":" << p.second << "@";
-                for (auto& node : next->mem.nodes) {
-                    id_t id = gcsa::Node::id(node);
-                    size_t offset = gcsa::Node::offset(node);
-                    bool is_rev = gcsa::Node::rc(node);
-                    out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
-                }
-                out << " ; ";
-            }
-            out << endl;
-        }
-    }
-    // function to extract best hits
-    vector<MEMMarkovModelVertex*> viterbi_path(const set<MEMMarkovModelVertex*>& exclude) {
-        // find the best
-    }
-    //  --- walk through the best
-    //      but remove it and re-score (?)
+        int band_width = 10);
+    void score(const set<MEMMarkovModelVertex*>& exclude);
+    MEMMarkovModelVertex* max_vertex(void);
+    vector<vector<MaximalExactMatch> > traceback(int alt_alns);
+    void display(ostream& out);
+    void clear_scores(void);
 };
 
 

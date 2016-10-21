@@ -954,7 +954,13 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             && distance < aln.sequence().size()) {
             distance = graph_distance(m1_pos, m2_pos, aln.sequence().size());// - 1;// - m1.length();
             //cerr << distance << endl;
-            double weight = (double)1.0 / (double)(abs((m2.begin - m1.begin) - distance) + 1);
+            //double jump = (m2.begin - m1.begin) - distance;
+            //cerr << "distance " << distance << endl;
+            double weight = (double)1.0 / (double)(
+                abs(
+                    (m2.begin - m1.begin)
+                    - distance)
+                + 1);
             //cerr << weight << " ~ " << m2.begin - m1.begin << " " << distance << endl;
             return weight;
         } else {
@@ -964,9 +970,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
 
     // build the model
     MEMMarkovModel markov_model(aln, mems, transition_weight);
+    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps);
 
-    if (debug) markov_model.display(cerr);
-    
+    /*
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
     vector<vector<MaximalExactMatch> > clusters;
     // for each path and orientation
@@ -1020,6 +1026,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
         }
     }
+    */
 
     // todo cache this as sort will call it a lot
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
@@ -3829,6 +3836,165 @@ bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
 bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
     return m1.begin < m2.begin && m1.end < m2.end;
+}
+
+MEMMarkovModel::MEMMarkovModel(
+    const Alignment& aln,
+    const vector<MaximalExactMatch>& matches,
+    const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
+    int band_width) {
+    // store the MEMs in the model
+    for (auto& mem : matches) {
+        // copy the MEM for each specific hit in the base graph
+        // and add it in as a vertex
+        for (auto& node : mem.nodes) {
+            //model.emplace_back();
+            //auto m = model.back();
+            MEMMarkovModelVertex m;
+            m.weight = (double) mem.length() / (double)aln.sequence().size();
+            m.prev = nullptr;
+            m.score = 0;
+            m.mem = mem;
+            m.mem.nodes.clear();
+            m.mem.nodes.push_back(node);
+            model.push_back(m);
+        }
+    }
+    for (vector<MEMMarkovModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
+        // fill the nexts using banding constraints
+        // banding means we stop looking along the MEMs when the score_transition function returns value/false
+        // as a result changing the score function to return 0 at a given threshold induces local banding
+        auto n = m;
+        ++n;
+        int i = 0;
+        while (n != model.end()) {
+            // skip past MEMs at the same position in the read
+            if (n->mem.begin == m->mem.begin) {
+                ++n; continue;
+                if (n == model.end()) break;
+            }
+            // todo how do we handle MEMs at the same starting position
+            // these are duplicates which we need to introduce...
+            double weight = transition_weight(m->mem, n->mem);
+            if (++i > band_width) break;
+            if (weight >= 0) {
+                // save if we got a weight
+                m->next_cost.push_back(make_pair(&*n, weight));
+                n->prev_cost.push_back(make_pair(&*m, weight));
+            }
+            ++n;
+            ++i;
+        }
+        // sort the nexts to make later traversal easier
+        sort(m->next_cost.begin(), m->next_cost.end(),
+             [](const pair<MEMMarkovModelVertex*, double>& x,
+                const pair<MEMMarkovModelVertex*, double>& y)
+             { return x.second < y.second; });
+    }
+    //set<MEMMarkovModelVertex*> exclude; // empty set
+    //score(exclude);
+}
+
+void MEMMarkovModel::score(const set<MEMMarkovModelVertex*>& exclude) {
+    // propagate the scores in the model
+    for (auto& m : model) {
+        // score is equal to the max inbound + mem.weight
+        if (exclude.count(&m)) continue; // skip
+        m.score = m.weight; // base case
+        for (auto& p : m.prev_cost) {
+            double proposal = m.weight + p.second + p.first->score;
+            if (proposal > m.score) {
+                m.prev = p.first;
+                m.score = proposal;
+            }
+        }
+    }
+}
+
+MEMMarkovModelVertex* MEMMarkovModel::max_vertex(void) {
+    MEMMarkovModelVertex* maxv = nullptr;
+    for (auto& m : model) {
+        if (maxv == nullptr || m.score > maxv->score) {
+            maxv = &m;
+        }
+    }
+    return maxv;
+}
+
+void MEMMarkovModel::clear_scores(void) {
+    for (auto& m : model) {
+        m.score = 0;
+        m.prev = nullptr;
+    }
+}
+
+vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns) {
+    set<MEMMarkovModelVertex*> used;
+    vector<vector<MaximalExactMatch> > traces;
+    for (int i = 0; i < alt_alns; ++i) {
+        // score the model, accounting for excluded traces
+        clear_scores();
+        score(used);
+        display(cerr);
+        // find the maximum score
+        auto* vertex = max_vertex();
+        cerr << "is maximum " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
+        // make trace
+        vector<MEMMarkovModelVertex*> vertex_trace;
+        while (true) {
+            used.insert(vertex);
+            vertex_trace.push_back(vertex);
+            if (vertex->prev != nullptr) {
+                vertex = vertex->prev;
+            } else {
+                break;
+            }
+        }
+        traces.emplace_back();
+        auto& mem_trace = traces.back();
+        for (auto v = vertex_trace.rbegin(); v != vertex_trace.rend(); ++v) {
+            mem_trace.push_back((*v)->mem);
+        }
+    }
+    return traces;
+}
+
+// show model
+void MEMMarkovModel::display(ostream& out) {
+    for (auto& vertex : model) {
+        out << vertex.mem.sequence() << " " << &vertex << ":" << vertex.score << "@";
+        for (auto& node : vertex.mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            size_t offset = gcsa::Node::offset(node);
+            bool is_rev = gcsa::Node::rc(node);
+            out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+        }
+        out << "prev: ";
+        for (auto& p : vertex.prev_cost) {
+            auto& next = p.first;
+            out << p.first << ":" << p.second << "@";
+            for (auto& node : next->mem.nodes) {
+                id_t id = gcsa::Node::id(node);
+                size_t offset = gcsa::Node::offset(node);
+                bool is_rev = gcsa::Node::rc(node);
+                out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+            }
+            out << " ; ";
+        }
+        out << " next: ";
+        for (auto& p : vertex.next_cost) {
+            auto& next = p.first;
+            out << p.first << ":" << p.second << "@";
+            for (auto& node : next->mem.nodes) {
+                id_t id = gcsa::Node::id(node);
+                size_t offset = gcsa::Node::offset(node);
+                bool is_rev = gcsa::Node::rc(node);
+                out << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+            }
+            out << " ; ";
+        }
+        out << endl;
+    }
 }
 
 }
