@@ -7,6 +7,8 @@
 #include <omp.h>
 #include <cstring>
 #include <algorithm>
+#include <numeric>
+#include <cmath>
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
@@ -31,10 +33,18 @@ const std::string sha1head(const std::string& data, size_t head);
 
 bool allATGC(const string& s);
 string nonATGCNtoN(const string& s);
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
-string cigar_string(vector<pair<int, char> >& cigar);
-string mapping_string(const string& source, const Mapping& mapping);
 double median(std::vector<int> &v);
+double stdev(const std::vector<double>& v);
+
+template<typename T>
+double stdev(const T& v) {
+    double sum = std::accumulate(v.begin(), v.end(), 0.0);
+    double mean = sum / v.size();
+    std::vector<double> diff(v.size());
+    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) { return x - mean; });
+    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+    return std::sqrt(sq_sum / v.size());
+}
 
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
@@ -115,18 +125,18 @@ vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
  */
 template<typename Collection>
 typename Collection::value_type sum(const Collection& collection) {
-    
+
     // Set up an alias
     using Item = typename Collection::value_type;
-    
+
     // Make a new zero-valued item to hold the sum
     auto total = Item();
     for(auto& to_sum : collection) {
         total += to_sum;
     }
-    
+
     return total;
-    
+
 }
 
 /**
@@ -136,18 +146,18 @@ typename Collection::value_type sum(const Collection& collection) {
  */
 template<typename Collection>
 typename Collection::value_type logprob_sum(const Collection& collection) {
-    
+
     // Set up an alias
     using Item = typename Collection::value_type;
-    
+
     // Pull out the minimum value
     auto min_iterator = min_element(begin(collection), end(collection));
-    
+
     if(min_iterator == end(collection)) {
         // Nothing there, p = 0
         return Item(prob_to_logprob(0));
     }
-    
+
     auto check_iterator = begin(collection);
     ++check_iterator;
     if(check_iterator == end(collection)) {
@@ -155,22 +165,22 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
         // out because we'll get 0s.
         return *min_iterator;
     }
-    
+
     // Pull this much out of every logprob.
     Item pulled_out = *min_iterator;
-    
+
     if(logprob_to_prob(pulled_out) == 0) {
         // Can't divide by 0!
         // TODO: fix this in selection
         pulled_out = prob_to_logprob(1);
     }
-    
+
     Item total(0);
     for(auto& to_add : collection) {
         // Sum up all the scaled probabilities.
         total += logprob_to_prob(to_add - pulled_out);
     }
-    
+
     // Re-log and re-scale
     return pulled_out + prob_to_logprob(total);
 }
@@ -180,6 +190,7 @@ string tmpfilename(const string& base);
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
 // one.
 string get_or_make_variant_id(vcflib::Variant variant);
+string make_variant_id(vcflib::Variant variant);
 
 // Simple little tree
 template<typename T>
@@ -215,7 +226,6 @@ struct Tree {
     }
 
 };
-
 
 }
 

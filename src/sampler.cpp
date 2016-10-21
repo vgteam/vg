@@ -136,6 +136,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     // re-derive the alignment's sequence
     mutaln = simplify(mutaln);
     mutaln.set_sequence(alignment_seq(mutaln));
+    mutaln.set_name(aln.name());
     return mutaln;
 }
 
@@ -151,6 +152,38 @@ string Sampler::alignment_seq(const Alignment& aln) {
     }
     VG g; g.extend(sub);
     return g.path_string(aln.path());
+}
+
+vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {
+    // simulate forward/reverse pair by first simulating a long read
+    normal_distribution<> norm_dist(fragment_length, fragment_std_dev);
+    int frag_len = round(norm_dist(rng));
+    auto fragment = alignment_with_error(frag_len, base_error, indel_error);
+    // then taking the ends
+    auto fragments = alignment_ends(fragment, read_length, read_length);
+    auto& aln1 = fragments.front();
+    auto& aln2 = fragments.back();
+    { // name the alignments
+        string data;
+        aln1.SerializeToString(&data);
+        aln2.SerializeToString(&data);
+        int n;
+#pragma omp critical(nonce)
+        n = nonce++;
+        data += std::to_string(n);
+        const string hash = sha1head(data, 16);
+        aln1.set_name(hash + "_1");
+        aln2.set_name(hash + "_2");
+    }
+    // set the appropriate flags for pairing
+    aln1.mutable_fragment_next()->set_name(aln2.name());
+    aln2.mutable_fragment_prev()->set_name(aln1.name());
+    // reverse complement the back fragment
+    fragments.back() = reverse_complement_alignment(fragments.back(),
+                                                  (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                                          return (int64_t)node_length(id);
+                                                      }));
+    return fragments;
 }
 
 // generates a perfect alignment from the graph
@@ -187,8 +220,19 @@ Alignment Sampler::alignment(size_t length) {
     } while (seq.size() < length);
     // save our sequence in the alignment
     aln.set_sequence(seq);
+    aln = simplify(aln);
+    { // name the alignment
+        string data;
+        aln.SerializeToString(&data);
+        int n;
+#pragma omp critical(nonce)
+        n = nonce++;
+        data += std::to_string(n);
+        const string hash = sha1head(data, 16);
+        aln.set_name(hash);
+    }
     // and simplify it
-    return simplify(aln);
+    return aln;
 }
 
 Alignment Sampler::alignment_with_error(size_t length,
@@ -218,6 +262,10 @@ Alignment Sampler::alignment_with_error(size_t length,
         aln = alignment(length);
     }
     return aln;
+}
+
+size_t Sampler::node_length(id_t id) {
+    return xg_cached_node_length(id, xgidx, node_cache);
 }
 
 char Sampler::pos_char(pos_t pos) {

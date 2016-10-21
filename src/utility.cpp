@@ -34,7 +34,7 @@ static const char complement[256] = {'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 240
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 248
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N'};// 256
-    
+
 char reverse_complement(const char& c) {
     return complement[c];
 }
@@ -130,91 +130,6 @@ string nonATGCNtoN(const string& s) {
     return n;
 }
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
-    for (const auto& edit : mapping.edit()) {
-        if (edit.from_length() && edit.from_length() == edit.to_length()) {
-// *matches* from_length == to_length, or from_length > 0 and offset unset
-            // match state
-            cigar.push_back(make_pair(edit.from_length(), 'M'));
-        } else {
-            // mismatch/sub state
-// *snps* from_length == to_length; sequence = alt
-            if (edit.from_length() == edit.to_length()) {
-                cigar.push_back(make_pair(edit.from_length(), 'M'));
-            } else if (edit.from_length() == 0 && edit.sequence().empty()) {
-// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
-                cigar.push_back(make_pair(edit.to_length(), 'S'));
-            } else if (edit.from_length() > edit.to_length()) {
-// *deletions* from_length > to_length; sequence may be unset or empty
-                int32_t del = edit.from_length() - edit.to_length();
-                int32_t eq = edit.to_length();
-                if (eq) cigar.push_back(make_pair(eq, 'M'));
-                cigar.push_back(make_pair(del, 'D'));
-            } else if (edit.from_length() < edit.to_length()) {
-// *insertions* from_length < to_length; sequence contains relative insertion
-                int32_t ins = edit.to_length() - edit.from_length();
-                int32_t eq = edit.from_length();
-                if (eq) cigar.push_back(make_pair(eq, 'M'));
-                cigar.push_back(make_pair(ins, 'I'));
-            }
-        }
-    }
-}
-
-string mapping_string(const string& source, const Mapping& mapping) {
-    string result;
-    int p = mapping.position().offset();
-    for (const auto& edit : mapping.edit()) {
-        // mismatch/sub state
-// *matches* from_length == to_length, or from_length > 0 and offset unset
-// *snps* from_length == to_length; sequence = alt
-        // mismatch/sub state
-        if (edit.from_length() == edit.to_length()) {
-            if (!edit.sequence().empty()) {
-                result += edit.sequence();
-            } else {
-                result += source.substr(p, edit.from_length());
-            }
-            p += edit.from_length();
-        } else if (edit.from_length() == 0 && edit.sequence().empty()) {
-// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
-            //cigar.push_back(make_pair(edit.to_length(), 'S'));
-        } else if (edit.from_length() > edit.to_length()) {
-// *deletions* from_length > to_length; sequence may be unset or empty
-            result += edit.sequence();
-            p += edit.from_length();
-        } else if (edit.from_length() < edit.to_length()) {
-// *insertions* from_length < to_length; sequence contains relative insertion
-            result += edit.sequence();
-            p += edit.from_length();
-        }
-    }
-    return result;
-}
-
-string cigar_string(vector<pair<int, char> >& cigar) {
-    vector<pair<int, char> > cigar_comp;
-    pair<int, char> cur = make_pair(0, '\0');
-    for (auto& e : cigar) {
-        if (cur == make_pair(0, '\0')) {
-            cur = e;
-        } else {
-            if (cur.second == e.second) {
-                cur.first += e.first;
-            } else {
-                cigar_comp.push_back(cur);
-                cur = e;
-            }
-        }
-    }
-    cigar_comp.push_back(cur);
-    stringstream cigarss;
-    for (auto& e : cigar_comp) {
-        cigarss << e.first << e.second;
-    }
-    return cigarss.str();
-}
-
 string tmpfilename(const string& base) {
     string tmpname = base + "XXXXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
@@ -237,21 +152,38 @@ string get_or_make_variant_id(vcflib::Variant variant) {
         return variant.id;
     } else {
         // Synthesize a name for the variant
-        
+
         // Let's just hash
         SHA1 hasher;
-        
+
         // Turn the variant back into a string line and hash it.
         // Note that this keeps the modified 0-based position.
         std::stringstream variant_stringer;
         variant_stringer << variant;
         hasher.update(variant_stringer.str());
-        
+
         // Name the variant with the hex hash. Will be unique unless two
         // identical variant lines are in the file.
         return hasher.final();
-        
+
     }
+}
+
+string make_variant_id(vcflib::Variant variant) {
+    // Synthesize a name for the variant
+
+    // Let's just hash
+    SHA1 hasher;
+
+    // Turn the variant back into a string line and hash it.
+    // Note that this keeps the modified 0-based position.
+    std::stringstream variant_stringer;
+    variant_stringer << variant;
+    hasher.update(variant_stringer.str());
+
+    // Name the variant with the hex hash. Will be unique unless two
+    // identical variant lines are in the file.
+    return hasher.final();
 }
 
 double median(std::vector<int> &v) {
@@ -265,5 +197,6 @@ double median(std::vector<int> &v) {
         return 0.5*(vn+v[n-1]);
     }
 }
+
 
 }
