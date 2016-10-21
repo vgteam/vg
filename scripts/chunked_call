@@ -31,7 +31,7 @@ def parse_args(args):
     parser.add_argument("--overlap", type=int, default=2000,
                         help="amount of overlap between chunks")
     parser.add_argument("--filter_opts", type=str,
-                        default="-r 0.9 -afu -s 2 -o 0 -q 15 --defray-ends 999",
+                        default="-r 0.9 -fu -s 2 -o 0 -q 15 --defray-ends 999",
                         help="options to pass to vg filter. wrap in \"\"")
     parser.add_argument("--pileup_opts", type=str,
                         default="-w 40 -m 10 -q 10 -a",
