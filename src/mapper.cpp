@@ -952,15 +952,19 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         int distance = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
         if (is_rev(m1_pos) == is_rev(m2_pos)
             && distance < aln.sequence().size()) {
+            //cerr << distance << " before distance" << endl;
             distance = graph_distance(m1_pos, m2_pos, aln.sequence().size());// - 1;// - m1.length();
             //cerr << distance << endl;
-            //double jump = (m2.begin - m1.begin) - distance;
-            //cerr << "distance " << distance << endl;
+            double jump = (m2.begin - m1.begin) - distance;
+            //cerr << "jump " << jump << endl;
+            //double back_cost = (jump < 0) ? abs(jump) : 0;
             double weight = (double)1.0 / (double)(
                 abs(
                     (m2.begin - m1.begin)
                     - distance)
                 + 1);
+            //if (jump < 0) weight /= 10;
+            if (jump < 0) weight = -1;
             //cerr << weight << " ~ " << m2.begin - m1.begin << " " << distance << endl;
             return weight;
         } else {
@@ -2093,7 +2097,7 @@ Mapper::find_smems(const string& seq, int max_mem_length) {
     // return the matches in natural order
     std::reverse(mems.begin(), mems.end());
     // verify the matches (super costly at scale)
-    if (debug) { check_mems(mems); }
+    //if (debug) { check_mems(mems); }
     return mems;
 }
 
@@ -3935,13 +3939,13 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns) {
         // score the model, accounting for excluded traces
         clear_scores();
         score(used);
-        display(cerr);
+        //display(cerr);
         // find the maximum score
         auto* vertex = max_vertex();
-        cerr << "is maximum " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
+        //cerr << "is maximum " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
         // make trace
         vector<MEMMarkovModelVertex*> vertex_trace;
-        while (true) {
+        while (vertex != nullptr) {
             used.insert(vertex);
             vertex_trace.push_back(vertex);
             if (vertex->prev != nullptr) {

@@ -66,7 +66,6 @@ public:
     MaximalExactMatch(MaximalExactMatch&&) = default;                    // Move constructor
     MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // MaximalExactMatchopy assignment operator
     MaximalExactMatch& operator=(MaximalExactMatch&&) & = default;       // Move assignment operator
-    //virtual ~MaximalExactMatch() { }                     // Destructor
 
 };
 

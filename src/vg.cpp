@@ -7488,7 +7488,7 @@ Alignment VG::align(const Alignment& alignment,
     }
     */
     //cerr << "aligning " << pb2json(alignment) << " to " << pb2json(graph) << endl;
-    cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
+    //cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
 
     auto do_align = [&](Graph& g) {
         if (aligner && qual_adj_aligner) {
