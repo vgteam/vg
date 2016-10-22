@@ -239,10 +239,14 @@ int main_srpe(int argc, char** argv){
         Alignment clip_aln = mapper->align(clip);
 
         Alignment unclipped_aln = mapper->align(unclip);
-
+        if (clip_aln.path().mapping_size() == 0 || unclipped_aln.path().mapping_size() == 0){
+            continue;
+        }
         bool forward = clip_aln.path().mapping(0).position().node_id() > unclipped_aln.path().mapping(0).position().node_id() ? true : false;
 
         if (forward){
+
+            est_frag = 1100;
         for (int ti = 0; ti < unclipped_aln.path().mapping_size(); ti++){
             Mapping mi = unclipped_aln.path().mapping(ti);
             Mapping* mm_temp = add_me.add_mapping();
@@ -276,27 +280,41 @@ int main_srpe(int argc, char** argv){
         }
 
 
-        cerr << a.name() <<"\t" <<  a.sequence() << "\t" << a.score() << "\t" << clip_aln.DebugString() << "\t" << unclipped_aln.DebugString() << endl;
+        cerr << a.name() <<"\t" <<  a.sequence() << "\t" << a.score() << endl;
         //exit(1);
         // get subgraph, index, remap
-        vg::VG subg;
-        xg_ind->neighborhood(clipped_id, 10000, subg.graph, false);
+        vg::VG* subg = new vg::VG();
+        xg_ind->neighborhood(clipped_id, est_frag + 1000, subg->graph, false);
+        //void expand_context(Graph& g, size_t dist, bool add_paths = true, bool use_steps = true,
+        //                        bool expand_forward = true, bool expand_backward = true,
+        //                                                int64_t until_node = 0) const;
+        xg_ind->expand_context(subg->graph, 1, true, true, true, false, 0);
+        // get_connected_nodes(Graph& g) const;
+        //xg_ind->get_connected_nodes(subg.graph);
+
+        subg->remove_orphan_edges();
+        subg->rebuild_indexes();
+        //subg->rebuild_mapping_aux();
         vector<Path> edit_mes;
         edit_mes.push_back(add_me);
-        cerr << add_me.DebugString() << endl;
-        subg.edit(edit_mes);
+        //cerr << add_me.DebugString() << endl;
+        subg->edit(edit_mes);
+        subg->compact_ids();
+
+        subg->serialize_to_ostream(cout);
 
         gcsa::GCSA* sub_gcsa;
         gcsa::LCPArray* sub_lcp;
-        xg::XG* sub_xg = new xg::XG(subg.graph);
+        xg::XG* sub_xg = new xg::XG();
+        sub_xg->from_graph(subg->graph, false, false, false, false);
         int doubling_steps = 2;
-        subg.build_gcsa_lcp(sub_gcsa, sub_lcp, 11, true, false, 2);
+        subg->build_gcsa_lcp(sub_gcsa, sub_lcp, 11, true, false, 2);
         Mapper* sub_mapper = new Mapper(sub_xg, sub_gcsa, sub_lcp);
         Alignment realn = sub_mapper->align(a.sequence());
         cerr << realn.score() << endl;
 
 
-        subg.serialize_to_ostream(cout);
+        subg->serialize_to_ostream(cout);
    
 
         edit_mes.clear();
