@@ -2480,7 +2480,7 @@ int main_msga(int argc, char** argv) {
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
             mapper->init_node_cache();
-
+            mapper->init_node_pos_cache();
             mapper->mem_threading = true;
         }
     };
@@ -2491,16 +2491,16 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& name : names_in_order) {
-        cerr << "do... " << name << " ?" << endl;
+        //cerr << "do... " << name << " ?" << endl;
         if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         auto& seq = strings[name];
-        cerr << "doing... " << name << endl;
-        graph->serialize_to_file("msga-pre-" + name + ".vg");
-        ofstream db_out("msga-pre-" + name + ".xg");
-        xgidx->serialize(db_out);
-        db_out.close();
+        //cerr << "doing... " << name << endl;
+        //graph->serialize_to_file("msga-pre-" + name + ".vg");
+        //ofstream db_out("msga-pre-" + name + ".xg");
+        //xgidx->serialize(db_out);
+        //db_out.close();
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
@@ -2559,13 +2559,13 @@ int main_msga(int argc, char** argv) {
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
-            graph->serialize_to_file(name + "-pre-index.vg");
+            //graph->serialize_to_file(name + "-pre-index.vg");
             // update the paths
             graph->graph.clear_path();
             graph->paths.to_graph(graph->graph);
             // and rebuild the indexes
             rebuild(graph);
-            graph->serialize_to_file(name + "-post-index.vg");
+            //graph->serialize_to_file(name + "-post-index.vg");
 
             // verfy validity of path
             bool is_valid = graph->is_valid();

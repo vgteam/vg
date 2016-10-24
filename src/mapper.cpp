@@ -98,6 +98,9 @@ Mapper::~Mapper(void) {
     for (auto& nc : node_cache) {
         delete nc;
     }
+    for (auto& np : node_pos_cache) {
+        delete np;
+    }
 }
     
 double Mapper::estimate_gc_content() {
