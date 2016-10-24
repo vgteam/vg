@@ -24,6 +24,8 @@ using namespace std;
     
 enum MappingQualityMethod { Approx, Exact, None };
 
+class Mapper;
+
 class MaximalExactMatch {
 
 public:
@@ -33,6 +35,7 @@ public:
     gcsa::range_type range;
     size_t match_count;
     std::vector<gcsa::node_type> nodes;
+    map<string, vector<size_t> > positions;
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
@@ -40,23 +43,15 @@ public:
         : begin(b), end(e), range(r), match_count(m) { }
 
     // construct the sequence of the MEM; useful in debugging
-    string sequence(void) const {
-        string seq; //seq.resize(end-begin);
-        string::const_iterator c = begin;
-        while (c != end) seq += *c++;
-        return seq;
-    }
+    string sequence(void) const;
     // uses GCSA to get the positions matching the range
-    void fill_nodes(gcsa::GCSA* gcsa) {
-        gcsa->locate(range, nodes);
-    }
+    void fill_nodes(gcsa::GCSA* gcsa);
     // uses GCSA to get a count of the number of graph nodes in our range
-    void fill_match_count(gcsa::GCSA* gcsa) {
-        match_count = gcsa->count(range);
-    }
-    int length(void) const {
-        return end - begin;
-    }
+    void fill_match_count(gcsa::GCSA* gcsa);
+    // get the length of the MEM
+    int length(void) const;
+    // uses an xgindex to fill out the MEM positions
+    void fill_positions(Mapper* mapper);
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
@@ -66,7 +61,7 @@ public:
     MaximalExactMatch(MaximalExactMatch&&) = default;                    // Move constructor
     MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // MaximalExactMatchopy assignment operator
     MaximalExactMatch& operator=(MaximalExactMatch&&) & = default;       // Move assignment operator
-
+    //virtual ~MaximalExactMatch() { }                     // Destructor
 };
 
 
@@ -83,6 +78,7 @@ public:
     MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
     MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
     MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
+    virtual ~MEMMarkovModelVertex() { }                     // Destructor
 };
 
 class MEMMarkovModel {
@@ -91,6 +87,7 @@ public:
     MEMMarkovModel(
         const Alignment& aln,
         const vector<MaximalExactMatch>& matches,
+        Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10);
     void score(const set<MEMMarkovModelVertex*>& exclude);
@@ -174,6 +171,12 @@ public:
     vector<LRUCache<id_t, Node>* > node_cache;
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
+
+    // match node traversals to path positions
+    vector<LRUCache<id_t, map<string, vector<size_t> > >* > node_pos_cache;
+    LRUCache<id_t, map<string, vector<size_t> > >& get_node_pos_cache(void);
+    void init_node_pos_cache(void);
+    map<string, vector<size_t> > node_positions_in_paths(id_t id);
 
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
