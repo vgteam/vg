@@ -80,6 +80,8 @@ xg::XG VGset::to_xg(bool store_threads, const regex& paths_to_take, map<string, 
             // Load chunks from all the files and pass them into XG.
             std::ifstream in(name);
             
+            if (!in) throw ifstream::failure("failed to open " + name);
+            
             function<void(Graph&)> handle_graph = [&](Graph& graph) {
 #ifdef debug
                 cerr << "Got chunk of " << name << "!" << endl;

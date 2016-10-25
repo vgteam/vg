@@ -915,14 +915,18 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
             auto cluster = &clusters.back();
             //auto& prev = clusters.back().back();
             auto curr = x.first;
-            //cerr << "p/c " << prev << " " << curr << endl;
+            if(debug) {
+                cerr << "p/c " << prev << " " << curr << endl;
+            }
             if (prev == -1) {
-            } else if (curr - prev <= fragment_size) {
-                // in cluster
-                //cerr << "in cluster" << endl;
             } else {
-                clusters.emplace_back();
-                cluster = &clusters.back();
+                if (curr - prev <= fragment_size) {
+                    // in cluster
+                    //cerr << "in cluster" << endl;
+                } else {
+                    clusters.emplace_back();
+                    cluster = &clusters.back();
+                }
             }
             //cerr << " " << x.first << endl;
             for (auto& y : x.second) {
@@ -1425,6 +1429,18 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, const Alignment& aln, int kmer_size, int stride,
                                                int band_width, int additional_multimaps,
                                                vector<MaximalExactMatch>* restricted_mems) {
+    
+    if(debug) {
+        cerr << "align_multi_internal("
+            << compute_unpaired_quality << ", " 
+            << aln.sequence() << ", " 
+            << kmer_size << ", " 
+            << stride << ", " 
+            << band_width << ", " 
+            << additional_multimaps << ", " 
+            << restricted_mems << ")" 
+            << endl;
+    }
     
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi_internal on fragments of the read
@@ -2061,7 +2077,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                 int min_distance = (!(id1&&id2) ? (edit.to_length() * 3) : // awkward constants
                                     max((int)(edit.to_length() * 3),
-                                        (int)(xindex->node_length(id2) +
+                                        (int)(xindex->node_length(id1) +
                                               xindex->node_length(id2) +
                                               xindex->min_approx_path_distance({}, id1, id2))));
 
