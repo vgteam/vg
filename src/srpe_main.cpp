@@ -142,17 +142,17 @@ int main_srpe(int argc, char** argv){
          *  Check the depth at the Locus, and update it as well
          *
          */
-#pragma omp critical
-        {
         srpe.ff.set_inverse(false);
         pair<Alignment, Alignment> intermeds = srpe.ff.deletion_filter(aln_one, aln_two);
         if (intermeds.first.name() != ""){
+#pragma omp critical
             discords.push_back(intermeds);
         }
 
         srpe.ff.set_soft_clip_limit(min_soft_clip);
         intermeds = srpe.ff.soft_clip_filter(aln_one, aln_two);
         if (intermeds.first.name() != ""){
+#pragma omp critical
             clippies.push_back(intermeds);
         }
 
@@ -160,11 +160,32 @@ int main_srpe(int argc, char** argv){
         srpe.ff.max_path_length = 500;
         intermeds = srpe.ff.path_length_filter(aln_one, aln_two);
         if (intermeds.first.name() != ""){
+#pragma omp critical
             fraggles.push_back(intermeds);
         }
 
         srpe.ff.set_inverse(false);
-    }
+    };
+
+    auto se_score_func = [&](vector<Alignment> locals, Mapper* mp){
+        double score = 0.0;
+        for (auto xx : locals){
+            score += (mp->align(xx.sequence())).score();
+        }
+        return score;
+    };
+
+    auto score_func = [&](vector<pair<Alignment, Alignment> > discordos, Mapper* mp){
+        double score = 0.0;
+        for (auto xx : discordos){
+            Alignment tmp = mp->align(xx.first.sequence());
+#pragma omp atomic update
+            score += tmp.score();
+            tmp = mp->align(xx.second.sequence());
+#pragma omp atomic update
+            score += tmp.score();
+        }
+        return score;
     };
 
 
@@ -195,7 +216,7 @@ int main_srpe(int argc, char** argv){
         mapper = new Mapper(xg_ind, gcsa_ind, lcp_ind);
         
 
-
+    double max_aln_score = 0.0;
     for (int i = 0; i < clippies.size(); i++){
         Alignment a = clippies[i].first;
 
@@ -246,7 +267,6 @@ int main_srpe(int argc, char** argv){
 
         if (forward){
 
-            est_frag = 1100;
         for (int ti = 0; ti < unclipped_aln.path().mapping_size(); ti++){
             Mapping mi = unclipped_aln.path().mapping(ti);
             Mapping* mm_temp = add_me.add_mapping();
@@ -284,7 +304,8 @@ int main_srpe(int argc, char** argv){
         //exit(1);
         // get subgraph, index, remap
         vg::VG* subg = new vg::VG();
-        xg_ind->neighborhood(clipped_id, est_frag + 1000, subg->graph, false);
+        est_frag = 2000;
+        xg_ind->neighborhood(clipped_id == 1 ? clipped_id : clipped_id - 1, est_frag + 1000, subg->graph, false);
         //void expand_context(Graph& g, size_t dist, bool add_paths = true, bool use_steps = true,
         //                        bool expand_forward = true, bool expand_backward = true,
         //                                                int64_t until_node = 0) const;
@@ -310,8 +331,21 @@ int main_srpe(int argc, char** argv){
         int doubling_steps = 2;
         subg->build_gcsa_lcp(sub_gcsa, sub_lcp, 11, true, false, 2);
         Mapper* sub_mapper = new Mapper(sub_xg, sub_gcsa, sub_lcp);
+        // our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+        bool qrl = false;
+        vector<Alignment> score_me;
+        score_me.reserve(1000);
+        xg::size_t clip_start = xg_ind->node_start(clipped_id);
+        //gamind.get_alignments(clipped_id, xg_ind->node_at_seq_pos(clip_start + est_frag + 1000), score_me);
+        //void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
+        gamind.get_alignments(5, 25, score_me);
+        double realn_score = se_score_func(score_me, sub_mapper);
+        if (max_aln_score < realn_score){
+            max_aln_score = realn_score;
+        }
+        cerr << max_aln_score << endl;;
         Alignment realn = sub_mapper->align(a.sequence());
-        cerr << realn.score() << endl;
+        //cerr << realn.score() << endl;
 
 
         subg->serialize_to_ostream(cout);
