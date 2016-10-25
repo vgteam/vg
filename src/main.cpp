@@ -257,8 +257,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
-e,-a to filter by primary/secondary score deltas
+        c = getopt_long (argc, argv, "s:r:fuo:Sx:R:B:c:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
