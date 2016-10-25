@@ -129,7 +129,7 @@ void Mapper::init_node_cache(void) {
     }
     node_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_cache.push_back(new LRUCache<id_t, Node>(100));
+        node_cache.push_back(new LRUCache<id_t, Node>(256));
     }
 }
 
@@ -139,7 +139,7 @@ void Mapper::init_node_pos_cache(void) {
     }
     node_pos_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_pos_cache.push_back(new LRUCache<id_t, map<string, vector<size_t> > >(100));
+        node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(256));
     }
 }
 
@@ -313,8 +313,7 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln) 
     }
     map<string, map<int, vector<id_t> > > node_positions;
     for(auto id : ids) {
-        //map<string, vector<size_t> >
-        for (auto& ref : node_positions_in_paths(id)) {
+        for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0))) {
             auto& name = ref.first;
             for (auto pos : ref.second) {
                 node_positions[name][pos].push_back(id);
@@ -373,10 +372,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int band_width,
     int pair_window) {
 
-    // what we *really* should be doing is using paired MEM seeding, so we
-    // don't have to make loads of full alignments of each read to search for
-    // good pairs.
-    
     // We have some logic around align_mate_in_window to handle orientation
     // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
     auto align_mate = [&](const Alignment& read, Alignment& mate) {
@@ -431,11 +426,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     // find the MEMs for the alignments
     if (fragment_size) {
-        vector<MaximalExactMatch> mems1 = find_smems(read1.sequence(), max_mem_length);
-        for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
-        vector<MaximalExactMatch> mems2 = find_smems(read2.sequence(), max_mem_length);
-        for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
-        
         // use pair resolution filterings on the SMEMs to constrain the candidates
         set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
         for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
@@ -468,6 +458,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
 
     bool rescue = fragment_size != 0; // don't try to rescue if we have a defined fragment size
+
     // Rescue only if the top alignment on one side has no mappings
     if(rescue && best_score1 == 0 && best_score2 != 0) {
         // Must rescue 1 off of 2
@@ -967,9 +958,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         // take as graph distance the minimum distance that we find in any of the chroms
         //int tweak = is_rev(m1_pos) ? get_node_length(id(m1_pos)) - offset(m1_pos) : offset(m1_pos);
         //cerr << "from " << m1_pos << " to " << m2_pos << endl;
-        //int distance = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
-        int distance = numeric_limits<int>::max();
+        int distance = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
+        //int distance = numeric_limits<int>::max();
         // use cached positions in the MEMs
+        /*
         for (auto& p : m1.positions) {
             auto f = m2.positions.find(p.first);
             if (f != m2.positions.end()) {
@@ -981,6 +973,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 }
             }
         }
+        */
         if (is_rev(m1_pos) == is_rev(m2_pos)
             && distance < aln.sequence().size()) {
             //cerr << distance << " before distance" << endl;
@@ -990,14 +983,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             double jump = (m2.begin - m1.begin) - distance;
             //cerr << "jump " << jump << endl;
             //double back_cost = (jump < 0) ? abs(jump) : 0;
-            double weight = (double)1.0 / (double)(
-                abs(
-                    (m2.begin - m1.begin)
-                    - distance)
-                + 1);
+            double weight = (double)1.0 / (double)(abs(jump) + 1);
             //if (jump < 0) weight /= 10;
             if (jump < 0) weight = -1;
-            //cerr << weight << " ~ " << m2.begin - m1.begin << " " << distance << endl;
+            //cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << endl;
             return weight;
         } else {
             return (double)-1.0;
@@ -1064,6 +1053,17 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
     */
 
+    // remove contained clusters by counting occurrences of positions in the clusters
+    // only keep clusters which have at least one unique MEM position
+    map<MaximalExactMatch, int> mem_counts;
+    for (auto& cluster : clusters) {
+        //cerr << "in cluster " << &cluster << endl;
+        for (auto& mem : cluster) {
+            mem_counts[mem]++;
+            //cerr << mem << " has count " << mem_counts[mem] << endl;
+        }
+    }
+    
     // todo cache this as sort will call it a lot
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
@@ -1081,6 +1081,27 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
 
+    set<vector<MaximalExactMatch>*> clusters_to_keep;
+    for (int i = 0; i < clusters.size(); ++i) {
+        auto& cluster = clusters.at(i);
+        if (i == 0) {
+            // always keep the top cluster
+            clusters_to_keep.insert(&cluster);
+        } else {
+            // and any others which have unique MEMs
+            bool has_unique_mem = false;
+            for (auto& mem : cluster) {
+                if (mem_counts[mem] == 1) {
+                    has_unique_mem = true;
+                    break;
+                }
+            }
+            if (has_unique_mem) {
+                clusters_to_keep.insert(&cluster);
+            }
+        }
+    }
+
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
         for (auto& cluster : clusters) {
@@ -1091,7 +1112,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     id_t id = gcsa::Node::id(node);
                     size_t offset = gcsa::Node::offset(node);
                     bool is_rev = gcsa::Node::rc(node);
-                    for (auto& ref : node_positions_in_paths(id)) {
+                    for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0, is_rev))) {
                         auto& name = ref.first;
                         for (auto pos : ref.second) {
                             //cerr << name << (is_rev?"-":"+") << pos + offset;
@@ -1104,6 +1125,21 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             cerr << endl;
         }
     };
+
+    /*
+    auto should_keep = [&clusters_to_keep](vector<MaximalExactMatch>& cluster) {
+        return clusters_to_keep.count(&cluster);
+    };
+    clusters.erase(std::remove_if(clusters.begin(), clusters.end(),
+                                  should_keep), clusters.end());
+    */
+    vector<vector<MaximalExactMatch> > clusters_with_unique_mems;
+    for (auto& cluster : clusters) {
+        if (clusters_to_keep.count(&cluster)) {
+            clusters_with_unique_mems.push_back(cluster);
+        }
+    }
+    clusters = clusters_with_unique_mems;
 
     if (debug) {
         cerr << "### clusters:" << endl;
@@ -1251,7 +1287,7 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
     // get each hit's path-relative position
     map<string, map<int, vector<id_t> > > node_positions;
     for (auto& id : ids) {
-        for (auto& ref : node_positions_in_paths(id)) {
+        for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0))) {
             auto& name = ref.first;
             for (auto pos : ref.second) {
                 node_positions[name][pos].push_back(id);
@@ -1699,7 +1735,7 @@ LRUCache<id_t, Node>& Mapper::get_node_cache(void) {
     return *node_cache[tid];
 }
 
-LRUCache<id_t, map<string, vector<size_t> > >& Mapper::get_node_pos_cache(void) {
+LRUCache<gcsa::node_type, map<string, vector<size_t> > >& Mapper::get_node_pos_cache(void) {
     int tid = node_pos_cache.size() > 1 ? omp_get_thread_num() : 0;
     return *node_pos_cache[tid];
 }
@@ -2232,12 +2268,13 @@ int Mapper::graph_distance(pos_t pos1, pos_t pos2, int maximum) {
 }
 
 // use LRU caching to get the most-recent node positions
-map<string, vector<size_t> > Mapper::node_positions_in_paths(id_t id) {
+map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type node) {
     auto& pos_cache = get_node_pos_cache();
-    auto cached = pos_cache.retrieve(id);
+    auto cached = pos_cache.retrieve(node);
     if(!cached.second) {
-        cached.first = xindex->node_positions_in_paths(id);
-        pos_cache.put(id, cached.first);
+        // todo use approximate estimate
+        cached.first = xindex->node_positions_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node));
+        pos_cache.put(node, cached.first);
     }
     return cached.first;
 }
@@ -3883,11 +3920,11 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
 }
 
 bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-    return m1.begin == m2.begin && m1.end == m2.end;
+    return m1.begin == m2.begin && m1.end == m2.end && m1.nodes == m2.nodes;
 }
 
 bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-    return m1.begin < m2.begin && m1.end < m2.end;
+    return m1.begin < m2.begin && m1.end < m2.end && m1.nodes < m2.nodes;
 }
 
 MEMMarkovModel::MEMMarkovModel(
@@ -3910,7 +3947,7 @@ MEMMarkovModel::MEMMarkovModel(
             m.mem = mem;
             m.mem.nodes.clear();
             m.mem.nodes.push_back(node);
-            m.mem.fill_positions(mapper);
+            //m.mem.fill_positions(mapper);
             model.push_back(m);
         }
     }
@@ -4077,8 +4114,20 @@ int MaximalExactMatch::length(void) const {
 // uses an xgindex to fill out the MEM positions
 void MaximalExactMatch::fill_positions(Mapper* mapper) {
     for (auto& node : nodes) {
-        positions = mapper->node_positions_in_paths(gcsa::Node::id(node));
+        positions = mapper->node_positions_in_paths(gcsa::Node::encode(gcsa::Node::id(node), 0, gcsa::Node::rc(node)));
     }
+}
+
+ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
+    size_t len = mem.begin - mem.end;
+    out << mem.sequence() << ":";
+    for (auto& node : mem.nodes) {
+        id_t id = gcsa::Node::id(node);
+        size_t offset = gcsa::Node::offset(node);
+        bool is_rev = gcsa::Node::rc(node);
+        out << id << (is_rev ? "-" : "+") << ":" << offset << ",";
+    }
+    return out;
 }
 
 }

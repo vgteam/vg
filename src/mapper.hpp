@@ -55,6 +55,7 @@ public:
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+    friend ostream& operator<<(ostream& out, const MaximalExactMatch& m);
 
     MaximalExactMatch(void) = default;                                      // Copy constructor
     MaximalExactMatch(const MaximalExactMatch&) = default;               // Copy constructor
@@ -173,10 +174,10 @@ public:
     void init_node_cache(void);
 
     // match node traversals to path positions
-    vector<LRUCache<id_t, map<string, vector<size_t> > >* > node_pos_cache;
-    LRUCache<id_t, map<string, vector<size_t> > >& get_node_pos_cache(void);
+    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
+    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
     void init_node_pos_cache(void);
-    map<string, vector<size_t> > node_positions_in_paths(id_t id);
+    map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
 
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
