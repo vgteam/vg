@@ -9,7 +9,7 @@ using namespace std;
 namespace vg {
     
     PhasedGenome::HaplotypeNode::HaplotypeNode(NodeTraversal node_traversal, HaplotypeNode* next, HaplotypeNode* prev) :
-                                 node_traversal(node_traversal), next(next), prev(prev) {
+                                               node_traversal(node_traversal), next(next), prev(prev) {
         // nothing to do
     }
     
@@ -23,28 +23,9 @@ namespace vg {
         right_telomere_node = left_telomere_node;
     }
     
-    template <typename NodeTraversalIterator>
-    PhasedGenome::Haplotype::Haplotype(NodeTraversalIterator first, NodeTraversalIterator last) {
-        if (first == last) {
-            cerr << "error:[PhasedGenome] cannot construct haplotype with 0 nodes" << endl;
-            assert(0);
-        }
-        
-        // construct seed node
-        left_telomere_node = new HaplotypeNode(*first, nullptr, nullptr);
-        right_telomere_node = left_telomere_node;
-        first++;
-        
-        // add each subsequent node
-        for (; first != last; first++) {
-            append_right(*first);
-        }
-    }
-    
     PhasedGenome::Haplotype::~Haplotype() {
-        
         // destruct nodes
-        HaplotypeNode* haplo_node = left_telomere_node;
+        HaplotypeNode* haplo_node = this->left_telomere_node;
         while (haplo_node) {
             HaplotypeNode* next = haplo_node->next;
             delete haplo_node;
@@ -52,80 +33,92 @@ namespace vg {
         }
     }
     
-    inline PhasedGenome::HaplotypeNode* PhasedGenome::Haplotype::append_left(NodeTraversal node_traversal) {
-        left_telomere_node = new HaplotypeNode(node_traversal, left_telomere_node, nullptr);
-        left_telomere_node->next->prev = left_telomere_node;
-        return left_telomere_node;
-    }
-    
-    inline PhasedGenome::HaplotypeNode* PhasedGenome::Haplotype::append_right(NodeTraversal node_traversal) {
-        right_telomere_node = new HaplotypeNode(node_traversal, nullptr, right_telomere_node);
-        right_telomere_node->prev->next = right_telomere_node;
-        return right_telomere_node;
-    }
-    
     PhasedGenome::PhasedGenome(VG& graph) : graph(graph) {
         // nothing to do
     }
     
-    template <typename NodeTraversalIterator>
-    void PhasedGenome::add_haplotype(NodeTraversalIterator first, NodeTraversalIterator last) {
+    PhasedGenome::~PhasedGenome() {
         
-        haplotypes.emplace_back(first, last);
+        for (Haplotype* haplotype : haplotypes) {
+            delete haplotype;
+        }
         
     }
     
     void PhasedGenome::build_indices(vector<NestedSite>& top_level_sites) {
         
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::build_indices]: building node id to site index" << endl;
+#endif
         // construct the start and end of site indices
         for (NestedSite& site : top_level_sites) {
-            build_site_indices_internal(site);
+            build_site_indices_internal(&site);
         }
         
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::build_indices]: building site to haplotype node index" << endl;
+#endif
+        
         // label the sites on each haplotype
-        for (Haplotype& haplotype : haplotypes) {
-            
+        for (Haplotype* haplotype : haplotypes) {
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::build_indices]: traversing haplotype at " << haplotype << endl;
+#endif
             // keep track of where we enter and leave sites
-            unordered_map<NestedSite, HaplotypeNode*, HashSite> site_sides;
+            unordered_map<NestedSite, HaplotypeNode*, HashSite> site_start_sides;
+            unordered_map<NestedSite, HaplotypeNode*, HashSite> site_end_sides;
             
             // iterate along the node path of the haplotype
-            HaplotypeNode* haplo_node = haplotype.left_telomere_node;
+            HaplotypeNode* haplo_node = haplotype->left_telomere_node;
             while (haplo_node != nullptr) {
                 int64_t node_id = haplo_node->node_traversal.node->id();
                 
                 // mark this instance of the node in the node location index
                 node_locations[node_id].push_back(haplo_node);
                 
+                
                 // are we at the start of a site?
                 NestedSite* site = nullptr;
                 if (site_starts.count(node_id)) {
                     site = site_starts[node_id];
+
                     // are we leaving or entering the site?
-                    if (site_sides.count(*site)) {
+                    if (site_start_sides.count(*site)) {
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::build_indices]: leaving at start of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+#endif
                         // leaving: put the site in the index in the orientation of haplotype travesal
-                        HaplotypeNode* other_side_node = site_sides[*site];
-                        site_sides.erase(*site);
-                        haplotype.sites[*site] = make_pair(other_side_node, haplo_node);
+                        HaplotypeNode* other_side_node = site_start_sides[*site];
+                        site_start_sides.erase(*site);
+                        haplotype->sites[*site] = make_pair(other_side_node, haplo_node);
                     }
                     else {
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::build_indices]: entering at start of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+#endif
                         // entering: mark the node in the haplotype path where we entered
-                        site_sides[*site] = haplo_node;
+                        site_end_sides[*site] = haplo_node;
                     }
                 }
-                
                 // are we at the start of a site?
                 if (site_ends.count(node_id)) {
                     site = site_ends[node_id];
                     // are we leaving or entering the site?
-                    if (site_sides.count(*site)) {
+                    if (site_end_sides.count(*site)) {
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::build_indices]: leaving at end of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+#endif
                         // leaving: put the site in the index in the orientation of haplotype travesal
-                        HaplotypeNode* other_side_node = site_sides[*site];
-                        site_sides.erase(*site);
-                        haplotype.sites[*site] = make_pair(other_side_node, haplo_node);
+                        HaplotypeNode* other_side_node = site_end_sides[*site];
+                        site_end_sides.erase(*site);
+                        haplotype->sites[*site] = make_pair(other_side_node, haplo_node);
                     }
                     else {
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::build_indices]: entering at end of site " << site->start.node->id() << "->" << site->end.node->id() << endl;
+#endif
                         // entering: mark the node in the haplotype path where we entered
-                        site_sides[*site] = haplo_node;
+                        site_start_sides[*site] = haplo_node;
                     }
                 }
                 
@@ -135,53 +128,20 @@ namespace vg {
         }
     }
     
-    void PhasedGenome::build_site_indices_internal(NestedSite& site) {
+    void PhasedGenome::build_site_indices_internal(NestedSite* site) {
+        
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::build_indices]: recording start and end of site " << site->start.node->id() << "->" << site->end.node->id() << " at " << site << endl;
+#endif
         
         // record start and end of site
-        site_starts[site.start.node->id()] == &site;
-        site_ends[site.end.node->id()] == &site;
+        site_starts[site->start.node->id()] = site;
+        site_ends[site->end.node->id()] = site;
         
         // recurse through child sites
-        for (NestedSite& subsite : site.children) {
-            build_site_indices_internal(subsite);
+        for (NestedSite& subsite : site->children) {
+            build_site_indices_internal(&subsite);
         }
-        
-    }
-    
-    inline void PhasedGenome::insert_left(NodeTraversal node_traversal, HaplotypeNode* haplo_node) {
-        
-        HaplotypeNode* new_node = new HaplotypeNode(node_traversal, haplo_node, haplo_node->prev);
-        haplo_node->prev->next = new_node;
-        haplo_node->prev = new_node;
-        
-        node_locations[node_traversal.node->id()].push_back(new_node);
-    }
-    
-    inline void PhasedGenome::insert_right(NodeTraversal node_traversal, HaplotypeNode* haplo_node) {
-        
-        HaplotypeNode* new_node = new HaplotypeNode(node_traversal, haplo_node->next, haplo_node);
-        haplo_node->next->prev = new_node;
-        haplo_node->next = new_node;
-        
-        node_locations[node_traversal.node->id()].push_back(new_node);
-    }
-    
-    inline void PhasedGenome::remove(HaplotypeNode* haplo_node) {
-        // note: updating site indices is handled outside this function
-        
-        haplo_node->next->prev = haplo_node->prev;
-        haplo_node->prev->next = haplo_node->next;
-        
-        // remove the node from the node locations index
-        int64_t node_id = haplo_node->node_traversal.node->id();
-        list<HaplotypeNode*>& node_occurrences = node_locations[node_id];
-        for (auto iter = node_occurrences.begin(); iter != node_occurrences.end(); iter++) {
-            if (*iter == haplo_node) {
-                node_occurrences.erase(iter);
-            }
-        }
-        
-        delete haplo_node;
     }
     
     void PhasedGenome::swap_label(NestedSite& site, Haplotype& haplotype_1, Haplotype& haplotype_2) {
@@ -189,21 +149,33 @@ namespace vg {
         // update index for this site
         if (haplotype_1.sites.count(site)) {
             if (haplotype_2.sites.count(site)) {
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::swap_label]: site " << site.start.node->id() << "->" << site.end.node->id() << " is present on both alleles, swapping the label" << endl;
+#endif
                 // site is in both haplotypes, swap the labels
                 swap(haplotype_1.sites[site], haplotype_2.sites[site]);
             }
             else {
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::swap_label]: site " << site.start.node->id() << "->" << site.end.node->id() << " is present on only haplotype 1, transferring the label" << endl;
+#endif
                 // site is only in haplotype 1, transfer the label
                 haplotype_2.sites[site] = haplotype_1.sites[site];
                 haplotype_1.sites.erase(site);
             }
         }
         else if (haplotype_2.sites.count(site)) {
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::swap_label]: site " << site.start.node->id() << "->" << site.end.node->id() << " is present on only haplotype 2, transferring the label" << endl;
+#endif
             // site is only in haplotype 2, transfer the label
             haplotype_1.sites[site] = haplotype_2.sites[site];
             haplotype_2.sites.erase(site);
         }
         else {
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::swap_label]: site " << site.start.node->id() << "->" << site.end.node->id() << " is present on neither allele, ending recursion" << endl;
+#endif
             // site is in neither haplotype
             return;
         }
@@ -214,133 +186,71 @@ namespace vg {
         }
     }
     
+    size_t PhasedGenome::num_haplotypes() {
+        return haplotypes.size();
+    }
+    
+    PhasedGenome::iterator PhasedGenome::begin(int which_haplotype) {
+        return iterator(1, which_haplotype, haplotypes[which_haplotype]->left_telomere_node);
+    }
+    
+    PhasedGenome::iterator PhasedGenome::end(int which_haplotype) {
+        return iterator(0, which_haplotype, nullptr);
+    }
+    
     void PhasedGenome::swap_alleles(NestedSite& site, int haplotype_1, int haplotype_2) {
-        Haplotype& haplo_1 = haplotypes[haplotype_1];
-        Haplotype& haplo_2 = haplotypes[haplotype_2];
+        Haplotype& haplo_1 = *haplotypes[haplotype_1];
+        Haplotype& haplo_2 = *haplotypes[haplotype_2];
         
         pair<HaplotypeNode*, HaplotypeNode*> haplo_nodes_1 = haplo_1.sites[site];
         pair<HaplotypeNode*, HaplotypeNode*> haplo_nodes_2 = haplo_2.sites[site];
         
-        // rewire the paths to switch out the alleles
-        haplo_nodes_1.first->prev->next = haplo_nodes_2.first;
-        haplo_nodes_2.first->prev->next = haplo_nodes_1.first;
-        haplo_nodes_1.second->next->prev = haplo_nodes_2.second;
-        haplo_nodes_2.second->next->prev = haplo_nodes_1.second;
-        swap(haplo_nodes_1.first->prev, haplo_nodes_2.first->prev);
-        swap(haplo_nodes_1.second->next, haplo_nodes_2.second->next);
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::swap_alleles]: swapping allele at site " << site.start.node->id() << "->" << site.end.node->id() << " between chromosomes " << haplotype_1 << " and " << haplotype_2 << " with haplotype nodes " << haplo_nodes_1.first << "->" << haplo_nodes_1.second << " and " << haplo_nodes_2.first << "->" << haplo_nodes_2.second << endl;
+#endif
         
-        // update index for this site
-        haplo_1.sites[site] = haplo_nodes_2;
-        haplo_2.sites[site] = haplo_nodes_1;
+        bool is_deletion_1 = (haplo_nodes_1.first->next == haplo_nodes_1.second);
+        bool is_deletion_2 = (haplo_nodes_2.first->next == haplo_nodes_2.second);
+        
+        if (is_deletion_1 && !is_deletion_2) {
+            haplo_nodes_2.first->next->prev = haplo_nodes_1.first;
+            haplo_nodes_2.second->prev->next = haplo_nodes_1.second;
+            
+            haplo_nodes_1.first->next = haplo_nodes_2.first->next;
+            haplo_nodes_1.second->prev = haplo_nodes_2.second->prev;
+            
+            haplo_nodes_2.first->next = haplo_nodes_2.second;
+            haplo_nodes_2.second->prev = haplo_nodes_2.first;
+        }
+        else if (is_deletion_2 && !is_deletion_1) {
+            haplo_nodes_1.first->next->prev = haplo_nodes_2.first;
+            haplo_nodes_1.second->prev->next = haplo_nodes_2.second;
+            
+            haplo_nodes_2.first->next = haplo_nodes_1.first->next;
+            haplo_nodes_2.second->prev = haplo_nodes_1.second->prev;
+            
+            haplo_nodes_1.first->next = haplo_nodes_1.second;
+            haplo_nodes_1.second->prev = haplo_nodes_1.first;
+        }
+        else if (!is_deletion_1 && !is_deletion_2) {
+            haplo_nodes_2.first->next->prev = haplo_nodes_1.first;
+            haplo_nodes_2.second->prev->next = haplo_nodes_1.second;
+            
+            haplo_nodes_1.first->next->prev = haplo_nodes_2.first;
+            haplo_nodes_1.second->prev->next = haplo_nodes_2.second;
+            
+            swap(haplo_nodes_1.first->next, haplo_nodes_2.first->next);
+            swap(haplo_nodes_1.second->prev, haplo_nodes_2.second->prev);
+        }
+        // else two deletions and nothing will change
+        
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::swap_alleles]: swapping labels on nested sites" << endl;
+#endif
         
         // update index for child sites
         for (NestedSite& child_site : site.children) {
             swap_label(child_site, haplo_1, haplo_2);
-        }
-    }
-    
-    // TODO: it seems like there should be a better way to do this than completely erasing
-    // and then rewriting the site (especially at long sites)
-    template <typename NodeTraversalIterator>
-    void PhasedGenome::set_allele(NestedSite& site, NodeTraversalIterator first, NodeTraversalIterator last,
-                                  int which_haplotype) {
-        
-        Haplotype& haplotype = haplotypes[which_haplotype];
-        
-        // can only set the allele of a site that already is in the haplotype
-        assert(haplotype.sites.count(site));
-        
-        pair<HaplotypeNode*, HaplotypeNode*> haplo_site = haplotype.sites[site];
-        
-        // remove the current site
-        HaplotypeNode* haplo_node = haplo_site.first->next;
-        while (haplo_node != haplo_site.second) {
-            // don't need to worry about erasing the same site twice (once on start and
-            // once on end) since unordered_map.erase is defined in both cases
-            int64_t node_id = haplo_node->node_traversal.node->id();
-            if (site_starts.count(node_id)) {
-                NestedSite* subsite = site_starts[node_id];
-                haplotype.sites.erase(*subsite);
-            }
-            else if (site_ends.count(node_id)) {
-                NestedSite* subsite = site_ends[node_id];
-                haplotype.sites.erase(*subsite);
-            }
-            // cut out each node and iterate to next node
-            HaplotypeNode* next_haplo_node = haplo_node->next;
-            remove(haplo_node);
-            haplo_node = next_haplo_node;
-        }
-        
-        // is site in forward or reverse direction on haplotype?
-        bool forward = (haplo_site.first->node_traversal.node == site.start.node);
-        
-        // orient traversal through the allele to traversal along the haplotype
-        haplo_node = forward ? haplo_site.first : haplo_site.second;
-        auto oriented_insert = forward ? [this](NodeTraversal node_traversal, HaplotypeNode* haplo_node)
-                                               {
-                                                   this->insert_right(node_traversal, haplo_node);
-                                                   return haplo_node->next;
-                                               }
-                                       : [this](NodeTraversal node_traversal, HaplotypeNode* haplo_node)
-                                               {
-                                                   this->insert_left(node_traversal, haplo_node);
-                                                   return haplo_node->prev;
-                                               };
-        auto oriented_site = forward ? [](HaplotypeNode* haplo_node_1, HaplotypeNode* haplo_node_2)
-                                         {
-                                             return make_pair(haplo_node_1, haplo_node_2);
-                                         }
-                                     : [](HaplotypeNode* haplo_node_1, HaplotypeNode* haplo_node_2)
-                                         {
-                                             return make_pair(haplo_node_2, haplo_node_1);
-                                         };
-        
-        // keeps track of the haplotype node where we entered a site and thereby also
-        // indicates whether we have entered the site yet
-        unordered_map<NestedSite, HaplotypeNode*, HashSite> subsite_side;
-        
-        // start inserting nodes from the first position in the allele
-        for (; first != last; first++) {
-            
-            // create the next node in the allele and move the pointer onto the new node
-            haplo_node = oriented_insert(*first, haplo_node);
-            
-            int64_t node_id = haplo_node->node_traversal.node->id();
-            
-            // does a site start here?
-            if (site_starts.count(node_id)) {
-                NestedSite* subsite = site_starts[node_id];
-                // are we entering or leaving this site?
-                if (subsite_side.count(*subsite)) {
-                    // add this site into the haplotype's site index
-                    HaplotypeNode* other_side_node = subsite_side[*subsite];
-                    haplotype.sites[*subsite] = oriented_site(other_side_node, haplo_node);
-                    // note: the site sides should always be entered in the order that
-                    // they occur in the haplotype
-                }
-                else {
-                    // we are entering a site, mark the location of the entrance
-                    subsite_side[*subsite] = haplo_node;
-                }
-            }
-            
-            // does a site end here?
-            if (site_ends.count(node_id)) {
-                NestedSite* subsite = site_ends[node_id];
-                // are we entering or leaving this site?
-                if (subsite_side.count(*subsite)) {
-                    // add this site into the haplotype's site index
-                    HaplotypeNode* other_side_node = subsite_side[*subsite];
-                    haplotype.sites[*subsite] = oriented_site(other_side_node, haplo_node);
-                    // note: the site sides should always be entered in the order that
-                    // they occur in the haplotype
-                }
-                else {
-                    // we are entering a site, mark the location of the entrance
-                    subsite_side[*subsite] = haplo_node;
-                }
-            }
         }
     }
     
@@ -366,21 +276,26 @@ namespace vg {
             const Subpath& start_subpath = multipath_aln.subpath(multipath_aln.start(i));
             const Position& start_pos = start_subpath.path().mapping(0).position();
             
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::optimal_score_on_genome]: looking for candidate start positions for subpath " << multipath_aln.start(i) << " on node " << start_pos.node_id() << endl;
+#endif
+            
             // add each location the start nodes occur in the path to the candidate starts
             for ( HaplotypeNode* haplo_node : node_locations[start_pos.node_id()] ) {
-                
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::optimal_score_on_genome]: marking candidate start position at " << haplo_node->node_traversal.node->id() << " on haplotype node at " << haplo_node << endl;
+#endif
                 // mark the start locations orientation relative to the start node
-                if (haplo_node->node_traversal.backward == start_pos.is_reverse()) {
-                    candidate_start_positions[make_pair(haplo_node, true)].push_back(i);
-                }
-                else {
-                    candidate_start_positions[make_pair(haplo_node, false)].push_back(i);
-                }
+                candidate_start_positions[make_pair(haplo_node, haplo_node->node_traversal.backward == start_pos.is_reverse())].push_back(i);
             }
         }
         
         // check alignments starting at each node in the path that has a source subpath starting on it
         for (pair< pair<HaplotypeNode*, bool>, vector<int> > path_starts : candidate_start_positions) {
+            
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::optimal_score_on_genome]: checking for an alignment at candidate start position on node " << path_starts.first.first->node_traversal.node->id() << " on " << (path_starts.first.second ? "forward" : "reverse" ) << " strand of haplotype" << endl;
+#endif
             
             HaplotypeNode* path_start_node = path_starts.first.first;
             bool oriented_forward = path_starts.first.second;
@@ -407,8 +322,15 @@ namespace vg {
                 
                 // this subpath may be unreachable from subpaths consistent with the path
                 if (subpath_node == nullptr) {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is unreachable through consistent paths" << endl;
+#endif
                     continue;
                 }
+                
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::optimal_score_on_genome]: checking subpath " << i << " for consistent paths" << endl;
+#endif
                 
                 const Subpath& subpath = multipath_aln.subpath(i);
                 
@@ -421,19 +343,32 @@ namespace vg {
                         || ((position.is_reverse() == subpath_node->node_traversal.backward) != oriented_forward)) {
                         subpath_follows_path = false;
                         break;
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is inconsistent with haplotype" << endl;
+#endif
                     }
                 }
                 
                 // if subpath followed haplotype path, extend to subsequent subpaths or record completed alignment
                 if (subpath_follows_path) {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::optimal_score_on_genome]: subpath " << i << " is consistent with haplotype" << endl;
+#endif
                     int32_t extended_prefix_score = subpath_prefix_score[i] + subpath.score();
                     if (subpath.next_size() == 0) {
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::optimal_score_on_genome]: sink path, considering score of " << extended_prefix_score << endl;
+#endif
                         // reached a sink subpath (thereby completing an alignment), check for optimality
                         if (extended_prefix_score > optimal_score) {
                             optimal_score = extended_prefix_score;
                         }
                     }
                     else {
+                        
+#ifdef debug_phased_genome
+                        cerr << "[PhasedGenome::optimal_score_on_genome]: non sink path, extending score of " << extended_prefix_score << endl;
+#endif
                         // edge case: check if subpath_node was improperly incremented from a mapping that ended in the
                         // middle of a node
                         Position end_pos = last_path_position(subpath.path());
@@ -457,6 +392,27 @@ namespace vg {
         
         return optimal_score;
     }
+    
+    
+    PhasedGenome::iterator::iterator() : rank(0), haplotype_number(-1), haplo_node(nullptr) {
+    
+    }
+    
+    PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode* haplo_node) :
+                                    rank(rank), haplotype_number(haplotype_number), haplo_node(haplo_node) {
+        
+    }
+    
+    PhasedGenome::iterator::iterator(const iterator& other) : rank(other.rank),
+                                                              haplotype_number(other.haplotype_number),
+                                                              haplo_node(other.haplo_node) {
+        
+    }
+    
+    PhasedGenome::iterator::~iterator() {
+    
+    }
+    
 }
 
 

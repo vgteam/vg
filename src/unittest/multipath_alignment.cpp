@@ -30,7 +30,7 @@ namespace vg {
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
-                graph.create_edge(n3, n4);
+                graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
                 string read = string("GCATCTGA");
@@ -72,7 +72,7 @@ namespace vg {
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
-                graph.create_edge(n3, n4);
+                graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
                 string read = string("GCATCTGA");
@@ -143,7 +143,7 @@ namespace vg {
                 
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
-                graph.create_edge(n3, n4);
+                graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
                 string read = string("T");
