@@ -187,10 +187,10 @@ namespace vg{
 
     }
     pair<Alignment, Alignment> Filter::soft_clip_filter(Alignment& aln_first, Alignment& aln_second){
-        aln_first = soft_clip_filter(aln_first);
-        aln_second = soft_clip_filter(aln_second);
+        Alignment a_check = soft_clip_filter(aln_first);
+        Alignment b_check = soft_clip_filter(aln_second);
 
-        if (aln_first.name() == "" || aln_second.name() == ""){
+        if (a_check.name() == "" || b_check.name() == ""){
             return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second) ;
         }
         else{
