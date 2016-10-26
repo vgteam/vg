@@ -263,6 +263,9 @@ namespace vg {
             }
         };
         
+        // must have identified start subpaths before computing optimal score   
+        assert(multipath_aln.start_size() > 0);
+        
         // iteration functions to facilitate iterating on forward/reverse strands
         auto move_right = [](HaplotypeNode*& path_node) { path_node = path_node->next; };
         auto move_left = [](HaplotypeNode*& path_node) { path_node = path_node->prev; };
