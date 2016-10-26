@@ -201,10 +201,7 @@ void help_filter(char** argv) {
          << "options:" << endl
          << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
-         << "    -d, --min-sec-delta N   mininum (primary - secondary) score delta to keep secondary alignment [default=0]" << endl
-         << "    -e, --min-pri-delta N   minimum (primary - secondary) score delta to keep primary alignment [default=0]" << endl
          << "    -f, --frac-score        normalize score based on length" << endl
-         << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
@@ -215,7 +212,9 @@ void help_filter(char** argv) {
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
+         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
+         << "    -t, --threads N         number of threads [1]" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -241,10 +240,7 @@ int main_filter(int argc, char** argv) {
             {
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
-                {"min-sec-delta", required_argument, 0, 'd'},
-                {"min-pri-delta", required_argument, 0, 'e'},
                 {"frac-score", required_argument, 0, 'f'},
-                {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -256,11 +252,13 @@ int main_filter(int argc, char** argv) {
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
+                {"defray-count", required_argument, 0, 'C'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -275,17 +273,8 @@ int main_filter(int argc, char** argv) {
         case 'r':
             filter.min_primary = atof(optarg);
             break;
-        case 'd':
-            filter.min_sec_delta = atof(optarg);
-            break;
-        case 'e':
-            filter.min_pri_delta = atof(optarg);
-            break;
         case 'f':
             filter.frac_score = true;
-            break;
-        case 'a':
-            filter.frac_delta = true;
             break;
         case 'u':
             filter.sub_score = true;
@@ -318,7 +307,13 @@ int main_filter(int argc, char** argv) {
             break;
         case 'D':
             filter.defray_length = atoi(optarg);
+            break;
+        case 'C':
+            filter.defray_count = atoi(optarg);
             break;          
+        case 't':
+            filter.threads = atoi(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -332,12 +327,14 @@ int main_filter(int argc, char** argv) {
         }
     }
 
+    omp_set_num_threads(filter.threads);
+    
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
         return 1;
     }
-    
+
     // If the user gave us an XG index, we probably ought to load it up.
     // TODO: make sure if we add any other error exits from this function we
     // remember to delete this!
@@ -351,7 +348,7 @@ int main_filter(int argc, char** argv) {
         }
         xindex = new xg::XG(xg_stream);
     }
-    
+
     string alignments_file_name = argv[optind++];
     istream* alignment_stream = NULL;
     ifstream in;
@@ -361,22 +358,22 @@ int main_filter(int argc, char** argv) {
         in.open(alignments_file_name);
         if (!in) {
             cerr << "error: input file " << alignments_file_name << " not found." << endl;
-            
+
             if(xindex != nullptr) {
                 delete xindex;
             }
             return 1;
-            
+
         }
         alignment_stream = &in;
     }
 
     auto to_return = filter.filter(alignment_stream, xindex);
-    
+
     if(xindex != nullptr) {
         delete xindex;
     }
-    
+
     return to_return;
 }
 
@@ -1005,7 +1002,7 @@ int main_vectorize(int argc, char** argv){
             stream::for_each(in, lambda);
         }
     }
-    
+
     string mapping_str = vz.output_wabbit_map();
     if (output_wabbit){
         if (!wabbit_mapping_file.empty()){
@@ -1019,7 +1016,7 @@ int main_vectorize(int argc, char** argv){
             ofi.close();
         }
         else{
-        
+
             cerr << mapping_str;
         }
     }
@@ -1177,7 +1174,7 @@ void help_call(char** argv) {
          << "    -l, --length INT           override total sequence length in VCF" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
          << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
@@ -1223,19 +1220,19 @@ int main_call(int argc, char** argv) {
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
     int64_t maxDepth = 10;
-    // Should we write pileup information to the VCF for debugging? 
+    // Should we write pileup information to the VCF for debugging?
     bool pileupAnnotate = false;
     // What should the total sequence length reported in the VCF header be?
     int64_t lengthOverride = -1;
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    double minFractionForCall = 0.2;
+    double minFractionForCall = 0;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 4;
+    double maxRefHetBias = 4;
     // How many times more bias do we allow for indels?
     double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
@@ -1304,7 +1301,7 @@ int main_call(int argc, char** argv) {
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
                 {"singleallelic", no_argument, 0, 'I'},
-                {"min_mad", required_argument, 0, 'E'},                
+                {"min_mad", required_argument, 0, 'E'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
@@ -1383,7 +1380,7 @@ int main_call(int argc, char** argv) {
         case 'R':
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
-            maxRefBias = std::stod(optarg);
+            maxRefHetBias = std::stod(optarg);
             break;
         case 'M':
             // Set multiplier for bias limits for indels
@@ -1417,13 +1414,13 @@ int main_call(int argc, char** argv) {
         case 'E':
             // Minimum min-allele-depth required to give Filter column a PASS
             min_mad_for_filter = std::stoi(optarg);
-            break;                                
+            break;
         case 'p':
             show_progress = true;
             break;
         case 'v':
             verbose = true;
-            break;            
+            break;
         case 't':
             thread_count = atoi(optarg);
             break;
@@ -1549,7 +1546,7 @@ int main_call(int argc, char** argv) {
                         pileupAnnotate ? pileup_file_name : string(),
                         minFractionForCall,
                         maxHetBias,
-                        maxRefBias,
+                        maxRefHetBias,
                         indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
@@ -1561,7 +1558,7 @@ int main_call(int argc, char** argv) {
                         max_bubble_paths,
                         min_mad_for_filter,
                         verbose);
-    
+
     return 0;
 }
 
@@ -1602,7 +1599,7 @@ int main_genotype(int argc, char** argv) {
     bool show_progress = false;
     // How many threads should we use?
     int thread_count = 0;
-    
+
     // What reference path should we use
     string ref_path_name;
     // What sample name should we use for output
@@ -1613,15 +1610,15 @@ int main_genotype(int argc, char** argv) {
     int64_t variant_offset = 0;
     // What length override should we use
     int64_t length_override = 0;
-    
+
     // Should we use mapping qualities?
     bool use_mapq = false;
     // Should we do indel realignment?
     bool realign_indels = false;
-    
+
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
-    
+
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
@@ -1767,7 +1764,7 @@ int main_genotype(int argc, char** argv) {
         help_genotype(argv);
         return 1;
     }
-    
+
     string reads_index_name = argv[optind];
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
@@ -1789,7 +1786,7 @@ int main_genotype(int argc, char** argv) {
 
     index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
         // Extract all the alignments
-        
+
         // Only take alignments that don't visit nodes not in the graph
         bool contained = true;
         for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
@@ -1798,17 +1795,17 @@ int main_genotype(int argc, char** argv) {
                 contained = false;
             }
         }
-        
+
         if(contained) {
             // This alignment completely falls within the graph
             alignments.push_back(alignment);
         }
     });
-        
+
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }
-    
+
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
     // Configure it
@@ -1832,7 +1829,7 @@ int main_genotype(int argc, char** argv) {
                   output_json,
                   length_override,
                   variant_offset);
-                  
+
     delete graph;
 
     return 0;
@@ -2431,7 +2428,7 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-        
+
         if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
@@ -2997,8 +2994,8 @@ int main_surject(int argc, char** argv) {
                     handle_buffer(buffer[tid]);
 
                 };
-            
-            
+
+
             // now apply the alignment processor to the stream
             if (file_name == "-") {
                 stream::for_each_parallel(std::cin, lambda);
@@ -3220,7 +3217,7 @@ void help_mod(char** argv) {
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
          << "    -a, --cactus            convert to cactus graph representation" << endl
-         << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl 
+         << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -3492,11 +3489,11 @@ int main_mod(int argc, char** argv) {
         case 'y':
             destroy_node_id = atoi(optarg);
             break;
-            
+
         case 'a':
             cactus = true;
             break;
-            
+
         case 'v':
             vcf_filename = optarg;
             break;
@@ -3525,7 +3522,7 @@ int main_mod(int argc, char** argv) {
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,
         // but not on alt paths for alts used by the first sample in the VCF.
-        
+
         // This is matched against the entire path name string to detect alt
         // paths.
         regex is_alt("_alt_.+_[0-9]+");
@@ -3538,7 +3535,7 @@ int main_mod(int argc, char** argv) {
             cerr << "error:[vg mod] could not open" << vcf_filename << endl;
             return 1;
         }
-        
+
         // Now go through and prune down the varaints.
 
         // How many phases are there?
@@ -3551,18 +3548,18 @@ int main_mod(int argc, char** argv) {
 
         graph->paths.for_each_name([&](const string& alt_path_name) {
             // For every path name in the graph
-            
+
             if(regex_match(alt_path_name, is_alt)) {
                 // If it's an alt path
-                
+
                 for(auto& mapping : graph->paths.get_path(alt_path_name)) {
                     // Mark all nodes that are part of it as on alt paths
                     alt_path_ids.insert(mapping.position().node_id());
                 }
-            
+
             }
         });
-        
+
         // We also have a function to handle each variant as it comes in.
         auto handle_variant = [&](vcflib::Variant& variant) {
             // So we have a variant
@@ -3574,7 +3571,7 @@ int main_mod(int argc, char** argv) {
 
             // Grab its id, or make one by hashing stuff if it doesn't
             // have an ID.
-            string var_name = get_or_make_variant_id(variant);
+            string var_name = make_variant_id(variant);
 
             if(!graph->paths.has_path("_alt_" + var_name + "_0")) {
                 // There isn't a reference alt path for this variant. Someone messed up.
@@ -3607,12 +3604,12 @@ int main_mod(int argc, char** argv) {
                     // Parse the allele number
                     allele_number = stoi(it->str());
                 }
-                
-                
-                
+
+
+
                 // Make the name for its alt path
                 string alt_path_name = "_alt_" + var_name + "_" + to_string(allele_number);
-                
+
                 for(auto& mapping : graph->paths.get_path(alt_path_name)) {
                     // Un-mark all nodes that are on this alt path, since it is used by the sample.
                     alt_path_ids.erase(mapping.position().node_id());
@@ -3641,12 +3638,12 @@ int main_mod(int argc, char** argv) {
             // Handle the variant
             handle_variant(var);
         }
-        
-        
+
+
         for(auto& node_id : alt_path_ids) {
             // And delete all the nodes that were used by alt paths that weren't
             // in the genotype of the first sample.
-            
+
             for(auto& path_name : graph->paths.of_node(node_id)) {
                 // For every path that touches the node we're destroying,
                 // destroy the path. We can't leave it because it won't be the
@@ -3656,11 +3653,11 @@ int main_mod(int argc, char** argv) {
                 cerr << "Node " << node_id << " was on path " << path_name << endl;
 #endif
             }
-            
+
             // Actually get rid of the node once its paths are gone.
             graph->destroy_node(node_id);
         }
-        
+
     }
 
     if (bluntify) {
@@ -4684,11 +4681,11 @@ int main_stats(int argc, char** argv) {
         case 'A':
             is_acyclic = true;
             break;
-            
+
         case 'a':
             alignments_filename = optarg;
             break;
-            
+
         case 'v':
             verbose = true;
             break;
@@ -4823,66 +4820,66 @@ int main_stats(int argc, char** argv) {
                 << graph->distance_to_tail(NodeTraversal(graph->get_node(id), false)) << endl;
         }
     }
-    
+
     if (!alignments_filename.empty()) {
         // Read in the given GAM
         ifstream alignment_stream(alignments_filename);
-        
+
         // We need some allele parsing functions
-        
+
         // This one decided if a path is really an allele path
         auto path_name_is_allele = [](const string path_name) -> bool {
             string prefix = "_alt_";
             // It needs to start with "_alt_" and have another separating
             // underscore between site name and allele number
             return(prefix.size() < path_name.size() &&
-                count(path_name.begin(), path_name.end(), '_') >= 3 && 
+                count(path_name.begin(), path_name.end(), '_') >= 3 &&
                 equal(prefix.begin(), prefix.end(), path_name.begin()));
         };
-        
+
         // This one gets the site name from an allele path name
         auto path_name_to_site = [](const string& path_name) -> string {
             auto last_underscore = path_name.rfind('_');
             assert(last_underscore != string::npos);
             return path_name.substr(0, last_underscore);
         };
-        
+
         // This one gets the allele name from an allele path name
         auto path_name_to_allele = [](const string& path_name) -> string {
             auto last_underscore = path_name.rfind('_');
             assert(last_underscore != string::npos);
             return path_name.substr(last_underscore + 1);
         };
-        
+
         // Before we go over the reads, we need to make a map that tells us what
         // nodes are unique to what allele paths. Stores site and allele parts
         // separately.
         map<vg::id_t, pair<string, string>> allele_path_for_node;
-        
+
         // This is what we really care about: for each pair of allele paths in
         // the graph, we need to find out whether the coverage imbalance between
         // them among primary alignments is statistically significant. For this,
         // we need to track how many reads overlap the distinct parts of allele
         // paths.
-        
+
         // This is going to be indexed by site
         // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
         // ("0"). A read only counts if it visits a node that's on one allele
         // and not any others in that site.
-        
+
         // We need to pre-populate it with 0s so we know which sites actually
         // have 2 alleles and which only have 1 in the graph.
         map<string, map<string, size_t>> reads_on_allele;
-        
+
         graph->for_each_node_parallel([&](Node* node) {
             // For every node
-            
+
             if(!graph->paths.has_node_mapping(node)) {
                 // No paths to go over. If we try and get them we'll be
                 // modifying the paths in parallel, which will explode.
                 return;
             }
-            
+
             // We want an allele path on it
             string allele_path;
             for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
@@ -4899,40 +4896,40 @@ int main_stats(int argc, char** argv) {
                     }
                 }
             }
-            
+
             if(!allele_path.empty()) {
                 // We found an allele path for this node
-                
+
                 // Get its site and allele so we can count it as a biallelic
                 // site. Note that sites where an allele has no unique nodes
                 // (pure indels, for example) can't be handled and will be
                 // ignored.
                 auto site = path_name_to_site(allele_path);
                 auto allele = path_name_to_allele(allele_path);
-                
-                
+
+
                 #pragma omp critical (allele_path_for_node)
                 allele_path_for_node[node->id()] = make_pair(site, allele);
-                
+
                 #pragma omp critical (reads_on_allele)
                 reads_on_allele[site][allele] = 0;
             }
         });
-        
-        
+
+
         // These are the general stats we will compute.
         size_t total_alignments = 0;
         size_t total_aligned = 0;
         size_t total_primary = 0;
         size_t total_secondary = 0;
-        
+
         // These are for counting significantly allele-biased hets
         size_t total_hets = 0;
         size_t significantly_biased_hets = 0;
-        
+
         // These are for tracking which nodes are covered and which are not
         map<vg::id_t, size_t> node_visit_counts;
-        
+
         // And for counting indels
         // Inserted bases also counts softclips
         size_t total_insertions = 0;
@@ -4945,19 +4942,19 @@ int main_stats(int argc, char** argv) {
         // And softclips
         size_t total_softclips = 0;
         size_t total_softclipped_bases = 0;
-        
+
         // In verbose mode we want to report details of insertions, deletions,
         // and substitutions, and soft clips.
         vector<pair<vg::id_t, Edit>> insertions;
         vector<pair<vg::id_t, Edit>> deletions;
         vector<pair<vg::id_t, Edit>> substitutions;
         vector<pair<vg::id_t, Edit>> softclips;
-        
+
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
-            
+
             // We ought to be able to do many stats on the alignments.
-            
+
             // Now do all the non-mapping stats
             #pragma omp critical (total_alignments)
             total_alignments++;
@@ -4974,33 +4971,33 @@ int main_stats(int argc, char** argv) {
                     #pragma omp critical (total_aligned)
                     total_aligned++;
                 }
-                
+
                 // Which sites and alleles does this read support. TODO: if we hit
                 // unique nodes from multiple alleles of the same site, we should...
                 // do something. Discard the read? Not just count it on both sides
                 // like we do now.
                 set<pair<string, string>> alleles_supported;
-                
+
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
                     // For every mapping...
                     auto& mapping = aln.path().mapping(i);
                     vg::id_t node_id = mapping.position().node_id();
-                    
+
                     if(allele_path_for_node.count(node_id)) {
                         // We hit a unique node for this allele. Add it to the set,
                         // in case we hit another unique node for it later in the
                         // read.
                         alleles_supported.insert(allele_path_for_node.at(node_id));
                     }
-                    
+
                     // Record that there was a visit to this node.
                     #pragma omp critical (node_visit_counts)
                     node_visit_counts[node_id]++;
-                    
+
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
                         // Go through edits and look for each type.
                         auto& edit = mapping.edit(j);
-                        
+
                         if(edit.to_length() > edit.from_length()) {
                             if((j == 0 && i == 0) || (j == mapping.edit_size() - 1 && i == aln.path().mapping_size() - 1)) {
                                 // We're at the very end of the path, so this is a soft clip.
@@ -5025,7 +5022,7 @@ int main_stats(int argc, char** argv) {
                                     insertions.push_back(make_pair(node_id, edit));
                                 }
                             }
-                            
+
                         } else if(edit.from_length() > edit.to_length()) {
                             // Record this deletion
                             #pragma omp critical (total_deleted_bases)
@@ -5050,10 +5047,10 @@ int main_stats(int argc, char** argv) {
                                 substitutions.push_back(make_pair(node_id, edit));
                             }
                         }
-                        
+
                     }
                 }
-                
+
                 for(auto& site_and_allele : alleles_supported) {
                     // This read is informative for an allele of a site.
                     // Up the reads on that allele of that site.
@@ -5061,52 +5058,52 @@ int main_stats(int argc, char** argv) {
                     reads_on_allele[site_and_allele.first][site_and_allele.second]++;
                 }
             }
-            
+
         };
-        
+
         // Actually go through all the reads and count stuff up.
         stream::for_each_parallel(alignment_stream, lambda);
-        
+
         // Calculate stats about the reads per allele data
         for(auto& site_and_alleles : reads_on_allele) {
             // For every site
             if(site_and_alleles.second.size() == 2) {
                 // If it actually has 2 alleles with unique nodes in the
                 // graph (so we can use the binomial)
-                
+
                 // We'll fill this with the counts for the two present alleles.
                 vector<size_t> counts;
-                
+
                 for(auto& allele_and_count : site_and_alleles.second) {
                     // Collect all the counts
                     counts.push_back(allele_and_count.second);
                 }
-                
+
                 if(counts[0] > counts[1]) {
                     // We have a 50% underlying probability so we can just put
                     // the rarer allele first.
                     swap(counts[0], counts[1]);
                 }
-                
+
                 // What's the log prob for the smaller tail?
                 auto tail_logprob = binomial_cmf_ln(prob_to_logprob(0.5),  counts[1] + counts[0], counts[0]);
-                
+
                 // Double it to get the two-tailed test
                 tail_logprob += prob_to_logprob(2);
-                
+
 #ifdef debug
                 cerr << "Site " << site_and_alleles.first << " has " << counts[0]
                     << " and " << counts[1] << " p=" << logprob_to_prob(tail_logprob) << endl;
 #endif
-                
+
                 if(tail_logprob < prob_to_logprob(0.05)) {
                     significantly_biased_hets++;
                 }
                 total_hets++;
-                
+
             }
         }
-        
+
         // Go through all the nodes again and sum up unvisited nodes
         size_t unvisited_nodes = 0;
         // And unvisited base count
@@ -5148,12 +5145,12 @@ int main_stats(int argc, char** argv) {
                 }
             }
         });
-        
+
         cout << "Total alignments: " << total_alignments << endl;
         cout << "Total primary: " << total_primary << endl;
         cout << "Total secondary: " << total_secondary << endl;
         cout << "Total aligned: " << total_aligned << endl;
-        
+
         cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : insertions) {
@@ -5182,7 +5179,7 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
-        
+
         cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
             << " (" << unvisited_node_bases << " bp)" << endl;
         if(verbose) {
@@ -5190,22 +5187,22 @@ int main_stats(int argc, char** argv) {
                 cout << "\t" << id << endl;
             }
         }
-        
+
         cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->node_count()
             << " (" << single_visited_node_bases << " bp)" << endl;
         if(verbose) {
             for(auto& id : single_visited_ids) {
                 cout << "\t" << id << endl;
             }
-        }     
-        
+        }
+
         cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
         if(total_hets > 0) {
             cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
         }
         cout << endl;
-        
-        
+
+
     }
 
     delete graph;
@@ -5571,7 +5568,7 @@ int main_find(int argc, char** argv) {
         case 'D':
             pairwise_distance = true;
             break;
-            
+
         case 'H':
             haplotype_alignments = optarg;
             break;
@@ -5765,7 +5762,7 @@ int main_find(int argc, char** argv) {
                 // Count the amtches to the path. The path might be empty, in
                 // which case it will yield the biggest size_t you can have.
                 size_t matches = xindex.count_matches(aln.path());
-                
+
                 // We do this single-threaded, at least for now, so we don't
                 // need to worry about coordinating output, and we can just
                 // spit out the counts as bare numbers.
@@ -5782,7 +5779,7 @@ int main_find(int argc, char** argv) {
                 }
                 stream::for_each(in, lambda);
             }
-            
+
         }
         if (!gam_file.empty()) {
             set<vg::id_t> nodes;
@@ -5919,10 +5916,10 @@ int main_find(int argc, char** argv) {
             }
         } else {
             // let's use the GCSA index
-            
+
             // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-            
+
             // Open it
             ifstream in_gcsa(gcsa_in.c_str());
             gcsa::GCSA gcsa_index;
@@ -5956,7 +5953,7 @@ int main_find(int argc, char** argv) {
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
-                
+
             }
         }
     }
@@ -5996,7 +5993,7 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
         }
     }
-    
+
     if (vindex) delete vindex;
 
     return 0;
@@ -6043,7 +6040,8 @@ void help_index(char** argv) {
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
+         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
+         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 
 }
 
@@ -6083,6 +6081,7 @@ int main_index(int argc, char** argv) {
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
     bool store_threads = false; // use gPBWT to store paths
+    bool discard_overlaps = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -6118,11 +6117,12 @@ int main_index(int argc, char** argv) {
             {"store-threads", no_argument, 0, 'T'},
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
+            {"discard-overlaps", no_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:TN",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:TNo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -6243,6 +6243,10 @@ int main_index(int argc, char** argv) {
             store_threads = true;
             break;
 
+        case 'o':
+            discard_overlaps = true;
+            break;
+
         case 'N':
             store_node_alignments = true;
             break;
@@ -6317,13 +6321,13 @@ int main_index(int argc, char** argv) {
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
         xg::XG index = graphs.to_xg(store_threads, is_alt, alt_paths);
-        
+
         // We're going to collect all the phase threads as XG threads (which
         // aren't huge like Protobuf Paths), and then insert them all into xg in
         // a batch, for speed. This will take a lot of memory (although not as
         // much as a real vg::Paths index or vector<Path> would)
         vector<xg::XG::thread_t> all_phase_threads;
-        
+
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
 
@@ -6346,7 +6350,7 @@ int main_index(int argc, char** argv) {
 
                 // How many bases is it?
                 size_t path_length = index.path_length(path_name);
-                
+
                 // Allocate some threads to store phase threads
                 vector<xg::XG::thread_t> active_phase_threads{num_phases};
                 // We need to remember how many paths of a particular phase have
@@ -6354,7 +6358,7 @@ int main_index(int argc, char** argv) {
                 vector<int> saved_phase_paths(num_phases, 0);
 
                 // What's the first reference position after the last variant?
-                size_t nonvariant_start = 0;
+                vector<size_t> nonvariant_starts(num_phases, 0);
 
                 // Completed ones just get dumped into the index
                 auto finish_phase = [&](size_t phase_number) {
@@ -6364,21 +6368,21 @@ int main_index(int argc, char** argv) {
 
                     // Find where this path is in our vector
                     xg::XG::thread_t& to_save = active_phase_threads[phase_number];
-                    
+
                     if(to_save.size() > 0) {
                         // Only actually do anything if we put in some mappings.
-                        
+
                         // Count this thread from this phase as being saved.
                         saved_phase_paths[phase_number]++;
-                        
+
                         // We don't tie threads from a pahse together in the
                         // index yet.
-                            
+
                         // Copy the thread over to our batch that we GPBWT all
                         // at once, exploiting the fact that VCF-derived graphs
                         // are DAGs.
                         all_phase_threads.push_back(to_save);
-                        
+
                         // Clear it out for re-use
                         to_save.clear();
                     }
@@ -6390,16 +6394,16 @@ int main_index(int argc, char** argv) {
                 auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
                     // Find the path to add to
                     xg::XG::thread_t& to_extend = active_phase_threads[phase_number];
-                    
+
                     // See if the edge we need to follow exists
                     if(to_extend.size() > 0) {
                         // If there's a previous mapping, go find it
                         const xg::XG::ThreadMapping& previous = to_extend[to_extend.size() - 1];
-                        
+
                         // Break out the IDs and flags we need to check for the edge
                         int64_t last_node = previous.node_id;
                         bool last_from_start = previous.is_reverse;
-                        
+
                         int64_t new_node = mapping.position().node_id();
                         bool new_to_end = mapping.position().is_reverse();
 
@@ -6411,11 +6415,11 @@ int main_index(int argc, char** argv) {
                                 << last_node << (last_from_start ? "L" : "R") << " - "
                                 << new_node << (new_to_end ? "R" : "L")
                                 << " which does not exist. Splitting!" << endl;
-#endif                    
+#endif
                             finish_phase(phase_number);
                         }
                     }
-                    
+
                     // Add a new ThreadMapping for the mapping
                     xg::XG::ThreadMapping tm = {mapping.position().node_id(), mapping.position().is_reverse()};
                     active_phase_threads[phase_number].push_back(tm);
@@ -6429,7 +6433,7 @@ int main_index(int argc, char** argv) {
                     // intervening reference nodes from the last variant, if
                     // any. For which we need access to the last variant's past-
                     // the-end reference position.
-                    size_t ref_pos = nonvariant_start;
+                    size_t ref_pos = nonvariant_starts[phase_number];
                     while(ref_pos < end) {
                         // While there is intervening reference
                         // sequence, add it to our phase.
@@ -6443,6 +6447,7 @@ int main_index(int argc, char** argv) {
                         // Advance to what's after that mapping
                         ref_pos += index.node_length(ref_mapping.position().node_id());
                     }
+                    nonvariant_starts[phase_number] = ref_pos;
                 };
 
                 // We also have another function to handle each variant as it comes in.
@@ -6451,7 +6456,7 @@ int main_index(int argc, char** argv) {
 
                     // Grab its id, or make one by hashing stuff if it doesn't
                     // have an ID.
-                    string var_name = get_or_make_variant_id(variant);
+                    string var_name = make_variant_id(variant);
 
                     if(alt_paths.count("_alt_" + var_name + "_0") == 0) {
                         // There isn't a reference alt path for this variant.
@@ -6474,18 +6479,6 @@ int main_index(int argc, char** argv) {
                         // Find the phasing bar
                         auto bar_pos = genotype.find('|');
 
-                        for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
-                            // For both the phases for the sample, add mappings
-                            // through all the fixed reference nodes between the
-                            // last variant and here.
-                            append_reference_mappings_until(sample_number * 2 + phase_offset, variant.position);
-
-                            // If this variant isn't phased, this will just be a
-                            // reference-matching piece of thread after the last
-                            // variant. If that wasn't phased either, it's just
-                            // a floating perfect reference match.
-                        }
-
                         if(bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
                             // If it isn't phased, or we otherwise don't like
                             // it, we need to break phasing paths.
@@ -6504,19 +6497,28 @@ int main_index(int argc, char** argv) {
                             // Handle each phase and its alt
                             int& alt_index = alt_indices[phase_offset];
 
-                            // We need to find the path for this alt of this
-                            // variant. We can pull out the whole thing since it
-                            // should be short.
-                            Path alt_path = alt_paths.at("_alt_" + var_name + "_" + to_string(alt_index));
-                            // TODO: if we can't find this path, it probaby
-                            // means we mismatched the vg file and the vcf file.
-                            // Maybe we should complain to the user instead of
-                            // just failing an assert in at()?
+                            // If this sample doesn't take the reference path at this
+                            // variant
+                            if(alt_index != 0) {
 
+                              // We need to find the path for this alt of this
+                              // variant. We can pull out the whole thing since it
+                              // should be short.
+                              Path alt_path = alt_paths.at("_alt_" + var_name + "_" + to_string(alt_index));
+                              // TODO: if we can't find this path, it probaby
+                              // means we mismatched the vg file and the vcf file.
+                              // Maybe we should complain to the user instead of
+                              // just failing an assert in at()?
 
-                            for(size_t i = 0; i < alt_path.mapping_size(); i++) {
-                                // Then blit mappings from the alt over to the phase thread
-                                append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                              if(nonvariant_starts[sample_number * 2 + phase_offset] <= variant.position || !discard_overlaps) {
+
+                                for(size_t i = 0; i < alt_path.mapping_size(); i++) {
+                                    // Then blit mappings from the alt over to the phase thread
+                                    append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                                }
+
+                                nonvariant_starts[sample_number * 2 + phase_offset] = variant.position + variant.ref.size();
+                              }
                             }
 
                             // TODO: We can't really land anywhere on the other
@@ -6529,10 +6531,6 @@ int main_index(int argc, char** argv) {
 
                         // Now we have processed both phasinbgs for this sample.
                     }
-
-                    // Update the past-the-last-variant position, globally,
-                    // after we do all the samples.
-                    nonvariant_start = variant.position + variant.ref.size();
                 };
 
                 // Look for variants only on this path
@@ -6593,22 +6591,22 @@ int main_index(int argc, char** argv) {
                 }
 
             }
-            
+
             if(show_progress) {
                 cerr << "Inserting all phase threads into DAG..." << endl;
             }
-            
+
             // Now insert all the threads in a batch into the known-DAG VCF-
             // derived graph.
             index.insert_threads_into_dag(all_phase_threads);
             all_phase_threads.clear();
-            
+
         }
-        
+
         if(show_progress) {
             cerr << "Saving index to disk..." << endl;
         }
-        
+
         // save the xg version to the file name we've been given
         ofstream db_out(xg_name);
         index.serialize(db_out);
@@ -7029,7 +7027,7 @@ void help_map(char** argv) {
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
-         << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl 
+         << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
@@ -7204,7 +7202,7 @@ int main_map(int argc, char** argv) {
         case 's':
             seq = optarg;
             break;
-            
+
         case 'I':
             qual = string_quality_char_to_short(string(optarg));
                 break;
@@ -7390,15 +7388,15 @@ int main_map(int argc, char** argv) {
         case 'y':
             gap_extend = atoi(optarg);
             break;
-            
+
         case '1':
             qual_adjust_alignments = true;
             break;
-            
+
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
             break;
-                
+
         case 'v':
             method_code = atoi(optarg);
             break;
@@ -7438,7 +7436,7 @@ int main_map(int argc, char** argv) {
         cerr << "error:[vg map] sequence and base quality string must be the same length" << endl;
         return 1;
     }
-    
+
     if (qual_adjust_alignments && ((fastq1.empty() && hts_file.empty() && qual.empty()) // must have some quality input
                                    || (!seq.empty() && qual.empty())                    // can't provide sequence without quality
                                    || !read_file.empty()))                              // can't provide sequence list without qualities
@@ -7447,7 +7445,7 @@ int main_map(int argc, char** argv) {
         return 1;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
-    
+
     MappingQualityMethod mapping_quality_method;
     if (method_code == 0) {
         mapping_quality_method = None;
@@ -7462,7 +7460,7 @@ int main_map(int argc, char** argv) {
         cerr << "error:[vg map] unrecognized mapping quality method command line arg '" << method_code << "'" << endl;
         return 1;
     }
-    
+
 
     // should probably disable this
     string file_name;
@@ -7581,7 +7579,7 @@ int main_map(int argc, char** argv) {
             stream::write_buffered(cout, output_buf, buffer_size);
         }
     };
-    
+
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m;
         if(xindex && gcsa && lcp) {
@@ -7625,7 +7623,7 @@ int main_map(int argc, char** argv) {
 
         Alignment unaligned;
         unaligned.set_sequence(seq);
-        
+
         if (!qual.empty()) {
             unaligned.set_quality(qual);
         }
@@ -7635,14 +7633,14 @@ int main_map(int argc, char** argv) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
-        
+
 
         for(auto& alignment : alignments) {
             if (!sample_name.empty()) alignment.set_sample_name(sample_name);
             if (!read_group.empty()) alignment.set_read_group(read_group);
             if (!seq_name.empty()) alignment.set_name(seq_name);
         }
-        
+
         // Output the alignments in JSON or protobuf as appropriate.
         output_alignments(alignments);
     }
@@ -8601,13 +8599,13 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else if (output_type == "locus") {
-        
+
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
-    
+
     // We made it to the end and nothing broke.
     return 0;
 }
@@ -8632,6 +8630,245 @@ void help_deconstruct(char** argv){
          << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
          << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
          << endl;
+}
+
+void help_locify(char** argv){
+    cerr << "usage: " << argv[0] << " locify [options] " << endl
+         << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
+         << "    -a, --aln-idx DIR    use this rocksdb alignment index (from vg index -N)" << endl
+         << "    -x, --xg-idx FILE    use this xg index" << endl
+         << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
+         << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
+         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl;
+        // TODO -- add some basic filters that are useful downstream in whatshap
+}
+
+int main_locify(int argc, char** argv){
+    string gam_idx_name;
+    string loci_file;
+    Index gam_idx;
+    string xg_idx_name;
+    bool name_alleles = false;
+    bool forwardize = false;
+    string loci_out;
+
+    if (argc <= 2){
+        help_locify(argv);
+        exit(1);
+    }
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+        {
+            {"help", no_argument, 0, 'h'},
+            {"gam-idx", required_argument, 0, 'g'},
+            {"loci", required_argument, 0, 'l'},
+            {"xg-idx", required_argument, 0, 'x'},
+            {"name-alleles", no_argument, 0, 'n'},
+            {"forwardize", no_argument, 0, 'f'},
+            {"loci-out", required_argument, 0, 'o'},
+            {0, 0, 0, 0}
+        };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hl:x:g:nfo:",
+                long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'g':
+            gam_idx_name = optarg;
+            break;
+
+        case 'l':
+            loci_file = optarg;
+            break;
+
+        case 'x':
+            xg_idx_name = optarg;
+            break;
+
+        case 'n':
+            name_alleles = true;
+            break;
+
+        case 'f':
+            forwardize = true;
+            break;
+
+        case 'o':
+            loci_out = optarg;
+            break;
+
+        case 'h':
+        case '?':
+            help_locify(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    if (!gam_idx_name.empty()) {
+        gam_idx.open_read_only(gam_idx_name);
+    }
+
+    if (xg_idx_name.empty()) {
+        cerr << "[vg locify] Error: no xg index provided" << endl;
+        return 1;
+    }
+    ifstream xgstream(xg_idx_name);
+    xg::XG xgidx(xgstream);
+
+    std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
+
+        vector<string> ret;
+        stringstream ss;
+        std::string tok;
+        while (getline(ss, tok, delim)){
+            ret.push_back(tok);
+        }
+        return ret;
+
+    };
+
+    vector<string> locus_names;
+    map<string, map<string, int > > locus_allele_names;
+    map<string, Alignment> alignments_with_loci;
+    map<pos_t, set<string> > pos_to_loci;
+    map<string, set<pos_t> > locus_to_pos;
+    int count = 0;
+    std::function<void(Locus&)> lambda = [&](Locus& l){
+        locus_names.push_back(l.name());
+        set<vg::id_t> nodes_in_locus;
+        for (int i = 0; i < l.allele_size(); ++i) {
+            auto& allele = l.allele(i);
+            for (int j = 0; j < allele.mapping_size(); ++j) {
+                auto& position = allele.mapping(j).position();
+                nodes_in_locus.insert(position.node_id());
+            }
+            // for position in mapping
+            map<pos_t, int> ref_positions;
+            map<int, Edit> edits;
+            decompose(allele, ref_positions, edits);
+            // warning: uses only reference positions!!!
+            for (auto& pos : ref_positions) {
+                pos_to_loci[pos.first].insert(l.name());
+                locus_to_pos[l.name()].insert(pos.first);
+            }
+        }
+        // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
+        std::function<void(const Alignment&)> fill_alns = [&](const Alignment& a){
+            // TODO reverse complementing alleles ?
+            // overlap is stranded
+            //matching
+            // find the most-matching allele
+            map<double, vector<int> > matches;
+            for (int i = 0; i < l.allele_size(); ++i) {
+                auto& allele = l.allele(i);
+                matches[overlap(a.path(), allele)].push_back(i);
+            }
+            assert(l.allele_size());
+            int best = matches.rbegin()->second.front();
+            Locus matching;
+            matching.set_name(l.name());
+            if (name_alleles) {
+                stringstream ss;
+                //map<string, map<string, int > > locus_allele_names;
+                auto& allele = l.allele(best);
+                string s;
+                allele.SerializeToString(&s);
+                auto& l_names = locus_allele_names[l.name()];
+                auto f = l_names.find(s);
+                if (f == l_names.end()) {
+                    int next_id = l_names.size() + 1;
+                    l_names[s] = next_id;
+                    ss << next_id;
+                } else {
+                    ss << f->second;
+                }
+                Path p;
+                p.set_name(ss.str());
+                *matching.add_allele() = p;
+            } else {
+                *matching.add_allele() = l.allele(best);
+                // TODO get quality score relative to this specific allele / alignment
+                // record in the alignment we'll save
+            }
+            if (alignments_with_loci.find(a.name()) == alignments_with_loci.end()) {
+                alignments_with_loci[a.name()] = a;
+            }
+            Alignment& aln = alignments_with_loci[a.name()];
+            *aln.add_locus() = matching;
+        };
+        vector<vg::id_t> nodes_vec;
+        for (auto& id : nodes_in_locus) nodes_vec.push_back(id);
+        gam_idx.for_alignment_to_nodes(nodes_vec, fill_alns);
+    };
+
+    if (!loci_file.empty()){
+        ifstream ifi(loci_file);
+        stream::for_each(ifi, lambda);
+    } else {
+        cerr << "[vg locify] Warning: empty locus file given, could not annotate alignments with loci." << endl;
+    }
+
+    // find the non-nested loci
+    vector<string> non_nested_loci;
+    for (auto& name : locus_names) {
+        // is it nested?
+        auto& positions = locus_to_pos[name];
+        int min_loci = 0;
+        for (auto& pos : positions) {
+            auto& loci = pos_to_loci[pos];
+            min_loci = (min_loci == 0 ? (int)loci.size() : min(min_loci, (int)loci.size()));
+        }
+        if (min_loci == 1) {
+            // not fully contained in any other locus
+            non_nested_loci.push_back(name);
+        }
+    }
+
+    // sort them using... ? ids?
+    sort(non_nested_loci.begin(), non_nested_loci.end(),
+         [&locus_to_pos](const string& s1, const string& s2) {
+             return *locus_to_pos[s1].begin() < *locus_to_pos[s2].begin();
+         });
+
+    if (!loci_out.empty()) {
+        ofstream outloci(loci_out);
+        for (auto& name : non_nested_loci) {
+            outloci << name << endl;
+        }
+        outloci.close();
+    }
+
+    vector<Alignment> output_buf;
+    for (auto& aln : alignments_with_loci) {
+        // TODO order the loci by their order in the alignments
+        if (forwardize) {
+            if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
+                output_buf.push_back(reverse_complement_alignment(aln.second,
+                                                                  [&xgidx](int64_t id) { return xgidx.node_length(id); }));
+            } else {
+                output_buf.push_back(aln.second);
+            }
+        } else {
+            output_buf.push_back(aln.second);
+        }
+        stream::write_buffered(cout, output_buf, 100);
+    }
+    stream::write_buffered(cout, output_buf, 0);        
+    
+    return 0;
 }
 
 int main_deconstruct(int argc, char** argv){
@@ -8724,10 +8961,10 @@ int main_deconstruct(int argc, char** argv){
 
     Deconstructor decon = Deconstructor(graph);
     if (!xg_name.empty()){
-        ifstream xg_stream(xg_name);                                                                                                                                             
-        if(!xg_stream) {                                                                                                                                                         
-            cerr << "Unable to open xg index: " << xg_name << endl;                                                                                                              
-            exit(1);                                                                                                                                                             
+        ifstream xg_stream(xg_name);
+        if(!xg_stream) {
+            cerr << "Unable to open xg index: " << xg_name << endl;
+            exit(1);
         }
 
         xg::XG* xindex = new  xg::XG(xg_stream);
@@ -8747,7 +8984,7 @@ int main_deconstruct(int argc, char** argv){
             cerr << "Done." << endl;
         }
 
-    
+
 
     // At this point, we can detect the superbubbles
 
@@ -9111,6 +9348,8 @@ int main(int argc, char *argv[])
         return main_version(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
+    } else if (command == "locify"){
+        return main_locify(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

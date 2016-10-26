@@ -29,9 +29,12 @@ ifeq ($(shell uname -s),Darwin)
        LD_LIB_FLAGS += -L/usr/local/lib
     endif
     ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
+    # TODO: configure RPATH-equivalent on OS X for finding libraries without environment variables at runtime
 else
     # Not on OS X, we can have librt
     LD_LIB_FLAGS += -lrt
+    # We can also have a normal Unix rpath
+    LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)  
 endif
 
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
@@ -173,6 +176,9 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 # Auto-versioning
 $(INC_DIR)/vg_git_version.hpp: .git
 	echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
+
+# Not important if .git isn't real
+.git:
 
 ###################################
 ## VG source code compilation begins here
