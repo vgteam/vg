@@ -1,8 +1,11 @@
 #include "filter.hpp"
 #include "index.hpp"
 #include "vg.pb.h"
-#include "vg.cpp"
 
+#include "vg.hpp"
+#include "gcsa.h"
+#include "alignment.hpp"
+#include "mapper.hpp"
 
 /**
  * Overview:
@@ -22,12 +25,14 @@ namespace vg{
 class SRPE{
 //    vcfparse::variant locus_to_sv_vcf(Locus ll);
     string locus_to_sv_vcf(Locus ll);
-    pair<Locus, Locus> pe_aln_to_locus(Alignment& aln_one, Alignment& aln_two);
     
-    vector<Locus> refine(vector<Locus> loci, vg::VG* graph, index gam_ind);
+    public:
+        void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);
+        void filter(vector<Alignment>& in_alns, vector<Alignment>& out_alns);
 
-    private:
         Filter ff;
+        vg::VG* vg;
+
 
 };
 }

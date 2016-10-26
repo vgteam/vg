@@ -68,7 +68,7 @@ class Filter{
 
         // SV filters
         // Take in paired GAM and return Locus records
-        pair<Locus, Locus> deletion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Alignment, Alignment> deletion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> insertion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> duplication_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> inversion_filter(Alignment& aln_first, Alignment& aln_second);
@@ -98,6 +98,8 @@ class Filter{
         unordered_map<string, unordered_map<string, int> > pos_to_edit_to_depth;
         unordered_map<int, int> pos_to_qual;
     public:
+        // we really need a reservoir sampling method /
+        // some way to effectively calculate less-biased moving averages.
         bool inverse = false;
         bool remove_failing_edits = false;
         bool filter_matches = false;

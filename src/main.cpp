@@ -32,6 +32,7 @@
 #include "translator.hpp"
 #include "homogenize_main.cpp"
 #include "sift_main.cpp"
+#include "srpe_main.cpp"
 #include "readfilter.hpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
@@ -8863,6 +8864,8 @@ int main(int argc, char *argv[])
         return main_sift(argc, argv);  
     } else if (command == "test") {
         return main_test(argc, argv);
+    } else if (command == "srpe"){
+        return main_srpe(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
