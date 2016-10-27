@@ -86,7 +86,9 @@ void Genotyper::run(VG& graph,
     vector<Path> paths;
     for(auto& alignment : alignments) {
         // Copy over each path, naming it after its alignment
-        Path path = alignment.path();
+        // and trimming so that it begins and ends with a match to avoid
+        // creating a bunch of stubs. 
+        Path path = trim_hanging_ends(alignment.path());
         path.set_name(alignment.name());
         paths.push_back(path);
     }
