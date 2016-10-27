@@ -41,7 +41,7 @@ endif
 # the configuration (make_config.mk) won't exist until after RocksDB
 # is built by this Makefile.
 LD_LIB_FLAGS += -lrocksdb
-ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2)
+ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc//)
 
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
