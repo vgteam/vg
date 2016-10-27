@@ -220,6 +220,8 @@ Path reverse_complement_path(const Path& path,
 Path simplify(const Path& p);
 // does the same for a single mapping element
 Mapping simplify(const Mapping& m);
+// trim path so it starts and begins with a match (or is empty)
+Path trim_hanging_ends(const Path& p);
 // make a new mapping that concatenates the mappings
 Mapping concat_mappings(const Mapping& m, const Mapping& n);
 // make a new path that concatenates the two given paths
