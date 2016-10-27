@@ -1165,17 +1165,20 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
             auto cluster = &clusters.back();
             //auto& prev = clusters.back().back();
             auto curr = x.first;
-            //cerr << "p/c " << prev << " " << curr << endl;
-            //for (auto& c : *cluster) {
-            //cerr << c << " ";
-            //} cerr << endl;
-            if (prev == -1) {
-            } else if (curr - prev <= fragment_size) {
-                // in cluster
-                //cerr << "in cluster" << endl;
-            } else {
-                clusters.emplace_back();
-                cluster = &clusters.back();
+            if(debug) {
+                cerr << "p/c " << prev << " " << curr << endl;
+            }
+            if (prev != -1) {
+                if (curr - prev <= fragment_size) {
+                    // in cluster
+                    if (debug) {
+                        cerr << "in cluster" << endl;
+                    }
+                } else {
+                    // It's a new cluster
+                    clusters.emplace_back();
+                    cluster = &clusters.back();
+                }
             }
             //cerr << " " << x.first << endl;
             for (auto& y : x.second) {
@@ -1692,6 +1695,18 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
                                                int max_mem_length,
                                                int band_width, int additional_multimaps,
                                                vector<MaximalExactMatch>* restricted_mems) {
+    
+    if(debug) {
+        cerr << "align_multi_internal("
+            << compute_unpaired_quality << ", " 
+            << aln.sequence() << ", " 
+            << kmer_size << ", " 
+            << stride << ", " 
+            << band_width << ", " 
+            << additional_multimaps << ", " 
+            << restricted_mems << ")" 
+            << endl;
+    }
     
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi_internal on fragments of the read
