@@ -106,10 +106,10 @@ rm -f c.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
-vg sim -s 1337 -n 100 -x x.xg >x.reads
-vg map -x x.xg -g x.gcsa -r x.reads -L 10 -t 1 >x.gam
+vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
+vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | jq -c --sort-keys . | sort | md5sum | cut -f 1 -d\ ) $(md5sum correct/14_vg_mod/36.txt | cut -f 1 -d\ ) "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1280 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg

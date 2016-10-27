@@ -32,6 +32,7 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda);
 size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda);
+void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
@@ -39,6 +40,10 @@ bam_hdr_t* hts_string_header(string& header,
                              map<string, string>& rg_sample);
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
 void write_alignment_to_file(const string& file, const Alignment& aln);
+
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+string cigar_string(vector<pair<int, char> >& cigar);
+string mapping_string(const string& source, const Mapping& mapping);
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
@@ -82,6 +87,7 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug=
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2);
+vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2);
 // generate a digest of the alignmnet
 const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its

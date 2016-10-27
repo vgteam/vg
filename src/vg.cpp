@@ -183,7 +183,7 @@ SB_Input VG::vg_to_sb_input(){
 
     id_t VG::get_node_at_nucleotide(string pathname, int nuc){
         Path p = paths.path(pathname);
-        
+
         int nt_start = 0;
         int nt_end = 0;
         for (int i = 0; i < p.mapping_size(); i++){
@@ -202,7 +202,7 @@ SB_Input VG::vg_to_sb_input(){
         }
 
     }
- 
+
  map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
     map<id_t, vcflib::Variant> ret;
     vcflib::Variant var;
@@ -2119,7 +2119,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         // unique, even if there are multiple variant records at the same
         // position in the VCF. Also, we don't necessarily have every variant in
         // the VCF in our records vector.
-        string var_name = get_or_make_variant_id(var);
+        string var_name = make_variant_id(var);
 
         // decompose to alts
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
@@ -2913,7 +2913,7 @@ void VG::from_gfa(istream& in, bool showp) {
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
-    std::function<id_t(const string&)> get_add_id = [&](const string& name) -> id_t { 
+    std::function<id_t(const string&)> get_add_id = [&](const string& name) -> id_t {
         if (is_number(name)) {
             return std::stol(name);
         } else {
@@ -2988,7 +2988,7 @@ void VG::bluntify(void) {
                 //cerr << "claimed overlap " << edge->overlap() << endl;
                 // derive and check the overlap seqs
                 auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
-                //string from_overlap = 
+                //string from_overlap =
                 //from_overlap = from_overlap.substr(from_overlap.size() - edge->overlap());
                 auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
@@ -3029,7 +3029,7 @@ void VG::bluntify(void) {
                         edge->set_overlap(0);
                         // we should axe the edge so as to not generate spurious sequences in the graph
                     }
-                    
+
                 } else {
                     //cerr << "overlap as expected" << endl;
                     //overlap_node[edge] = create_node(to_seq);
@@ -3212,10 +3212,10 @@ void VG::bluntify(void) {
             edges_to_create.insert(make_pair(prev_trav, node_trav));
         }
 
-        // if we matched 
+        // if we matched
         // walk forward until we reach a bifurcation
         // or we are no longer matching sequence
-        
+
         // we reattach the overlap node to that point
         // later, normalization will remove the superfluous parts
     }
@@ -3277,7 +3277,7 @@ void VG::bluntify(void) {
     for (auto& id : nodes_to_destroy) {
         destroy_node(id);
     }
-    
+
 }
 
 static
@@ -3495,7 +3495,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     // our chunk size isn't going to reach into the range where we'll have issues (>several megs)
     // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
     //
-    
+
     for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
 
         //string& seq_name = *t;
@@ -3594,7 +3594,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 var.position -= 1; // convert to 0-based
                 if (allowed_variants == nullptr
                     || allowed_variants->count(vrepr)) {
-                    records.push_back(var);                    
+                    records.push_back(var);
                 }
             }
             if (++i % 1000 == 0) update_progress(var.position-start_pos);
@@ -3942,7 +3942,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         }
         return true;
     };
-    
+
     for_each_node([&](Node* node) {
             if (!all_upper(node->sequence())){
                 cerr << "WARNING: Lower case letters found during construction" << endl;
@@ -4286,7 +4286,7 @@ bool VG::is_acyclic(void) {
         },
         [&](NodeTraversal trav) {
             // When we leave a node orientation
-            
+
             // Remove it from the seen array. We may later start from a
             // different root and see a way into this node in this orientation,
             // but it's only a cycle if there's a way into this node in this
@@ -4840,98 +4840,30 @@ void VG::remove_orphan_edges(void) {
 }
 
 void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
-    // Strategy:
 
-    // For each node in our graph
-    // If it has node mappings, look at them
-    // For each that occurs along a path we want to include
-    // Mark that path as kept
-    // Mark the node as kept
-    // Peek in the path left and right from that mapping
-    // Mark the edges traversed as kept
-    // Mark all nodes and edges not marked for keeping as for removal
-    // Remove all nodes and edges marked for removal
-    // Drop all paths from the graph not requested to be kept
-
-    // Previous code here would only keep edges between nodes with adjacent IDs
-    // in the set of selected nodes, which is in general incorrect.
-
-    vector<Node*> nodes_to_keep;
-    vector<Node*> nodes_to_remove;
-    // Holds node sides in smaller-to-larger order, so we can search for edges in it.
-    set<pair<NodeSide, NodeSide>> edges_to_keep;
-
-    for_each_node([&](Node* node) {
-        // If we don't see anything about this node in our paths, throw it out.
-        bool to_keep = false;
-
-        if(paths.has_node_mapping(node)) {
-            // This node appears on some paths. Look for appearances on paths we like.
-            for(auto& appearance : paths.get_node_mapping(node)) {
-                if(path_names.count(appearance.first)) {
-                    // We found an appearance of this node on a path we are keeping. It comes with a Mapping*.
-
-                    // Mark the path and node as kept
-                    kept_names.insert(appearance.first);
-                    to_keep = true;
-
-                    // Walk left along the path and keep the edge(s) we traverse.
-                    for (auto* m : appearance.second) {
-                        Mapping* left_neighbor = paths.traverse_left(m);
-
-                        if(left_neighbor != nullptr) {
-                            // We aren't the first thing in the path, we want to keep the edge to our left.
-                            // It may not exist, but we can still ask to keep it.
-
-                            // What other node do we go to?
-                            id_t neighbor_id = left_neighbor->position().node_id();
-
-                            if(has_node(neighbor_id)) {
-                                // Keep the edge if we actually have the other end.
-                                // We know the other end is on this path and will be
-                                // kept.
-
-                                // We attach to the end of the previous node if it isn't
-                                // backward along the path, and the end of this node if
-                                // it is backward along the path.
-                                edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->position().is_reverse()),
-                                                            NodeSide(node->id(), m->position().is_reverse())));
-                            }
-                        }
-                    }
-
-                    // We skip walking right along the path, because if the node
-                    // we would find is in the graph, we're going to walk left
-                    // from it eventually and find the same edge.
+    set<id_t> to_keep;
+    paths.for_each([&](const Path& path) {
+            if (path_names.count(path.name())) {
+                kept_names.insert(path.name());
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    to_keep.insert(path.mapping(i).position().node_id());
                 }
-            }
-        }
-
-        // Actually decide to keep or delete the node. Keep it if we ever saw it on a path.
-        if (to_keep) {
-            nodes_to_keep.push_back(node);
-        } else {
-            nodes_to_remove.push_back(node);
-        }
-
-    });
-
-    // Mark any edges we don't keep for destruction
-    set<pair<NodeSide, NodeSide>> edges_to_destroy;
-    for_each_edge([this, &edges_to_keep, &edges_to_destroy](Edge* edge) {
-            auto ep = NodeSide::pair_from_edge(edge);
-            if (!edges_to_keep.count(ep)) {
-                edges_to_destroy.insert(ep);
             }
         });
 
-    // Destroy all the edges and nodes we don't want
-    for (auto edge : edges_to_destroy) {
-        destroy_edge(edge.first, edge.second);
+    set<id_t> to_remove;
+    for_each_node([&](Node* node) {
+            id_t id = node->id();
+            if (!to_keep.count(id)) {
+                to_remove.insert(id);
+            }
+        });
+
+    for (auto id : to_remove) {
+        destroy_node(id);
     }
-    for (auto node : nodes_to_remove) {
-        destroy_node(node);
-    }
+    // clean up dangling edges
+    remove_orphan_edges();
 
     // Throw out all the paths data for paths we don't want to keep.
     paths.keep_paths(path_names);
@@ -4971,8 +4903,14 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
         if (pos < 0 || pos > node->sequence().size()) {
     #pragma omp critical (cerr)
             {
-                cerr << omp_get_thread_num() << ": cannot divide node " << node->id() << ":" << node->sequence()
-                     << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
+                cerr << omp_get_thread_num() << ": cannot divide node " << node->id();
+                
+                if(node->sequence().size() <= 1000) {
+                    // Add sequences for short nodes
+                    cerr << ":" << node->sequence();
+                }
+                
+                cerr << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
                      << node->sequence().size() << ")" << endl;
                 exit(1);
             }
@@ -4996,7 +4934,12 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
 #pragma omp critical (cerr)
     {
         for(auto* part : parts) {
-            cerr << "\tCreated node " << part->id() << ": " << part->sequence() << endl;
+            cerr << "\tCreated node " << part->id() << " (" << part->sequence().size() << ")";
+            if(part->sequence().size() <= 1000) {
+                // Add sequences for short nodes
+                cerr << ": " << part->sequence();
+            }
+            cerr << endl;
         }
     }
 
@@ -6725,9 +6668,9 @@ void VG::to_dot(ostream& out,
             }
             inner_label << "</TD>";
         } else if (simple_mode) {
-            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            //inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << n->id();
-            inner_label << "</TD>";
+            //inner_label << "</TD>";
         } else {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << n->id() << ":" << n->sequence();
@@ -6735,17 +6678,21 @@ void VG::to_dot(ostream& out,
         }
 
         stringstream nlabel;
-        nlabel << "<";
-        nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
-        nlabel << inner_label.str();
-        nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
-        nlabel << ">";
+        if (simple_mode) {
+            nlabel << inner_label.str();
+        } else {
+            nlabel << "<";
+            nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
+            nlabel << inner_label.str();
+            nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
+            nlabel << ">";
+        }
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
         } else if (superbubble_labeling || ultrabubble_labeling) {
             //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
-            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";      
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         } else {
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         }
@@ -6933,13 +6880,13 @@ void VG::to_dot(ostream& out,
         alnid++;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
-            
+
             if(!has_node(m.position().node_id()) && skip_missing_nodes) {
                 // We don't have the node this is aligned to. We probably are
                 // looking at a subset graph, and the user asked us to skip it.
                 continue;
             }
-            
+
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
@@ -7073,7 +7020,7 @@ void VG::to_dot(ostream& out,
                         out << "    " << pathid-1 << " -> " << path_starts[path.name()]
                             << " [dir=none,color=\"" << color << "\",constraint=false];" << endl;
                     }
-                    
+
                 }
             }
             if (walk_paths) {
@@ -7562,7 +7509,7 @@ Alignment VG::align(const Alignment& alignment,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio,
                     bool print_score_matrices) {
-    
+
     auto aln = alignment;
 
     /*
@@ -7591,7 +7538,7 @@ Alignment VG::align(const Alignment& alignment,
         sort();
         // run the alignment
         do_align(this->graph);
-        
+
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
         // might need that node ID.
@@ -7653,7 +7600,7 @@ Alignment VG::align(const Alignment& alignment,
                 return get_node(node_id)->sequence().size();
             });
         //check_aln(*this, aln);
-        
+
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
         // might need that node ID.
@@ -7682,7 +7629,7 @@ Alignment VG::align(const string& sequence,
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio, print_score_matrices);
 }
-    
+
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
                     bool print_score_matrices) {

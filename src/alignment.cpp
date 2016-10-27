@@ -303,6 +303,31 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 
 }
 
+void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda) {
+    vector<Alignment> aln_buf;
+    std::function<void(Alignment&)> handler = [&](Alignment& aln) {
+        bool got_pair = false;
+        Alignment aln1;
+        Alignment aln2;
+#pragma omp critical(input)
+        {
+            if (aln_buf.size() == 1) {
+                aln1 = aln_buf.front();
+                aln2 = aln;
+                aln_buf.clear();
+                got_pair = true;
+            } else if (aln_buf.size() == 0) {
+                aln_buf.push_back(aln);
+            }
+        }
+        // now align
+        if (got_pair) {
+            lambda(aln1, aln2);
+        }
+    };
+    stream::for_each_parallel(in, handler);
+}
+
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split_delims(header, "\n");
@@ -472,6 +497,88 @@ string alignment_to_sam(const Alignment& alignment,
     return sam.str();
 }
 
+string cigar_string(vector<pair<int, char> >& cigar) {
+    vector<pair<int, char> > cigar_comp;
+    pair<int, char> cur = make_pair(0, '\0');
+    for (auto& e : cigar) {
+        if (cur == make_pair(0, '\0')) {
+            cur = e;
+        } else {
+            if (cur.second == e.second) {
+                cur.first += e.first;
+            } else {
+                cigar_comp.push_back(cur);
+                cur = e;
+            }
+        }
+    }
+    cigar_comp.push_back(cur);
+    stringstream cigarss;
+    for (auto& e : cigar_comp) {
+        cigarss << e.first << e.second;
+    }
+    return cigarss.str();
+}
+
+string mapping_string(const string& source, const Mapping& mapping) {
+    string result;
+    int p = mapping.position().offset();
+    for (const auto& edit : mapping.edit()) {
+        // mismatch/sub state
+// *matches* from_length == to_length, or from_length > 0 and offset unset
+// *snps* from_length == to_length; sequence = alt
+        // mismatch/sub state
+        if (edit.from_length() == edit.to_length()) {
+            if (!edit.sequence().empty()) {
+                result += edit.sequence();
+            } else {
+                result += source.substr(p, edit.from_length());
+            }
+            p += edit.from_length();
+        } else if (edit.from_length() == 0 && edit.sequence().empty()) {
+// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
+            //cigar.push_back(make_pair(edit.to_length(), 'S'));
+        } else if (edit.from_length() > edit.to_length()) {
+// *deletions* from_length > to_length; sequence may be unset or empty
+            result += edit.sequence();
+            p += edit.from_length();
+        } else if (edit.from_length() < edit.to_length()) {
+// *insertions* from_length < to_length; sequence contains relative insertion
+            result += edit.sequence();
+            p += edit.from_length();
+        }
+    }
+    return result;
+}
+
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
+    for (const auto& edit : mapping.edit()) {
+        if (edit.from_length() && edit.from_length() == edit.to_length()) {
+// *matches* from_length == to_length, or from_length > 0 and offset unset
+            // match state
+            cigar.push_back(make_pair(edit.from_length(), 'M'));
+        } else {
+            // mismatch/sub state
+// *snps* from_length == to_length; sequence = alt
+            if (edit.from_length() == edit.to_length()) {
+                cigar.push_back(make_pair(edit.from_length(), 'M'));
+            } else if (edit.from_length() > edit.to_length()) {
+// *deletions* from_length > to_length; sequence may be unset or empty
+                int32_t del = edit.from_length() - edit.to_length();
+                int32_t eq = edit.to_length();
+                if (eq) cigar.push_back(make_pair(eq, 'M'));
+                cigar.push_back(make_pair(del, 'D'));
+            } else if (edit.from_length() < edit.to_length()) {
+// *insertions* from_length < to_length; sequence contains relative insertion
+                int32_t ins = edit.to_length() - edit.from_length();
+                int32_t eq = edit.from_length();
+                if (eq) cigar.push_back(make_pair(eq, 'M'));
+                cigar.push_back(make_pair(ins, 'I'));
+            }
+        }
+    }
+}
+
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 // Produces CIGAR in forward strand space of the reference sequence.
@@ -487,6 +594,14 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
     if(on_reverse_strand) {
         // Flip CIGAR ops into forward strand ordering
         reverse(cigar.begin(), cigar.end());
+    }
+
+    // handle soft clips, which are just insertions at the start or end
+    if (cigar.front().second == 'I') {
+        cigar.front().second = 'S';
+    }
+    if (cigar.back().second == 'I') {
+        cigar.back().second = 'S';
     }
     
     return cigar_string(cigar);
@@ -638,6 +753,13 @@ Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Posit
         trimmed = strip_from_end(trimmed, path_to_length(path3));
     }
     return trimmed;
+}
+
+vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2) {
+    vector<Alignment> ends;
+    ends.push_back(strip_from_end(aln, aln.sequence().size()-len1));
+    ends.push_back(strip_from_start(aln, aln.sequence().size()-len2));
+    return ends;
 }
 
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
