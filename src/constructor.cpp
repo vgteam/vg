@@ -11,6 +11,115 @@ namespace vg {
 using namespace std;
 
 
+ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
+    vector<vcflib::Variant> variants) const {
+    
+    // Construct a chunk for this sequence with these variants.
+    ConstructedChunk to_return;
+    
+    // We use this to keep track of what the next unused base, if any, in the
+    // reference is.
+    size_t reference_cursor = 0;
+    
+    // We use this to number nodes. All chunks number nodes starting from 1.
+    id_t next_id = 1;
+    
+    // We remember nodes ending at these reference positions that haven't yet
+    // all been wired up yet. These are on-the-end and not past-the-end
+    // positions, so they are start + length - 1.
+    map<size_t, set<id_t>> nodes_ending_at;
+    // And nodes starting at these reference positions that haven't yet all been
+    // wired up. 
+    map<size_t, set<id_t>> nodes_starting_at;
+    
+    // Here we remember deletions that end at paritcular positions in the
+    // reference, which are the positions of the last deleted bases. We map from
+    // last deleted base to last non-deleted base before the deletion, so we can
+    // go look up nodes ending there. Note that these can map to -1.
+    map<size_t, set<int64_t>> deletions_ending_at;
+    
+    // We use this to get the next variant
+    auto next_variant = variants.begin();
+    
+    // We're going to clump overlapping variants together.
+    vector<vcflib::Variant*> clump;
+    
+    while(next_variant != variants.end()) {
+    
+        // Group variants into clumps of overlapping variants.
+        if(clump.empty() || 
+            clump.back()->position + clump.back()->ref.size() > next_variant->position) {
+            
+            // Either there are no variants in the clump, or this variant
+            // overlaps the clump. It belongs in the clump
+            clump.push_back(&(*next_variant));
+            // Try the variant after that
+            next_variant++;
+        } else {
+            // The next variant doesn't belong in this clump.
+            // Handle the clump.
+        
+            // Create ref path nodes 
+        
+            // Create mappings through the clump for the reference path.
+            
+            // Now the clump is handled
+            clump.clear();
+            // On the next loop we'll grab the next variant for the next clump.
+        }
+    }
+
+    // Create reference path nodes and mappings after the last clump.
+        
+    while(reference_cursor < reference_sequence.size()) {
+        // There's still reference to do, so bite off a piece
+        size_t next_node_size = std::min(max_node_size, reference_sequence.size() - reference_cursor);
+        string node_sequence = reference_sequence.substr(reference_cursor, next_node_size);
+        
+        
+        // Make a node
+        auto* node = to_return.graph.add_node();
+        node->set_id(next_id++);
+        node->set_sequence(node_sequence);
+        
+        // Remember where it starts and ends
+        nodes_starting_at[reference_cursor].insert(node->id());
+        nodes_ending_at[reference_cursor + next_node_size - 1].insert(node->id());
+        
+        // Advance the reference cursor since we made this node
+        reference_cursor += next_node_size;
+    }
+    
+    // Create all the edges
+    for(auto& kv : nodes_starting_at) {
+        if(kv.first == 0) {
+            // These are the nodes that abut the left edge of the chunk. Just
+            // say this set of nodes is the set of left-edge-abuting nodes.
+            // TODO: add ends of deletions
+            to_return.left_ends = kv.second;
+        } else {
+            // These are nodes that start somewhere else.
+            for(auto& left_node : nodes_ending_at[kv.first - 1]) {
+                // For every node that could come before these nodes
+                for(auto& right_node : kv.second) {
+                    // For every node that could occur here
+                    
+                    // Emit an edge
+                    auto* edge = to_return.graph.add_edge();
+                    edge->set_from(left_node);
+                    edge->set_to(right_node);
+                }
+            }
+        }
+    }
+    
+    // Make sure to also send out the nodes ending at the end of the chunk
+    to_return.right_ends = nodes_ending_at[reference_sequence.size() - 1];
+    // TODO: add in deletions that go to the end of the chunk
+    
+    return to_return;
+}
+
 // Implementations of VG functions. TODO: refactor out of VG class
 
 VG::VG(vcflib::VariantCallFile& variantCallFile,
