@@ -318,6 +318,8 @@ public:
 
     // fargment length estimation
     map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    // uses the cached information about the graph in the xg index to get an approximate node length
+    double average_node_length(void);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
@@ -340,7 +342,7 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
-    int mem_threading; // whether to use the mem threading mapper or not
+    bool mem_threading; // whether to use the mem threading mapper or not
 
     // general parameters, applying to both types of mapping
     //

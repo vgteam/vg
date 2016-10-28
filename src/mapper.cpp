@@ -457,7 +457,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
     for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
 
-    bool rescue = fragment_size != 0; // don't try to rescue if we have a defined fragment size
+    bool rescue = !mem_threading && fragment_size != 0; // don't try to rescue if we have a defined fragment size
 
     // Rescue only if the top alignment on one side has no mappings
     if(rescue && best_score1 == 0 && best_score2 != 0) {
@@ -867,6 +867,11 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
     return make_pair(aln1, aln2);
 }
 
+double
+Mapper::average_node_length(void) {
+    return (double) xindex->seq_length / (double) xindex->node_count;
+}
+
 // returns the SMEM clusters which are consistent with the distribution of the MEMs in the read
 // provided some tolerance +/-
 // uses the exact matches to generate as much of each alignment as possible
@@ -928,39 +933,42 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
     */
 
+    double avg_node_len = average_node_length();
     // go through the ordered MEMs
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
-    double threshold = aln.sequence().size() * aligner->match;
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
         // find the difference in m1.end and m2.begin
         // find the positional difference in the graph between m1.end and m2.begin
-        //cerr << m1.sequence() << " ";
+        //if (debug) cerr << m1.sequence() << " ";
         pos_t m1_pos, m2_pos;
         for (auto& node : m1.nodes) {
             id_t id = gcsa::Node::id(node);
             size_t offset = gcsa::Node::offset(node);
             bool is_rev = gcsa::Node::rc(node);
             m1_pos = make_pos_t(id, is_rev, offset);
-            //cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+            //if (debug) cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
         }
         //cerr << endl;
         //cerr << "vs" << endl;
-        //cerr << m2.sequence() << " ";
+        //if (debug) cerr << m2.sequence() << " ";
         for (auto& node : m2.nodes) {
             id_t id = gcsa::Node::id(node);
             size_t offset = gcsa::Node::offset(node);
             bool is_rev = gcsa::Node::rc(node);
             m2_pos = make_pos_t(id, is_rev, offset);
-            //cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+            //if (debug) cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
         }
         //cerr << endl;
         // take as graph distance the minimum distance that we find in any of the chroms
         //int tweak = is_rev(m1_pos) ? get_node_length(id(m1_pos)) - offset(m1_pos) : offset(m1_pos);
-        //cerr << "from " << m1_pos << " to " << m2_pos << endl;
-        int distance = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
+        //cerr << "distance from " << m1_pos << " to " << m2_pos << endl;
+        //int distance = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
         //int distance = numeric_limits<int>::max();
         // use cached positions in the MEMs
+        int max_length = m1.length() + m2.length();
+        //int max_length = aln.sequence().size();
+        //int distance = graph_distance(m1_pos, m2_pos, max_length);
         /*
         for (auto& p : m1.positions) {
             auto f = m2.positions.find(p.first);
@@ -974,19 +982,27 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
         }
         */
-        if (is_rev(m1_pos) == is_rev(m2_pos)
-            && distance < aln.sequence().size()) {
-            //cerr << distance << " before distance" << endl;
-            distance = graph_distance(m1_pos, m2_pos, m1.length() + m2.length());
+        //if (is_rev(m1_pos) == is_rev(m2_pos)
+        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) / avg_node_len;
+        //if (debug) cerr << "approx distance " << approx_distance << endl;
+        if (approx_distance < max_length) {
+            //if (debug) cerr << "got a hit" << endl;
+            int distance = graph_distance(m1_pos, m2_pos, max_length);
+            //abs(distance) < aln.sequence().size()) {
+            //if (debug) cerr << "exact distance " << distance << endl;
+            //distance = graph_distance(m1_pos, m2_pos, m1.length() + m2.length());
             // aln.sequence().size());// - 1;// - m1.length();
             //cerr << distance << endl;
             double jump = (m2.begin - m1.begin) - distance;
             //cerr << "jump " << jump << endl;
             //double back_cost = (jump < 0) ? abs(jump) : 0;
             double weight = (double)1.0 / (double)(abs(jump) + 1);
+            if (is_rev(m1_pos) != is_rev(m2_pos)) {
+                weight /= 10;
+            }
             //if (jump < 0) weight /= 10;
-            if (jump < 0) weight = -1;
-            //cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << endl;
+            //if (jump < 0) weight = -1;
+            //if (debug) cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << " " << jump << endl;
             return weight;
         } else {
             return (double)-1.0;
@@ -996,6 +1012,30 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // build the model
     MEMMarkovModel markov_model(aln, mems, this, transition_weight, 10);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps);
+
+    auto show_clusters = [&](void) {
+        cerr << "clusters: " << endl;
+        for (auto& cluster : clusters) {
+            cerr << cluster.size() << " SMEMs on ";
+            for (auto& mem : cluster) {
+                size_t len = mem.begin - mem.end;
+                for (auto& node : mem.nodes) {
+                    id_t id = gcsa::Node::id(node);
+                    size_t offset = gcsa::Node::offset(node);
+                    bool is_rev = gcsa::Node::rc(node);
+                    for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0, is_rev))) {
+                        auto& name = ref.first;
+                        for (auto pos : ref.second) {
+                            //cerr << name << (is_rev?"-":"+") << pos + offset;
+                            cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
+                        }
+                    }
+                }
+                cerr << mem.sequence() << " ";
+            }
+            cerr << endl;
+        }
+    };
 
     /*
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
@@ -1053,17 +1093,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
     */
 
-    // remove contained clusters by counting occurrences of positions in the clusters
-    // only keep clusters which have at least one unique MEM position
-    map<MaximalExactMatch, int> mem_counts;
-    for (auto& cluster : clusters) {
-        //cerr << "in cluster " << &cluster << endl;
-        for (auto& mem : cluster) {
-            mem_counts[mem]++;
-            //cerr << mem << " has count " << mem_counts[mem] << endl;
-        }
-    }
-    
     // todo cache this as sort will call it a lot
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
@@ -1081,6 +1110,26 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
 
+    /*
+    if (debug) {
+        cerr << "### clusters before:" << endl;
+        show_clusters();
+    }    
+    
+    // remove contained clusters by counting occurrences of positions in the clusters
+    // only keep clusters which have at least one unique MEM position
+    //map<MaximalExactMatch, int> mem_counts;
+    map<string, int> mem_counts;
+    for (auto& cluster : clusters) {
+        //cerr << "in cluster " << &cluster << endl;
+        for (auto& mem : cluster) {
+            stringstream s;
+            s << mem;
+            mem_counts[s.str()]++;
+            //cerr << mem << " has count " << mem_counts[s.str()] << endl;
+        }
+    }
+    
     set<vector<MaximalExactMatch>*> clusters_to_keep;
     for (int i = 0; i < clusters.size(); ++i) {
         auto& cluster = clusters.at(i);
@@ -1091,7 +1140,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             // and any others which have unique MEMs
             bool has_unique_mem = false;
             for (auto& mem : cluster) {
-                if (mem_counts[mem] == 1) {
+                stringstream s;
+                s << mem;
+                //cerr << mem_counts[s.str()] << endl;
+                if (mem_counts[s.str()] == 1) {
                     has_unique_mem = true;
                     break;
                 }
@@ -1102,37 +1154,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 
-    auto show_clusters = [&](void) {
-        cerr << "clusters: " << endl;
-        for (auto& cluster : clusters) {
-            cerr << cluster.size() << " SMEMs on ";
-            for (auto& mem : cluster) {
-                size_t len = mem.begin - mem.end;
-                for (auto& node : mem.nodes) {
-                    id_t id = gcsa::Node::id(node);
-                    size_t offset = gcsa::Node::offset(node);
-                    bool is_rev = gcsa::Node::rc(node);
-                    for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0, is_rev))) {
-                        auto& name = ref.first;
-                        for (auto pos : ref.second) {
-                            //cerr << name << (is_rev?"-":"+") << pos + offset;
-                            cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
-                        }
-                    }
-                }
-                cerr << mem.sequence() << " ";
-            }
-            cerr << endl;
-        }
-    };
-
-    /*
     auto should_keep = [&clusters_to_keep](vector<MaximalExactMatch>& cluster) {
         return clusters_to_keep.count(&cluster);
     };
     clusters.erase(std::remove_if(clusters.begin(), clusters.end(),
                                   should_keep), clusters.end());
-    */
+
     vector<vector<MaximalExactMatch> > clusters_with_unique_mems;
     for (auto& cluster : clusters) {
         if (clusters_to_keep.count(&cluster)) {
@@ -1140,6 +1167,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
     clusters = clusters_with_unique_mems;
+    */
 
     if (debug) {
         cerr << "### clusters:" << endl;
@@ -2549,6 +2577,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 id_t trimmed_node = 0;
                 int trimmed_length_fwd = 0;
                 int trimmed_length_rev = 0;
+                vector<Node*> target_nodes;
 
                 // TODO continue if the graph doesn't have both cut points
                 if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
@@ -2565,16 +2594,17 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         second_cut = reverse(tmp_cut, graph.get_node(id(tmp_cut))->sequence().size());
                         align_rc = true;
                         //cerr << "reversed cuts" << endl;
-                    } else if (is_rev(first_cut)
-                               || is_rev(second_cut)) {
-                        cerr << "mismatched cut orientations!" << endl;
-                        exit(1);
+                    } else {
+                        if (is_rev(first_cut)) {
+                            reverse(first_cut, graph.get_node(id(first_cut))->sequence().size());
+                        }
+                        if (is_rev(second_cut)) {
+                            first_cut = reverse(second_cut, graph.get_node(id(second_cut))->sequence().size());
+                        }
                     }
 
                     //cerr << "first_cut after " << first_cut << endl;
                     //cerr << "second_cut after " << second_cut << endl;
-
-                    vector<Node*> target_nodes;
 
                     if (id(first_cut) == id(second_cut)) {
                         if (offset(first_cut) == offset(second_cut)) {
@@ -2750,19 +2780,22 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     //graph.serialize_to_file("aln-" + graph.hash() + ".vg");
 
                     // do the alignment
-                    bool banded_global = (!soft_clip_to_left && !soft_clip_to_right);
+                    //bool banded_global = (!soft_clip_to_left && !soft_clip_to_right);
+                    // always use the banded global mode
+                    bool banded_global = true;
                     id_t pinned_id = 0;
                     bool pinned_reverse = false;
-                    /*
                     // TODO : we want to use the pinning here
-                      if (banded_global) {
-                      if (soft_clip_to_left) {
-                      pinned_id = id(second_cut);
-                      pinned_reverse = true;
-                      } else {
-                      pinned_id = id(first_cut);
-                      }
-                      }
+                    // but now it is not doing the expected thing
+                    /*
+                    if (!banded_global) {
+                        if (soft_clip_to_left) {
+                            pinned_id = target_nodes.front()->id();
+                            pinned_reverse = true;
+                        } else {
+                            pinned_id = target_nodes.back()->id();
+                        }
+                    }
                     */
                     patch = align_to_graph(patch,
                                            graph,
@@ -3958,6 +3991,7 @@ MEMMarkovModel::MEMMarkovModel(
         auto n = m;
         ++n;
         int i = 0;
+        bool connected = false;
         while (n != model.end()) {
             // skip past MEMs at the same position in the read
             if (n->mem.begin == m->mem.begin) {
@@ -3967,11 +4001,12 @@ MEMMarkovModel::MEMMarkovModel(
             // todo how do we handle MEMs at the same starting position
             // these are duplicates which we need to introduce...
             double weight = transition_weight(m->mem, n->mem);
-            if (++i > band_width) break;
+            if (++i > band_width && connected) break;
             if (weight >= 0) {
                 // save if we got a weight
                 m->next_cost.push_back(make_pair(&*n, weight));
                 n->prev_cost.push_back(make_pair(&*m, weight));
+                connected = true;
             }
             ++n;
             ++i;
@@ -4120,7 +4155,7 @@ void MaximalExactMatch::fill_positions(Mapper* mapper) {
 
 ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
     size_t len = mem.begin - mem.end;
-    out << mem.sequence() << ":";
+    out << &*mem.begin << ":" << mem.sequence() << ":";
     for (auto& node : mem.nodes) {
         id_t id = gcsa::Node::id(node);
         size_t offset = gcsa::Node::offset(node);
