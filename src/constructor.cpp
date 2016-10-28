@@ -1,9 +1,10 @@
 /*
- * construct.cpp: contains implementations for vg construction functions.
+ * constructor.cpp: contains implementations for vg construction functions.
  */
 
 
 #include "vg.hpp"
+#include "constructor.hpp"
 
 namespace vg {
 
