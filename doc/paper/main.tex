@@ -14,6 +14,7 @@
 \usepackage{algorithm}
 \usepackage[colorinlistoftodos]{todonotes}
 \usepackage{setspace}
+\usepackage{appendix}
 \onehalfspacing
 
 %\usepackage[notablist,nofiglist]{endfloat}
@@ -338,8 +339,9 @@ Validating these approaches will require the extension of methods for population
 
 \bibliographystyle{plain}
 
+\newpage
 \appendix
-
+\section{Appendix}
 
 We implement efficient local alignment to variation graphs by developing a SIMD-accelerated\footnote{Single input multiple data (SIMD) instructions allow vectorized mathematical operations in a single machine instruction, and can be used to greatly speed up algorithms which may be implemented in terms of operations on vectors.} string to graph alignment algorithm. We then enable alignment against completely generic graphs by a transformation process that projects a cyclic and bidirectional graph into an acyclic, unidirectional (single-stranded) graph which preserves the sequence space of the original graph up to a given length.
 
