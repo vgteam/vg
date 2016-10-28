@@ -11,6 +11,8 @@
 
 #include "types.hpp"
 
+#include "vg.pb.h"
+
 // We need vcflib
 #include "Variant.h"
 #include "Fasta.h"
