@@ -1,5 +1,8 @@
+doc/paper/*.log
+doc/paper/*.aux
 bin/
 lib/
+share/
 include/
 obj/
 cpp/
@@ -9,5 +12,27 @@ vg
 *.a
 *~
 *.dot
-test/make_graph
+*.fa.fai
+test/build_graph
+test/.*
+test/**/*.index/
 trash
+# Ignore a bunch of files people might dump in the root when testing
+/*.vg
+/*.gcsa
+/*.xg
+/*.html
+/*.gam
+/*.idx
+/*.index
+/*.vgpu
+/*.png
+/*.lcp
+/*.json
+/*.vcf
+/*.vcf.gz
+/*.vcf.gz.tbi
+/*.pdf
+/*.svg
+/*.fa
+/*.gfa

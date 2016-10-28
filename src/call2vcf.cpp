@@ -790,6 +790,9 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool ve
             // Make sure ranks are monotonically increasing along the path.
             assert(mapping.rank() > lastRank);
             lastRank = mapping.rank();
+        } else if (verbose) {
+            std::cerr << "Warning: Cycle detected at " << mapping.position().node_id()
+                      << " in reference path " << refPathName << endl;
         }
         
         // Find the node's sequence
@@ -1139,7 +1142,7 @@ int call2vcf(
     // heterozygous if even one read supports each allele.
     double maxHetBias,
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias,
+    double maxRefHetBias,
     // How much should we multiply the bias limits for indels?
     double indelBiasMultiple,
     // What's the minimum integer number of reads that must support a call? We
@@ -1931,12 +1934,13 @@ int call2vcf(
                 // If best and second best are close enough to be het, we call het.
                 // Otherwise, we call hom best.
                 
-                // We decide closeness differently depending on whether second best
-                // is ref or not. It's easier to have a secondary ref sneak in than
-                // to have a secondary alt sneak in. TODO: This is pretty much the
-                // definition of reference bias. I'm copying it from Glenn; why did
-                // he add it?
-                double bias_limit = (second_best_allele == 0) ? maxRefBias : maxHetBias;
+                // We decide closeness differently depending on whether best is ref or not.
+                // In practice, we use this to slightly penalize homozygous ref calls
+                // (by setting maxRefHetBias higher than maxHetBias) and rather make a less
+                // supported alt call instead.  This boost max sensitivity, and because
+                // everything is homozygous ref by default in VCF, any downstream filters
+                // will effectively reset these calls back to homozygous ref. 
+                double bias_limit = (best_allele == 0) ? maxRefHetBias : maxHetBias;
                 
 #ifdef debug
                 std::cerr << best_allele << ", " << best_support << " and "
@@ -2427,7 +2431,7 @@ int call2vcf(
                 // We're going to make some really bad calls at low depth. We can
                 // pull them out with a depth filter, but for now just elide them.
                 if(total(refSupport + altSupport) >= total(baselineSupport) * minFractionForCall) {
-                    if(total(refSupport) > maxRefBias * biasMultiple * total(altSupport) &&
+                    if(total(refSupport) > maxRefHetBias * biasMultiple * total(altSupport) &&
                         total(refReadSupportTotal) >= minTotalSupportForCall) {
                         // Biased enough towards ref, and ref has enough total reads.
                         // Say it's hom ref
@@ -2699,7 +2703,7 @@ int call2vcf(
             // We're going to make some really bad calls at low depth. We can
             // pull them out with a depth filter, but for now just elide them.
             if(total(refSupport + altReadSupportTotal) >= total(baselineSupport) * minFractionForCall) {
-                if(total(refSupport) > maxRefBias * indelBiasMultiple * total(altReadSupportTotal) &&
+                if(total(refSupport) > maxRefHetBias * indelBiasMultiple * total(altReadSupportTotal) &&
                     total(refReadSupportTotal) >= minTotalSupportForCall) {
                     // Say it's hom ref
                     copyNumberCall = 0;

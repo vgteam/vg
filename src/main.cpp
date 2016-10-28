@@ -201,10 +201,7 @@ void help_filter(char** argv) {
          << "options:" << endl
          << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
-         << "    -d, --min-sec-delta N   mininum (primary - secondary) score delta to keep secondary alignment [default=0]" << endl
-         << "    -e, --min-pri-delta N   minimum (primary - secondary) score delta to keep primary alignment [default=0]" << endl
          << "    -f, --frac-score        normalize score based on length" << endl
-         << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
@@ -215,7 +212,9 @@ void help_filter(char** argv) {
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
+         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
+         << "    -t, --threads N         number of threads [1]" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -241,10 +240,7 @@ int main_filter(int argc, char** argv) {
             {
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
-                {"min-sec-delta", required_argument, 0, 'd'},
-                {"min-pri-delta", required_argument, 0, 'e'},
                 {"frac-score", required_argument, 0, 'f'},
-                {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {"drop-split",  no_argument, 0, 'S'},
@@ -256,11 +252,13 @@ int main_filter(int argc, char** argv) {
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
+                {"defray-count", required_argument, 0, 'C'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -275,17 +273,8 @@ int main_filter(int argc, char** argv) {
         case 'r':
             filter.min_primary = atof(optarg);
             break;
-        case 'd':
-            filter.min_sec_delta = atof(optarg);
-            break;
-        case 'e':
-            filter.min_pri_delta = atof(optarg);
-            break;
         case 'f':
             filter.frac_score = true;
-            break;
-        case 'a':
-            filter.frac_delta = true;
             break;
         case 'u':
             filter.sub_score = true;
@@ -319,6 +308,12 @@ int main_filter(int argc, char** argv) {
         case 'D':
             filter.defray_length = atoi(optarg);
             break;
+        case 'C':
+            filter.defray_count = atoi(optarg);
+            break;          
+        case 't':
+            filter.threads = atoi(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -332,6 +327,8 @@ int main_filter(int argc, char** argv) {
         }
     }
 
+    omp_set_num_threads(filter.threads);
+    
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
@@ -1177,7 +1174,7 @@ void help_call(char** argv) {
          << "    -l, --length INT           override total sequence length in VCF" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
          << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
@@ -1228,14 +1225,14 @@ int main_call(int argc, char** argv) {
     // What should the total sequence length reported in the VCF header be?
     int64_t lengthOverride = -1;
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    double minFractionForCall = 0.2;
+    double minFractionForCall = 0;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 4;
+    double maxRefHetBias = 4;
     // How many times more bias do we allow for indels?
     double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
@@ -1383,7 +1380,7 @@ int main_call(int argc, char** argv) {
         case 'R':
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
-            maxRefBias = std::stod(optarg);
+            maxRefHetBias = std::stod(optarg);
             break;
         case 'M':
             // Set multiplier for bias limits for indels
@@ -1549,7 +1546,7 @@ int main_call(int argc, char** argv) {
                         pileupAnnotate ? pileup_file_name : string(),
                         minFractionForCall,
                         maxHetBias,
-                        maxRefBias,
+                        maxRefHetBias,
                         indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
@@ -1579,7 +1576,7 @@ void help_genotype(char** argv) {
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -C, --cactus            use cactus ultrabubbles for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
@@ -4575,7 +4572,7 @@ void help_stats(char** argv) {
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
+         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -4604,7 +4601,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool superbubbles = false;
-    bool cactus = false;
+    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -4631,7 +4628,7 @@ int main_stats(int argc, char** argv) {
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
-            {"cactusbubbles", no_argument, 0, 'C'},
+            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -4639,7 +4636,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4700,8 +4697,8 @@ int main_stats(int argc, char** argv) {
             superbubbles = true;
             break;
 
-        case 'C':
-            cactus = true;
+        case 'u':
+            ultrabubbles = true;
             break;
 
         case 'A':
@@ -4790,8 +4787,8 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles || cactus) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+    if (superbubbles || ultrabubbles) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
         for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
@@ -6295,7 +6292,7 @@ int main_index(int argc, char** argv) {
         string file_name = argv[optind++];
         file_names.push_back(file_name);
     }
-
+    
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
@@ -6342,6 +6339,12 @@ int main_index(int argc, char** argv) {
         map<string, Path> alt_paths;
         // This is matched against the entire string.
         regex is_alt("_alt_.+_[0-9]+");
+
+        if(file_names.empty()) {
+            // VGset or something segfaults when we feed it no graphs.
+            cerr << "error:[vg index] at least one graph is required to build an xg index" << endl;
+            return 1;
+        }
 
         // store the graphs
         VGset graphs(file_names);
@@ -8032,7 +8035,7 @@ void help_view(char** argv) {
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
-         << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -Y, --ultra-label    same as -Y but using ultrabubbles" << endl
          << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
@@ -8093,7 +8096,7 @@ int main_view(int argc, char** argv) {
     bool color_variants = false;
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
-    bool cactusbubble_labeling = false;
+    bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
 
     int c;
@@ -8131,7 +8134,7 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
-                {"cactus-label", no_argument, 0, 'Y'},
+                {"ultra-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
                 {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
@@ -8163,7 +8166,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'Y':
-            cactusbubble_labeling = true;
+            ultrabubble_labeling = true;
             break;
 
         case 'B':
@@ -8613,7 +8616,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       superbubble_ranking,
                       superbubble_labeling,
-                      cactusbubble_labeling,
+                      ultrabubble_labeling,
                       skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
@@ -8660,10 +8663,12 @@ void help_deconstruct(char** argv){
 
 void help_locify(char** argv){
     cerr << "usage: " << argv[0] << " locify [options] " << endl
-         << "    -l, --loci FILE     input loci over which to locify the alignments" << endl
-         << "    -a, --aln-idx DIR   use this rocksdb alignment index (from vg index -N)" << endl
-         << "    -x, --xg-idx FILE   use this xg index" << endl
-         << "    -n, --name-alleles  generate names for each allele rather than using full Paths" << endl;
+         << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
+         << "    -a, --aln-idx DIR    use this rocksdb alignment index (from vg index -N)" << endl
+         << "    -x, --xg-idx FILE    use this xg index" << endl
+         << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
+         << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
+         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl;
         // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
@@ -8673,6 +8678,8 @@ int main_locify(int argc, char** argv){
     Index gam_idx;
     string xg_idx_name;
     bool name_alleles = false;
+    bool forwardize = false;
+    string loci_out;
 
     if (argc <= 2){
         help_locify(argv);
@@ -8689,11 +8696,13 @@ int main_locify(int argc, char** argv){
             {"loci", required_argument, 0, 'l'},
             {"xg-idx", required_argument, 0, 'x'},
             {"name-alleles", no_argument, 0, 'n'},
+            {"forwardize", no_argument, 0, 'f'},
+            {"loci-out", required_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:x:g:n",
+        c = getopt_long (argc, argv, "hl:x:g:nfo:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -8718,6 +8727,14 @@ int main_locify(int argc, char** argv){
             name_alleles = true;
             break;
 
+        case 'f':
+            forwardize = true;
+            break;
+
+        case 'o':
+            loci_out = optarg;
+            break;
+
         case 'h':
         case '?':
             help_locify(argv);
@@ -8733,6 +8750,13 @@ int main_locify(int argc, char** argv){
         gam_idx.open_read_only(gam_idx_name);
     }
 
+    if (xg_idx_name.empty()) {
+        cerr << "[vg locify] Error: no xg index provided" << endl;
+        return 1;
+    }
+    ifstream xgstream(xg_idx_name);
+    xg::XG xgidx(xgstream);
+
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
         vector<string> ret;
@@ -8745,16 +8769,29 @@ int main_locify(int argc, char** argv){
 
     };
 
+    vector<string> locus_names;
     map<string, map<string, int > > locus_allele_names;
     map<string, Alignment> alignments_with_loci;
+    map<pos_t, set<string> > pos_to_loci;
+    map<string, set<pos_t> > locus_to_pos;
     int count = 0;
     std::function<void(Locus&)> lambda = [&](Locus& l){
+        locus_names.push_back(l.name());
         set<vg::id_t> nodes_in_locus;
         for (int i = 0; i < l.allele_size(); ++i) {
             auto& allele = l.allele(i);
             for (int j = 0; j < allele.mapping_size(); ++j) {
                 auto& position = allele.mapping(j).position();
                 nodes_in_locus.insert(position.node_id());
+            }
+            // for position in mapping
+            map<pos_t, int> ref_positions;
+            map<int, Edit> edits;
+            decompose(allele, ref_positions, edits);
+            // warning: uses only reference positions!!!
+            for (auto& pos : ref_positions) {
+                pos_to_loci[pos.first].insert(l.name());
+                locus_to_pos[l.name()].insert(pos.first);
             }
         }
         // void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
@@ -8809,14 +8846,53 @@ int main_locify(int argc, char** argv){
     if (!loci_file.empty()){
         ifstream ifi(loci_file);
         stream::for_each(ifi, lambda);
+    } else {
+        cerr << "[vg locify] Warning: empty locus file given, could not annotate alignments with loci." << endl;
     }
 
-    // barf PB structures {Alignment : list(Locus)} as JSON objects
-    //
+    // find the non-nested loci
+    vector<string> non_nested_loci;
+    for (auto& name : locus_names) {
+        // is it nested?
+        auto& positions = locus_to_pos[name];
+        int min_loci = 0;
+        for (auto& pos : positions) {
+            auto& loci = pos_to_loci[pos];
+            min_loci = (min_loci == 0 ? (int)loci.size() : min(min_loci, (int)loci.size()));
+        }
+        if (min_loci == 1) {
+            // not fully contained in any other locus
+            non_nested_loci.push_back(name);
+        }
+    }
+
+    // sort them using... ? ids?
+    sort(non_nested_loci.begin(), non_nested_loci.end(),
+         [&locus_to_pos](const string& s1, const string& s2) {
+             return *locus_to_pos[s1].begin() < *locus_to_pos[s2].begin();
+         });
+
+    if (!loci_out.empty()) {
+        ofstream outloci(loci_out);
+        for (auto& name : non_nested_loci) {
+            outloci << name << endl;
+        }
+        outloci.close();
+    }
+
     vector<Alignment> output_buf;
     for (auto& aln : alignments_with_loci) {
-        // TODO order the loci by their order in the alignment
-        output_buf.push_back(aln.second);
+        // TODO order the loci by their order in the alignments
+        if (forwardize) {
+            if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
+                output_buf.push_back(reverse_complement_alignment(aln.second,
+                                                                  [&xgidx](int64_t id) { return xgidx.node_length(id); }));
+            } else {
+                output_buf.push_back(aln.second);
+            }
+        } else {
+            output_buf.push_back(aln.second);
+        }
         stream::write_buffered(cout, output_buf, 100);
     }
     stream::write_buffered(cout, output_buf, 0);        

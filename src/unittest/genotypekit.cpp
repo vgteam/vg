@@ -129,17 +129,23 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
             REQUIRE(sites[0].end.node->id() == 6);
             REQUIRE(sites[0].end.backward == false);
             
-            SECTION("and should contain exactly nodes 1 and 6") {
+            SECTION("and should contain exactly nodes 1 through 6") {
                 auto& nodes = sites[0].nodes;
-                set<Node*> correct{graph.get_node(1), graph.get_node(6)};
+                set<Node*> correct{graph.get_node(1), graph.get_node(2),
+                        graph.get_node(3), graph.get_node(4),
+                        graph.get_node(5), graph.get_node(6)};
                 REQUIRE(nodes == correct);
             }
             
-            SECTION("and should contain exactly edges 1->6, 1->2, and 5->6") {
+            SECTION("and should contain exactly edges 1->6, 1->2, 2->3, 2->4, 3->5, 4->5, 5->6") {
                 auto& edges = sites[0].edges;
                 set<Edge*> correct{
                     graph.get_edge(NodeSide(1, true), NodeSide(6)),
                     graph.get_edge(NodeSide(1, true), NodeSide(2)),
+                    graph.get_edge(NodeSide(2, true), NodeSide(3)),
+                    graph.get_edge(NodeSide(2, true), NodeSide(4)),
+                    graph.get_edge(NodeSide(3, true), NodeSide(5)),
+                    graph.get_edge(NodeSide(4, true), NodeSide(5)),
                     graph.get_edge(NodeSide(5, true), NodeSide(6))
                 };
                 REQUIRE(edges == correct);
