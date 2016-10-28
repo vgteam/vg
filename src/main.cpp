@@ -32,9 +32,9 @@
 #include "translator.hpp"
 #include "readfilter.hpp"
 #include "distributions.hpp"
-// This provides main_construct and help_construct
-#include "construct.hpp"
 #include "unittest/driver.hpp"
+// New subcommand system provides main_construct and help_construct
+#include "subcommand/subcommand.hpp"
 
 
 
@@ -9090,13 +9090,19 @@ int main(int argc, char *argv[])
         vg_help(argv);
         return 1;
     }
+    
+    auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
+    if (subcommand != nullptr) {
+        // We found a matching subcommand, so run it
+        return (*subcommand)(argc, argv);
+    }
+    
+    // Otherwise, fall abck on the old chain of if statements.
 
     //omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
-    if (command == "construct") {
-        return main_construct(argc, argv);
-    } else if (command == "deconstruct"){
+    if (command == "deconstruct"){
         return main_deconstruct(argc, argv);
     } else if (command == "view") {
         return main_view(argc, argv);
