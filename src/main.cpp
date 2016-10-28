@@ -33,6 +33,8 @@
 #include "readfilter.hpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
+// New subcommand system provides main_construct and help_construct
+#include "subcommand/subcommand.hpp"
 
 
 
@@ -1576,7 +1578,7 @@ void help_genotype(char** argv) {
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -C, --cactus            use cactus ultrabubbles for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
@@ -4549,7 +4551,7 @@ void help_stats(char** argv) {
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
+         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -4578,7 +4580,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool superbubbles = false;
-    bool cactus = false;
+    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -4605,7 +4607,7 @@ int main_stats(int argc, char** argv) {
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
-            {"cactusbubbles", no_argument, 0, 'C'},
+            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -4613,7 +4615,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4674,8 +4676,8 @@ int main_stats(int argc, char** argv) {
             superbubbles = true;
             break;
 
-        case 'C':
-            cactus = true;
+        case 'u':
+            ultrabubbles = true;
             break;
 
         case 'A':
@@ -4764,8 +4766,8 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles || cactus) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+    if (superbubbles || ultrabubbles) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
         for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
@@ -6269,7 +6271,7 @@ int main_index(int argc, char** argv) {
         string file_name = argv[optind++];
         file_names.push_back(file_name);
     }
-
+    
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
@@ -6316,6 +6318,12 @@ int main_index(int argc, char** argv) {
         map<string, Path> alt_paths;
         // This is matched against the entire string.
         regex is_alt("_alt_.+_[0-9]+");
+
+        if(file_names.empty()) {
+            // VGset or something segfaults when we feed it no graphs.
+            cerr << "error:[vg index] at least one graph is required to build an xg index" << endl;
+            return 1;
+        }
 
         // store the graphs
         VGset graphs(file_names);
@@ -8006,7 +8014,7 @@ void help_view(char** argv) {
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
-         << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -Y, --ultra-label    same as -Y but using ultrabubbles" << endl
          << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
@@ -8067,7 +8075,7 @@ int main_view(int argc, char** argv) {
     bool color_variants = false;
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
-    bool cactusbubble_labeling = false;
+    bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
 
     int c;
@@ -8105,7 +8113,7 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
-                {"cactus-label", no_argument, 0, 'Y'},
+                {"ultra-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
                 {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
@@ -8137,7 +8145,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'Y':
-            cactusbubble_labeling = true;
+            ultrabubble_labeling = true;
             break;
 
         case 'B':
@@ -8587,7 +8595,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       superbubble_ranking,
                       superbubble_labeling,
-                      cactusbubble_labeling,
+                      ultrabubble_labeling,
                       skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
@@ -9014,210 +9022,6 @@ int main_deconstruct(int argc, char** argv){
     return 0;
 }
 
-void help_construct(char** argv) {
-    cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
-         << "options:" << endl
-         << "    -v, --vcf FILE        input VCF" << endl
-         << "    -r, --reference FILE  input FASTA reference" << endl
-         << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
-         << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
-         << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION   specify a particular chromosome" << endl
-         << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
-         << "                          sequence name could be inadvertently parsed as a region)" << endl
-         << "    -z, --region-size N   variants per region to parallelize" << endl
-         << "    -m, --node-max N      limit the maximum allowable node sequence size (defaults to 1000)" << endl
-         << "                          nodes greater than this threshold will be divided" << endl
-         << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
-         << "    -p, --progress        show progress" << endl
-         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
-}
-
-int main_construct(int argc, char** argv) {
-
-    if (argc == 2) {
-        help_construct(argv);
-        return 1;
-    }
-
-    string fasta_file_name, vcf_file_name, json_filename;
-    string region;
-    bool region_is_chrom = false;
-    string output_type = "VG";
-    bool progress = false;
-    int vars_per_region = 25000;
-    int max_node_size = 1000;
-    string ref_paths_file;
-    bool flat_alts = false;
-    // Should we make paths out of phasing blocks in the called samples?
-    bool load_phasing_paths = false;
-    // Should we make alt paths for variants?
-    bool load_alt_paths = false;
-
-    int c;
-    while (true) {
-        static struct option long_options[] =
-            {
-                /* These options set a flag. */
-                //{"verbose", no_argument,       &verbose_flag, 1},
-                {"vcf", required_argument, 0, 'v'},
-                {"reference", required_argument, 0, 'r'},
-                // TODO: change the long option here?
-                {"ref-paths", required_argument, 0, 'P'},
-                {"phase-blocks", no_argument, 0, 'B'},
-                {"alt-paths", no_argument, 0, 'a'},
-                {"progress",  no_argument, 0, 'p'},
-                {"region-size", required_argument, 0, 'z'},
-                {"threads", required_argument, 0, 't'},
-                {"region", required_argument, 0, 'R'},
-                {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},\
-                {"flat-alts", no_argument, 0, 'f'},
-                {0, 0, 0, 0}
-            };
-
-        int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
-                         long_options, &option_index);
-
-        /* Detect the end of the options. */
-        if (c == -1)
-            break;
-
-        switch (c)
-        {
-        case 'v':
-            vcf_file_name = optarg;
-            break;
-
-        case 'r':
-            fasta_file_name = optarg;
-            break;
-
-        case 'P':
-            ref_paths_file = optarg;
-            break;
-
-        case 'B':
-            load_phasing_paths = true;
-            break;
-
-        case 'a':
-            load_alt_paths = true;
-            break;
-
-        case 'p':
-            progress = true;
-            break;
-
-        case 'z':
-            vars_per_region = atoi(optarg);
-            break;
-
-        case 'R':
-            region = optarg;
-            break;
-
-        case 'C':
-            region_is_chrom = true;
-            break;
-
-        case 't':
-            omp_set_num_threads(atoi(optarg));
-            break;
-
-        case 'm':
-            max_node_size = atoi(optarg);
-            break;
-
-        case 'f':
-            flat_alts = true;
-            break;
-
-        case 'h':
-        case '?':
-            /* getopt_long already printed an error message. */
-            help_construct(argv);
-            exit(1);
-            break;
-
-        default:
-            abort ();
-
-        }
-    }
-
-    vcflib::VariantCallFile variant_file;
-    if (!vcf_file_name.empty()) {
-        // Make sure the file exists. Otherwise Tabix++ may exit with a non-
-        // helpful message.
-
-        // We can't invoke stat woithout a place for it to write. But all we
-        // really want is its return value.
-        struct stat temp;
-        if(stat(vcf_file_name.c_str(), &temp)) {
-            cerr << "error:[vg construct] file \"" << vcf_file_name << "\" not found" << endl;
-            return 1;
-        }
-        variant_file.open(vcf_file_name);
-        if (!variant_file.is_open()) {
-            cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
-            return 1;
-        }
-    }
-
-    if(load_phasing_paths && ref_paths_file.empty()) {
-        cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
-        return 1;
-    }
-
-    if (fasta_file_name.empty()) {
-        cerr << "error:[vg construct] a reference is required for graph construction" << endl;
-        return 1;
-    }
-    FastaReference reference;
-    reference.open(fasta_file_name);
-
-    // store our reference sequence paths
-    // TODO: use this. Maybe dump paths here instead of in the graph?
-    Paths ref_paths;
-
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
-             max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
-
-    if (!ref_paths_file.empty()) {
-        ofstream paths_out(ref_paths_file);
-        graph.paths.write(paths_out);
-        if(load_phasing_paths) {
-            // Keep only the non-phasing paths in the graph. If you keep too
-            // many paths in a graph, you'll make chunks that are too large.
-            // TODO: dynamically deliniate the chunks in the serializer so you
-            // won't write vg files you can't read.
-
-            set<string> non_phase_paths;
-            string phase_prefix = "_phase";
-            graph.paths.for_each_name([&](string path_name) {
-                    if(!equal(phase_prefix.begin(), phase_prefix.end(), path_name.begin())) {
-                        // Path is not a phase path
-                        non_phase_paths.insert(path_name);
-                    }
-                });
-
-            // Keep only the non-phase paths
-            graph.paths.keep_paths(non_phase_paths);
-        }
-    }
-
-    graph.serialize_to_ostream(std::cout);
-
-    // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
-    // this would free all the memory used by protobuf:
-    //ShutdownProtobufLibrary();
-
-    return 0;
-}
-
 void help_version(char** argv){
     cerr << "usage: " << argv[0] << " version" << endl
          << "options: " << endl
@@ -9286,13 +9090,19 @@ int main(int argc, char *argv[])
         vg_help(argv);
         return 1;
     }
+    
+    auto* subcommand = vg::subcommand::Subcommand::get(argc, argv);
+    if (subcommand != nullptr) {
+        // We found a matching subcommand, so run it
+        return (*subcommand)(argc, argv);
+    }
+    
+    // Otherwise, fall abck on the old chain of if statements.
 
     //omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
-    if (command == "construct") {
-        return main_construct(argc, argv);
-    } else if (command == "deconstruct"){
+    if (command == "deconstruct"){
         return main_deconstruct(argc, argv);
     } else if (command == "view") {
         return main_view(argc, argv);
