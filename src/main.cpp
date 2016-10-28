@@ -4,10 +4,10 @@
 #include <cstdio>
 #include <getopt.h>
 #include <sys/stat.h>
-#include "gcsa.h"
-#include "algorithms.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/algorithms.h"
 // From gcsa2
-#include "files.h"
+//#include "files.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"

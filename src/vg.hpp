@@ -15,8 +15,8 @@
 #include <random>
 
 #include "gssw.h"
-#include "gcsa.h"
-#include "lcp.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/lcp.h"
 #include "gssw_aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
