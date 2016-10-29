@@ -30,6 +30,7 @@ class MaximalExactMatch {
 
 public:
 
+    //const string* source;
     string::const_iterator begin;
     string::const_iterator end;
     gcsa::range_type range;

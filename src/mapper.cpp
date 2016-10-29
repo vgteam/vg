@@ -993,8 +993,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             //distance = graph_distance(m1_pos, m2_pos, m1.length() + m2.length());
             // aln.sequence().size());// - 1;// - m1.length();
             //cerr << distance << endl;
+            if (distance == max_length) {
+                return (double) -1;
+            }
             double jump = (m2.begin - m1.begin) - distance;
             //cerr << "jump " << jump << endl;
+            //cerr << "diff " << m2.begin - m1.begin << endl;
             //double back_cost = (jump < 0) ? abs(jump) : 0;
             double weight = (double)1.0 / (double)(abs(jump) + 1);
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
@@ -1002,7 +1006,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
             //if (jump < 0) weight /= 10;
             //if (jump < 0) weight = -1;
-            //if (debug) cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << " " << jump << endl;
+            if (debug) cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << " " << jump << endl;
             return weight;
         } else {
             return (double)-1.0;
@@ -4007,17 +4011,25 @@ MEMMarkovModel::MEMMarkovModel(
         ++n;
         int i = 0;
         bool connected = false;
+        //cerr << "from " << m->mem << endl;
         while (n != model.end()) {
+            //cerr << "  to " << n->mem << endl;
             // skip past MEMs at the same position in the read
             if (n->mem.begin == m->mem.begin) {
+                //cerr << "    skip" << endl;
                 ++n; continue;
                 if (n == model.end()) break;
             }
             // todo how do we handle MEMs at the same starting position
             // these are duplicates which we need to introduce...
             double weight = transition_weight(m->mem, n->mem);
-            if (++i > band_width && connected) break;
+            //cerr << "    weight " << weight << endl;
+            if (++i > band_width && connected) {
+                //cerr << "    breaking" << endl;
+                break;
+            }
             if (weight >= 0) {
+                //cerr << "    saving" << endl;
                 // save if we got a weight
                 m->next_cost.push_back(make_pair(&*n, weight));
                 n->prev_cost.push_back(make_pair(&*m, weight));
@@ -4170,7 +4182,7 @@ void MaximalExactMatch::fill_positions(Mapper* mapper) {
 
 ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
     size_t len = mem.begin - mem.end;
-    out << &*mem.begin << ":" << mem.sequence() << ":";
+    out << mem.sequence() << ":";
     for (auto& node : mem.nodes) {
         id_t id = gcsa::Node::id(node);
         size_t offset = gcsa::Node::offset(node);
