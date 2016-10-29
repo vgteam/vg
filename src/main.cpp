@@ -6,8 +6,6 @@
 #include <sys/stat.h>
 #include "gcsa/gcsa.h"
 #include "gcsa/algorithms.h"
-// From gcsa2
-//#include "files.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
@@ -6875,6 +6873,7 @@ void help_align(char** argv) {
          << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -D, --debug           print out score matrices and other debugging info" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
@@ -6901,6 +6900,7 @@ int main_align(int argc, char** argv) {
     int gap_extend = 1;
     string ref_seq;
     bool debug = false;
+    bool banded_global = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -6918,11 +6918,12 @@ int main_align(int argc, char** argv) {
             {"gap-extend", required_argument, 0, 'e'},
             {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
+            {"banded-global", no_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:b",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6967,6 +6968,10 @@ int main_align(int argc, char** argv) {
             debug = true;
             break;
 
+        case 'b':
+            banded_global = true;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -6998,7 +7003,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, 0, false, false, debug);
+        alignment = graph->align(seq, &aligner, 0, 0, false, banded_global, debug);
     }
 
     if (!seq_name.empty()) {
