@@ -1006,7 +1006,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
             //if (jump < 0) weight /= 10;
             //if (jump < 0) weight = -1;
-            if (debug) cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << " " << jump << endl;
+            //if (debug) cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << " " << jump << endl;
             return weight;
         } else {
             return (double)-1.0;
@@ -2612,7 +2612,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         first_cut = reverse(second_cut, graph.get_node(id(second_cut))->sequence().size());
                         second_cut = reverse(tmp_cut, graph.get_node(id(tmp_cut))->sequence().size());
                         align_rc = true;
-                        //cerr << "reversed cuts" << endl;
                     } else {
                         if (is_rev(first_cut)) {
                             reverse(first_cut, graph.get_node(id(first_cut))->sequence().size());
@@ -2701,10 +2700,22 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             // remove the unused part
                             graph.destroy_node(left);
                             graph.swap_node_id(right, id(first_cut));
-                            target_nodes.push_back(graph.get_node(id(first_cut)));
+                            //target_nodes.push_back(graph.get_node(id(first_cut)));
+                            Node* trimmed = graph.get_node(id(first_cut));
                             trimmed_node = id(first_cut);
                             trimmed_length_fwd = offset(first_cut);
                             trimmed_length_rev = 0;
+                            if (trimmed->sequence().size()) {
+                                target_nodes.push_back(trimmed);
+                            } else {
+                                // push back each connected node
+                                for (auto& edge : graph.edges_to(trimmed)) {
+                                    target_nodes.push_back(graph.get_node(edge->from()));
+                                }
+                                for (auto& edge : graph.edges_from(trimmed)) {
+                                    target_nodes.push_back(graph.get_node(edge->to()));
+                                }
+                            }
                         } else {
                             // destroy everything ahead of the node??
                             NodeSide begin = NodeSide(id(first_cut));
@@ -2721,7 +2732,19 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             // remove the unused part
                             graph.destroy_node(right);
                             graph.swap_node_id(left, id(second_cut));
-                            target_nodes.push_back(graph.get_node(id(second_cut)));
+                            //target_nodes.push_back(graph.get_node(id(second_cut)));
+                            Node* trimmed = graph.get_node(id(first_cut));
+                            if (trimmed->sequence().size()) {
+                                target_nodes.push_back(trimmed);
+                            } else {
+                                // push back each connected node
+                                for (auto& edge : graph.edges_to(trimmed)) {
+                                    target_nodes.push_back(graph.get_node(edge->from()));
+                                }
+                                for (auto& edge : graph.edges_from(trimmed)) {
+                                    target_nodes.push_back(graph.get_node(edge->to()));
+                                }
+                            }
                         } else {
                             // destroy the node
                             graph.destroy_node(id(second_cut));
@@ -2735,13 +2758,15 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // this can be done by going to the first cut position
                     // expanding context until we complete the subgraph it's on
                     // and then checking if the second cut position is on this graph
-
+                    //cerr << "graph after tweaking " << graph.size() << " " << pb2json(graph.graph) << endl;
                     if (target_nodes.size()) {
                         vector<Node*> valid_target_nodes;
                         // find a valid target node
+                        //cerr << "target_node size " << target_nodes.size() << endl;
                         for (auto& n : target_nodes) {
+                            //cerr << n->id() << endl;
                             if (graph.has_node(*n)) {
-                                valid_target_nodes.push_back(n);
+                                valid_target_nodes.push_back(graph.get_node(n->id()));
                             }
                         }
                         // if we find one, use it to build out a subgraph
@@ -2750,6 +2775,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             target.add_node(*valid_target_nodes.front());
                             graph.expand_context(target, 1e6, false);
                             // then check if all of the targets are in this subgraph
+                            //cerr << "got potential target graph " << pb2json(target.graph) << endl;
                             for (auto& n : valid_target_nodes) {
                                 if (!target.has_node(*n)) {
                                     has_target = false;
