@@ -1,14 +1,124 @@
 /*
- * construct.cpp: contains implementations for vg construction functions.
+ * constructor.cpp: contains implementations for vg construction functions.
  */
 
 
 #include "vg.hpp"
+#include "constructor.hpp"
 
 namespace vg {
 
 using namespace std;
 
+
+ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
+    vector<vcflib::Variant> variants) const {
+    
+    // Construct a chunk for this sequence with these variants.
+    ConstructedChunk to_return;
+    
+    // We use this to keep track of what the next unused base, if any, in the
+    // reference is.
+    size_t reference_cursor = 0;
+    
+    // We use this to number nodes. All chunks number nodes starting from 1.
+    id_t next_id = 1;
+    
+    // We remember nodes ending at these reference positions that haven't yet
+    // all been wired up yet. These are on-the-end and not past-the-end
+    // positions, so they are start + length - 1.
+    map<size_t, set<id_t>> nodes_ending_at;
+    // And nodes starting at these reference positions that haven't yet all been
+    // wired up. 
+    map<size_t, set<id_t>> nodes_starting_at;
+    
+    // Here we remember deletions that end at paritcular positions in the
+    // reference, which are the positions of the last deleted bases. We map from
+    // last deleted base to last non-deleted base before the deletion, so we can
+    // go look up nodes ending there. Note that these can map to -1.
+    map<size_t, set<int64_t>> deletions_ending_at;
+    
+    // We use this to get the next variant
+    auto next_variant = variants.begin();
+    
+    // We're going to clump overlapping variants together.
+    vector<vcflib::Variant*> clump;
+    
+    while(next_variant != variants.end()) {
+    
+        // Group variants into clumps of overlapping variants.
+        if(clump.empty() || 
+            clump.back()->position + clump.back()->ref.size() > next_variant->position) {
+            
+            // Either there are no variants in the clump, or this variant
+            // overlaps the clump. It belongs in the clump
+            clump.push_back(&(*next_variant));
+            // Try the variant after that
+            next_variant++;
+        } else {
+            // The next variant doesn't belong in this clump.
+            // Handle the clump.
+        
+            // Create ref path nodes 
+        
+            // Create mappings through the clump for the reference path.
+            
+            // Now the clump is handled
+            clump.clear();
+            // On the next loop we'll grab the next variant for the next clump.
+        }
+    }
+
+    // Create reference path nodes and mappings after the last clump.
+        
+    while(reference_cursor < reference_sequence.size()) {
+        // There's still reference to do, so bite off a piece
+        size_t next_node_size = std::min(max_node_size, reference_sequence.size() - reference_cursor);
+        string node_sequence = reference_sequence.substr(reference_cursor, next_node_size);
+        
+        
+        // Make a node
+        auto* node = to_return.graph.add_node();
+        node->set_id(next_id++);
+        node->set_sequence(node_sequence);
+        
+        // Remember where it starts and ends
+        nodes_starting_at[reference_cursor].insert(node->id());
+        nodes_ending_at[reference_cursor + next_node_size - 1].insert(node->id());
+        
+        // Advance the reference cursor since we made this node
+        reference_cursor += next_node_size;
+    }
+    
+    // Create all the edges
+    for(auto& kv : nodes_starting_at) {
+        if(kv.first == 0) {
+            // These are the nodes that abut the left edge of the chunk. Just
+            // say this set of nodes is the set of left-edge-abuting nodes.
+            // TODO: add ends of deletions
+            to_return.left_ends = kv.second;
+        } else {
+            // These are nodes that start somewhere else.
+            for(auto& left_node : nodes_ending_at[kv.first - 1]) {
+                // For every node that could come before these nodes
+                for(auto& right_node : kv.second) {
+                    // For every node that could occur here
+                    
+                    // Emit an edge
+                    auto* edge = to_return.graph.add_edge();
+                    edge->set_from(left_node);
+                    edge->set_to(right_node);
+                }
+            }
+        }
+    }
+    
+    // Make sure to also send out the nodes ending at the end of the chunk
+    to_return.right_ends = nodes_ending_at[reference_sequence.size() - 1];
+    // TODO: add in deletions that go to the end of the chunk
+    
+    return to_return;
+}
 
 // Implementations of VG functions. TODO: refactor out of VG class
 
@@ -514,19 +624,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 
 }
 
-map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
-    map<id_t, vcflib::Variant> ret;
-    vcflib::Variant var;
-
-    while(vfile.getNextVariant(var)){
-        long nuc = var.position;
-        id_t node_id = get_node_at_nucleotide(var.sequenceName, nuc);
-        ret[node_id] = var;
-    }
-
-    return ret;
-}
-
 // construct from VCF records
 // --------------------------
 // algorithm
@@ -743,52 +840,506 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
     }
 }
 
-void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
-                       int start_pos,
-                       int stop_pos,
-                       int max_node_size) {
+void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
+                      const map<pair<long, int>, vector<bool>>& visits,
+                      size_t num_phasings,
+                      const map<pair<long, int>, vector<pair<string, int>>>& variant_alts,
+                      string& seq,
+                      string& name) {
 
-    // Slice up only the *reference*. Leaves the actual alt sequences alone.
-    // Does *not* divide up the alt alleles into multiple pieces, despite its
-    // name.
+    //init();
+    this->name = name;
 
-    auto enforce_node_size_limit =
-        [this, max_node_size, &altp]
-        (int curr_pos, int& last_pos) {
-        int last_ref_size = curr_pos - last_pos;
-        update_progress(last_pos);
-        if (max_node_size && last_ref_size > max_node_size) {
-            int div = 2;
-            while (last_ref_size/div > max_node_size) {
-                ++div;
-            }
-            int segment_size = last_ref_size/div;
-            int i = 0;
-            while (last_pos + i < curr_pos) {
-                altp[last_pos+i];  // empty cut
-                i += segment_size;
-                update_progress(last_pos + i);
+    int tid = omp_get_thread_num();
+
+#ifdef debug
+#pragma omp critical (cerr)
+    {
+        cerr << tid << ": in from_alleles" << endl;
+        cerr << tid << ": with " << altp.size() << " vars" << endl;
+        cerr << tid << ": and " << num_phasings << " phasings" << endl;
+        cerr << tid << ": and " << visits.size() << " phasing visits" << endl;
+        cerr << tid << ": and " << variant_alts.size() << " variant alt visits" << endl;
+        cerr << tid << ": and " << seq.size() << "bp" << endl;
+        if(seq.size() < 100) cerr << seq << endl;
+    }
+#endif
+
+
+    // maintains the path of the seq in the graph
+    map<long, id_t> seq_node_ids;
+    // track the last nodes so that we can connect everything
+    // completely when variants occur in succession
+    map<long, set<Node*> > nodes_by_end_position;
+    map<long, set<Node*> > nodes_by_start_position;
+
+
+    Node* seq_node = create_node(seq);
+    // This path represents the primary path in this region of the graph. We
+    // store it as a map for now, and add it in in the real Paths structure
+    // later.
+    seq_node_ids[0] = seq_node->id();
+
+    // TODO: dice nodes now so we can work only with small ref nodes?
+    // But what if we then had a divided middle node?
+
+    // We can't reasonably track visits to the "previous" bunch of alleles
+    // because they may really overlap this bunch of alleles and not be properly
+    // previous, path-wise. We'll just assume all the phasings visit all the
+    // non-variable nodes, and then break things up later. TODO: won't this
+    // artificially merge paths if we have an unphased deletion or something?
+
+    // Where did the last variant end? If it's right before this one starts,
+    // there might not be an intervening node.
+    long last_variant_end = -1;
+
+    for (auto& va : altp) {
+
+        const vector<vcflib::VariantAllele>& alleles = va.second;
+
+        // if alleles are empty, we just cut at this point. TODO: this should
+        // never happen with the node size enforcement refactoring.
+        if (alleles.empty()) {
+            Node* l = NULL; Node* r = NULL;
+            divide_path(seq_node_ids, va.first, l, r);
+        }
+
+
+        // If all the alleles here are perfect reference matches, and no
+        // variants visit them, we'll have nothing to do.
+        bool all_perfect_matches = true;
+        for(auto& allele : alleles) {
+            if(allele.ref != allele.alt) {
+                all_perfect_matches = false;
+                break;
             }
         }
-    };
 
-    if (max_node_size > 0) {
-        create_progress("enforcing node size limit ", (altp.empty()? 0 : altp.rbegin()->first));
-        // break apart big nodes
-        int last_pos = start_pos;
-        for (auto& position : altp) {
-            auto& alleles = position.second;
-            enforce_node_size_limit(position.first, last_pos);
-            for (auto& allele : alleles) {
-                // cut the last reference sequence into bite-sized pieces
-                last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
+        // Are all the alleles here clear of visits by variants?
+        bool no_variant_visits = true;
+
+        for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
+            if(variant_alts.count(make_pair(va.first, allele_number))) {
+                no_variant_visits = false;
+                break;
             }
         }
-        enforce_node_size_limit(stop_pos, last_pos);
-        destroy_progress();
+
+        if(all_perfect_matches && no_variant_visits) {
+            // No need to break anything here.
+
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << tid << ": Skipping entire allele site at " << va.first << endl;
+            }
+#endif
+
+            continue;
+        }
+
+        // We also need to sort the allele numbers by the lengths of their
+        // alleles' reference sequences, to properly handle inserts followed by
+        // matches.
+        vector<int> allele_numbers_by_ref_length(alleles.size());
+        // Fill with sequentially increasing integers.
+        // Sometimes the STL actually *does* have the function you want.
+        iota(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(), 0);
+
+        // Sort the allele numbers by reference length, ascending
+        std::sort(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(),
+            [&](const int& a, const int& b) -> bool {
+            // Sort alleles with shorter ref sequences first.
+            return alleles[a].ref.size() < alleles[b].ref.size();
+        });
+
+#ifdef debug
+#pragma omp critical (cerr)
+                {
+                    cerr << tid << ": Processing " << allele_numbers_by_ref_length.size() << " alleles at " << va.first << endl;
+                }
+#endif
+
+        // Is this allele the first one processed? Because the first one
+        // processed gets to handle adding mappings to the intervening sequence
+        // from the previous allele to here.
+        bool first_allele_processed = true;
+
+        for (size_t allele_number : allele_numbers_by_ref_length) {
+            // Go through all the alleles with their numbers, in order of
+            // increasing reference sequence length (so inserts come first)
+            auto& allele = alleles[allele_number];
+
+            auto allele_key = make_pair(va.first, allele_number);
+
+            // 0/1 based conversion happens in offset
+            long allele_start_pos = allele.position;
+            long allele_end_pos = allele_start_pos + allele.ref.size();
+            // for ordering, set insertion start position at +1
+            // otherwise insertions at the same position will loop infinitely
+            //if (allele_start_pos == allele_end_pos) allele_end_pos++;
+
+            if(allele.ref == allele.alt && !visits.count(allele_key) && !variant_alts.count(allele_key)) {
+                // This is a ref-only allele with no visits or usages in
+                // alleles, which means we don't actually need any cuts if the
+                // allele is not visited. If other alleles here are visited,
+                // we'll get cuts from them.
+
+#ifdef debug
+#pragma omp critical (cerr)
+                {
+                    cerr << tid << ": Skipping variant at " << allele_start_pos
+                         << " allele " << allele.ref << " -> " << allele.alt << endl;
+                }
+#endif
+
+                continue;
+            }
+
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << tid << ": Handling variant at " << allele_start_pos
+                     << " allele " << allele.ref << " -> " << allele.alt << endl;
+            }
+#endif
+
+            if (allele_start_pos == 0) {
+                // ensures that we can handle variation at first position
+                // (important when aligning)
+                Node* root = create_node("");
+                seq_node_ids[-1] = root->id();
+                nodes_by_start_position[-1].insert(root);
+                nodes_by_end_position[0].insert(root);
+            }
+
+
+
+            // We grab all the nodes involved in this allele: before, being
+            // replaced, and after.
+            Node* left_seq_node = nullptr;
+            std::list<Node*> middle_seq_nodes;
+            Node* right_seq_node = nullptr;
+
+            // make one cut at the ref-path relative start of the allele, if it
+            // hasn't been cut there already. Grab the nodes on either side of
+            // that cut.
+            divide_path(seq_node_ids,
+                        allele_start_pos,
+                        left_seq_node,
+                        right_seq_node);
+
+            // if the ref portion of the allele is not empty, then we may need
+            // to make another cut. If so, we'll have some middle nodes.
+            if (!allele.ref.empty()) {
+                Node* last_middle_node = nullptr;
+                divide_path(seq_node_ids,
+                            allele_end_pos,
+                            last_middle_node,
+                            right_seq_node);
+
+
+                // Now find all the middle nodes between left_seq_node and
+                // last_middle_node along the primary path.
+
+                // Find the node starting at or before, and including,
+                // allele_end_pos.
+                map<long, id_t>::iterator target = seq_node_ids.upper_bound(allele_end_pos);
+                --target;
+
+                // That should be the node to the right of the variant
+                assert(target->second == right_seq_node->id());
+
+                // Everything left of there, stopping (exclusive) at
+                // left_seq_node if set, should be middle nodes.
+
+                while(target != seq_node_ids.begin()) {
+                    // Don't use the first node we start with, and do use the
+                    // begin node.
+                    target--;
+                    if(left_seq_node != nullptr && target->second == left_seq_node->id()) {
+                        // Don't put the left node in as a middle node
+                        break;
+                    }
+
+                    // If we get here we want to take this node as a middle node
+                    middle_seq_nodes.push_front(get_node(target->second));
+                }
+
+                // There need to be some nodes in the list when we're done.
+                // Otherwise something has gone wrong.
+                assert(middle_seq_nodes.size() > 0);
+            }
+
+            // What nodes actually represent the alt allele?
+            std::list<Node*> alt_nodes;
+            // create a new alt node and connect the pieces from before
+            if (!allele.alt.empty() && !allele.ref.empty()) {
+                //cerr << "both alt and ref have sequence" << endl;
+
+                if (allele.ref == allele.alt) {
+                    // We don't really need to make a new run of nodes, just use
+                    // the existing one. We still needed to cut here, though,
+                    // because we can't have only a ref-matching allele at a
+                    // place with alleles; there must be some other different
+                    // alleles here.
+                    alt_nodes = middle_seq_nodes;
+                } else {
+                    // We need a new node for this sequence
+                    Node* alt_node = create_node(allele.alt);
+                    create_edge(left_seq_node, alt_node);
+                    create_edge(alt_node, right_seq_node);
+                    alt_nodes.push_back(alt_node);
+                }
+
+                // The ref and alt nodes may be the same, but neither will be an
+                // empty list.
+                nodes_by_end_position[allele_end_pos].insert(alt_nodes.back());
+                nodes_by_end_position[allele_end_pos].insert(middle_seq_nodes.back());
+                //nodes_by_end_position[allele_start_pos].insert(left_seq_node);
+                nodes_by_start_position[allele_start_pos].insert(alt_nodes.front());
+                nodes_by_start_position[allele_start_pos].insert(middle_seq_nodes.front());
+
+            } else if (!allele.alt.empty()) { // insertion
+
+                // Make a single node to represent the inserted sequence
+                Node* alt_node = create_node(allele.alt);
+                create_edge(left_seq_node, alt_node);
+                create_edge(alt_node, right_seq_node);
+                alt_nodes.push_back(alt_node);
+
+                // We know the alt nodes list isn't empty.
+                // We'rr immediately pulling the node out of the list again for consistency.
+                nodes_by_end_position[allele_end_pos].insert(alt_nodes.back());
+                nodes_by_end_position[allele_end_pos].insert(left_seq_node);
+                nodes_by_start_position[allele_start_pos].insert(alt_nodes.front());
+
+            } else {// otherwise, we have a deletion, or the empty reference alt of an insertion.
+
+                // No alt nodes should be present
+                create_edge(left_seq_node, right_seq_node);
+                nodes_by_end_position[allele_end_pos].insert(left_seq_node);
+                nodes_by_start_position[allele_start_pos].insert(left_seq_node);
+
+            }
+
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                if (left_seq_node) cerr << tid << ": left_ref " << left_seq_node->id()
+                                        << " "
+                                        << (left_seq_node->sequence().size() < 100 ? left_seq_node->sequence() : "...")
+                                        << endl;
+                for(Node* middle_seq_node : middle_seq_nodes) {
+                    cerr << tid << ": middle_ref " << middle_seq_node->id()
+                         << " " << middle_seq_node->sequence() << endl;
+                }
+                for(Node* alt_node : alt_nodes) {
+                    cerr << tid << ": alt_node " << alt_node->id()
+                                << " " << alt_node->sequence() << endl;
+                }
+                if (right_seq_node) cerr << tid << ": right_ref " << right_seq_node->id()
+                                         << " "
+                                         << (right_seq_node->sequence().size() < 100 ? right_seq_node->sequence() : "...")
+                                         << endl;
+            }
+#endif
+
+            // How much intervening space is there between this set of alleles'
+            // start and the last one's end?
+            long intervening_space = allele.position - last_variant_end;
+            if(first_allele_processed && num_phasings > 0 && left_seq_node && intervening_space > 0) {
+                // On the first pass through, if we are doing phasings, we make
+                // all of them visit the left node. We know the left node will
+                // be the same on subsequent passes for other alleles starting
+                // here, and we only want to make these left node visits once.
+
+                // However, we can only do this if there actually is a node
+                // between the last set of alleles and here.
+
+                // TODO: what if some of these phasings aren't actually phased
+                // here? We'll need to break up their paths to just have some
+                // ref matching paths between variants where they aren't
+                // phased...
+
+                for(size_t i = 0; i < num_phasings; i++) {
+                    // Everything uses this node to our left, which won't be
+                    // broken again.
+                    paths.append_mapping("_phase" + to_string(i), left_seq_node->id());
+                }
+
+                // The next allele won't be the first one actually processed.
+                first_allele_processed = false;
+            }
+            if(!alt_nodes.empty() && visits.count(allele_key)) {
+                // At least one phased path visits this allele, and we have some
+                // nodes to path it through.
+
+                // Get the vector of bools for that phasings visit
+                auto& visit_vector = visits.at(allele_key);
+
+                for(size_t i = 0; i < visit_vector.size(); i++) {
+                    // For each phasing
+                    if(visit_vector[i]) {
+                        // If we visited this allele, say we did. TODO: use a
+                        // nice rank/select thing here to make this not have to
+                        // be a huge loop.
+
+                        string phase_name = "_phase" + to_string(i);
+
+                        for(Node* alt_node : alt_nodes) {
+                            // Problem: we may have visited other alleles that also used some of these nodes.
+                            // Solution: only add on the mappings for new nodes.
+
+                            // TODO: this assumes we'll not encounter
+                            // contradictory alleles, only things like "both
+                            // shorter ref match and longer ref match are
+                            // visited".
+
+                            if(!paths.get_node_mapping(alt_node).count(phase_name)) {
+                                // This node has not yet been visited on this path.
+                                paths.append_mapping(phase_name, alt_node->id());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if(variant_alts.count(allele_key)) {
+
+                for(auto name_and_alt : variant_alts.at(allele_key)) {
+                    // For each of the alts using this allele, put mappings for this path
+                    string path_name = "_alt_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
+
+                    if(!alt_nodes.empty()) {
+                        // This allele has some physical presence and is used by some
+                        // variants.
+
+                        for(auto alt_node : alt_nodes) {
+                            // Put a mapping on each alt node
+
+                            // TODO: assert that there's an edge from the
+                            // previous mapping's node (if any) to this one's
+                            // node.
+
+                            paths.append_mapping(path_name, alt_node->id());
+                        }
+
+#ifdef debug
+                        cerr << "Path " << path_name << " uses these alts" << endl;
+#endif
+
+                    } else {
+                        // TODO: alts that are deletions don't always have nodes
+                        // on both sides to visit. Either anchor your VCF
+                        // deletions at both ends, or rely on the presence of
+                        // mappings to other alleles (allele 0) in this variant
+                        // but not this allele to indicate the deletion of
+                        // nodes.
+
+#ifdef debug
+                        cerr << "Path " << path_name << " would use these alts if there were any" << endl;
+#endif
+                    }
+                }
+            }
+
+            if (allele_end_pos == seq.size()) {
+                // ensures that we can handle variation at last position (important when aligning)
+                Node* end = create_node("");
+                seq_node_ids[allele_end_pos] = end->id();
+                // for consistency, this should be handled below in the start/end connections
+                if (alt_nodes.size() > 0) {
+                    create_edge(alt_nodes.back(), end);
+                }
+                if (middle_seq_nodes.size() > 0) {
+                    create_edge(middle_seq_nodes.back(), end);
+                }
+            }
+
+            //print_edges();
+            /*
+            if (!is_valid()) {
+                cerr << "graph is invalid after variant " << *a << endl;
+                std::ofstream out("fail.vg");
+                serialize_to_ostream(out);
+                out.close();
+                exit(1);
+            }
+            */
+
+        }
+
+        // Now we need to connect up all the extra deges between variant alleles
+        // that abut each other.
+        map<long, set<Node*> >::iterator ep
+            = nodes_by_end_position.find(va.first);
+        map<long, set<Node*> >::iterator sp
+            = nodes_by_start_position.find(va.first);
+        if (ep != nodes_by_end_position.end()
+            && sp != nodes_by_start_position.end()) {
+            set<Node*>& previous_nodes = ep->second;
+            set<Node*>& current_nodes = sp->second;
+            for (set<Node*>::iterator n = previous_nodes.begin();
+                 n != previous_nodes.end(); ++n) {
+                for (set<Node*>::iterator m = current_nodes.begin();
+                     m != current_nodes.end(); ++m) {
+                    if (node_index.find(*n) != node_index.end()
+                        && node_index.find(*m) != node_index.end()
+                        && !(previous_nodes.count(*n) && current_nodes.count(*n)
+                             && previous_nodes.count(*m) && current_nodes.count(*m))
+                        ) {
+#ifdef deubg
+                        cerr tid << ": connecting previous "
+                                 << (*n)->id() << " @end=" << ep->first << " to current "
+                                 << (*m)->id() << " @start=" << sp->first << endl;
+#endif
+                        create_edge(*n, *m);
+                    }
+                }
+            }
+        }
+
+        // clean up previous
+        while (!nodes_by_end_position.empty() && nodes_by_end_position.begin()->first < va.first) {
+            nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
+        }
+
+        while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va.first) {
+            nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
+        }
+
+        // Now we just have to update where our end was, so the next group of
+        // alleles knows if there was any intervening sequence.
+        // The (past the) end position is equal to the number of bases not yet used.
+        last_variant_end = seq.size() - get_node((*seq_node_ids.rbegin()).second)->sequence().size();
+
     }
 
+    // Now we're done breaking nodes. This means the node holding the end of the
+    // reference sequence can finally be given its mappings for phasings, if
+    // applicable.
+    if(num_phasings > 0) {
+        // What's the last node on the reference path?
+        auto last_node_id = (*seq_node_ids.rbegin()).second;
+        for(size_t i = 0; i < num_phasings; i++) {
+            // Everything visits this last reference node
+            paths.append_mapping("_phase" + to_string(i), last_node_id);
+        }
+    }
+
+    // Put the mapping to the primary path in the graph
+    for (auto& p : seq_node_ids) {
+        paths.append_mapping(name, p.second);
+    }
+    // and set the mapping edits
+    force_path_match();
+
+    sort();
+    compact_ids();
+
 }
+
 
 }
 
