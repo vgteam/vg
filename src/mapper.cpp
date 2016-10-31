@@ -882,57 +882,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + additional_multimaps;
     
-    // sort by position, make the SMEM node list only contain the matched position
-    //map<pair<string, bool>, map<int, vector<pair<MaximalExactMatch*, gcsa::node_type> > > > by_start_pos;
-    // 
-    //map<int, vector<pair<MaximalExactMatch*, gcsa::node_type> > > by_read_pos;
-
-    // run through the mems
-    // collecting their positions relative to the forward path
-    /*
-    for (auto& mem : mems) {
-        size_t len = mem.begin - mem.end;
-        for (auto& node : mem.nodes) {
-            id_t id = gcsa::Node::id(node);
-            size_t offset = gcsa::Node::offset(node);
-            bool is_rev = gcsa::Node::rc(node);
-            //cerr << "on " << id << (is_rev ? "-" : "+") << ":" << offset << endl;
-            for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
-                auto& name = ref.first;
-                for (auto pos : ref.second) {
-                    auto chrom = make_pair(name, is_rev);
-                    by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
-                    //cerr << "@ " << name << (is_rev ? "-" : "+") << " " << pos + offset << endl;
-                }
-            }
-        }
-    }
-    */
-
-    /*
-    if (debug) {
-        cerr << "SMEMs by start pos and node id: " << endl;
-        for (auto& seq : by_start_pos) {
-            stringstream seqn;
-            seqn << seq.first.first << ":";
-            if (seq.first.second) seqn << "-"; else seqn << "+";
-            for (auto& pos : seq.second) {
-                cerr << seqn.str() << ":" << pos.first << " ";
-                for (auto& mem : pos.second) {
-                    cerr << mem.first->sequence() << " ";
-                    for (auto& node : mem.first->nodes) {
-                        id_t id = gcsa::Node::id(node);
-                        size_t offset = gcsa::Node::offset(node);
-                        bool is_rev = gcsa::Node::rc(node);
-                        cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
-                    }
-                }
-                cerr << endl;
-            }
-        }
-    }
-    */
-
     double avg_node_len = average_node_length();
     // go through the ordered MEMs
     // build the clustering model
@@ -1041,62 +990,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     };
 
-    /*
-    // we cluster up the SMEMs here, then convert the clusters to partial alignments
-    vector<vector<MaximalExactMatch> > clusters;
-    // for each path and orientation
-    for (auto& b : by_start_pos) {
-        auto& seq_map = b.second;
-        // for each position in the path
-        set<int> used_in_cluster;
-        for (auto& p : seq_map) {
-            auto& pos = p.first;
-            //cerr << b.first.first << " " << pos << endl;
-            if (used_in_cluster.count(pos)) continue;
-            cerr << "making cluster" << endl;
-            clusters.emplace_back();
-            auto& cluster = clusters.back();
-            set<MaximalExactMatch*> in_cluster;
-            auto x = seq_map.find(pos);
-            // extend until we hit the end of the chrom or jum over the length of the neighboring MEMs
-            while (x != seq_map.end() && x->first - pos < aln.sequence().size()*3) {
-                // record that we've walked through here, so we don't start new clusters from here
-                used_in_cluster.insert(x->first);
-                // greedy heuristic: use the longest SMEM at the position
-                // TODO don't just pick the biggest; for each of the MEMs, start a chain
-                // this will matter for cyclic alignments
-                MaximalExactMatch* mem = nullptr;
-                gcsa::node_type node;
-                for (auto& m : x->second) {
-                    auto& nmem = m.first;
-                    // gets the longest mem at the site
-                    if (mem == nullptr
-                        || nmem->length() > mem->length()) {
-                        mem = nmem;
-                        node = m.second;
-                    }
-                }
-                assert(mem != nullptr);
-                cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
-                if (!cluster.empty() && cluster.back().begin > mem->begin
-                    || in_cluster.count(mem)) {
-                    ++x; // step to the next position
-                } else {
-                    cerr << "adding mem to cluster" << endl;
-                    auto new_mem = *mem;
-                    new_mem.nodes.clear();
-                    new_mem.nodes.push_back(node);
-                    cluster.push_back(new_mem);
-                    in_cluster.insert(mem);
-                    // get the thing at least one past the end of this MEM
-                    x = seq_map.upper_bound(x->first);//+mem->length());
-                }
-                cerr << cluster.size() << " in cluster now" << endl;
-            }
-        }
-    }
-    */
-
     // todo cache this as sort will call it a lot
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
@@ -1113,65 +1006,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                   const vector<MaximalExactMatch>& c2) {
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
-
-    /*
-    if (debug) {
-        cerr << "### clusters before:" << endl;
-        show_clusters();
-    }    
-    
-    // remove contained clusters by counting occurrences of positions in the clusters
-    // only keep clusters which have at least one unique MEM position
-    //map<MaximalExactMatch, int> mem_counts;
-    map<string, int> mem_counts;
-    for (auto& cluster : clusters) {
-        //cerr << "in cluster " << &cluster << endl;
-        for (auto& mem : cluster) {
-            stringstream s;
-            s << mem;
-            mem_counts[s.str()]++;
-            //cerr << mem << " has count " << mem_counts[s.str()] << endl;
-        }
-    }
-    
-    set<vector<MaximalExactMatch>*> clusters_to_keep;
-    for (int i = 0; i < clusters.size(); ++i) {
-        auto& cluster = clusters.at(i);
-        if (i == 0) {
-            // always keep the top cluster
-            clusters_to_keep.insert(&cluster);
-        } else {
-            // and any others which have unique MEMs
-            bool has_unique_mem = false;
-            for (auto& mem : cluster) {
-                stringstream s;
-                s << mem;
-                //cerr << mem_counts[s.str()] << endl;
-                if (mem_counts[s.str()] == 1) {
-                    has_unique_mem = true;
-                    break;
-                }
-            }
-            if (has_unique_mem) {
-                clusters_to_keep.insert(&cluster);
-            }
-        }
-    }
-
-    auto should_keep = [&clusters_to_keep](vector<MaximalExactMatch>& cluster) {
-        return clusters_to_keep.count(&cluster);
-    };
-    clusters.erase(std::remove_if(clusters.begin(), clusters.end(),
-                                  should_keep), clusters.end());
-
-    vector<vector<MaximalExactMatch> > clusters_with_unique_mems;
-    for (auto& cluster : clusters) {
-        if (clusters_to_keep.count(&cluster)) {
-            clusters_with_unique_mems.push_back(cluster);
-        }
-    }
-    clusters = clusters_with_unique_mems;
-    */
 
     if (debug) {
         cerr << "### clusters:" << endl;
@@ -1983,16 +1817,6 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
         kmer_size -= kmer_sensitivity_step;
         stride = sequence.size() / ceil( (double)sequence.size() / kmer_size);
         if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
-        /*
-        if ((double)stride/kmer_size < 0.5 && kmer_size -5 >= kmer_min) {
-            kmer_size -= 5;
-            stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
-            if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
-        } else if ((double)stride/kmer_size >= 0.5 && kmer_size >= kmer_min) {
-            stride = max(1, stride/3);
-            if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
-        }
-        */
     };
 
     int attempt = 0;
@@ -2589,8 +2413,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                 }
 
-                // if we get a target graph
-                bool has_target = true;
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
                 id_t trimmed_node = 0;
@@ -2601,7 +2423,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // TODO continue if the graph doesn't have both cut points
                 if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
-                    // has_target = false
                     if (debug) cerr << "graph does not contain both cut points!" << endl;
                 } else {
 
@@ -2753,49 +2574,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
-                    //cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                    // find the subgraph with both of our cut positions
-                    // this can be done by going to the first cut position
-                    // expanding context until we complete the subgraph it's on
-                    // and then checking if the second cut position is on this graph
-                    //cerr << "graph after tweaking " << graph.size() << " " << pb2json(graph.graph) << endl;
-                    if (target_nodes.size()) {
-                        vector<Node*> valid_target_nodes;
-                        // find a valid target node
-                        //cerr << "target_node size " << target_nodes.size() << endl;
-                        for (auto& n : target_nodes) {
-                            //cerr << n->id() << endl;
-                            if (graph.has_node(*n)) {
-                                valid_target_nodes.push_back(graph.get_node(n->id()));
-                            }
-                        }
-                        // if we find one, use it to build out a subgraph
-                        if (!valid_target_nodes.empty()) {
-                            VG target;
-                            target.add_node(*valid_target_nodes.front());
-                            graph.expand_context(target, 1e6, false);
-                            // then check if all of the targets are in this subgraph
-                            //cerr << "got potential target graph " << pb2json(target.graph) << endl;
-                            for (auto& n : valid_target_nodes) {
-                                if (!target.has_node(*n)) {
-                                    has_target = false;
-                                    break;
-                                }
-                            }
-                            // if so, use the target as our graph
-                            if (has_target) graph = target;
-                        } else {
-                            has_target = false;
-                        }
-                    } else {
-                        has_target = false;
-                    }
                 }
-                if (!has_target || graph.empty()) {
+                if (graph.empty()) {
                     if (debug) {
-                        cerr << "no target for alignment of " << edit.sequence() << endl;
-                        if (graph.empty()) cerr << "graph is empty" << endl;
-                        if (!has_target) cerr << "does not have target" << endl;
+                        cerr << "no target for alignment of " << edit.sequence()
+                             << ", graph is empty" << endl;
                     }
                     score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                     *new_mapping->add_edit() = edit;
@@ -2803,10 +2586,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // we've set the graph to the trimmed target
                     if (debug) cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                     //time to try an alignment
-                    // if we are walking a reversed path, take the reverse complement
-                    // todo:
-                    //  issue a warning if we contain an inversion and work from the orientation with the longer length
-                    //then do the alignment
                     Alignment patch;
                     if (mapping.position().is_reverse()) {
                         patch.set_sequence(reverse_complement(edit.sequence()));
@@ -2822,10 +2601,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         }
                     }
 
-                    //graph.serialize_to_file("aln-" + graph.hash() + ".vg");
-
                     // do the alignment
-                    //bool banded_global = (!soft_clip_to_left && !soft_clip_to_right);
                     // always use the banded global mode
                     bool banded_global = true;
                     id_t pinned_id = 0;
@@ -2883,7 +2659,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             // such as for soft clips
                             patched = merge_alignments(patch, patched, debug);
                         } else {
-                        //hhhmmm
                             extend_alignment(patched, patch, true);
 
                         }
