@@ -232,6 +232,7 @@ Alignment Sampler::alignment(size_t length) {
         aln.set_name(hash);
     }
     // and simplify it
+    aln.set_identity(identity(aln.path()));
     return aln;
 }
 
@@ -261,6 +262,7 @@ Alignment Sampler::alignment_with_error(size_t length,
     } else {
         aln = alignment(length);
     }
+    aln.set_identity(identity(aln.path()));
     return aln;
 }
 
