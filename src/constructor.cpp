@@ -17,6 +17,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     // Construct a chunk for this sequence with these variants.
     ConstructedChunk to_return;
     
+    // We need as path to add reference mappings to
+    Path* ref_path = to_return.graph.add_path();
+    ref_path->set_name(reference_path_name);
+    
     // We use this to keep track of what the next unused base, if any, in the
     // reference is.
     size_t reference_cursor = 0;
@@ -85,6 +89,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         // Remember where it starts and ends
         nodes_starting_at[reference_cursor].insert(node->id());
         nodes_ending_at[reference_cursor + next_node_size - 1].insert(node->id());
+        
+        // Make a mapping for it
+        auto* mapping = ref_path->add_mapping();
+        mapping->mutable_position()->set_node_id(node->id());
+        // Make it a perfect match explicitly
+        auto* match_edit = mapping->add_edit();
+        match_edit->set_from_length(node->sequence().size());
+        match_edit->set_to_length(node->sequence().size());
         
         // Advance the reference cursor since we made this node
         reference_cursor += next_node_size;
