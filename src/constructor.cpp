@@ -6,6 +6,9 @@
 #include "vg.hpp"
 #include "constructor.hpp"
 
+#include <set>
+#include <tuple>
+
 namespace vg {
 
 using namespace std;
@@ -48,6 +51,80 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     // We're going to clump overlapping variants together.
     vector<vcflib::Variant*> clump;
     
+    
+    // We have a utility function to tack a full length perfect match onto a
+    // path. We need the node so we can get its length.
+    auto add_match = [](Path* path, Node* node) {
+        // Make a mapping for it
+        auto* mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(node->id());
+        // Make it a perfect match explicitly
+        auto* match_edit = mapping->add_edit();
+        match_edit->set_from_length(node->sequence().size());
+        match_edit->set_to_length(node->sequence().size());
+    };
+    
+    // Given a string, turn it into nodes of the max node size or smaller, and
+    // add them to the graph. Return pointers to the resulting nodes in the
+    // graph, in order.
+    auto create_nodes = [&](const string& sequence) -> vector<Node*> {
+        // TODO: divide into evenly-sized pieces.
+        // For now we break into pieces greedily.
+        
+        // We'll fill this in with created nodes
+        vector<Node*> created;
+        
+        // We keep a cursor to the next non-made-into-a-node base
+        size_t cursor = 0;
+        
+        while(cursor < sequence.size()) {
+            // There's still sequence to do, so bite off a piece
+            size_t next_node_size = std::min(max_node_size, sequence.size() - cursor);
+            string node_sequence = sequence.substr(cursor, next_node_size);
+            
+            // Make a node
+            auto* node = to_return.graph.add_node();
+            node->set_id(next_id++);
+            node->set_sequence(node_sequence);
+            
+            // Tack it on the end of the list
+            created.push_back(node);
+            
+            // Advance the cursor since we made this node
+            cursor += next_node_size;
+        }
+        
+        return created;
+    };
+    
+    // We have a function to emit reference nodes from wherever the current
+    // cursor position is up to the given position, advancing the cursor. The
+    // target position must be <= the length of the reference. This function
+    // adds the nodes to the starting and ending position indexes.
+    auto add_reference_nodes_until = [&](size_t target_position) {
+        
+        // Make new nodes for all the sequence we want to add
+        auto new_nodes = create_nodes(reference_sequence.substr(reference_cursor, target_position - reference_cursor));
+    
+        // Remember the total node length we have scanned through
+        size_t seen_bases = 0;
+    
+        for(Node* node : new_nodes) {
+            // Add matches on the reference path for all the new nodes
+            add_match(ref_path, node);
+            
+            // Remember where it starts and ends along the reference path
+            nodes_starting_at[reference_cursor + seen_bases].insert(node->id());
+            nodes_ending_at[reference_cursor + seen_bases + node->sequence().size() - 1].insert(node->id());
+            
+            // Remember how long that node was so we place the next one right.
+            seen_bases += node->sequence().size();
+        }
+    
+        // Advance the cursor
+        reference_cursor = target_position;
+    };
+    
     while(next_variant != variants.end()) {
     
         // Group variants into clumps of overlapping variants.
@@ -62,10 +139,111 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         } else {
             // The next variant doesn't belong in this clump.
             // Handle the clump.
+            
+            // Create ref nodes from the end of the last clump (where the cursor
+            // is) to the start of this clump.
+            add_reference_nodes_until(clump.front()->position);
         
-            // Create ref path nodes 
+            // This keeps track of edits that already have nodes, consisting of
+            // a ref position, a ref sequence, and an alt sequence. It maps to a
+            // vector of pointers to the nodes created, which are owned by the
+            // graph. The vector is to handle the case where an edit is too long
+            // to be all one node, according to our max node length, and is
+            // always nonempty.
+            map<tuple<long, string, string>, vector<Node*>> created_nodes;
         
-            // Create mappings through the clump for the reference path.
+            for(vcflib::Variant* variant : clump) {
+                // For each variant in the clump
+            
+                // Name the variant by hash (see utility.hpp)
+                string variant_name = make_variant_id(*variant);
+            
+                // We need to parse the variant into alts, each of which is a
+                // series of VariantAllele edits. This holds the full alt allele
+                // string and the edits needed to make it. The VariantAlleles
+                // completely cover the alt, and some of them may be perfect
+                // matches to stretches of reference sequence. Note that the
+                // reference allele of the variant won't appear here.
+                map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
+                    variant->parsedAlternates();
+
+                for(auto& kv : alternates) {                
+                    // For each alt in the variant
+                    
+                    // Name the alt after the number that this allele has.
+                    // We need to copy the string becuase the vcflib API wants a non-const reference.
+                    string alt_sequence = kv.first;
+                    string alt_name = "_alt_" + variant_name + "_" + to_string(variant->getAltAlleleIndex(alt_sequence));
+                    
+                    // There should be a path named after it.
+                    Path* alt_path = to_return.graph.add_path();
+                    alt_path->set_name(alt_name);
+                    
+                    for(vcflib::VariantAllele& edit : kv.second) {
+                        // For each VariantAllele used by the alt
+                        
+                        if(edit.alt != "") {
+                            // This is a visit to a node for the alt
+                        
+                            // We need a key to see if a node has been made for this edit already
+                            auto key = make_tuple(edit.position, edit.ref, edit.alt);
+                            
+                            if(created_nodes.count(key) == 0) {
+                                // We don't have a run of nodes for this edit, so make one.
+                                vector<Node*> node_run = create_nodes(edit.alt);
+                                
+                                // Remember where the first one starts and the last one ends, for wiring up later.
+                                nodes_starting_at[edit.position].insert(node_run.front()->id());
+                                nodes_ending_at[edit.position + edit.ref.size() - 1].insert(node_run.front()->id());
+                                
+                                // Save it in case any other alts also have this edit.
+                                created_nodes[key] = node_run;
+                            }
+                            
+                            
+                            for(Node* node : created_nodes[key]) {
+                                // Add a visit to each node we created/found in
+                                // order to the path for this alt of this
+                                // variant.
+                                add_match(alt_path, node);
+                            }
+                            
+                        } else if(edit.ref != "") {
+                            // It's a deletion (and not a weird ""->"" edit).
+                            
+                            // Add an entry to the deletion arcs
+                            
+                            // What is the past-the-end position (first non-deleted)
+                            size_t arc_end = edit.position + edit.ref.size();
+                            // What is the before-the-beginning position (last non-deleted, may be -1)
+                            int64_t arc_start = (int64_t) edit.position - 1;
+                            
+                            // Add the arc (if it doesn't exist). We only index
+                            // arcs from the end, because we'll make them when
+                            // looking for predecessors of nodes. TODO: could we
+                            // make special handling of deletions that go to -1
+                            // more efficient?
+                            deletions_ending_at[arc_end].insert(arc_start);
+                        }
+                        
+                        
+                        // If it's unique
+                            // Emit nodes to describe the VariantAllele alt, enrolling the endpoint nodes in the index
+                            // Unless it's 0-length in which case you add a deletion entry
+                        // Add an entry to the alt's path for non-deletions
+                    }
+                    
+                }
+            }
+            
+            // Then after you finish all the alts, add the ref nodes that
+            // haven't already been created, breaking wherever something can
+            // come in or out.
+
+            // For each variant in the clump, mark out its reference path
+            // (_alt_whatever_0) in the ref nodes.
+
+            // Also add the primary path mappings     
             
             // Now the clump is handled
             clump.clear();
@@ -74,33 +252,8 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     }
 
     // Create reference path nodes and mappings after the last clump.
-        
-    while(reference_cursor < reference_sequence.size()) {
-        // There's still reference to do, so bite off a piece
-        size_t next_node_size = std::min(max_node_size, reference_sequence.size() - reference_cursor);
-        string node_sequence = reference_sequence.substr(reference_cursor, next_node_size);
-        
-        
-        // Make a node
-        auto* node = to_return.graph.add_node();
-        node->set_id(next_id++);
-        node->set_sequence(node_sequence);
-        
-        // Remember where it starts and ends
-        nodes_starting_at[reference_cursor].insert(node->id());
-        nodes_ending_at[reference_cursor + next_node_size - 1].insert(node->id());
-        
-        // Make a mapping for it
-        auto* mapping = ref_path->add_mapping();
-        mapping->mutable_position()->set_node_id(node->id());
-        // Make it a perfect match explicitly
-        auto* match_edit = mapping->add_edit();
-        match_edit->set_from_length(node->sequence().size());
-        match_edit->set_to_length(node->sequence().size());
-        
-        // Advance the reference cursor since we made this node
-        reference_cursor += next_node_size;
-    }
+    add_reference_nodes_until(reference_sequence.size());
+    
     
     // Create all the edges
     for(auto& kv : nodes_starting_at) {
