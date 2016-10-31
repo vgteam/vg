@@ -105,6 +105,10 @@ $(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
 # intermediate targets don't trigger a rebuild just because they're missing.
 .INTERMEDIATE: .rebuild-protobuf
 .rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
+	# Make sure to delete outdated libs and headers before rebuilding
+	# Outdated headers can get picked up during the build
+	rm lib/libprotobuf* lib/libprotoc*
+	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
