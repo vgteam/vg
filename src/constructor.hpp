@@ -53,11 +53,11 @@ public:
     /**
      * Construct a ConstructedChunk of graph from the given piece of sequence,
      * with the given name, applying the given variants. The variants need to be
-     * sorted by start position, have their start positions set relative to the
-     * first base (0) of the given sequence, and not overlap with any variants
-     * not in the vector we have (i.e. we need access to all overlapping
-     * variants for this region). The variants must not extend beyond the given
-     * sequence, though they can abut its edges.
+     * sorted by start position, have their start positions set to be ZERO-BASED
+     * relative to the first base (0) of the given sequence, and not overlap
+     * with any variants not in the vector we have (i.e. we need access to all
+     * overlapping variants for this region). The variants must not extend
+     * beyond the given sequence, though they can abut its edges.
      */
     ConstructedChunk construct_chunk(string reference_sequence, string reference_path_name,
         vector<vcflib::Variant> variants) const;

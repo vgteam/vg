@@ -6,9 +6,11 @@
 #include "../constructor.hpp"
 
 #include "../path.hpp"
+#include "../json2pb.h"
 
 #include <vector>
 #include <sstream>
+#include <iostream>
 
 namespace vg {
 namespace unittest {
@@ -196,6 +198,8 @@ ref	5	rs1337	A	G	29	PASS	.	GT
     vcflib::Variant var;
     while (vcf.getNextVariant(var)) {
         // Load up the VCF
+        // Make sure to correct it to 0-based
+        var.position -= 1;
         variants.push_back(var);
     }
 
@@ -206,6 +210,8 @@ ref	5	rs1337	A	G	29	PASS	.	GT
     // Construct the graph    
     auto result = constructor.construct_chunk(ref, "ref", variants);
 
+
+    std::cerr << pb2json(result.graph) << std::endl;
 
     SECTION("the graph should have 4 nodes") {
         REQUIRE(result.graph.node_size() == 4);

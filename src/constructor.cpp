@@ -125,11 +125,12 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         reference_cursor = target_position;
     };
     
-    while(next_variant != variants.end()) {
+    while(next_variant != variants.end() || !clump.empty()) {
+        // While there are more variants, or while we have the last clump to do...
     
         // Group variants into clumps of overlapping variants.
         if(clump.empty() || 
-            clump.back()->position + clump.back()->ref.size() > next_variant->position) {
+            (next_variant != variants.end() && clump.back()->position + clump.back()->ref.size() > next_variant->position)) {
             
             // Either there are no variants in the clump, or this variant
             // overlaps the clump. It belongs in the clump
@@ -169,6 +170,12 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
 
                 for(auto& kv : alternates) {                
                     // For each alt in the variant
+                    
+                    if(kv.first == variant->ref) {
+                        // Skip the ref, because we can't make any ref nodes
+                        // until all the edits for the clump are known.
+                        continue;
+                    }
                     
                     // Name the alt after the number that this allele has.
                     // We need to copy the string becuase the vcflib API wants a non-const reference.
