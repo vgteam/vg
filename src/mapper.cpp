@@ -908,55 +908,25 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             m2_pos = make_pos_t(id, is_rev, offset);
             //if (debug) cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
         }
-        //cerr << endl;
-        // take as graph distance the minimum distance that we find in any of the chroms
-        //int tweak = is_rev(m1_pos) ? get_node_length(id(m1_pos)) - offset(m1_pos) : offset(m1_pos);
-        //cerr << "distance from " << m1_pos << " to " << m2_pos << endl;
-        //int distance = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
-        //int distance = numeric_limits<int>::max();
-        // use cached positions in the MEMs
+        // approximate distance by node lengths
         int max_length = m1.length() + m2.length();
-        //int max_length = aln.sequence().size();
-        //int distance = graph_distance(m1_pos, m2_pos, max_length);
-        /*
-        for (auto& p : m1.positions) {
-            auto f = m2.positions.find(p.first);
-            if (f != m2.positions.end()) {
-                // get the min distance
-                for (auto& m : p.second) {
-                    for (auto& n : f->second) {
-                        distance = min(distance, (int)(n - m));
-                    }
-                }
-            }
-        }
-        */
-        //if (is_rev(m1_pos) == is_rev(m2_pos)
         double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) / avg_node_len;
         //if (debug) cerr << "approx distance " << approx_distance << endl;
         if (approx_distance < max_length) {
-            //if (debug) cerr << "got a hit" << endl;
             int distance = graph_distance(m1_pos, m2_pos, max_length);
-            //abs(distance) < aln.sequence().size()) {
-            //if (debug) cerr << "exact distance " << distance << endl;
-            //distance = graph_distance(m1_pos, m2_pos, m1.length() + m2.length());
-            // aln.sequence().size());// - 1;// - m1.length();
-            //cerr << distance << endl;
             if (distance == max_length) {
-                return (double) -1;
+                return (double)-1.0;
             }
             double jump = (m2.begin - m1.begin) - distance;
-            //cerr << "jump " << jump << endl;
-            //cerr << "diff " << m2.begin - m1.begin << endl;
-            //double back_cost = (jump < 0) ? abs(jump) : 0;
-            double weight = (double)1.0 / (double)(abs(jump) + 1);
-            if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                weight /= 10;
+            if (jump < 0) {
+                return (double)-1.0;
+            } else {
+                double weight = (double)1.0 / (double)(abs(jump) + 1);
+                if (is_rev(m1_pos) != is_rev(m2_pos)) {
+                    weight /= 10;
+                }
+                return weight;
             }
-            //if (jump < 0) weight /= 10;
-            //if (jump < 0) weight = -1;
-            //if (debug) cerr << "weight+dist " << weight << " ~ " << m2.begin - m1.begin << " " << distance << " " << jump << endl;
-            return weight;
         } else {
             return (double)-1.0;
         }
@@ -2411,6 +2381,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                            id2);  // our target node
                     graph.rebuild_indexes();
                     if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    //graph.serialize_to_file("raw-" + hash_alignment(aln) + ".vg");
                 }
 
                 // we have to remember how much we've trimmed from the first node
@@ -2418,7 +2389,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 id_t trimmed_node = 0;
                 int trimmed_length_fwd = 0;
                 int trimmed_length_rev = 0;
-                vector<Node*> target_nodes;
+                vector<id_t> target_nodes;
 
                 // TODO continue if the graph doesn't have both cut points
                 if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
@@ -2447,7 +2418,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     if (id(first_cut) == id(second_cut)) {
                         if (offset(first_cut) == offset(second_cut)) {
-                            if (offset(first_cut)) {
+                            bool begin_cut = !offset(first_cut);
+                            bool end_cut = (offset(first_cut) == graph.get_node(id(first_cut))->sequence().size());
+                            if (!begin_cut && !end_cut) {
                                 //cerr << "cut has offset" << endl;
                                 Node* left; Node* right; Node* trimmed;
                                 Node* node = graph.get_node(id(first_cut));
@@ -2473,28 +2446,41 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                     trimmed_length_rev = 0;
                                 }
                                 if (trimmed->sequence().size()) {
-                                    target_nodes.push_back(trimmed);
+                                    target_nodes.push_back(trimmed->id());
                                 } else {
                                     // push back each connected node
                                     for (auto& edge : graph.edges_to(trimmed)) {
-                                        target_nodes.push_back(graph.get_node(edge->from()));
+                                        target_nodes.push_back(edge->from());
                                     }
                                     for (auto& edge : graph.edges_from(trimmed)) {
-                                        target_nodes.push_back(graph.get_node(edge->to()));
+                                        target_nodes.push_back(edge->to());
                                     }
                                 }
                             } else {
-                                //cerr << "erase everything before this node" << endl;
                                 // erase everything before this node
                                 // do so by removing edges
                                 // later we will decide which subgraphs to keep
-                                //graph.destroy_node(id(first_cut));
-                                NodeSide begin = NodeSide(id(first_cut));
-                                for (auto& side : graph.sides_to(begin)) {
-                                    graph.destroy_edge(side, begin);
-                                }
                                 // check soft clip status, which will change what part we keep
-                                target_nodes.push_back(graph.get_node(id(first_cut)));
+                                if (soft_clip_to_left) {
+                                    NodeSide keep = NodeSide(id(first_cut), false);
+                                    for (auto& side : graph.sides_to(keep)) {
+                                        target_nodes.push_back(side.node);
+                                        graph.destroy_edge(side, keep);
+                                    }
+                                } else if (soft_clip_to_right) {
+                                    NodeSide keep = NodeSide(id(first_cut), true);
+                                    for (auto& side : graph.sides_from(keep)) {
+                                        target_nodes.push_back(side.node);
+                                        graph.destroy_edge(keep, side);
+                                    }
+                                } else {
+                                    if (begin_cut) {
+                                        assert(false);
+                                    }
+                                    if (end_cut) {
+                                        assert(false);
+                                    }
+                                }
                             }
                         } else {
                             //cerr << "offsets different same node" << endl;
@@ -2507,7 +2493,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             graph.destroy_node(parts.front());
                             graph.destroy_node(parts.back());
                             graph.swap_node_id(parts.at(1), id(first_cut));
-                            target_nodes.push_back(graph.get_node(id(first_cut)));
+                            target_nodes.push_back(id(first_cut));
                             trimmed_node = id(first_cut);
                             trimmed_length_fwd = offset(first_cut);
                             trimmed_length_rev = (orig_len - offset(second_cut));
@@ -2527,14 +2513,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             trimmed_length_fwd = offset(first_cut);
                             trimmed_length_rev = 0;
                             if (trimmed->sequence().size()) {
-                                target_nodes.push_back(trimmed);
+                                target_nodes.push_back(trimmed->id());
                             } else {
                                 // push back each connected node
                                 for (auto& edge : graph.edges_to(trimmed)) {
-                                    target_nodes.push_back(graph.get_node(edge->from()));
+                                    target_nodes.push_back(edge->from());
                                 }
                                 for (auto& edge : graph.edges_from(trimmed)) {
-                                    target_nodes.push_back(graph.get_node(edge->to()));
+                                    target_nodes.push_back(edge->to());
                                 }
                             }
                         } else {
@@ -2543,7 +2529,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             for (auto& side : graph.sides_to(begin)) {
                                 graph.destroy_edge(side, begin);
                             }
-                            target_nodes.push_back(graph.get_node(id(first_cut)));
+                            target_nodes.push_back(id(first_cut));
                         }
 
                         if (offset(second_cut)) {
@@ -2556,14 +2542,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             //target_nodes.push_back(graph.get_node(id(second_cut)));
                             Node* trimmed = graph.get_node(id(first_cut));
                             if (trimmed->sequence().size()) {
-                                target_nodes.push_back(trimmed);
+                                target_nodes.push_back(trimmed->id());
                             } else {
                                 // push back each connected node
                                 for (auto& edge : graph.edges_to(trimmed)) {
-                                    target_nodes.push_back(graph.get_node(edge->from()));
+                                    target_nodes.push_back(edge->from());
                                 }
                                 for (auto& edge : graph.edges_from(trimmed)) {
-                                    target_nodes.push_back(graph.get_node(edge->to()));
+                                    target_nodes.push_back(edge->to());
                                 }
                             }
                         } else {
@@ -2575,6 +2561,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
                 }
+                VG target;
+                for (auto& id : target_nodes) {
+                    if (graph.has_node(id)) {
+                        target.add_node(*graph.get_node(id));
+                    }
+                }
+                graph.expand_context(target, aln.sequence().size(), false);
+                graph = target;
                 if (graph.empty()) {
                     if (debug) {
                         cerr << "no target for alignment of " << edit.sequence()
@@ -2587,7 +2581,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     if (debug) cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                     //time to try an alignment
                     Alignment patch;
-                    if (mapping.position().is_reverse()) {
+                    bool flip = mapping.position().is_reverse();
+                    if (flip) {
                         patch.set_sequence(reverse_complement(edit.sequence()));
                         if (!aln.quality().empty()) {
                             string qual = aln.quality().substr(read_pos, edit.to_length());
@@ -2609,19 +2604,26 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // TODO : we want to use the pinning here
                     // but now it is not doing the expected thing
                     /*
-                    if (!banded_global) {
-                        if (soft_clip_to_left) {
-                            pinned_id = target_nodes.front()->id();
-                            pinned_reverse = true;
-                        } else {
-                            pinned_id = target_nodes.back()->id();
-                        }
+                    if (soft_clip_to_left && patch.sequence().size() < 3) {
+                        // heads of graph
+                        //pinned_id = graph_head
+                        pinned_id = graph.tail_nodes().front()->id();
+                        //pinned_id = target_nodes.front()->id();
+                        pinned_reverse = true;
+                        banded_global = false;
+                    } else if (soft_clip_to_right && patch.sequence().size() < 3) {
+                        pinned_id = graph.head_nodes().front()->id();
+                        //pinned_id = target_nodes.back()->id();
+                        banded_global = false;
                     }
                     */
+                    //write_alignment_to_file(patch, "pre-" + hash_alignment(patch) + ".gam");
+                    //graph.serialize_to_file("pre-" + hash_alignment(patch) + ".vg");
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
                                            pinned_id, pinned_reverse, banded_global);
+                    //cerr << "raw patch " << pb2json(simplify(patch)) << endl;
 
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
@@ -2634,7 +2636,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
 
                     // reverse complement back if our source is reversed
-                    if (mapping.position().is_reverse()) {
+                    if (flip) {
                         patch = reverse_complement_alignment(patch,
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) {
                                                                      return (int64_t)get_node_length(id);

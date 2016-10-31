@@ -7525,6 +7525,8 @@ Alignment VG::align(const Alignment& alignment,
     //cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
 
     auto do_align = [&](Graph& g) {
+        //write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
+        //serialize_to_file(hash_alignment(alignment) + ".vg");
         if (aligner && qual_adj_aligner) {
             cerr << "error:[VG] cannot both adjust and not adjust alignment for base quality" << endl;
             exit(1);
