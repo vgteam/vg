@@ -244,6 +244,44 @@ ref	5	rs1337	A	G	29	PASS	.	GT
         }
         
     }
+    
+    SECTION("the graph should have three named paths") {
+        REQUIRE(result.graph.path_size() == 3);
+        
+        // Find the primary path, and the paths for the two alleles
+        Path primary;
+        Path allele0;
+        Path allele1;
+        
+        for (size_t i = 0; i < result.graph.path_size(); i++) {
+            auto& path = result.graph.path(i);
+            
+            // Path names can't be empty for us to inspect them how we want.
+            REQUIRE(path.name().size() > 0);
+            
+            if (path.name() == "ref") {
+                primary = path;
+            } else if (path.name()[path.name().size() - 1] == '0') {
+                // The name ends with 0, so it ought to be the ref allele path
+                allele0 = path;
+            } else if (path.name()[path.name().size() - 1] == '1') {
+                // The name ends with 1, so it ought to be the alt allele path
+                allele1 = path;
+            }
+        }
+        
+        SECTION("primary, ref allele, and alt allele paths should be named correctly") {
+            REQUIRE(primary.name() == "ref");
+            REQUIRE(allele0.name().substr(0, 5) == "_alt_");
+            REQUIRE(allele0.name().substr(allele0.name().size() - 2, 2) == "_0");
+            REQUIRE(allele1.name().substr(0, 5) == "_alt_");
+            REQUIRE(allele1.name().substr(allele1.name().size() - 2, 2) == "_1");
+            
+            // And the two alleles have to be of the same variant
+            REQUIRE(allele0.name().substr(5, allele0.name().size() - (5 + 2)) == 
+                allele1.name().substr(5, allele1.name().size() - (5 + 2)));
+        }
+    }
 	
 
 }
