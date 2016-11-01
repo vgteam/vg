@@ -327,18 +327,19 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     
     
     // Create all the edges
-    for(auto& kv : nodes_starting_at) {
-        if(kv.first == 0) {
-            // These are the nodes that abut the left edge of the chunk. Just
-            // say this set of nodes is the set of left-edge-abuting nodes.
-            // TODO: add ends of deletions
-            to_return.left_ends = kv.second;
+    for (auto& kv : nodes_starting_at) {
+        if (kv.first == 0) {
+            // These are the nodes that abut the left edge of the chunk. Add
+            // each of these nodes to the set of left-edge-abuting nodes.
+            for (auto& node_id : kv.second) {
+                to_return.left_ends.insert(node_id);
+            }
         } else {
             // These are nodes that start somewhere else.
-            for(auto& right_node : kv.second) {
+            for (auto& right_node : kv.second) {
                 // For every node that could occur here
             
-                for(auto& left_node : nodes_ending_at[kv.first - 1]) {
+                for (auto& left_node : nodes_ending_at[kv.first - 1]) {
                     // For every node that could come before these nodes
                     // Emit an edge
                     auto* edge = to_return.graph.add_edge();
@@ -346,14 +347,47 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     edge->set_to(right_node);
                 }
                 
-                // TODO: handle deletions ending right before this node
+                for (auto& deletion_start : deletions_ending_at[kv.first]) {
+                    // For everywhere a deletion can start that comes to here
+                    
+                    if (deletion_start == -1) {
+                        // This node ought to be exposed on the left actually.
+                        to_return.left_ends.insert(right_node);
+                    
+                    } else {
+                        // The deletion doesn't go all the way to the left edge
+                        // but actually starts at a place where there are nodes.
+                        
+                        for (auto& left_node : nodes_ending_at[deletion_start]) {
+                            // For every node that the deletion could start with
+                            // Emit an edge
+                            auto* edge = to_return.graph.add_edge();
+                            edge->set_from(left_node);
+                            edge->set_to(right_node);
+                        }
+                    }
+                }
             }
         }
     }
     
-    // Make sure to also send out the nodes ending at the end of the chunk
-    to_return.right_ends = nodes_ending_at[reference_sequence.size() - 1];
-    // TODO: add in deletions that go to the end of the chunk
+    for(auto& node_id : nodes_ending_at[reference_sequence.size() - 1]) {
+        // Add each node that ends at the end of the chunk to the set of such nodes
+        to_return.right_ends.insert(node_id);
+    }
+    
+    for(auto& node_id : deletions_ending_at[reference_sequence.size() - 1]) {
+        // Also add in the starts of deletions that go to the end of the chunk
+        
+        if(node_id == -1) {
+            // Note that we don't handle completely spanning deletions. But
+            // those can't be articulated in VCF anyway because alts can't be
+            // empty.
+            continue;
+        }
+        
+        to_return.right_ends.insert(node_id);
+    }
     
     return to_return;
 }
