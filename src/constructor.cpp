@@ -190,7 +190,8 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     // Name the alt after the number that this allele has.
                     // We need to copy the string becuase the vcflib API wants a non-const reference.
                     string alt_sequence = kv.first;
-                    string alt_name = "_alt_" + variant_name + "_" + to_string(variant->getAltAlleleIndex(alt_sequence));
+                    // We have to bump the allele index because the first alt is 0.
+                    string alt_name = "_alt_" + variant_name + "_" + to_string(variant->getAltAlleleIndex(alt_sequence) + 1);
                     
                     // There should be a path named after it.
                     Path* alt_path = to_return.graph.add_path();
