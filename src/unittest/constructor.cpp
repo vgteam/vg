@@ -210,31 +210,34 @@ ref	5	rs1337	A	G	29	PASS	.	GT
     // Construct the graph    
     auto result = constructor.construct_chunk(ref, "ref", variants);
 
-
+#ifdef debug
     std::cerr << pb2json(result.graph) << std::endl;
+#endif
+
+    // The graph will have these 4 nodes: before and after the SNP, and the two
+    // alts of the SNP.
+    Node before;
+    Node after;
+    Node snp_ref;
+    Node snp_alt;
+    
+    // Find all the nodes. All the other test cases depend on knowing them.
+    for (size_t i = 0; i < result.graph.node_size(); i++) {
+        auto& node = result.graph.node(i);
+        
+        if (node.sequence() == "GATT") {
+            before = node;
+        } else if (node.sequence() == "CA") {
+            after = node;
+        } else if (node.sequence() == "A") {
+            snp_ref = node;
+        } else if (node.sequence() == "G") {
+            snp_alt = node;
+        }
+    }
 
     SECTION("the graph should have 4 nodes") {
         REQUIRE(result.graph.node_size() == 4);
-        
-        // Find all the nodes
-        Node before;
-        Node after;
-        Node snp_ref;
-        Node snp_alt;
-        
-        for (size_t i = 0; i < result.graph.node_size(); i++) {
-            auto& node = result.graph.node(i);
-            
-            if (node.sequence() == "GATT") {
-                before = node;
-            } else if (node.sequence() == "CA") {
-                after = node;
-            } else if (node.sequence() == "A") {
-                snp_ref = node;
-            } else if (node.sequence() == "G") {
-                snp_alt = node;
-            }
-        }
         
         SECTION("before, after, ref, and alt nodes should be present") {
             REQUIRE(before.id() != 0);
@@ -242,6 +245,56 @@ ref	5	rs1337	A	G	29	PASS	.	GT
             REQUIRE(snp_ref.id() != 0);
             REQUIRE(snp_alt.id() != 0);
         }
+        
+    }
+    
+    SECTION("the graph should have 4 edges") {
+        REQUIRE(result.graph.edge_size() == 4);
+        
+        // We want to recognize all the edges based on the nodes.
+        Edge to_ref;
+        Edge from_ref;
+        Edge to_alt;
+        Edge from_alt;
+        
+        for (size_t i = 0; i < result.graph.edge_size(); i++) {
+            auto& edge = result.graph.edge(i);
+            
+            // Match each edge we expect
+            if (edge.from() == before.id() && edge.to() == snp_ref.id()) {
+                to_ref = edge;
+            } else if (edge.from() == before.id() && edge.to() == snp_alt.id()) {
+                to_alt = edge;
+            } else if (edge.from() == snp_ref.id() && edge.to() == after.id()) {
+                from_ref = edge;
+            } else if (edge.from() == snp_alt.id() && edge.to() == after.id()) {
+                from_alt = edge;
+            }
+        }
+        
+        SECTION("edges should connect into and out of both ref and alt alleles") {
+            // Now check them
+            REQUIRE(to_ref.from() == before.id());
+            REQUIRE(to_ref.to() == snp_ref.id());
+            REQUIRE(!to_ref.from_start());
+            REQUIRE(!to_ref.to_end());
+            
+            REQUIRE(to_alt.from() == before.id());
+            REQUIRE(to_alt.to() == snp_alt.id());
+            REQUIRE(!to_alt.from_start());
+            REQUIRE(!to_alt.to_end());
+            
+            REQUIRE(from_ref.from() == snp_ref.id());
+            REQUIRE(from_ref.to() == after.id());
+            REQUIRE(!from_ref.from_start());
+            REQUIRE(!from_ref.to_end());
+            
+            REQUIRE(from_alt.from() == snp_alt.id());
+            REQUIRE(from_alt.to() == after.id());
+            REQUIRE(!from_alt.from_start());
+            REQUIRE(!from_alt.to_end());
+        }
+        
         
     }
     
@@ -280,6 +333,50 @@ ref	5	rs1337	A	G	29	PASS	.	GT
             // And the two alleles have to be of the same variant
             REQUIRE(allele0.name().substr(5, allele0.name().size() - (5 + 2)) == 
                 allele1.name().substr(5, allele1.name().size() - (5 + 2)));
+                
+            SECTION("the primary path should trace the reference") {
+                REQUIRE(primary.mapping_size() == 3);
+                
+                REQUIRE(primary.mapping(0).position().node_id() == before.id());
+                REQUIRE(primary.mapping(0).position().offset() == 0);
+                REQUIRE(primary.mapping(0).position().is_reverse() == false);
+                REQUIRE(mapping_is_match(primary.mapping(0)));
+                REQUIRE(from_length(primary.mapping(0)) == before.sequence().size());
+                
+                REQUIRE(primary.mapping(1).position().node_id() == snp_ref.id());
+                REQUIRE(primary.mapping(1).position().offset() == 0);
+                REQUIRE(primary.mapping(1).position().is_reverse() == false);
+                REQUIRE(mapping_is_match(primary.mapping(1)));
+                REQUIRE(from_length(primary.mapping(1)) == snp_ref.sequence().size());
+                
+                REQUIRE(primary.mapping(2).position().node_id() == after.id());
+                REQUIRE(primary.mapping(2).position().offset() == 0);
+                REQUIRE(primary.mapping(2).position().is_reverse() == false);
+                REQUIRE(mapping_is_match(primary.mapping(2)));
+                REQUIRE(from_length(primary.mapping(2)) == after.sequence().size());
+                
+            }
+            
+            SECTION("the ref allele path should visit the ref allele") {
+                REQUIRE(allele0.mapping_size() == 1);
+                
+                REQUIRE(allele0.mapping(0).position().node_id() == snp_ref.id());
+                REQUIRE(allele0.mapping(0).position().offset() == 0);
+                REQUIRE(allele0.mapping(0).position().is_reverse() == false);
+                REQUIRE(mapping_is_match(allele0.mapping(0)));
+                REQUIRE(from_length(allele0.mapping(0)) == snp_ref.sequence().size());
+            }
+            
+            SECTION("the alt allele path should visit the alt allele") {
+                REQUIRE(allele1.mapping_size() == 1);
+                
+                REQUIRE(allele1.mapping(0).position().node_id() == snp_alt.id());
+                REQUIRE(allele1.mapping(0).position().offset() == 0);
+                REQUIRE(allele1.mapping(0).position().is_reverse() == false);
+                REQUIRE(mapping_is_match(allele0.mapping(0)));
+                REQUIRE(from_length(allele0.mapping(0)) == snp_alt.sequence().size());
+            }
+                
         }
     }
 	
