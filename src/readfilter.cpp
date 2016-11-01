@@ -694,7 +694,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
     for (int tid = 0; tid < buffer.size(); ++tid) {
         for (int chunk = 0; chunk < buffer[tid].size(); ++chunk) {
-            if (buffer[tid][chunk].size() > 0) {
+            if (buffer[tid][chunk].size() > 0 || 
+                // we deliberately write empty gams at this point for empty chunks:
+                (chunk_append[chunk] == false && chunk_names[chunk] != "-" )) {
                 flush_buffer(tid, chunk);
             }
         }
