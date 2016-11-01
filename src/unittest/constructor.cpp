@@ -394,6 +394,7 @@ ref	5	rs1337	A	G	29	PASS	.	GT
 
 }
 
+#define debug
 TEST_CASE( "A deletion can be constructed", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
@@ -412,6 +413,10 @@ ref	5	rs1337	AC	A	29	PASS	.	GT
 
     // Build the graph
     auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
     
     // We could build this either GATT,A,C,A or GATTA,C,A.
     // In either case we have as many nodes as edges.
@@ -450,8 +455,24 @@ ref	5	rs1337	AC	A	29	PASS	.	GT
             }
         }
         
-        SECTION("the path for the alt should visit no nodes") {
-            REQUIRE(allele1.mapping_size() == 0);
+        SECTION("the path for the alt should not include the deleted sequence") {
+            if (allele1.mapping_size() == 0) {
+                // This definitely lacks the C
+                REQUIRE(true);
+            } else {
+                for (size_t i = 0; i < allele1.mapping_size(); i++) {
+                    // Look at all the nodes along the path
+                    id_t node_id = allele1.mapping(i).position().node_id();
+                    
+                    for (size_t j = 0; j < result.graph.node_size(); j++) {
+                        // Brute force the whole graph to find the node
+                        if(node_id == result.graph.node(j).id()) {
+                            // In the node we actually visit, there can't be a "C", since we deleted them all
+                            REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
+                        }
+                    }
+                }
+            }
         }
     }
 
