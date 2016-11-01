@@ -611,15 +611,25 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
 
 void Constructor::construct_graph(vector<FastaReference*> references, vector<vcflib::VariantCallFile*> variant_files,
     function<void(Graph&)> callback) {
+
+    // Make a map from contig name to fasta reference containing it.
     
-    
-    
-    // If we have just a restricted set of contigs to do, and our VCF is indexed, loop through that set of contigs and set the VCF to each in turn
-    
-    // If it's not indexed, loop through the whole VCF and just filter manually
-    
-    
-    
+    // Make VcfBuffers on all the variant files.
+
+    // If we have a set of contigs to do, do those directly.
+        // For each, grab the fasta reference
+        // Try and set region on each VCF.
+        // If any are unindexed, fail (???)
+        // If we find one where we have the region, use that one
+        // If we don't find one where we have the region, then there are no variants there and we should use a null file.
+        
+    // If we have no set of contigs, go through all the VCFs (in parallel?)
+        // Peek at the first variant and see its contig
+        // Construct on it with the appropriate FastaReference for that contig
+        // If it still has a buffered variant on the same contig, scan ahead to the next contig or EOF
+        // If it has a buffered variant on another contig, repeat
+    // Then for all the FASTA contigs that didn't appear in the VCFs, construct them with no variants.
+        
 }
 
 // Implementations of VG functions. TODO: refactor out of VG class
