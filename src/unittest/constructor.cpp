@@ -175,7 +175,7 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
 }
 
 /**
- * Testing wrapper to build a graph from a VCF string.
+ * Testing wrapper to build a graph from a VCF string. Adds alt paths by default.
  */
 ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
     
@@ -196,6 +196,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
     }
 
     Constructor constructor;
+    constructor.alt_paths = true;
 
     // Construct the graph    
     return constructor.construct_chunk(ref_sequence, ref_name, variants);

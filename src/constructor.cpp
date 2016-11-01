@@ -13,6 +13,34 @@ namespace vg {
 
 using namespace std;
 
+vcflib::Variant* VcfBuffer::get() {
+    if(has_buffer) {
+        // We have a variant
+        return &buffer;
+    } else {
+        // No next variant loaded.
+        return nullptr;
+    }
+}
+
+void VcfBuffer::handle_buffer() {
+    // The variant in the buffer has been dealt with
+    assert(has_buffer);
+    has_buffer = false;
+}
+
+void VcfBuffer::fill_buffer() {
+    if(file != nullptr && !has_buffer) {
+        // Put a new variant in the buffer if we have a file and the buffer was empty.
+        has_buffer = file->getNextVariant(buffer);
+        if(has_buffer) {
+            // Convert to 0-based positions.
+            // TODO: refactor to use vcflib zeroBasedPosition()...
+            buffer.position -= 1;
+        }
+    }
+}
+
 
 ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
     vector<vcflib::Variant> variants) const {
@@ -50,6 +78,9 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     
     // We're going to clump overlapping variants together.
     vector<vcflib::Variant*> clump;
+    // And we need to rember the highest past-the-end base of anything in the
+    // clump, to catch all the overlaps.
+    size_t clump_end = 0;
     
     
     // We have a utility function to tack a full length perfect match onto a
@@ -130,11 +161,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     
         // Group variants into clumps of overlapping variants.
         if(clump.empty() || 
-            (next_variant != variants.end() && clump.back()->position + clump.back()->ref.size() > next_variant->position)) {
+            (next_variant != variants.end() && clump_end > next_variant->position)) {
             
             // Either there are no variants in the clump, or this variant
             // overlaps the clump. It belongs in the clump
             clump.push_back(&(*next_variant));
+            // It may make the clump longer and necessitate adding more variants.
+            clump_end = max(clump_end, next_variant->position + next_variant->ref.size());
+            
             // Try the variant after that
             next_variant++;
         } else {
@@ -253,15 +287,12 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // haven't already been created, breaking wherever something can
             // come in or out.
             
-            // Find the past-the-end of the last variant
-            size_t last_end = clump.back()->position + clump.back()->ref.size();
-            
             // See if any nodes are registered as starting between the reference cursor and the end of the last variant.
             // We don't care about nodes starting *at* the reference cursor, just about ones starting after.
             auto found = nodes_starting_at.upper_bound(reference_cursor);
             
             // Where will the node after this ref node we are about to make start?
-            size_t next_start = (found != nodes_starting_at.end() ? found->first : last_end);
+            size_t next_start = (found != nodes_starting_at.end() ? found->first : clump_end);
             
             do {
                 // We need to have a reference node/run of nodes (which may have
@@ -308,16 +339,17 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 
                 // Find the next place after the reference cursor at which a node starts.
                 found = nodes_starting_at.upper_bound(reference_cursor);
-                next_start = (found != nodes_starting_at.end() ? found->first : last_end);
+                next_start = (found != nodes_starting_at.end() ? found->first : clump_end);
                 
                 // Keep going until we have created reference nodes through to
                 // the end of the clump.
-            } while (reference_cursor < last_end);
+            } while (reference_cursor < clump_end);
             
             // Now we have gotten through all the places where nodes start, before the end of the clump.
             
             // Now the clump is handled
             clump.clear();
+            clump_end = 0;
             // On the next loop we'll grab the next variant for the next clump.
         }
     }
@@ -394,6 +426,200 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     }
     
     return to_return;
+}
+
+
+void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
+    function<void(Graph&)> callback) {
+    
+    
+    // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
+
+    // What sequence are we looking for in the fasta? The one we were passed, unless it was renamed.
+    string reference_contig = vcf_renames.count(vcf_contig) ? vcf_renames[vcf_contig] : vcf_contig;
+
+    // At what offset in the reference sequence do we start?
+    size_t leading_offset;
+    // At what position in the reference sequence do we stop (past-the-end)?
+    size_t reference_end;
+    
+    if (allowed_vcf_regions.count(vcf_contig)) {
+        // Only look at the region we were asked for. We will only find variants
+        // *completely* contained in this region! Partially-overlapping variants
+        // will be discarded!
+        leading_offset = allowed_vcf_regions[vcf_contig].first;
+        reference_end = allowed_vcf_regions[vcf_contig].second;
+    } else {
+        // Look at the whole contig
+        leading_offset = 0;
+        reference_end = reference.sequenceLength(reference_contig);
+    }
+    
+    // Scan through variants until we find one that is on this contig and in this region.
+    // If we're using an index, we ought to already be at the right place.
+    variant_source.fill_buffer();
+    while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
+        variant_source.get()->position < leading_offset ||
+        variant_source.get()->position + variant_source.get()->ref.size() > reference_end)) {
+        // This variant comes before our region
+        
+        // Discard variants that come out that are before our region
+        variant_source.handle_buffer();
+        variant_source.fill_buffer();
+    }
+    
+    // Now we're on the variants we actually want.
+
+    // This is where the next chunk will start in the reference sequence.
+    size_t chunk_start = leading_offset;
+    
+    // We maintain a growing list of variants that will go into a chunk. They
+    // are all positioned relative to chunk_start.
+    vector<vcflib::Variant> chunk_variants;
+    // And we track the largest past-the-end position of all the variants
+    size_t chunk_end = 0;
+    
+    // For chunk wiring, we need to remember the nodes exposed on the end of the
+    // previous chunk.
+    set<id_t> exposed_nodes;
+    
+    // When a chunk gets constructed, we'll call this handler, which will wire
+    // it up to the previous chunk, if any, and then call the callback we're
+    // supposed to send our graphs out through.
+    // Modifies the chunk in place.
+    auto wire_and_emit = [&](ConstructedChunk& chunk) {
+        // When each chunk comes back:
+        // If there was a previous ConstructedChunk, wire up the edges between them
+        for(auto& from_id : exposed_nodes) {
+            // For every dangling end in the last chunk
+            
+            for(auto& to_id : chunk.left_ends) {
+                // For every node in the new chunk we can wire it to
+                
+                // Make the edge in the new chunk
+                Edge* new_edge = chunk.graph.add_edge();
+                new_edge->set_from(from_id);
+                new_edge->set_to(to_id);
+            }
+        }
+        
+        // Save the right-side ends from this chunk for the next one, if any
+        exposed_nodes = chunk.right_ends;
+        
+        // Emit the chunk's graph via the callback
+        callback(chunk.graph);
+    };
+    
+    while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
+        variant_source.get()->position >= leading_offset &&
+        variant_source.get()->position + variant_source.get()->ref.size() <= reference_end) {
+    
+        // While we have variants we want to include
+        
+        if (!chunk_variants.empty() && chunk_end > variant_source.get()->position) {
+            // If the chunk is nonempty and this variant overlaps what's in there, put it in too and try the next.
+            // TODO: this is a lot like the clumping code...
+            
+            // Add it in
+            chunk_variants.push_back(*(variant_source.get()));
+            // Expand out how big the chunk needs to be, so we can get other overlapping variants.
+            chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+            
+            // Rewrite the variant to be positioned relative to the chunk start.
+            chunk_variants.back().position -= chunk_start;
+            
+            // Try the next variant
+            variant_source.handle_buffer();
+            variant_source.fill_buffer();
+            
+        } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->position < chunk_start + bases_per_chunk) {
+            // Otherwise if this variant is close enough and the chunk isn't too big yet, put it in and try the next.
+            
+            // TODO: unify with above code?
+            
+            // Add it in
+            chunk_variants.push_back(*(variant_source.get()));
+            // Expand out how big the chunk needs to be, so we can get other overlapping variants.
+            chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+            
+            // Rewrite the variant to be positioned relative to the chunk start.
+            chunk_variants.back().position -= chunk_start;
+            
+            // Try the next variant
+            variant_source.handle_buffer();
+            variant_source.fill_buffer();
+
+        } else {
+            // This variant shouldn't go in this chunk.
+        
+            // Finish the chunk to a point before the next variant, before the
+            // end of the reference, before the max chunk size, and after the
+            // last variant the chunk contains.
+            chunk_end = max(chunk_end,
+                min((size_t ) variant_source.get()->position,
+                    min((size_t) reference_end,
+                        (size_t) (chunk_start + bases_per_chunk))));
+            
+            // Get the ref sequence we need
+            auto chunk_ref = reference.getSubSequence(reference_contig, chunk_start, chunk_end - chunk_start);
+            
+            // Call the construction
+            auto result = construct_chunk(chunk_ref, reference_contig, chunk_variants);
+            
+            // Wire up and emit the chunk graph
+            wire_and_emit(result);
+            
+            // Set up a new chunk
+            chunk_start = chunk_end;
+            chunk_end = 0;
+            chunk_variants.clear();
+            
+            // Loop again on the same variant.
+        }
+    }
+    
+    // We ran out of variants, so finish this chunka nd all the others after it
+    // without looking for variants.
+    // TODO: unify with above loop?
+    while (chunk_start < reference_end) {
+        // We haven't finished the whole reference
+    
+        // Make the chunk as long as it can be
+        chunk_end = max(chunk_end,
+                min((size_t ) variant_source.get()->position,
+                    min((size_t) reference_end,
+                        (size_t) (chunk_start + bases_per_chunk))));
+    
+        // Get the ref sequence we need
+        auto chunk_ref = reference.getSubSequence(reference_contig, chunk_start, chunk_end - chunk_start);
+        
+        // Call the construction
+        auto result = construct_chunk(chunk_ref, reference_contig, chunk_variants);
+        
+        // Wire up and emit the chunk graph
+        wire_and_emit(result);
+        
+        // Set up a new chunk
+        chunk_start = chunk_end;
+        chunk_end = 0;
+        chunk_variants.clear();
+    }
+    
+    // All the chunks have been wired and emitted. So we're done.
+    
+}
+
+void Constructor::construct_graph(vector<FastaReference*> references, vector<vcflib::VariantCallFile*> variant_files,
+    function<void(Graph&)> callback) {
+    
+    
+    
+    // If we have just a restricted set of contigs to do, and our VCF is indexed, loop through that set of contigs and set the VCF to each in turn
+    
+    // If it's not indexed, loop through the whole VCF and just filter manually
+    
+    
+    
 }
 
 // Implementations of VG functions. TODO: refactor out of VG class
