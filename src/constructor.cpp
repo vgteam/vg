@@ -376,17 +376,21 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         to_return.right_ends.insert(node_id);
     }
     
-    for(auto& node_id : deletions_ending_at[reference_sequence.size() - 1]) {
-        // Also add in the starts of deletions that go to the end of the chunk
+    for(auto& deletion_start : deletions_ending_at[reference_sequence.size()]) {
+        // Also add in nodes at the starts of deletions that go to the end of the chunk
         
-        if(node_id == -1) {
+        if(deletion_start == -1) {
             // Note that we don't handle completely spanning deletions. But
             // those can't be articulated in VCF anyway because alts can't be
             // empty.
             continue;
         }
         
-        to_return.right_ends.insert(node_id);
+        for (auto& node_id : nodes_ending_at[deletion_start]) {
+            // For every node that the deletion could start with
+            // Expose it on the right of the graph
+            to_return.right_ends.insert(node_id);
+        }
     }
     
     return to_return;

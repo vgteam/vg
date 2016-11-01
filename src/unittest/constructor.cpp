@@ -394,7 +394,6 @@ ref	5	rs1337	A	G	29	PASS	.	GT
 
 }
 
-#define debug
 TEST_CASE( "A deletion can be constructed", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
@@ -478,7 +477,7 @@ ref	5	rs1337	AC	A	29	PASS	.	GT
 
 }
 
-TEST_CASE( "A small VCF can be constructed", "[constructor]" ) {
+TEST_CASE( "A VCF with multiple clumps can be constructed", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
 ##fileDate=20090805
@@ -489,18 +488,35 @@ TEST_CASE( "A small VCF can be constructed", "[constructor]" ) {
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-20	14370	rs6054257	G	A	29	PASS	.	GT
-20	17330	.	T	A	3	q10	.	GT
-20	1110696	rs6040355	A	G,T	67	PASS	.	GT
-20	1230237	.	T	.	47	PASS	.	GT
-20	1234567	microsat1	GTCT	G,GTACT	50	PASS	.	GT
+ref	1	.	GA	A	29	PASS	.	GT
+ref	5	rs1337	AC	A	29	PASS	.	GT
+ref	5	.	A	T	29	PASS	.	GT
+ref	6	rs1338	C	G	29	PASS	.	GT
+ref	11	.	TAG	T	29	PASS	.	GT
 )";
 
-	
+	auto ref = "GATTACACATTAG";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+
+    SECTION("a leading deletion is recognized") {
+        REQUIRE(result.left_ends.size() == 2);
+    }
+    
+    SECTION("a trailing deletion is recognized") {
+        REQUIRE(result.right_ends.size() == 2);
+    }
+    
+    // TODO: the center ought to look like this:
+    // (A)TT A-+->C-+->ACAT(T)
+    //       T-+----/
 
 }
-
-// TODO: graphs with variants
 
 }
 }
