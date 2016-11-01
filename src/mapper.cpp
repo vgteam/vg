@@ -2567,7 +2567,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         target.add_node(*graph.get_node(id));
                     }
                 }
-                graph.expand_context(target, aln.sequence().size(), false);
+                graph.expand_context(target, edit.sequence().size(), false);
+                // here we want to ensure we don't get too much graph
                 graph = target;
                 if (graph.empty()) {
                     if (debug) {
