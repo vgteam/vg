@@ -174,6 +174,33 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
     }
 }
 
+/**
+ * Testing wrapper to build a graph from a VCF string.
+ */
+ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
+    
+    // Make a stream out of the data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+    
+    // Fill in this vector of variants
+    std::vector<vcflib::Variant> variants;
+    vcflib::Variant var;
+    while (vcf.getNextVariant(var)) {
+        // Make sure to correct each variant's position to 0-based
+        var.position -= 1;
+        variants.push_back(var);
+    }
+
+    Constructor constructor;
+
+    // Construct the graph    
+    return constructor.construct_chunk(ref_sequence, ref_name, variants);
+}
+
 TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
 
     // We'll work on this tiny VCF
@@ -189,26 +216,10 @@ TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
 ref	5	rs1337	A	G	29	PASS	.	GT
 )";
 
-    std::stringstream vcf_stream(vcf_data);
-
-    vcflib::VariantCallFile vcf;
-    vcf.open(vcf_stream);
-    
-    std::vector<vcflib::Variant> variants;
-    vcflib::Variant var;
-    while (vcf.getNextVariant(var)) {
-        // Load up the VCF
-        // Make sure to correct it to 0-based
-        var.position -= 1;
-        variants.push_back(var);
-    }
-
     auto ref = "GATTACA";
-    
-    Constructor constructor;
 
-    // Construct the graph    
-    auto result = constructor.construct_chunk(ref, "ref", variants);
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
 
 #ifdef debug
     std::cerr << pb2json(result.graph) << std::endl;
@@ -380,6 +391,69 @@ ref	5	rs1337	A	G	29	PASS	.	GT
         }
     }
 	
+
+}
+
+TEST_CASE( "A deletion can be constructed", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	rs1337	AC	A	29	PASS	.	GT
+)";
+
+    auto ref = "GATTACA";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+    // We could build this either GATT,A,C,A or GATTA,C,A.
+    // In either case we have as many nodes as edges.
+    
+    SECTION("the graph should have either 3 or 4 nodes depending on structure") {
+        REQUIRE(result.graph.node_size() >= 3);
+        REQUIRE(result.graph.node_size() <= 4);
+    }
+    
+    SECTION("the graph should have as many edges as nodes") {
+        REQUIRE(result.graph.edge_size() == result.graph.node_size());
+    }
+
+    SECTION("the graph should have 3 paths") {
+        REQUIRE(result.graph.path_size() == 3);
+        
+        // Find the primary path, and the paths for the two alleles
+        Path primary;
+        Path allele0;
+        Path allele1;
+        
+        for (size_t i = 0; i < result.graph.path_size(); i++) {
+            auto& path = result.graph.path(i);
+            
+            // Path names can't be empty for us to inspect them how we want.
+            REQUIRE(path.name().size() > 0);
+            
+            if (path.name() == "ref") {
+                primary = path;
+            } else if (path.name()[path.name().size() - 1] == '0') {
+                // The name ends with 0, so it ought to be the ref allele path
+                allele0 = path;
+            } else if (path.name()[path.name().size() - 1] == '1') {
+                // The name ends with 1, so it ought to be the alt allele path
+                allele1 = path;
+            }
+        }
+        
+        SECTION("the path for the alt should visit no nodes") {
+            REQUIRE(allele1.mapping_size() == 0);
+        }
+    }
 
 }
 
