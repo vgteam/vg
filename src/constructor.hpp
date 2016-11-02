@@ -33,7 +33,12 @@ using namespace std;
  */
 struct ConstructedChunk {
     // What nodes, edges, and mappings exist?
+    // The graph will start at node 1.
     Graph graph;
+    
+    // What's the max ID used? This is useful for bumping other chunks out of
+    // the way.
+    id_t max_id;
     
     // What nodes have left sides that match up with the left edge of the chunk?
     set<id_t> left_ends;

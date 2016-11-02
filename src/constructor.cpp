@@ -454,6 +454,9 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         }
     }
     
+    // Remember to tell the caller how many IDs we used
+    to_return.max_id = next_id - 1;
+    
     return to_return;
 }
 
@@ -526,28 +529,69 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     // previous chunk.
     set<id_t> exposed_nodes;
     
+    // We'll also need to bump chunk IDs out of the way. What's the max ID used
+    // in previous chunks?
+    id_t max_id = 0;
+    
     // When a chunk gets constructed, we'll call this handler, which will wire
     // it up to the previous chunk, if any, and then call the callback we're
     // supposed to send our graphs out through.
     // Modifies the chunk in place.
     auto wire_and_emit = [&](ConstructedChunk& chunk) {
         // When each chunk comes back:
+        
+        // Up all the IDs in the graph
+        // TODO: this is repeating code that vg::VG has...
+        for (size_t i = 0; i < chunk.graph.node_size(); i++) {
+            // For each node
+            auto* node = chunk.graph.mutable_node(i);
+            // Bump the node ID
+            node->set_id(node->id() + max_id);
+        }
+        for (size_t i = 0; i < chunk.graph.edge_size(); i++) {
+            // For each edge
+            auto* edge = chunk.graph.mutable_edge(i);
+            // Bump the edge end IDs
+            edge->set_from(edge->from() + max_id);
+            edge->set_to(edge->to() + max_id);
+        }
+        for (size_t i = 0; i < chunk.graph.path_size(); i++) {
+            // For each path
+            auto* path = chunk.graph.mutable_path(i);
+            for (size_t j = 0; j < path->mapping_size(); j++) {
+                // For each mapping in the path
+                auto* mapping = path->mutable_mapping(j);
+                
+                // Bump the ID for the mapping's position
+                mapping->mutable_position()->set_node_id(mapping->position().node_id() + max_id);
+            }
+        }
+        
         // If there was a previous ConstructedChunk, wire up the edges between them
-        for(auto& from_id : exposed_nodes) {
+        for (auto& from_id : exposed_nodes) {
             // For every dangling end in the last chunk
             
-            for(auto& to_id : chunk.left_ends) {
+            for (auto& to_id : chunk.left_ends) {
                 // For every node in the new chunk we can wire it to
                 
                 // Make the edge in the new chunk
                 Edge* new_edge = chunk.graph.add_edge();
                 new_edge->set_from(from_id);
-                new_edge->set_to(to_id);
+                // Make sure to correct the number in the to set.
+                new_edge->set_to(to_id + max_id);
             }
         }
         
         // Save the right-side ends from this chunk for the next one, if any
-        exposed_nodes = chunk.right_ends;
+        exposed_nodes.clear();
+        for (auto& from_id : chunk.right_ends) {
+            // Make sure to correct each ID
+            exposed_nodes.insert(from_id + max_id);
+        }
+
+        // Remember the new max id, accounting for all the IDs used by this
+        // chunk.
+        max_id += chunk.max_id;
         
         // Emit the chunk's graph via the callback
         callback(chunk.graph);
