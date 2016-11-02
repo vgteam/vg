@@ -76,6 +76,12 @@ public:
      */
     void fill_buffer();
     
+    /**
+     * Make a new VcfBuffer buffering the file at the given pointer (which must
+     * outlive the buffer, but which may be null).
+     */
+    VcfBuffer(vcflib::VariantCallFile* file = nullptr);
+    
 protected:
     
     // This stores whether the buffer is populated with a valid variant or not
@@ -117,11 +123,23 @@ public:
     // load all of chr1 into an std::string, even if we have no variants on it.
     size_t bases_per_chunk = 1024 * 1024;
     
-    // This map maps from VCF sequence names to FASTA sequence names. If a
-    // VCF sequence name doesn't appear in here, it gets passed through
-    // unchanged. Note that the primary path for each contig will be named after
-    // the FASTA sequence name and not the VCF sequence name.
-    map<string, string> vcf_renames;
+    /**
+     * Add a name mapping between a VCF contig name and a FASTA sequence name.
+     * Both must be unique.
+     */
+    void add_name_mapping(const string& vcf_name, const string& fasta_name);
+    
+    /**
+     * Convert the given VCF contig name to a FASTA sequence name, through the
+     * rename mappings.
+     */
+    string vcf_to_fasta(const string& vcf_name) const;
+    
+    /**
+     * Convert the given FASTA sequence name to a VCF contig name, through the
+     * rename mappings.
+     */
+    string fasta_to_vcf(const string& fasta_name) const;
     
     // This set contains the set of VCF sequence names we want to build the
     // graph for. If empty, we will build the graph for all sequences in the
@@ -173,6 +191,16 @@ public:
     void construct_graph(vector<FastaReference*> references, vector<vcflib::VariantCallFile*> variant_files,
         function<void(Graph&)> callback);
     
+protected:
+    
+    // This map maps from VCF sequence names to FASTA sequence names. If a
+    // VCF sequence name doesn't appear in here, it gets passed through
+    // unchanged. Note that the primary path for each contig will be named after
+    // the FASTA sequence name and not the VCF sequence name.
+    map<string, string> vcf_to_fasta_renames;
+    
+    // This is the reverse map from FASTA sequence name to VCF sequence name.
+    map<string, string> fasta_to_vcf_renames;
     
 
 };
