@@ -2108,6 +2108,10 @@ int Mapper::graph_distance(pos_t pos1, pos_t pos2, int maximum) {
     return xg_cached_distance(pos1, pos2, xindex, get_node_cache(), maximum);
 }
 
+set<pos_t> Mapper::positions_bp_from(pos_t pos, int distance, bool rev) {
+    return xg_cached_positions_bp_from(pos, distance, rev, xindex, get_node_cache());
+}
+
 // use LRU caching to get the most-recent node positions
 map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type node) {
     auto& pos_cache = get_node_pos_cache();
@@ -2387,8 +2391,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
                 map<id_t, pair<int, int> > trimmings;
-                //int trimmed_length_fwd = 0;
-                //int trimmed_length_rev = 0;
                 vector<id_t> target_nodes;
 
                 // TODO continue if the graph doesn't have both cut points
@@ -2565,11 +2567,20 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 graph = target;
                 // here we want to ensure we don't get too much graph
                 if (soft_clip_to_left || soft_clip_to_right) {
+                    //set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+                    cerr << "Soft clip limitation" << endl;
+                    set<pos_t> poses = positions_bp_from(first_cut,
+                                                         edit.sequence().size(),
+                                                         soft_clip_to_left);
+                    for (auto& p : poses) {
+                        cerr << first_cut << " to " << p << " is " << edit.sequence().size() << endl;
+                    }
                     // walk out on the graph enough that we can detect our "maximum length" deletion
                     // ideally such that the score of the alignment would be >0
                     // then re-cut the graph
                     // we need to record where we cut nodes that we walked through from the right
                     // because in these cases the coordinate space changes
+                    
                 }
                 if (graph.empty()) {
                     if (debug) {
@@ -2606,14 +2617,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // TODO : we want to use the pinning here
                     // but now it is not doing the expected thing
                     /*
-                    if (soft_clip_to_left && patch.sequence().size() < 3) {
+                    if (soft_clip_to_left && patch.sequence().size()) {
                         // heads of graph
                         //pinned_id = graph_head
                         pinned_id = graph.tail_nodes().front()->id();
                         //pinned_id = target_nodes.front()->id();
                         pinned_reverse = true;
                         banded_global = false;
-                    } else if (soft_clip_to_right && patch.sequence().size() < 3) {
+                    } else if (soft_clip_to_right && patch.sequence().size()) {
                         pinned_id = graph.head_nodes().front()->id();
                         //pinned_id = target_nodes.back()->id();
                         banded_global = false;

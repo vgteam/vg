@@ -309,6 +309,8 @@ public:
     char pos_char(pos_t pos);
     // the next positions and their characters following the same strand of the graph
     map<pos_t, char> next_pos_chars(pos_t pos);
+    // get the positions some specific distance from the given position (in the forward direction)
+    set<pos_t> positions_bp_from(pos_t pos, int distance, bool rev);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
     vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);

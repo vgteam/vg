@@ -237,4 +237,49 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Nod
     return maximum;
 }
 
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    // handle base case
+    //size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+    if (rev) {
+        pos = reverse(pos, xg_cached_node_length(id(pos), xgidx, node_cache));
+    }
+    set<pos_t> positions;
+    if (distance == 0) {
+        positions.insert(pos);
+        //return positions;
+    } else {
+        set<pos_t> seen;
+        set<pos_t> nexts = xg_cached_next_pos(pos, xgidx, node_cache);
+        int walked = 0;
+        while (!nexts.empty()) {
+            if (walked+1 == distance) {
+                for (auto& next : nexts) {
+                    positions.insert(next);
+                }
+                break;
+            }
+            set<pos_t> todo;
+            for (auto& next : nexts) {
+                if (!seen.count(next)) {
+                    seen.insert(next);
+                    for (auto& x : xg_cached_next_pos(next, xgidx, node_cache)) {
+                        todo.insert(x);
+                    }
+                }
+            }
+            nexts = todo;
+            ++walked;
+        }
+    }
+    if (rev) {
+        set<pos_t> rev_pos;
+        for (auto& p : positions) {
+            rev_pos.insert(reverse(p, xg_cached_node_length(id(pos), xgidx, node_cache)));
+        }
+        return rev_pos;
+    } else {
+        return positions;
+    }
+}
+
 }
