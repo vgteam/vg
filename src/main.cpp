@@ -9022,6 +9022,193 @@ int main_deconstruct(int argc, char** argv){
     return 0;
 }
 
+
+void help_sort(char** argv){
+    cerr << "usage: " << argv[0] << " sort [options] -i <input_file> -r <reference_name> > sorted.vg " << endl
+         << "options: " << endl
+         << "           -g, --gfa              input in GFA format" << endl
+         << "           -i, --in               input file" << endl
+         << "           -r, --ref              reference name" << endl
+         << "           -w, --without-grooming no grooming mode" << endl
+         << endl;
+}
+
+void help_fsort(char** argv){
+    cerr << "usage: " << argv[0] << " fsort [options] -i <input_file> -r <reference_name> > sorted.vg " << endl
+         << "options: " << endl
+         << "           -g, --gfa              input in GFA format" << endl
+         << "           -i, --in               input file" << endl
+         << "           -r, --ref              reference name" << endl
+         << "           -w, --without-grooming no grooming mode" << endl
+         << endl;
+}
+
+int main_sort(int argc, char *argv[]) {
+
+    //default input format is vg
+    bool gfa_input = false;
+    string file_name = "";
+    string reference_name = "";
+    bool without_grooming = false;
+    int c;
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"gfa", no_argument, 0, 'g'},
+                {"in", required_argument, 0, 'i'},
+                {"ref", required_argument, 0, 'r'},
+                {"without-grooming", no_argument, 0, 'w'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "i:r:gw",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'g':
+            gfa_input = true;
+            break;
+        case 'r':
+            reference_name = optarg;
+            break;
+        case 'i':
+            file_name = optarg;
+            break;
+        case 'w':
+            without_grooming = true;
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_sort(argv);
+            exit(1);
+            break;
+        default:
+            abort ();
+        }
+    }
+  
+    if (reference_name.empty() || file_name.empty()) {
+        help_sort(argv);
+        exit(1);
+    }
+    
+    ifstream in;
+    in.open(file_name.c_str());        
+    VG* graph = nullptr; 
+    if (gfa_input) {
+        graph = new VG;
+        graph->from_gfa(in);
+    } else {
+        graph = new VG(in);
+    }
+        
+    graph->max_flow(reference_name);
+    if(gfa_input && !without_grooming)
+    {
+        size_t position = file_name.find(".");
+        string extract_name = (string::npos == position)? file_name : file_name.substr(0, position);
+        std::ofstream outfile (extract_name + "_groom.gfa",std::ofstream::binary);
+        graph->to_gfa(outfile);
+        outfile.close();
+    }
+//    graph->serialize_to_ostream(std::cout);
+    delete graph;  
+    in.close();
+    return 0;
+}
+
+
+int main_fast_sort(int argc, char *argv[]) {
+
+    //default input format is vg
+    bool gfa_input = false;
+    string file_name = "";
+    string reference_name = "";
+    bool without_grooming = false;
+    int c;
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"gfa", no_argument, 0, 'g'},
+                {"in", required_argument, 0, 'i'},
+                {"ref", required_argument, 0, 'r'},
+                {"without-grooming", no_argument, 0, 'w'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "i:r:gw",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'g':
+            gfa_input = true;
+            break;
+        case 'r':
+            reference_name = optarg;
+            break;
+        case 'i':
+            file_name = optarg;
+            break;
+        case 'w':
+            without_grooming = true;
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_fsort(argv);
+            exit(1);
+            break;
+        default:
+            abort ();
+        }
+    }
+
+    if (reference_name.empty() || file_name.empty()) {
+        help_fsort(argv);
+        exit(1);
+    }
+
+    ifstream in;
+    in.open(file_name.c_str());
+    VG* graph = nullptr;
+    if (gfa_input) {
+        graph = new VG;
+        graph->from_gfa(in);
+    } else {
+        graph = new VG(in);
+    }
+
+    graph->fast_linear_sort(reference_name, !without_grooming);
+    if(gfa_input && !without_grooming)
+    {
+        size_t position = file_name.find(".");
+        string extract_name = (string::npos == position)? file_name : file_name.substr(0, position);
+        std::ofstream outfile (extract_name + "_groom.gfa",std::ofstream::binary);
+        graph->to_gfa(outfile);
+        outfile.close();
+    }
+
+//    graph->serialize_to_ostream(std::cout);
+    delete graph;
+    in.close();
+    return 0;
+}
+
+
+
 void help_version(char** argv){
     cerr << "usage: " << argv[0] << " version" << endl
          << "options: " << endl
@@ -9079,6 +9266,8 @@ void vg_help(char** argv) {
          << "  -- circularize   circularize a path within a graph." << endl
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
+         << "  -- sort          sort variant graph using max flow algorithm" << endl
+         << "  -- fsort         sort variant graph using Eades fast heuristic algorithm" << endl
          << "  -- test          run unit tests" << endl
          << "  -- version       version information" << endl;
 }
@@ -9160,6 +9349,10 @@ int main(int argc, char *argv[])
         return main_test(argc, argv);
     } else if (command == "locify"){
         return main_locify(argc, argv);
+    } else if (command == "sort") {
+        return main_sort(argc, argv);
+    } else if (command == "fsort") {
+        return main_fast_sort(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
