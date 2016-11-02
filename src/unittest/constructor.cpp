@@ -478,6 +478,90 @@ ref	5	rs1337	AC	A	29	PASS	.	GT
 
 }
 
+TEST_CASE( "An insertion can be constructed", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	rs1337	A	AC	29	PASS	.	GT
+)";
+
+    auto ref = "GATTAA";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    // We could build this either GATT,A,C,A or GATTA,C,A.
+    // In either case we have as many nodes as edges.
+    
+    SECTION("the graph should have either 3 or 4 nodes depending on structure") {
+        REQUIRE(result.graph.node_size() >= 3);
+        REQUIRE(result.graph.node_size() <= 4);
+    }
+    
+    SECTION("the graph should have as many edges as nodes") {
+        REQUIRE(result.graph.edge_size() == result.graph.node_size());
+    }
+
+    SECTION("the graph should have 3 paths") {
+        REQUIRE(result.graph.path_size() == 3);
+        
+        // Find the primary path, and the paths for the two alleles
+        Path primary;
+        Path allele0;
+        Path allele1;
+        
+        for (size_t i = 0; i < result.graph.path_size(); i++) {
+            auto& path = result.graph.path(i);
+            
+            // Path names can't be empty for us to inspect them how we want.
+            REQUIRE(path.name().size() > 0);
+            
+            if (path.name() == "ref") {
+                primary = path;
+            } else if (path.name()[path.name().size() - 1] == '0') {
+                // The name ends with 0, so it ought to be the ref allele path
+                allele0 = path;
+            } else if (path.name()[path.name().size() - 1] == '1') {
+                // The name ends with 1, so it ought to be the alt allele path
+                allele1 = path;
+            }
+        }
+        
+        SECTION("the path for the ref should not include the inserted sequence") {
+            if (allele0.mapping_size() == 0) {
+                // This definitely lacks the C
+                REQUIRE(true);
+            } else {
+                for (size_t i = 0; i < allele0.mapping_size(); i++) {
+                    // Look at all the nodes along the path
+                    id_t node_id = allele0.mapping(i).position().node_id();
+                    
+                    for (size_t j = 0; j < result.graph.node_size(); j++) {
+                        // Brute force the whole graph to find the node
+                        if(node_id == result.graph.node(j).id()) {
+                            // In the node we actually visit, there can't be a "C", since we inserted the only one
+                            REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+
 TEST_CASE( "A VCF with multiple clumps can be constructed", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
