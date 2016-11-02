@@ -9022,6 +9022,89 @@ int main_deconstruct(int argc, char** argv){
     return 0;
 }
 
+void help_count(char** argv){
+    cerr << "usage: " << argv[0] << " count <alignments.gam|->" << endl
+        << "Count alignments." << endl
+        << endl
+        << "options: " << endl
+        << "  -t --threads <N>    0 to use for_each instead of for_each_parallel [1]" << endl
+        << endl;
+}
+
+int main_count(int argc, char** argv){
+    string alignment_file;
+    int threads = 1;
+
+    if (argc <= 2){
+        help_count(argv);
+        exit(1);
+    }
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+        {
+            {"help", no_argument, 0, 'h'},
+            {"threads", required_argument, 0, 't'},
+            {0, 0, 0, 0}
+
+        };
+        int option_index = 0;
+        c = getopt_long (argc, argv, "ht:",
+                long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+            case '?':
+            case 'h':
+                help_scrub(argv);
+                return 1;
+            case 't':
+                threads = atoi(optarg);
+                break;
+            default:
+                abort();
+        }
+    }
+
+    alignment_file = argv[optind];
+    istream *pin = &cin;
+    ifstream in;
+
+    if (alignment_file != "-") {
+        in.open(alignment_file.c_str());
+        if (!in) {
+            cerr << "Could not open " << alignment_file << endl;
+            help_count(argv);
+            abort();
+        }
+        pin = &in;
+    }
+
+    std::atomic<unsigned int> counter;
+    counter = 0;
+    std::function<void(Alignment&)> counting_lambda = [&counter](Alignment& aln){
+        counter++;
+    };
+
+    if (threads) {
+        // threads>0: use stream::for_each_parallel with specified # threads
+        omp_set_num_threads(threads);
+        stream::for_each_parallel(*pin, counting_lambda);
+    } else {
+        // threads == 0: use serial stream::for_each
+        stream::for_each(*pin, counting_lambda);
+    }
+
+    cout << counter << endl;
+
+    return 0;
+}
+
 void help_version(char** argv){
     cerr << "usage: " << argv[0] << " version" << endl
          << "options: " << endl
@@ -9160,7 +9243,9 @@ int main(int argc, char *argv[])
         return main_test(argc, argv);
     } else if (command == "locify"){
         return main_locify(argc, argv);
-    }else {
+    } else if (command == "count") {
+        return main_count(argc, argv);
+    } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
