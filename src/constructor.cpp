@@ -31,19 +31,43 @@ void VcfBuffer::handle_buffer() {
 }
 
 void VcfBuffer::fill_buffer() {
-    if(file != nullptr && !has_buffer) {
+    if(file != nullptr && file->is_open() && !has_buffer && safe_to_get) {
         // Put a new variant in the buffer if we have a file and the buffer was empty.
-        has_buffer = file->getNextVariant(buffer);
+        has_buffer = safe_to_get = file->getNextVariant(buffer);
         if(has_buffer) {
             // Convert to 0-based positions.
             // TODO: refactor to use vcflib zeroBasedPosition()...
             buffer.position -= 1;
         }
+#ifdef debug
+        cerr << "Variant in buffer: " << buffer << endl;
+#endif
     }
 }
 
-VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file) {
-    // Nothing else to do!
+bool VcfBuffer::has_tabix() {
+    return file && file->usingTabix;
+}
+
+bool VcfBuffer::set_region(const string& contig, int64_t start, int64_t end) {
+    if(!has_tabix()) {
+        // Nothing to seek in (or no file)
+        return false;
+    }
+    
+    if(start != -1 && end != -1) {
+        // We have a start and end
+        return file->setRegion(contig, start, end);
+    } else {
+        // Just seek to the whole chromosome
+        return file->setRegion(contig);
+    }
+}
+
+VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file), buffer(*file) {
+    // Our buffer needs to know about the VCF file it is reading from, because
+    // it cares about the sample names. If it's not associated properely, we
+    // can't getNextVariant into it.
 }
 
 
@@ -605,9 +629,8 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     
         // Make the chunk as long as it can be
         chunk_end = max(chunk_end,
-                min((size_t ) variant_source.get()->position,
                     min((size_t) reference_end,
-                        (size_t) (chunk_start + bases_per_chunk))));
+                        (size_t) (chunk_start + bases_per_chunk)));
     
         // Get the ref sequence we need
         auto chunk_ref = reference.getSubSequence(reference_contig, chunk_start, chunk_end - chunk_start);
@@ -628,7 +651,8 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     
 }
 
-void Constructor::construct_graph(vector<FastaReference*> references, vector<vcflib::VariantCallFile*> variant_files,
+void Constructor::construct_graph(const vector<FastaReference*>& references,
+    const vector<vcflib::VariantCallFile*>& variant_files,
     function<void(Graph&)> callback) {
 
     // Make a map from contig name to fasta reference containing it.
@@ -646,6 +670,12 @@ void Constructor::construct_graph(vector<FastaReference*> references, vector<vcf
     vector<unique_ptr<VcfBuffer>> buffers;
     for (auto* vcf : variant_files) {
         // Every VCF gets a buffer wrapped around it.
+        
+        if (!vcf->is_open()) {
+            // Except those that didn't open.
+            continue;
+        }
+        
         // These will all get destructed when the vector goes away.
         buffers.emplace_back(new VcfBuffer(vcf));
     }
@@ -666,7 +696,7 @@ void Constructor::construct_graph(vector<FastaReference*> references, vector<vcf
         
             for (auto& buffer : buffers) {
                 // For each VCF we are going to read
-                if(!buffer->file->usingTabix) {
+                if(!buffer->has_tabix()) {
                     // Die if we don't have indexes for everyone.
                     // TODO: report errors to caller instead.
                     cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
@@ -675,12 +705,12 @@ void Constructor::construct_graph(vector<FastaReference*> references, vector<vcf
                 
                 // Try seeking to the right contig/region
                 if (allowed_vcf_regions.count(vcf_name)) {
-                    // Seek to just that region. Make sure to make the region 1-based for vcflib.
-                    found_region = buffer->file->setRegion(vcf_name, allowed_vcf_regions[vcf_name].first + 1,
-                        allowed_vcf_regions[vcf_name].second + 1);
+                    // Seek to just that region (0-based)
+                    found_region = buffer->set_region(vcf_name, allowed_vcf_regions[vcf_name].first,
+                        allowed_vcf_regions[vcf_name].second);
                 } else {
                     // Seek to just the whole contig
-                    found_region = buffer->file->setRegion(vcf_name);
+                    found_region = buffer->set_region(vcf_name);
                 }
                 
                 if (found_region) {

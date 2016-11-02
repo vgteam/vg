@@ -52,10 +52,6 @@ struct ConstructedChunk {
 class VcfBuffer {
 
 public:
-    // This points to the VariantCallFile we wrap
-    // We can wrap the null file (and never have any variants) with a null here.
-    vcflib::VariantCallFile* file = nullptr;
-    
     /**
      * Return a pointer to the buffered variant, or null if no variant is
      * buffered. Pointer is invalidated when the buffer is handled. The variant
@@ -77,6 +73,28 @@ public:
     void fill_buffer();
     
     /**
+     * This returns true if we have a tabix index, and false otherwise. If this
+     * is false, set_region may be called, but will do nothing and return false.
+     */
+    bool has_tabix();
+    
+    /**
+     * This tries to set the region on the underlying vcflib VariantCallFile to
+     * the given contig and region, if specified. Coordinates coming in should
+     * be 0-based,a nd will be converted to 1-based internally.
+     *
+     * Returns true if the region was successfully set, and false otherwise (for
+     * example, if there is not tabix index, or if the given region is not part
+     * of this VCF. Note that if there is a tabix index, and set_region returns
+     * false, the position in the VCF file is undefined until the next
+     * successful set_region call.
+     *
+     * If either of start and end are specified, then both of start and end must
+     * be specified.
+     */
+    bool set_region(const string& contig, int64_t start = -1, int64_t end = -1);
+    
+    /**
      * Make a new VcfBuffer buffering the file at the given pointer (which must
      * outlive the buffer, but which may be null).
      */
@@ -86,8 +104,15 @@ protected:
     
     // This stores whether the buffer is populated with a valid variant or not
     bool has_buffer = false;
+    // This stores whether the last getNextVariant call succeeded. If it didn't
+    // succeed, we can't call it again (without setRegion-ing) or vcflib will
+    // crash.
+    bool safe_to_get = true;
     // This is the actual buffer.
     vcflib::Variant buffer;
+    // This points to the VariantCallFile we wrap
+    // We can wrap the null file (and never have any variants) with a null here.
+    vcflib::VariantCallFile* const file;
     
     
 
@@ -112,7 +137,7 @@ public:
     bool alt_paths = false;
     
     // What's the maximum node size we should allow?
-    size_t max_node_size = 1024;
+    size_t max_node_size = 1000;
     
     // How many variants do we want to put into a chunk? We'll still go over
     // this by a bit when we fetch all the overlapping variants, but this is how
@@ -188,7 +213,7 @@ public:
      * file. If multiple FASTAs are used, each contig must be present in only
      * one FASTA file. Reference and VCF vectors may not contain nulls.
      */
-    void construct_graph(vector<FastaReference*> references, vector<vcflib::VariantCallFile*> variant_files,
+    void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
         function<void(Graph&)> callback);
     
 protected:

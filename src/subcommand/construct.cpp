@@ -3,6 +3,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../stream.hpp"
+#include "../constructor.hpp"
 
 using namespace std;
 using namespace vg;
@@ -13,8 +15,6 @@ void help_construct(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF" << endl
          << "    -r, --reference FILE  input FASTA reference" << endl
-         << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
-         << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
          << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
@@ -35,19 +35,15 @@ int main_construct(int argc, char** argv) {
         return 1;
     }
 
+    // Make a constructor to fill in
+    Constructor constructor;
+
+    // We also parse some arguments separately.
     string fasta_file_name, vcf_file_name, json_filename;
     string region;
     bool region_is_chrom = false;
     string output_type = "VG";
     bool progress = false;
-    int vars_per_region = 25000;
-    int max_node_size = 1000;
-    string ref_paths_file;
-    bool flat_alts = false;
-    // Should we make paths out of phasing blocks in the called samples?
-    bool load_phasing_paths = false;
-    // Should we make alt paths for variants?
-    bool load_alt_paths = false;
 
     int c;
     while (true) {
@@ -57,9 +53,6 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
-                // TODO: change the long option here?
-                {"ref-paths", required_argument, 0, 'P'},
-                {"phase-blocks", no_argument, 0, 'B'},
                 {"alt-paths", no_argument, 0, 'a'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
@@ -72,7 +65,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:as:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -89,16 +82,8 @@ int main_construct(int argc, char** argv) {
             fasta_file_name = optarg;
             break;
 
-        case 'P':
-            ref_paths_file = optarg;
-            break;
-
-        case 'B':
-            load_phasing_paths = true;
-            break;
-
         case 'a':
-            load_alt_paths = true;
+            constructor.alt_paths = true;
             break;
 
         case 'p':
@@ -106,7 +91,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'z':
-            vars_per_region = atoi(optarg);
+            constructor.vars_per_chunk = atoi(optarg);
             break;
 
         case 'R':
@@ -122,11 +107,11 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'm':
-            max_node_size = atoi(optarg);
+            constructor.max_node_size = atoi(optarg);
             break;
 
         case 'f':
-            flat_alts = true;
+            constructor.flat = true;
             break;
 
         case 'h':
@@ -161,11 +146,6 @@ int main_construct(int argc, char** argv) {
         }
     }
 
-    if(load_phasing_paths && ref_paths_file.empty()) {
-        cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
-        return 1;
-    }
-
     if (fasta_file_name.empty()) {
         cerr << "error:[vg construct] a reference is required for graph construction" << endl;
         return 1;
@@ -173,37 +153,19 @@ int main_construct(int argc, char** argv) {
     FastaReference reference;
     reference.open(fasta_file_name);
 
-    // store our reference sequence paths
-    // TODO: use this. Maybe dump paths here instead of in the graph?
-    Paths ref_paths;
+    // We need a callback to handle pieces of graph as they are produced.
+    auto callback = [&](Graph& big_chunk) {
+        // TODO: these chunks may be too big to (de)serialize directly. For now,
+        // just serialize them directly anyway.
+        stream::write(cout, 1, std::function<Graph(uint64_t)>([&](uint64_t chunk_number) -> Graph {
+            assert(chunk_number == 0);
+            // Just spit out our one chunk
+            return big_chunk;
+        }));
+    };
 
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
-             max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
-
-    if (!ref_paths_file.empty()) {
-        ofstream paths_out(ref_paths_file);
-        graph.paths.write(paths_out);
-        if(load_phasing_paths) {
-            // Keep only the non-phasing paths in the graph. If you keep too
-            // many paths in a graph, you'll make chunks that are too large.
-            // TODO: dynamically deliniate the chunks in the serializer so you
-            // won't write vg files you can't read.
-
-            set<string> non_phase_paths;
-            string phase_prefix = "_phase";
-            graph.paths.for_each_name([&](string path_name) {
-                    if(!equal(phase_prefix.begin(), phase_prefix.end(), path_name.begin())) {
-                        // Path is not a phase path
-                        non_phase_paths.insert(path_name);
-                    }
-                });
-
-            // Keep only the non-phase paths
-            graph.paths.keep_paths(non_phase_paths);
-        }
-    }
-
-    graph.serialize_to_ostream(std::cout);
+    // Construct the graph. Make sure to make our FASTA and VCF into vectors.
+    constructor.construct_graph({&reference}, {&variant_file}, callback);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
