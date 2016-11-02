@@ -2386,9 +2386,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
-                id_t trimmed_node = 0;
-                int trimmed_length_fwd = 0;
-                int trimmed_length_rev = 0;
+                map<id_t, pair<int, int> > trimmings;
+                //int trimmed_length_fwd = 0;
+                //int trimmed_length_rev = 0;
                 vector<id_t> target_nodes;
 
                 // TODO continue if the graph doesn't have both cut points
@@ -2433,17 +2433,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                     graph.destroy_node(right);
                                     graph.swap_node_id(left, id(first_cut));
                                     trimmed = left;
-                                    trimmed_node = id(first_cut);
-                                    trimmed_length_fwd = 0;
-                                    trimmed_length_rev = offset(first_cut);
+                                    trimmings[id(first_cut)] = make_pair(0, offset(first_cut));
                                 } else {
                                     //cerr << "soft clip to right or other" << endl;
                                     graph.destroy_node(left);
                                     graph.swap_node_id(right, id(first_cut));
                                     trimmed = right;
-                                    trimmed_node = id(first_cut);
-                                    trimmed_length_fwd = offset(first_cut);
-                                    trimmed_length_rev = 0;
+                                    trimmings[id(first_cut)] = make_pair(offset(first_cut), 0);
                                 }
                                 if (trimmed->sequence().size()) {
                                     target_nodes.push_back(trimmed->id());
@@ -2494,9 +2490,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             graph.destroy_node(parts.back());
                             graph.swap_node_id(parts.at(1), id(first_cut));
                             target_nodes.push_back(id(first_cut));
-                            trimmed_node = id(first_cut);
-                            trimmed_length_fwd = offset(first_cut);
-                            trimmed_length_rev = (orig_len - offset(second_cut));
+                            trimmings[id(first_cut)] = make_pair(offset(first_cut),
+                                                                 orig_len - offset(second_cut));
                         }
                     } else { // different nodes to trim
                         //cerr << "different nodes" << endl;
@@ -2509,9 +2504,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             graph.swap_node_id(right, id(first_cut));
                             //target_nodes.push_back(graph.get_node(id(first_cut)));
                             Node* trimmed = graph.get_node(id(first_cut));
-                            trimmed_node = id(first_cut);
-                            trimmed_length_fwd = offset(first_cut);
-                            trimmed_length_rev = 0;
+                            trimmings[id(first_cut)] = make_pair(offset(first_cut),
+                                                                 0);
                             if (trimmed->sequence().size()) {
                                 target_nodes.push_back(trimmed->id());
                             } else {
@@ -2524,7 +2518,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                 }
                             }
                         } else {
-                            // destroy everything ahead of the node??
+                            // destroy everything ahead of the node
                             NodeSide begin = NodeSide(id(first_cut));
                             for (auto& side : graph.sides_to(begin)) {
                                 graph.destroy_edge(side, begin);
@@ -2568,8 +2562,15 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
                 }
                 graph.expand_context(target, edit.sequence().size(), false);
-                // here we want to ensure we don't get too much graph
                 graph = target;
+                // here we want to ensure we don't get too much graph
+                if (soft_clip_to_left || soft_clip_to_right) {
+                    // walk out on the graph enough that we can detect our "maximum length" deletion
+                    // ideally such that the score of the alignment would be >0
+                    // then re-cut the graph
+                    // we need to record where we cut nodes that we walked through from the right
+                    // because in these cases the coordinate space changes
+                }
                 if (graph.empty()) {
                     if (debug) {
                         cerr << "no target for alignment of " << edit.sequence()
@@ -2629,7 +2630,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
                         auto* mapping = patch.mutable_path()->mutable_mapping(k);
-                        if (mapping->position().node_id() == trimmed_node) {
+                        auto t = trimmings.find(mapping->position().node_id());
+                        if (t != trimmings.end()) {
+                            auto trimmed_length_fwd = t->second.first;
+                            auto trimmed_length_rev = t->second.second;
                             mapping->mutable_position()->set_offset(
                                 mapping->position().offset() +
                                 ( mapping->position().is_reverse() ? trimmed_length_rev : trimmed_length_fwd ));
