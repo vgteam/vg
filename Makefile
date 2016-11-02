@@ -107,7 +107,7 @@ $(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
 .rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
 	# Make sure to delete outdated libs and headers before rebuilding
 	# Outdated headers can get picked up during the build
-	rm lib/libprotobuf* lib/libprotoc*
+	rm -f lib/libprotobuf* lib/libprotoc*
 	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
@@ -387,7 +387,7 @@ clean:
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
-	rm -R $(RAPTOR_DIR)/build/*
+	rm -Rf $(RAPTOR_DIR)/build/*
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap
