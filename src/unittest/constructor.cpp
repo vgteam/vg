@@ -642,6 +642,53 @@ ref	3	rs1337	TTC	TTAC	29	PASS	.	GT
 
 }
 
+TEST_CASE( "Multiple inserts don't cross-link", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	6	rs10666768	C	CG,CGG,G	100	PASS	.	GT
+)";
+
+    auto ref = "GATTACA";
+    
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    // We insist on building this as:
+    //       +-C-+-G--+ 
+    // GATTA-+   +----+-A
+    //       +-G-+-GG-+
+    
+    SECTION("the graph should have the minimum number of nodes") {
+        REQUIRE(result.graph.node_size() == 6);
+    }
+    
+    SECTION("the graph should contain no self loops") {
+        for(size_t i = 0; i < result.graph.edge_size(); i++) {
+            auto& edge = result.graph.edge(i);
+            REQUIRE(edge.from() != edge.to());
+        }
+    }
+    
+    SECTION("the graph should have all and only the edges between the 2-way SNP and the 3-way indel") {
+        REQUIRE(result.graph.edge_size() == 10);
+    }
+    
+    
+
+}
+
 
 TEST_CASE( "A VCF with multiple clumps can be constructed", "[constructor]" ) {
 
@@ -661,7 +708,7 @@ ref	6	rs1338	C	G	29	PASS	.	GT
 ref	11	.	TAG	T	29	PASS	.	GT
 )";
 
-	auto ref = "GATTACACATTAG";
+    auto ref = "GATTACACATTAG";
 
     // Build the graph
     auto result = construct_test_chunk(ref, "ref", vcf_data);
