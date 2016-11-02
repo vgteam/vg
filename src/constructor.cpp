@@ -72,7 +72,6 @@ VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file), buffer(*file) 
     // can't getNextVariant into it.
 }
 
-
 ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
     vector<vcflib::Variant> variants) const {
     
@@ -215,10 +214,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             
             // This holds the min and max values for starts and ends of edits
             // not removed from the clump.
-            size_t first_edit_start = numeric_limits<size_t>::max();
-            size_t last_edit_end = 0;
+            int64_t first_edit_start = numeric_limits<int64_t>::max();
+            int64_t last_edit_end = -1;
             
-            for(vcflib::Variant* variant : clump) {
+            for (vcflib::Variant* variant : clump) {
             
                 // Check the variant's reference sequence to catch bad VCF/FASTA pairings
                 auto expected_ref = reference_sequence.substr(variant->position, variant->ref.size());
@@ -293,19 +292,20 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     }
 #endif
                     
-                    if(!alt_parts.empty()) {
+                    if (!alt_parts.empty()) {
                         // If this alt's interior non-ref portion exists, see if
                         // it extends beyond those of other alts in the clump.
-                        first_edit_start = min(first_edit_start, (size_t) alt_parts.front().position);
-                        last_edit_end = max(last_edit_end, alt_parts.back().position + alt_parts.back().ref.size() - 1);
+                        first_edit_start = min(first_edit_start, (int64_t) alt_parts.front().position);
+                        last_edit_end = max(last_edit_end,
+                            (int64_t) (alt_parts.back().position + alt_parts.back().ref.size() - 1));
                     }
                 }
             }
             
             // We have to have some non-ref material, even if it occupies 0
             // reference space.
-            assert(last_edit_end != 0);
-            assert(first_edit_start != numeric_limits<size_t>::max());
+            assert(last_edit_end != -1);
+            assert(first_edit_start != numeric_limits<int64_t>::max());
             
 #ifdef debug
             cerr << "Edits run between " << first_edit_start << " and " << last_edit_end << endl;
