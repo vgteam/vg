@@ -2415,6 +2415,25 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         }
                     }
 
+                    // here we want to ensure we don't get too much graph
+                    // to handle the edge case that seems to generate long deletions at the end
+                    // instead of soft clips
+                    if ((soft_clip_to_left || soft_clip_to_right) && edit.sequence().size() <= 10) {
+                        set<pos_t> poses = positions_bp_from(first_cut,
+                                                             edit.sequence().size(),
+                                                             soft_clip_to_left);
+                        //cerr << "first_cut before pos tweak " << first_cut << endl;
+                        //cerr << "second_cut before pos tweak " << second_cut << endl;
+                        // take the first position in the set as our new cut point
+                        if (poses.size()) {
+                            if (soft_clip_to_left) {
+                                first_cut = *poses.begin();
+                            } else if (soft_clip_to_right) {
+                                second_cut = *poses.begin();
+                            }
+                        }
+                    }
+
                     //cerr << "first_cut after " << first_cut << endl;
                     //cerr << "second_cut after " << second_cut << endl;
 
@@ -2557,6 +2576,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
                 }
+                // reselect the target subgraph
                 VG target;
                 for (auto& id : target_nodes) {
                     if (graph.has_node(id)) {
@@ -2565,23 +2585,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 }
                 graph.expand_context(target, edit.sequence().size(), false);
                 graph = target;
-                // here we want to ensure we don't get too much graph
-                if (soft_clip_to_left || soft_clip_to_right) {
-                    //set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
-                    cerr << "Soft clip limitation" << endl;
-                    set<pos_t> poses = positions_bp_from(first_cut,
-                                                         edit.sequence().size(),
-                                                         soft_clip_to_left);
-                    for (auto& p : poses) {
-                        cerr << first_cut << " to " << p << " is " << edit.sequence().size() << endl;
-                    }
-                    // walk out on the graph enough that we can detect our "maximum length" deletion
-                    // ideally such that the score of the alignment would be >0
-                    // then re-cut the graph
-                    // we need to record where we cut nodes that we walked through from the right
-                    // because in these cases the coordinate space changes
-                    
-                }
+                // now do the alignment
                 if (graph.empty()) {
                     if (debug) {
                         cerr << "no target for alignment of " << edit.sequence()
@@ -2616,20 +2620,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     bool pinned_reverse = false;
                     // TODO : we want to use the pinning here
                     // but now it is not doing the expected thing
-                    /*
-                    if (soft_clip_to_left && patch.sequence().size()) {
-                        // heads of graph
-                        //pinned_id = graph_head
-                        pinned_id = graph.tail_nodes().front()->id();
-                        //pinned_id = target_nodes.front()->id();
-                        pinned_reverse = true;
-                        banded_global = false;
-                    } else if (soft_clip_to_right && patch.sequence().size()) {
-                        pinned_id = graph.head_nodes().front()->id();
-                        //pinned_id = target_nodes.back()->id();
-                        banded_global = false;
-                    }
-                    */
                     //write_alignment_to_file(patch, "pre-" + hash_alignment(patch) + ".gam");
                     //graph.serialize_to_file("pre-" + hash_alignment(patch) + ".vg");
                     patch = align_to_graph(patch,

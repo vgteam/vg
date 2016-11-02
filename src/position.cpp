@@ -274,7 +274,7 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
     if (rev) {
         set<pos_t> rev_pos;
         for (auto& p : positions) {
-            rev_pos.insert(reverse(p, xg_cached_node_length(id(pos), xgidx, node_cache)));
+            rev_pos.insert(reverse(p, xg_cached_node_length(id(p), xgidx, node_cache)));
         }
         return rev_pos;
     } else {
