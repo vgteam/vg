@@ -561,6 +561,87 @@ ref	5	rs1337	A	AC	29	PASS	.	GT
 
 }
 
+TEST_CASE( "Outer matching sequence is trimmed on inserts", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	3	rs1337	TTC	TTAC	29	PASS	.	GT
+)";
+
+    auto ref = "GATTCA";
+    
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    // We insist on building this GATT,A,CA with the minimum insert
+    
+    SECTION("the graph should have the minimum number of nodes") {
+        REQUIRE(result.graph.node_size() == 3);
+        
+        SECTION("the nodes should be pre-insert, inserted sequence, and post-insert") {
+            CHECK(result.graph.node(0).sequence() == "GATT");
+            CHECK(result.graph.node(1).sequence() == "A");
+            CHECK(result.graph.node(2).sequence() == "CA");
+        }
+        
+        SECTION("the nodes should be numbered 1, 2, 3 in order") {
+            CHECK(result.graph.node(0).id() == 1);
+            CHECK(result.graph.node(1).id() == 2);
+            CHECK(result.graph.node(2).id() == 3);
+        }
+    }
+    
+    SECTION("the graph should have the minimum number of edges") {
+        REQUIRE(result.graph.edge_size() == 3);
+    }
+
+    SECTION("the graph should have 3 paths") {
+        REQUIRE(result.graph.path_size() == 3);
+        
+        // Find the primary path, and the paths for the two alleles
+        Path primary;
+        Path allele0;
+        Path allele1;
+        
+        for (size_t i = 0; i < result.graph.path_size(); i++) {
+            auto& path = result.graph.path(i);
+            
+            // Path names can't be empty for us to inspect them how we want.
+            REQUIRE(path.name().size() > 0);
+            
+            if (path.name() == "ref") {
+                primary = path;
+            } else if (path.name()[path.name().size() - 1] == '0') {
+                // The name ends with 0, so it ought to be the ref allele path
+                allele0 = path;
+            } else if (path.name()[path.name().size() - 1] == '1') {
+                // The name ends with 1, so it ought to be the alt allele path
+                allele1 = path;
+            }
+        }
+        
+        SECTION("the path for the ref allele should be completely empty") {
+            CHECK(allele0.mapping_size() == 0);
+        }
+        
+        SECTION("the path for the alt allele should have just one node") {
+            CHECK(allele1.mapping_size() == 1);
+        }
+    }
+
+}
+
 
 TEST_CASE( "A VCF with multiple clumps can be constructed", "[constructor]" ) {
 

@@ -220,6 +220,16 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             
             for(vcflib::Variant* variant : clump) {
             
+                // Check the variant's reference sequence to catch bad VCF/FASTA pairings
+                auto expected_ref = reference_sequence.substr(variant->position, variant->ref.size());
+            
+                if(variant->ref != expected_ref) {
+                    // TODO: report error to caller somehow
+                    cerr << "[vg::Constructor] Variant reference sequence mismatch: " << variant->ref
+                        << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl;
+                    exit(1);
+                }
+            
                 // We need to parse the variant into alts, each of which is a
                 // series of VariantAllele edits. This holds the full alt allele
                 // string and the edits needed to make it. The VariantAlleles
@@ -252,18 +262,36 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     // Find the list of edits for this alt
                     auto& alt_parts = parsed_clump[variant][alt_index];
                     
+#ifdef debug
+                    cerr << "Non-ref allele " << alt_index << endl;
+#endif
+                    
                     // Copy all the VariantAlleles into the list
                     alt_parts.assign(kv.second.begin(), kv.second.end());
                     
                     while (!alt_parts.empty() && alt_parts.front().ref == alt_parts.front().alt) {
                         // Drop leading ref matches
+#ifdef debug
+                        cerr << "\tDrop " << alt_parts.front().ref << " -> " << alt_parts.front().alt
+                            << " @ " << alt_parts.front().position << endl;
+#endif
                         alt_parts.pop_front();
                     }
                     
                     while (!alt_parts.empty() && alt_parts.back().ref == alt_parts.back().alt) {
                         // Drop trailing ref matches
+#ifdef debug
+                        cerr << "\tDrop " << alt_parts.back().ref << " -> " << alt_parts.back().alt
+                            << " @ " << alt_parts.back().position << endl; 
+#endif
                         alt_parts.pop_back();
                     }
+                    
+#ifdef debug
+                    for (auto& edit : alt_parts) {
+                        cerr << "\tKept " << edit.ref << " -> " << edit.alt << " @ " << edit.position << endl; 
+                    }
+#endif
                     
                     if(!alt_parts.empty()) {
                         // If this alt's interior non-ref portion exists, see if
@@ -278,6 +306,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // reference space.
             assert(last_edit_end != 0);
             assert(first_edit_start != numeric_limits<size_t>::max());
+            
+#ifdef debug
+            cerr << "Edits run between " << first_edit_start << " and " << last_edit_end << endl;
+#endif
             
             // Create ref nodes from the end of the last clump (where the cursor
             // is) to the start of this clump's interior non-ref content.
