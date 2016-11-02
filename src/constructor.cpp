@@ -8,6 +8,8 @@
 
 #include <set>
 #include <tuple>
+#include <list>
+#include <algorithm>
 #include <memory>
 
 namespace vg {
@@ -137,7 +139,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         // We keep a cursor to the next non-made-into-a-node base
         size_t cursor = 0;
         
-        while(cursor < sequence.size()) {
+        while (cursor < sequence.size()) {
             // There's still sequence to do, so bite off a piece
             size_t next_node_size = std::min(max_node_size, sequence.size() - cursor);
             string node_sequence = sequence.substr(cursor, next_node_size);
@@ -169,7 +171,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         // Remember the total node length we have scanned through
         size_t seen_bases = 0;
     
-        for(Node* node : new_nodes) {
+        for (Node* node : new_nodes) {
             // Add matches on the reference path for all the new nodes
             add_match(ref_path, node);
             
@@ -185,11 +187,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         reference_cursor = target_position;
     };
     
-    while(next_variant != variants.end() || !clump.empty()) {
+    while (next_variant != variants.end() || !clump.empty()) {
         // While there are more variants, or while we have the last clump to do...
     
         // Group variants into clumps of overlapping variants.
-        if(clump.empty() || 
+        if (clump.empty() || 
             (next_variant != variants.end() && clump_end > next_variant->position)) {
             
             // Either there are no variants in the clump, or this variant
@@ -204,33 +206,19 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // The next variant doesn't belong in this clump.
             // Handle the clump.
             
-            // Create ref nodes from the end of the last clump (where the cursor
-            // is) to the start of this clump.
-            add_reference_nodes_until(clump.front()->position);
-        
-            // This keeps track of edits that already have nodes, consisting of
-            // a ref position, a ref sequence, and an alt sequence. It maps to a
-            // vector of pointers to the nodes created, which are owned by the
-            // graph. The vector is to handle the case where an edit is too long
-            // to be all one node, according to our max node length, and is
-            // always nonempty.
-            map<tuple<long, string, string>, vector<Node*>> created_nodes;
-        
-            // This hold son to variant ref paths, which we can't actually fill
-            // in until all the variants in the clump have had their non-ref
-            // paths done.
-            map<vcflib::Variant*, Path*> variant_ref_paths;
-        
-            for(vcflib::Variant* variant : clump) {
-                // For each variant in the clump
+            // Parse all the variants into VariantAllele edits
             
-                // Name the variant by hash (see utility.hpp)
-                string variant_name = make_variant_id(*variant);
-                
-                // Declare its ref path straight away.
-                // We fill inthe ref paths after we make all the nodes for the edits.
-                variant_ref_paths[variant] = to_return.graph.add_path();
-                variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
+            // This holds a map from Variant pointer to a vector of lists
+            // of VariantAllele edits, one list per non-ref allele of the
+            // variant.
+            map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
+            
+            // This holds the min and max values for starts and ends of edits
+            // not removed from the clump.
+            size_t first_edit_start = numeric_limits<size_t>::max();
+            size_t last_edit_end = 0;
+            
+            for(vcflib::Variant* variant : clump) {
             
                 // We need to parse the variant into alts, each of which is a
                 // series of VariantAllele edits. This holds the full alt allele
@@ -241,35 +229,105 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
                     variant->parsedAlternates();
 
-                for(auto& kv : alternates) {                
+                for (auto& kv : alternates) {                
                     // For each alt in the variant
                     
-                    if(kv.first == variant->ref) {
+                    if (kv.first == variant->ref) {
                         // Skip the ref, because we can't make any ref nodes
                         // until all the edits for the clump are known.
                         continue;
                     }
                     
+                    // With 0 being the first non-ref allele, which alt are we?
+                    // Copy the string out of the map
+                    string alt_string = kv.first;
+                    // Then look it up
+                    size_t alt_index = variant->getAltAlleleIndex(alt_string);
+                    
+                    if (alt_index >= parsed_clump[variant].size()) {
+                        // Make sure we have enough room to store the VariantAlleles for this alt.
+                        parsed_clump[variant].resize(alt_index + 1);
+                    }
+                    
+                    // Find the list of edits for this alt
+                    auto& alt_parts = parsed_clump[variant][alt_index];
+                    
+                    // Copy all the VariantAlleles into the list
+                    alt_parts.assign(kv.second.begin(), kv.second.end());
+                    
+                    while (!alt_parts.empty() && alt_parts.front().ref == alt_parts.front().alt) {
+                        // Drop leading ref matches
+                        alt_parts.pop_front();
+                    }
+                    
+                    while (!alt_parts.empty() && alt_parts.back().ref == alt_parts.back().alt) {
+                        // Drop trailing ref matches
+                        alt_parts.pop_back();
+                    }
+                    
+                    if(!alt_parts.empty()) {
+                        // If this alt's interior non-ref portion exists, see if
+                        // it extends beyond those of other alts in the clump.
+                        first_edit_start = min(first_edit_start, (size_t) alt_parts.front().position);
+                        last_edit_end = max(last_edit_end, alt_parts.back().position + alt_parts.back().ref.size() - 1);
+                    }
+                }
+            }
+            
+            // We have to have some non-ref material, even if it occupies 0
+            // reference space.
+            assert(last_edit_end != 0);
+            assert(first_edit_start != numeric_limits<size_t>::max());
+            
+            // Create ref nodes from the end of the last clump (where the cursor
+            // is) to the start of this clump's interior non-ref content.
+            add_reference_nodes_until(first_edit_start);
+        
+            // This keeps track of edits that already have nodes, consisting of
+            // a ref position, a ref sequence, and an alt sequence. It maps to a
+            // vector of pointers to the nodes created, which are owned by the
+            // graph. The vector is to handle the case where an edit is too long
+            // to be all one node, according to our max node length, and is
+            // always nonempty.
+            map<tuple<long, string, string>, vector<Node*>> created_nodes;
+        
+            // This holds on to variant ref paths, which we can't actually fill
+            // in until all the variants in the clump have had their non-ref
+            // paths done.
+            map<vcflib::Variant*, Path*> variant_ref_paths;
+        
+            for (vcflib::Variant* variant : clump) {
+                // For each variant in the clump
+            
+                // Name the variant by hash (see utility.hpp)
+                string variant_name = make_variant_id(*variant);
+                
+                // Declare its ref path straight away.
+                // We fill inthe ref paths after we make all the nodes for the edits.
+                variant_ref_paths[variant] = to_return.graph.add_path();
+                variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
+            
+                for (size_t alt_index = 0; alt_index < parsed_clump[variant].size(); alt_index++) {                
+                    // For each non-ref alt in the parsed variant
+                    
                     // Name the alt after the number that this allele has.
-                    // We need to copy the string becuase the vcflib API wants a non-const reference.
-                    string alt_sequence = kv.first;
                     // We have to bump the allele index because the first alt is 0.
-                    string alt_name = "_alt_" + variant_name + "_" + to_string(variant->getAltAlleleIndex(alt_sequence) + 1);
+                    string alt_name = "_alt_" + variant_name + "_" + to_string(alt_index + 1);
                     
                     // There should be a path named after it.
                     Path* alt_path = to_return.graph.add_path();
                     alt_path->set_name(alt_name);
                     
-                    for(vcflib::VariantAllele& edit : kv.second) {
+                    for (vcflib::VariantAllele& edit : parsed_clump[variant][alt_index]) {
                         // For each VariantAllele used by the alt
                         
-                        if(edit.alt != "") {
+                        if (edit.alt != "") {
                             // This is a visit to a node for the alt
                         
                             // We need a key to see if a node has been made for this edit already
                             auto key = make_tuple(edit.position, edit.ref, edit.alt);
                             
-                            if(created_nodes.count(key) == 0) {
+                            if (created_nodes.count(key) == 0) {
                                 // We don't have a run of nodes for this edit, so make one.
                                 vector<Node*> node_run = create_nodes(edit.alt);
                                 
@@ -282,14 +340,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                             }
                             
                             
-                            for(Node* node : created_nodes[key]) {
+                            for (Node* node : created_nodes[key]) {
                                 // Add a visit to each node we created/found in
                                 // order to the path for this alt of this
                                 // variant.
                                 add_match(alt_path, node);
                             }
                             
-                        } else if(edit.ref != "") {
+                        } else if (edit.ref != "") {
                             // It's a deletion (and not a weird ""->"" edit).
                             
                             // Add an entry to the deletion arcs
@@ -316,14 +374,17 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // haven't already been created, breaking wherever something can
             // come in or out.
             
+            // Note that in some cases (i.e. pure inserts) we may not need any ref nodes at all.
+            
             // See if any nodes are registered as starting between the reference cursor and the end of the last variant.
             // We don't care about nodes starting *at* the reference cursor, just about ones starting after.
             auto found = nodes_starting_at.upper_bound(reference_cursor);
             
             // Where will the node after this ref node we are about to make start?
-            size_t next_start = (found != nodes_starting_at.end() ? found->first : clump_end);
+            // That lets us know where this node has to end.
+            size_t next_start = (found != nodes_starting_at.end() ? found->first : last_edit_end + 1);
             
-            do {
+            while (reference_cursor < last_edit_end + 1) {
                 // We need to have a reference node/run of nodes (which may have
                 // already been created by a reference match) between where the
                 // curor is and where the next node starts or the clump ends.
@@ -333,7 +394,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 // We need a key to see if a node (run) has been made for this sequece already
                 auto key = make_tuple(reference_cursor, run_sequence, run_sequence);
                 
-                if(created_nodes.count(key) == 0) {
+                if (created_nodes.count(key) == 0) {
                     // We don't have a run of ref nodes up to the next break, so make one
                     vector<Node*> node_run = create_nodes(run_sequence);
                     
@@ -345,13 +406,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     created_nodes[key] = node_run;
                 }
                 
-                for(Node* node : created_nodes[key]) {
+                for (Node* node : created_nodes[key]) {
                     // Add a reference visit to each node we created/found
                     add_match(ref_path, node);
                     
-                    for(vcflib::Variant* variant : clump) {
+                    for (vcflib::Variant* variant : clump) {
                         // For each variant we might also be part of the ref allele of
-                        if(reference_cursor >= variant->position && reference_cursor < variant->position + variant->ref.size()) {
+                        if (reference_cursor >= variant->position &&
+                            reference_cursor < variant->position + variant->ref.size()) {
                             // If this run of nodes starts within the varaint...
                             // (We know if it starts in the variant it has to
                             // end in the variant, because the variant ends with
@@ -368,11 +430,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 
                 // Find the next place after the reference cursor at which a node starts.
                 found = nodes_starting_at.upper_bound(reference_cursor);
-                next_start = (found != nodes_starting_at.end() ? found->first : clump_end);
+                next_start = (found != nodes_starting_at.end() ? found->first : last_edit_end + 1);
                 
                 // Keep going until we have created reference nodes through to
-                // the end of the clump.
-            } while (reference_cursor < clump_end);
+                // the end of the clump's interior edits.
+            }
             
             // Now we have gotten through all the places where nodes start, before the end of the clump.
             
@@ -402,6 +464,13 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             
                 for (auto& left_node : nodes_ending_at[kv.first - 1]) {
                     // For every node that could come before these nodes
+                    
+                    if (left_node == right_node) {
+                        // This is a self loop caused by the two ends of an
+                        // insertion. Don't make an edge.
+                        continue;
+                    }
+                    
                     // Emit an edge
                     auto* edge = to_return.graph.add_edge();
                     edge->set_from(left_node);
