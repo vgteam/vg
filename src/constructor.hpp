@@ -206,6 +206,8 @@ public:
      * region). The variants must not extend beyond the given sequence, though
      * they can abut its edges.
      *
+     * Variants in the vector may not use symbolic alleles.
+     *
      * chunk_offset gives the global 0-based position at which this chunk starts
      * in the reference contig it is part of, which is used to correctly place
      * variants.

@@ -842,7 +842,21 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     
         // While we have variants we want to include
         
-        if (!chunk_variants.empty() && chunk_end > variant_source.get()->position) {
+        bool variant_acceptable = true;
+        for (string& alt : variant_source.get()->alt) {
+            // Validate each alt of the variant
+            if(!allATGC(alt)) {
+                // It may be a symbolic allele or something. Skip this variant.
+                cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
+                variant_acceptable = false;
+                break;
+            }
+        }
+        if (!variant_acceptable) {
+            // Skip variants that have symbolic alleles or other nonsense we can't parse.
+            variant_source.handle_buffer();
+            variant_source.fill_buffer();
+        } else if (!chunk_variants.empty() && chunk_end > variant_source.get()->position) {
             // If the chunk is nonempty and this variant overlaps what's in there, put it in too and try the next.
             // TODO: this is a lot like the clumping code...
             
