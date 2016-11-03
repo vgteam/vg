@@ -66,10 +66,14 @@ bool VcfBuffer::set_region(const string& contig, int64_t start, int64_t end) {
     }
 }
 
-VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file), buffer(*file) {
+VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file) {
     // Our buffer needs to know about the VCF file it is reading from, because
     // it cares about the sample names. If it's not associated properely, we
     // can't getNextVariant into it.
+    if (file) {
+        // But only do it if we actually have a real file
+        buffer.setVariantCallFile(file);
+    }
 }
 
 ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
