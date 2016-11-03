@@ -28,6 +28,12 @@ public:
             edge_weight(std::move(edge_weight))
             { };
     };
+    struct Growth {
+        set<id_t> nodes;
+        set<id_t> backbone;
+        list<id_t> ref_path;
+        Growth(){}
+    };  
     int get_node_degree(WeightedGraph &wg, id_t node_id);
 
     WeightedGraph get_weighted_graph(const string& ref_name, bool isGrooming = true);
@@ -47,19 +53,7 @@ public:
                                    const set<id_t>& all_nodes, id_t start_ref_node);
     void groom_components(EdgeMapping& edges_in, EdgeMapping& edges_out, set<id_t>& isolated_nodes, set<id_t>& main_nodes,
                           map<id_t, set<Edge*>> &minus_start, map<id_t, set<Edge*>> &minus_end);
-    struct InOutGrowth {
-        set<id_t> nodes;
-        set<id_t> backbone;
-        list<id_t> ref_path;
       
-        InOutGrowth(set<id_t>& nodes,
-            set<id_t>& backbone,
-            list<id_t>& ref_path)
-            : nodes(std::move(nodes)),
-            backbone(std::move(backbone)),
-            ref_path(std::move(ref_path))
-            { };
-    };    
     /* Iterate all edges adjacent to node, recalc degrees of related nodes.
      * If node has no incoming edges we add it to the sources and return as next node.
      * */
@@ -70,13 +64,13 @@ public:
     bool bfs(set<id_t>& nodes, map<id_t, map<id_t, int>>& edge_weight, id_t s, id_t t, map<id_t, id_t>& parent);
     void dfs(set<id_t>& nodes, id_t s, set<id_t>& visited, map<id_t, map<id_t, int>>& edge_weight);
     void find_in_out_web(   list<NodeTraversal>& sorted_nodes, 
-                            InOutGrowth& in_out_growth,
+                            Growth& in_out_growth,
                             WeightedGraph& weighted_graph,
                             set<id_t>& unsorted_nodes, 
                             id_t start_node,
                             bool in_out, int count);
     void process_in_out_growth( EdgeMapping& edges_out_nodes, id_t current_id,
-                                InOutGrowth& in_out_growth,
+                                Growth& in_out_growth,
                                 WeightedGraph& weighted_graph,
                                 set<id_t>& visited,
                                 list<NodeTraversal>& sorted_nodes, 

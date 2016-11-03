@@ -134,22 +134,20 @@ void FlowSort::max_flow_sort(list<NodeTraversal>& sorted_nodes,
     list<Mapping> ref_path(vg.paths.get_path(ref_name).begin(),
             vg.paths.get_path(ref_name).end());
     ref_path.reverse();
-    set<id_t> backbone;
-    list<id_t> reference;
+    Growth growth;
 
     for(auto const &mapping : ref_path) 
     {
-        backbone.insert(mapping.position().node_id());
-        reference.push_back(mapping.position().node_id());
+        growth.backbone.insert(mapping.position().node_id());
+        growth.ref_path.push_back(mapping.position().node_id());
     }
-    set<id_t> nodes;
     for (auto const &entry : vg.node_by_id) 
     {
-        nodes.insert(entry.first);
+        growth.nodes.insert(entry.first);
     }
 
-    set<id_t> unsorted_nodes(nodes.begin(), nodes.end());
-    InOutGrowth growth (nodes, backbone, reference);
+    set<id_t> unsorted_nodes(growth.nodes.begin(), growth.nodes.end());
+    
     find_in_out_web(sorted_nodes, growth, weighted_graph, unsorted_nodes, -1, 
             false, 0);
    
@@ -177,17 +175,14 @@ void FlowSort::max_flow_sort(list<NodeTraversal>& sorted_nodes,
         list<NodeTraversal> sorted_nodes_new;
     
         set<id_t> unsorted_nodes_new(growth.nodes.begin(), growth.nodes.end());
-        set<id_t> nodes_new(growth.nodes.begin(), growth.nodes.end());
- 
-        set<id_t> backbone_new;
-        list<id_t> reference_new;
+        Growth growth_new;
+        growth_new.nodes.insert(growth.nodes.begin(), growth.nodes.end());
         for (auto const &node : sorted_nodes) 
         {
-            backbone_new.insert(node.node->id());
-            reference_new.push_back(node.node->id());
+            growth_new.backbone.insert(node.node->id());
+            growth_new.ref_path.push_back(node.node->id());
         }
       
-        InOutGrowth growth_new (nodes_new, backbone_new, reference_new);
         WeightedGraph weighted_graph_new = get_weighted_graph(ref_name);
         find_in_out_web(sorted_nodes_new, growth_new, weighted_graph_new, 
                 unsorted_nodes_new, -1, false, 0);
@@ -614,7 +609,7 @@ id_t FlowSort::find_max_node(std::vector<std::set<id_t>> nodes_degree)
     finds in- and -out growth from the reference path and calls itself on them recursively.
 */
 void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
-                            InOutGrowth& in_out_growth,
+                            Growth& in_out_growth,
                             WeightedGraph& weighted_graph,
                             set<id_t>& unsorted_nodes, 
                             id_t start, bool in_out, int count) 
@@ -836,7 +831,7 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
         Determines the presence of a in- out- growth, finds its backbone and calls min cut algorithm.
      */
 void FlowSort::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_id,
-        InOutGrowth& in_out_growth,
+        Growth& io_growth,
         WeightedGraph& weighted_graph,
         set<id_t>& visited,
         list<NodeTraversal>& sorted_nodes,
@@ -848,21 +843,21 @@ void FlowSort::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_i
     if (!nodes_to_edges.count(current_id) || nodes_to_edges[current_id].size() == 0)
         return;
     
-    set<id_t>& backbone = in_out_growth.backbone;
-    set<id_t>& nodes = in_out_growth.nodes;
-    set<id_t> new_backbone;
-    list<id_t> new_ref_path;
+    set<id_t>& backbone = io_growth.backbone;
+    set<id_t>& nodes = io_growth.nodes;
+    
+    Growth growth_new;
     id_t start_node = current_id;
     
     while (true) 
     {
-        if (new_backbone.count(start_node) || (start_node != current_id && 
+        if (growth_new.backbone.count(start_node) || (start_node != current_id && 
                 visited.count(start_node))) 
         {
             break;
         }
-        new_backbone.insert(start_node);
-        new_ref_path.push_back(start_node);
+        growth_new.backbone.insert(start_node);
+        growth_new.ref_path.push_back(start_node);
         int weight = 0;
         Edge* next_edge;
         //take edges with maximum weight to the new reference path
@@ -872,7 +867,7 @@ void FlowSort::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_i
             {
                 id_t tmp = reverse ? out_edge->from() : out_edge->to();
                 if (!nodes.count(tmp) || backbone.count(tmp) ||
-                        new_backbone.count(tmp) || visited.count(tmp)) 
+                        growth_new.backbone.count(tmp) || visited.count(tmp)) 
                 {
                     continue;
                 }
@@ -884,18 +879,16 @@ void FlowSort::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_i
         }
     }
 
-    set<id_t> web;
-    mark_dfs(nodes_to_edges, current_id, web, visited, reverse, nodes, backbone);
-    if (web.size() == 1 && web.count(current_id)) 
+    mark_dfs(nodes_to_edges, current_id, growth_new.nodes, visited, reverse, nodes, backbone);
+    if (growth_new.nodes.size() == 1 && growth_new.nodes.count(current_id)) 
     {
         return;
     }
     if (!reverse)
     {
-        new_ref_path.reverse();
+        growth_new.ref_path.reverse();
     }
-    InOutGrowth growth (web, new_backbone, new_ref_path);
-    find_in_out_web(sorted_nodes, growth, weighted_graph, unsorted_nodes, 
+    find_in_out_web(sorted_nodes, growth_new, weighted_graph, unsorted_nodes, 
             current_id, reverse , count+1);
    
 }
