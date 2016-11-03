@@ -660,12 +660,124 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     // in previous chunks?
     id_t max_id = 0;
     
+    // Whenever a chunk ends with a single node, we separate it out and buffer
+    // it here, because we may need to glue it together with subsequent leading
+    // nodes that were broken by a chunk boundary.
+    Node last_node_buffer;
+    
+    // Sometimes we need to emit single node reference chunks gluing things
+    // together
+    auto emit_reference_node = [&](Node& node) {
+    
+        // Make a single node chunk for the node
+        Graph chunk;
+        *(chunk.add_node()) = node;
+        
+        // It needs a primary path mapping.
+        Path* path = chunk.add_path();
+        path->set_name(reference_contig);
+        Mapping* mapping = path->add_mapping();
+        mapping->mutable_position()->set_node_id(node.id());
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(node.sequence().size());
+        edit->set_to_length(node.sequence().size());
+        
+        // Emit this chunk we were holding back.
+        callback(chunk);
+    };
+    
     // When a chunk gets constructed, we'll call this handler, which will wire
     // it up to the previous chunk, if any, and then call the callback we're
     // supposed to send our graphs out through.
     // Modifies the chunk in place.
     auto wire_and_emit = [&](ConstructedChunk& chunk) {
         // When each chunk comes back:
+        
+        if (chunk.left_ends.size() == 1 && last_node_buffer.id() != 0) {
+            // We have a last node from the last chunk that we want to glom onto
+            // this chunk.
+            
+            // Grab the first node, which we know must be the single source for
+            // the chunk.
+            Node* mutable_first_node = chunk.graph.mutable_node(0);
+            assert(chunk.left_ends.count(mutable_first_node->id()) == 1);
+            
+            // Combine the sequences for the two nodes
+            string combined_sequence = last_node_buffer.sequence() + mutable_first_node->sequence();
+            
+            if (combined_sequence.size() <= max_node_size) {
+                // We can fit both nodes into one node.
+                mutable_first_node->set_sequence(combined_sequence);
+                
+                // We can re-use the ID from the last node, which we discard.
+                // Edges to it will get rerouted to the first node. And we know
+                // it can't have any mappings except the primary path.
+                max_id--;
+                
+                // We don't need any edges to it, either.
+                exposed_nodes.clear();
+                
+                // Clear the buffer since we moved its sequence and ID into the
+                // graph.
+                last_node_buffer = Node();
+            } else {
+                // We need to keep two nodes. Reapportion the sequence between them.
+                last_node_buffer.set_sequence(combined_sequence.substr(0, max_node_size));
+                mutable_first_node->set_sequence(combined_sequence.substr(max_node_size));
+                
+                // Emit the buffered node as a chunk
+                emit_reference_node(last_node_buffer);
+                // Clear it
+                last_node_buffer = Node();
+            }
+
+            // Update the mapping lengths on the mutable first node.
+            // First we find the primary path
+            Path* path = chunk.graph.mutable_path(0);
+            assert(path->name() == reference_contig);
+            // Then the first mapping
+            Mapping* mapping = path->mutable_mapping(0);
+            assert(mapping->position().node_id() == mutable_first_node->id());
+            assert(mapping->edit_size() == 1);
+            // Then the only edit
+            Edit* edit = mapping->mutable_edit(0);
+            // Correct its length
+            edit->set_from_length(mutable_first_node->sequence().size());
+            edit->set_to_length(mutable_first_node->sequence().size());
+        } else if (last_node_buffer.id() != 0) {
+            // There's no single leading node on this next chunk, but we still
+            // have a single trailing node to emit.
+            
+            // Emit it
+            emit_reference_node(last_node_buffer);
+            // Clear it
+            last_node_buffer = Node();
+        }
+        
+        if (chunk.right_ends.size() == 1) {
+            // We need to pull out the last node in the chunk. Note that it may
+            // also be the first node in the chunk...
+            
+            // We know it's the last node in the graph
+            last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
+            
+            
+            assert(chunk.right_ends.count(last_node_buffer.id()));
+            
+            // Remove it
+            chunk.graph.mutable_node()->RemoveLast();
+            
+            // Find the primary path
+            Path* path = chunk.graph.mutable_path(0);
+            assert(path->name() == reference_contig);
+            // Then drop last mapping, which has to be to this node
+            assert(path->mapping_size() > 0);
+            assert(path->mapping(path->mapping_size() - 1).position().node_id() == last_node_buffer.id());
+            path->mutable_mapping()->RemoveLast();
+            
+            // Update its ID separately, since it's no longer in the graph.
+            last_node_buffer.set_id(last_node_buffer.id() + max_id);
+        }
         
         // Up all the IDs in the graph
         // TODO: this is repeating code that vg::VG has...
@@ -786,7 +898,7 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
         }
     }
     
-    // We ran out of variants, so finish this chunka nd all the others after it
+    // We ran out of variants, so finish this chunk and all the others after it
     // without looking for variants.
     // TODO: unify with above loop?
     while (chunk_start < reference_end) {
@@ -812,7 +924,8 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
         chunk_variants.clear();
     }
     
-    // All the chunks have been wired and emitted. So we're done.
+    // All the chunks have been wired and emitted. Now emit the very last node, if any
+    emit_reference_node(last_node_buffer);
     
 }
 

@@ -258,6 +258,20 @@ ref	5	rs1337	A	G	29	PASS	.	GT
             REQUIRE(snp_alt.id() != 0);
         }
         
+        SECTION("the single source should be the very first node, with ID 1") {
+            REQUIRE(before.id() == 1);
+            REQUIRE(result.left_ends.size() == 1);
+            REQUIRE(result.left_ends.count(before.id()) == 1);
+            REQUIRE(result.graph.node(0).id() == before.id());
+        }
+        
+        SECTION("the single sink should be the very last node, with ID max_id") {
+            REQUIRE(after.id() == result.max_id);
+            REQUIRE(result.right_ends.size() == 1);
+            REQUIRE(result.right_ends.count(after.id()) == 1);
+            REQUIRE(result.graph.node(result.graph.node_size() - 1).id() == after.id());
+        }
+        
     }
     
     SECTION("the graph should have 4 edges") {
@@ -389,6 +403,10 @@ ref	5	rs1337	A	G	29	PASS	.	GT
                 REQUIRE(from_length(allele0.mapping(0)) == snp_alt.sequence().size());
             }
                 
+        }
+        
+        SECTION("the reference path should be path 0") {
+            REQUIRE(result.graph.path(0).name() == primary.name());
         }
     }
 

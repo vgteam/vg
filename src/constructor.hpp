@@ -30,6 +30,14 @@ using namespace std;
  * connected to when you connect to the start of the chunk, and a set of node
  * IDs whose right sides need to be connected to when you connect to the end of
  * the chunk.
+ *
+ * Node ordering is restricted: if there is a single source, it must be the very
+ * first node in the graph with ID 1, and if there is a single sink it must be
+ * the very last node in the graph with ID max_id. Additionally, single sources
+ * and single sinks must be visited by only a single path, the reference path.
+ *
+ * The overall reference path must also always be path 0. Also, all mappings in
+ * all paths must be full-length matches on the forward strand.
  */
 struct ConstructedChunk {
     // What nodes, edges, and mappings exist?
