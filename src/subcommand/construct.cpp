@@ -16,7 +16,7 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE        input VCF" << endl
          << "    -r, --reference FILE  input FASTA reference" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION   specify a particular chromosome" << endl
+         << "    -R, --region REGION   specify a particular chromosome or 1-based region" << endl
          << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
          << "                          sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N   variants per region to parallelize" << endl
@@ -125,6 +125,40 @@ int main_construct(int argc, char** argv) {
             abort ();
 
         }
+    }
+    
+    if (!region.empty()) {
+        // We want to limit to a certain region
+        if (!region_is_chrom) {
+            // We are allowed to parse the region.
+            // Break out sequence name and region bounds
+            string seq_name;
+            int start_pos = 0, stop_pos = 0;
+            parse_region(region,
+                         seq_name,
+                         start_pos,
+                         stop_pos);
+                         
+            if (start_pos != 0 && stop_pos != 0) {
+                // These are 0-based, so if both are nonzero we got a real set of coordinates
+                cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                constructor.allowed_vcf_names.insert(seq_name);
+                // Make sure to correct the coordinates to 0-based
+                constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos - 1);
+            } else if (start_pos == 0 && stop_pos == 0) {
+                // We just got a name
+                cerr << "Restricting to " << seq_name << " from 1 to end" << endl;
+                constructor.allowed_vcf_names.insert(seq_name);
+            } else {
+                // This doesn't make sense. Does it have like one coordinate?
+                cerr << "error:[vg construct] could not parse " << region << endl;
+                exit(1);
+            }
+         } else {
+            // We have been told not to parse the region
+            cerr << "Restricting to " << region << " from 1 to end" << endl;
+            constructor.allowed_vcf_names.insert(region);
+         }
     }
 
     vcflib::VariantCallFile variant_file;
