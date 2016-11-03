@@ -190,14 +190,20 @@ public:
     /**
      * Construct a ConstructedChunk of graph from the given piece of sequence,
      * with the given name, applying the given variants. The variants need to be
-     * sorted by start position, have their start positions set to be ZERO-BASED
-     * relative to the first base (0) of the given sequence, and not overlap
-     * with any variants not in the vector we have (i.e. we need access to all
-     * overlapping variants for this region). The variants must not extend
-     * beyond the given sequence, though they can abut its edges.
+     * sorted by start position, and have their start positions set to be ZERO-
+     * BASED. However, they also need to have their start positions relative to
+     * the global start of the contig, so that hash-based names come out right
+     * for them. They also need to not overlap with any variants not in the
+     * vector we have (i.e. we need access to all overlapping variants for this
+     * region). The variants must not extend beyond the given sequence, though
+     * they can abut its edges.
+     *
+     * chunk_offset gives the global 0-based position at which this chunk starts
+     * in the reference contig it is part of, which is used to correctly place
+     * variants.
      */
     ConstructedChunk construct_chunk(string reference_sequence, string reference_path_name,
-        vector<vcflib::Variant> variants) const;
+        vector<vcflib::Variant> variants, size_t chunk_offset) const;
     
     /**
      * Construct a graph for the given VCF contig name, using the given

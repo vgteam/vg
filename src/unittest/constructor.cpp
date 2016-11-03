@@ -18,7 +18,7 @@ namespace unittest {
 TEST_CASE( "An empty chunk with no variants can be constructed", "[constructor]" ) {
     Constructor constructor;
     
-    auto result = constructor.construct_chunk("", "empty", std::vector<vcflib::Variant>());
+    auto result = constructor.construct_chunk("", "empty", std::vector<vcflib::Variant>(), 0);
     
     SECTION("the graph should have no elements") {
         REQUIRE(result.graph.node_size() == 0);
@@ -32,7 +32,7 @@ TEST_CASE( "An empty chunk with no variants can be constructed", "[constructor]"
 TEST_CASE( "A small linear chunk with no variants can be constructed", "[constructor]" ) {
     Constructor constructor;
     
-    auto result = constructor.construct_chunk("GATTACA", "movie", std::vector<vcflib::Variant>());
+    auto result = constructor.construct_chunk("GATTACA", "movie", std::vector<vcflib::Variant>(), 0);
     
     SECTION("the graph should have one node") {
         REQUIRE(result.graph.node_size() == 1);
@@ -93,7 +93,7 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
     Constructor constructor;
     constructor.max_node_size = 4;
     
-    auto result = constructor.construct_chunk("GATTACA", "movie", std::vector<vcflib::Variant>());
+    auto result = constructor.construct_chunk("GATTACA", "movie", std::vector<vcflib::Variant>(), 0);
     
     SECTION("the graph should have two nodes") {
         REQUIRE(result.graph.node_size() == 2);
@@ -199,7 +199,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
     constructor.alt_paths = true;
 
     // Construct the graph    
-    return constructor.construct_chunk(ref_sequence, ref_name, variants);
+    return constructor.construct_chunk(ref_sequence, ref_name, variants, 0);
 }
 
 TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
@@ -391,9 +391,66 @@ ref	5	rs1337	A	G	29	PASS	.	GT
                 
         }
     }
-	
 
 }
+
+TEST_CASE( "Path names do not depend on chunking", "[constructor]" ) {
+
+    // We'll work on this tiny VCF
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	rs1337	A	G	29	PASS	.	GT
+)";
+
+    string ref = "GATTACA";
+
+    // Make a stream out of the data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+    
+    // Fill in this vector of variants
+    std::vector<vcflib::Variant> variants;
+    vcflib::Variant var;
+    while (vcf.getNextVariant(var)) {
+        // Make sure to correct each variant's position to 0-based
+        var.position -= 1;
+        variants.push_back(var);
+    }
+
+    // Make a constructor
+    Constructor constructor;
+    constructor.alt_paths = true;
+    
+    // Construct the graph    
+    auto result1 = constructor.construct_chunk(ref, "ref", variants, 0);
+    
+    // Construct the graph with a slight offset
+    auto result2 = constructor.construct_chunk(ref.substr(1), "ref", variants, 1);
+
+    // Get the two sets of path names
+    set<string> paths1;
+    for(size_t i = 0; i < result1.graph.path_size(); i++) {
+        paths1.insert(result1.graph.path(i).name());
+    }
+    set<string> paths2;
+    for(size_t i = 0; i < result2.graph.path_size(); i++) {
+        paths2.insert(result2.graph.path(i).name());
+    }
+    
+    REQUIRE(paths1 == paths2);
+
+}
+
 
 TEST_CASE( "A deletion can be constructed", "[constructor]" ) {
 

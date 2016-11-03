@@ -77,7 +77,7 @@ VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file) {
 }
 
 ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
-    vector<vcflib::Variant> variants) const {
+    vector<vcflib::Variant> variants, size_t chunk_offset) const {
     
     // Construct a chunk for this sequence with these variants.
     ConstructedChunk to_return;
@@ -199,13 +199,13 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     
         // Group variants into clumps of overlapping variants.
         if (clump.empty() || 
-            (next_variant != variants.end() && clump_end > next_variant->position)) {
+            (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
             
             // Either there are no variants in the clump, or this variant
             // overlaps the clump. It belongs in the clump
             clump.push_back(&(*next_variant));
             // It may make the clump longer and necessitate adding more variants.
-            clump_end = max(clump_end, next_variant->position + next_variant->ref.size());
+            clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
             
             // Try the variant after that
             next_variant++;
@@ -233,7 +233,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             for (vcflib::Variant* variant : clump) {
             
                 // Check the variant's reference sequence to catch bad VCF/FASTA pairings
-                auto expected_ref = reference_sequence.substr(variant->position, variant->ref.size());
+                auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
             
                 if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
@@ -291,7 +291,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                         // Drop leading ref matches
 #ifdef debug
                         cerr << "\tDrop " << alt_parts.front().ref << " -> " << alt_parts.front().alt
-                            << " @ " << alt_parts.front().position << endl;
+                            << " @ " << alt_parts.front().position - chunk_offset << endl;
 #endif
                         alt_parts.pop_front();
                     }
@@ -300,23 +300,23 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                         // Drop trailing ref matches
 #ifdef debug
                         cerr << "\tDrop " << alt_parts.back().ref << " -> " << alt_parts.back().alt
-                            << " @ " << alt_parts.back().position << endl; 
+                            << " @ " << alt_parts.back().position - chunk_offset << endl; 
 #endif
                         alt_parts.pop_back();
                     }
                     
 #ifdef debug
                     for (auto& edit : alt_parts) {
-                        cerr << "\tKept " << edit.ref << " -> " << edit.alt << " @ " << edit.position << endl; 
+                        cerr << "\tKept " << edit.ref << " -> " << edit.alt << " @ " << edit.position - chunk_offset << endl; 
                     }
 #endif
                     
                     if (!alt_parts.empty()) {
                         // If this alt's interior non-ref portion exists, see if
                         // it extends beyond those of other alts in the clump.
-                        first_edit_start = min(first_edit_start, (int64_t) alt_parts.front().position);
+                        first_edit_start = min(first_edit_start, (int64_t) (alt_parts.front().position - chunk_offset));
                         last_edit_end = max(last_edit_end,
-                            (int64_t) (alt_parts.back().position + alt_parts.back().ref.size() - 1));
+                            (int64_t) (alt_parts.back().position - chunk_offset + alt_parts.back().ref.size() - 1));
                     }
                 }
             }
@@ -375,15 +375,16 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                             // This is a visit to a node for the alt
                         
                             // We need a key to see if a node has been made for this edit already
-                            auto key = make_tuple(edit.position, edit.ref, edit.alt);
+                            auto key = make_tuple(edit.position - chunk_offset, edit.ref, edit.alt);
                             
                             if (created_nodes.count(key) == 0) {
                                 // We don't have a run of nodes for this edit, so make one.
                                 vector<Node*> node_run = create_nodes(edit.alt);
                                 
                                 // Remember where the first one starts and the last one ends, for wiring up later.
-                                nodes_starting_at[edit.position].insert(node_run.front()->id());
-                                nodes_ending_at[edit.position + edit.ref.size() - 1].insert(node_run.back()->id());
+                                nodes_starting_at[edit.position - chunk_offset].insert(node_run.front()->id());
+                                nodes_ending_at[edit.position - chunk_offset + edit.ref.size() - 1].insert(
+                                    node_run.back()->id());
                                 
                                 // Save it in case any other alts also have this edit.
                                 created_nodes[key] = node_run;
@@ -411,9 +412,9 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                             // Add an entry to the deletion arcs
                             
                             // What is the past-the-end position (first non-deleted)
-                            size_t arc_end = edit.position + edit.ref.size();
+                            size_t arc_end = edit.position - chunk_offset + edit.ref.size();
                             // What is the before-the-beginning position (last non-deleted, may be -1)
-                            int64_t arc_start = (int64_t) edit.position - 1;
+                            int64_t arc_start = (int64_t) edit.position - chunk_offset - 1;
                             
                             // Add the arc (if it doesn't exist). We only index
                             // arcs from the end, because we'll make them when
@@ -470,8 +471,8 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     
                     for (vcflib::Variant* variant : clump) {
                         // For each variant we might also be part of the ref allele of
-                        if (reference_cursor >= variant->position &&
-                            reference_cursor < variant->position + variant->ref.size()) {
+                        if (reference_cursor >= variant->position - chunk_offset &&
+                            reference_cursor < variant->position - chunk_offset + variant->ref.size()) {
                             // If this run of nodes starts within the varaint...
                             // (We know if it starts in the variant it has to
                             // end in the variant, because the variant ends with
@@ -777,7 +778,7 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
             auto chunk_ref = reference.getSubSequence(reference_contig, chunk_start, chunk_end - chunk_start);
             
             // Call the construction
-            auto result = construct_chunk(chunk_ref, reference_contig, chunk_variants);
+            auto result = construct_chunk(chunk_ref, reference_contig, chunk_variants, chunk_start);
             
             // Wire up and emit the chunk graph
             wire_and_emit(result);
@@ -806,7 +807,7 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
         auto chunk_ref = reference.getSubSequence(reference_contig, chunk_start, chunk_end - chunk_start);
         
         // Call the construction
-        auto result = construct_chunk(chunk_ref, reference_contig, chunk_variants);
+        auto result = construct_chunk(chunk_ref, reference_contig, chunk_variants, chunk_start);
         
         // Wire up and emit the chunk graph
         wire_and_emit(result);
