@@ -2,46 +2,49 @@
 #include "stream.hpp"
 #include "gssw_aligner.hpp"
 #include "vg.pb.h"
+#include "flow_sort.hpp"
 #include <raptor2/raptor2.h>
 
 namespace vg {
 
 using namespace std;
 using namespace gfak;
+FlowSort::FlowSort(VG& vg):vg(vg) {
+    
+}
 
-
-void VG::max_flow(const string& ref_name, bool isGrooming) 
+void FlowSort::max_flow(const string& ref_name, bool isGrooming) 
 {
-    if (size() <= 1) return;
+    if (vg.size() <= 1) return;
     // Topologically sort, which orders and orients all the nodes.
     list<NodeTraversal> sorted_nodes;
-    paths.sort_by_mapping_rank();
+    vg.paths.sort_by_mapping_rank();
     max_flow_sort(sorted_nodes, ref_name, isGrooming);
     list<NodeTraversal>::reverse_iterator n = sorted_nodes.rbegin();
     int i = 0;
 //    cout << "result" << endl;
-    for ( ; i < graph.node_size() && n != sorted_nodes.rend();
+    for ( ; i < vg.graph.node_size() && n != sorted_nodes.rend();
           ++i, ++n) {
         // Put the nodes in the order we got
         cout << (*n).node->id() << " ";
-        swap_nodes(graph.mutable_node(i), (*n).node);
+        vg.swap_nodes(vg.graph.mutable_node(i), (*n).node);
     }
 //    rebuild_indexes();
     cout << endl;
 }
 
-void VG::fast_linear_sort(const string& ref_name, bool isGrooming)
+void FlowSort::fast_linear_sort(const string& ref_name, bool isGrooming)
 {
-    if (size() <= 1) return;
+    if (vg.size() <= 1) return;
     // Topologically sort, which orders and orients all the nodes.
     list<NodeTraversal> sorted_nodes;
-    paths.sort_by_mapping_rank();
+    vg.paths.sort_by_mapping_rank();
     
     //get weighted graph
     WeightedGraph weighted_graph = get_weighted_graph(ref_name, isGrooming);
 
     //all nodes size
-    id_t nodes_size =node_by_id.size();
+    id_t nodes_size =vg.node_by_id.size();
 
     //create set of sinks and sources
     std::set<id_t> sources;
@@ -49,7 +52,7 @@ void VG::fast_linear_sort(const string& ref_name, bool isGrooming)
     std::vector<std::set<id_t>> nodes_degree;
     int cur_node_degree;
     //find sources
-    for (auto const &entry : node_by_id)
+    for (auto const &entry : vg.node_by_id)
     {
         if(!weighted_graph.edges_in_nodes.count(entry.first) || 
                 weighted_graph.edges_in_nodes[entry.first].size() == 0)
@@ -98,7 +101,7 @@ void VG::fast_linear_sort(const string& ref_name, bool isGrooming)
 
         //add next node
         //sorted.push_back(next);
-        NodeTraversal node = NodeTraversal(node_by_id[next], false);
+        NodeTraversal node = NodeTraversal(vg.node_by_id[next], false);
         sorted_nodes.push_back(node);
 
         //remove edges related with node
@@ -111,25 +114,25 @@ void VG::fast_linear_sort(const string& ref_name, bool isGrooming)
     list<NodeTraversal>::iterator n = sorted_nodes.begin();
     int i = 0;
 //    cout << "result" << endl;
-    for ( ; i < graph.node_size() && n != sorted_nodes.end();
+    for ( ; i < vg.graph.node_size() && n != sorted_nodes.end();
           ++i, ++n) {
         // Put the nodes in the order we got
         cout << (*n).node->id() << " ";
-        swap_nodes(graph.mutable_node(i), (*n).node);
+        vg.swap_nodes(vg.graph.mutable_node(i), (*n).node);
     }
 //    rebuild_indexes();
     cout << endl;
 }
 
-void VG::max_flow_sort(list<NodeTraversal>& sorted_nodes, 
+void FlowSort::max_flow_sort(list<NodeTraversal>& sorted_nodes, 
         const string& ref_name, bool isGrooming) 
 {
 
     //assign weight to edges
     //edge weight is determined as number of paths, that go through the edge
     WeightedGraph weighted_graph = get_weighted_graph(ref_name, isGrooming);
-    list<Mapping> ref_path(paths.get_path(ref_name).begin(),
-            paths.get_path(ref_name).end());
+    list<Mapping> ref_path(vg.paths.get_path(ref_name).begin(),
+            vg.paths.get_path(ref_name).end());
     ref_path.reverse();
     set<id_t> backbone;
     list<id_t> reference;
@@ -140,7 +143,7 @@ void VG::max_flow_sort(list<NodeTraversal>& sorted_nodes,
         reference.push_back(mapping.position().node_id());
     }
     set<id_t> nodes;
-    for (auto const &entry : node_by_id) 
+    for (auto const &entry : vg.node_by_id) 
     {
         nodes.insert(entry.first);
     }
@@ -150,13 +153,13 @@ void VG::max_flow_sort(list<NodeTraversal>& sorted_nodes,
     find_in_out_web(sorted_nodes, growth, weighted_graph, unsorted_nodes, -1, 
             false, 0);
    
-    if (sorted_nodes.size() > graph.node_size()) 
+    if (sorted_nodes.size() > vg.graph.node_size()) 
     {
 //        cerr << "Failed to sort graph " << endl;
 //        cerr << "sorted: " << sorted_nodes.size() << " in graph: " << endl;
         return;
     }
-    while (sorted_nodes.size() < graph.node_size()) 
+    while (sorted_nodes.size() < vg.graph.node_size()) 
     {
 //        cerr << "additional sorting for missing nodes" << endl;
 //        cerr << "unsorted: " << unsorted_nodes.size() << endl;
@@ -190,7 +193,7 @@ void VG::max_flow_sort(list<NodeTraversal>& sorted_nodes,
                 unsorted_nodes_new, -1, false, 0);
 
         sorted_nodes = sorted_nodes_new;
-        if (sorted_nodes.size() != graph.node_size() && 
+        if (sorted_nodes.size() != vg.graph.node_size() && 
                 unsorted_nodes.size() == unsorted_nodes_new.size())
         {
 //            cerr << "Failed to insert missing nodes"<< endl;
@@ -204,14 +207,14 @@ void VG::max_flow_sort(list<NodeTraversal>& sorted_nodes,
     {
         for (auto const &id : unsorted_nodes) 
         {
-            NodeTraversal node = NodeTraversal(node_by_id[id], false);
+            NodeTraversal node = NodeTraversal(vg.node_by_id[id], false);
             sorted_nodes.push_back(node);
         }
     }
 }
 
 /* return degree of the node in the WeightedGraph*/
-int VG::get_node_degree(VG::WeightedGraph& wg, id_t node_id)
+int FlowSort::get_node_degree(FlowSort::WeightedGraph& wg, id_t node_id)
 {
 
     std::vector<Edge*> in_edges = wg.edges_in_nodes[node_id];
@@ -229,23 +232,23 @@ int VG::get_node_degree(VG::WeightedGraph& wg, id_t node_id)
 /* Weight is assigned to edges as number of paths, that go through hat edge.
    Path goes through the edge, if both adjacent nodes of the edge are mapped to that path.*/
 
-VG::WeightedGraph VG::get_weighted_graph(const string& ref_name, bool isGrooming)
+FlowSort::WeightedGraph FlowSort::get_weighted_graph(const string& ref_name, bool isGrooming)
 {
     EdgeMapping edges_out_nodes;
     EdgeMapping edges_in_nodes;
     map<Edge*, int> edge_weight;
-    int ref_weight = paths._paths.size();
+    int ref_weight = vg.paths._paths.size();
     if (ref_weight < 5) {
         ref_weight = 5;
     }
 
-    this->flip_doubly_reversed_edges();
+    vg.flip_doubly_reversed_edges();
     //"bad" edges
     map<id_t, set<Edge*>> minus_start;//vertex - edges
     map<id_t, set<Edge*>> minus_end;//vertex - edges
     set<id_t> nodes;
     id_t start_ref_node = 0;
-    for (auto &edge : edge_index)
+    for (auto &edge : vg.edge_index)
     {
         id_t from = edge.first->from();
         id_t to = edge.first->to();
@@ -264,13 +267,13 @@ VG::WeightedGraph VG::get_weighted_graph(const string& ref_name, bool isGrooming
         nodes.insert(edge.first->to());
 
         //assign weight to the minimum number of paths of the adjacent nodes
-        auto from_node_mapping = paths.get_node_mapping(from);
+        auto from_node_mapping = vg.paths.get_node_mapping(from);
 //        NodeMapping to_node_mapping = paths.get_node_mapping(to);
         int weight = 1;
 
         for (auto const &path_mapping : from_node_mapping) {
             string path_name = path_mapping.first;
-            if (paths.are_consecutive_nodes_in_path(from, to, path_name))
+            if (vg.paths.are_consecutive_nodes_in_path(from, to, path_name))
             {
                 if (path_name == ref_name)
                 {
@@ -300,13 +303,13 @@ VG::WeightedGraph VG::get_weighted_graph(const string& ref_name, bool isGrooming
 
             }
         }
-        this->rebuild_edge_indexes();
+        vg.rebuild_edge_indexes();
     }
     return WeightedGraph(edges_out_nodes, edges_in_nodes, edge_weight);
 }
 
 
-void VG::groom_components(EdgeMapping& edges_in, EdgeMapping& edges_out, set<id_t>& isolated_nodes, set<id_t>& main_nodes,
+void FlowSort::groom_components(EdgeMapping& edges_in, EdgeMapping& edges_out, set<id_t>& isolated_nodes, set<id_t>& main_nodes,
                           map<id_t, set<Edge*>> &minus_start, map<id_t, set<Edge*>> &minus_end)
 {
     vector<Edge*> from_minus_edges;
@@ -408,13 +411,13 @@ void VG::groom_components(EdgeMapping& edges_in, EdgeMapping& edges_out, set<id_
     main_nodes.insert(isolated_nodes.begin(), isolated_nodes.end());
 }
 
-void VG::update_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e)
+void FlowSort::update_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e)
 {
     edges_in[e->to()].push_back(e);
     edges_out[e->from()].push_back(e);
 }
 
-void VG::erase_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e)
+void FlowSort::erase_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e)
 {
     int i = 0;
     while(*(edges_in[e->to()].begin() + i) != e)
@@ -426,7 +429,7 @@ void VG::erase_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge*
     edges_out[e->from()].erase(edges_out[e->from()].begin() + i);
 }
 
-void VG::reverse_from_start_to_end_edge(Edge* &e)
+void FlowSort::reverse_from_start_to_end_edge(Edge* &e)
 {
     e->set_from_start(false);
     e->set_to_end(false);
@@ -434,7 +437,7 @@ void VG::reverse_from_start_to_end_edge(Edge* &e)
 }
 
 
-void VG::reverse_edge(Edge* &e)
+void FlowSort::reverse_edge(Edge* &e)
 {
     id_t tmp_vrtx = e->to();
     e->set_to(e->from());
@@ -443,14 +446,14 @@ void VG::reverse_edge(Edge* &e)
 
 
 // a(from_start ==true) -> b        =>        not a (from_start == false)  -> b
-id_t VG::from_simple_reverse(Edge* &e)
+id_t FlowSort::from_simple_reverse(Edge* &e)
 {
     e->set_from_start(false);
     return e->from();
 }
 
 // b(from_start ==true) -> a        =>        not a (from_start == false)  -> b
-id_t VG::from_simple_reverse_orientation(Edge* &e)
+id_t FlowSort::from_simple_reverse_orientation(Edge* &e)
 {
     e->set_from_start(false);
     reverse_edge(e);
@@ -458,21 +461,21 @@ id_t VG::from_simple_reverse_orientation(Edge* &e)
 }
 
 // a -> b (to_end ==true)       =>        a -> not b(to_end ==false)
-id_t VG::to_simple_reverse(Edge* &e)
+id_t FlowSort::to_simple_reverse(Edge* &e)
 {
     e->set_to_end(false);
     return e->to();
 }
 
 // b -> a (to_end ==true)       =>        a -> not b(to_end ==false)
-id_t VG::to_simple_reverse_orientation(Edge* &e)
+id_t FlowSort::to_simple_reverse_orientation(Edge* &e)
 {
     reverse_edge(e);
     e->set_to_end(false);
     return e->to();
 }
 
-vector<set<id_t>> VG::get_cc_in_wg(EdgeMapping& edges_in,EdgeMapping& edges_out,
+vector<set<id_t>> FlowSort::get_cc_in_wg(EdgeMapping& edges_in,EdgeMapping& edges_out,
                                    const set<id_t>& all_nodes, id_t start_ref_node)
 {
     set<id_t> nodes(all_nodes.begin(), all_nodes.end());
@@ -519,7 +522,7 @@ vector<set<id_t>> VG::get_cc_in_wg(EdgeMapping& edges_in,EdgeMapping& edges_out,
 /* Iterate all edges adjacent to node, recalc degrees of related nodes.
  * If node has no incoming edges we add it to the sources and return as next node.
  * */
-id_t VG::get_next_node_recalc_degrees(WeightedGraph& wg, std::vector<std::set<id_t>>& degrees,std::set<id_t> &sources,
+id_t FlowSort::get_next_node_recalc_degrees(WeightedGraph& wg, std::vector<std::set<id_t>>& degrees,std::set<id_t> &sources,
                                      id_t node)
 {
     id_t result = -1;
@@ -593,7 +596,7 @@ id_t VG::get_next_node_recalc_degrees(WeightedGraph& wg, std::vector<std::set<id
 }
 
 /*Find node with max degree*/
-id_t VG::find_max_node(std::vector<std::set<id_t>> nodes_degree)
+id_t FlowSort::find_max_node(std::vector<std::set<id_t>> nodes_degree)
 {
     int start_size = nodes_degree.size()-1;
     int last_ind = start_size;
@@ -610,7 +613,7 @@ id_t VG::find_max_node(std::vector<std::set<id_t>> nodes_degree)
 /*  Method finds min cut in a given set of nodes, then removes min cut edges,
     finds in- and -out growth from the reference path and calls itself on them recursively.
 */
-void VG::find_in_out_web(list<NodeTraversal>& sorted_nodes,
+void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
                             InOutGrowth& in_out_growth,
                             WeightedGraph& weighted_graph,
                             set<id_t>& unsorted_nodes, 
@@ -634,7 +637,7 @@ void VG::find_in_out_web(list<NodeTraversal>& sorted_nodes,
             {
                 continue;
             }
-            NodeTraversal node = NodeTraversal(node_by_id[id], false);
+            NodeTraversal node = NodeTraversal(vg.node_by_id[id], false);
             sorted_nodes.push_back(node);
             unsorted_nodes.erase(id);
 //            cerr << "erasing " << id << endl;
@@ -654,8 +657,8 @@ void VG::find_in_out_web(list<NodeTraversal>& sorted_nodes,
     map<Edge*, int>& edge_weight = weighted_graph.edge_weight;
 
     //add source and sink nodes
-    id_t source = graph.node_size() + 1;
-    id_t sink = graph.node_size() + 2;
+    id_t source = vg.graph.node_size() + 1;
+    id_t sink = vg.graph.node_size() + 2;
     id_t graph_size = sink + 1;
 
     set<Edge*> out_joins;
@@ -738,7 +741,7 @@ void VG::find_in_out_web(list<NodeTraversal>& sorted_nodes,
     for (auto const &current_id: ref_path) 
     {
         list<NodeTraversal> sort_out;
-        NodeTraversal node = NodeTraversal(node_by_id[current_id], false);
+        NodeTraversal node = NodeTraversal(vg.node_by_id[current_id], false);
         //out growth
         process_in_out_growth(edges_out_nodes, current_id, in_out_growth,
                     weighted_graph, visited, sort_out, false, unsorted_nodes, 
@@ -832,7 +835,7 @@ void VG::find_in_out_web(list<NodeTraversal>& sorted_nodes,
 /*
         Determines the presence of a in- out- growth, finds its backbone and calls min cut algorithm.
      */
-void VG::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_id,
+void FlowSort::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_id,
         InOutGrowth& in_out_growth,
         WeightedGraph& weighted_graph,
         set<id_t>& visited,
@@ -897,7 +900,7 @@ void VG::process_in_out_growth(EdgeMapping& nodes_to_edges, id_t current_id,
    
 }
 
-void VG::remove_edge(EdgeMapping& nodes_to_edges, id_t node, id_t to, bool reverse)
+void FlowSort::remove_edge(EdgeMapping& nodes_to_edges, id_t node, id_t to, bool reverse)
 {
     if (nodes_to_edges.count(node))
     {
@@ -920,7 +923,7 @@ void VG::remove_edge(EdgeMapping& nodes_to_edges, id_t node, id_t to, bool rever
 /*
     Adds the nodes in dfs discovery order to sorted_nodes
  */
-void VG::mark_dfs(EdgeMapping& edges_to_nodes, id_t s,
+void FlowSort::mark_dfs(EdgeMapping& edges_to_nodes, id_t s,
             set<id_t>& new_nodes, set<id_t>& visited, bool reverse,
         set<id_t>& nodes,
         set<id_t>& backbone) 
@@ -952,7 +955,7 @@ void VG::mark_dfs(EdgeMapping& edges_to_nodes, id_t s,
 
 /* Returns true if there is a path from source 's' to sink 't' in
    residual graph. Also fills parent[] to store the path */
-bool VG::bfs(set<id_t>& nodes, map<id_t, map<id_t, int>>& edge_weight, id_t s,
+bool FlowSort::bfs(set<id_t>& nodes, map<id_t, map<id_t, int>>& edge_weight, id_t s,
             id_t t, map<id_t, id_t>& parent) 
 {
     // Create a visited array and mark all vertices as not visited
@@ -995,7 +998,7 @@ bool VG::bfs(set<id_t>& nodes, map<id_t, map<id_t, int>>& edge_weight, id_t s,
 }
 
 
-void VG::dfs(set<id_t>& nodes, id_t s, set<id_t>& visited, 
+void FlowSort::dfs(set<id_t>& nodes, id_t s, set<id_t>& visited, 
         map<id_t, map<id_t, int>>& edge_weight) 
 {
     visited.insert(s);
@@ -1016,7 +1019,7 @@ void VG::dfs(set<id_t>& nodes, id_t s, set<id_t>& visited,
 }
 
 // Returns the minimum s-t cut
-vector<pair<id_t,id_t>> VG::min_cut(map<id_t, map<id_t, int>>& graph_weight,
+vector<pair<id_t,id_t>> FlowSort::min_cut(map<id_t, map<id_t, int>>& graph_weight,
                 set<id_t>& nodes,
                 id_t s, id_t t,
                 EdgeMapping& edges_out_nodes,

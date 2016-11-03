@@ -35,7 +35,7 @@
 #include "unittest/driver.hpp"
 // New subcommand system provides main_construct and help_construct
 #include "subcommand/subcommand.hpp"
-
+#include "flow_sort.hpp"
 
 
 using namespace std;
@@ -9099,17 +9099,21 @@ int main_sort(int argc, char *argv[]) {
         exit(1);
     }
     
-    ifstream in;
-    in.open(file_name.c_str());        
-    VG* graph = nullptr; 
-    if (gfa_input) {
-        graph = new VG;
-        graph->from_gfa(in);
-    } else {
-        graph = new VG(in);
+    std::unique_ptr<VG> graph;
+    {
+        ifstream in;
+        in.open(file_name.c_str());        
+        if (gfa_input) {
+            graph.reset(new VG());
+            graph->from_gfa(in);
+        } else {
+            graph.reset(new VG(in));
+        }
     }
-        
-    graph->max_flow(reference_name);
+    
+    FlowSort flow_sort(*graph.get());
+    flow_sort.max_flow(reference_name);
+    
     if(gfa_input && !without_grooming)
     {
         size_t position = file_name.find(".");
@@ -9119,8 +9123,7 @@ int main_sort(int argc, char *argv[]) {
         outfile.close();
     }
 //    graph->serialize_to_ostream(std::cout);
-    delete graph;  
-    in.close();
+//    in.close();
     return 0;
 }
 
@@ -9181,17 +9184,21 @@ int main_fast_sort(int argc, char *argv[]) {
         exit(1);
     }
 
-    ifstream in;
-    in.open(file_name.c_str());
-    VG* graph = nullptr;
-    if (gfa_input) {
-        graph = new VG;
-        graph->from_gfa(in);
-    } else {
-        graph = new VG(in);
+    std::unique_ptr<VG> graph;
+    {
+        ifstream in;
+        in.open(file_name.c_str());        
+        if (gfa_input) {
+            graph.reset(new VG());
+            graph->from_gfa(in);
+        } else {
+            graph.reset(new VG(in));
+        }
     }
+    
+    FlowSort flow_sort(*graph.get());
+    flow_sort.fast_linear_sort(reference_name, !without_grooming);
 
-    graph->fast_linear_sort(reference_name, !without_grooming);
     if(gfa_input && !without_grooming)
     {
         size_t position = file_name.find(".");
@@ -9202,8 +9209,6 @@ int main_fast_sort(int argc, char *argv[]) {
     }
 
 //    graph->serialize_to_ostream(std::cout);
-    delete graph;
-    in.close();
     return 0;
 }
 

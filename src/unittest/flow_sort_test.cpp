@@ -2,6 +2,7 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
+#include "flow_sort.hpp"
 
 namespace vg {
 namespace unittest {
@@ -42,8 +43,9 @@ P	3	path2	5	+	1M)";
         vg.from_gfa(in);
         REQUIRE(vg.length() == 6);
         
+        FlowSort flow_sort(vg);
         string reference_name = "ref";
-        vg.max_flow(reference_name);
+        flow_sort.max_flow(reference_name);
         
         stringstream res;
         for (int i =0; i < vg.graph.node_size(); ++i ) {
@@ -120,8 +122,9 @@ P	13	path4	5	+	1M)";
         vg.from_gfa(in);
         REQUIRE(vg.length() == 17);
         
+        FlowSort flow_sort(vg);
         string reference_name = "ref";
-        vg.max_flow(reference_name);
+        flow_sort.max_flow(reference_name);
         
         stringstream res;
         for (int i =0; i < vg.graph.node_size(); ++i ) {
@@ -272,8 +275,10 @@ P	21	path12	3	+	1M)";
         vg.from_gfa(in);
         REQUIRE(vg.length() == 35);
         
+        FlowSort flow_sort(vg);
+        
         string reference_name = "ref";
-        vg.max_flow(reference_name);
+        flow_sort.max_flow(reference_name);
         
         stringstream res;
         for (int i =0; i < vg.graph.node_size(); ++i ) {
