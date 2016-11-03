@@ -19,15 +19,10 @@ public:
         EdgeMapping edges_out_nodes;
         EdgeMapping edges_in_nodes;
         map<Edge*, int> edge_weight;
-      
-        WeightedGraph(EdgeMapping& edges_out_nodes,
-            EdgeMapping& edges_in_nodes,
-            map<Edge*, int>& edge_weight)
-            : edges_out_nodes(std::move(edges_out_nodes)),
-            edges_in_nodes(std::move(edges_in_nodes)),
-            edge_weight(std::move(edge_weight))
-            { };
+        
+        void construct(FlowSort& fs, const string& ref_name, bool isGrooming = true);
     };
+    //Structure contains current path and nodes to growth
     struct Growth {
         set<id_t> nodes;
         set<id_t> backbone;
@@ -36,7 +31,6 @@ public:
     };  
     int get_node_degree(WeightedGraph &wg, id_t node_id);
 
-    WeightedGraph get_weighted_graph(const string& ref_name, bool isGrooming = true);
     void update_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e);
     void erase_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e);
     void reverse_edge(Edge* &e);
