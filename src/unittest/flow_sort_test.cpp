@@ -45,7 +45,8 @@ P	3	path2	5	+	1M)";
         
         FlowSort flow_sort(vg);
         string reference_name = "ref";
-        flow_sort.max_flow(reference_name);
+        
+        flow_sort.max_flow_sort(reference_name);
         
         stringstream res;
         for (int i =0; i < vg.graph.node_size(); ++i ) {
@@ -124,7 +125,7 @@ P	13	path4	5	+	1M)";
         
         FlowSort flow_sort(vg);
         string reference_name = "ref";
-        flow_sort.max_flow(reference_name);
+        flow_sort.max_flow_sort(reference_name);
         
         stringstream res;
         for (int i =0; i < vg.graph.node_size(); ++i ) {
@@ -278,7 +279,7 @@ P	21	path12	3	+	1M)";
         FlowSort flow_sort(vg);
         
         string reference_name = "ref";
-        flow_sort.max_flow(reference_name);
+        flow_sort.max_flow_sort(reference_name);
         
         stringstream res;
         for (int i =0; i < vg.graph.node_size(); ++i ) {

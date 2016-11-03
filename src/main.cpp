@@ -9112,7 +9112,7 @@ int main_sort(int argc, char *argv[]) {
     }
     
     FlowSort flow_sort(*graph.get());
-    flow_sort.max_flow(reference_name);
+    flow_sort.max_flow_sort(reference_name);
     
     if(gfa_input && !without_grooming)
     {

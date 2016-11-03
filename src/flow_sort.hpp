@@ -9,11 +9,22 @@ typedef std::map<id_t, std::vector<Edge*>> EdgeMapping;
 
 class FlowSort {
 public:
+    /*
+     * Value for nodes on ref path
+     */
+    static const size_t DEFAULT_PATH_WEIGHT = 5;
+    
     FlowSort(VG& vg);
-//sorts graph using max-flow algorithm  
-    void max_flow(const string& ref_name, bool isGrooming = true);
+    /*
+     * sorts input graph using max-flow algorithm. Returns sorted list
+     */
+    std::unique_ptr< list<NodeTraversal> > max_flow_sort(const string& ref_name, bool isGrooming = true);
+    /*
+     * Fast linear sort
+     */
     void fast_linear_sort(const string& ref_name, bool isGrooming = true);
-    void max_flow_sort(list<NodeTraversal>& sorted_nodes, const string& ref_name, bool isGrooming = true);
+    
+
     //Structure for holding weighted edges of the graph
     struct WeightedGraph {
         EdgeMapping edges_out_nodes;
@@ -28,7 +39,11 @@ public:
         set<id_t> backbone;
         list<id_t> ref_path;
         Growth(){}
-    };  
+    };
+    
+    void flow_sort_nodes(list<NodeTraversal>& sorted_nodes, 
+        const string& ref_name, bool isGrooming);
+    
     int get_node_degree(WeightedGraph &wg, id_t node_id);
 
     void update_in_out_edges(EdgeMapping& edges_in, EdgeMapping& edges_out, Edge* e);

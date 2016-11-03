@@ -13,17 +13,20 @@ FlowSort::FlowSort(VG& vg):vg(vg) {
     
 }
 
-void FlowSort::max_flow(const string& ref_name, bool isGrooming) 
+std::unique_ptr< list<NodeTraversal> >  FlowSort::max_flow_sort(const string& ref_name, bool isGrooming) 
 {
-    if (vg.size() <= 1) return;
+    std::unique_ptr <list<NodeTraversal> > sorted_nodes(new list<NodeTraversal>());
+    if (vg.size() <= 1) return sorted_nodes;
     // Topologically sort, which orders and orients all the nodes.
-    list<NodeTraversal> sorted_nodes;
+    
+    
     vg.paths.sort_by_mapping_rank();
-    max_flow_sort(sorted_nodes, ref_name, isGrooming);
-    list<NodeTraversal>::reverse_iterator n = sorted_nodes.rbegin();
+    
+    flow_sort_nodes(*sorted_nodes, ref_name, isGrooming);
+    list<NodeTraversal>::reverse_iterator n = sorted_nodes->rbegin();
     int i = 0;
 //    cout << "result" << endl;
-    for ( ; i < vg.graph.node_size() && n != sorted_nodes.rend();
+    for ( ; i < vg.graph.node_size() && n != sorted_nodes->rend();
           ++i, ++n) {
         // Put the nodes in the order we got
         cout << (*n).node->id() << " ";
@@ -31,6 +34,7 @@ void FlowSort::max_flow(const string& ref_name, bool isGrooming)
     }
 //    rebuild_indexes();
     cout << endl;
+    return sorted_nodes;
 }
 
 void FlowSort::fast_linear_sort(const string& ref_name, bool isGrooming)
@@ -125,7 +129,7 @@ void FlowSort::fast_linear_sort(const string& ref_name, bool isGrooming)
     cout << endl;
 }
 
-void FlowSort::max_flow_sort(list<NodeTraversal>& sorted_nodes, 
+void FlowSort::flow_sort_nodes(list<NodeTraversal>& sorted_nodes, 
         const string& ref_name, bool isGrooming) 
 {
 
@@ -239,12 +243,9 @@ int FlowSort::get_node_degree(FlowSort::WeightedGraph& wg, id_t node_id)
 void 
 FlowSort::WeightedGraph::construct(FlowSort& fs, const string& ref_name, bool isGrooming)
 {
-//    EdgeMapping edges_out_nodes;
-//    EdgeMapping edges_in_nodes;
-//    map<Edge*, int> edge_weight;
     int ref_weight = fs.vg.paths._paths.size();
-    if (ref_weight < 5) {
-        ref_weight = 5;
+    if (ref_weight < FlowSort::DEFAULT_PATH_WEIGHT) {
+        ref_weight = FlowSort::DEFAULT_PATH_WEIGHT;
     }
 
     fs.vg.flip_doubly_reversed_edges();
