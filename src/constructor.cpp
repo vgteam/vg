@@ -97,6 +97,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     // wired up. 
     map<size_t, set<id_t>> nodes_starting_at;
     
+    // We don't want to wire inserts to each other, so we have a set of all
+    // insert endpoints.
+    set<id_t> inserts;
+    
     // Here we remember deletions that end at paritcular positions in the
     // reference, which are the positions of the last deleted bases. We map from
     // last deleted base to last non-deleted base before the deletion, so we can
@@ -369,6 +373,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                                 
                                 // Save it in case any other alts also have this edit.
                                 created_nodes[key] = node_run;
+                                
+                                if (edit.ref == "") {
+                                    // This is an insert, so mark its ends as
+                                    // such, so they don't connect to other
+                                    // insert ends.
+                                    inserts.insert(node_run.front()->id());
+                                    inserts.insert(node_run.back()->id());
+                                }
                             }
                             
                             
@@ -497,9 +509,8 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 for (auto& left_node : nodes_ending_at[kv.first - 1]) {
                     // For every node that could come before these nodes
                     
-                    if (left_node == right_node) {
-                        // This is a self loop caused by the two ends of an
-                        // insertion. Don't make an edge.
+                    if (inserts.count(left_node) && inserts.count(right_node)) {
+                        // Don't connect two inserts at the same position (or an insert to itself).
                         continue;
                     }
                     
