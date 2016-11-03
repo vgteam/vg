@@ -153,24 +153,28 @@ void FlowSort::max_flow_sort(list<NodeTraversal>& sorted_nodes,
    
     if (sorted_nodes.size() > vg.graph.node_size()) 
     {
-//        cerr << "Failed to sort graph " << endl;
-//        cerr << "sorted: " << sorted_nodes.size() << " in graph: " << endl;
+#ifdef debug
+        cerr << "Failed to sort graph " << endl;
+        cerr << "sorted: " << sorted_nodes.size() << " in graph: " << endl;
+#endif
         return;
     }
     while (sorted_nodes.size() < vg.graph.node_size()) 
     {
-//        cerr << "additional sorting for missing nodes" << endl;
-//        cerr << "unsorted: " << unsorted_nodes.size() << endl;
-//        cerr << "sorted: " << sorted_nodes.size() << " in graph: " <<
-//                graph.node_size() << endl;
-//        cerr << "unsorted: ";
+#ifdef debug
+        cerr << "additional sorting for missing nodes" << endl;
+        cerr << "unsorted: " << unsorted_nodes.size() << endl;
+        cerr << "sorted: " << sorted_nodes.size() << " in graph: " <<
+                graph.node_size() << endl;
+        cerr << "unsorted: ";
         
-//        for (auto const &uns : unsorted_nodes) 
-//        {
-//            cerr << uns << " ";
-//        }
-//        
-//        cerr << endl;
+        for (auto const &uns : unsorted_nodes) 
+        {
+            cerr << uns << " ";
+        }
+        
+        cerr << endl;
+#endif
         
         list<NodeTraversal> sorted_nodes_new;
     
@@ -191,7 +195,9 @@ void FlowSort::max_flow_sort(list<NodeTraversal>& sorted_nodes,
         if (sorted_nodes.size() != vg.graph.node_size() && 
                 unsorted_nodes.size() == unsorted_nodes_new.size())
         {
-//            cerr << "Failed to insert missing nodes"<< endl;
+#ifdef debug          
+            cerr << "Failed to insert missing nodes"<< endl;
+#endif
             break;
         }
         
@@ -281,7 +287,9 @@ FlowSort::WeightedGraph FlowSort::get_weighted_graph(const string& ref_name, boo
         }
 
         edge_weight[edge.first] = weight;
-//        cerr << from << "->" << to << " " << weight << endl;
+#ifdef debug        
+        cerr << from << "->" << to << " " << weight << endl;
+#endif
     }
     if (isGrooming)
     {
@@ -614,7 +622,10 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
                             set<id_t>& unsorted_nodes, 
                             id_t start, bool in_out, int count) 
 {
-//    cerr << "enter recursion: " << count << endl;
+#ifdef debug
+    cerr << "enter recursion: " << count << endl;
+#endif
+    
     set<id_t>& backbone = in_out_growth.backbone;
     set<id_t>& nodes = in_out_growth.nodes;
     list<id_t>& ref_path = in_out_growth.ref_path;
@@ -637,13 +648,15 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
             unsorted_nodes.erase(id);
 //            cerr << "erasing " << id << endl;
         }
-//        cerr << "backbone simple from " << start << ": ";
-//        for (auto const &id : ref_path) 
-//        {
-//            cerr << id << " ";
-//        }
-//        cerr << endl;
-//        cerr << "leaving recursion: " << count << endl;
+#ifdef debug        
+        cerr << "backbone simple from " << start << ": ";
+        for (auto const &id : ref_path) 
+        {
+            cerr << id << " ";
+        }
+        cerr << endl;
+        cerr << "leaving recursion: " << count << endl;
+#endif
         return;
     }
 
@@ -744,12 +757,14 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
         
         if (sort_out.size() != 0) 
         {
-//            cerr << "out growth " << current_id << ": ";
-//            for (auto const &n : sort_out) 
-//            {
-//                cerr << n.node->id() << " ";
-//            }
-//            cerr << endl;
+#ifdef debug            
+            cerr << "out growth " << current_id << ": ";
+            for (auto const &n : sort_out) 
+            {
+                cerr << n.node->id() << " ";
+            }
+            cerr << endl;
+#endif
             sorted_nodes.insert(sorted_nodes.end(), sort_out.begin(), sort_out.end());
         }
         //add backbone node to the result
@@ -762,20 +777,21 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
             }
         }
     }
-//    cerr << "backbone backward from " << start << ": ";
-//    for (auto const &id : ref_path) 
-//    {
-//        cerr << id << " ";
-//    }
-//    cerr << endl;
-//    
-//    cerr << "after backward from " << start << ": ";
-//    for (auto const &id : sorted_nodes)
-//    {
-//        cerr << id.node->id() << " ";
-//    }
-//    cerr << endl;
+#ifdef debug    
+    cerr << "backbone backward from " << start << ": ";
+    for (auto const &id : ref_path) 
+    {
+        cerr << id << " ";
+    }
+    cerr << endl;
     
+    cerr << "after backward from " << start << ": ";
+    for (auto const &id : sorted_nodes)
+    {
+        cerr << id.node->id() << " ";
+    }
+    cerr << endl;
+#endif    
     
     list<NodeTraversal> new_sorted;
     sorted_nodes.reverse();
@@ -789,12 +805,14 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
                     in_out, count);
         if (sort_in.size() != 0) 
         {
-//            cerr << "in growth "<< current_id << ": ";
-//            for (auto const &n : sort_in) 
-//            {
-//                cerr << n.node->id() << " ";
-//            }
-//            cerr << endl;
+#ifdef debug            
+            cerr << "in growth "<< current_id << ": ";
+            for (auto const &n : sort_in) 
+            {
+                cerr << n.node->id() << " ";
+            }
+            cerr << endl;
+#endif            
             new_sorted.insert(new_sorted.end(), sort_in.begin(), sort_in.end());
         }
         if (current_id != start) 
@@ -807,25 +825,25 @@ void FlowSort::find_in_out_web(list<NodeTraversal>& sorted_nodes,
     {
         new_sorted.reverse();
     }
-    
-//    cerr << "backbone forward from " << start << ": ";
-//    for (auto const &id : sorted_nodes) 
-//    {
-//        cerr << id.node->id() << " ";
-//    }
-//    cerr << endl;
-//    
+#ifdef debug    
+    cerr << "backbone forward from " << start << ": ";
+    for (auto const &id : sorted_nodes) 
+    {
+        cerr << id.node->id() << " ";
+    }
+    cerr << endl;
+#endif
     sorted_nodes = new_sorted;
-//    
-//    cerr << "growth sorted from " << start << ": ";
-//    for (auto const &id : sorted_nodes) 
-//    {
-//        cerr << id.node->id() << " ";
-//    }
-// 
-//    cerr << endl;
-//    cerr << "leaving recursion: " << count << endl;
+#ifdef debug    
+    cerr << "growth sorted from " << start << ": ";
+    for (auto const &id : sorted_nodes) 
+    {
+        cerr << id.node->id() << " ";
+    }
  
+    cerr << endl;
+    cerr << "leaving recursion: " << count << endl;
+#endif
 }
 /*
         Determines the presence of a in- out- growth, finds its backbone and calls min cut algorithm.
