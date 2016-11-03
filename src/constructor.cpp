@@ -232,8 +232,9 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             
                 if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
-                    cerr << "[vg::Constructor] Variant reference sequence mismatch: " << variant->ref
+                    cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
                         << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl;
+                    cerr << "Variant: " << *variant << endl;
                     exit(1);
                 }
             
