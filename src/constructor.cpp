@@ -220,6 +220,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // variant.
             map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
             
+            // This determines the order we will process variants in. We use it
+            // to sort variants in a clump by hash for the purposes of assigning
+            // IDs.
+            map<string, vcflib::Variant*> variants_by_name;
+            
             // This holds the min and max values for starts and ends of edits
             // not removed from the clump.
             int64_t first_edit_start = numeric_limits<int64_t>::max();
@@ -237,6 +242,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     cerr << "Variant: " << *variant << endl;
                     exit(1);
                 }
+            
+                // Name the variant and place it in the order that we'll
+                // actually construct nodes in (see utility.hpp)
+                string variant_name = make_variant_id(*variant);
+                variants_by_name[variant_name] = variant;
             
                 // We need to parse the variant into alts, each of which is a
                 // series of VariantAllele edits. This holds the full alt allele
@@ -337,12 +347,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // paths done.
             map<vcflib::Variant*, Path*> variant_ref_paths;
         
-            for (vcflib::Variant* variant : clump) {
-                // For each variant in the clump
+            for (auto& kv : variants_by_name) {
+                // For each variant in the clump, sorted by name
+                auto& variant_name = kv.first;
+                auto* variant = kv.second;
             
-                // Name the variant by hash (see utility.hpp)
-                string variant_name = make_variant_id(*variant);
-                
                 // Declare its ref path straight away.
                 // We fill inthe ref paths after we make all the nodes for the edits.
                 variant_ref_paths[variant] = to_return.graph.add_path();
