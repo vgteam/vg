@@ -111,6 +111,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     // go look up nodes ending there. Note that these can map to -1.
     map<size_t, set<int64_t>> deletions_ending_at;
     
+    // We also need to track all points at which deletions start, so we can
+    // search for the next one when deciding where to break the reference.
+    set<int64_t> deletion_starts;
+    
     // We use this to get the next variant
     auto next_variant = variants.begin();
     
@@ -371,6 +375,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     for (vcflib::VariantAllele& edit : parsed_clump[variant][alt_index]) {
                         // For each VariantAllele used by the alt
                         
+#ifdef debug
+                        cerr << "Apply " << edit.ref << " -> " << edit.alt << " @ " << edit.position << endl;
+#endif
+                        
                         if (edit.alt != "") {
                             // This is a visit to a node for the alt
                         
@@ -381,10 +389,17 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                                 // We don't have a run of nodes for this edit, so make one.
                                 vector<Node*> node_run = create_nodes(edit.alt);
                                 
+                                // Compute where the edit starts and ends in local chunk coordinates
+                                auto edit_start = edit.position - chunk_offset;
+                                auto edit_end = edit.position - chunk_offset + edit.ref.size() - 1;
+                                
+#ifdef debug
+                                cerr << "Created nodes running " << edit_start << " to " << edit_end << endl;
+#endif
+                                
                                 // Remember where the first one starts and the last one ends, for wiring up later.
-                                nodes_starting_at[edit.position - chunk_offset].insert(node_run.front()->id());
-                                nodes_ending_at[edit.position - chunk_offset + edit.ref.size() - 1].insert(
-                                    node_run.back()->id());
+                                nodes_starting_at[edit_start].insert(node_run.front()->id());
+                                nodes_ending_at[edit_end].insert(node_run.back()->id());
                                 
                                 // Save it in case any other alts also have this edit.
                                 created_nodes[key] = node_run;
@@ -395,7 +410,15 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                                     // insert ends.
                                     inserts.insert(node_run.front()->id());
                                     inserts.insert(node_run.back()->id());
+                                    
+#ifdef debug
+                                    cerr << "Nodes are insert" << endl;
+#endif
                                 }
+                            } else {
+#ifdef debug
+                                cerr << "Found existing nodes" << endl;
+#endif
                             }
                             
                             
@@ -416,12 +439,19 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                             // What is the before-the-beginning position (last non-deleted, may be -1)
                             int64_t arc_start = (int64_t) edit.position - chunk_offset - 1;
                             
+#ifdef debug
+                            cerr << "Ensure deletion arc " << arc_start << " to " << arc_end << endl;
+#endif
+                            
                             // Add the arc (if it doesn't exist). We only index
                             // arcs from the end, because we'll make them when
                             // looking for predecessors of nodes. TODO: could we
                             // make special handling of deletions that go to -1
                             // more efficient?
                             deletions_ending_at[arc_end].insert(arc_start);
+                            
+                            // Remember that an arc comes from this base
+                            deletion_starts.insert(arc_start);
                         }
                         
                     }
@@ -433,22 +463,83 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // haven't already been created, breaking wherever something can
             // come in or out.
             
+            // We need a function to work that out
+            auto next_breakpoint_after = [&](size_t position) -> size_t {
+                // This returns the position of the base to the left of the next
+                // required breakpoint within this clump, after the given
+                // position, given created nodes and deletions that already
+                // exist.
+                
+                // If nothing else, we're going to break at the end of the last
+                // edit in the clump.
+                size_t to_return = last_edit_end;
+                
+                // See if any nodes are registered as starting after our
+                // position. They'll all start before the end of the clump, and
+                // we don't care if they start at our position since that
+                // breakpoint already happened.
+                auto next_start_iter = nodes_starting_at.upper_bound(position);
+                
+                if(next_start_iter != nodes_starting_at.end()) {
+                    // If we found something, walk back where the breakpoint
+                    // needs to be so we break before that node starts.
+                    to_return = min(to_return, next_start_iter->first - 1);
+                }
+                
+                // See if any nodes are registered as ending at or after our
+                // position. We do care if they end at our position, since that
+                // means we need to break right here.
+                auto next_end_iter = nodes_ending_at.lower_bound(position);
+                
+                if(next_end_iter != nodes_ending_at.end()) {
+                    // If we found something, we need to break where that node
+                    // ends.
+                    to_return = min(to_return, next_end_iter->first );
+                }
+                
+                // See if any deletions are registered as ending after here.
+                // Deletions break the reference before their past-the-end base,
+                // so we don't care about deletions ending here exactly.
+                auto deletion_end_iter = deletions_ending_at.upper_bound(position);
+                
+                if(deletion_end_iter != deletions_ending_at.end()) {
+                    // If we found something, walk back where the breakpoint
+                    // needs to be so we break before the node after the
+                    // deletion starts.
+                    to_return = min(to_return, deletion_end_iter->first - 1);
+                }
+                
+                // See if any deletions are known to start at or after this
+                // base. We care about exact hits now, because deletions break
+                // after the base they start at.
+                auto deletion_start_iter = deletion_starts.lower_bound(position);
+                // We don't need to worry about -1s here. They won't be found
+                // with lower_bound on a size_t.
+                
+                if(deletion_start_iter != deletion_starts.end()) {
+                    // If we found something, walk back where the breakpoint
+                    // needs to be so we break at the position the deletion
+                    // needs to leave from.
+                    to_return = min(to_return, (size_t)*deletion_start_iter);
+                }
+                
+                return to_return;
+                
+            };
+            
             // Note that in some cases (i.e. pure inserts) we may not need any ref nodes at all.
             
-            // See if any nodes are registered as starting between the reference cursor and the end of the last variant.
-            // We don't care about nodes starting *at* the reference cursor, just about ones starting after.
-            auto found = nodes_starting_at.upper_bound(reference_cursor);
-            
-            // Where will the node after this ref node we are about to make start?
-            // That lets us know where this node has to end.
-            size_t next_start = (found != nodes_starting_at.end() ? found->first : last_edit_end + 1);
-            
             while (reference_cursor < last_edit_end + 1) {
+                // Until we hot the end
+                
+                // Find where the next node run must end to attach to stuff
+                size_t next_end = next_breakpoint_after(reference_cursor);
+            
                 // We need to have a reference node/run of nodes (which may have
                 // already been created by a reference match) between where the
-                // curor is and where the next node starts or the clump ends.
+                // cursor is and where the next breakpoint has to be.
                 // This is the sequence it should have.
-                string run_sequence = reference_sequence.substr(reference_cursor, next_start - reference_cursor);
+                string run_sequence = reference_sequence.substr(reference_cursor, next_end - reference_cursor + 1);
                 
                 // We need a key to see if a node (run) has been made for this sequece already
                 auto key = make_tuple(reference_cursor, run_sequence, run_sequence);
@@ -459,7 +550,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     
                     // Remember where the first one starts and the last one ends, for wiring up later.
                     nodes_starting_at[reference_cursor].insert(node_run.front()->id());
-                    nodes_ending_at[next_start - 1].insert(node_run.back()->id());
+                    nodes_ending_at[next_end].insert(node_run.back()->id());
+                    
+#ifdef debug
+                    cerr << "Created reference nodes running " << reference_cursor << " to " << next_end << endl;
+#endif
                     
                     // Save it in case any other alts also have this edit.
                     created_nodes[key] = node_run;
@@ -485,11 +580,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 }
                 
                 // Advance the reference cursor to after this run of reference nodes
-                reference_cursor = next_start;
-                
-                // Find the next place after the reference cursor at which a node starts.
-                found = nodes_starting_at.upper_bound(reference_cursor);
-                next_start = (found != nodes_starting_at.end() ? found->first : last_edit_end + 1);
+                reference_cursor = next_end + 1;
                 
                 // Keep going until we have created reference nodes through to
                 // the end of the clump's interior edits.
@@ -526,8 +617,15 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     
                     if (inserts.count(left_node) && inserts.count(right_node)) {
                         // Don't connect two inserts at the same position (or an insert to itself).
+#ifdef debug
+                        cerr << "Skip insert-insert edge " << left_node << " -> " << right_node << endl;
+#endif
                         continue;
                     }
+                    
+#ifdef debug
+                    cerr << "Add normal edge " << left_node << " -> " << right_node << endl;
+#endif
                     
                     // Emit an edge
                     auto* edge = to_return.graph.add_edge();
@@ -548,6 +646,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                         
                         for (auto& left_node : nodes_ending_at[deletion_start]) {
                             // For every node that the deletion could start with
+                            
+#ifdef debug
+                            cerr << "Add deletion edge " << left_node << " -> " << right_node << endl;
+#endif
+                            
                             // Emit an edge
                             auto* edge = to_return.graph.add_edge();
                             edge->set_from(left_node);

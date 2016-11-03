@@ -412,64 +412,6 @@ ref	5	rs1337	A	G	29	PASS	.	GT
 
 }
 
-TEST_CASE( "Path names do not depend on chunking", "[constructor]" ) {
-
-    // We'll work on this tiny VCF
-    auto vcf_data = R"(##fileformat=VCFv4.0
-##fileDate=20090805
-##source=myImputationProgramV3.1
-##reference=1000GenomesPilot-NCBI36
-##phasing=partial
-##FILTER=<ID=q10,Description="Quality below 10">
-##FILTER=<ID=s50,Description="Less than 50% of samples have data">
-##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-ref	5	rs1337	A	G	29	PASS	.	GT
-)";
-
-    string ref = "GATTACA";
-
-    // Make a stream out of the data
-    std::stringstream vcf_stream(vcf_data);
-    
-    // Load it up in vcflib
-    vcflib::VariantCallFile vcf;
-    vcf.open(vcf_stream);
-    
-    // Fill in this vector of variants
-    std::vector<vcflib::Variant> variants;
-    vcflib::Variant var;
-    while (vcf.getNextVariant(var)) {
-        // Make sure to correct each variant's position to 0-based
-        var.position -= 1;
-        variants.push_back(var);
-    }
-
-    // Make a constructor
-    Constructor constructor;
-    constructor.alt_paths = true;
-    
-    // Construct the graph    
-    auto result1 = constructor.construct_chunk(ref, "ref", variants, 0);
-    
-    // Construct the graph with a slight offset
-    auto result2 = constructor.construct_chunk(ref.substr(1), "ref", variants, 1);
-
-    // Get the two sets of path names
-    set<string> paths1;
-    for(size_t i = 0; i < result1.graph.path_size(); i++) {
-        paths1.insert(result1.graph.path(i).name());
-    }
-    set<string> paths2;
-    for(size_t i = 0; i < result2.graph.path_size(); i++) {
-        paths2.insert(result2.graph.path(i).name());
-    }
-    
-    REQUIRE(paths1 == paths2);
-
-}
-
-
 TEST_CASE( "A deletion can be constructed", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
@@ -635,6 +577,140 @@ ref	5	rs1337	A	AC	29	PASS	.	GT
     }
 
 }
+
+TEST_CASE( "A SNP nested inside a deletion can be constructed", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	2	.	ATGTTCTTCC	A	100	PASS	.	GT
+ref	6	.	T	C	100	PASS	.	GT
+)";
+
+    auto ref = "GATGTTCTTCCG";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+    // It should be like
+    //
+    //       /C\
+    // GA TGT T CTTCC G
+    //   \-----------/
+    
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    SECTION("the graph should have 6 nodes") {
+        REQUIRE(result.graph.node_size() == 6);
+    }
+    
+    SECTION("the graph should have 7 edges") {
+        REQUIRE(result.graph.edge_size() == 7);
+    }
+}
+#undef debug
+
+TEST_CASE( "A merged SNP and indel can be constructed", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	2	rs5839893	TG	GG,T	100	PASS	.	GT
+)";
+
+    auto ref = "ATGA";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    
+    
+    SECTION("the graph should have 5 nodes") {
+        REQUIRE(result.graph.node_size() == 5);
+    }
+    
+    SECTION("the graph should have 7 edges") {
+        REQUIRE(result.graph.edge_size() == 7);
+    }
+}
+
+
+TEST_CASE( "Path names do not depend on chunking", "[constructor]" ) {
+
+    // We'll work on this tiny VCF
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	rs1337	A	G	29	PASS	.	GT
+)";
+
+    string ref = "GATTACA";
+
+    // Make a stream out of the data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+    
+    // Fill in this vector of variants
+    std::vector<vcflib::Variant> variants;
+    vcflib::Variant var;
+    while (vcf.getNextVariant(var)) {
+        // Make sure to correct each variant's position to 0-based
+        var.position -= 1;
+        variants.push_back(var);
+    }
+
+    // Make a constructor
+    Constructor constructor;
+    constructor.alt_paths = true;
+    
+    // Construct the graph    
+    auto result1 = constructor.construct_chunk(ref, "ref", variants, 0);
+    
+    // Construct the graph with a slight offset
+    auto result2 = constructor.construct_chunk(ref.substr(1), "ref", variants, 1);
+
+    // Get the two sets of path names
+    set<string> paths1;
+    for(size_t i = 0; i < result1.graph.path_size(); i++) {
+        paths1.insert(result1.graph.path(i).name());
+    }
+    set<string> paths2;
+    for(size_t i = 0; i < result2.graph.path_size(); i++) {
+        paths2.insert(result2.graph.path(i).name());
+    }
+    
+    REQUIRE(paths1 == paths2);
+
+}
+
 
 TEST_CASE( "Outer matching sequence is trimmed on inserts", "[constructor]" ) {
 
