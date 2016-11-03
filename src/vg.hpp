@@ -67,8 +67,6 @@ struct KmerPosition {
 }
 
 namespace vg {
-typedef std::map<id_t, std::vector<Edge*>> EdgeMapping;
-
 
 // Represents a sequence graph. Graphs consist of nodes, connected by edges.
 // Graphs are bidirected and may be cyclic. Nodes carry forward-oriented
@@ -731,10 +729,6 @@ public:
     // helper function, not really meant for external use
     void topological_sort(deque<NodeTraversal>& l);
     void swap_nodes(Node* a, Node* b);
-
-
-    
-    
 
     // Use a topological sort to order and orient the nodes, and then flip some
     // nodes around so that they are oriented the way they are in the sort.

@@ -4,6 +4,8 @@
 #include "vg.pb.h"
 
 namespace vg {
+    
+typedef std::map<id_t, std::vector<Edge*>> EdgeMapping;
 
 class FlowSort {
 public:
