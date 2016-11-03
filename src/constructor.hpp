@@ -149,6 +149,15 @@ public:
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?
     bool alt_paths = false;
     
+    // If true, break boring sequence into pieces greedily. If false, mimic the
+    // dice_nodes algorithm and pick a piece size, with small partial pieces at
+    // the end. TODO: the default should probably be true, or we should bump the
+    // piece size up by 1 to avoid tiny 1-base trailing nodes when we don't need
+    // them, but to match the old construct exactly we have to do this.
+    // TODO: pieces are always greedy when welding chunks.
+    bool greedy_pieces = false;
+
+    
     // What's the maximum node size we should allow?
     size_t max_node_size = 1000;
     

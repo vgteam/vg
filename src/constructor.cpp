@@ -141,9 +141,24 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     // add them to the graph. Return pointers to the resulting nodes in the
     // graph, in order.
     auto create_nodes = [&](const string& sequence) -> vector<Node*> {
-        // TODO: divide into evenly-sized pieces.
-        // For now we break into pieces greedily.
         
+        // How big should each node try to be?
+        size_t piece_size;
+        
+        if(greedy_pieces) {
+            // Make pieces as big as possible.
+            piece_size = max_node_size;
+        } else {
+        
+            // Let's try to divide into evenly-sized pieces
+            size_t piece_count = sequence.size() / max_node_size + 1;
+            piece_size = sequence.size() / piece_count;
+            // Remember we may have a partial piece at the end.
+            
+            // TODO: we're rounding down and tend to have 1-base tiny pieces at
+            // the end.
+        }
+    
         // We'll fill this in with created nodes
         vector<Node*> created;
         
@@ -152,7 +167,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         
         while (cursor < sequence.size()) {
             // There's still sequence to do, so bite off a piece
-            size_t next_node_size = std::min(max_node_size, sequence.size() - cursor);
+            size_t next_node_size = std::min(piece_size, sequence.size() - cursor);
             string node_sequence = sequence.substr(cursor, next_node_size);
             
             // Make a node
@@ -824,9 +839,13 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
                 // graph.
                 last_node_buffer = Node();
             } else {
-                // We need to keep two nodes. Reapportion the sequence between them.
-                last_node_buffer.set_sequence(combined_sequence.substr(0, max_node_size));
-                mutable_first_node->set_sequence(combined_sequence.substr(max_node_size));
+                // We need to keep two nodes. Reapportion the sequence between
+                // them according to our division algorithm. TODO: can sometimes
+                // differ from old construct behavior, but this way will be
+                // better.
+                size_t piece_size = greedy_pieces ? max_node_size : ((combined_sequence.size() + 1) / 2);
+                last_node_buffer.set_sequence(combined_sequence.substr(0, piece_size));
+                mutable_first_node->set_sequence(combined_sequence.substr(piece_size));
                 
                 // Emit the buffered node as a chunk
                 emit_reference_node(last_node_buffer);
