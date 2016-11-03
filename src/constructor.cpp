@@ -739,9 +739,6 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
             // Expand out how big the chunk needs to be, so we can get other overlapping variants.
             chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
             
-            // Rewrite the variant to be positioned relative to the chunk start.
-            chunk_variants.back().position -= chunk_start;
-            
             // Try the next variant
             variant_source.handle_buffer();
             variant_source.fill_buffer();
@@ -755,9 +752,6 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
             chunk_variants.push_back(*(variant_source.get()));
             // Expand out how big the chunk needs to be, so we can get other overlapping variants.
             chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
-            
-            // Rewrite the variant to be positioned relative to the chunk start.
-            chunk_variants.back().position -= chunk_start;
             
             // Try the next variant
             variant_source.handle_buffer();
