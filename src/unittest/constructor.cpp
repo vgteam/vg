@@ -93,6 +93,9 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
     Constructor constructor;
     constructor.max_node_size = 4;
     
+    // The reasoning here applies to greedy mode, not old-vg-construct-mimicing mode
+    constructor.greedy_pieces = true;
+    
     auto result = constructor.construct_chunk("GATTACA", "movie", std::vector<vcflib::Variant>(), 0);
     
     SECTION("the graph should have two nodes") {
@@ -617,7 +620,45 @@ ref	6	.	T	C	100	PASS	.	GT
         REQUIRE(result.graph.edge_size() == 7);
     }
 }
-#undef debug
+
+TEST_CASE( "A variable count repeat can be constructed", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	2	.	GAATT	GAATTAATT,GAATTAATTAATT,G	100	PASS	.	GT
+)";
+
+    auto ref = "CGAATTC";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+    // It should be like
+    //    /AATTAATT\
+    //   /-AATT-----\
+    // CG------------AATT-C 
+    //   \---------------/
+    
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    SECTION("the graph should have 5 nodes") {
+        REQUIRE(result.graph.node_size() == 5);
+    }
+    
+    SECTION("the graph should have 7 edges") {
+        REQUIRE(result.graph.edge_size() == 7);
+    }
+}
 
 TEST_CASE( "A merged SNP and indel can be constructed", "[constructor]" ) {
 

@@ -662,6 +662,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                         for (auto& left_node : nodes_ending_at[deletion_start]) {
                             // For every node that the deletion could start with
                             
+                            if (inserts.count(left_node)) {
+                                // Don't let an inserted node happen just before a deletion.
+#ifdef debug
+                                cerr << "Skip insertion-deletion edge " << left_node << " -> " << right_node << endl;
+#endif
+                                continue;
+                            }
+                            
 #ifdef debug
                             cerr << "Add deletion edge " << left_node << " -> " << right_node << endl;
 #endif
