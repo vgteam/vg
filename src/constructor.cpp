@@ -124,13 +124,21 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     // clump, to catch all the overlaps.
     size_t clump_end = 0;
     
+    // We use this to remember path ranks. It will initialize to 0 for new
+    // paths.
+    map<Path*, size_t> max_rank;
     
     // We have a utility function to tack a full length perfect match onto a
     // path. We need the node so we can get its length.
-    auto add_match = [](Path* path, Node* node) {
+    // Automatically fills in rank, starting from 1.
+    auto add_match = [&](Path* path, Node* node) {
         // Make a mapping for it
         auto* mapping = path->add_mapping();
         mapping->mutable_position()->set_node_id(node->id());
+        
+        // Set the rank to the next available rank in the path.
+        mapping->set_rank(++max_rank[path]);
+        
         // Make it a perfect match explicitly
         auto* match_edit = mapping->add_edit();
         match_edit->set_from_length(node->sequence().size());
@@ -836,6 +844,10 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     // in previous chunks?
     id_t max_id = 0;
     
+    // And we need to do the same for ranks on the reference path? What's the
+    // max rank used?
+    size_t max_ref_rank = 0;
+    
     // Whenever a chunk ends with a single node, we separate it out and buffer
     // it here, because we may need to glue it together with subsequent leading
     // nodes that were broken by a chunk boundary.
@@ -854,6 +866,9 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
         path->set_name(reference_contig);
         Mapping* mapping = path->add_mapping();
         mapping->mutable_position()->set_node_id(node.id());
+        // With a rank
+        mapping->set_rank(++max_ref_rank);
+        // And an edit
         Edit* edit = mapping->add_edit();
         edit->set_from_length(node.sequence().size());
         edit->set_to_length(node.sequence().size());
@@ -983,6 +998,10 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
                 
                 // Bump the ID for the mapping's position
                 mapping->mutable_position()->set_node_id(mapping->position().node_id() + max_id);
+                
+                // Set the rank.
+                // TODO: we're just clobbering the ref path ranks that were generated in chunk construction.
+                mapping->set_rank(++max_ref_rank);
             }
         }
         

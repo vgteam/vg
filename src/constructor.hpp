@@ -37,7 +37,8 @@ using namespace std;
  * and single sinks must be visited by only a single path, the reference path.
  *
  * The overall reference path must also always be path 0. Also, all mappings in
- * all paths must be full-length matches on the forward strand.
+ * all paths must be full-length matches on the forward strand, and they must be
+ * sorted by rank. Ranks must be filled and start with rank 1 in each path.
  */
 struct ConstructedChunk {
     // What nodes, edges, and mappings exist?
