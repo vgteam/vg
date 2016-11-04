@@ -42,8 +42,6 @@ int main_construct(int argc, char** argv) {
     string fasta_file_name, vcf_file_name, json_filename;
     string region;
     bool region_is_chrom = false;
-    string output_type = "VG";
-    bool progress = false;
 
     int c;
     while (true) {
@@ -87,7 +85,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'p':
-            progress = true;
+            constructor.progress = true;
             break;
 
         case 'z':
@@ -125,6 +123,12 @@ int main_construct(int argc, char** argv) {
             abort ();
 
         }
+    }
+    
+    if (constructor.max_node_size == 0) {
+        // Make sure we can actually make nodes
+        cerr << "error:[vg construct] max node size cannot be 0" << endl;
+        exit(1);
     }
     
     if (!region.empty()) {

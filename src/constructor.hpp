@@ -162,6 +162,9 @@ public:
     // graph to allow the longer combined deletion?
     bool chain_deletions = true;
     
+    // Should we show our progress?
+    bool progress = false;
+    
     
     // What's the maximum node size we should allow?
     size_t max_node_size = 1000;

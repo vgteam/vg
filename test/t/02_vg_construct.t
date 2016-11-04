@@ -20,7 +20,7 @@ nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
 is $nodes 84557 "the 1mb graph has the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
-is $edges 115361 "the 1mb graph has the expected number of edges"
+is $edges 115363 "the 1mb graph has the expected number of edges"
 
 rm -f z.vg
 
