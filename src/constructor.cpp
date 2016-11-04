@@ -152,7 +152,7 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         
             // Let's try to divide into evenly-sized pieces
             size_t piece_count = sequence.size() / max_node_size + 1;
-            piece_size = sequence.size() / piece_count;
+            piece_size = max(sequence.size() / piece_count, (size_t) 1);
             // Remember we may have a partial piece at the end.
             
             // TODO: we're rounding down and tend to have 1-base tiny pieces at
@@ -1255,9 +1255,6 @@ void Constructor::construct_graph(const vector<FastaReference*>& references,
     }
         
 }
-
-
-
 
 }
 
