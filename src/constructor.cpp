@@ -373,10 +373,12 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 auto& variant_name = kv.first;
                 auto* variant = kv.second;
             
-                // Declare its ref path straight away.
-                // We fill inthe ref paths after we make all the nodes for the edits.
-                variant_ref_paths[variant] = to_return.graph.add_path();
-                variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
+                if (alt_paths) {
+                    // Declare its ref path straight away.
+                    // We fill inthe ref paths after we make all the nodes for the edits.
+                    variant_ref_paths[variant] = to_return.graph.add_path();
+                    variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
+                }
             
                 for (size_t alt_index = 0; alt_index < parsed_clump[variant].size(); alt_index++) {                
                     // For each non-ref alt in the parsed variant
@@ -386,8 +388,11 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     string alt_name = "_alt_" + variant_name + "_" + to_string(alt_index + 1);
                     
                     // There should be a path named after it.
-                    Path* alt_path = to_return.graph.add_path();
-                    alt_path->set_name(alt_name);
+                    Path* alt_path = nullptr;
+                    if (alt_paths) {
+                        alt_path = to_return.graph.add_path();
+                        alt_path->set_name(alt_name);
+                    }
                     
                     for (vcflib::VariantAllele& edit : parsed_clump[variant][alt_index]) {
                         // For each VariantAllele used by the alt
@@ -438,12 +443,13 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
 #endif
                             }
                             
-                            
-                            for (Node* node : created_nodes[key]) {
-                                // Add a visit to each node we created/found in
-                                // order to the path for this alt of this
-                                // variant.
-                                add_match(alt_path, node);
+                            if (alt_paths) {
+                                for (Node* node : created_nodes[key]) {
+                                    // Add a visit to each node we created/found in
+                                    // order to the path for this alt of this
+                                    // variant.
+                                    add_match(alt_path, node);
+                                }
                             }
                             
                         } else if (edit.ref != "") {
@@ -581,17 +587,19 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     // Add a reference visit to each node we created/found
                     add_match(ref_path, node);
                     
-                    for (vcflib::Variant* variant : clump) {
-                        // For each variant we might also be part of the ref allele of
-                        if (reference_cursor >= variant->position - chunk_offset &&
-                            reference_cursor < variant->position - chunk_offset + variant->ref.size()) {
-                            // If this run of nodes starts within the varaint...
-                            // (We know if it starts in the variant it has to
-                            // end in the variant, because the variant ends with
-                            // a node break)
-                            
-                            // Add a match along the variant's ref allele path
-                            add_match(variant_ref_paths[variant], node);
+                    if (alt_paths) {
+                        for (vcflib::Variant* variant : clump) {
+                            // For each variant we might also be part of the ref allele of
+                            if (reference_cursor >= variant->position - chunk_offset &&
+                                reference_cursor < variant->position - chunk_offset + variant->ref.size()) {
+                                // If this run of nodes starts within the varaint...
+                                // (We know if it starts in the variant it has to
+                                // end in the variant, because the variant ends with
+                                // a node break)
+                                
+                                // Add a match along the variant's ref allele path
+                                add_match(variant_ref_paths[variant], node);
+                            }
                         }
                     }
                 }
