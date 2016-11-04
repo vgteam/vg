@@ -190,10 +190,6 @@ public:
                                 map<pair<long, int>, vector<bool>>* phase_visits,
                                 map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf = false);
-    void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
-                       int start_pos,
-                       int stop_pos,
-                       int max_node_size);
                        
     // Takes in a VCF file
     // and returns a map [node] = vcflib::variant
