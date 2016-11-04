@@ -1,10 +1,14 @@
 // construct.cpp: define the "vg construct" subcommand.
 
+#include <omp.h>
+#include <unistd.h>
+#include <getopt.h>
+
 #include "subcommand.hpp"
 
-#include "../vg.hpp"
 #include "../stream.hpp"
 #include "../constructor.hpp"
+#include "../region.hpp"
 
 using namespace std;
 using namespace vg;
@@ -85,7 +89,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'p':
-            constructor.progress = true;
+            constructor.show_progress = true;
             break;
 
         case 'z':
@@ -145,7 +149,7 @@ int main_construct(int argc, char** argv) {
                          
             if (start_pos != 0 && stop_pos != 0) {
                 // These are 0-based, so if both are nonzero we got a real set of coordinates
-                if (constructor.progress) {
+                if (constructor.show_progress) {
                     cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
                 }
                 constructor.allowed_vcf_names.insert(seq_name);
@@ -197,6 +201,7 @@ int main_construct(int argc, char** argv) {
     auto callback = [&](Graph& big_chunk) {
         // TODO: these chunks may be too big to (de)serialize directly. For now,
         // just serialize them directly anyway.
+        #pragma omp critical (cout)
         stream::write(cout, 1, std::function<Graph(uint64_t)>([&](uint64_t chunk_number) -> Graph {
             assert(chunk_number == 0);
             // Just spit out our one chunk

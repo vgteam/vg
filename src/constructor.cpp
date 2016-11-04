@@ -266,9 +266,10 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             
                 if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
+                    #pragma omp critical (cerr)
                     cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
-                        << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl;
-                    cerr << "Variant: " << *variant << endl;
+                        << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
+                        << "Variant: " << *variant << endl;
                     exit(1);
                 }
             
@@ -789,6 +790,11 @@ string Constructor::fasta_to_vcf(const string& fasta_name) const {
 void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
     function<void(Graph&)> callback) {
     
+    if (show_progress) {
+        #pragma omp critical (cerr)
+        cerr << "Building graph for " << vcf_contig << "..." << endl;
+    }
+    
     
     // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
 
@@ -1046,6 +1052,7 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
             // Validate each alt of the variant
             if(!allATGC(alt)) {
                 // It may be a symbolic allele or something. Skip this variant.
+                #pragma omp critical (cerr)
                 cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
                 variant_acceptable = false;
                 break;
@@ -1140,6 +1147,11 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     // All the chunks have been wired and emitted. Now emit the very last node, if any
     emit_reference_node(last_node_buffer);
     
+    if (show_progress) {
+        #pragma omp critical (cerr)
+        cerr << "Graph for " << vcf_contig << " complete" << endl;
+    }
+    
 }
 
 void Constructor::construct_graph(const vector<FastaReference*>& references,
@@ -1190,6 +1202,7 @@ void Constructor::construct_graph(const vector<FastaReference*>& references,
                 if(!buffer->has_tabix()) {
                     // Die if we don't have indexes for everyone.
                     // TODO: report errors to caller instead.
+                    #pragma omp critical (cerr)
                     cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
                     exit(1);
                 }

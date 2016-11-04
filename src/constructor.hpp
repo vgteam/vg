@@ -160,7 +160,7 @@ public:
     bool chain_deletions = true;
     
     // Should we show our progress?
-    bool progress = false;
+    bool show_progress = false;
     
     
     // What's the maximum node size we should allow?
