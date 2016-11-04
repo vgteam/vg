@@ -315,7 +315,8 @@ int main_srpe(int argc, char** argv){
         //Mapping* mm = add_me.add_mapping();
         if (true){
         //TODO: chance to dynamically find path name
-        xg::size_t p_rank = xg_ind->id_to_rank( xg_ind->path_rank("HPV16") );
+        for (auto pp : graph->paths.of_node(clipped_id)){
+        xg::size_t p_rank = xg_ind->id_to_rank( xg_ind->path_rank(pp) );
         //TODO should use most recently matched ID instead
         //*mm->mutable_position() = make_position(clipped_id, false, 0);
         int64_t next_id = clipped_id;
@@ -330,7 +331,7 @@ int main_srpe(int argc, char** argv){
             ++next_id;
             next_id = xg_ind->next_path_node_by_id(p_rank, next_id);
         }
-        }
+
         for (int m_i = 0; m_i < clip_aln.path().mapping_size(); m_i++){
             Mapping* mm = add_me.add_mapping();
             Mapping clip_mapping = clip_aln.path().mapping(m_i);
@@ -409,11 +410,13 @@ int main_srpe(int argc, char** argv){
         //
         // 
     }
-
+    }
+}
+}
+}
 
 
     /**
      * Next we will convert those alignments to Locus records.
      */
 
-    }
