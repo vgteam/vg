@@ -151,12 +151,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
         } else {
         
             // Let's try to divide into evenly-sized pieces
-            size_t piece_count = sequence.size() / max_node_size + 1;
-            piece_size = max(sequence.size() / piece_count, (size_t) 1);
-            // Remember we may have a partial piece at the end.
+            size_t piece_count = sequence.size() / max_node_size;
+            if(piece_count > 1) {
+                piece_size = min(max_node_size, max(sequence.size() / piece_count, (size_t) 1));
+            } else {
+                piece_size = max_node_size;
+            }
             
-            // TODO: we're rounding down and tend to have 1-base tiny pieces at
-            // the end.
+            // Remember we may have a partial piece at the end.
         }
     
         // We'll fill this in with created nodes

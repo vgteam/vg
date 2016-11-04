@@ -145,7 +145,9 @@ int main_construct(int argc, char** argv) {
                          
             if (start_pos != 0 && stop_pos != 0) {
                 // These are 0-based, so if both are nonzero we got a real set of coordinates
-                cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                if (constructor.progress) {
+                    cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                }
                 constructor.allowed_vcf_names.insert(seq_name);
                 // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
                 constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
