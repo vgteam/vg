@@ -55,6 +55,8 @@ namespace vg {
     //    multipath_aln     empty multipath alignment to store converted alignment in (data may be
     //                      be overwritten if not empty)
     void to_multipath_alignment(const Alignment& aln, MultipathAlignment& multipath_aln_out);
+    
+    // TODO: function for adding a graph augmentation to an existing multipath alignment
 }
 
 

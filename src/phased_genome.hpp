@@ -79,12 +79,12 @@ namespace vg {
         // if a nested site is being swapped, only the topmost site should be given
         void swap_alleles(NestedSite& site, int haplotype_1, int haplotype_2);
         
-        // set the allele at a site with an iterator that yields its (not including the source
-        // or sink nodes of the site)
+        // set the allele at a site with an iterator that yields its node sequence (not including the
+        // source or sink nodes of the site, e.g. an empty iterator for a deletion)
         // allele should be provided in the order indicated by the NestedSite (i.e. from start to end)
         //
         // note: function does not check that the allele path takes only edges that are actually
-        // included in the graph, so applications must ensure this themselves
+        // included in the graph, so client must ensure this itself
         template <typename NodeTraversalIterator>
         void set_allele(NestedSite& site, NodeTraversalIterator first, NodeTraversalIterator last,
                         int which_haplotype);
@@ -95,6 +95,7 @@ namespace vg {
         // note: assumes that MultipathAlignment has 'start' field filled in
         int32_t optimal_score_on_genome(const MultipathAlignment& multipath_aln);
         
+        // TODO: make a local subalignment optimal score function (main obstacle is scoring partial subpaths)
         
     private:
         
