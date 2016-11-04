@@ -161,36 +161,6 @@ public:
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
-
-    // Now all the stuff for constructing from VCF.
-    // TODO: refactor out
-
-    // construct from VCF
-    VG(vcflib::VariantCallFile& variantCallFile,
-       FastaReference& reference,
-       string& target,
-       bool target_is_chrom,
-       int vars_per_region,
-       int max_node_size = 0,
-       bool flat_input_vcf = false,
-       bool load_phasing_paths = false,
-       bool load_variant_alt_paths = false,
-       bool showprog = false,
-       set<string>* allowed_variants = nullptr);
-       
-    // Build the graph from a bunch of alleles, organized by position.
-    void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
-                      const map<pair<long, int>, vector<bool>>& visits,
-                      size_t num_phasings,
-                      const map<pair<long, int>, vector<pair<string, int>>>& variant_alts,
-                      string& seq,
-                      string& chrom);
-    void vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, vector<vcflib::VariantAllele> >& altp,
-                                map<pair<long, int>, vector<bool>>* phase_visits,
-                                map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
-                                bool flat_input_vcf = false);
-                       
     // Takes in a VCF file
     // and returns a map [node] = vcflib::variant
     // Unfortunately this is specific to a given graph
