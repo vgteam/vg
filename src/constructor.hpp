@@ -157,6 +157,11 @@ public:
     // TODO: pieces are always greedy when welding chunks.
     bool greedy_pieces = false;
 
+    // If a deletion deletes the anchoring base of another deletion (or just
+    // occurs directly adjacent to another deletion), can we chain them in the
+    // graph to allow the longer combined deletion?
+    bool chain_deletions = true;
+    
     
     // What's the maximum node size we should allow?
     size_t max_node_size = 1000;

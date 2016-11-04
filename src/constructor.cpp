@@ -648,7 +648,47 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     edge->set_to(right_node);
                 }
                 
-                for (auto& deletion_start : deletions_ending_at[kv.first]) {
+                // Now we do the deletions. We want to allow daisy-chaining
+                // deletions.
+                
+                // We compose a set of deletion start points.
+                set<int64_t> possible_starts;
+                
+                // We also keep a list of unexplored deletion end points to chain from.
+                list<int64_t> possible_ends;
+                possible_ends.push_back(kv.first);
+                
+                // And a set of explored ones
+                set<int64_t> explored_ends;
+                
+                while (!possible_ends.empty()) {
+                    // Find an unexplored place where we can find more daisy-
+                    // chained deletions ending.
+                    int64_t deletion_end = possible_ends.front();
+                    possible_ends.pop_front();
+                    
+                    for (auto& deletion_start : deletions_ending_at[deletion_end]) {
+                        // For every deletion start that can end there.
+                        
+                        // Note that we can delete from there to our node along
+                        // transitive deletions.
+                        possible_starts.insert(deletion_start);
+                        
+                        // We can daisy chain from deletions that end at the
+                        // base after this deletion starts.
+                        int64_t possible_end = deletion_start + 1;
+                        
+                        if(chain_deletions && possible_end > 0 && !explored_ends.count(possible_end)) {
+                            // Queue it up if not already queued. If we aren't
+                            // chaining deletions, we'll only look at the starts
+                            // accessible from the root of our searcj.
+                            possible_ends.push_back(possible_end);
+                            explored_ends.insert(possible_end);
+                        }
+                    }
+                }
+                
+                for (auto& deletion_start : possible_starts) {
                     // For everywhere a deletion can start that comes to here
                     
                     if (deletion_start == -1) {
