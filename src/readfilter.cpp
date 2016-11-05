@@ -598,7 +598,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 // flush buffer (could get fancier and allow parallel writes to different
                 // files, but unlikely to be worth effort as we're mostly trying to
                 // speed up defray and not write IO)
-#pragma omp critical
+#pragma omp critical (ReadFilter_flush_buffer)
                 {
                     flush_buffer(tid, chunk);
                 }
