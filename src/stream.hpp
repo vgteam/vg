@@ -120,76 +120,101 @@ void for_each_parallel(std::istream& in,
                        const std::function<void(T&)>& lambda,
                        const std::function<void(uint64_t)>& handle_count) {
 
-    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-          new ::google::protobuf::io::IstreamInputStream(&in);
-    ::google::protobuf::io::GzipInputStream *gzip_in =
-          new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
+    // objects will be handed off to worker threads in batches of this many
+    const uint64_t batch_size = 1024;
+    // max # of such batches to be holding in memory
+    const uint64_t max_batches_outstanding = 256;
 
-    uint64_t count;
-    bool more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
-    bool more_objects = false;
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    std::list<T> objects;
-    int64_t object_count = 0;
-    int64_t read_threshold = 5000;
-#pragma omp parallel shared(more_input, more_objects, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
-    while (more_input || more_objects) {
+    #pragma omp parallel default(none) shared(in, lambda, handle_count)
+    #pragma omp single
+    {
+        auto handle = [](bool retval) -> void {
+            if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
+        };
 
-        bool has_object = false;
-        T object;
-#pragma omp critical (objects)
-        {
-            if (!objects.empty()) {
-                object = objects.back();
-                objects.pop_back();
-                --object_count;
-                has_object = true;
-            }
-        }
-        if (has_object) {
-            lambda(object);
-        }
+        ::google::protobuf::io::ZeroCopyInputStream *raw_in =
+            new ::google::protobuf::io::IstreamInputStream(&in);
+        ::google::protobuf::io::GzipInputStream *gzip_in =
+            new ::google::protobuf::io::GzipInputStream(raw_in);
+        ::google::protobuf::io::CodedInputStream *coded_in =
+            new ::google::protobuf::io::CodedInputStream(gzip_in);
 
-#pragma omp master
-        {
-            while (more_input && object_count < read_threshold) {
-                handle_count(count);
-                std::string s;
-                for (uint64_t i = 0; i < count; ++i) {
-                    uint32_t msgSize = 0;
-                    // the messages are prefixed by their size
-                    delete coded_in;
-                    coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
-                    coded_in->ReadVarint32(&msgSize);
-                    if ((msgSize > 0) &&
-                        (coded_in->ReadString(&s, msgSize))) {
-                        T object;
-                        object.ParseFromString(s);
-#pragma omp critical (objects)
-                        {
-                            objects.push_front(object);
-                            ++object_count;
-                        }
-                    }
+        std::vector<std::string> *batch = nullptr;
+        uint64_t batches_outstanding = 0;
+
+        // process chunks prefixed by message count
+        uint64_t count;
+        while (coded_in->ReadVarint64((::google::protobuf::uint64*) &count)) {
+            handle_count(count);
+            for (uint64_t i = 0; i < count; ++i) {
+                if (!batch) {
+                     batch = new std::vector<std::string>();
+                     batch->reserve(batch_size);
                 }
-                more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
-            }
-            
-            // TODO: Between when the master announces there is no more input,
-            // and when it says there are again more objects to process, the
-            // other threads can all quit out, leaving it alone to finish up.
-            
-        }
-#pragma omp critical (objects)
-        more_objects = (object_count > 0);
-    }
+                uint32_t msgSize = 0;
+                // the messages are prefixed by their size
+                handle(coded_in->ReadVarint32(&msgSize));
+                if (msgSize) {
+                    // pick off the message (serialized protobuf object)
+                    std::string s;
+                    handle(coded_in->ReadString(&s, msgSize));
+                    batch->push_back(std::move(s));
+                }
 
-    delete coded_in;
-    delete gzip_in;
-    delete raw_in;
+                if (batch->size() >= batch_size) {
+                    // time to enqueue this batch for processing. first, block if
+                    // we've hit max_batches_outstanding.
+                    uint64_t b;
+                    #pragma omp atomic capture
+                    b = ++batches_outstanding;
+                    while (b >= max_batches_outstanding) {
+                        usleep(1000);
+                        #pragma omp atomic read
+                        b = batches_outstanding;
+                    }
+                    // spawn task to process this batch
+                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle)
+                    {
+                        {
+                            T object;
+                            for (const std::string& s_j : *batch) {
+                                // parse protobuf object and invoke lambda on it
+                                handle(object.ParseFromString(s_j));
+                                lambda(object);
+                            }
+                        } // scope object
+                        delete batch;
+                        #pragma omp atomic update
+                        batches_outstanding--;
+                    }
+
+                    batch = nullptr;
+                }
+
+                // recycle the CodedInputStream in order to avoid its byte limit
+                delete coded_in;
+                coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
+            }
+        }
+
+        // process final batch
+        if (batch) {
+            {
+                T object;
+                for (const std::string& s_j : *batch) {
+                    handle(object.ParseFromString(s_j));
+                    lambda(object);
+                }
+            } // scope object
+            delete batch;
+        }
+
+        delete coded_in;
+        delete gzip_in;
+        delete raw_in;
+    }
 }
 
 template <typename T>
