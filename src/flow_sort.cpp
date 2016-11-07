@@ -25,15 +25,12 @@ std::unique_ptr< list<NodeTraversal> >  FlowSort::max_flow_sort(const string& re
     flow_sort_nodes(*sorted_nodes, ref_name, isGrooming);
     list<NodeTraversal>::reverse_iterator n = sorted_nodes->rbegin();
     int i = 0;
-//    cout << "result" << endl;
     for ( ; i < vg.graph.node_size() && n != sorted_nodes->rend();
           ++i, ++n) {
         // Put the nodes in the order we got
-        cout << (*n).node->id() << " ";
         vg.swap_nodes(vg.graph.mutable_node(i), (*n).node);
     }
-//    rebuild_indexes();
-    cout << endl;
+    vg.rebuild_indexes();
     return sorted_nodes;
 }
 
@@ -118,15 +115,12 @@ void FlowSort::fast_linear_sort(const string& ref_name, bool isGrooming)
     //output
     list<NodeTraversal>::iterator n = sorted_nodes.begin();
     int i = 0;
-//    cout << "result" << endl;
     for ( ; i < vg.graph.node_size() && n != sorted_nodes.end();
           ++i, ++n) {
         // Put the nodes in the order we got
-        cout << (*n).node->id() << " ";
         vg.swap_nodes(vg.graph.mutable_node(i), (*n).node);
     }
-//    rebuild_indexes();
-    cout << endl;
+    vg.rebuild_indexes();
 }
 
 void FlowSort::flow_sort_nodes(list<NodeTraversal>& sorted_nodes, 

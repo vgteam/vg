@@ -9099,9 +9099,9 @@ int main_sort(int argc, char *argv[]) {
         exit(1);
     }
     
+    ifstream in;
     std::unique_ptr<VG> graph;
     {
-        ifstream in;
         in.open(file_name.c_str());        
         if (gfa_input) {
             graph.reset(new VG());
@@ -9114,16 +9114,8 @@ int main_sort(int argc, char *argv[]) {
     FlowSort flow_sort(*graph.get());
     flow_sort.max_flow_sort(reference_name);
     
-    if(gfa_input && !without_grooming)
-    {
-        size_t position = file_name.find(".");
-        string extract_name = (string::npos == position)? file_name : file_name.substr(0, position);
-        std::ofstream outfile (extract_name + "_groom.gfa",std::ofstream::binary);
-        graph->to_gfa(outfile);
-        outfile.close();
-    }
-//    graph->serialize_to_ostream(std::cout);
-//    in.close();
+    graph->serialize_to_ostream(std::cout);
+    in.close();
     return 0;
 }
 
@@ -9184,9 +9176,9 @@ int main_fast_sort(int argc, char *argv[]) {
         exit(1);
     }
 
+    ifstream in;
     std::unique_ptr<VG> graph;
-    {
-        ifstream in;
+    { 
         in.open(file_name.c_str());        
         if (gfa_input) {
             graph.reset(new VG());
@@ -9199,16 +9191,8 @@ int main_fast_sort(int argc, char *argv[]) {
     FlowSort flow_sort(*graph.get());
     flow_sort.fast_linear_sort(reference_name, !without_grooming);
 
-    if(gfa_input && !without_grooming)
-    {
-        size_t position = file_name.find(".");
-        string extract_name = (string::npos == position)? file_name : file_name.substr(0, position);
-        std::ofstream outfile (extract_name + "_groom.gfa",std::ofstream::binary);
-        graph->to_gfa(outfile);
-        outfile.close();
-    }
-
-//    graph->serialize_to_ostream(std::cout);
+    graph->serialize_to_ostream(std::cout);
+    in.close();
     return 0;
 }
 
