@@ -251,6 +251,7 @@ int main_filter(int argc, char** argv) {
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
+                {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
