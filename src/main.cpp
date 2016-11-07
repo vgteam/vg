@@ -6508,25 +6508,33 @@ int main_index(int argc, char** argv) {
                             // If this sample doesn't take the reference path at this
                             // variant
                             if(alt_index != 0) {
+                                // We need to find the path for this alt of this
+                                // variant. 
+                                string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
 
-                              // We need to find the path for this alt of this
-                              // variant. We can pull out the whole thing since it
-                              // should be short.
-                              Path alt_path = alt_paths.at("_alt_" + var_name + "_" + to_string(alt_index));
-                              // TODO: if we can't find this path, it probaby
-                              // means we mismatched the vg file and the vcf file.
-                              // Maybe we should complain to the user instead of
-                              // just failing an assert in at()?
-
-                              if(nonvariant_starts[sample_number * 2 + phase_offset] <= variant.position || !discard_overlaps) {
-
-                                for(size_t i = 0; i < alt_path.mapping_size(); i++) {
-                                    // Then blit mappings from the alt over to the phase thread
-                                    append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                                if(alt_paths.count(alt_path_name) == 0) {
+                                    // Either this variant was skipped during
+                                    // construction (due to having a symbolic
+                                    // alt?) or something is wrong.
+                                    cerr << "warning:[vg index] Alt path " << alt_path_name
+                                        << " missing! Do VCF and FASTA match?" << endl;
+                                    continue;
                                 }
 
-                                nonvariant_starts[sample_number * 2 + phase_offset] = variant.position + variant.ref.size();
-                              }
+                                // We can pull out the whole thing since it
+                                // should be short.
+                                Path alt_path = alt_paths.at(alt_path_name);
+
+                                if((nonvariant_starts[sample_number * 2 + phase_offset] <= variant.position) ||
+                                    !discard_overlaps) {
+
+                                    for(size_t i = 0; i < alt_path.mapping_size(); i++) {
+                                        // Then blit mappings from the alt over to the phase thread
+                                        append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                                    }
+
+                                    nonvariant_starts[sample_number * 2 + phase_offset] = variant.position + variant.ref.size();
+                                }
                             }
 
                             // TODO: We can't really land anywhere on the other
