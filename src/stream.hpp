@@ -31,18 +31,25 @@ bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& 
     ::google::protobuf::io::CodedOutputStream *coded_out =
           new ::google::protobuf::io::CodedOutputStream(gzip_out);
 
+    auto handle = [](bool ok) {
+        if (!ok) throw std::runtime_error("stream::write: I/O error writing protobuf");
+    };
+
     // prefix the chunk with the number of objects, if any objects are to be written
     if(count > 0) {
         coded_out->WriteVarint64(count);
+        handle(!coded_out->HadError());
     }
 
     std::string s;
     uint64_t written = 0;
     for (uint64_t n = 0; n < count; ++n, ++written) {
-        lambda(n).SerializeToString(&s);
+        handle(lambda(n).SerializeToString(&s));
         // and prefix each object with its size
         coded_out->WriteVarint32(s.size());
+        handle(!coded_out->HadError());
         coded_out->WriteRaw(s.data(), s.size());
+        handle(!coded_out->HadError());
     }
 
     delete coded_out;
@@ -80,6 +87,14 @@ void for_each(std::istream& in,
     ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(gzip_in);
 
+    static bool warned = false;
+    auto handle = [&warned](bool ok) {
+        if (!ok && !warned) {
+            std::cerr << "[stream::for_each] WARNING: obsolete, invalid, or corrupt protobuf input; proceeding anyway (FIXME)" << std::endl;
+            warned = true;
+        }
+    };
+
     uint64_t count;
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
@@ -93,11 +108,11 @@ void for_each(std::istream& in,
             delete coded_in;
             coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
             // the messages are prefixed by their size
-            coded_in->ReadVarint32(&msgSize);
-            if ((msgSize > 0) &&
-                (coded_in->ReadString(&s, msgSize))) {
+            handle(coded_in->ReadVarint32(&msgSize));
+            if (msgSize) {
+                handle(coded_in->ReadString(&s, msgSize));
                 T object;
-                object.ParseFromString(s);
+                handle(object.ParseFromString(s));
                 lambda(object);
             }
         }
