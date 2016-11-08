@@ -867,11 +867,9 @@ void Index::load_graph(VG& graph) {
 }
 
 void Index::load_paths(VG& graph) {
-    // We should copy the graph's lead on whether to show progress info.
-    show_progress = graph.show_progress;
-    create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
+    graph.create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
     store_paths(graph);
-    destroy_progress();
+    graph.destroy_progress();
 }
 
 int64_t Index::get_max_path_id(void) {
@@ -983,7 +981,7 @@ void Index::store_path(VG& graph, const Path& path) {
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
 
-        increment_progress();
+        graph.increment_progress();
     }
 }
 

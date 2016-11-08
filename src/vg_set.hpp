@@ -8,13 +8,12 @@
 #include "vg.hpp"
 #include "index.hpp"
 #include "xg.hpp"
-#include "progressive.hpp"
 
 
 namespace vg {
 
 // for dealing with collections of VGs on disk
-class VGset : public Progressive {
+class VGset {
 public:
 
     vector<string> filenames;
@@ -69,6 +68,9 @@ public:
     vector<string> write_gcsa_kmers_binary(int kmer_size,
                                            bool path_only, bool forward_only,
                                            int64_t head_id=0, int64_t tail_id=0);
+                              
+    // Should we show our progress running through each graph?             
+    bool show_progress = false;
 
 private:
 

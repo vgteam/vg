@@ -34,8 +34,6 @@ public:
      * generic progress operations (like VG's for_each_kmer_parallel).
      */
     void preload_progress(const string& message);
-
-protected:
     /**
      * Create a progress bar showing the given message, with the given number of
      * items to process. Does nothing if show_progress is false. Replaces any

@@ -20,7 +20,6 @@
 #include "json2pb.h"
 #include "vg.hpp"
 #include "hash_map.hpp"
-#include "progressive.hpp"
 
 namespace vg {
 
@@ -83,7 +82,7 @@ namespace vg {
   +t+node_id+strand+align_id            alignment traversal // allows us to quickly go from node traversal to alignments
  */
 
-class Index : public Progressive {
+class Index {
 
 public:
 

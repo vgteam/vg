@@ -6686,7 +6686,6 @@ int main_index(int argc, char** argv) {
 
         Index index;
         index.use_snappy = use_snappy;
-        index.show_progress = show_progress;
 
         if (compact) {
             index.open_for_write(rocksdb_name);

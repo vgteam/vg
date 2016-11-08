@@ -236,22 +236,21 @@ void VGset::index_kmers(Index& index, int kmer_size, bool path_only, int edge_ma
             }
         };
 
-        // Each graph manages its own progress bar
+        // Each graph manages its own progress bars
         g->show_progress = show_progress;
         g->preload_progress("indexing kmers of " + g->name);
         g->for_each_kmer_parallel(kmer_size, path_only, edge_max, cache_kmer, stride, false, allow_negatives);
 
-        // Then we run our own progress bar
-        create_progress("flushing kmer buffers " + g->name, g->size());
+        g->create_progress("flushing kmer buffers " + g->name, g->size());
         int tid = 0;
 #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < buffer.size(); ++i) {
             auto& buf = buffer[i];
             write_buffer(i, buf);
-            update_progress(tid);
+            g->update_progress(tid);
         }
         buffer.clear();
-        destroy_progress();
+        g->destroy_progress();
     });
 
     index.remember_kmer_size(kmer_size);
