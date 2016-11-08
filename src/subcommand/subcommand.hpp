@@ -80,7 +80,7 @@ public:
     /**
      * Call the given lambda with each known subcommand, in order.
      */
-    static void for_each(std::function<void(const Subcommand&)> lambda);
+    static void for_each(const std::function<void(const Subcommand&)>& lambda);
 
 
 private:

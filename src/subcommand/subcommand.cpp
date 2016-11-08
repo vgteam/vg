@@ -40,7 +40,7 @@ const Subcommand* Subcommand::get(int argc, char** argv) {
     }
 }
 
-void Subcommand::for_each(std::function<void(const Subcommand&)> lambda) {
+void Subcommand::for_each(const std::function<void(const Subcommand&)>& lambda) {
     for(auto& kv : Subcommand::get_registry()) {
         // For every subcommand, call the callback
         lambda(*kv.second);
