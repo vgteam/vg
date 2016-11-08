@@ -238,5 +238,80 @@ TEST_CASE("fixed priors can be assigned to genotypes", "[genotype]") {
     delete calculator;
 }
 
+TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
+    // Build a toy graph
+    const string graph_json = R"(
+    
+    {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "A"},
+            {"id": 7, "sequence": "C"},
+            {"id": 8, "sequence": "A"},
+            {"id": 9, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 6},
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4, "to": 5},
+            {"from": 5, "to": 6},
+            {"from": 6, "to": 7},
+            {"from": 6, "to": 8},
+            {"from": 7, "to": 9},
+            {"from": 8, "to": 9}
+            
+        ],
+        "path": [
+            {"name": "hint", "mapping": [
+                {"position": {"node_id": 1}},
+                {"position": {"node_id": 6}},
+                {"position": {"node_id": 8}},
+                {"position": {"node_id": 9}}
+            ]}
+        ]
+    }
+    
+    )";
+    
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+    
+    // Make a site
+    NestedSite site;
+    
+    // Put the 2,3,4,5 replacement in
+    site.nodes.insert(graph.get_node(2));
+    site.nodes.insert(graph.get_node(3));
+    site.nodes.insert(graph.get_node(4));
+    site.nodes.insert(graph.get_node(5));
+    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(3)));
+    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(4)));
+    site.edges.insert(graph.get_edge(NodeSide(3, true), NodeSide(5)));
+    site.edges.insert(graph.get_edge(NodeSide(4, true), NodeSide(5)));
+    
+    // Make the TraversalFinder
+    TraversalFinder* finder = new TrivialTraversalFinder(graph);
+    
+    SECTION("at least one path can be found") {
+        auto site_traversals = finder->find_traversals(site);
+        
+        REQUIRE(!site_traversals.empty());
+    }
+    
+    delete finder;
+    
+
+}
+
 }
 }
