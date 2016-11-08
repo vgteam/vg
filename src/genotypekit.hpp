@@ -133,7 +133,7 @@ class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
     
-    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    virtual vector<SiteTraversal> find_traversals(const NestedSite& site) = 0;
 };
 
 /**

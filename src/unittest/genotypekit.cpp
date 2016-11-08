@@ -298,6 +298,8 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
     site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(4)));
     site.edges.insert(graph.get_edge(NodeSide(3, true), NodeSide(5)));
     site.edges.insert(graph.get_edge(NodeSide(4, true), NodeSide(5)));
+    site.start = NodeTraversal(graph.get_node(2));
+    site.end = NodeTraversal(graph.get_node(5));
     
     // Make the TraversalFinder
     TraversalFinder* finder = new TrivialTraversalFinder(graph);
@@ -306,6 +308,24 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
         auto site_traversals = finder->find_traversals(site);
         
         REQUIRE(!site_traversals.empty());
+        
+        SECTION("the path must visit 3 nodes to span the site") {
+            REQUIRE(site_traversals.front().visits.size() == 3);
+            
+            SECTION("the path must start at the start") {
+                auto& visit = site_traversals.front().visits.front();
+                REQUIRE(visit.node == site.start.node);
+                REQUIRE(visit.backward == site.start.backward);
+                REQUIRE(visit.child == nullptr);
+            }
+            
+            SECTION("the path must end at the end") {
+                auto& visit = site_traversals.front().visits.back();
+                REQUIRE(visit.node == site.end.node);
+                REQUIRE(visit.backward == site.end.backward);
+                REQUIRE(visit.child == nullptr);
+            }
+        }
     }
     
     delete finder;
