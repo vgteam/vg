@@ -40,6 +40,13 @@ const Subcommand* Subcommand::get(int argc, char** argv) {
     }
 }
 
+void Subcommand::for_each(std::function<void(const Subcommand&)> lambda) {
+    for(auto& kv : Subcommand::get_registry()) {
+        // For every subcommand, call the callback
+        lambda(*kv.second);
+    }
+}
+
 std::map<std::string, Subcommand*>& Subcommand::get_registry() {
     // We keep a static local, which gets initialized when we get called.
     static std::map<std::string, Subcommand*> registry;

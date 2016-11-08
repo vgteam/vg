@@ -54,7 +54,7 @@ OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(
 UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o $(UNITTEST_OBJ_DIR)/constructor.o
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
-SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct.o 
+SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct.o $(SUBCOMMAND_OBJ_DIR)/simplify.o 
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -342,6 +342,9 @@ $(SUBCOMMAND_OBJ_DIR)/subcommand.o: $(SUBCOMMAND_SRC_DIR)/subcommand.cpp $(SUBCO
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 	 
 $(SUBCOMMAND_OBJ_DIR)/construct.o: $(SUBCOMMAND_SRC_DIR)/construct.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/constructor.hpp $(DEPS)
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	 
+$(SUBCOMMAND_OBJ_DIR)/simplify.o: $(SUBCOMMAND_SRC_DIR)/simplify.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################

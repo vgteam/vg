@@ -67,7 +67,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:as:Cf",
+        c = getopt_long (argc, argv, "v:r:ph?z:t:R:m:as:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
