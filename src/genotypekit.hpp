@@ -70,9 +70,12 @@ struct NestedSite {
     set<Edge*> edges;
     
     // And its oriented start and end anchoring node traversals.
-    NodeTraversal start;
-    NodeTraversal end;
+    NodeTraversal start; // points into site
+    NodeTraversal end; // points out of site
     
+    inline bool operator==(const NestedSite& other) const {
+        return start == other.start && end == other.end;
+    }
 };
 
 // For genotypes we use the protobuf Genotype object, in the context of the

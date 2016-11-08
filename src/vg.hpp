@@ -749,31 +749,49 @@ public:
     // align without base quality adjusted scores
     // May add nodes to the graph, but cleans them up afterward
     Alignment align(const string& sequence,
-                    Aligner& aligner,
+                    Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
-                    Aligner& aligner,
+                    Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     
     // align with default Aligner
     // May add nodes to the graph, but cleans them up afterward
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     
     // align with base quality adjusted scores
     Alignment align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner& qual_adj_aligner,
+                                  QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
+                                  int64_t pinned_node_id = 0,
+                                  bool pin_left = false,
+                                  bool banded_global = false,
                                   bool print_score_matrices = false);
     Alignment align_qual_adjusted(const string& sequence,
-                                  QualAdjAligner& qual_adj_aligner,
+                                  QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
+                                  int64_t pinned_node_id = 0,
+                                  bool pin_left = false,
+                                  bool banded_global = false,
                                   bool print_score_matrices = false);
     
     
@@ -1027,8 +1045,11 @@ private:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
-                    size_t max_query_graph_ratio,
-                    bool print_score_matrices);
+                    size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
+                    bool print_score_matrices = false);
 
 
 public:
