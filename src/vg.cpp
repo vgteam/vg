@@ -156,8 +156,6 @@ VG::VG(void) {
 void VG::init(void) {
     current_id = 1;
     show_progress = false;
-    progress_message = "progress";
-    progress = NULL;
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -2644,48 +2642,6 @@ void VG::print_edges(void) {
     cerr << endl;
 }
 
-void VG::create_progress(const string& message, long count) {
-    if (show_progress) {
-        progress_message = message;
-        create_progress(count);
-    }
-}
-
-void VG::create_progress(long count) {
-    if (show_progress) {
-        progress_message.resize(30, ' ');
-        progress_count = count;
-        last_progress = 0;
-        progress = new ProgressBar(progress_count, progress_message.c_str());
-        progress->Progressed(0);
-    }
-}
-
-void VG::update_progress(long i) {
-    if (show_progress && progress) {
-        if ((i <= progress_count
-             && (long double) (i - last_progress) / (long double) progress_count >= 0.001)
-            || i == progress_count) {
-#pragma omp critical (progress)
-            {
-                progress->Progressed(i);
-                last_progress = i;
-            }
-        }
-    }
-}
-
-void VG::destroy_progress(void) {
-    if (show_progress && progress) {
-        update_progress(progress_count);
-        cerr << endl;
-        progress_message = "";
-        progress_count = 0;
-        delete progress;
-        progress = NULL;
-    }
-}
-
 void VG::sort(void) {
     if (size() <= 1) return;
     // Topologically sort, which orders and orients all the nodes.
@@ -3152,8 +3108,7 @@ void VG::for_each_edge_parallel(function<void(Edge*)> lambda) {
 #pragma omp parallel for shared(completed)
     for (id_t i = 0; i < graph.edge_size(); ++i) {
         lambda(graph.mutable_edge(i));
-        if (progress && completed++ % 1000 == 0) {
-#pragma omp critical (progress_bar)
+        if (completed++ % 1000 == 0) {
             update_progress(completed);
         }
     }
@@ -3355,8 +3310,7 @@ void VG::for_each_node_parallel(function<void(Node*)> lambda) {
     #pragma omp parallel for schedule(dynamic,1) shared(completed)
     for (id_t i = 0; i < graph.node_size(); ++i) {
         lambda(graph.mutable_node(i));
-        if (progress && completed++ % 1000 == 0) {
-            #pragma omp critical (progress_bar)
+        if (completed++ % 1000 == 0) {
             update_progress(completed);
         }
     }
@@ -7278,7 +7232,7 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
                                               id_t& head_id, id_t& tail_id,
                                               function<void(KmerPosition&)> lambda) {
 
-    progress_message = "processing kmers of " + name;
+    preload_progress("processing kmers of " + name);
     Node* head_node = nullptr, *tail_node = nullptr;
     if(head_id == 0) {
         assert(tail_id == 0); // they should be only set together

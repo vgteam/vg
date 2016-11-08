@@ -8,23 +8,21 @@
 #include "vg.hpp"
 #include "index.hpp"
 #include "xg.hpp"
+#include "progressive.hpp"
 
 
 namespace vg {
 
 // for dealing with collections of VGs on disk
-class VGset {
+class VGset : public Progressive {
 public:
 
     vector<string> filenames;
 
-    VGset()
-        : show_progress(false)
-        { };
+    VGset() { };
 
     VGset(vector<string>& files)
         : filenames(files)
-        , show_progress(false)
         { };
 
     void transform(std::function<void(VG*)> lambda);
@@ -71,8 +69,6 @@ public:
     vector<string> write_gcsa_kmers_binary(int kmer_size,
                                            bool path_only, bool forward_only,
                                            int64_t head_id=0, int64_t tail_id=0);
-
-    bool show_progress;
 
 private:
 

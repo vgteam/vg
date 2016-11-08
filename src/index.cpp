@@ -857,21 +857,21 @@ void Index::load_graph(VG& graph) {
         thread_count = omp_get_num_threads();
     }
     omp_set_num_threads(1);
-    graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
+    graph.preload_progress("indexing nodes of " + graph.name);
     rocksdb::WriteBatch batch;
     graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch); });
-    graph.destroy_progress();
-    graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
+    graph.preload_progress("indexing edges of " + graph.name);
     graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
     rocksdb::Status s = db->Write(write_options, &batch);
     omp_set_num_threads(thread_count);
 }
 
 void Index::load_paths(VG& graph) {
-    graph.destroy_progress();
-    graph.create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
+    // We should copy the graph's lead on whether to show progress info.
+    show_progress = graph.show_progress;
+    create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
     store_paths(graph);
-    graph.destroy_progress();
+    destroy_progress();
 }
 
 int64_t Index::get_max_path_id(void) {
@@ -983,7 +983,7 @@ void Index::store_path(VG& graph, const Path& path) {
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
 
-        graph.update_progress(graph.progress_count+1);
+        increment_progress();
     }
 }
 
