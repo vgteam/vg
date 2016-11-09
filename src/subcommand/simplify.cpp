@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#include <list>
+
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
@@ -80,6 +82,111 @@ int main_simplify(int argc, char** argv) {
 
         }
     }
+    
+    // TODO: move all this to a simplifier object
+    
+    // Load the graph
+    VG* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VG(in);
+    }
+    
+    // We need this to get the bubble tree
+    CactusSiteFinder site_finder(*graph, "");
+    
+    // We need this to find traversals for sites.
+    TrivialTraversalFinder traversal_finder(*graph);
+    
+    // Make a list of leaf sites
+    list<NestedSite> leaves;
+    
+    site_finder.for_each_site_parallel([&](NestedSite root) {
+        // For every tree of sites
+        
+        // We keep a queue of sites to process.
+        list<NestedSite*> to_check{&root};
+        
+        while (!to_check.empty()) {
+            // Until we have seen all the sites, check one
+            NestedSite& check = *(to_check.front());
+            to_check.pop_front();
+            
+            if (check.children.empty()) {
+                // This is a leaf. Copy it into the leaves queue.
+                #pragma omp critical (leaves)
+                leaves.push_back(check);
+            } else {
+                for (auto& child : check.children) {
+                    // Check all the children, depth-first.
+                    to_check.push_front(&child);
+                }
+            }
+        }
+        
+    });
+    
+    // Now we have a list of all the leaf sites.
+    
+    for (auto& leaf : leaves) {
+        // Look at all the leaves
+        
+        // For each leaf, calculate its total size.
+        size_t total_size = 0;
+        for (auto* node : leaf.nodes) {
+            // For each node
+            if (node == leaf.start.node || node == leaf.end.node) {
+                // That isn't a start or end
+                continue;
+            }
+            // Include it in the size figure
+            total_size += node->sequence().size();
+        }
+        
+        if (total_size >= min_size) {
+            // This site is too big to remove
+            continue;
+        }
+        
+        // Otherwise we want to simplify this site away
+        
+        // Identify the replacement traversal for the bubble
+        auto traversals = traversal_finder.find_traversals(leaf);
+        
+        if (traversals.empty()) {
+            // We couldn't find any paths through the site.
+            continue;
+        }
+        
+        // Get the collection of visits in the traversal we want to keep
+        auto& visits = traversals.front().visits;
+        
+        // Now we have to rewrite paths that visit nodes/edges not on this
+        // traversal, or in a different order, or whatever. To be safe we'll
+        // just rewrite all paths.
+        
+        // Find all the paths that visit nodes in this region
+        
+        // For each path
+            // Find all the places it visits the start node of the site.
+            // For each, determine what orientation we're going to scan in
+            // Tracing along forward/backward from each as appropriate, see if the end of the site is found in the expected orientation (or if the path ends first).
+            // If we found the end, remove all the mappings encountered.
+            // Then insert mappings for the official traversal we picked, in the appropriate orientation.
+            
+        // Now delete all the nodes that aren't on the blessed traversal.
+        
+        // Now delete all edges that aren't connecting adjacent nodes on the blessed traversal.
+    }
+    
+    // Reset the ranks in the graph, since we rewrote paths
+    graph->paths.clear_mapping_ranks();
+    
+    // Serialize the graph
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
