@@ -91,7 +91,7 @@ public:
     // after it.
     list<Mapping>::iterator remove_mapping(Mapping* m);
     // insert the given mapping into the given path, before the mapping pointed
-    // to by the given iterator.
+    // to by the given iterator. Returns an iterator to the newly-inserted mapping.
     list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w,
                                            const string& path_name, const Mapping& m);
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, const Position& pos);

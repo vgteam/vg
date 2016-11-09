@@ -169,14 +169,107 @@ int main_simplify(int argc, char** argv) {
         // traversal, or in a different order, or whatever. To be safe we'll
         // just rewrite all paths.
         
-        // Find all the paths that visit nodes in this region
+        // Find all the paths that traverse this region.
         
-        // For each path
-            // Find all the places it visits the start node of the site.
-            // For each, determine what orientation we're going to scan in
-            // Tracing along forward/backward from each as appropriate, see if the end of the site is found in the expected orientation (or if the path ends first).
-            // If we found the end, remove all the mappings encountered.
-            // Then insert mappings for the official traversal we picked, in the appropriate orientation.
+        // We start at the start node
+        map<string, set<Mapping*> >& mappings_by_path = graph->paths.get_node_mapping(leaf.start.node);
+        
+        for (auto& kv : mappings_by_path) {
+            // For each path that hits the start node
+            
+            // Unpack the name
+            auto& path_name = kv.first;
+            
+            for (Mapping* start_mapping : kv.second) {
+                // For each visit to the start node
+                
+                // Determine what orientation we're going to scan in
+                bool backward = start_mapping->position().is_reverse();
+                
+                // We're going to fill this list with the mappings we need to
+                // remove and replace in this path for this traversal. Initially
+                // runs from start of site to end of site, but later gets
+                // flipped into path-local orientation.
+                list<Mapping*> existing_mappings;
+                
+                // Tracing along forward/backward from each as appropriate, see
+                // if the end of the site is found in the expected orientation
+                // (or if the path ends first).
+                bool found_end = false;
+                Mapping* here = start_mapping;
+                while (here) {
+                    // Until we hit the start/end of the path or the mapping we want
+                    
+                    // Remember the mapping so we can remove it later.
+                    existing_mappings.push_back(here);
+                    if (here->position().node_id() == leaf.end.node->id() &&
+                        here->position().is_reverse() == (leaf.end.backward != backward)) {
+                        // We have encountered the end of the site int he
+                        // orientation we expect, given the orientation we saw
+                        // for the start.
+                        
+                        found_end = true;
+                    }
+                    
+                    // Scan left along ther path if we found the site start backwards, and right if we found it forwards.
+                    here = backward ? graph->paths.traverse_left(here) : graph->paths.traverse_right(here);
+                }
+                
+                if (!found_end) {
+                    // This path only partly traverses the site.
+                                 
+                    for(auto* mapping : existing_mappings) {
+                        // Trim the path out of the site
+                        graph->paths.remove_mapping(mapping);
+                    }
+                          
+                    // Maybe the next time the path visits the site it will go
+                    // all the way through.
+                    continue;
+                }
+                
+                // If we found the end, remove all the mappings encountered, in
+                // order so that the last one removed is the last one along the
+                // path.
+                if (backward) {
+                    // Make sure the last mapping in the list is the last
+                    // mapping to occur along the path.
+                    existing_mappings.reverse();
+                }
+                
+                // Where will we insert the new site traversal into the path?
+                list<Mapping>::iterator insert_position;
+                for (auto* mapping : existing_mappings) {
+                    // Remove each mapping from left to right along the path,
+                    // saving the position after the mapping we just removed. At
+                    // the end we'll have the position after the whole site
+                    // traversal.
+                    insert_position = graph->paths.remove_mapping(mapping);
+                }
+                
+                // Then insert mappings for the official traversal we picked,
+                // from right to left in the path's local orientation.
+                for (auto i = visits.rbegin(); i != visits.rend(); ++i) {
+                    // For each visit in the official traversal for this site, right to left
+                    
+                    // Make a Mapping to represent it
+                    Mapping new_mapping;
+                    new_mapping.mutable_position()->set_node_id(i->node->id());
+                    new_mapping.mutable_position()->set_is_reverse(i->backward);
+                    
+                    // Add an edit
+                    Edit* edit = new_mapping.add_edit();
+                    edit->set_from_length(i->node->sequence().size());
+                    edit->set_to_length(i->node->sequence().size());
+                    
+                    // Insert the mapping in the path, moving right to left
+                    insert_position = graph->paths.insert_mapping(insert_position, path_name, new_mapping);
+                }
+                
+            }
+        }
+           
+        // TODO: finish
             
         // Now delete all the nodes that aren't on the blessed traversal.
         
