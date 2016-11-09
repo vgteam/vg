@@ -103,6 +103,9 @@ int main_simplify(int argc, char** argv) {
         graph = new VG(in);
     }
     
+    // Set the progress flag
+    graph->show_progress = show_progress;
+    
     // We need this to get the bubble tree
     CactusSiteFinder site_finder(*graph, "");
     
@@ -152,6 +155,7 @@ int main_simplify(int argc, char** argv) {
     }
     
     // Now we have a list of all the leaf sites.
+    graph->create_progress("simplify leaves", leaves.size());
     
     for (auto& leaf : leaves) {
         // Look at all the leaves
@@ -239,11 +243,14 @@ int main_simplify(int argc, char** argv) {
                     existing_mappings.push_back(here);
                     if (here->position().node_id() == leaf.end.node->id() &&
                         here->position().is_reverse() == (leaf.end.backward != backward)) {
-                        // We have encountered the end of the site int he
+                        // We have encountered the end of the site in the
                         // orientation we expect, given the orientation we saw
                         // for the start.
                         
                         found_end = true;
+                        
+                        // Stop scanning!
+                        break;
                     }
                     
                     // Scan left along ther path if we found the site start backwards, and right if we found it forwards.
@@ -279,6 +286,11 @@ int main_simplify(int argc, char** argv) {
                     // saving the position after the mapping we just removed. At
                     // the end we'll have the position after the whole site
                     // traversal.
+                    
+#ifdef debug
+                    cerr << path_name << ": Drop mapping " << pb2json(*mapping) << endl;
+#endif
+                    
                     insert_position = graph->paths.remove_mapping(mapping);
                 }
                 
@@ -296,6 +308,10 @@ int main_simplify(int argc, char** argv) {
                     Edit* edit = new_mapping.add_edit();
                     edit->set_from_length(i->node->sequence().size());
                     edit->set_to_length(i->node->sequence().size());
+                    
+#ifdef debug
+                    cerr << path_name << ": Add mapping " << pb2json(new_mapping) << endl;
+#endif
                     
                     // Insert the mapping in the path, moving right to left
                     insert_position = graph->paths.insert_mapping(insert_position, path_name, new_mapping);
@@ -347,7 +363,12 @@ int main_simplify(int argc, char** argv) {
                 graph->destroy_node(node);
             }
         }
+        
+        // OK we finished a leaf
+        graph->increment_progress();
     }
+    
+    graph->destroy_progress();
     
     // Reset the ranks in the graph, since we rewrote paths
     graph->paths.clear_mapping_ranks();
