@@ -48,6 +48,7 @@ int main_construct(int argc, char** argv) {
     bool region_is_chrom = false;
 
     int c;
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {

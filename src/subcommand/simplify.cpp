@@ -37,6 +37,7 @@ int main_simplify(int argc, char** argv) {
     bool show_progress = false;
 
     int c;
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
@@ -89,8 +90,14 @@ int main_simplify(int argc, char** argv) {
     VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
+        if (show_progress) {
+            cerr << "Reading standard input..." << endl;
+        }
         graph = new VG(std::cin);
     } else {
+        if (show_progress) {
+            cerr << "Reading " << file_name << "..." << endl;
+        }
         ifstream in;
         in.open(file_name.c_str());
         graph = new VG(in);
@@ -105,11 +112,21 @@ int main_simplify(int argc, char** argv) {
     // Make a list of leaf sites
     list<NestedSite> leaves;
     
+    if (show_progress) {
+        cerr << "Scanning " << graph->node_count() << " nodes for sites..." << endl;
+    }
+        
+    
     site_finder.for_each_site_parallel([&](NestedSite root) {
         // For every tree of sites
         
         // We keep a queue of sites to process.
         list<NestedSite*> to_check{&root};
+        
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Found root site with " << root.children.size() << " children" << endl;
+#endif
         
         while (!to_check.empty()) {
             // Until we have seen all the sites, check one
@@ -130,6 +147,10 @@ int main_simplify(int argc, char** argv) {
         
     });
     
+    if (show_progress) {
+        cerr << "Found " << leaves.size() << " leaves" << endl;
+    }
+    
     // Now we have a list of all the leaf sites.
     
     for (auto& leaf : leaves) {
@@ -145,6 +166,19 @@ int main_simplify(int argc, char** argv) {
             }
             // Include it in the size figure
             total_size += node->sequence().size();
+        }
+        
+#ifdef debug
+        cerr << "Found " << total_size << " bp leaf" << endl;
+        for (auto* node : leaf.nodes) {
+            cerr << "\t" << node->id() << ": " << node->sequence() << endl;
+        }
+#endif
+        
+        if (total_size == 0) {
+            // This site is just the start and end nodes, so it doesn't make
+            // sense to try and remove it.
+            continue;
         }
         
         if (total_size >= min_size) {
@@ -171,8 +205,9 @@ int main_simplify(int argc, char** argv) {
         
         // Find all the paths that traverse this region.
         
-        // We start at the start node
-        map<string, set<Mapping*> >& mappings_by_path = graph->paths.get_node_mapping(leaf.start.node);
+        // We start at the start node. Copy out all the mapping pointers on that
+        // node, so we can go through them while tampering with them.
+        map<string, set<Mapping*> > mappings_by_path = graph->paths.get_node_mapping(leaf.start.node);
         
         for (auto& kv : mappings_by_path) {
             // For each path that hits the start node
@@ -269,17 +304,58 @@ int main_simplify(int argc, char** argv) {
             }
         }
            
-        // TODO: finish
+        // Now delete all edges that aren't connecting adjacent nodes on the
+        // blessed traversal (before we delete their nodes).
+        set<Edge*> blessed_edges;
+        for (auto i = visits.begin(); i != --visits.end(); ++i) {
+            // For each node and the next node (which won't be the end)
+            auto next = i;
+            next++;
             
+            assert(next != visits.end());
+            
+            // Find the edge between them
+            NodeTraversal here(i->node, i->backward);
+            NodeTraversal next_traversal(next->node, next->backward);
+            Edge* edge = graph->get_edge(here, next_traversal);
+            assert(edge != nullptr);
+            
+            // Remember we need it
+            blessed_edges.insert(edge);
+        }
+        
+        for (auto* edge : leaf.edges) {
+            if (!blessed_edges.count(edge)) {
+                // Get rid of all the edges not needed for the one true traversal
+                graph->destroy_edge(edge);
+            }
+        }
+       
+           
         // Now delete all the nodes that aren't on the blessed traversal.
         
-        // Now delete all edges that aren't connecting adjacent nodes on the blessed traversal.
+        // What nodes are on it?
+        set<Node*> blessed_nodes;
+        for (auto& visit : visits) {
+            blessed_nodes.insert(visit.node);
+        }
+        
+        for (auto* node : leaf.nodes) {
+            // For every node in the site
+            if (!blessed_nodes.count(node)) {
+                // If we don't need it for the chosen path, destroy it
+                graph->destroy_node(node);
+            }
+        }
     }
     
     // Reset the ranks in the graph, since we rewrote paths
     graph->paths.clear_mapping_ranks();
     
     // Serialize the graph
+    graph->serialize_to_ostream(std::cout);
+    
+    delete graph;
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
