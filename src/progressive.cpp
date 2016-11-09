@@ -17,6 +17,7 @@ void Progressive::create_progress(long count) {
     if (show_progress) {
         progress_count = count;
         last_progress = 0;
+        progress_seen = 0;
         if (progress) {
             // Get rid of the old one.
             delete progress;
@@ -47,13 +48,37 @@ void Progressive::update_progress(long i) {
                 last_progress = i;
             }
         }
+#pragma omp critical (progress_seen)
+        {
+            // Remember the amout of progress we have seen.
+            progress_seen = i;
+        }
     }
 }
 
 void Progressive::increment_progress() {
-#pragma omp critical (progress)
+#pragma omp critical (increment_progress)
     {
-        update_progress(last_progress + 1);
+        // Only one increment can happen at a time, so we don't get lower values
+        // coming after higher values because the increments and the displays
+        // interleaved.
+
+        // What should we set the progress bar to?
+        size_t new_progress;
+
+#pragma omp critical (progress_seen)
+        {   
+            // We need to synchronize with update calls.
+            
+            // Bump up whatever we have to 1 more than that.
+            new_progress = progress_seen + 1;
+        }
+        
+        // TODO: interleaving updates and increments from different threads will
+        // be weird, and progress may go backward. But that makes no real sense
+        // anyway, so we just have to not explode/deadlock when it happens.
+    
+        update_progress(new_progress);
     }
 }
 

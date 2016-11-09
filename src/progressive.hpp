@@ -64,8 +64,14 @@ public:
     
 private:
     string progress_message = "progress";
+    // How many total ticks of progress are there?
     long progress_count;
+    // What's the last progress value we displayed?
     long last_progress;
+    // What's the last progress value we've actually seen, either through an
+    // explicit update or an increment?
+    long progress_seen;
+    // What;s the actual progress bar renderer we're using?
     ProgressBar* progress = nullptr;
 };
 
