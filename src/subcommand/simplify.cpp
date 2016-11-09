@@ -155,7 +155,7 @@ int main_simplify(int argc, char** argv) {
     }
     
     // Now we have a list of all the leaf sites.
-    graph->create_progress("simplify leaves", leaves.size());
+    graph->create_progress("simplifying leaves", leaves.size());
     
     for (auto& leaf : leaves) {
         // Look at all the leaves
