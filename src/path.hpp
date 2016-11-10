@@ -86,12 +86,16 @@ public:
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
     
+    // Find the given mapping in its path, so mappings can be inserted before
+    // it.
+    list<Mapping>::iterator find_mapping(Mapping* m);
     // remove the given Mapping from its path. Returns an iterator to the
     // mapping that came after it, or the end of the list if no mapping came
     // after it.
     list<Mapping>::iterator remove_mapping(Mapping* m);
     // insert the given mapping into the given path, before the mapping pointed
-    // to by the given iterator. Returns an iterator to the newly-inserted mapping.
+    // to by the given iterator. Returns an iterator to the newly-inserted
+    // mapping.
     list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w,
                                            const string& path_name, const Mapping& m);
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, const Position& pos);
