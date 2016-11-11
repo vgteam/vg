@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 40
+plan tests 41
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
@@ -157,6 +157,12 @@ is $(vg index -g t.gcsa reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verif
 
 vg construct -r ins_and_del/ins_and_del.fa -v ins_and_del/ins_and_del.vcf.gz -a >ins_and_del.vg
 is $(vg index -x ins_and_del.vg.xg -v ins_and_del/ins_and_del.vcf.gz ins_and_del.vg 2>&1 | wc -l) 0 "indexing with allele paths handles combination insert-and-deletes"
+
+vg construct -m 2000 -r 1mb1kgp/z.fa > big.vg
+
+is "$(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep "vg mod -x" | wc -l)" "1" "a useful error message is produced when nodes are too large"
+
+rm -f big.vg
 
 rm -f t.gcsa
 rm -f x.vg
