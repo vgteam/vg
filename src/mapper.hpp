@@ -225,6 +225,9 @@ public:
     Alignment mem_to_alignment(MaximalExactMatch& mem);
     // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment
     Alignment patch_alignment(const Alignment& aln);
+    // try to locally align portions of the alignment with "knots" where we slip backwards in the graph
+    Alignment smooth_alignment(const Alignment& aln);
+    // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
     int32_t score_alignment(const Alignment& aln);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);

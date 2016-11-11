@@ -912,7 +912,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         int max_length = m1.length() + m2.length();
         double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) / avg_node_len;
         //if (debug) cerr << "approx distance " << approx_distance << endl;
-        if (approx_distance < max_length) {
+        if (approx_distance < max_length) { // && approx_distance > -avg_node_len) {
             int distance = graph_distance(m1_pos, m2_pos, max_length);
             if (distance == max_length) {
                 return (double)-1.0;
@@ -924,6 +924,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 double weight = (double)1.0 / (double)(abs(jump) + 1);
                 if (is_rev(m1_pos) != is_rev(m2_pos)) {
                     weight /= 10;
+                    //return (double)-1.0;
                 }
                 return weight;
             }
@@ -2568,6 +2569,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                 }
                             }
                         } else {
+                            // but we need to record the things in the graph connected to it
+                            for (auto& side : graph.sides_to(id(second_cut))) {
+                                target_nodes.push_back(side.node);
+                            }
                             // destroy the node
                             graph.destroy_node(id(second_cut));
                             // we don't record this node as a target as we've destroyed it
@@ -2579,6 +2584,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // reselect the target subgraph
                 VG target;
                 for (auto& id : target_nodes) {
+                    //if (debug) cerr << "target node " << id << endl;
                     if (graph.has_node(id)) {
                         target.add_node(*graph.get_node(id));
                     }
@@ -2618,15 +2624,17 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     bool banded_global = true;
                     id_t pinned_id = 0;
                     bool pinned_reverse = false;
-                    // TODO : we want to use the pinning here
-                    // but now it is not doing the expected thing
-                    //write_alignment_to_file(patch, "pre-" + hash_alignment(patch) + ".gam");
-                    //graph.serialize_to_file("pre-" + hash_alignment(patch) + ".vg");
+                    // use the pinning if we are in a soft clip
+                    if (soft_clip_to_right) {
+                        pinned_id = graph.head_nodes().front()->id();
+                        pinned_reverse = true;
+                    } else if (soft_clip_to_left) {
+                        pinned_id = graph.tail_nodes().front()->id();
+                    }
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
                                            pinned_id, pinned_reverse, banded_global);
-                    //cerr << "raw patch " << pb2json(simplify(patch)) << endl;
 
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
@@ -2641,7 +2649,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         }
                     }
 
-                    // reverse complement back if our source is reversed
+                    // reverse complement back if we've flipped the read for alignment
                     if (flip) {
                         patch = reverse_complement_alignment(patch,
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) {
@@ -2722,7 +2730,104 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
     */
 
-    return patched;
+    return smooth_alignment(patched);
+    //return patched;
+}
+
+Alignment Mapper::smooth_alignment(const Alignment& aln) {
+    // find cases where we have reversals
+    auto& path = aln.path();
+    bool should_smooth = false;
+    //cerr << "smoothing" << endl;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        if (should_smooth) break;
+        auto& mapping = path.mapping(i);
+        //cerr << "finding smooth " << pb2json(mapping) << endl;
+        // look forward to score any intervening gaps using graph distances
+        // and resolve local alignments that loop backward
+        if (i+1 < path.mapping_size()) {
+            // what is the distance between the last position of this mapping
+            // and the first of the next
+            Position last_pos = mapping.position();
+            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
+            Position next_pos = path.mapping(i+1).position();
+            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            //cerr << "dist " << dist << endl;
+            if (dist == aln.sequence().size()) {
+                // we failed to find a distance
+                if (debug) cerr << "failed to find distance" << endl;
+                // try to align this bit in place by expanding the graph here
+                // try going down the read until we've found a bit we can align against
+                int j = i+2;
+                while (j < path.mapping_size()) {
+                    next_pos = path.mapping(j).position();
+                    dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+                    if (dist < aln.sequence().size()) {
+                        should_smooth = true;
+                        break;
+                    }
+                    ++j;
+                }
+            }
+        }
+    }
+    if (should_smooth) {
+        if (debug) cerr << "smoothing" << endl;
+        // get the subgraph overlapping the alignment
+        VG graph;
+        id_t id1 = aln.path().mapping(0).position().node_id();
+        id_t id2 = aln.path().mapping(aln.path().mapping_size()-1).position().node_id();
+        id_t id_from = id1;
+        id_t id_to = id2;
+        if (id1 > id2) {
+            id_from = id2;
+            id_to = id1;
+        }
+        bool go_forward = true;
+        bool go_backward = false;
+        xindex->get_id_range(id_from, id_from, graph.graph);
+        xindex->expand_context(graph.graph,
+                               aln.sequence().size(),
+                               false, // don't use steps (use length)
+                               false, // don't add paths
+                               go_forward,
+                               go_backward,
+                               id_to);  // our target node
+        graph.rebuild_indexes();
+        //if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+        //graph.serialize_to_file("raw-" + hash_alignment(aln) + ".vg");
+        // re-do the alignment
+        // against the graph
+        // always use the banded global mode
+        Alignment smoothed = aln;
+        bool flip = aln.path().mapping(0).position().is_reverse();
+        if (flip) {
+            smoothed.set_sequence(reverse_complement(aln.sequence()));
+            if (!aln.quality().empty()) {
+                string qual = aln.quality();
+                reverse(qual.begin(), qual.end());
+                smoothed.set_quality(qual);
+            }
+        }
+        bool banded_global = true;
+        id_t pinned_id = 0;
+        bool pinned_reverse = false;
+        smoothed = align_to_graph(smoothed,
+                                  graph,
+                                  max_query_graph_ratio,
+                                  pinned_id,
+                                  pinned_reverse,
+                                  banded_global);
+        if (flip) {
+            smoothed = reverse_complement_alignment(smoothed,
+                                                    (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                                            return (int64_t)get_node_length(id);
+                                                        }));
+        }
+        return smoothed;
+    } else {
+        return aln;
+    }
 }
 
 // generate a score from the alignment without realigning
@@ -2737,12 +2842,10 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         //cerr << "looking at mapping " << pb2json(mapping) << endl;
-        pos_t ref_pos = make_pos_t(mapping.position());
         for (int j = 0; j < mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
             //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
-                // matches behave as expected
                 if (!aln.quality().empty()) {
                     score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_pos, edit.to_length()),
@@ -2751,17 +2854,10 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                     score += edit.from_length()*aligner->match;
                 }
             } else if (edit_is_deletion(edit)) {
-                // we can't do anything for deletions-- anyway they shouldn't get here if we call this
-                // in the SMEM threading alignment
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
             } else if (edit_is_insertion(edit)) {
-                // if we're a soft clip, assume local alignment 0 bounding
-                if (i == 0 && j == 0
-                    || i+1 == path.mapping_size() && j+1 == mapping.edit_size()) {
-                    // nothing to do
-                } else {
-                    score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
-                }
+                // todo how do we score this qual adjusted?
+                score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
             }
         }
         // score any intervening gaps in mappings using approximate distances
@@ -2772,14 +2868,29 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
             Position next_pos = path.mapping(i+1).position();
             //cerr << "gap: " << last_pos << " to " << next_pos << endl;
-            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size()) - 1;
+            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            if (dist == aln.sequence().size()) {
+                // we failed to find a distance
+                if (i+2 < path.mapping_size()) {
+                    next_pos = path.mapping(i+2).position();
+                    dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+                }
+                // try to find the distance to the next mapping
+                if (dist < aln.sequence().size()) {
+                    if (debug) {
+                        cerr << "distance delta with subsequent match suggests MEMs are overlapping" << endl;
+                    }
+                }
+            }
+            if (dist) dist -= 1;
+            // if the distance is the max...
             if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;
             if (dist > 0) {
                 score -= aligner->gap_open + dist * aligner->gap_extension;
             }
         }
     }
-
+    if (debug) cerr << "score from score_alignment " << score << endl;
     return max(0, score);
 }
 
