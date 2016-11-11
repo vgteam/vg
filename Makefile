@@ -199,7 +199,7 @@ $(INC_DIR)/vg_git_version.hpp: .git
 ## VG source code compilation begins here
 ####################################
 
-include/stream.hpp:
+include/stream.hpp: src/stream.hpp
 	cp src/stream.hpp include/stream.hpp
 
 $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
