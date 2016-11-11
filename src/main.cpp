@@ -589,9 +589,7 @@ int main_scrub(int argc, char** argv){
         }
     }
 
-   omp_set_num_threads(threads);
-
-    alignment_file = argv[optind];
+    omp_set_num_threads(threads);
 
     vector<Alignment> buffer;
     static const int buffer_size = 1000; // we let this be off by 1
@@ -646,6 +644,7 @@ int main_scrub(int argc, char** argv){
        }
 
     };
+    // TODO: not actually called
 
     /**
      * Quality, average quality, soft clipping, reversing, split_read, percent identity, and path
@@ -683,24 +682,9 @@ int main_scrub(int argc, char** argv){
         }
     };
 
-
-    if (alignment_file == "-"){
-        //stream::for_each(cin, serial_filters_lambda);
-        stream::for_each_parallel(cin, parallel_filters_lambda);
-    }
-    else{
-        ifstream in;
-        in.open(alignment_file);
-        if (in.good()){
-            stream::for_each(in, serial_filters_lambda);
-            stream::for_each(in, parallel_filters_lambda);
-
-        }
-        else{
-            cerr << "Could not open " << alignment_file << endl;
-            help_filter(argv);
-        }
-    }
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        stream::for_each(in, parallel_filters_lambda);
+    });
 
     if (buffer.size() > 0) {
         stream::write(cout, buffer.size(), write_buffer);
@@ -906,7 +890,6 @@ int main_vectorize(int argc, char** argv){
     }
 
     Vectorizer vz(xg_index);
-    string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
     function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot, max_mem_length](Alignment& a){
@@ -974,16 +957,10 @@ int main_vectorize(int argc, char** argv){
             }
         }
     };
-    if (alignment_file == "-"){
-        stream::for_each(cin, lambda);
-    }
-    else{
-        ifstream in;
-        in.open(alignment_file);
-        if (in.good()){
-            stream::for_each(in, lambda);
-        }
-    }
+    
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        stream::for_each(in, lambda);
+    });
 
     string mapping_str = vz.output_wabbit_map();
     if (output_wabbit){
@@ -4158,7 +4135,7 @@ int main_kmers(int argc, char** argv) {
 
     vector<string> graph_file_names;
     while (optind < argc) {
-        string file_name = argv[optind++];
+        string file_name = get_input_file_name(optind, argc, argv);
         graph_file_names.push_back(file_name);
     }
 
@@ -7473,9 +7450,11 @@ int main_view(int argc, char** argv) {
             return 1;
         }
     } else if (input_type == "fastq") {
-        fastq1 = argv[optind++];
+        // The first FASTQ is the filename we already grabbed
+        fastq1 = file_name;
         if (optind < argc) {
-            fastq2 = argv[optind];
+            // There may be a second one
+            fastq2 = get_input_file_name(optind, argc, argv);
         }
         if (output_type == "gam") {
             vector<Alignment> buf;
