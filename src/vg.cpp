@@ -7302,12 +7302,39 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
         exit(1);
     }
 
+    // We only want to print the error about nodes being too big once.
+    bool nodes_too_big = false;
+    
     // Actually find the GCSA2 kmers. The head and tail node pointers point to
     // things, but the graph is only guaranteed to actually own one of those
     // things.
     for_each_node_parallel(
         [kmer_size, path_only, edge_max, stride, forward_only,
-         head_node, tail_node, lambda, this](Node* node) {
+         head_node, tail_node, lambda, &nodes_too_big, this](Node* node) {
+            
+            if (nodes_too_big) {
+                // Don't keep processing nodes in this thread if another decided
+                // the nodes are too big.
+                return;
+            }
+            
+            if(node->sequence().size() > 1024) {
+                // This is too big for GCSA2 to handle.
+                #pragma omp critical (cerr)
+                {
+                    if (!nodes_too_big) {
+                        // Don't print the message twice
+                        
+                        cerr << "error:[for_each_gcsa_kmer_position_parallel] Graph contains nodes longer than 1024 bp, "
+                            << "which can't be indexed by GCSA2. Preprocess the graph with "
+                            << "\"vg mod -X 1024 old.vg > new.vg\" to divide these nodes." << endl;
+                        cerr << "note: node " << node->id() << " is " << node->sequence().size() << " bp" << endl;
+                        nodes_too_big = true;
+                        exit(1);
+                    } 
+                }
+            }
+         
             gcsa_handle_node_in_graph(node, kmer_size, path_only, edge_max, stride, forward_only,
                                       head_node, tail_node, lambda);
         });
