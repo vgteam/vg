@@ -87,11 +87,9 @@ void for_each(std::istream& in,
     ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(gzip_in);
 
-    static bool warned = false;
-    auto handle = [&warned](bool ok) {
-        if (!ok && !warned) {
-            std::cerr << "[stream::for_each] WARNING: obsolete, invalid, or corrupt protobuf input; proceeding anyway (FIXME)" << std::endl;
-            warned = true;
+    auto handle = [](bool ok) {
+        if (!ok) {
+            throw std::runtime_error("[stream::for_each] obsolete, invalid, or corrupt protobuf input");
         }
     };
 
