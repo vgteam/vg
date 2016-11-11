@@ -11,6 +11,7 @@
 #include "../vg.hpp"
 // This provides the CactusSiteFinder
 #include "../genotypekit.hpp"
+#include "../utility.hpp"
 
 
 using namespace std;
@@ -95,23 +96,9 @@ int main_simplify(int argc, char** argv) {
     
     // Load the graph
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        if (show_progress) {
-            cerr << "Reading standard input..." << endl;
-        }
-        graph = new VG(std::cin);
-    } else {
-        if (show_progress) {
-            cerr << "Reading " << file_name << "..." << endl;
-        }
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG(in);
-    }
-    
-    // Set the progress flag
-    graph->show_progress = show_progress;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        graph = new VG(in, show_progress);
+    });
     
     // We need this to get the bubble tree
     CactusSiteFinder site_finder(*graph, "");
