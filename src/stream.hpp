@@ -9,7 +9,6 @@
 #include <functional>
 #include <vector>
 #include <list>
-#include <atomic>
 #include "google/protobuf/stubs/common.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
@@ -134,30 +133,29 @@ void for_each_parallel(std::istream& in,
                        const std::function<void(T&)>& lambda,
                        const std::function<void(uint64_t)>& handle_count) {
 
-    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-          new ::google::protobuf::io::IstreamInputStream(&in);
-    ::google::protobuf::io::GzipInputStream *gzip_in =
-          new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
-
     // objects will be handed off to worker threads in batches of this many
     const uint64_t batch_size = 1024;
     // max # of such batches to be holding in memory
     const uint64_t max_batches_outstanding = 256;
 
-    auto handle = [](bool retval) -> void {
-        if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
-    };
-
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel
-    #pragma omp single nowait
+    #pragma omp parallel default(none) shared(in, lambda, handle_count)
+    #pragma omp single
     {
+        auto handle = [](bool retval) -> void {
+            if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
+        };
+
+        ::google::protobuf::io::ZeroCopyInputStream *raw_in =
+            new ::google::protobuf::io::IstreamInputStream(&in);
+        ::google::protobuf::io::GzipInputStream *gzip_in =
+            new ::google::protobuf::io::GzipInputStream(raw_in);
+        ::google::protobuf::io::CodedInputStream *coded_in =
+            new ::google::protobuf::io::CodedInputStream(gzip_in);
+
         std::vector<std::string> *batch = nullptr;
-        std::atomic<uint64_t> batches_outstanding;
-        batches_outstanding = 0;
+        uint64_t batches_outstanding = 0;
 
         // process chunks prefixed by message count
         uint64_t count;
@@ -181,12 +179,16 @@ void for_each_parallel(std::istream& in,
                 if (batch->size() >= batch_size) {
                     // time to enqueue this batch for processing. first, block if
                     // we've hit max_batches_outstanding.
-                    batches_outstanding++;
-                    while (batches_outstanding >= max_batches_outstanding) {
+                    uint64_t b;
+                    #pragma omp atomic capture
+                    b = ++batches_outstanding;
+                    while (b >= max_batches_outstanding) {
                         usleep(1000);
+                        #pragma omp atomic read
+                        b = batches_outstanding;
                     }
                     // spawn task to process this batch
-                    #pragma omp task firstprivate(batch) shared(batches_outstanding)
+                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle)
                     {
                         {
                             T object;
@@ -197,6 +199,7 @@ void for_each_parallel(std::istream& in,
                             }
                         } // scope object
                         delete batch;
+                        #pragma omp atomic update
                         batches_outstanding--;
                     }
 
@@ -220,11 +223,11 @@ void for_each_parallel(std::istream& in,
             } // scope object
             delete batch;
         }
-    }
 
-    delete coded_in;
-    delete gzip_in;
-    delete raw_in;
+        delete coded_in;
+        delete gzip_in;
+        delete raw_in;
+    }
 }
 
 template <typename T>
