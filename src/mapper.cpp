@@ -1009,8 +1009,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
         }
         if (unique) {
-            auto patch = simplify(patch_alignment(partial_alignment));
-            patch.set_score(score_alignment(patch));
+            auto patch = patch_alignment(partial_alignment);
             if (debug) { cerr << "patch identity " << patch.identity() << endl; }
             if (patch.identity() > min_identity) {
                 alns.emplace_back(patch);
@@ -2128,18 +2127,21 @@ map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type nod
 Alignment Mapper::walk_match(const string& seq, pos_t pos) {
     //cerr << "in walk match with " << seq << " " << seq.size() << " " << pos << endl;
     Alignment aln;
+    aln.set_sequence(seq);
     auto alns = walk_match(aln, seq, pos);
     if (!alns.size()) {
-        cerr << "no alignments returned from walk match with " << seq << " " << seq.size() << " " << pos << endl;
-        assert(false);
+        //cerr << "no alignments returned from walk match with " << seq << " " << seq.size() << " " << pos << endl;
+        //assert(false);
+        return aln;
     }
     aln = alns.front(); // take the first one we found
-    aln.set_sequence(seq);
-    assert(alignment_to_length(aln) == alignment_from_length(aln));
-    if (alignment_to_length(aln) != seq.size()) {
-        cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
-        cerr << pb2json(aln) << endl;
-        assert(false);
+    //assert(alignment_to_length(aln) == alignment_from_length(aln));
+    if (alignment_to_length(aln) != alignment_from_length(aln)
+        || alignment_to_length(aln) != seq.size()) {
+        //cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
+        //cerr << pb2json(aln) << endl;
+        //assert(false);
+        aln.clear_path();
     }
     return aln;
 }
@@ -2621,7 +2623,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     // do the alignment
                     // always use the banded global mode
-                    bool banded_global = true;
+                    //bool banded_global = true;
+                    bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
                     id_t pinned_id = 0;
                     bool pinned_reverse = false;
                     // use the pinning if we are in a soft clip
@@ -2730,29 +2733,39 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
     */
 
-    return smooth_alignment(patched);
-    //return patched;
+    // enable these to attempt alignment normalization
+    //patched = smooth_alignment(simplify(patched));
+    patched = simplify(patched);
+    patched.set_identity(identity(patched.path()));
+    patched.set_score(score_alignment(patched));
+    return patched;
 }
 
 Alignment Mapper::smooth_alignment(const Alignment& aln) {
     // find cases where we have reversals
     auto& path = aln.path();
+    Alignment head, tail, smoothed;
     bool should_smooth = false;
-    //cerr << "smoothing" << endl;
+    size_t before = 0;
     for (int i = 0; i < path.mapping_size(); ++i) {
-        if (should_smooth) break;
         auto& mapping = path.mapping(i);
-        //cerr << "finding smooth " << pb2json(mapping) << endl;
+        size_t to_len = mapping_to_length(mapping);
         // look forward to score any intervening gaps using graph distances
         // and resolve local alignments that loop backward
         if (i+1 < path.mapping_size()) {
             // what is the distance between the last position of this mapping
             // and the first of the next
-            Position last_pos = mapping.position();
-            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
-            Position next_pos = path.mapping(i+1).position();
-            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
-            //cerr << "dist " << dist << endl;
+            size_t from_len = mapping_from_length(mapping);
+            //Position last_pos =
+            set<pos_t> poses = positions_bp_from(make_pos_t(mapping.position()), from_len, false);
+            pos_t last_pos = *poses.begin();
+            //last_pos.set_offset(last_pos.offset() + from_len);
+            //set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+            pos_t next_pos = make_pos_t(path.mapping(i+1).position());
+            size_t next_len = mapping_to_length(path.mapping(i+1));
+            int dist = graph_distance(last_pos, next_pos, aln.sequence().size());
+            //if (dist) dist -= 1;
+            if (debug) cerr << "in smooth dist " << i << " vs " << path.mapping_size() << " @ " << dist << " " << last_pos << " " << next_pos << " next len " << next_len << endl;
             if (dist == aln.sequence().size()) {
                 // we failed to find a distance
                 if (debug) cerr << "failed to find distance" << endl;
@@ -2760,16 +2773,35 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                 // try going down the read until we've found a bit we can align against
                 int j = i+2;
                 while (j < path.mapping_size()) {
-                    next_pos = path.mapping(j).position();
-                    dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+                    next_pos = make_pos_t(path.mapping(j).position());
+                    dist = graph_distance(last_pos, next_pos, aln.sequence().size());
                     if (dist < aln.sequence().size()) {
                         should_smooth = true;
                         break;
                     }
                     ++j;
                 }
+            } else if (i == 0 && to_len < dist) {
+                //cerr << "trying to walk head" << endl;
+                string node_seq = xg_cached_node_sequence(mapping.position().node_id(), xindex, get_node_cache());
+                string seq = reverse_complement(mapping_sequence(mapping, node_seq));
+                pos_t from = reverse(make_pos_t(aln.path().mapping(i+1).position()), xg_cached_node_length(aln.path().mapping(i+1).position().node_id(), xindex, get_node_cache()));
+                head = walk_match(seq, from);
+                head = reverse_complement_alignment(head, (function<int64_t(int64_t)>) ([&](int64_t id) { return (int64_t)get_node_length(id); }));
+                //cerr << "walked match head " << pb2json(head) << endl;
+            } else if (i == path.mapping_size()-2 && next_len < dist) {
+                //cerr << "trying to walk tail" << endl;
+                auto& next_mapping = aln.path().mapping(i+1);
+                string node_seq = xg_cached_node_sequence(next_mapping.position().node_id(), xindex, get_node_cache());
+                string seq = mapping_sequence(next_mapping, node_seq);
+                tail = walk_match(seq, last_pos);
+                //cerr << "walked match tail " << pb2json(tail) << endl;
+                //should_smooth = true;
+                // see if we can walk the match
+                // if so
             }
         }
+        before += to_len;
     }
     if (should_smooth) {
         if (debug) cerr << "smoothing" << endl;
@@ -2794,12 +2826,10 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                                go_backward,
                                id_to);  // our target node
         graph.rebuild_indexes();
-        //if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-        //graph.serialize_to_file("raw-" + hash_alignment(aln) + ".vg");
         // re-do the alignment
         // against the graph
         // always use the banded global mode
-        Alignment smoothed = aln;
+        smoothed = aln;
         bool flip = aln.path().mapping(0).position().is_reverse();
         if (flip) {
             smoothed.set_sequence(reverse_complement(aln.sequence()));
@@ -2809,7 +2839,7 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                 smoothed.set_quality(qual);
             }
         }
-        bool banded_global = true;
+        bool banded_global = false;
         id_t pinned_id = 0;
         bool pinned_reverse = false;
         smoothed = align_to_graph(smoothed,
@@ -2824,7 +2854,22 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                                                             return (int64_t)get_node_length(id);
                                                         }));
         }
-        return smoothed;
+        return simplify(smoothed);
+    } else if (head.has_path() || tail.has_path()) {
+        if (head.has_path()) {
+            //cerr << "head has path" << endl;
+            // cut the alignment, paste it on
+            smoothed = strip_from_start(aln, head.sequence().size());
+            smoothed = merge_alignments(head, smoothed);
+            //cerr << "now smoothed " << pb2json(smoothed) << endl;
+        }
+        if (tail.has_path()) {
+            //cerr << "tail has path" << endl;
+            smoothed = strip_from_end(aln, tail.sequence().size());
+            smoothed = merge_alignments(smoothed, tail);
+            //cerr << "now smoothed " << pb2json(smoothed) << endl;
+        }
+        return simplify(smoothed);
     } else {
         return aln;
     }

@@ -74,12 +74,19 @@ ostream& operator<<(ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
 }
 
-size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
-    //cerr << "Looking for position " << pos << endl;
+string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
     if(!cached.second) {
-        //cerr << "Not in the cache" << endl;
-        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id);
+        node_cache.put(id, cached.first);
+    }
+    Node& node = cached.first;
+    return node.sequence();
+}
+
+size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    pair<Node, bool> cached = node_cache.retrieve(id);
+    if(!cached.second) {
         cached.first = xgidx->node(id);
         node_cache.put(id, cached.first);
     }
