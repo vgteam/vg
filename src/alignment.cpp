@@ -142,6 +142,9 @@ bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, s
 
 size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp) {
+        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
+    }
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     int thread_count = get_thread_count();
@@ -179,6 +182,9 @@ size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignmen
 
 size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp) {
+        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
+    }
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     int thread_count = get_thread_count();
@@ -216,7 +222,13 @@ size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<voi
 
 size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda) {
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp1) {
+        cerr << "[vg::alignment.cpp] couldn't open " << file1 << endl; exit(1);
+    }
     gzFile fp2 = (file2 != "-") ? gzopen(file2.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp2) {
+        cerr << "[vg::alignment.cpp] couldn't open " << file2 << endl; exit(1);
+    }
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     int thread_count = get_thread_count();
@@ -257,6 +269,9 @@ size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, fu
 
 size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp) {
+        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
+    }
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     char *buffer = new char[len];
@@ -272,6 +287,9 @@ size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lamb
 
 size_t fastq_paired_interleaved_for_each(string& filename, function<void(Alignment&, Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp) {
+        cerr << "[vg::alignment.cpp] couldn't open " << filename << endl; exit(1);
+    }
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     char *buffer = new char[len];
@@ -287,7 +305,13 @@ size_t fastq_paired_interleaved_for_each(string& filename, function<void(Alignme
 
 size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda) {
     gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp1) {
+        cerr << "[vg::alignment.cpp] couldn't open " << file1 << endl; exit(1);
+    }
     gzFile fp2 = (file2 != "-") ? gzopen(file2.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    if (!fp2) {
+        cerr << "[vg::alignment.cpp] couldn't open " << file2 << endl; exit(1);
+    }
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     char *buffer = new char[len];

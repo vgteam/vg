@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 31
+plan tests 35
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -126,5 +126,17 @@ rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
 is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 4 -W 750 -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
 
 is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 0 -U -W 750 -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "rescue can replace extra multimappings"
+
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -W 300 -u 4 -J
+is $? 1 "error on vg map -f <nonexistent-file> (unpaired)"
+
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -i -W 300 -u 4 -J
+is $? 1 "error on vg map -f <nonexistent-file> (interleaved)"
+
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -f reads/NONEXISTENT -W 300 -u 4 -J
+is $? 1 "error on vg map -f <nonexistent-file> (paired, LHS)"
+
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -f reads/grch38_lrc_kir_paired.fq -W 300 -u 4 -J
+is $? 1 "error on vg map -f <nonexistent-file> (paired, RHS)"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp
