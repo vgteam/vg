@@ -1,9 +1,11 @@
 DEP_DIR:=./deps
 SRC_DIR:=src
 UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
+SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
 BIN_DIR:=bin
 OBJ_DIR:=obj
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
+SUBCOMMAND_OBJ_DIR:=$(OBJ_DIR)/subcommand
 LIB_DIR:=lib
 INC_DIR:=include
 CPP_DIR:=cpp
@@ -16,7 +18,7 @@ CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g
 CWD:=$(shell pwd)
 
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
 LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -ltcmalloc_minimal
 
 ifeq ($(shell uname -s),Darwin)
@@ -46,10 +48,13 @@ ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cu
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o
+OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o $(OBJ_DIR)/constructor.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
-UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o
+UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o $(UNITTEST_OBJ_DIR)/constructor.o
+
+# These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
+SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct.o 
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -71,11 +76,11 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 .PHONY: clean get-deps test set-path static .pre-build
 
-$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ)
-	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
+	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(LIB_DIR)/libvg.a: $(OBJ)
 	ar rs $@ $^
@@ -100,6 +105,10 @@ $(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
 # intermediate targets don't trigger a rebuild just because they're missing.
 .INTERMEDIATE: .rebuild-protobuf
 .rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
+	# Make sure to delete outdated libs and headers before rebuilding
+	# Outdated headers can get picked up during the build
+	rm -f lib/libprotobuf* lib/libprotoc*
+	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
@@ -108,7 +117,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(S
 # common dependencies to build before all vg src files
 DEPS:= #$(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libssw.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa.h  $(LIB_DIR)/libgcsa2.a $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libgssw.a $(INC_DIR)/lru_cache.h $(INC_DIR)/dynamic.hpp $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsonlib.a $(LIB_DIR)/libpinchesandcacti.a $(INC_DIR)/globalDefs.hpp $(LIB_DIR)/libraptor2.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/sha1.o 
 
-$(LIB_DIR)/libsdsl.a:
+$(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
 
 $(LIB_DIR)/libssw.a:
@@ -190,7 +199,7 @@ $(INC_DIR)/vg_git_version.hpp: .git
 ## VG source code compilation begins here
 ####################################
 
-include/stream.hpp:
+include/stream.hpp: src/stream.hpp
 	cp src/stream.hpp include/stream.hpp
 
 $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
@@ -220,7 +229,7 @@ $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.h
 $(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/stream.hpp $(DEPS) $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/readfilter.hpp
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/stream.hpp $(DEPS) $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/readfilter.hpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(DEPS)
@@ -290,6 +299,9 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(DEPS)
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
+$(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
 ###################################
 ## VG unit test compilation begins here
 ####################################
@@ -316,6 +328,19 @@ $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_
 $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
+$(UNITTEST_OBJ_DIR)/constructor.o: $(UNITTEST_SRC_DIR)/constructor.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/constructor.hpp $(DEPS)
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	 
+###################################
+## VG subcommand compilation begins here
+####################################
+
+$(SUBCOMMAND_OBJ_DIR)/subcommand.o: $(SUBCOMMAND_SRC_DIR)/subcommand.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(DEPS)
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	 
+$(SUBCOMMAND_OBJ_DIR)/construct.o: $(SUBCOMMAND_SRC_DIR)/construct.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(DEPS)
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
 ###################################
 ## VG source code compilation ends here
 ####################################
@@ -325,6 +350,7 @@ $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.h
 	if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
 	if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
+	if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
 	if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 
@@ -334,14 +360,16 @@ $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.h
 # for rebuilding just vg
 clean-vg:
 	$(RM) -r $(BIN_DIR)/vg
-	$(RM) -r $(UNITTEST_OBJ_DIR)/*
-	$(RM) -r $(OBJ_DIR)/*
-	$(RM) -r $(CPP_DIR)/*
+	$(RM) -r $(UNITTEST_OBJ_DIR)/*.o
+	$(RM) -r $(SUBCOMMAND_OBJ_DIR)/*.o
+	$(RM) -r $(OBJ_DIR)/*.o
+	$(RM) -r $(CPP_DIR)/*.o (CPP_DIR)/*.cc (CPP_DIR)/*.h
 
 clean:
 	$(RM) -r $(BIN_DIR)
 	$(RM) -r $(LIB_DIR)
 	$(RM) -r $(UNITTEST_OBJ_DIR)
+	$(RM) -r $(SUBCOMMAND_OBJ_DIR)
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
 	$(RM) -r $(CPP_DIR)
@@ -359,7 +387,7 @@ clean:
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
-	rm -R $(RAPTOR_DIR)/build/*
+	rm -Rf $(RAPTOR_DIR)/build/*
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap

@@ -69,6 +69,9 @@ inline JSONStreamHelper<T>::~JSONStreamHelper() {
 template <class T>
 inline std::function<bool(T&)> JSONStreamHelper<T>::get_read_fn() {
     return [&](T& obj) -> bool {
+        // zap protobuf object, since we want to overwrite and not append
+        obj = T();
+      
         // Check if the file ends now, and skip whitespace between records.
         char peeked;
         do {
