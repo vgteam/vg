@@ -48,6 +48,7 @@ int main_construct(int argc, char** argv) {
     bool region_is_chrom = false;
 
     int c;
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
@@ -67,7 +68,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:as:Cf",
+        c = getopt_long (argc, argv, "v:r:ph?z:t:R:m:as:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */

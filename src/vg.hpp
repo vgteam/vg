@@ -1,6 +1,6 @@
-#ifndef VG_H
+#ifndef VG_VG_H
 
-#define VG_H
+#define VG_VG_H
 
 #include <vector>
 #include <set>
@@ -27,7 +27,7 @@
 #include "vg.pb.h"
 #include "hash_map.hpp"
 
-#include "progress_bar.hpp"
+#include "progressive.hpp"
 #include "lru_cache.h"
 
 #include "Variant.h"
@@ -82,7 +82,7 @@ namespace vg {
 // their right sides, and tail nodes must have edges only to their left sides.
 // There must be no possible path in the graph containing two head nodes or two
 // tail nodes.
-class VG {
+class VG : public Progressive {
 
 public:
 
@@ -1054,16 +1054,6 @@ public:
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
                                id_t start_id = 0, id_t end_id = 0);
-
-    bool show_progress;
-    string progress_message;
-    long progress_count;
-    long last_progress;
-    ProgressBar* progress;
-    void create_progress(const string& message, long count);
-    void create_progress(long count);
-    void update_progress(long i);
-    void destroy_progress(void);
 
     // for managing parallel construction
     struct Plan {

@@ -11,6 +11,7 @@
 #include <map>
 
 #include "types.hpp"
+#include "progressive.hpp"
 
 #include "vg.pb.h"
 
@@ -137,7 +138,7 @@ private:
         
 };
 
-class Constructor {
+class Constructor : public Progressive {
 
 public:
 
@@ -158,10 +159,6 @@ public:
     // occurs directly adjacent to another deletion), can we chain them in the
     // graph to allow the longer combined deletion?
     bool chain_deletions = true;
-    
-    // Should we show our progress?
-    bool show_progress = false;
-    
     
     // What's the maximum node size we should allow?
     size_t max_node_size = 1000;

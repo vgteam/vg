@@ -790,12 +790,6 @@ string Constructor::fasta_to_vcf(const string& fasta_name) const {
 void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
     function<void(Graph&)> callback) {
     
-    if (show_progress) {
-        #pragma omp critical (cerr)
-        cerr << "Building graph for " << vcf_contig << "..." << endl;
-    }
-    
-    
     // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
 
     // What sequence are we looking for in the fasta? The one we were passed, unless it was renamed.
@@ -817,6 +811,9 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
         leading_offset = 0;
         reference_end = reference.sequenceLength(reference_contig);
     }
+    
+    // Set up a progress bar thhrough the chromosome
+    create_progress("building graph for " + vcf_contig, reference_end - leading_offset);
     
     // Scan through variants until we find one that is on this contig and in this region.
     // If we're using an index, we ought to already be at the right place.
@@ -1108,6 +1105,9 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
             
             // Wire up and emit the chunk graph
             wire_and_emit(result);
+
+            // Say we've completed the chunk
+            update_progress(chunk_end - leading_offset);
             
             // Set up a new chunk
             chunk_start = chunk_end;
@@ -1138,6 +1138,9 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
         // Wire up and emit the chunk graph
         wire_and_emit(result);
         
+        // Say we've completed the chunk
+        update_progress(chunk_end - leading_offset);
+        
         // Set up a new chunk
         chunk_start = chunk_end;
         chunk_end = 0;
@@ -1147,10 +1150,7 @@ void Constructor::construct_graph(string vcf_contig, FastaReference& reference, 
     // All the chunks have been wired and emitted. Now emit the very last node, if any
     emit_reference_node(last_node_buffer);
     
-    if (show_progress) {
-        #pragma omp critical (cerr)
-        cerr << "Graph for " << vcf_contig << " complete" << endl;
-    }
+    destroy_progress();
     
 }
 

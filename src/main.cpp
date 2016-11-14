@@ -9060,9 +9060,19 @@ void vg_help(char** argv) {
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
-         << "commands:" << endl
-         << "  -- construct     graph construction" << endl
-         << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
+         << "commands:" << endl;
+         
+     vg::subcommand::Subcommand::for_each([](const vg::subcommand::Subcommand& command) {
+        // Announce every subcommand we have
+        
+        // Pad all the names so the descriptions line up
+        string name = command.get_name();
+        name.resize(14, ' ');
+        cerr << "  -- " << name << command.get_description() << endl;
+     });
+         
+     // Also announce all the old-style hardcoded commands
+     cerr << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
          << "  -- view          format conversions for graphs and alignments" << endl
          << "  -- vectorize     transform alignments to simple ML-compatible vectors" << endl
          << "  -- index         index features of the graph in a disk-backed key/value store" << endl
