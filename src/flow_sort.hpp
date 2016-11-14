@@ -6,6 +6,17 @@
 namespace vg {
     
 typedef std::map<id_t, std::vector<Edge*>> EdgeMapping;
+static const map<char, char> COMPLEMENTARY_NUCLEOTIDES = {
+        {'A', 'T'},
+        {'T', 'A'},
+        {'C', 'G'},
+        {'G', 'C'},
+        {'t', 'a'},
+        {'a', 't'},
+        {'c', 'g'},
+        {'g', 'c'}
+    };
+
 
 class FlowSort {
 public:
@@ -13,7 +24,7 @@ public:
      * Value for nodes on ref path
      */
     static const size_t DEFAULT_PATH_WEIGHT = 5;
-    
+     
     FlowSort(VG& vg);
     /*
      * sorts input graph using max-flow algorithm. Returns sorted list
