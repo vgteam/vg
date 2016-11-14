@@ -387,12 +387,25 @@ void FlowSort::groom_components(EdgeMapping& edges_in, EdgeMapping& edges_out, s
     nodes_it = isolated_nodes.begin();
     Edge* internal_edge;
     vector<Edge*> edges_to_flip;
-    //reverse all internal edeges
+   
+    //reverse all internal edges
     while (nodes_it != isolated_nodes.end())
-    {
+    {    
+        //reverse-complement node sequence
+        Node* node = vg.get_node(*nodes_it);
+        string* sequence = node->mutable_sequence();
+        if (sequence) {
+            reverse(sequence->begin(), sequence->end());
+            for (string::size_type i = 0; i < sequence->size(); ++i) {
+                char& nucleotide = sequence->at(i);
+                if (COMPLEMENTARY_NUCLEOTIDES.count(nucleotide)) {
+                    nucleotide = COMPLEMENTARY_NUCLEOTIDES.at(nucleotide);
+                }
+            }
+        }
+        
         for(auto& e:edges_in[*nodes_it])
-        {
-
+        {                
             // if edge is internal
             if(isolated_nodes.find(e->from()) != isolated_nodes.end())
             {
