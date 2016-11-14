@@ -47,6 +47,7 @@ Mapper::Mapper(Index* idex,
     , cached_fragment_length_stdev(0)
     , since_last_fragment_length_estimate(0)
     , fragment_length_estimate_interval(100)
+    , perfect_pair_identity_threshold(0.95)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -300,7 +301,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     delete graph;
 }
 
-map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln) {
+map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, bool first_hit_only) {
     map<string, double> mean_pos;
     // Alignments are consistent if their median node id positions are within the fragment_size
     
@@ -319,6 +320,8 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln) 
                 node_positions[name][pos].push_back(id);
             }
         }
+        // just get the first one
+        if (first_hit_only && node_positions.size()) break;
     }
     // get median mapping positions
     int idscount = 0;
@@ -436,7 +439,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         pairable_mems_ptr_1 = &mems1;
         pairable_mems_ptr_2 = &mems2;
     }
-    
+
     //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
     
     bool report_consistent_pairs = (bool) fragment_size;
@@ -457,7 +460,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
     for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
 
-    bool rescue = !mem_threading && fragment_size != 0; // don't try to rescue if we have a defined fragment size
+    //bool rescue = !mem_threading && fragment_size != 0; // don't try to rescue if we have a defined fragment size
+    bool rescue = fragment_size != 0;
 
     // Rescue only if the top alignment on one side has no mappings
     if(rescue && best_score1 == 0 && best_score2 != 0) {
@@ -776,8 +780,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // push the result into our deque of fragment lengths
             if (results.first.size() == 1
                 && results.second.size() == 1
-                && results.first.front().identity() == 1
-                && results.second.front().identity() == 1
+                && results.first.front().identity() > perfect_pair_identity_threshold
+                && results.second.front().identity() > perfect_pair_identity_threshold
                 && j.second < fragment_max) { // hard cutoff
                 //cerr << "aln\tperfect alignments" << endl;
                 record_fragment_length(j.second);
@@ -2418,25 +2422,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         }
                     }
 
-                    // here we want to ensure we don't get too much graph
-                    // to handle the edge case that seems to generate long deletions at the end
-                    // instead of soft clips
-                    if ((soft_clip_to_left || soft_clip_to_right) && edit.sequence().size() <= 10) {
-                        set<pos_t> poses = positions_bp_from(first_cut,
-                                                             edit.sequence().size(),
-                                                             soft_clip_to_left);
-                        //cerr << "first_cut before pos tweak " << first_cut << endl;
-                        //cerr << "second_cut before pos tweak " << second_cut << endl;
-                        // take the first position in the set as our new cut point
-                        if (poses.size()) {
-                            if (soft_clip_to_left) {
-                                first_cut = *poses.begin();
-                            } else if (soft_clip_to_right) {
-                                second_cut = *poses.begin();
-                            }
-                        }
-                    }
-
                     //cerr << "first_cut after " << first_cut << endl;
                     //cerr << "second_cut after " << second_cut << endl;
 
@@ -2623,16 +2608,22 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     // do the alignment
                     // always use the banded global mode
-                    //bool banded_global = true;
-                    bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
+                    bool banded_global = true;
+                    //bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
                     id_t pinned_id = 0;
                     bool pinned_reverse = false;
                     // use the pinning if we are in a soft clip
                     if (soft_clip_to_right) {
-                        pinned_id = graph.head_nodes().front()->id();
-                        pinned_reverse = true;
+                        auto heads = graph.head_nodes();
+                        if (heads.size()) {
+                            pinned_id = graph.head_nodes().front()->id();
+                            pinned_reverse = true;
+                        }
                     } else if (soft_clip_to_left) {
-                        pinned_id = graph.tail_nodes().front()->id();
+                        auto tails = graph.tail_nodes();
+                        if (tails.size()) {
+                            pinned_id = graph.tail_nodes().front()->id();
+                        }
                     }
                     patch = align_to_graph(patch,
                                            graph,
@@ -2708,30 +2699,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     if (!aln.quality().empty()) {
         patched.set_quality(aln.quality());
     }
-    patched.set_identity(identity(patched.path()));
-    //patched.set_score(max(0, score)); // todo... re get score?
-
-    /*
-    {
-        cerr << "patched before realignment " << pb2json(patched) << endl;
-        // locally realign
-        VG graph = alignment_subgraph(patched, 2);
-        if (patched.path().mapping_size() && patched.path().mapping(0).position().is_reverse()) {
-            patched.set_sequence(reverse_complement(patched.sequence()));
-            patched.clear_path();
-            patched = align_to_graph(patched, graph, max_query_graph_ratio);
-            resolve_softclips(patched, graph);
-            patched = reverse_complement_alignment(patched,
-                                                   (function<int64_t(int64_t)>) ([&](int64_t id) {
-                                                           return (int64_t)get_node_length(id);
-                                                       }));
-        } else {
-            patched = align_to_graph(patched, graph, max_query_graph_ratio);
-            resolve_softclips(patched, graph);
-        }
-        cerr << "patched after realignment " << pb2json(patched) << endl;
-    }
-    */
 
     // enable these to attempt alignment normalization
     //patched = smooth_alignment(simplify(patched));
@@ -2880,7 +2847,7 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
 // by estimating length using the positional paths embedded in the graph
 int32_t Mapper::score_alignment(const Alignment& aln) {
     int score = 0;
-    int read_pos = 0;
+    int read_offset = 0;
     auto& path = aln.path();
     auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
     auto qual_adj_aligner = (QualAdjAligner*) aligner;
@@ -2893,8 +2860,8 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             if (edit_is_match(edit)) {
                 if (!aln.quality().empty()) {
                     score += qual_adj_aligner->score_exact_match(
-                        aln.sequence().substr(read_pos, edit.to_length()),
-                        aln.quality().substr(read_pos, edit.to_length()));
+                        aln.sequence().substr(read_offset, edit.to_length()),
+                        aln.quality().substr(read_offset, edit.to_length()));
                 } else {
                     score += edit.from_length()*aligner->match;
                 }
@@ -2904,6 +2871,7 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 // todo how do we score this qual adjusted?
                 score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
             }
+            read_offset += edit.to_length();
         }
         // score any intervening gaps in mappings using approximate distances
         if (i+1 < path.mapping_size()) {

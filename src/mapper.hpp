@@ -198,7 +198,7 @@ public:
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignment_mean_path_positions(const Alignment& aln);
+    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -378,6 +378,7 @@ public:
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
+    float perfect_pair_identity_threshold;
 
 };
 
