@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 38
+plan tests 39
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -63,6 +63,8 @@ is "$(vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate - 
 is $(vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -B 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -x - | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 0e7a50bb7367d9f84fbc9bd78378d70f "unchop correctly handles a graph with an inversion"
+
+is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - | grep "nodes" | cut -f2)" "1" "unchop handles doubly-reversing edges"
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 84138fe8bd1015fb6b80278c2ed8f7c6 "normalization works on a graph with an inversion"
 
