@@ -229,6 +229,22 @@ struct Tree {
 
 };
 
+// Get a callback with an istream& to an open file if a file name argument is
+// present after the parsed options, or print an error message and exit if one
+// is not. Handles "-" as a filename as indicating standard input. The reference
+// passed is guaranteed to be valid only until the callback returns. Bumps up
+// optind to the next argument if a filename is found.
+void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback);
+
+// Parse out the name of an input file (i.e. the next positional argument), or
+// throw an error. File name must be nonempty, but may be "-" or may not exist.
+string get_input_file_name(int& optind, int argc, char** argv);
+
+// Get a callback with an istream& to an open file. Handles "-" as a filename as
+// indicating standard input. The reference passed is guaranteed to be valid
+// only until the callback returns.
+void get_input_file(const string& file_name, function<void(istream&)> callback);
+    
 }
 
 #endif
