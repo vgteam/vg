@@ -170,9 +170,15 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // Return the total number of leaves in all subtrees that match the full
     // target sequence, and the depth in bases of the shallowest point at which
     // multiple subtrees with full lenght matches are unified.
+
+    // We keep a maximum number of visited nodes here, just to prevent recursion
+    // from going on forever in worst-case-type graphs
+    size_t dfs_visit_count = 0;
     function<pair<size_t, size_t>(id_t, bool, size_t)> do_dfs = 
         [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
-        
+
+        ++dfs_visit_count;
+      
         // Grab the node sequence and match more of the target sequence.
         string node_sequence = index->node_sequence(node_id);
         if(is_reverse) {
@@ -250,19 +256,29 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         vector<pair<size_t, size_t>> child_results;
         
         for(auto& edge : edges) {
-            if(edge.from() == node_id && edge.from_start() == is_reverse) {
-                // The end we are leaving matches this edge's from, so we can
-                // just go to its to end and recurse on it.
-                child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
-            } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
-                // The end we are leaving matches this edge's to, so we can just
-                // recurse on its from end.
-                child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
-            } else {
-                // XG is feeding us nonsense up with which we should not put.
-                throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
-                    to_string(node_id) + (is_reverse ? " start" : " end"));
+            // check the user-supplied visit count before recursing any more
+            if (dfs_visit_count < defray_count) {
+                if(edge.from() == node_id && edge.from_start() == is_reverse) {
+                    // The end we are leaving matches this edge's from, so we can
+                    // just go to its to end and recurse on it.
+                    child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
+                } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
+                    // The end we are leaving matches this edge's to, so we can just
+                    // recurse on its from end.
+                    child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
+                } else {
+                    // XG is feeding us nonsense up with which we should not put.
+                    throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
+                                        to_string(node_id) + (is_reverse ? " start" : " end"));
+                }
             }
+#ifdef debug
+            else {
+                #pragma omp critical(cerr)
+                cerr << "Aborting read filter DFS at node " << node_id << " after " << dfs_visit_count << " visited" << endl;
+            }
+#endif
+            
         }
         
         // Sum up the total leaf matches, which will be our leaf match count.
@@ -362,6 +378,10 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     return true;
 }
 
+// quick and dirty filter to see if removing reads that can slip around
+// and still map perfectly helps vg call.  returns true if at either
+// end of read sequence, at least k bases are repetitive, checking repeats
+// of up to size 2k
 bool ReadFilter::has_repeat(Alignment& aln, int k) {
     if (k == 0) {
         return false;
@@ -540,79 +560,60 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         }
     };
 
-    // buffered output (one buffer per chunk)
-    vector<vector<Alignment> > buffer(chunk_names.size());
-    int cur_buffer = -1;
+    // buffered output (one buffer per chunk), one set of chunks per thread
+    // buffer[THREAD][CHUNK] = vector<Alignment>
+    vector<vector<vector<Alignment> > > buffer(threads);
+    for (int i = 0; i < buffer.size(); ++i) {
+        buffer[i].resize(chunk_names.size());
+    }
+    
     static const int buffer_size = 1000; // we let this be off by 1
-    function<Alignment&(uint64_t)> write_buffer = [&buffer, &cur_buffer](uint64_t i) -> Alignment& {
-        return buffer[cur_buffer][i];
-    };
+
     // remember if write or append
     vector<bool> chunk_append(chunk_names.size(), false);
 
     // flush a buffer specified by cur_buffer to target in chunk_names, and clear it
-    function<void()> flush_buffer = [&buffer, &cur_buffer, &write_buffer, &chunk_names, &chunk_append]() {
+    function<void(int, int)> flush_buffer = [&buffer, &chunk_names, &chunk_append](int tid, int cur_buffer) {
         ofstream outfile;
         auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
         if (chunk_names[cur_buffer] != "-") {
             outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
             chunk_append[cur_buffer] = true;
         }
-        stream::write(outbuf, buffer[cur_buffer].size(), write_buffer);
-        buffer[cur_buffer].clear();
+        function<Alignment&(uint64_t)> write_buffer = [&buffer, &tid, &cur_buffer](uint64_t i) -> Alignment& {
+            return buffer[tid][cur_buffer][i];
+        };
+        stream::write(outbuf, buffer[tid][cur_buffer].size(), write_buffer);
+        buffer[tid][cur_buffer].clear();
     };
 
     // add alignment to all appropriate buffers, flushing as necessary
-    // (note cur_buffer variable used here as a hack to specify which buffer is written to)
-    function<void(Alignment&)> update_buffers = [&buffer, &cur_buffer, &region_map,
-                                                 &write_buffer, &get_chunks, &flush_buffer](Alignment& aln) {
+    function<void(int, Alignment&)> update_buffers = [&buffer, &region_map,
+                                                 &get_chunks, &flush_buffer](int tid, Alignment& aln) {
         vector<int> aln_chunks;
         get_chunks(aln, aln_chunks);
         for (auto chunk : aln_chunks) {
-            buffer[chunk].push_back(aln);
-            if (buffer[chunk].size() >= buffer_size) {
-                // flush buffer
-                cur_buffer = chunk;
-                flush_buffer();
+            buffer[tid][chunk].push_back(aln);
+            if (buffer[tid][chunk].size() >= buffer_size) {
+                // flush buffer (could get fancier and allow parallel writes to different
+                // files, but unlikely to be worth effort as we're mostly trying to
+                // speed up defray and not write IO)
+#pragma omp critical
+                {
+                    flush_buffer(tid, chunk);
+                }
             }
         }
     };
 
-    // keep track of how many reads were dropped by which option
-    size_t pri_read_count = 0;
-    size_t sec_read_count = 0;
-    size_t sec_filtered_count = 0;
-    size_t pri_filtered_count = 0;
-    size_t min_sec_count = 0;
-    size_t min_pri_count = 0;
-    size_t min_sec_delta_count = 0;
-    size_t min_pri_delta_count = 0;
-    size_t max_sec_overhang_count = 0;
-    size_t max_pri_overhang_count = 0;
-    size_t min_sec_mapq_count = 0;
-    size_t min_pri_mapq_count = 0;
-    size_t split_sec_count = 0;
-    size_t split_pri_count = 0;
-    size_t repeat_sec_count = 0;
-    size_t repeat_pri_count = 0;
-    size_t defray_sec_count = 0;
-    size_t defray_pri_count = 0;
-
-    // for deltas, we keep track of last primary
-    Alignment prev;
-    bool prev_primary = false;
-    bool keep_prev = true;
-    double prev_score;
-
-    // quick and dirty filter to see if removing reads that can slip around
-    // and still map perfectly helps vg call.  returns true if at either
-    // end of read sequence, at least k bases are repetitive, checking repeats
-    // of up to size 2k
-    
-        
+    // keep counts of what's filtered to report (in verbose mode)
+    vector<Counts> counts_vec(threads);
+            
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
+        int tid = omp_get_thread_num();
+        Counts& counts = counts_vec[tid];
         bool keep = true;
         double score = (double)aln.score();
         double denom = 2. * aln.sequence().length();
@@ -648,141 +649,78 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             overhang = aln.sequence().length();
         }
 
-        if (aln.is_secondary()) {
-            ++sec_read_count;
-            assert(prev_primary && aln.name() == prev.name());
-            double delta = prev_score - score;
-            if (frac_delta == true) {
-                delta = prev_score > 0 ? score / prev_score : 0.;
-            }
+        // offset in count tuples
+        int co = aln.is_secondary() ? 1 : 0;
+        
+        ++counts.read[co];
+ 
+        // filter (current) alignment
+        keep = true;
+        if ((aln.is_secondary() && score < min_secondary) ||
+            (!aln.is_secondary() && score < min_primary)) {
+            ++counts.min_score[co];
+            keep = false;
+        }
+        if ((keep || verbose) && overhang > max_overhang) {
+            ++counts.max_overhang[co];
+            keep = false;
+        }
+        if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
+            ++counts.min_mapq[co];
+            keep = false;
+        }
+        if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
+            ++counts.split[co];
+            keep = false;
+        }
+        if ((keep || verbose) && has_repeat(aln, repeat_size)) {
+            ++counts.repeat[co];
+            keep = false;
+        }
+        if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+            ++counts.defray[co];
+            // We keep these, because the alignments get modified.
+        }
+        if (!keep) {
+            ++counts.filtered[co];
+        }
 
-            // filter (current) secondary
-            keep = true;
-            if (score < min_secondary) {
-                ++min_sec_count;
-                keep = false;
-            }
-            if ((keep || verbose) && delta < min_sec_delta) {
-                ++min_sec_delta_count;
-                keep = false;
-            }
-            if ((keep || verbose) && overhang > max_overhang) {
-                ++max_sec_overhang_count;
-                keep = false;
-            }
-            if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
-                ++min_sec_mapq_count;
-                keep = false;
-            }
-            if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
-                ++split_sec_count;
-                keep = false;
-            }
-            if ((keep || verbose) && has_repeat(aln, repeat_size)) {
-                ++repeat_sec_count;
-                keep = false;
-            }
-            if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
-                ++defray_sec_count;
-                // We keep these, because the alignments get modified.
-            }
-            if (!keep) {
-                ++sec_filtered_count;
-            }
-
-            // filter unfiltered previous primary
-            if (keep_prev && delta < min_pri_delta) {
-                ++min_pri_delta_count;
-                ++pri_filtered_count;
-                keep_prev = false;
-            }
-            // add to write buffer
-            if (keep) {
-                update_buffers(aln);
-            }
-            if (keep_prev) {
-                update_buffers(prev);
-            }
-
-            // forget last primary
-            prev_primary = false;
-            prev_score = -1;
-            keep_prev = false;
-
-        } else {
-            // this awkward logic where we keep the primary and write in the secondary
-            // is because we can only stream one at a time with for_each, but we need
-            // to look at pairs (if secondary exists)...
-            ++pri_read_count;
-            if (keep_prev) {
-                update_buffers(prev);
-            }
-
-            prev_primary = true;
-            prev_score = score;
-            keep_prev = true;
-            if (score < min_primary) {
-                ++min_pri_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && overhang > max_overhang) {
-                ++max_pri_overhang_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && aln.mapping_quality() < min_mapq) {
-                ++min_pri_mapq_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && drop_split && is_split(xindex, aln)) {
-                ++split_pri_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
-                ++repeat_pri_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
-                ++defray_pri_count;
-                // We keep these, because the alignments get modified.
-            }
-            if (!keep_prev) {
-                ++pri_filtered_count;
-            }
-            // Copy after any modification
-            prev = aln;
+        // add to write buffer
+        if (keep) {
+            update_buffers(tid, aln);
         }
     };
-    stream::for_each(*alignment_stream, lambda);
+    stream::for_each_parallel(*alignment_stream, lambda);
 
-    // flush buffer if trailing primary to keep
-    if (keep_prev) {
-        update_buffers(prev);
-    }
-
-    for (int i = 0; i < buffer.size(); ++i) {
-        if (buffer[i].size() > 0) {
-            cur_buffer = i;
-            flush_buffer();
+    for (int tid = 0; tid < buffer.size(); ++tid) {
+        for (int chunk = 0; chunk < buffer[tid].size(); ++chunk) {
+            if (buffer[tid][chunk].size() > 0 || 
+                // we deliberately write empty gams at this point for empty chunks:
+                (chunk_append[chunk] == false && chunk_names[chunk] != "-" )) {
+                flush_buffer(tid, chunk);
+            }
         }
     }
 
     if (verbose) {
-        size_t tot_reads = pri_read_count + sec_read_count;
-        size_t tot_filtered = pri_filtered_count + sec_filtered_count;
-        cerr << "Total Filtered (primary):          " << pri_filtered_count << " / "
-             << pri_read_count << endl
-             << "Total Filtered (secondary):        " << sec_filtered_count << " / "
-             << sec_read_count << endl
-             << "Min Identity Filter (primary):     " << min_pri_count << endl
-             << "Min Identity Filter (secondary):   " << min_sec_count << endl
-             << "Min Delta Filter (primary):        " << min_pri_delta_count << endl
-             << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
-             << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
-             << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
-             << "Split Read Filter (primary):       " << split_pri_count << endl
-             << "Split Read Filter (secondary):     " << split_sec_count << endl
-             << "Repeat Ends Filter (primary):      " << repeat_pri_count << endl
-             << "Repeat Ends Filter (secondary):    " << repeat_sec_count << endl
+        Counts& counts = counts_vec[0];
+        for (int i = 1; i < counts_vec.size(); ++i) {
+            counts += counts_vec[i];
+        }
+        size_t tot_reads = counts.read[0] + counts.read[1];
+        size_t tot_filtered = counts.filtered[0] + counts.filtered[1];
+        cerr << "Total Filtered (primary):          " << counts.filtered[0] << " / "
+             << counts.read[0] << endl
+             << "Total Filtered (secondary):        " << counts.filtered[1] << " / "
+             << counts.read[1] << endl
+             << "Min Identity Filter (primary):     " << counts.min_score[0] << endl
+             << "Min Identity Filter (secondary):   " << counts.min_score[1] << endl
+             << "Max Overhang Filter (primary):     " << counts.max_overhang[0] << endl
+             << "Max Overhang Filter (secondary):   " << counts.max_overhang[1] << endl
+             << "Split Read Filter (primary):       " << counts.split[0] << endl
+             << "Split Read Filter (secondary):     " << counts.split[1] << endl
+             << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl
+             << "Repeat Ends Filter (secondary):    " << counts.repeat[1] << endl
              << endl;
     }
     

@@ -20,7 +20,7 @@ printf "x\t2\t8\nx\t8\t20\ny\t0\t1\nx\t150\t500\nx\t0\t100000000\n" > chunks.bed
 vg filter -x x.xg -R chunks.bed -B filter_chunk x.gam
 
 # right number of chunks
-is $(ls -l filter_chunk-*.gam | wc -l) 4 "vg filter makes right number of chunks."
+is $(ls -l filter_chunk-*.gam | wc -l) 5 "vg filter makes right number of chunks."
 
 # is chunk 0 (2-3) comprised of nodes 1,2,4? 
 is $(vg view -a filter_chunk-0.gam | jq -c '.path.mapping[].position' | jq 'select ((.node_id == 1) or (.node_id == 2) or (.node_id == 4))' | grep node | sed s/,// | sort | uniq | wc -l) 3 "vg filter left chunk has all left nodes"

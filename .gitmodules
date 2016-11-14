@@ -18,7 +18,7 @@
 	url = https://github.com/ekg/lru_cache.git
 [submodule "rocksdb"]
 	path = deps/rocksdb
-	url = https://github.com/ekg/rocksdb.git
+	url = https://github.com/facebook/rocksdb.git
 [submodule "htslib"]
 	path = deps/htslib
 	url = https://github.com/samtools/htslib.git

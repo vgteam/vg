@@ -4,14 +4,19 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
-# We have some shenanigans to let us cache submodules, and update changed files without messing up mtimes and triggering rebuilds unnecessarily.
+# We have some shenanigans to let us cache submodules, and update changed files
+# without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
+# out our submodules and then restores the cache over them. We move the cached
+# version out of the way, check out the versions we want, rsync over only the
+# differing/updated files (updating only their mtimes), and then put the fixed
+# version back.
 before_install:
   - if [ -e deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
   - rsync -rv --checksum deps/ deps_cached/
   - rm -Rf deps
   - mv deps_cached deps
-  - (ls -lah deps/; ls -lah lib/; ls -lah include/) || true
+  - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi

@@ -125,18 +125,18 @@ vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
  */
 template<typename Collection>
 typename Collection::value_type sum(const Collection& collection) {
-    
+
     // Set up an alias
     using Item = typename Collection::value_type;
-    
+
     // Make a new zero-valued item to hold the sum
     auto total = Item();
     for(auto& to_sum : collection) {
         total += to_sum;
     }
-    
+
     return total;
-    
+
 }
 
 /**
@@ -146,18 +146,18 @@ typename Collection::value_type sum(const Collection& collection) {
  */
 template<typename Collection>
 typename Collection::value_type logprob_sum(const Collection& collection) {
-    
+
     // Set up an alias
     using Item = typename Collection::value_type;
-    
+
     // Pull out the minimum value
     auto min_iterator = min_element(begin(collection), end(collection));
-    
+
     if(min_iterator == end(collection)) {
         // Nothing there, p = 0
         return Item(prob_to_logprob(0));
     }
-    
+
     auto check_iterator = begin(collection);
     ++check_iterator;
     if(check_iterator == end(collection)) {
@@ -165,22 +165,22 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
         // out because we'll get 0s.
         return *min_iterator;
     }
-    
+
     // Pull this much out of every logprob.
     Item pulled_out = *min_iterator;
-    
+
     if(logprob_to_prob(pulled_out) == 0) {
         // Can't divide by 0!
         // TODO: fix this in selection
         pulled_out = prob_to_logprob(1);
     }
-    
+
     Item total(0);
     for(auto& to_add : collection) {
         // Sum up all the scaled probabilities.
         total += logprob_to_prob(to_add - pulled_out);
     }
-    
+
     // Re-log and re-scale
     return pulled_out + prob_to_logprob(total);
 }
@@ -190,12 +190,15 @@ string tmpfilename(const string& base);
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
 // one.
 string get_or_make_variant_id(vcflib::Variant variant);
+string make_variant_id(vcflib::Variant variant);
 
 // Simple little tree
 template<typename T>
 struct TreeNode {
     T v;
     vector<TreeNode<T>*> children;
+    TreeNode<T>* parent;
+    TreeNode() : parent(0) {}
     ~TreeNode() { for (auto c : children) { delete c; } }
     void for_each_preorder(function<void(TreeNode<T>*)> lambda) {
         lambda(this);
@@ -215,7 +218,7 @@ template<typename T>
 struct Tree {
     typedef TreeNode<T> Node;
     Node* root;
-    Tree(Node* r = 0) : root(r) {}
+    Tree(Node* r = 0) : root(r) { }
     ~Tree() { delete root; }
     void for_each_preorder(function<void(Node*)> lambda) {
         if (root) root->for_each_preorder(lambda);

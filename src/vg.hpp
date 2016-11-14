@@ -161,6 +161,10 @@ public:
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
+
+    // Now all the stuff for constructing from VCF.
+    // TODO: refactor out
+
     // construct from VCF
     VG(vcflib::VariantCallFile& variantCallFile,
        FastaReference& reference,
@@ -186,10 +190,30 @@ public:
                                 map<pair<long, int>, vector<bool>>* phase_visits,
                                 map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf = false);
-    void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
-                       int start_pos,
-                       int stop_pos,
-                       int max_node_size);
+                       
+    // Takes in a VCF file
+    // and returns a map [node] = vcflib::variant
+    // Unfortunately this is specific to a given graph
+    // and VCF.
+    //
+    // It will need to throw warnings if the node or variant
+    // is not in the graph.
+    //
+    // This is useful for VCF masking:
+    // if map.find(node) then mask variant
+    //
+    // It's also useful for calling known variants
+    // for m in alignment.mappings:
+    //    node = m.Pos.nodeID
+    //    if node in node_to_vcf:
+    //        return (alignment supports variant)
+    //
+    // It would be nice if this also supported edges (e.g.
+    // for inversions/transversions/breakpoints?)
+    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
+    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+                       
+                       
     // chops up the nodes
     void dice_nodes(int max_node_size);
     // does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels
@@ -528,10 +552,18 @@ public:
         // called when we meet an edge in the current tree component
         const function<void(Edge*)>& edge_curr_fn,
         // called when we meet an edge in an already-traversed tree component
-        const function<void(Edge*)>& edge_cross_fn);
+        const function<void(Edge*)>& edge_cross_fn,
+        // start only at these node traversals
+        const vector<NodeTraversal>* sources,
+        // when hitting a sink, don't keep walking
+        const set<NodeTraversal>* sinks);         
+
     // specialization of dfs for only handling nodes
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
-             const function<void(NodeTraversal)>& node_end_fn);
+             const function<void(NodeTraversal)>& node_end_fn,
+             const vector<NodeTraversal>* sources = NULL,
+             const set<NodeTraversal>* sinks = NULL);         
+
     // specialization of dfs for only handling nodes + break function
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
              const function<void(NodeTraversal)>& node_end_fn,
@@ -593,29 +625,6 @@ public:
     // (e.g. from a vcf) and returns the node id which
     // contains that position.
     id_t get_node_at_nucleotide(string pathname, int nuc);
-
-    // Takes in a VCF file
-    // and returns a map [node] = vcflib::variant
-    // Unfortunately this is specific to a given graph
-    // and VCF.
-    //
-    // It will need to throw warnings if the node or variant
-    // is not in the graph.
-    //
-    // This is useful for VCF masking:
-    // if map.find(node) then mask variant
-    //
-    // It's also useful for calling known variants
-    // for m in alignment.mappings:
-    //    node = m.Pos.nodeID
-    //    if node in node_to_vcf:
-    //        return (alignment supports variant)
-    //
-    // It would be nice if this also supported edges (e.g.
-    // for inversions/transversions/breakpoints?)
-    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
-    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
-
 
     // edges
     // If the given edge cannot be created, returns null.
@@ -700,7 +709,7 @@ public:
                 bool color_variants = false,
                 bool superbubble_ranking = false,
                 bool superbubble_labeling = false,
-                bool cactusbubble_labeling = false,
+                bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
                 int random_seed = 0);
 

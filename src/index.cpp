@@ -928,15 +928,20 @@ void Index::put_path_name_to_id(int64_t id, const string& name) {
 
 string Index::get_path_name(int64_t id) {
     string data;
-    get_metadata(path_id_prefix(id), data);
-    return data;
+    // TODO: reraise errors other than NotFound...
+    if (get_metadata(path_id_prefix(id), data).ok()) {
+        return data;
+    }
+    return string();
 }
 
 int64_t Index::get_path_id(const string& name) {
     string data;
-    get_metadata(path_name_prefix(name), data);
     int64_t id = 0;
-    memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    // TODO: reraise errors other than NotFound...
+    if (get_metadata(path_name_prefix(name), data).ok()) {
+        memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    }
     return id;
 }
 
@@ -1606,9 +1611,12 @@ pair<int64_t, bool> Index::path_last_node(int64_t path_id, int64_t& path_length)
     int64_t node_id = 0;
     bool backward;
     it->Seek(end);
-    it->Prev();
-    // horrible hack
-    if (!it->Valid()) it->SeekToLast(); // XXXX
+    if (it->Valid()) {
+        it->Prev();
+    }
+    else {
+        it->SeekToLast();
+    }
     if (it->Valid()) {
         string key = it->key().ToString();
         string value = it->value().ToString();
