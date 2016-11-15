@@ -1,6 +1,6 @@
-#ifndef VG_H
+#ifndef VG_VG_H
 
-#define VG_H
+#define VG_VG_H
 
 #include <vector>
 #include <set>
@@ -27,7 +27,7 @@
 #include "vg.pb.h"
 #include "hash_map.hpp"
 
-#include "progress_bar.hpp"
+#include "progressive.hpp"
 #include "lru_cache.h"
 
 #include "Variant.h"
@@ -82,7 +82,7 @@ namespace vg {
 // their right sides, and tail nodes must have edges only to their left sides.
 // There must be no possible path in the graph containing two head nodes or two
 // tail nodes.
-class VG {
+class VG : public Progressive {
 
 public:
 
@@ -161,36 +161,6 @@ public:
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
-
-    // Now all the stuff for constructing from VCF.
-    // TODO: refactor out
-
-    // construct from VCF
-    VG(vcflib::VariantCallFile& variantCallFile,
-       FastaReference& reference,
-       string& target,
-       bool target_is_chrom,
-       int vars_per_region,
-       int max_node_size = 0,
-       bool flat_input_vcf = false,
-       bool load_phasing_paths = false,
-       bool load_variant_alt_paths = false,
-       bool showprog = false,
-       set<string>* allowed_variants = nullptr);
-       
-    // Build the graph from a bunch of alleles, organized by position.
-    void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
-                      const map<pair<long, int>, vector<bool>>& visits,
-                      size_t num_phasings,
-                      const map<pair<long, int>, vector<pair<string, int>>>& variant_alts,
-                      string& seq,
-                      string& chrom);
-    void vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, vector<vcflib::VariantAllele> >& altp,
-                                map<pair<long, int>, vector<bool>>* phase_visits,
-                                map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
-                                bool flat_input_vcf = false);
-                       
     // Takes in a VCF file
     // and returns a map [node] = vcflib::variant
     // Unfortunately this is specific to a given graph
@@ -1084,16 +1054,6 @@ public:
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
                                id_t start_id = 0, id_t end_id = 0);
-
-    bool show_progress;
-    string progress_message;
-    long progress_count;
-    long last_progress;
-    ProgressBar* progress;
-    void create_progress(const string& message, long count);
-    void create_progress(long count);
-    void update_progress(long i);
-    void destroy_progress(void);
 
     // for managing parallel construction
     struct Plan {

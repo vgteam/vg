@@ -236,9 +236,10 @@ void VGset::index_kmers(Index& index, int kmer_size, bool path_only, int edge_ma
             }
         };
 
-        g->create_progress("indexing kmers of " + g->name, buffer.size());
+        // Each graph manages its own progress bars
+        g->show_progress = show_progress;
+        g->preload_progress("indexing kmers of " + g->name);
         g->for_each_kmer_parallel(kmer_size, path_only, edge_max, cache_kmer, stride, false, allow_negatives);
-        g->destroy_progress();
 
         g->create_progress("flushing kmer buffers " + g->name, g->size());
         int tid = 0;
@@ -261,7 +262,7 @@ void VGset::for_each_kmer_parallel(
     int kmer_size, bool path_only, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
     for_each([&lambda, kmer_size, path_only, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
         g->show_progress = show_progress;
-        g->progress_message = "processing kmers of " + g->name;
+        g->preload_progress("processing kmers of " + g->name);
         g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
     });
 }
