@@ -6074,8 +6074,6 @@ void help_map(char** argv) {
          << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-         << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
-         << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
          << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -I, --quality STR     Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
@@ -6179,12 +6177,10 @@ int main_map(int argc, char** argv) {
     float accept_identity = 0;
     size_t kmer_min = 8;
     int softclip_threshold = 0;
-    bool build_in_memory = false;
     int max_mem_length = 0;
     int min_mem_length = 0;
     bool mem_threading = false;
     int max_target_factor = 100;
-    bool in_mem_path_only = false;
     int buffer_size = 100;
     int match = 1;
     int mismatch = 4;
@@ -6241,8 +6237,6 @@ int main_map(int argc, char** argv) {
                 {"always-rescue", no_argument, 0, 'U'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
-                {"in-memory", no_argument, 0, 'V'},
-                {"in-mem-path-only", no_argument, 0, 'O'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
@@ -6263,7 +6257,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:wW:a2:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:",
                          long_options, &option_index);
 
 
@@ -6281,10 +6275,6 @@ int main_map(int argc, char** argv) {
             qual = string_quality_char_to_short(string(optarg));
                 break;
 
-        case 'V':
-            build_in_memory = true;
-            break;
-
         case 'd':
             db_name = optarg;
             break;
@@ -6299,11 +6289,6 @@ int main_map(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
-            break;
-
-
-        case 'O':
-            in_mem_path_only = true;
             break;
 
         case 'Q':
@@ -6561,48 +6546,35 @@ int main_map(int argc, char** argv) {
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
 
-    // for testing, we sometimes want to run the mapper on indexes we build in memory
-    if (build_in_memory) {
-        VG* graph;
-        get_input_file(file_name, [&](istream& in) {
-            graph = new VG(in);
-        });
-        xindex = new xg::XG(graph->graph);
-        assert(kmer_size);
-        int doubling_steps = 3;
-        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, in_mem_path_only, false, 2);
-        delete graph;
-    } else {
-        // We try opening the file, and then see if it worked
-        ifstream xg_stream(xg_name);
+    // We try opening the file, and then see if it worked
+    ifstream xg_stream(xg_name);
 
-        if(xg_stream) {
-            // We have an xg index!
-            if(debug) {
-                cerr << "Loading xg index " << xg_name << "..." << endl;
-            }
-            xindex = new xg::XG(xg_stream);
+    if(xg_stream) {
+        // We have an xg index!
+        if(debug) {
+            cerr << "Loading xg index " << xg_name << "..." << endl;
         }
+        xindex = new xg::XG(xg_stream);
+    }
 
-        ifstream gcsa_stream(gcsa_name);
-        if(gcsa_stream) {
-            // We have a GCSA index too!
-            if(debug) {
-                cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
-            }
-            gcsa = new gcsa::GCSA();
-            gcsa->load(gcsa_stream);
+    ifstream gcsa_stream(gcsa_name);
+    if(gcsa_stream) {
+        // We have a GCSA index too!
+        if(debug) {
+            cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
+        gcsa = new gcsa::GCSA();
+        gcsa->load(gcsa_stream);
+    }
 
-        string lcp_name = gcsa_name + ".lcp";
-        ifstream lcp_stream(lcp_name);
-        if (lcp_stream) {
-            if(debug) {
-                cerr << "Loading LCP index " << gcsa_name << "..." << endl;
-            }
-            lcp = new gcsa::LCPArray();
-            lcp->load(lcp_stream);
+    string lcp_name = gcsa_name + ".lcp";
+    ifstream lcp_stream(lcp_name);
+    if (lcp_stream) {
+        if(debug) {
+            cerr << "Loading LCP index " << gcsa_name << "..." << endl;
         }
+        lcp = new gcsa::LCPArray();
+        lcp->load(lcp_stream);
     }
 
     Index* idx = nullptr;
