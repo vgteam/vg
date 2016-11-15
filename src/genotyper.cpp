@@ -226,7 +226,7 @@ void Genotyper::run(VG& graph,
     VG& graph_for_sites = subset_graph ? subsetted_graph : graph;
     
     // TODO: the hint_path_name field doesn't seem to be used anywhere, can we get rid of it?
-    CactusSiteFinder site_finder(graph_for_sites, "");
+    CactusSiteFinder site_finder(graph_for_sites, ref_path_name);
     
 //    if(subset_graph) {
 //        
