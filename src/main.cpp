@@ -129,14 +129,9 @@ int main_translate(int argc, char** argv) {
     }
 
     Translator* translator;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        translator = new Translator(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         translator = new Translator(in);
-    }
+    });
 
     // test the position translation
     if (!position_string.empty()) {
@@ -336,46 +331,36 @@ int main_filter(int argc, char** argv) {
         return 1;
     }
 
-    // If the user gave us an XG index, we probably ought to load it up.
-    // TODO: make sure if we add any other error exits from this function we
-    // remember to delete this!
-    xg::XG* xindex = nullptr;
-    if (!xg_name.empty()) {
-        // read the xg index
-        ifstream xg_stream(xg_name);
-        if(!xg_stream) {
-            cerr << "Unable to open xg index: " << xg_name << endl;
-            return 1;
-        }
-        xindex = new xg::XG(xg_stream);
-    }
+    // What should our return code be?
+    int error_code = 0;
 
-    string alignments_file_name = argv[optind++];
-    istream* alignment_stream = NULL;
-    ifstream in;
-    if (alignments_file_name == "-") {
-        alignment_stream = &std::cin;
-    } else {
-        in.open(alignments_file_name);
-        if (!in) {
-            cerr << "error: input file " << alignments_file_name << " not found." << endl;
-
-            if(xindex != nullptr) {
-                delete xindex;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        // Open up the alignment stream
+        
+        // If the user gave us an XG index, we probably ought to load it up.
+        // TODO: make sure if we add any other error exits from this function we
+        // remember to delete this!
+        xg::XG* xindex = nullptr;
+        if (!xg_name.empty()) {
+            // read the xg index
+            ifstream xg_stream(xg_name);
+            if(!xg_stream) {
+                cerr << "Unable to open xg index: " << xg_name << endl;
+                error_code = 1;
+                return;
             }
-            return 1;
-
+            xindex = new xg::XG(xg_stream);
         }
-        alignment_stream = &in;
-    }
+    
+        // Read in the alignments and filter them.
+        error_code = filter.filter(&in, xindex);
+        
+        if(xindex != nullptr) {
+            delete xindex;
+        }
+    });
 
-    auto to_return = filter.filter(alignment_stream, xindex);
-
-    if(xindex != nullptr) {
-        delete xindex;
-    }
-
-    return to_return;
+    return error_code;
 }
 
 void help_validate(char** argv) {
@@ -454,14 +439,9 @@ int main_validate(int argc, char** argv) {
     }
 
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     // if we chose a specific subset, do just them
     if (check_nodes || check_edges || check_orphans || check_paths) {
@@ -608,9 +588,7 @@ int main_scrub(int argc, char** argv){
         }
     }
 
-   omp_set_num_threads(threads);
-
-    alignment_file = argv[optind];
+    omp_set_num_threads(threads);
 
     vector<Alignment> buffer;
     static const int buffer_size = 1000; // we let this be off by 1
@@ -665,6 +643,7 @@ int main_scrub(int argc, char** argv){
        }
 
     };
+    // TODO: not actually called
 
     /**
      * Quality, average quality, soft clipping, reversing, split_read, percent identity, and path
@@ -702,24 +681,9 @@ int main_scrub(int argc, char** argv){
         }
     };
 
-
-    if (alignment_file == "-"){
-        //stream::for_each(cin, serial_filters_lambda);
-        stream::for_each_parallel(cin, parallel_filters_lambda);
-    }
-    else{
-        ifstream in;
-        in.open(alignment_file);
-        if (in.good()){
-            stream::for_each(in, serial_filters_lambda);
-            stream::for_each(in, parallel_filters_lambda);
-
-        }
-        else{
-            cerr << "Could not open " << alignment_file << endl;
-            help_filter(argv);
-        }
-    }
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        stream::for_each(in, parallel_filters_lambda);
+    });
 
     if (buffer.size() > 0) {
         stream::write(cout, buffer.size(), write_buffer);
@@ -925,7 +889,6 @@ int main_vectorize(int argc, char** argv){
     }
 
     Vectorizer vz(xg_index);
-    string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
     function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot, max_mem_length](Alignment& a){
@@ -993,16 +956,10 @@ int main_vectorize(int argc, char** argv){
             }
         }
     };
-    if (alignment_file == "-"){
-        stream::for_each(cin, lambda);
-    }
-    else{
-        ifstream in;
-        in.open(alignment_file);
-        if (in.good()){
-            stream::for_each(in, lambda);
-        }
-    }
+    
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        stream::for_each(in, lambda);
+    });
 
     string mapping_str = vz.output_wabbit_map();
     if (output_wabbit){
@@ -1096,14 +1053,11 @@ int main_compare(int argc, char** argv) {
 
     omp_set_num_threads(num_threads);
 
-    string file_name1 = argv[optind++];
-    string file_name2 = argv[optind];
-
     if (db_name1.empty()) {
-        db_name1 = file_name1;
+        db_name1 = get_input_file_name(optind, argc, argv);
     }
     if (db_name2.empty()) {
-        db_name2 = file_name2;
+        db_name2 = get_input_file_name(optind, argc, argv);
     }
 
     // Note: only supporting rocksdb index for now.
@@ -1438,57 +1392,37 @@ int main_call(int argc, char** argv) {
     omp_set_num_threads(thread_count);
     thread_count = get_thread_count();
 
-    // read the graph
+    // Parse the arguments
     if (optind >= argc) {
         help_call(argv);
         return 1;
     }
+    string graph_file_name = get_input_file_name(optind, argc, argv);
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
+    string pileup_file_name = get_input_file_name(optind, argc, argv);
+    
+    if (pileup_file_name == "-" && graph_file_name == "-") {
+        cerr << "error: graph and pileup can't both be from stdin." << endl;
+        exit(1);
+    }
+    
+    // read the graph
     if (show_progress) {
         cerr << "Reading input graph" << endl;
     }
     VG* graph;
-    string graph_file_name = argv[optind++];
-    if (graph_file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(graph_file_name.c_str());
-        if (!in) {
-            cerr << "error: input file " << graph_file_name << " not found." << endl;
-            exit(1);
-        }
+    get_input_file(graph_file_name, [&](istream& in) {
         graph = new VG(in);
-    }
-
-    // setup pileup stream
-    if (optind >= argc) {
-        help_call(argv);
-        return 1;
-    }
-    string pileup_file_name = argv[optind];
-    istream* pileup_stream = NULL;
-    ifstream in;
-    if (pileup_file_name == "-") {
-        if (graph_file_name == "-") {
-            cerr << "error: graph and pileup can't both be from stdin." << endl;
-            exit(1);
-        }
-        pileup_stream = &std::cin;
-    } else {
-        in.open(pileup_file_name);
-        if (!in) {
-            cerr << "error: input file " << pileup_file_name << " not found." << endl;
-            exit(1);
-        }
-        pileup_stream = &in;
-    }
+    });
 
     // this is the call tsv file that was used to communicate with glenn2vcf
     // it's still here for the time being but never actually written
     // (just passed as a string to the caller)
     stringstream text_file_stream;
 
-    // compute the augmented graph
     if (show_progress) {
         cerr << "Computing augmented graph" << endl;
     }
@@ -1498,16 +1432,20 @@ int main_call(int argc, char** argv) {
                   true, default_read_qual, max_strand_bias,
                   &text_file_stream, bridge_alts);
 
-    function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
-        for (int i = 0; i < pileup.node_pileups_size(); ++i) {
-            caller.call_node_pileup(pileup.node_pileups(i));
-        }
-        for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
-            caller.call_edge_pileup(pileup.edge_pileups(i));
-        }
-    };
-    stream::for_each(*pileup_stream, lambda);
-
+    // setup pileup stream
+    get_input_file(pileup_file_name, [&](istream& pileup_stream) {
+        // compute the augmented graph
+        function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
+            for (int i = 0; i < pileup.node_pileups_size(); ++i) {
+                caller.call_node_pileup(pileup.node_pileups(i));
+            }
+            for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
+                caller.call_edge_pileup(pileup.edge_pileups(i));
+            }
+        };
+        stream::for_each(pileup_stream, lambda);
+    });
+    
     // map the edges from original graph
     if (show_progress) {
         cerr << "Mapping edges into augmented graph" << endl;
@@ -1747,18 +1685,9 @@ int main_genotype(int argc, char** argv) {
         cerr << "Reading input graph..." << endl;
     }
     VG* graph;
-    string graph_file_name = argv[optind++];
-    if (graph_file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(graph_file_name.c_str());
-        if (!in) {
-            cerr << "error: input file " << graph_file_name << " not found." << endl;
-            exit(1);
-        }
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     // setup reads index
     if (optind >= argc) {
@@ -1766,7 +1695,7 @@ int main_genotype(int argc, char** argv) {
         return 1;
     }
 
-    string reads_index_name = argv[optind];
+    string reads_index_name = get_input_file_name(optind, argc, argv);
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     index.open_read_only(reads_index_name);
@@ -1936,53 +1865,48 @@ int main_pileup(int argc, char** argv) {
     omp_set_num_threads(thread_count);
     thread_count = get_thread_count();
 
+    // Parse the arguments
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
+    string graph_file_name = get_input_file_name(optind, argc, argv);
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
+    string alignments_file_name = get_input_file_name(optind, argc, argv);
+    
+    if (alignments_file_name == "-" && graph_file_name == "-") {
+        cerr << "error: graph and alignments can't both be from stdin." << endl;
+        exit(1);
+    }
+
     // read the graph
     if (show_progress) {
         cerr << "Reading input graph" << endl;
     }
     VG* graph;
-    string graph_file_name = argv[optind++];
-    if (graph_file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(graph_file_name.c_str());
-        if (!in) {
-            cerr << "error: input file " << graph_file_name << " not found." << endl;
-            exit(1);
-        }
+    get_input_file(graph_file_name, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
-    // setup alignment stream
-    string alignments_file_name = argv[optind++];
-    istream* alignment_stream = NULL;
-    ifstream in;
-    if (alignments_file_name == "-") {
-        if (graph_file_name == "-") {
-            cerr << "error: graph and alignments can't both be from stdin." << endl;
-            exit(1);
-        }
-        alignment_stream = &std::cin;
-    } else {
-        in.open(alignments_file_name);
-        if (!in) {
-            cerr << "error: input file " << alignments_file_name << " not found." << endl;
-            exit(1);
-        }
-        alignment_stream = &in;
-    }
-
-    // compute the pileups.
-    if (show_progress) {
-        cerr << "Computing pileups" << endl;
-    }
+    // Make Pileups makers for each thread.
     vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq));
-    function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
-        int tid = omp_get_thread_num();
-        pileups[tid].compute_from_alignment(aln);
-    };
-    stream::for_each_parallel(*alignment_stream, lambda);
+    
+    // setup alignment stream
+    get_input_file(alignments_file_name, [&](istream& alignment_stream) {
+        // compute the pileups.
+        if (show_progress) {
+            cerr << "Computing pileups" << endl;
+        }
+        
+        function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
+            int tid = omp_get_thread_num();
+            pileups[tid].compute_from_alignment(aln);
+        };
+        stream::for_each_parallel(alignment_stream, lambda);
+    });
 
     // single-threaded (!) merge
     if (show_progress && pileups.size() > 1) {
@@ -2323,13 +2247,9 @@ int main_msga(int argc, char** argv) {
     VG* graph;
     if (graph_files.size() == 1) {
         string file_name = graph_files.front();
-        if (file_name == "-") {
-            graph = new VG(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
+        get_input_file(file_name, [&](istream& in) {
             graph = new VG(in);
-        }
+        });
     } else {
         graph = new VG;
     }
@@ -2834,7 +2754,7 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    string file_name = argv[optind];
+    string file_name = get_input_file_name(optind, argc, argv);
 
     set<string> path_names;
     if (!path_file.empty()){
@@ -2894,13 +2814,9 @@ int main_surject(int argc, char** argv) {
                 buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names,path_name, path_pos, path_reverse, window));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
-            if (file_name == "-") {
-                stream::for_each_parallel(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
+            get_input_file(file_name, [&](istream& in) {
                 stream::for_each_parallel(in, lambda);
-            }
+            });
             for (int i = 0; i < thread_count; ++i) {
                 stream::write_buffered(cout, buffer[i], 0); // flush
             }
@@ -3029,13 +2945,9 @@ int main_surject(int argc, char** argv) {
 
 
             // now apply the alignment processor to the stream
-            if (file_name == "-") {
-                stream::for_each_parallel(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
+            get_input_file(file_name, [&](istream& in) {
                 stream::for_each_parallel(in, lambda);
-            }
+            });
             buffer_limit = 0;
             for (auto& buf : buffer) {
                 handle_buffer(buf);
@@ -3150,15 +3062,9 @@ int main_circularize(int argc, char** argv){
     }
 
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-"){
-        graph = new VG(std::cin);
-    }
-    else{
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     // Check if paths are in graph:
     for (string p : paths_to_circularize){
@@ -3542,14 +3448,9 @@ int main_mod(int argc, char** argv) {
     }
 
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,
@@ -4264,7 +4165,7 @@ int main_kmers(int argc, char** argv) {
 
     vector<string> graph_file_names;
     while (optind < argc) {
-        string file_name = argv[optind++];
+        string file_name = get_input_file_name(optind, argc, argv);
         graph_file_names.push_back(file_name);
     }
 
@@ -4344,14 +4245,9 @@ int main_concat(int argc, char** argv) {
 
     while (optind < argc) {
         VG* graph;
-        string file_name = argv[optind++];
-        if (file_name == "-") {
-            graph = new VG(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
+        get_input_file(optind, argc, argv, [&](istream& in) {
             graph = new VG(in);
-        }
+        });
         graphs.push_back(graph);
     }
 
@@ -4448,14 +4344,9 @@ int main_ids(int argc, char** argv) {
 
     if (!join) {
         VG* graph;
-        string file_name = argv[optind];
-        if (file_name == "-") {
-            graph = new VG(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
+        get_input_file(optind, argc, argv, [&](istream& in) {
             graph = new VG(in);
-        }
+        });
 
         if (sort) {
             // Set up the nodes so we go through them in topological order
@@ -4481,8 +4372,7 @@ int main_ids(int argc, char** argv) {
 
         vector<string> graph_file_names;
         while (optind < argc) {
-            VG* graph;
-            string file_name = argv[optind++];
+            string file_name = get_input_file_name(optind, argc, argv);
             graph_file_names.push_back(file_name);
         }
 
@@ -4543,14 +4433,9 @@ int main_join(int argc, char** argv) {
 
     while (optind < argc) {
         VG* graph;
-        string file_name = argv[optind++];
-        if (file_name == "-") {
-            graph = new VG(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
+        get_input_file(optind, argc, argv, [&](istream& in) {
             graph = new VG(in);
-        }
+        });
         graphs.push_back(graph);
     }
 
@@ -4734,14 +4619,9 @@ int main_stats(int argc, char** argv) {
     }
 
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     if (stats_size) {
         cout << "nodes" << "\t" << graph->node_count() << endl
@@ -5334,14 +5214,9 @@ int main_paths(int argc, char** argv) {
     if (edge_max == 0) edge_max = max_length + 1;
 
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     if (extract) {
         vector<Alignment> alns = graph->paths_as_alignments();
@@ -5620,7 +5495,6 @@ int main_find(int argc, char** argv) {
         }
     }
     if (optind < argc) {
-        //string file_name = argv[optind];
         cerr << "[vg find] find requires -d, -g, or -x to know where to find its database" << endl;
         return 1;
     }
@@ -6032,151 +5906,86 @@ int main_find(int argc, char** argv) {
 
 }
 
-void help_index(char** argv) {
-    cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
-         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
-         << "must come first." << endl
-         << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
-         << "                           the graph(s) (effectively replaces rocksdb)" << endl
-         << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
-         << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
-         << "gcsa options:" << endl
-         << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
-         << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
-         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-         << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
-         << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
-         << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
-         << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
-         << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
-         << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-         << "                           (this is required if you are using multiple graphs files)" << endl
-         << "    -t, --threads N        number of threads to use" << endl
-         << "    -p, --progress         show progress" << endl
-         << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
-         << "rocksdb options (ignored with -g):" << endl
-         << "    -s, --store-graph      store graph as xg" << endl
-         << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
-         << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
-         << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-         << "    -N, --node-alignments  input is (ideally, sorted) .gam format, cross reference nodes by alignment traversals" << endl
-         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
-         << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
-         << "    -D, --dump             print the contents of the db to stdout" << endl
-         << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
-         << "    -L, --path-layout      describes the path layout of the graph" << endl
-         << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-        //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
-         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
-         << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
-
+void help_align(char** argv) {
+    cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -j, --json            output alignments in JSON format (default GAM)" << endl
+         << "    -m, --match N         use this match score (default: 1)" << endl
+         << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
+         << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -D, --debug           print out score matrices and other debugging info" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -r, --reference STR   don't use an input graph--- run SSW alignment between -s and -r" << endl
+         << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
 }
 
-int main_index(int argc, char** argv) {
+int main_align(int argc, char** argv) {
+
+    string seq;
+    string seq_name;
 
     if (argc == 2) {
-        help_index(argv);
+        help_align(argv);
         return 1;
     }
 
-    string rocksdb_name;
-    string gcsa_name;
-    string xg_name;
-    // Where should we import haplotype phasing paths from, if anywhere?
-    string vcf_name;
-    vector<string> dbg_names;
-    int kmer_size = 0;
-    bool path_only = false;
-    int edge_max = 0;
-    int kmer_stride = 1;
-    int prune_kb = -1;
-    bool store_graph = false;
-    bool dump_index = false;
-    bool describe_index = false;
-    bool show_progress = false;
-    bool set_kmer_size = false;
-    bool path_layout = false;
-    bool store_alignments = false;
-    bool store_node_alignments = false;
-    bool store_mappings = false;
-    bool allow_negs = false;
-    bool compact = false;
-    bool dump_alignments = false;
-    bool use_snappy = false;
-    int doubling_steps = 3;
-    bool verify_index = false;
-    bool forward_only = false;
-    size_t size_limit = 200; // in gigabytes
-    bool store_threads = false; // use gPBWT to store paths
-    bool discard_overlaps = false;
+    bool print_cigar = false;
+    bool output_json = false;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
+    int gap_extend = 1;
+    string ref_seq;
+    bool debug = false;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
         {
+            /* These options set a flag. */
             //{"verbose", no_argument,       &verbose_flag, 1},
-            {"db-name", required_argument, 0, 'd'},
-            {"kmer-size", required_argument, 0, 'k'},
-            {"edge-max", required_argument, 0, 'e'},
-            {"kmer-stride", required_argument, 0, 'j'},
-            {"store-graph", no_argument, 0, 's'},
-            {"store-alignments", no_argument, 0, 'a'},
-            {"dump-alignments", no_argument, 0, 'A'},
-            {"store-mappings", no_argument, 0, 'm'},
-            {"dump", no_argument, 0, 'D'},
-            {"metadata", no_argument, 0, 'M'},
-            {"set-kmer", no_argument, 0, 'S'},
-            {"threads", required_argument, 0, 't'},
-            {"progress",  no_argument, 0, 'p'},
-            {"prune",  required_argument, 0, 'P'},
-            {"path-layout", no_argument, 0, 'L'},
-            {"compact", no_argument, 0, 'C'},
-            {"allow-negs", no_argument, 0, 'n'},
-            {"use-snappy", no_argument, 0, 'Q'},
-            {"gcsa-name", required_argument, 0, 'g'},
-            {"xg-name", required_argument, 0, 'x'},
-            {"vcf-phasing", required_argument, 0, 'v'},
-            {"verify-index", no_argument, 0, 'V'},
-            {"forward-only", no_argument, 0, 'F'},
-            {"size-limit", no_argument, 0, 'Z'},
-            {"path-only", no_argument, 0, 'O'},
-            {"store-threads", no_argument, 0, 'T'},
-            {"node-alignments", no_argument, 0, 'N'},
-            {"dbg-in", required_argument, 0, 'i'},
-            {"discard-overlaps", no_argument, 0, 'o'},
+            {"sequence", required_argument, 0, 's'},
+            {"seq-name", no_argument, 0, 'Q'},
+            {"json", no_argument, 0, 'j'},
+            {"match", required_argument, 0, 'm'},
+            {"mismatch", required_argument, 0, 'M'},
+            {"gap-open", required_argument, 0, 'g'},
+            {"gap-extend", required_argument, 0, 'e'},
+            {"reference", required_argument, 0, 'r'},
+            {"debug", no_argument, 0, 'D'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:",
                 long_options, &option_index);
 
-        // Detect the end of the options.
+        /* Detect the end of the options. */
         if (c == -1)
             break;
 
         switch (c)
         {
-        case 'd':
-            rocksdb_name = optarg;
+        case 's':
+            seq = optarg;
             break;
 
-        case 'x':
-            xg_name = optarg;
+        case 'Q':
+            seq_name = optarg;
             break;
 
-        case 'v':
-            vcf_name = optarg;
+        case 'j':
+            output_json = true;
             break;
 
-        case 'P':
-            prune_kb = atoi(optarg);
+        case 'm':
+            match = atoi(optarg);
             break;
 
         case 'k':
@@ -6995,18 +6804,14 @@ int main_align(int argc, char** argv) {
     }
 
     VG* graph = nullptr;
-    string file_name;
-    if (optind < argc) {
-        file_name = argv[optind];
+    if (ref_seq.empty()) {
+        // Only look at a filename if we don't have an explicit reference
+        // sequence.
+        get_input_file(optind, argc, argv, [&](istream& in) {
+            graph = new VG(in);
+        });
     }
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else if (ref_seq.empty()) {
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG(in);
-    }
-
+    
     Alignment alignment;
     if (!ref_seq.empty()) {
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
@@ -7507,10 +7312,9 @@ int main_map(int argc, char** argv) {
     }
 
 
-    // should probably disable this
     string file_name;
     if (optind < argc) {
-        file_name = argv[optind];
+        file_name = get_input_file_name(optind, argc, argv);
     }
 
     if (gcsa_name.empty() && !file_name.empty()) {
@@ -7536,13 +7340,9 @@ int main_map(int argc, char** argv) {
     // for testing, we sometimes want to run the mapper on indexes we build in memory
     if (build_in_memory) {
         VG* graph;
-        if (file_name == "-") {
-            graph = new VG(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
+        get_input_file(file_name, [&](istream& in) {
             graph = new VG(in);
-        }
+        });
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
         int doubling_steps = 3;
@@ -8372,38 +8172,25 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: no filename given" << endl;
         exit(1);
     }
-    string file_name = argv[optind];
+    string file_name = get_input_file_name(optind, argc, argv);
     if (input_type == "vg") {
         if (output_type == "stream") {
             function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
+            get_input_file(file_name, [&](istream& in) {
                 stream::for_each(in, lambda);
-            }
+            });
             return 0;
         } else {
-            if (file_name == "-") {
-                graph = new VG(std::cin);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
+            get_input_file(file_name, [&](istream& in) {
                 graph = new VG(in);
-            }
+            });
         }
         // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "gfa") {
-        if (file_name == "-") {
-            graph = new VG;
-            graph->from_gfa(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
+        get_input_file(file_name, [&](istream& in) {
             graph = new VG;
             graph->from_gfa(in);
-        }
+        });
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
         assert(input_json == true);
@@ -8431,13 +8218,9 @@ int main_view(int argc, char** argv) {
                     }
                     cout << pb2json(a) << "\n";
                 };
-                if (file_name == "-") {
-                    stream::for_each(std::cin, lambda);
-                } else {
-                    ifstream in;
-                    in.open(file_name.c_str());
+                get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);
-                }
+                });
             } else {
                 // todo
                 cerr << "[vg view] error: (binary) GAM can only be converted to JSON" << endl;
@@ -8480,9 +8263,11 @@ int main_view(int argc, char** argv) {
             return 1;
         }
     } else if (input_type == "fastq") {
-        fastq1 = argv[optind++];
+        // The first FASTQ is the filename we already grabbed
+        fastq1 = file_name;
         if (optind < argc) {
-            fastq2 = argv[optind];
+            // There may be a second one
+            fastq2 = get_input_file_name(optind, argc, argv);
         }
         if (output_type == "gam") {
             vector<Alignment> buf;
@@ -8532,13 +8317,9 @@ int main_view(int argc, char** argv) {
                 function<void(Pileup&)> lambda = [](Pileup& p) {
                     cout << pb2json(p) << "\n";
                 };
-                if (file_name == "-") {
-                    stream::for_each(std::cin, lambda);
-                } else {
-                    ifstream in;
-                    in.open(file_name.c_str());
+                get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);
-                }
+                });
             } else {
                 // todo
                 cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
@@ -8560,13 +8341,9 @@ int main_view(int argc, char** argv) {
             function<void(Translation&)> lambda = [](Translation& t) {
                 cout << pb2json(t) << "\n";
             };
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
+            get_input_file(file_name, [&](istream& in) {
                 stream::for_each(in, lambda);
-            }
+            });
         } else {
             cerr << "[vg view] error: (binary) Translation can only be converted to JSON" << endl;
             return 1;
@@ -8579,13 +8356,9 @@ int main_view(int argc, char** argv) {
                 function<void(Locus&)> lambda = [](Locus& l) {
                     cout << pb2json(l) << "\n";
                 };
-                if (file_name == "-") {
-                    stream::for_each(std::cin, lambda);
-                } else {
-                    ifstream in;
-                    in.open(file_name.c_str());
+                get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);
-                }
+                });
             } else {
                 // todo
                 cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
@@ -8995,14 +8768,9 @@ int main_deconstruct(int argc, char** argv){
         }
 
     VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
+    get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
-    }
+    });
 
     Deconstructor decon = Deconstructor(graph);
     if (!xg_name.empty()){
@@ -9089,12 +8857,21 @@ void vg_help(char** argv) {
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
-         << "commands:" << endl
-         << "  -- construct     graph construction" << endl
-         << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
+         << "commands:" << endl;
+         
+     vg::subcommand::Subcommand::for_each([](const vg::subcommand::Subcommand& command) {
+        // Announce every subcommand we have
+        
+        // Pad all the names so the descriptions line up
+        string name = command.get_name();
+        name.resize(14, ' ');
+        cerr << "  -- " << name << command.get_description() << endl;
+     });
+         
+     // Also announce all the old-style hardcoded commands
+     cerr << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
          << "  -- view          format conversions for graphs and alignments" << endl
          << "  -- vectorize     transform alignments to simple ML-compatible vectors" << endl
-         << "  -- index         index features of the graph in a disk-backed key/value store" << endl
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
          << "  -- paths         traverse paths in the graph" << endl
          << "  -- align         local alignment" << endl
@@ -9147,8 +8924,6 @@ int main(int argc, char *argv[])
         return main_align(argc, argv);
     } else if (command == "map") {
         return main_map(argc, argv);
-    } else if (command == "index") {
-        return main_index(argc, argv);
     } else if (command == "find") {
         return main_find(argc, argv);
     } else if (command == "paths") {

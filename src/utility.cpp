@@ -198,5 +198,50 @@ double median(std::vector<int> &v) {
     }
 }
 
+void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {
+    
+    // Just combine the two operations below in the way they're supposed to be used together    
+    get_input_file(get_input_file_name(optind, argc, argv), callback);
+
+}
+
+string get_input_file_name(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Complain that the user didn't specify a filename
+        cerr << "error:[get_input_file_name] specify input filename, or \"-\" for standard input" << endl;
+        exit(1);
+    }
+    
+    string file_name(argv[optind++]);
+    
+    if (file_name.empty()) {
+        cerr << "error:[get_input_file_name] specify a non-empty input filename" << endl;
+        exit(1);
+    }
+    
+    return file_name;
+    
+}
+
+void get_input_file(const string& file_name, function<void(istream&)> callback) {
+
+    if (file_name == "-") {
+        // Just use standard input
+        callback(std::cin);
+    } else {
+        // Open a file
+        ifstream in;
+        in.open(file_name.c_str());
+        if (!in.is_open()) {
+            // The user gave us a bad filename
+            cerr << "error:[get_input_file] could not open file \"" << file_name << "\"" << endl;
+            exit(1);
+        }
+        callback(in);
+    }
+    
+}
+
 
 }

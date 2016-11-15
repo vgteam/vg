@@ -464,6 +464,10 @@ void Paths::remove_node(id_t id) {
     node_mapping.erase(id);
 }
 
+list<Mapping>::iterator Paths::find_mapping(Mapping* m) {
+    return mapping_itr[m];
+}
+
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     // The mapping has to exist
     assert(mapping_path.find(m) != mapping_path.end());
