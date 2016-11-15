@@ -90,7 +90,7 @@ public:
     Index(string& name);
     ~Index(void);
 
-    rocksdb::Options GetOptions(void);
+    rocksdb::Options GetOptions(bool read_only);
     void open(const std::string& dir, bool read_only = false);
     void open_read_only(string& dir);
     void open_for_write(string& dir);
@@ -108,13 +108,10 @@ public:
     int threads;
 
     rocksdb::DB* db;
-    bool is_open;
-    bool use_snappy;
     rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
     bool bulk_load;
-    bool mem_env;
     size_t block_cache_size;
     mt19937 rng;
 

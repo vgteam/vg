@@ -63,9 +63,7 @@ void help_index(char** argv) {
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
-
 }
 
 int main_index(int argc, char** argv) {
@@ -98,7 +96,6 @@ int main_index(int argc, char** argv) {
     bool allow_negs = false;
     bool compact = false;
     bool dump_alignments = false;
-    bool use_snappy = false;
     int doubling_steps = 3;
     bool verify_index = false;
     bool forward_only = false;
@@ -129,7 +126,6 @@ int main_index(int argc, char** argv) {
             {"path-layout", no_argument, 0, 'L'},
             {"compact", no_argument, 0, 'C'},
             {"allow-negs", no_argument, 0, 'n'},
-            {"use-snappy", no_argument, 0, 'Q'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"xg-name", required_argument, 0, 'x'},
             {"vcf-phasing", required_argument, 0, 'v'},
@@ -145,7 +141,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:VFZ:Oi:TNo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -230,10 +226,6 @@ int main_index(int argc, char** argv) {
 
         case 'C':
             compact = true;
-            break;
-
-        case 'Q':
-            use_snappy = true;
             break;
 
         case 't':
@@ -706,7 +698,6 @@ int main_index(int argc, char** argv) {
     if (!rocksdb_name.empty()) {
 
         Index index;
-        index.use_snappy = use_snappy;
 
         if (compact) {
             index.open_for_write(rocksdb_name);
@@ -735,7 +726,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_node_alignments && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
+            index.open_for_bulk_load(rocksdb_name);
             int64_t aln_idx = 0;
             function<void(Alignment&)> lambda = [&index,&aln_idx](Alignment& aln) {
                 index.cross_alignment(aln_idx++, aln);
@@ -750,13 +741,13 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_alignments && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
+            index.open_for_bulk_load(rocksdb_name);
             function<void(Alignment&)> lambda = [&index](Alignment& aln) {
                 index.put_alignment(aln);
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    stream::for_each_parallel(in, lambda);
                 });
             }
             index.flush();
@@ -776,7 +767,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_mappings && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
+            index.open_for_bulk_load(rocksdb_name);
             function<void(Alignment&)> lambda = [&index](Alignment& aln) {
                 const Path& path = aln.path();
                 for (int i = 0; i < path.mapping_size(); ++i) {
@@ -785,7 +776,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    stream::for_each_parallel(in, lambda);
                 });
             }
             index.flush();
