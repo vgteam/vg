@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 41
+plan tests 42
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
@@ -55,6 +55,11 @@ vg index -x x.xg x.vg
 vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -a - -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 100 "index can store alignments"
 is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
+
+# repeat with an unmapped read (sequence from phiX)
+rm -rf x.vg.aln
+(vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x.idx; vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx) | vg index -a - -d x.vg.aln
+is $(vg index -D -d x.vg.aln | wc -l) 100 "FIXME: alignment index does NOT store unmapped reads!"
 
 vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -m - -d x.vg.map
 is $(vg index -D -d x.vg.map | wc -l) 1476 "index stores all mappings"
