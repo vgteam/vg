@@ -23,7 +23,6 @@ void Genotyper::run(VG& graph,
                     string contig_name,
                     string sample_name,
                     string augmented_file_name,
-                    bool use_cactus,
                     bool subset_graph,
                     bool show_progress,
                     bool output_vcf,
@@ -123,20 +122,19 @@ void Genotyper::run(VG& graph,
             *alignment.mutable_path()->add_mapping() = mapping;
         }
     }
-    #pragma omp critical (cerr)
-    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
     
-
-    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
+    if (show_progress) {
+        #pragma omp critical (cerr)
+        cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
+    }
     
-    // Find all the sites in either the main graph or the subset
-    vector<Genotyper::Site> sites;
     
-    if(subset_graph) {
-        // We'll collect the supported subset of the original graph
+    // Make a subsetted graph if we are restricting sites to supported edges/nodes
+    VG subsetted_graph;
+    if (subset_graph) {
         set<Node*> supported_nodes;
         set<Edge*> supported_edges;
-
+        
         for(auto& name_and_read : reads_by_name) {
             // Go through all the paths followed by reads
             auto& path = name_and_read.second->path();
@@ -155,15 +153,15 @@ void Genotyper::run(VG& graph,
                     Edge* edge = graph.get_edge(last, here);
                     
                     if(edge == nullptr) {
-                        cerr << "Error! Edge " << last << " to " << here 
-                            << " from path " << name_and_read.first << " is missing!" << endl;
+                        cerr << "Error! Edge " << last << " to " << here
+                        << " from path " << name_and_read.first << " is missing!" << endl;
                         exit(1);
                     }
                     
                     // We know the graph will have the edge
                     supported_edges.insert(edge);
                 }
-            
+                
             }
         }
         
@@ -192,12 +190,12 @@ void Genotyper::run(VG& graph,
                     
                     if(edge == nullptr) {
                         cerr << "Error! Edge " << last << " to " << here
-                            << " from path " << ref_path_name << " is missing!" << endl;
+                        << " from path " << ref_path_name << " is missing!" << endl;
                         exit(1);
                     }
                     
                     // We know the graph will have the edge
-                    supported_edges.insert(edge);                    
+                    supported_edges.insert(edge);
                     
                 }
                 
@@ -209,7 +207,6 @@ void Genotyper::run(VG& graph,
         
         // Make the subset graph of only supported nodes and edges (which will
         // internally contain copies of all of them).
-        VG subset;
         subset.add_nodes(supported_nodes);
         subset.add_edges(supported_edges);
         
@@ -217,42 +214,52 @@ void Genotyper::run(VG& graph,
             // Copy over the reference path
             subset.paths.extend(graph.paths.path(ref_path_name));
         }
-
+        
         
         if(show_progress) {
-            #pragma omp critical (cerr)
+#pragma omp critical (cerr)
             cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
         }
-        
-        // Unfold/unroll, find the superbubbles, and translate back. Note that
-        // we can only use Cactus with the ref path if it survived the
-        // subsetting.
-        sites = use_cactus ? (
-            subset.paths.has_path(ref_path_name) ?
-                find_sites_with_cactus(subset, ref_path_name)
-                : find_sites_with_cactus(subset)
-            )
-            : find_sites_with_supbub(subset);
-            
-        for(auto& site : sites) {
-            // Translate all the NodeTraversals back to node pointers in the
-            // non-subset graph
-            site.start.node = graph.get_node(site.start.node->id());
-            site.end.node = graph.get_node(site.end.node->id());
-        }
-        
-    } else {
-        // Don't need to mess around with creating a subset.
-    
-        if(show_progress) {
-            #pragma omp critical (cerr)
-            cerr << "Looking at graph of " << graph.size() << " nodes" << endl;
-        }
-    
-        // Unfold/unroll, find the superbubbles, and translate back.
-        sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-            : find_sites_with_supbub(graph);
     }
+    
+    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
+    VG& graph_for_sites = subset_graph ? subsetted_graph : graph;
+    
+    // TODO: the hint_path_name field doesn't seem to be used anywhere, can we get rid of it?
+    CactusSiteFinder site_finder(graph_for_sites, "");
+    
+//    if(subset_graph) {
+//        
+//        
+//        // Unfold/unroll, find the superbubbles, and translate back. Note that
+//        // we can only use Cactus with the ref path if it survived the
+//        // subsetting.
+//        sites = use_cactus ? (
+//            subset.paths.has_path(ref_path_name) ?
+//                find_sites_with_cactus(subset, ref_path_name)
+//                : find_sites_with_cactus(subset)
+//            )
+//            : find_sites_with_supbub(subset);
+//            
+//        for(auto& site : sites) {
+//            // Translate all the NodeTraversals back to node pointers in the
+//            // non-subset graph
+//            site.start.node = graph.get_node(site.start.node->id());
+//            site.end.node = graph.get_node(site.end.node->id());
+//        }
+//        
+//    } else {
+//        // Don't need to mess around with creating a subset.
+//    
+//        if(show_progress) {
+//            #pragma omp critical (cerr)
+//            cerr << "Looking at graph of " << graph.size() << " nodes" << endl;
+//        }
+//    
+//        // Unfold/unroll, find the superbubbles, and translate back.
+//        sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+//            : find_sites_with_supbub(graph);
+//    }
     
     if(show_progress) {
         #pragma omp critical (cerr)
@@ -365,11 +372,12 @@ void Genotyper::run(VG& graph,
                     
                         if(show_progress) {
                             #pragma omp critical (cerr)
-                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() << " alleles" << endl;
-                            for(auto& path : paths) {
-                                // Announce each allele in turn
-                                #pragma omp critical (cerr)
-                                cerr << "\t" << traversals_to_string(path) << endl;
+                            {
+                                cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() << " alleles" << endl;
+                                for(auto& path : paths) {
+                                    // Announce each allele in turn
+                                    cerr << "\t" << traversals_to_string(path) << endl;
+                                }
                             }
                         }
                         
@@ -461,7 +469,6 @@ void Genotyper::run(VG& graph,
                                         cerr << "\t" << traversals_to_string(paths.at(i)) << ": --" << endl;
                                     }
                                 }
-                                
                             }
                         }
                         
@@ -690,7 +697,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
 
         for(auto id : superbubble.second) {
             // Translate each ID and put it in the set
-            site.contents.insert(overall_translation[id].first);
+            Node* node = graph.get_node(overall_translation[id].first);
         }
         
         // Save the site

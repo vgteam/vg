@@ -144,12 +144,12 @@ message MultipathAlignment {
 message Subpath {
     // describes node sequence and edits to the graph sequences
     Path path = 1;
+
     // the indices of subpaths in the multipath alignment that are to the right of this path
     // where right is in the direction of the end of the read sequence
-
     repeated uint32 next = 2;
-    // score of this subpath's alignment
 
+    // score of this subpath's alignment
     int32 score = 3;
 }
 

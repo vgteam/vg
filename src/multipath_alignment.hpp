@@ -16,8 +16,6 @@
 #include "alignment.hpp"
 #include "utility.hpp"
 
-#endif /* multipath_alignment_hpp */
-
 namespace vg {
     
     // finds the start subpaths (i.e. the source nodes of the multipath DAG) and stores
@@ -27,7 +25,7 @@ namespace vg {
     // stores the highest scoring alignment contained in the MultipathAlignment in an Alignment
     //
     // note: assumes that each subpath's Path object uses one Mapping per node and that
-    // subpaths have been identified
+    // start subpaths have been identified
     //
     //  Args:
     //    multipath_aln     multipath alignment to find optimal path through
@@ -54,11 +52,14 @@ namespace vg {
     //    aln               alignment to convert
     //    multipath_aln     empty multipath alignment to store converted alignment in (data may be
     //                      be overwritten if not empty)
+    //
     void to_multipath_alignment(const Alignment& aln, MultipathAlignment& multipath_aln_out);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }
 
+
+#endif /* multipath_alignment_hpp */
 
 
 
