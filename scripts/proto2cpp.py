@@ -121,6 +121,7 @@ class proto2cpp:
   def parseFile(self, inputFile):
     # Go through the input file line by line.
     isEnum = False
+    inPackage = False
     # This variable is here as a workaround for not getting extra line breaks (each line
     # ends with a line separator and print() method will add another one).
     # We will be adding lines into this var and then print the var out at the end.
@@ -136,10 +137,18 @@ class proto2cpp:
         line = line[:matchComment.start()] + "///<" + line[matchComment.end():]
       elif matchComment is not None:
         line = line[:matchComment.start()] + "///" + line[matchComment.end():]
+        
+      # Search for "package " and if one is found before comment, make a namespace
+      matchPackage = re.search(r"\bpackage\b", line)
+      if matchPackage is not None and (matchComment is None or matchPackage.start() < matchComment.start()):
+        isPackage = True
+        # Convert to C++-style separator and block instead of statement
+        line = "namespace" + line[:matchPackage.start()] + line[matchPackage.end():].replace(".", "::").replace(";", " {")
+      
 
       # Search for "enum" and if one is found before comment,
       # start changing all semicolons (";") to commas (",").
-      matchEnum = re.search("enum", line)
+      matchEnum = re.search(r"\benum\b", line)
       if matchEnum is not None and (matchComment is None or matchEnum.start() < matchComment.start()):
         isEnum = True
       # Search again for semicolon if we have detected an enum, and replace semicolon with comma.
@@ -156,12 +165,18 @@ class proto2cpp:
         # be a proper C(++) struct and Doxygen will handle it correctly.
         line = line[:matchClosingBrace.start()] + "};" + line[matchClosingBrace.end():]
       # Search for 'message' and replace it with 'struct' unless 'message' is behind a comment.
-      matchMsg = re.search("message", line)
+      matchMsg = re.search(r"\bmessage\b", line)
       if matchMsg is not None and (matchComment is None or matchMsg.start() < matchComment.start()):
         output = "struct" + line[:matchMsg.start()] + line[matchMsg.end():]
         theOutput += output
       else:
         theOutput += line
+        
+    if isPackage:
+      # Close the package namespace
+      theOutput += "}"
+      isPackage = False
+        
     # Now that we've got all lines in the string let's split the lines and print out
     # one by one.
     # This is a workaround to get rid of extra empty line at the end which print() method adds.
