@@ -189,9 +189,10 @@ public:
     // does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels
     void unchop(void);
     // the set of components that could be merged into single nodes without
-    // changing the path space of the graph
-    set<list<Node*>> simple_components(int min_size = 1);
-    set<list<Node*>> simple_multinode_components(void);
+    // changing the path space of the graph. Emits oriented traversals of nodes,
+    // in the order and orientation in which they are to be merged.
+    set<list<NodeTraversal>> simple_components(int min_size = 1);
+    set<list<NodeTraversal>> simple_multinode_components(void);
     // strongly connected components of the graph
     set<set<id_t> > strongly_connected_components(void);
     // only multi-node components
@@ -205,7 +206,8 @@ public:
     // simple cycles following Johnson's elementary cycles algorithm
     set<list<NodeTraversal> > elementary_cycles(void);
     // concatenates the nodes into a new node with the same external linkage as the provided component
-    Node* concat_nodes(const list<Node*>& nodes);
+    // After calling this, paths will be invalid until paths.compact_ranks() is called.
+    Node* concat_nodes(const list<NodeTraversal>& nodes);
     // merge the nodes into a single node, preserving external linkages
     // use the sequence of the first node as the basis
     Node* merge_nodes(const list<Node*>& nodes);
@@ -843,18 +845,20 @@ public:
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
     // true if nodes share all paths and the mappings they share in these paths
-    // are adjacent
-    bool nodes_are_perfect_path_neighbors(id_t id1, id_t id2);
+    // are adjacent, in the specified relative order and orientation.
+    bool nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right);
     // true if the mapping completely covers the node it maps to and is a perfect match
     bool mapping_is_total_match(const Mapping& m);
     // concatenate the mappings for a pair of nodes; handles multiple mappings per path
     map<string, vector<Mapping>> concat_mappings_for_node_pair(id_t id1, id_t id2);
-    // for a list of nodes that we want to concatenate
-    map<string, vector<Mapping>> concat_mappings_for_nodes(const list<Node*>& nodes);
-    // helper function
-    map<string, map<int, Mapping>>
-        concat_mapping_groups(map<string, map<int, Mapping>>& r1,
-                              map<string, map<int, Mapping>>& r2);
+    // Concatenate mappings for a list of nodes that we want to concatenate.
+    // Returns, for each path name, a vector of merged mappings, once per path
+    // traversal of the run of nodes. Those merged mappings are in the
+    // orientation of the merged node (so mappings to nodes that are traversed
+    // in reverse will have their flags toggled). We assume that all mappings on
+    // the given nodes are full-length perfect matches, and that all the nodes
+    // are perfect path neighbors.
+    map<string, vector<Mapping>> concat_mappings_for_nodes(const list<NodeTraversal>& nodes);
 
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we
