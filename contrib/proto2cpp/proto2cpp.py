@@ -4,7 +4,7 @@
 # This script converts .proto files into C++ style ones
 # and prints the output to standard output.
 #
-# version 0.6-beta
+# version 0.6-beta-vg
 #
 # How to enable this filter in Doxygen:
 #   1. Generate Doxygen configuration file with command 'doxygen -g <filename>'
@@ -21,6 +21,7 @@
 #        doxygen doxyfile
 #
 #
+# Copyright (C) 2016 Regents of the University of California
 # Copyright (C) 2012-2015 Timo Marjoniemi
 # All rights reserved.
 #
