@@ -7508,7 +7508,7 @@ Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
                     bool banded_global,
                     bool print_score_matrices) {
@@ -7535,11 +7535,11 @@ Alignment VG::align(const Alignment& alignment,
             } else if (qual_adj_aligner && !aligner) {
                 qual_adj_aligner->align_global_banded(aln, g, 1);
             }
-        } else if (pinned_node_id) {
+        } else if (pinned_alignment) {
             if (aligner && !qual_adj_aligner) {
-                aligner->align_pinned(aln, g, pinned_node_id, pin_left);
+                aligner->align_pinned(aln, g, pin_left);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align_pinned(aln, g, pinned_node_id, pin_left);
+                qual_adj_aligner->align_pinned(aln, g, pin_left);
             }
         } else {
             if (aligner && !qual_adj_aligner) {
@@ -7638,72 +7638,72 @@ Alignment VG::align(const Alignment& alignment,
 Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
                     bool banded_global,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
                     Aligner* aligner,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
                     bool banded_global,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
                     bool banded_global,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
                     bool banded_global,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio,
-                                  int64_t pinned_node_id,
+                                  bool pinned_alignment,
                                   bool pin_left,
                                   bool banded_global,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio,
-                                  int64_t pinned_node_id,
+                                  bool pinned_alignment,
                                   bool pin_left,
                                   bool banded_global,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio,
-                               pinned_node_id, pin_left, banded_global, print_score_matrices);
+                               pinned_alignment, pin_left, banded_global, print_score_matrices);
 }
 
 const string VG::hash(void) {

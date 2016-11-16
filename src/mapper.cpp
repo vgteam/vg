@@ -192,7 +192,7 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  VG& vg,
                                  size_t max_query_graph_ratio,
-                                 int64_t pinned_node_id,
+                                 bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global) {
     // check if we have a cached aligner for this thread
@@ -202,7 +202,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         return vg.align(aln,
                         aligner,
                         max_query_graph_ratio,
-                        pinned_node_id,
+                        pinned_alignment,
                         pin_left,
                         banded_global);
     } else {
@@ -211,14 +211,14 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             return vg.align_qual_adjusted(aln,
                                           aligner,
                                           max_query_graph_ratio,
-                                          pinned_node_id,
+                                          pinned_alignment,
                                           pin_left,
                                           banded_global);
         } else {
             return vg.align(aln,
                             aligner,
                             max_query_graph_ratio,
-                            pinned_node_id,
+                            pinned_alignment,
                             pin_left,
                             banded_global);
         }

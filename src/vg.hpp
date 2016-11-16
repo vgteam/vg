@@ -15,8 +15,8 @@
 #include <random>
 
 #include "gssw.h"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include "gcsa.h"
+#include "lcp.h"
 #include "gssw_aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
@@ -750,14 +750,14 @@ public:
     Alignment align(const string& sequence,
                     Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     bool print_score_matrices = false);
@@ -766,13 +766,13 @@ public:
     // May add nodes to the graph, but cleans them up afterward
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     bool print_score_matrices = false);
@@ -781,14 +781,14 @@ public:
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
-                                  int64_t pinned_node_id = 0,
+                                  bool pinned_alignment = false,
                                   bool pin_left = false,
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
-                                  int64_t pinned_node_id = 0,
+                                  bool pinned_alignment = false,
                                   bool pin_left = false,
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
@@ -1045,7 +1045,7 @@ private:
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
                     bool banded_global = false,
                     bool print_score_matrices = false);
