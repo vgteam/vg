@@ -2993,7 +2993,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         exit(1);
     }
 
-    if (mem_threading && xindex->max_path_rank()) {
+    if (mem_threading) {
         return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps);
     } else {
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
