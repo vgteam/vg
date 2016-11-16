@@ -29,8 +29,7 @@ void help_construct(char** argv) {
          << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress        show progress" << endl
          << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl
-         << "    -S, --output-sv <file>      write normalized structural variants to <file>" << endl;
+         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
 
 }
 
@@ -218,7 +217,7 @@ int main_construct(int argc, char** argv) {
     };
 
     // Construct the graph. Make sure to make our FASTA and VCF into vectors.
-    constructor.construct_graph({&reference}, {&variant_file}, callback, sv_out_name);
+    constructor.construct_graph({&reference}, {&variant_file}, callback);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:

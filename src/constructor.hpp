@@ -248,7 +248,7 @@ public:
      * one FASTA file. Reference and VCF vectors may not contain nulls.
      */
     void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
-        function<void(Graph&)> callback, string sv_out_name);
+        function<void(Graph&)> callback);
     
 protected:
     

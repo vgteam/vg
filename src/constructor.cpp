@@ -1212,7 +1212,7 @@ namespace vg {
 
         void Constructor::construct_graph(const vector<FastaReference*>& references,
                 const vector<vcflib::VariantCallFile*>& variant_files,
-                function<void(Graph&)> callback, string sv_out_name) {
+                function<void(Graph&)> callback) {
 
             // Make a map from contig name to fasta reference containing it.
             map<string, FastaReference*> reference_for;
