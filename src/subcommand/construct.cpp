@@ -29,7 +29,9 @@ void help_construct(char** argv) {
          << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress        show progress" << endl
          << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
+         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl
+         << "    -S, --output-sv <file>      write normalized structural variants to <file>" << endl;
+
 }
 
 int main_construct(int argc, char** argv) {
@@ -43,7 +45,7 @@ int main_construct(int argc, char** argv) {
     Constructor constructor;
 
     // We also parse some arguments separately.
-    string fasta_file_name, vcf_file_name, json_filename;
+    string fasta_file_name, vcf_file_name, json_filename, sv_out_name;
     string region;
     bool region_is_chrom = false;
 
@@ -64,11 +66,12 @@ int main_construct(int argc, char** argv) {
                 {"region-is-chrom", no_argument, 0, 'C'},
                 {"node-max", required_argument, 0, 'm'},\
                 {"flat-alts", no_argument, 0, 'f'},
+                {"output-sv", required_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:ph?z:t:R:m:as:Cf",
+        c = getopt_long (argc, argv, "v:r:ph?z:t:R:m:as:CfS:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -95,6 +98,10 @@ int main_construct(int argc, char** argv) {
 
         case 'z':
             constructor.vars_per_chunk = atoi(optarg);
+            break;
+
+        case 'S':
+            sv_out_name = optarg;
             break;
 
         case 'R':
@@ -211,7 +218,7 @@ int main_construct(int argc, char** argv) {
     };
 
     // Construct the graph. Make sure to make our FASTA and VCF into vectors.
-    constructor.construct_graph({&reference}, {&variant_file}, callback);
+    constructor.construct_graph({&reference}, {&variant_file}, callback, sv_out_name);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:

@@ -1059,49 +1059,52 @@ namespace vg {
             bool var_is_sv = false;
             //for (string& alt : variant_source.get()->alt) {
             auto vvar = variant_source.get();
-            if (vvar->info["SVTYPE"].empty()){
-
-                for (string& alt : vvar->alt) {
-                    // Validate each alt of the variant
-                    if(!allATGC(alt)) {
-                        // It may be a symbolic allele or something. Skip this variant.
-                        #pragma omp critical (cerr)
-                        cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
-                        variant_acceptable = false;
-                        break;
-                    }
-                }
-            }
-            else{
+            //if (vvar->info["SVTYPE"].empty()){
+            if (!(vvar->info["SVTYPE"].empty())){
 
                 var_is_sv = true;
+                variant_acceptable = true;
 
-        std::function<void(vcflib::Variant*)> flatten_my_sv = [&](vcflib::Variant* v){
-            for (int alt_pos = 0; alt_pos < v->alt.size(); ++alt_pos){
-                string a = v->alt[alt_pos];
+            std::function<void(vcflib::Variant*)> flatten_my_sv = [&](vcflib::Variant* v){
+                for (int alt_pos = 0; alt_pos < v->alt.size(); ++alt_pos){
+                    string a = v->alt[alt_pos];
                 // These should be normalized-ish
                 // Ref field might be "N"
                 // Alt field could be <INS>, but it *should* be the inserted sequence,
                 // but that might be tucked away in an info field
-                if (a == "<INS>"){
-                    variant_acceptable = false;
-                }
-                else if (a == "<DEL>"){
-                    v->ref = reference.getSubSequence(reference_contig, v->position, (size_t) stol(v->info["SVLEN"][alt_pos]) + 1);
-                    v->alt[alt_pos] = reference.getSubSequence(reference_contig, v->position, 1);
-                    v->updateAlleleIndexes();
-                }
-                else if (a == "<INV>"){
-                    variant_acceptable = false;
+                    if (a == "<INS>"){
+                        variant_acceptable = false;
+                    }
+                    else if (a == "<DEL>"){
+                        v->ref = reference.getSubSequence(reference_contig, v->position, (size_t) stol(v->info["SVLEN"][alt_pos]));
+                        v->alt[alt_pos] = reference.getSubSequence(reference_contig, v->position, 1);
+                        v->updateAlleleIndexes();
+                    }
+                    else if (a == "<INV>"){
+                        variant_acceptable = false;
 
+                    }
                 }
-            }
-        };
+            };
 
 
                 flatten_my_sv(vvar);
 
             }
+
+
+
+            for (string& alt : vvar->alt) {
+                    // Validate each alt of the variant
+                if(!allATGC(alt)) {
+                        // It may be a symbolic allele or something. Skip this variant.
+                    #pragma omp critical (cerr)
+                    cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
+                    variant_acceptable = false;
+                    break;
+                }
+            }
+            
             if (!variant_acceptable) {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
@@ -1209,7 +1212,7 @@ namespace vg {
 
         void Constructor::construct_graph(const vector<FastaReference*>& references,
                 const vector<vcflib::VariantCallFile*>& variant_files,
-                function<void(Graph&)> callback) {
+                function<void(Graph&)> callback, string sv_out_name) {
 
             // Make a map from contig name to fasta reference containing it.
             map<string, FastaReference*> reference_for;
@@ -1255,7 +1258,7 @@ namespace vg {
                         if(!buffer->has_tabix()) {
                             // Die if we don't have indexes for everyone.
                             // TODO: report errors to caller instead.
-#pragma omp critical (cerr)
+                            #pragma omp critical (cerr)
                             cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
                             exit(1);
                         }
