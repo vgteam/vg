@@ -9,6 +9,8 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <cstdlib>
+#include <functional>
 
 #include "types.hpp"
 #include "progressive.hpp"
