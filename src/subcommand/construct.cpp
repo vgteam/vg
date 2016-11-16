@@ -99,7 +99,7 @@ int main_construct(int argc, char** argv) {
                     exit(1);
                 }
                 // Parse out the two parts
-                string vcf_contig = key_value.substr(0, found - 1);
+                string vcf_contig = key_value.substr(0, found);
                 string fasta_contig = key_value.substr(found + 1);
                 // Add the name mapping
                 constructor.add_name_mapping(vcf_contig, fasta_contig);
