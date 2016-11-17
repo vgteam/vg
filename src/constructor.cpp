@@ -1065,30 +1065,41 @@ namespace vg {
                 var_is_sv = true;
                 variant_acceptable = true;
 
-            std::function<void(vcflib::Variant*)> flatten_my_sv = [&](vcflib::Variant* v){
-                for (int alt_pos = 0; alt_pos < v->alt.size(); ++alt_pos){
-                    string a = v->alt[alt_pos];
+            //std::function<void(vcflib::Variant*)> flatten_my_sv = [&](vcflib::Variant* v){
+
+                cerr << vvar->position << endl;
+                for (int alt_pos = 0; alt_pos < vvar->alt.size(); ++alt_pos){
+                    string a = vvar->alt[alt_pos];
                 // These should be normalized-ish
                 // Ref field might be "N"
                 // Alt field could be <INS>, but it *should* be the inserted sequence,
                 // but that might be tucked away in an info field
-                    if (a == "<INS>"){
-                        variant_acceptable = false;
+                    if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1);
+                        vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
+                        if (vvar->alt[alt_pos] == "<INS>"){
+                            variant_acceptable = false;
+                        }
                     }
-                    else if (a == "<DEL>"){
-                        v->ref = reference.getSubSequence(reference_contig, v->position, (size_t) stol(v->info["SVLEN"][alt_pos]));
-                        v->alt[alt_pos] = reference.getSubSequence(reference_contig, v->position, 1);
-                        v->updateAlleleIndexes();
+                    else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL" || a == "<CN0>"){
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), (size_t) stol(vvar->info["SVLEN"][alt_pos]));
+                        vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1);
+                        vvar->updateAlleleIndexes();
                     }
-                    else if (a == "<INV>"){
-                        variant_acceptable = false;
+                    else if (a == "<INV>" || vvar->info["SVTYPE"][alt_pos] == "INV"){
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition() - 1, (size_t) stol(vvar->info["SVLEN"][alt_pos]));
+                        string alt_str(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), (size_t) stol(vvar->info["SVLEN"][alt_pos])));
+                        reverse(alt_str.begin(), alt_str.end());
+                        vvar->alt[alt_pos] = alt_str;
+
+                        //variant_acceptable = false;
 
                     }
                 }
-            };
+           /// };
 
 
-                flatten_my_sv(vvar);
+              //  flatten_my_sv(vvar);
 
             }
 
@@ -1136,8 +1147,12 @@ namespace vg {
                 // Add it in
                 chunk_variants.push_back(*(variant_source.get()));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
-
+                if (!var_is_sv){
+                    chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+                }
+                else {
+                    chunk_end = max(chunk_end, chunk_variants.back().position + (size_t) stol(chunk_variants.back().info["SVLEN"][0]) );
+                }
                 // Try the next variant
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
