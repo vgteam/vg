@@ -30,3 +30,8 @@ pygments_style = 'sphinx'
 html_theme = 'default'
 autoclass_content = 'both'
 html_theme = 'sphinx_rtd_theme'
+html_static_path = ['static']
+
+def setup(app):
+    # Fix up included file list for files so they don't all run together
+    app.add_stylesheet('custom.css')
