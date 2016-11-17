@@ -779,7 +779,11 @@ namespace vg {
         // TODO: C++ doesn't have a 2-way map right?
         vcf_to_fasta_renames[vcf_name] = fasta_name;
         fasta_to_vcf_renames[fasta_name] = vcf_name;
+#ifdef debug
+        cerr << "Added rename of " << vcf_name << " to " << fasta_name << endl;
+#endif
     }
+
 
     string Constructor::vcf_to_fasta(const string& vcf_name) const {
         return vcf_to_fasta_renames.count(vcf_name) ? vcf_to_fasta_renames.at(vcf_name) : vcf_name;
@@ -788,6 +792,7 @@ namespace vg {
     string Constructor::fasta_to_vcf(const string& fasta_name) const {
         return fasta_to_vcf_renames.count(fasta_name) ? fasta_to_vcf_renames.at(fasta_name) : fasta_name;
     }
+
 
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
             function<void(Graph&)> callback) {
@@ -806,8 +811,8 @@ namespace vg {
             // Only look at the region we were asked for. We will only find variants
             // *completely* contained in this region! Partially-overlapping variants
             // will be discarded!
-          //  leading_offset = allowed_vcf_regions[vcf_contig].first;
-          //  reference_end = allowed_vcf_regions[vcf_contig].second;
+            leading_offset = allowed_vcf_regions[vcf_contig].first;
+            reference_end = allowed_vcf_regions[vcf_contig].second;
         } else {
             // Look at the whole contig
             leading_offset = 0;
@@ -1047,7 +1052,7 @@ namespace vg {
             while(getline(sstream, temp, delim)){
                 ret.push_back(temp);
             }
-                return ret;
+            return ret;
         };
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
@@ -1072,35 +1077,35 @@ namespace vg {
                 for (int alt_pos = 0; alt_pos < vvar->alt.size(); ++alt_pos){
 
                     string a = vvar->alt[alt_pos];
-                // These should be normalized-ish
-                // Ref field might be "N"
-                // Alt field could be <INS>, but it *should* be the inserted sequence,
-                // but that might be tucked away in an info field
-                //
-                   
+                    // These should be normalized-ish
+                    // Ref field might be "N"
+                    // Alt field could be <INS>, but it *should* be the inserted sequence,
+                    // but that might be tucked away in an info field
+                    //
+
                     bool good = true;
 
                     if (!(vvar->info["SVTYPE"][alt_pos] == "INV" ||
-                        vvar->info["SVTYPE"][alt_pos] == "DEL" ||
-                        vvar->info["SVTYPE"][alt_pos] == "INS") || vvar->alt.size() > 1){
+                                vvar->info["SVTYPE"][alt_pos] == "DEL" ||
+                                vvar->info["SVTYPE"][alt_pos] == "INS") || vvar->alt.size() > 1){
                         variant_acceptable = false;
                         break;
                     }
 
                     if (vvar->info.find("SVLEN") != vvar->info.end()){
 
-                            sv_len = (size_t) stol(vvar->info["SVLEN"][alt_pos]);
+                        sv_len = (size_t) stol(vvar->info["SVLEN"][alt_pos]);
                     }
                     else if (vvar->info.find("END") != vvar->info.end()){
 
-                            sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
+                        sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
                     }
 
-                        else{
-                            // If we have neither, we'll ignore it.
-                            variant_acceptable = false;
-                            break;
-                        }
+                    else{
+                        // If we have neither, we'll ignore it.
+                        variant_acceptable = false;
+                        break;
+                    }
                     if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
                         vvar->ref = reference.getSubSequence(reference_contig, vvar->position, 1);
                         vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
@@ -1121,7 +1126,7 @@ namespace vg {
                         reverse(alt_str.begin(), alt_str.end());
                         vvar->alt[alt_pos] = alt_str;
 
-                       // add 3 bases padding to right side 
+                        // add 3 bases padding to right side 
                         vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
                         vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
                         vvar->position = vvar->position - 3;
@@ -1142,16 +1147,16 @@ namespace vg {
 
 
             for (string& alt : vvar->alt) {
-                    // Validate each alt of the variant
+                // Validate each alt of the variant
                 if(!allATGC(alt)) {
-                        // It may be a symbolic allele or something. Skip this variant.
-                    #pragma omp critical (cerr)
+                    // It may be a symbolic allele or something. Skip this variant.
+#pragma omp critical (cerr)
                     cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
                     variant_acceptable = false;
                     break;
                 }
             }
-            
+
             if (!variant_acceptable) {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
@@ -1252,159 +1257,229 @@ namespace vg {
             chunk_start = chunk_end;
             chunk_end = 0;
             chunk_variants.clear();
-        }
 
+            // Loop again on the same variant.
+        }
         // All the chunks have been wired and emitted. Now emit the very last node, if any
         emit_reference_node(last_node_buffer);
 
         destroy_progress();
 
+    }
+
+    void Constructor::construct_graph(const vector<FastaReference*>& references,
+            const vector<vcflib::VariantCallFile*>& variant_files,
+            function<void(Graph&)> callback) {
+
+        // Make a map from contig name to fasta reference containing it.
+        map<string, FastaReference*> reference_for;
+        for (size_t i = 0; i < references.size(); i++) {
+            // For every FASTA reference, make sure it has an index
+            auto* reference = references[i];
+            assert(reference->index);
+            for (auto& kv : *(reference->index)) {
+                // For every sequence name and index entry, point to this reference
+                reference_for[kv.first] = reference;
+#ifdef debug
+                cerr << "Contig " << kv.first << " is in reference " << i << endl;
+#endif
+            }
+
+
         }
 
-        void Constructor::construct_graph(const vector<FastaReference*>& references,
-                const vector<vcflib::VariantCallFile*>& variant_files,
-                function<void(Graph&)> callback) {
+        vector<unique_ptr<VcfBuffer>> buffers;
 
-            // Make a map from contig name to fasta reference containing it.
-            map<string, FastaReference*> reference_for;
-            for (auto* reference : references) {
-                // For every FASTA reference, make sure it has an index
-                assert(reference->index);
-                for (auto& kv : *(reference->index)) {
-                    // For every sequence name and index entry, point to this reference
-                    reference_for[kv.first] = reference;
-                }
+        for (auto* vcf : variant_files) {
+            // Every VCF gets a buffer wrapped around it.
+            //         
+            if (!vcf->is_open()) {
+                //                             // Except those that didn't open.
+                continue;
             }
 
-            // Make VcfBuffers on all the variant files.
-            vector<unique_ptr<VcfBuffer>> buffers;
-            for (auto* vcf : variant_files) {
-                // Every VCF gets a buffer wrapped around it.
+            // These will all get destructed when the vector goes away.
+            buffers.emplace_back(new VcfBuffer(vcf));
+        }
 
-                if (!vcf->is_open()) {
-                    // Except those that didn't open.
-                    continue;
-                }
+        if (!allowed_vcf_names.empty()) {
+            // If we have a set of contigs to do, do those directly.
 
-                // These will all get destructed when the vector goes away.
-                buffers.emplace_back(new VcfBuffer(vcf));
-            }
+            for (string vcf_name : allowed_vcf_names) {
+                // For each VCF contig, get the FASTA name
+                string fasta_name = vcf_to_fasta(vcf_name);
 
-            if (!allowed_vcf_names.empty()) {
-                // If we have a set of contigs to do, do those directly.
+#ifdef debug
+                cerr << "Make graph for " << vcf_name << " = " << fasta_name << endl;
+#endif
 
-                for (string vcf_name : allowed_vcf_names) {
-                    // For each VCF contig, get the FASTA name
-                    string fasta_name = vcf_to_fasta(vcf_name);
-                    // Also the FASTA reference that has that sequence
-                    assert(reference_for.count(fasta_name));
-                    FastaReference* reference = reference_for[fasta_name];
+                // Also the FASTA reference that has that sequence
+                assert(reference_for.count(fasta_name));
+                FastaReference* reference = reference_for[fasta_name];
 
-                    // We'll set this to true if we actually find the VCF that contains
-                    // the variants for this sequence.
-                    bool found_region = false;
-
-                    for (auto& buffer : buffers) {
-                        // For each VCF we are going to read
-                        if(!buffer->has_tabix()) {
-                            // Die if we don't have indexes for everyone.
-                            // TODO: report errors to caller instead.
-                            #pragma omp critical (cerr)
-                            cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
-                            exit(1);
-                        }
-
-                        // Try seeking to the right contig/region
-                        if (allowed_vcf_regions.count(vcf_name)) {
-                            // Seek to just that region (0-based)
-                            found_region = buffer->set_region(vcf_name, allowed_vcf_regions[vcf_name].first,
-                                    allowed_vcf_regions[vcf_name].second);
-                        } else {
-                            // Seek to just the whole contig
-                            found_region = buffer->set_region(vcf_name);
-                        }
-
-                        if (found_region) {
-                            // This buffer is the one!
-                            // Construct the graph for this contig with the FASTA and the VCF.
-                            construct_graph(vcf_name, *reference, *buffer, callback);
-                            break;
-                        }
-                    }
-
-                    if (!found_region) {
-                        // None of the VCFs include variants on this sequence.
-                        // Just build the graph for this sequence with no varaints.
-                        VcfBuffer empty(nullptr);
-                        construct_graph(vcf_name, *reference, empty, callback);
-                    }
-                }
-            } else {
-                // If we have no set of contigs
-
-                // Keep track of the contigs we have constructed, by VCF name
-                set<string> constructed;
+                // We'll set this to true if we actually find the VCF that contains
+                // the variants for this sequence.
+                bool found_region = false;
 
                 for (auto& buffer : buffers) {
-                    // Go through all the VCFs
-                    // TODO: do this in parallel
+                    // For each VCF we are going to read
+                    if(!buffer->has_tabix()) {
+                        // Die if we don't have indexes for everyone.
+                        // TODO: report errors to caller instead.
+#pragma omp critical (cerr)
+                        cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
+                        exit(1);
+                    }
 
-                    // Peek at the first variant and see its contig
-                    buffer->fill_buffer();
-                    while(buffer->get()) {
-                        // While there are still variants in the file
-                        // See what contig the next varianmt is on.
-                        string vcf_contig = buffer->get()->sequenceName;
+                    // Try seeking to the right contig/region
+                    if (allowed_vcf_regions.count(vcf_name)) {
+                        // Seek to just that region (0-based)
+                        found_region = buffer->set_region(vcf_name, allowed_vcf_regions[vcf_name].first,
+                                allowed_vcf_regions[vcf_name].second);
+                    } else {
+                        // Seek to just the whole contig
+                        found_region = buffer->set_region(vcf_name);
+                    }
 
-                        // Decide what FASTA contig that is and make sure we have it
-                        string fasta_contig = vcf_to_fasta(vcf_contig);
-                        assert(reference_for.count(fasta_contig));
-                        auto* reference = reference_for[fasta_contig];
-
-                        // Construct on it with the appropriate FastaReference for that contig
-                        construct_graph(vcf_contig, *reference, *buffer, callback);
-                        // Remember we did this one
-                        constructed.insert(vcf_contig);
-
-                        // After we're done constructing, scan until VCF EOF or a new contig comes up
-                        buffer->fill_buffer();
-                        while (buffer->get() && buffer->get()->sequenceName == vcf_contig) {
-                            // Discard anything left on the same contig, since it must be
-                            // out of our desired interval for that contig.
-                            buffer->handle_buffer();
-                            buffer->fill_buffer();
-                        }
+                    if (found_region) {
+                        // This buffer is the one!
+                        // Construct the graph for this contig with the FASTA and the VCF.
+                        construct_graph(vcf_name, *reference, *buffer, callback);
+                        break;
                     }
                 }
 
-                // Then for all the FASTA contigs that didn't appear in the VCFs,
-                // construct them with no variants.
+                // Make VcfBuffers on all the variant files.
+                vector<unique_ptr<VcfBuffer>> buffers;
+                for (auto* vcf : variant_files) {
+                    // Every VCF gets a buffer wrapped around it.
 
-                for (auto& kv : reference_for) {
-                    // For every FASTA contig (and the reference that holds it)
-                    auto& fasta_contig = kv.first;
-                    FastaReference* reference = kv.second;
-
-                    // Convert the name to VCF space
-                    auto vcf_contig = fasta_to_vcf(fasta_contig);
-
-                    if (constructed.count(vcf_contig)) {
-                        // Skip contigs we already did in the VCF
+                    if (!vcf->is_open()) {
+                        // Except those that didn't open.
                         continue;
                     }
 
-                    // Construct all the contigs we didn't do yet with no varaints.
-                    VcfBuffer empty(nullptr);
-                    construct_graph(vcf_contig, *reference, empty, callback);
+                    // These will all get destructed when the vector goes away.
+                    buffers.emplace_back(new VcfBuffer(vcf));
                 }
 
-                // Now we've constructed everything we can. We're done!
+                if (!allowed_vcf_names.empty()) {
+                    // If we have a set of contigs to do, do those directly.
 
+                    for (string vcf_name : allowed_vcf_names) {
+                        // For each VCF contig, get the FASTA name
+                        string fasta_name = vcf_to_fasta(vcf_name);
+                        // Also the FASTA reference that has that sequence
+                        assert(reference_for.count(fasta_name));
+                        FastaReference* reference = reference_for[fasta_name];
+
+                        // We'll set this to true if we actually find the VCF that contains
+                        // the variants for this sequence.
+                        bool found_region = false;
+
+                        for (auto& buffer : buffers) {
+                            // For each VCF we are going to read
+                            if(!buffer->has_tabix()) {
+                                // Die if we don't have indexes for everyone.
+                                // TODO: report errors to caller instead.
+#pragma omp critical (cerr)
+                                cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
+                                exit(1);
+                            }
+
+                            // Try seeking to the right contig/region
+                            if (allowed_vcf_regions.count(vcf_name)) {
+                                // Seek to just that region (0-based)
+                                found_region = buffer->set_region(vcf_name, allowed_vcf_regions[vcf_name].first,
+                                        allowed_vcf_regions[vcf_name].second);
+                            } else {
+                                // Seek to just the whole contig
+                                found_region = buffer->set_region(vcf_name);
+                            }
+
+                            if (found_region) {
+                                // This buffer is the one!
+                                // Construct the graph for this contig with the FASTA and the VCF.
+                                construct_graph(vcf_name, *reference, *buffer, callback);
+                                break;
+                            }
+                        }
+
+                        if (!found_region) {
+                            // None of the VCFs include variants on this sequence.
+                            // Just build the graph for this sequence with no varaints.
+                            VcfBuffer empty(nullptr);
+                            construct_graph(vcf_name, *reference, empty, callback);
+                        }
+                    }
+                } else {
+                    // If we have no set of contigs
+
+                    // Keep track of the contigs we have constructed, by VCF name
+                    set<string> constructed;
+
+                    for (auto& buffer : buffers) {
+                        // Go through all the VCFs
+                        // TODO: do this in parallel
+
+                        // Peek at the first variant and see its contig
+                        buffer->fill_buffer();
+                        while(buffer->get()) {
+                            // While there are still variants in the file
+                            // See what contig the next varianmt is on.
+                            string vcf_contig = buffer->get()->sequenceName;
+
+                            // Decide what FASTA contig that is and make sure we have it
+                            string fasta_contig = vcf_to_fasta(vcf_contig);
+                            assert(reference_for.count(fasta_contig));
+                            auto* reference = reference_for[fasta_contig];
+
+                            // Construct on it with the appropriate FastaReference for that contig
+                            construct_graph(vcf_contig, *reference, *buffer, callback);
+                            // Remember we did this one
+                            constructed.insert(vcf_contig);
+
+                            // After we're done constructing, scan until VCF EOF or a new contig comes up
+                            buffer->fill_buffer();
+                            while (buffer->get() && buffer->get()->sequenceName == vcf_contig) {
+                                // Discard anything left on the same contig, since it must be
+                                // out of our desired interval for that contig.
+                                buffer->handle_buffer();
+                                buffer->fill_buffer();
+                            }
+                        }
+                    }
+
+                    // Then for all the FASTA contigs that didn't appear in the VCFs,
+                    // construct them with no variants.
+
+                    for (auto& kv : reference_for) {
+                        // For every FASTA contig (and the reference that holds it)
+                        auto& fasta_contig = kv.first;
+                        FastaReference* reference = kv.second;
+
+                        // Convert the name to VCF space
+                        auto vcf_contig = fasta_to_vcf(fasta_contig);
+
+                        if (constructed.count(vcf_contig)) {
+                            // Skip contigs we already did in the VCF
+                            continue;
+                        }
+
+                        // Construct all the contigs we didn't do yet with no varaints.
+                        VcfBuffer empty(nullptr);
+                        construct_graph(vcf_contig, *reference, empty, callback);
+                    }
+
+                    // Now we've constructed everything we can. We're done!
+
+
+                }
 
             }
 
         }
-
     }
+}
 
 
