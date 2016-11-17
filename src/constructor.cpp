@@ -777,6 +777,9 @@ void Constructor::add_name_mapping(const string& vcf_name, const string& fasta_n
     // TODO: C++ doesn't have a 2-way map right?
     vcf_to_fasta_renames[vcf_name] = fasta_name;
     fasta_to_vcf_renames[fasta_name] = vcf_name;
+#ifdef debug
+    cerr << "Added rename of " << vcf_name << " to " << fasta_name << endl;
+#endif
 }
 
 string Constructor::vcf_to_fasta(const string& vcf_name) const {
@@ -1160,12 +1163,16 @@ void Constructor::construct_graph(const vector<FastaReference*>& references,
 
     // Make a map from contig name to fasta reference containing it.
     map<string, FastaReference*> reference_for;
-    for (auto* reference : references) {
+    for (size_t i = 0; i < references.size(); i++) {
         // For every FASTA reference, make sure it has an index
+        auto* reference = references[i];
         assert(reference->index);
         for (auto& kv : *(reference->index)) {
             // For every sequence name and index entry, point to this reference
             reference_for[kv.first] = reference;
+#ifdef debug
+            cerr << "Contig " << kv.first << " is in reference " << i << endl;
+#endif
         }
     }
     
@@ -1189,6 +1196,11 @@ void Constructor::construct_graph(const vector<FastaReference*>& references,
         for (string vcf_name : allowed_vcf_names) {
             // For each VCF contig, get the FASTA name
             string fasta_name = vcf_to_fasta(vcf_name);
+            
+#ifdef debug
+            cerr << "Make graph for " << vcf_name << " = " << fasta_name << endl;
+#endif
+            
             // Also the FASTA reference that has that sequence
             assert(reference_for.count(fasta_name));
             FastaReference* reference = reference_for[fasta_name];

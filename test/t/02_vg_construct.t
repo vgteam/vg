@@ -7,11 +7,13 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 22
+plan tests 23
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep edges | cut -f 2) 291 "construction produces the right number of edges"
+
+is $(vg construct -r small/x.fa --rename chrX=x -R chrX:1-2 | vg stats -l - | cut -f 2 ) 2 "construction obeys rename and region options"
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"

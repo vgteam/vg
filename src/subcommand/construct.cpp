@@ -3,6 +3,7 @@
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <memory>
 
 #include "subcommand.hpp"
 
@@ -17,8 +18,9 @@ using namespace vg::subcommand;
 void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
-         << "    -v, --vcf FILE        input VCF" << endl
-         << "    -r, --reference FILE  input FASTA reference" << endl
+         << "    -v, --vcf FILE        input VCF (may repeat)" << endl
+         << "    -r, --reference FILE  input FASTA reference (may repeat)" << endl
+         << "    -n, --rename V=F      rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
          << "    -R, --region REGION   specify a particular chromosome or 1-based inclusive region" << endl
          << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
@@ -43,7 +45,8 @@ int main_construct(int argc, char** argv) {
     Constructor constructor;
 
     // We also parse some arguments separately.
-    string fasta_file_name, vcf_file_name, json_filename;
+    vector<string> fasta_filenames;
+    vector<string> vcf_filenames;
     string region;
     bool region_is_chrom = false;
 
@@ -56,6 +59,7 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
+                {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
@@ -68,7 +72,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:ph?z:t:R:m:as:Cf",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -78,11 +82,28 @@ int main_construct(int argc, char** argv) {
         switch (c)
         {
         case 'v':
-            vcf_file_name = optarg;
+            vcf_filenames.push_back(optarg);
             break;
 
         case 'r':
-            fasta_file_name = optarg;
+            fasta_filenames.push_back(optarg);
+            break;
+            
+        case 'n':
+            {
+                // Parse the rename old=new
+                string key_value(optarg);
+                auto found = key_value.find('=');
+                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
+                    cerr << "error:[vg construct] could not parse rename " << key_value << endl;
+                    exit(1);
+                }
+                // Parse out the two parts
+                string vcf_contig = key_value.substr(0, found);
+                string fasta_contig = key_value.substr(found + 1);
+                // Add the name mapping
+                constructor.add_name_mapping(vcf_contig, fasta_contig);
+            }
             break;
 
         case 'a':
@@ -172,31 +193,39 @@ int main_construct(int argc, char** argv) {
          }
     }
 
-    vcflib::VariantCallFile variant_file;
-    if (!vcf_file_name.empty()) {
-        // Make sure the file exists. Otherwise Tabix++ may exit with a non-
+    // This will own all the VCF files
+    vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
+    for (auto& vcf_filename : vcf_filenames) {
+        // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
         // helpful message.
 
         // We can't invoke stat woithout a place for it to write. But all we
         // really want is its return value.
         struct stat temp;
-        if(stat(vcf_file_name.c_str(), &temp)) {
-            cerr << "error:[vg construct] file \"" << vcf_file_name << "\" not found" << endl;
+        if(stat(vcf_filename.c_str(), &temp)) {
+            cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
             return 1;
         }
-        variant_file.open(vcf_file_name);
-        if (!variant_file.is_open()) {
-            cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
+        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+        variant_files.emplace_back(variant_file);
+        variant_file->open(vcf_filename);
+        if (!variant_file->is_open()) {
+            cerr << "error:[vg construct] could not open" << vcf_filename << endl;
             return 1;
         }
     }
 
-    if (fasta_file_name.empty()) {
+    if (fasta_filenames.empty()) {
         cerr << "error:[vg construct] a reference is required for graph construction" << endl;
         return 1;
     }
-    FastaReference reference;
-    reference.open(fasta_file_name);
+    vector<unique_ptr<FastaReference>> references;
+    for (auto& fasta_filename : fasta_filenames) {
+        // Open each FASTA file
+        FastaReference* reference = new FastaReference();
+        references.emplace_back(reference);
+        reference->open(fasta_filename);
+    }
 
     // We need a callback to handle pieces of graph as they are produced.
     auto callback = [&](Graph& big_chunk) {
@@ -210,8 +239,18 @@ int main_construct(int argc, char** argv) {
         }));
     };
 
-    // Construct the graph. Make sure to make our FASTA and VCF into vectors.
-    constructor.construct_graph({&reference}, {&variant_file}, callback);
+    // Make vectors of just bare pointers
+    vector<vcflib::VariantCallFile*> vcf_pointers;
+    for(auto& vcf : variant_files) {
+        vcf_pointers.push_back(vcf.get());
+    }
+    vector<FastaReference*> fasta_pointers;
+    for(auto& fasta : references) {
+        fasta_pointers.push_back(fasta.get());
+    }
+
+    // Construct the graph.
+    constructor.construct_graph(fasta_pointers, vcf_pointers, callback);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
