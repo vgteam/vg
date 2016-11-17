@@ -2014,7 +2014,7 @@ int main_msga(int argc, char** argv) {
     int context_depth = 7;
     // same here; initial clustering
     int thread_extension = 10;
-    float min_identity = 0.75;
+    float min_identity = 0.0;
     int band_width = 256;
     size_t doubling_steps = 3;
     bool debug = false;
@@ -2027,7 +2027,7 @@ int main_msga(int argc, char** argv) {
     bool allow_nonpath = false;
     int iter_max = 1;
     int max_mem_length = 0;
-    int min_mem_length = 0;
+    int min_mem_length = 8;
     bool greedy_accept = false;
     float accept_identity = 0;
     int max_target_factor = 100;
