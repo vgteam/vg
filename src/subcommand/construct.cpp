@@ -69,7 +69,6 @@ int main_construct(int argc, char** argv) {
                 {"region-is-chrom", no_argument, 0, 'C'},
                 {"node-max", required_argument, 0, 'm'},\
                 {"flat-alts", no_argument, 0, 'f'},
-                {"output-sv", required_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
@@ -118,10 +117,6 @@ int main_construct(int argc, char** argv) {
 
         case 'z':
             constructor.vars_per_chunk = atoi(optarg);
-            break;
-
-        case 'S':
-            sv_out_name = optarg;
             break;
 
         case 'R':
