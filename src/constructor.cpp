@@ -12,6 +12,7 @@
 #include <list>
 #include <algorithm>
 #include <memory>
+#include <locale>
 
 namespace vg {
 
@@ -805,8 +806,8 @@ namespace vg {
             // Only look at the region we were asked for. We will only find variants
             // *completely* contained in this region! Partially-overlapping variants
             // will be discarded!
-            leading_offset = allowed_vcf_regions[vcf_contig].first;
-            reference_end = allowed_vcf_regions[vcf_contig].second;
+          //  leading_offset = allowed_vcf_regions[vcf_contig].first;
+          //  reference_end = allowed_vcf_regions[vcf_contig].second;
         } else {
             // Look at the whole contig
             leading_offset = 0;
@@ -1057,49 +1058,84 @@ namespace vg {
 
             bool variant_acceptable = true;
             bool var_is_sv = false;
-            //for (string& alt : variant_source.get()->alt) {
+
             auto vvar = variant_source.get();
-            //if (vvar->info["SVTYPE"].empty()){
+
+            cerr << vvar->position << endl;
+
+            size_t sv_len = 0;
+
             if (!(vvar->info["SVTYPE"].empty())){
 
                 var_is_sv = true;
-                variant_acceptable = true;
 
-            //std::function<void(vcflib::Variant*)> flatten_my_sv = [&](vcflib::Variant* v){
-
-                cerr << vvar->position << endl;
                 for (int alt_pos = 0; alt_pos < vvar->alt.size(); ++alt_pos){
+
                     string a = vvar->alt[alt_pos];
                 // These should be normalized-ish
                 // Ref field might be "N"
                 // Alt field could be <INS>, but it *should* be the inserted sequence,
                 // but that might be tucked away in an info field
+                //
+                   
+                    bool good = true;
+
+                    if (!(vvar->info["SVTYPE"][alt_pos] == "INV" ||
+                        vvar->info["SVTYPE"][alt_pos] == "DEL" ||
+                        vvar->info["SVTYPE"][alt_pos] == "INS") || vvar->alt.size() > 1){
+                        variant_acceptable = false;
+                        break;
+                    }
+
+                    if (vvar->info.find("SVLEN") != vvar->info.end()){
+
+                            sv_len = (size_t) stol(vvar->info["SVLEN"][alt_pos]);
+                    }
+                    else if (vvar->info.find("END") != vvar->info.end()){
+
+                            sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
+                    }
+
+                        else{
+                            // If we have neither, we'll ignore it.
+                            variant_acceptable = false;
+                            break;
+                        }
                     if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1);
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, 1);
                         vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
-                        if (vvar->alt[alt_pos] == "<INS>"){
+                        if (vvar->alt[alt_pos] == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
                             variant_acceptable = false;
                         }
                     }
-                    else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL" || a == "<CN0>"){
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), (size_t) stol(vvar->info["SVLEN"][alt_pos]));
-                        vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1);
+                    else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){
+
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, sv_len);
+                        vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->position, 1);
                         vvar->updateAlleleIndexes();
+
                     }
                     else if (a == "<INV>" || vvar->info["SVTYPE"][alt_pos] == "INV"){
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition() - 1, (size_t) stol(vvar->info["SVLEN"][alt_pos]));
-                        string alt_str(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), (size_t) stol(vvar->info["SVLEN"][alt_pos])));
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, sv_len);
+                        string alt_str(reference.getSubSequence(reference_contig, vvar->position, sv_len));
                         reverse(alt_str.begin(), alt_str.end());
                         vvar->alt[alt_pos] = alt_str;
 
-                        //variant_acceptable = false;
+                       // add 3 bases padding to right side 
+                        vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
+                        vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
+                        vvar->position = vvar->position - 3;
+                        vvar->updateAlleleIndexes();
+
+                        variant_acceptable = false;
 
                     }
+                    else{
+                        variant_acceptable = false;
+                    }
                 }
-           /// };
 
 
-              //  flatten_my_sv(vvar);
 
             }
 
@@ -1132,7 +1168,7 @@ namespace vg {
                     chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
                 }
                 else{
-                    chunk_end = max(chunk_end, chunk_variants.back().position + (size_t) stol(chunk_variants.back().info["SVLEN"][0]) );
+                    chunk_end = max(chunk_end, chunk_variants.back().position + sv_len );
                 }
 
                 // Try the next variant
@@ -1151,7 +1187,7 @@ namespace vg {
                     chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
                 }
                 else {
-                    chunk_end = max(chunk_end, chunk_variants.back().position + (size_t) stol(chunk_variants.back().info["SVLEN"][0]) );
+                    chunk_end = max(chunk_end, chunk_variants.back().position +  sv_len );
                 }
                 // Try the next variant
                 variant_source.handle_buffer();
