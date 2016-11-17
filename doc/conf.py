@@ -12,8 +12,11 @@ import subprocess
 read_the_docs_build = os.environ.get('READTHEDOCS', None) == 'True'
 
 if read_the_docs_build:
-
+    # Make sure to build Doxygen XML
     subprocess.call('cd ..; doxygen', shell=True)
+else:
+    # Make sure to override the default Sphinx theme when not on RTD
+    html_theme = 'sphinx_rtd_theme'
 
 sys.path.insert(0, os.path.abspath('../'))
 
@@ -27,9 +30,7 @@ project = u'vg'
 copyright = u'vgteam'
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'
-html_theme = 'default'
-autoclass_content = 'both'
-html_theme = 'sphinx_rtd_theme'
+
 html_static_path = ['static']
 
 def setup(app):
