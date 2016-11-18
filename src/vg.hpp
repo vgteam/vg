@@ -151,7 +151,7 @@ public:
     size_t size(void); ///< Number of nodes
     size_t length(void); ///< Total sequence length
 
-    /// Clear everything
+    // Clear everything
     //void clear(void);
 
     // constructors
@@ -162,11 +162,11 @@ public:
     /// Construct from protobufs.
     VG(istream& in, bool showp = false);
 
-    /// construct from an arbitrary source of Graph protobuf messages (which
+    /// Construct from an arbitrary source of Graph protobuf messages (which
     /// populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false);
 
-    /// construct from sets of nodes and edges. For example, from a subgraph of
+    /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
@@ -195,9 +195,9 @@ public:
     map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
                        
                        
-    /// chops up the nodes.
+    /// Chop up the nodes.
     void dice_nodes(int max_node_size);
-    /// does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
+    /// Does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
     void unchop(void);
     /// Get the set of components that could be merged into single nodes without
     /// changing the path space of the graph. Emits oriented traversals of
@@ -211,9 +211,9 @@ public:
     set<set<id_t> > multinode_strongly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
-    /// removes all elements which are not in a strongly connected component.
+    /// Remove all elements which are not in a strongly connected component.
     void keep_multinode_strongly_connected_components(void);
-    /// does the specified node have any self-loops?
+    /// Does the specified node have any self-loops?
     bool is_self_looping(Node* node);
     /// Get simple cycles following Johnson's elementary cycles algorithm.
     set<list<NodeTraversal> > elementary_cycles(void);
@@ -237,7 +237,7 @@ public:
     /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
                            map<id_t, pair<id_t, bool> >& node_translation);
-    /// Represents the whole graph up to max_length across an inversion on the forward strand.
+    /// Represent the whole graph up to max_length across an inversion on the forward strand.
     VG unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation);
     /// Assume two node translations, the over is based on the under; merge them.
@@ -251,7 +251,9 @@ public:
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
 
+    /// Build a graph from a GFA stream.
     void from_gfa(istream& in, bool showp = false);
+    /// Build a graph from a Turtle stream.
     void from_turtle(string filename, string baseuri, bool showp = false);
 
     /// Destructor.
@@ -383,10 +385,10 @@ public:
     /// just ensure that ids are unique, then apply extend.
     void combine(VG& g);
 
-    /// Edit the graph to include the path.
+    /// %Edit the graph to include the path.
     void include(const Path& path);
 
-    /// Edit the graph to include all the sequence and edges added by the given
+    /// %Edit the graph to include all the sequence and edges added by the given
     /// paths. Can handle paths that visit nodes in any orientation.
     vector<Translation> edit(const vector<Path>& paths);
 
@@ -531,9 +533,9 @@ public:
     void destroy_node(id_t id);
     /// Determine if the graph has a node with the given ID.
     bool has_node(id_t id);
-    /// Determine if the graph contains the goven node.
+    /// Determine if the graph contains the given node.
     bool has_node(Node* node);
-    /// Determine if the graph contains the goven node.
+    /// Determine if the graph contains the given node.
     bool has_node(const Node& node);
     /// Find a node with the given name, or create a new one if none is found.
     Node* find_node_by_name_or_add_new(string name);
