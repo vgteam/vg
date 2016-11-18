@@ -39,7 +39,7 @@ namespace vg {
             if(has_buffer) {
                 // Convert to 0-based positions.
                 // TODO: refactor to use vcflib zeroBasedPosition()...
-                buffer.position -= 1;
+                //buffer.position -= 1;
             }
 #ifdef debug
             cerr << "Variant in buffer: " << buffer << endl;
@@ -228,13 +228,13 @@ namespace vg {
 
             // Group variants into clumps of overlapping variants.
             if (clump.empty() || 
-                    (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
+                    (next_variant != variants.end() && clump_end > next_variant->zeroBasedPosition() - chunk_offset)) {
 
                 // Either there are no variants in the clump, or this variant
                 // overlaps the clump. It belongs in the clump
                 clump.push_back(&(*next_variant));
                 // It may make the clump longer and necessitate adding more variants.
-                clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
+                clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
 
                 // Try the variant after that
                 next_variant++;
@@ -262,7 +262,7 @@ namespace vg {
                 for (vcflib::Variant* variant : clump) {
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
-                    auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
+                    auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
 
                     if(variant->ref != expected_ref) {
                         // TODO: report error to caller somehow
@@ -599,8 +599,8 @@ namespace vg {
                         if (alt_paths) {
                             for (vcflib::Variant* variant : clump) {
                                 // For each variant we might also be part of the ref allele of
-                                if (reference_cursor >= variant->position - chunk_offset &&
-                                        reference_cursor < variant->position - chunk_offset + variant->ref.size()) {
+                                if (reference_cursor >= variant->zeroBasedPosition() - chunk_offset &&
+                                        reference_cursor < variant->zeroBasedPosition() - chunk_offset + variant->ref.size()) {
                                     // If this run of nodes starts within the varaint...
                                     // (We know if it starts in the variant it has to
                                     // end in the variant, because the variant ends with
@@ -824,8 +824,8 @@ namespace vg {
         // If we're using an index, we ought to already be at the right place.
         variant_source.fill_buffer();
         while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
-                    variant_source.get()->position < leading_offset ||
-                    variant_source.get()->position + variant_source.get()->ref.size() > reference_end)) {
+                    variant_source.get()->zeroBasedPosition() < leading_offset ||
+                    variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
             // This variant comes before our region
 
             // Discard variants that come out that are before our region
@@ -1054,8 +1054,8 @@ namespace vg {
         };
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->position >= leading_offset &&
-                variant_source.get()->position + variant_source.get()->ref.size() <= reference_end) {
+                variant_source.get()->zeroBasedPosition() >= leading_offset &&
+                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
 
             // While we have variants we want to include
 
@@ -1065,9 +1065,10 @@ namespace vg {
 
             auto vvar = variant_source.get();
 
-            cerr << "Processing SV at position " << vvar->position << endl;
 
             if (!(vvar->info["SVTYPE"].empty())){
+
+                cerr << "Processing SV at position " << vvar->zeroBasedPosition() << endl;
                 var_is_sv = true;
                 for (int alt_pos = 0; alt_pos < variant_source.get()->alt.size(); ++alt_pos) {
                     string a = vvar->alt[alt_pos];
@@ -1092,7 +1093,7 @@ namespace vg {
                     }
                     else if (vvar->info.find("END") != vvar->info.end()){
 
-                        sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
+                        sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->zeroBasedPosition());
                     }
 
                     else{
@@ -1101,7 +1102,7 @@ namespace vg {
                         break;
                     }
                     if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
-                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1));
+                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1));
                         vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
                         if (vvar->alt[alt_pos] == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
                             variant_acceptable = false;
@@ -1110,9 +1111,9 @@ namespace vg {
                     else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){
 
                         
-                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, sv_len));
+                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), sv_len));
                         
-                        vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->position, 1));
+                        vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1));
 
                         if (vvar->ref.size() != sv_len){
                             cerr << "Variant made is incorrect size" << endl;
@@ -1124,14 +1125,14 @@ namespace vg {
 
                     }
                     else if (a == "<INV>" || vvar->info["SVTYPE"][alt_pos] == "INV"){
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, sv_len);
-                        string alt_str(reference.getSubSequence(reference_contig, vvar->position, sv_len));
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), sv_len);
+                        string alt_str(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), sv_len));
                         reverse(alt_str.begin(), alt_str.end());
                         vvar->alt[alt_pos] = alt_str;
 
                         // add 3 bases padding to right side 
-                        vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
-                        vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
+                        vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->zeroBasedPosition() - 3, 3));
+                        vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->zeroBasedPosition() - 3, 3));
                         vvar->position = vvar->position - 3;
                         vvar->updateAlleleIndexes();
 
@@ -1160,7 +1161,7 @@ namespace vg {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
-            } else if (!chunk_variants.empty() && chunk_end > variant_source.get()->position) {
+            } else if (!chunk_variants.empty() && chunk_end > variant_source.get()->zeroBasedPosition()) {
                 // If the chunk is nonempty and this variant overlaps what's in there, put it in too and try the next.
                 // TODO: this is a lot like the clumping code...
 
@@ -1178,7 +1179,7 @@ namespace vg {
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
 
-            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->position < chunk_start + bases_per_chunk) {
+            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->zeroBasedPosition() < chunk_start + bases_per_chunk) {
                 // Otherwise if this variant is close enough and the chunk isn't too big yet, put it in and try the next.
 
                 // TODO: unify with above code?
@@ -1204,7 +1205,7 @@ namespace vg {
                 // end of the reference, before the max chunk size, and after the
                 // last variant the chunk contains.
                 chunk_end = max(chunk_end,
-                        min((size_t ) variant_source.get()->position,
+                        min((size_t ) variant_source.get()->zeroBasedPosition(),
                             min((size_t) reference_end,
                                 (size_t) (chunk_start + bases_per_chunk))));
 
