@@ -71,46 +71,38 @@ struct KmerPosition {
 namespace vg {
 
 /**
- * Represents a sequence graph. Graphs consist of nodes, connected by edges.
+ * Represents a variation graph. Graphs consist of nodes, connected by edges.
  * Graphs are bidirected and may be cyclic. Nodes carry forward-oriented
  * sequences. Edges are directed, with a "from" and to" node, and are generally
  * used to connect the end of the "from" node to the start of the "to" node.
- * However, edges can connect to either the start or end of either node, in
- * general, as long as they do not allow the same node to be visited twice along
- * a path. Graphs have "head" and "tail" nodes, which are overall at the
- * left/right of the graph, with nothing before/after them. Because otherwise
- * identifying these nodes (i.e. classifying a terminal node as a head or a
- * tail) would require a topological sort, we require that all head and tail
- * nodes be in the same relative orientation. Head nodes must have edges only to
- * their right sides, and tail nodes must have edges only to their left sides.
- * There must be no possible path in the graph containing two head nodes or two
- * tail nodes.
+ * However, edges can connect to either the start or end of either node.
+ *
  */
 class VG : public Progressive {
 
 public:
 
-    /// protobuf-based representation
+    /// Protobuf-based representation.
     // NB: we can't subclass this safely, so it's best as a member
     Graph graph;
 
-    /// manages paths of the graph
-    /// initialized by setting paths._paths = graph.paths
+    /// Manages paths of the graph.
+    /// Initialized by setting paths._paths = graph.paths.
     Paths paths;
 
-    /// name
+    /// Name of the graph.
     string name;
 
-    /// current id
+    /// Current id for Node to be added next.
     id_t current_id;
     // todo
     //id_t min_id;
     //id_t max_id;
 
-    /// nodes by id
+    /// `Node`s by id.
     hash_map<id_t, Node*> node_by_id;
 
-    /// edges by sides of nodes they connect.
+    /// `Edge`s by sides of `Node`s they connect.
     /// Since duplicate edges are not permitted, two edges cannot connect the same pair of node sides.
     /// Each edge is indexed here with the smaller NodeSide first. The actual node order is recorded in the Edge object.
     pair_hash_map<pair<NodeSide, NodeSide>, Edge*> edge_by_sides;
