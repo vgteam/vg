@@ -1053,6 +1053,8 @@ namespace vg {
 
             auto vvar = variant_source.get();
 
+            cerr << "Processing SV at position " << vvar->position << endl;
+
             if (!(vvar->info["SVTYPE"].empty())){
                 var_is_sv = true;
                 for (int alt_pos = 0; alt_pos < variant_source.get()->alt.size(); ++alt_pos) {
@@ -1078,7 +1080,7 @@ namespace vg {
                         break;
                     }
                     if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, 1);
+                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1));
                         vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
                         if (vvar->alt[alt_pos] == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
                             variant_acceptable = false;
@@ -1086,8 +1088,17 @@ namespace vg {
                     }
                     else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){
 
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, sv_len);
-                        vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->position, 1);
+                        
+                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, sv_len));
+                        
+                        vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->position, 1));
+
+                        if (vvar->ref.size() - 1 != sv_len){
+                            cerr << "Variant made is incorrect size" << endl;
+                            cerr << vvar->ref.size() - 1 << "\t" << sv_len << endl;
+                            cerr <<vvar->ref[vvar->ref.size() - 1] << "\t" << endl;
+                          //  exit(1);
+                        }
                         vvar->updateAlleleIndexes();
 
                     }
