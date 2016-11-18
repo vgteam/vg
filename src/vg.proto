@@ -14,16 +14,16 @@ message Graph {
     repeated Path path = 3;
 }
 
-// *Nodes* store sequence data and also links to other nodes.
-// The graph is doubly-linked via IDs in prev/next fields in the Node objects.
-//
+// *Nodes* store sequence data.
 message Node {
     string sequence = 1;   // sequence
     string name = 2;  // a name provides an identifier
     int64 id = 3;     // ids are critical, and unique within a graph
 }
 
-// *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
+// *Edges* describe linkages between nodes. They are bidirected, connecting the
+// end (default) or start of the "from" node to the start (default) or end of
+// the "to" node.
 //
 message Edge {
     int64 from = 1; // ID of upstream node
@@ -65,17 +65,17 @@ message Mapping {
 //
 // Example:
 //
-// seq+        G A T T A C A
-// offset+  → 0 1 2 3 4 5 6 7
-//
-// seq-        C T A A T G T
-// offset-  → 0 1 2 3 4 5 6 7
+//     seq+        G A T T A C A
+//     offset+  → 0 1 2 3 4 5 6 7
+//     
+//     seq-        C T A A T G T
+//     offset-  → 0 1 2 3 4 5 6 7
 //
 // Or both at once:
 //
-// offset-    7 6 5 4 3 2 1 0 ←
-// seq+        G A T T A C A
-// offset+  → 0 1 2 3 4 5 6 7
+//     offset-    7 6 5 4 3 2 1 0 ←
+//     seq+        G A T T A C A
+//     offset+  → 0 1 2 3 4 5 6 7
 
 message Position {
     int64 node_id = 1;
@@ -83,7 +83,7 @@ message Position {
     bool is_reverse = 4; // true if we obtain the original sequence of the path by reverse complementing the mappings
 }
 
-// Paths are walks through nodes defined by a series of edits.
+// Paths are walks through nodes defined by a series of `Edit`s.
 // They can be used to represent:
 //    - haplotypes
 //    - mappings of reads, or alignments, by including edits
