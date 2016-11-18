@@ -124,10 +124,12 @@ void for_each_parallel(std::istream& in,
     const uint64_t batch_size = 1024;
     // max # of such batches to be holding in memory
     const uint64_t max_batches_outstanding = 256;
+    // number of batches currently being processed
+    uint64_t batches_outstanding = 0;
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda, handle_count)
+    #pragma omp parallel default(none) shared(in, lambda, handle_count, batches_outstanding)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
@@ -142,7 +144,6 @@ void for_each_parallel(std::istream& in,
             new ::google::protobuf::io::CodedInputStream(gzip_in);
 
         std::vector<std::string> *batch = nullptr;
-        uint64_t batches_outstanding = 0;
 
         // process chunks prefixed by message count
         uint64_t count;
@@ -215,6 +216,9 @@ void for_each_parallel(std::istream& in,
         delete gzip_in;
         delete raw_in;
     }
+
+    // Don't clean up function locals before tasks finish using them
+    #pragma omp taskwait
 }
 
 template <typename T>
