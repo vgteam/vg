@@ -211,7 +211,7 @@ public:
     set<list<NodeTraversal> > elementary_cycles(void);
     /// Concatenates the nodes into a new node with the same external linkage as
     /// the provided component. After calling this, paths will be invalid until
-    /// paths.compact_ranks() is called.
+    /// Paths::compact_ranks() is called.
     Node* concat_nodes(const list<NodeTraversal>& nodes);
     /// Merge the nodes into a single node, preserving external linkages.
     /// Use the orientation of the first node as the basis.
@@ -362,8 +362,9 @@ public:
     /// the other graph.
     void extend(VG& g, bool warn_on_duplicates = false);
     /// This version does not sort path mappings by rank. In order to preserve
-    /// paths, call paths.sort_by_mapping_rank() and paths.rebuild_mapping_aux()
-    /// after you are done adding in graphs to this graph.
+    /// paths, call Paths::sort_by_mapping_rank() and
+    /// Paths::rebuild_mapping_aux() after you are done adding in graphs to this
+    /// graph.
     void extend(Graph& graph, bool warn_on_duplicates = false);
     // TODO: Do a member group for these overloads
 
@@ -403,7 +404,7 @@ public:
     /// in the path's node ID space to a table of offset and actual node, add in
     /// all the new sequence and edges required by the path. The given path must
     /// not contain adjacent perfect match edits in the same mapping (the removal
-    /// of which can be accomplished with the simplify() function).
+    /// of which can be accomplished with the Path::simplify() function).
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, Node*>& added_seqs,
