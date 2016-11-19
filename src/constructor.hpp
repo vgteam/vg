@@ -238,7 +238,7 @@ public:
      * the file first before passing it in.
      */
     void construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-        function<void(Graph&)> callback);
+        function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions);
     
     /**
      * Construct a graph using the given FASTA references and VCFlib VCF files.
@@ -248,7 +248,7 @@ public:
      * one FASTA file. Reference and VCF vectors may not contain nulls.
      */
     void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
-        function<void(Graph&)> callback);
+        function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions);
     
 protected:
     

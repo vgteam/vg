@@ -38,8 +38,8 @@ namespace vg {
             has_buffer = safe_to_get = file->getNextVariant(buffer);
             if(has_buffer) {
                 // Convert to 0-based positions.
-                // TODO: refactor to use vcflib zeroBasedPosition()...
-                //buffer.position -= 1;
+                // TODO: refactor to use vcflib position...
+                buffer.position -= 1;
             }
 #ifdef debug
             cerr << "Variant in buffer: " << buffer << endl;
@@ -228,13 +228,13 @@ namespace vg {
 
             // Group variants into clumps of overlapping variants.
             if (clump.empty() || 
-                    (next_variant != variants.end() && clump_end > next_variant->zeroBasedPosition() - chunk_offset)) {
+                    (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
 
                 // Either there are no variants in the clump, or this variant
                 // overlaps the clump. It belongs in the clump
                 clump.push_back(&(*next_variant));
                 // It may make the clump longer and necessitate adding more variants.
-                clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
+                clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
 
                 // Try the variant after that
                 next_variant++;
@@ -262,7 +262,7 @@ namespace vg {
                 for (vcflib::Variant* variant : clump) {
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
-                    auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
+                    auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
 
                     if(variant->ref != expected_ref) {
                         // TODO: report error to caller somehow
@@ -599,8 +599,8 @@ namespace vg {
                         if (alt_paths) {
                             for (vcflib::Variant* variant : clump) {
                                 // For each variant we might also be part of the ref allele of
-                                if (reference_cursor >= variant->zeroBasedPosition() - chunk_offset &&
-                                        reference_cursor < variant->zeroBasedPosition() - chunk_offset + variant->ref.size()) {
+                                if (reference_cursor >= variant->position - chunk_offset &&
+                                        reference_cursor < variant->position - chunk_offset + variant->ref.size()) {
                                     // If this run of nodes starts within the varaint...
                                     // (We know if it starts in the variant it has to
                                     // end in the variant, because the variant ends with
@@ -793,7 +793,7 @@ namespace vg {
 
 
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-            function<void(Graph&)> callback) {
+            function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions) {
 
         // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
 
@@ -824,8 +824,8 @@ namespace vg {
         // If we're using an index, we ought to already be at the right place.
         variant_source.fill_buffer();
         while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
-                    variant_source.get()->zeroBasedPosition() < leading_offset ||
-                    variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
+                    variant_source.get()->position < leading_offset ||
+                    variant_source.get()->position + variant_source.get()->ref.size() > reference_end)) {
             // This variant comes before our region
 
             // Discard variants that come out that are before our region
@@ -1053,9 +1053,33 @@ namespace vg {
             return ret;
         };
 
+        bool do_external_insertions = false;
+        FastaReference* insertion_fasta;
+
+
+        if (insertions.size() == 1){
+            // If we only get one fasta file for insertions, we'll
+            // open it and take all insert sequences from there.
+            do_external_insertions = true;
+            insertion_fasta = insertions[0];
+        }
+        else if (insertions.size() > 1){
+            // if we have more than one insertion fasta file, we can pull
+            // sequences from the vcf:fasta pair (i.e. the same index in the vectors).
+            do_external_insertions = true;
+            cerr << "Passing multiple insertion files not implemented yet." << endl
+                << "Please try combining all of your insertions fastas into one file." << endl;
+            exit(1);
+        }   
+        else{
+            // We didn't get any insertion fastas, so we will only handle
+            // those with seqs in the vcf.
+
+        }
+
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->zeroBasedPosition() >= leading_offset &&
-                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
+                variant_source.get()->position >= leading_offset &&
+                variant_source.get()->position + variant_source.get()->ref.size() <= reference_end) {
 
             // While we have variants we want to include
 
@@ -1065,11 +1089,16 @@ namespace vg {
 
             auto vvar = variant_source.get();
 
+            //cerr << "Doin' " << vvar->position << endl;
 
-            if (!(vvar->info["SVTYPE"].empty())){
 
-                cerr << "Processing SV at position " << vvar->zeroBasedPosition() << endl;
+            if ( do_svs && vvar->info.find("SVTYPE") != vvar->info.end() &&
+                    !(vvar->info["SVTYPE"].empty())){
+                
+
+                cerr << "Processing SV at position " << vvar->position << endl;
                 var_is_sv = true;
+
                 for (int alt_pos = 0; alt_pos < variant_source.get()->alt.size(); ++alt_pos) {
                     string a = vvar->alt[alt_pos];
                     // These should be normalized-ish
@@ -1077,8 +1106,11 @@ namespace vg {
                     // Alt field could be <INS>, but it *should* be the inserted sequence,
                     // but that might be tucked away in an info field
                     //
+                    //
+                    // From the VCF4.2 Specs:
+                    // END is POS + LEN(REF) - 1
+                    // SVLEN is the difference in length between REF and ALT alleles.
 
-                    bool good = true;
 
                     if (!(vvar->info["SVTYPE"][alt_pos] == "INV" ||
                                 vvar->info["SVTYPE"][alt_pos] == "DEL" ||
@@ -1089,31 +1121,32 @@ namespace vg {
 
                     if (vvar->info.find("SVLEN") != vvar->info.end()){
 
-                        sv_len = (size_t) stol(vvar->info["SVLEN"][alt_pos]);
+                        sv_len = (size_t) (uint32_t) stol(vvar->info["SVLEN"][alt_pos]);
                     }
                     else if (vvar->info.find("END") != vvar->info.end()){
 
-                        sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->zeroBasedPosition());
+                        sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
                     }
-
                     else{
                         // If we have neither, we'll ignore it.
                         variant_acceptable = false;
                         break;
                     }
+
                     if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
-                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1));
+                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1));
+                        
                         vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
-                        if (vvar->alt[alt_pos] == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
+                        if (vvar->alt[alt_pos] == "<INS>"){
                             variant_acceptable = false;
                         }
                     }
                     else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){
 
                         
-                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), sv_len));
+                        vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, sv_len ));
                         
-                        vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), 1));
+                        vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->position, 1));
 
                         if (vvar->ref.size() != sv_len){
                             cerr << "Variant made is incorrect size" << endl;
@@ -1125,18 +1158,18 @@ namespace vg {
 
                     }
                     else if (a == "<INV>" || vvar->info["SVTYPE"][alt_pos] == "INV"){
-                        vvar->ref = reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), sv_len);
-                        string alt_str(reference.getSubSequence(reference_contig, vvar->zeroBasedPosition(), sv_len));
+                        vvar->ref = reference.getSubSequence(reference_contig, vvar->position, sv_len);
+                        string alt_str(reference.getSubSequence(reference_contig, vvar->position, sv_len));
                         reverse(alt_str.begin(), alt_str.end());
                         vvar->alt[alt_pos] = alt_str;
 
                         // add 3 bases padding to right side 
-                        vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->zeroBasedPosition() - 3, 3));
-                        vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->zeroBasedPosition() - 3, 3));
-                        vvar->position = vvar->position - 3;
+                        //vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
+                        //vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
+                        //vvar->position = vvar->position - 3;
                         vvar->updateAlleleIndexes();
 
-                        variant_acceptable = false;
+                        //variant_acceptable = false;
 
                     }
                     else{
@@ -1151,7 +1184,7 @@ namespace vg {
                 // Validate each alt of the variant
                 if(!allATGC(alt)) {
                     // It may be a symbolic allele or something. Skip this variant.
-#pragma omp critical (cerr)
+                    #pragma omp critical (cerr)
                     cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
                     variant_acceptable = false;
                     break;
@@ -1161,14 +1194,15 @@ namespace vg {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
-            } else if (!chunk_variants.empty() && chunk_end > variant_source.get()->zeroBasedPosition()) {
+            } else if (!chunk_variants.empty() && chunk_end > variant_source.get()->position) {
                 // If the chunk is nonempty and this variant overlaps what's in there, put it in too and try the next.
                 // TODO: this is a lot like the clumping code...
 
                 // Add it in
-                chunk_variants.push_back(*(variant_source.get()));
+                //chunk_variants.push_back(*(variant_source.get()));
+                chunk_variants.push_back(*(vvar));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                if (var_is_sv){
+                if (!var_is_sv){
                     chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
                 }
                 else {
@@ -1179,13 +1213,14 @@ namespace vg {
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
 
-            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->zeroBasedPosition() < chunk_start + bases_per_chunk) {
+            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->position < chunk_start + bases_per_chunk) {
                 // Otherwise if this variant is close enough and the chunk isn't too big yet, put it in and try the next.
 
                 // TODO: unify with above code?
 
                 // Add it in
-                chunk_variants.push_back(*(variant_source.get()));
+                //chunk_variants.push_back(*(variant_source.get()));
+                chunk_variants.push_back(*(vvar));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
                 if (!var_is_sv){
                     chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
@@ -1205,7 +1240,7 @@ namespace vg {
                 // end of the reference, before the max chunk size, and after the
                 // last variant the chunk contains.
                 chunk_end = max(chunk_end,
-                        min((size_t ) variant_source.get()->zeroBasedPosition(),
+                        min((size_t ) variant_source.get()->position,
                             min((size_t) reference_end,
                                 (size_t) (chunk_start + bases_per_chunk))));
 
@@ -1269,7 +1304,7 @@ namespace vg {
 
     void Constructor::construct_graph(const vector<FastaReference*>& references,
             const vector<vcflib::VariantCallFile*>& variant_files,
-            function<void(Graph&)> callback) {
+            function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions) {
 
         // Make a map from contig name to fasta reference containing it.
         map<string, FastaReference*> reference_for;
@@ -1326,7 +1361,7 @@ namespace vg {
                     if(!buffer->has_tabix()) {
                         // Die if we don't have indexes for everyone.
                         // TODO: report errors to caller instead.
-#pragma omp critical (cerr)
+                        #pragma omp critical (cerr)
                         cerr << "[vg::Constructor] Error: all VCFs must be indexed when restricting to a region" << endl;
                         exit(1);
                     }
@@ -1344,7 +1379,7 @@ namespace vg {
                     // None of the VCFs include variants on this sequence.
                     // Just build the graph for this sequence with no varaints.
                     VcfBuffer empty(nullptr);
-                    construct_graph(vcf_name, *reference, empty, callback);
+                    construct_graph(vcf_name, *reference, empty, callback, do_svs, insertions);
                 }
             }
             }
@@ -1371,7 +1406,7 @@ namespace vg {
                     auto* reference = reference_for[fasta_contig];
 
                     // Construct on it with the appropriate FastaReference for that contig
-                    construct_graph(vcf_contig, *reference, *buffer, callback);
+                    construct_graph(vcf_contig, *reference, *buffer, callback, do_svs, insertions);
                     // Remember we did this one
                     constructed.insert(vcf_contig);
 
@@ -1404,7 +1439,7 @@ namespace vg {
 
                 // Construct all the contigs we didn't do yet with no varaints.
                 VcfBuffer empty(nullptr);
-                construct_graph(vcf_contig, *reference, empty, callback);
+                construct_graph(vcf_contig, *reference, empty, callback, do_svs, insertions);
             }
 
             // Now we've constructed everything we can. We're done!
