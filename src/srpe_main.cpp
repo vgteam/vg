@@ -315,8 +315,22 @@ int main_srpe(int argc, char** argv){
         //Mapping* mm = add_me.add_mapping();
         if (true){
         //TODO: chance to dynamically find path name
-        for (auto pp : graph->paths.of_node(clipped_id)){
-        xg::size_t p_rank = xg_ind->id_to_rank( xg_ind->path_rank(pp) );
+        vector<xg::size_t> paths_of_clippy = xg_ind->paths_of_node(clipped_id);
+        int iter = 0;
+        int64_t next_path_node = clipped_id;
+        while (iter < 5 && paths_of_clippy.empty()){
+            ++next_path_node;
+            paths_of_clippy = xg_ind->paths_of_node(next_path_node);
+        }
+        if (paths_of_clippy.size() > 1){
+            cerr << "Too many paths - SRPE only works with one path at a time. Exiting." << endl;
+            exit(1);
+        }
+        else if (paths_of_clippy.empty()){
+            cerr << "No path found within five nodes. Exiting." << endl;
+            exit(1);
+        }
+        xg::size_t p_rank = xg_ind->id_to_rank( paths_of_clippy[0]);
         //TODO should use most recently matched ID instead
         //*mm->mutable_position() = make_position(clipped_id, false, 0);
         int64_t next_id = clipped_id;
@@ -373,11 +387,35 @@ int main_srpe(int argc, char** argv){
         // our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
         bool qrl = false;
         vector<Alignment> score_me;
+        vector<int64_t> p_node_ids;
         score_me.reserve(1000);
         xg::size_t clip_start = xg_ind->node_start(clipped_id);
-        //gamind.get_alignments(clipped_id, xg_ind->node_at_seq_pos(clip_start + est_frag + 1000), score_me);
-        //void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
-        gamind.get_alignments(5, 25, score_me);
+        int64_t stop_id = xg_ind->node_at_path_position("HPV16", clip_start + est_frag + 1000);
+        auto addr = [&score_me](const Alignment& aln){
+            score_me.push_back(aln);
+        };
+        /*for (int64_t jj = clipped_id; jj < 35; jj++){
+            vector<Alignment> tmp;
+            gamind.for_alignments(jj, tmp);
+            cerr << tmp.size() << endl;
+            score_me.insert(score_me.end(), tmp.begin(), tmp.end());
+        }*/
+        vector<int64_t> ns;
+        for (int i = 0; i < 35; i++){
+            ns.push_back(i);
+        }
+        gamind.for_alignment_to_nodes(ns, addr);
+        //gamind.get_alignments(clipped_id, xg_ind->node_at_path_position("HPV16", clip_start + est_frag + 1000), score_me);
+        ////void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
+       /** for (int n_i = 0; n_i < 40; n_i++){
+            p_node_ids.push_back((int64_t) n_i);
+            vector<Alignment> tmp;
+            gamind.get_alignments(n_i, tmp);
+            cerr << tmp.size() << endl;
+            score_me.insert(score_me.end(), tmp.begin(), tmp.end());
+        }*/
+        //double realn_score = score_func(clippies, sub_mapper);
+        cerr << "Score_me size: " << score_me.size() << endl;
         double realn_score = se_score_func(score_me, sub_mapper);
         if (max_aln_score < realn_score){
             max_aln_score = realn_score;
@@ -411,7 +449,6 @@ int main_srpe(int argc, char** argv){
         // 
     }
     }
-}
 }
 }
 
