@@ -2,23 +2,23 @@ syntax = "proto3";
 
 package vg;
 
-// *Graphs* are collections of nodes and edges
+// *Graphs* are collections of nodes and edges.
 // They can represent subgraphs of larger graphs
 // or be wholly-self-sufficient.
 // Protobuf memory limits of 67108864 bytes mean we typically keep the size
 // of them small generating graphs as collections of smaller subgraphs.
 //
 message Graph {
-    repeated Node node = 1;
-    repeated Edge edge = 2;
-    repeated Path path = 3;
+    repeated Node node = 1; // The `Node`s that make up the graph.
+    repeated Edge edge = 2; // The `Edge`s that connect the `Node`s in the graph.
+    repeated Path path = 3; // A set of named `Path`s that visit sequences of oriented `Node`s.
 }
 
 // *Nodes* store sequence data.
 message Node {
-    string sequence = 1;   // sequence
-    string name = 2;  // a name provides an identifier
-    int64 id = 3;     // ids are critical, and unique within a graph
+    string sequence = 1;   // Sequence of DNA bases represented by the Node.
+    string name = 2;  // A name provides an identifier.
+    int64 id = 3;     // Each Node has a unique positive nonzero ID within its Graph.
 }
 
 // *Edges* describe linkages between nodes. They are bidirected, connecting the
@@ -26,27 +26,29 @@ message Node {
 // the "to" node.
 //
 message Edge {
-    int64 from = 1; // ID of upstream node
-    int64 to = 2;   // ID of downstream node
-    bool from_start = 3; // if the edge leaves from the 5' (start) of a node
-    bool to_end = 4; // if the edge goes to the 3' (end) of a node
-    int32 overlap = 5; // length of overlap
+    int64 from = 1; // ID of upstream node.
+    int64 to = 2;   // ID of downstream node.
+    bool from_start = 3; // If the edge leaves from the 5' (start) of a node.
+    bool to_end = 4; // If the edge goes to the 3' (end) of a node.
+    int32 overlap = 5; // Length of overlap between the connected `Node`s.
 }
 
-// *Edits* describe how to generate a new string from elements
+// Edits describe how to generate a new string from elements
 // in the graph. To determine the new string, just walk the series of edits,
 // stepping from_length distance in the basis node, and to_length in the
 // novel element, replacing from_length in the basis node with the sequence.
 //
-// *matches* from_length == to_length
-// *snps* from_length == to_length; sequence = alt
-// *deletions* from_length > to_length; sequence may be unset or empty
-// *insertions* from_length < to_length; sequence contains relative insertion
+//
+// There are several types of Edit:
+// - *matches*: from_length == to_length; sequence is empty
+// - *snps*: from_length == to_length; sequence = alt
+// - *deletions*: to_length == 0 && from_length > to_length; sequence is empty
+// - *insertions*: from_length < to_length; sequence = alt
 //
 message Edit {
-    int32 from_length = 1; // length in target/ref
-    int32 to_length = 2; // length in read/alt
-    string sequence = 3;
+    int32 from_length = 1; // Length in the target/ref sequence that is removed.
+    int32 to_length = 2; // Length in read/alt of the sequence it is replaced with.
+    string sequence = 3; // The replacement sequence, if different from the original sequence.
 }
 
 // A Mapping defines the relationship between a node in system and another entity.
@@ -54,9 +56,9 @@ message Edit {
 // as it is more complex to handle special cases.
 //
 message Mapping {
-    Position position = 1; // the position at which the first Edit, if any, in the Mapping starts. Inclusive.
-    repeated Edit edit = 2; // series of edit to transform to region in read/alt
-    int64 rank = 5; // the 1-based rank of the mapping in its containing path
+    Position position = 1; // The position at which the first Edit, if any, in the Mapping starts. Inclusive.
+    repeated Edit edit = 2; // The series of `Edit`s to transform to region in read/alt.
+    int64 rank = 5; // The 1-based rank of the mapping in its containing path.
 }
 
 // A position in the graph is a node, direction, and offset.
@@ -78,9 +80,9 @@ message Mapping {
 //     offset+  → 0 1 2 3 4 5 6 7
 
 message Position {
-    int64 node_id = 1;
-    int64 offset = 2;
-    bool is_reverse = 4; // true if we obtain the original sequence of the path by reverse complementing the mappings
+    int64 node_id = 1; // The Node on which the Position is.
+    int64 offset = 2; // The offset into that node's sequence at which the Position occurs.
+    bool is_reverse = 4; // True if we obtain the original sequence of the path by reverse complementing the mappings.
 }
 
 // Paths are walks through nodes defined by a series of `Edit`s.
@@ -92,33 +94,33 @@ message Position {
 //          genes, exons, motifs, transcripts, peaks
 //
 message Path {
-    string name = 1;
-    repeated Mapping mapping = 2;
-    bool is_circular = 3;
-    int64 length = 4; // optional
+    string name = 1; // The name of the path. Path names starting with underscore (_) are reserved for internal VG use.
+    repeated Mapping mapping = 2; // The `Mapping`s which describe the order and orientation in which the Path visits `Node`s.
+    bool is_circular = 3; // Set to true if the path is circular.
+    int64 length = 4; // Optional length annotation for the Path.
 }
 
-// Alignments link query strings, such as other genomes or reads, to paths.
+// Alignments link query strings, such as other genomes or reads, to Paths.
 //
 message Alignment {
-    string sequence = 1;
-    Path path = 2;
-    string name = 3;
-    bytes quality = 4;
-    int32 mapping_quality = 5;
-    int32 score = 6;
-    int32 query_position = 7;
-    string sample_name = 9;
-    string read_group = 10;
-    Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
-    Alignment fragment_next = 12; // same thing for next in fragment
-    bool is_secondary = 15; // All but one maximal-scoring alignment of a given read in a GAM file must be secondary.
+    string sequence = 1; // The sequence that has been aligned.
+    Path path = 2; // The Path that the sequence follows in the graph it has been aligned to, containing the `Edit`s that modify the graph to produce the sequence.
+    string name = 3; // The name of the sequence that has been aligned. Similar to read name in BAM.
+    bytes quality = 4; // The quality scores for the sequence, as values on a 0-255 scale.
+    int32 mapping_quality = 5; // The mapping quality score for the alignment, in Phreds.
+    int32 score = 6; // The score for the alignment, in points.
+    int32 query_position = 7; // The offset in the query at which this Alignment occurs.
+    string sample_name = 9; // The name of the sample that produced the aligned read.
+    string read_group = 10; // The name of the read group to which the aligned read belongs.
+    Alignment fragment_prev = 11; // The previous Alignment in the fragment. Contains just enough information to locate the full Alignment; e.g. contains an Alignment with only a name, or only a graph mapping position.
+    Alignment fragment_next = 12; // Similarly, the next Alignment in the fragment.
+    bool is_secondary = 15; // Flag marking the Alignment as secondary. All but one maximal-scoring alignment of a given read in a GAM file must be secondary.
     double identity = 16; // Portion of aligned bases that are perfect matches, or 0 if no bases are aligned.
-    repeated Path fragment = 17; // an estimate of the length of the fragment if this is paired
-    repeated Locus locus = 18; // the loci that this alignment supports
+    repeated Path fragment = 17; // An estimate of the length of the fragment, if this Alignment is paired.
+    repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
 }
 
-// used to serialize kmer matches
+// Used to serialize kmer matches.
 message KmerMatch {
     string sequence = 1;
     int64 node_id = 2;
@@ -160,8 +162,9 @@ message Pileup {
     repeated EdgePileup edge_pileups = 2;
 }
 
-// Describes a genetic locus with multiple possible alleles, a genotype, and observational support
+// Describes a genetic locus with multiple possible alleles, a genotype, and observational support.
 message Locus {
+    // A locus may have an identifying name.
     string name = 1;
     // These are all the alleles at the locus, not just the called ones.
     // Note that a primary reference allele may or may not appear.
@@ -176,18 +179,18 @@ message Locus {
     Support overall_support = 5;
 }
 
-// Describes a genotype at a particular locus
+// Describes a genotype at a particular locus.
 message Genotype {
-    // these refer to the offsets of the alleles in the Locus object
+    // These refer to the offsets of the alleles in the Locus object.
     repeated int32 allele = 1;
     bool is_phased = 2;
     double likelihood = 3;
-    double log_likelihood = 4; // Likelihood natural logged
-    double log_prior = 5; // Prior natural logged
-    double log_posterior = 6; // Posterior natural logged (unnormalized)
+    double log_likelihood = 4; // Likelihood natural logged.
+    double log_prior = 5; // Prior natural logged.
+    double log_posterior = 6; // Posterior natural logged (unnormalized).
 }
 
-// Aggregates information about the reads supporting an allele
+// Aggregates information about the reads supporting an allele.
 message Support {
     double quality = 1;
     int32 forward = 2;
@@ -196,11 +199,11 @@ message Support {
     int32 right = 5;
 }
 
-// Translations map from one graph to another
-// A collection of these provides a covering mapping between a from and to graph
-// If each "from" path through the base graph corresponds to a "to" path in an updated graph
+// Translations map from one graph to another.
+// A collection of these provides a covering mapping between a from and to graph.
+// If each "from" path through the base graph corresponds to a "to" path in an updated graph,
 // then we can use these translations to project positions, mappings, and paths in the new
-// graph into the old one using the Translator interface
+// graph into the old one using the Translator interface.
 message Translation {
     Path from = 1;
     Path to = 2;

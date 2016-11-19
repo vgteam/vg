@@ -1,6 +1,7 @@
 doc/paper/*.log
 doc/paper/*.aux
 doc/doxygen/
+doc/sphinx/
 bin/
 lib/
 share/

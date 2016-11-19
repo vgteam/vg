@@ -71,46 +71,38 @@ struct KmerPosition {
 namespace vg {
 
 /**
- * Represents a sequence graph. Graphs consist of nodes, connected by edges.
+ * Represents a variation graph. Graphs consist of nodes, connected by edges.
  * Graphs are bidirected and may be cyclic. Nodes carry forward-oriented
  * sequences. Edges are directed, with a "from" and to" node, and are generally
  * used to connect the end of the "from" node to the start of the "to" node.
- * However, edges can connect to either the start or end of either node, in
- * general, as long as they do not allow the same node to be visited twice along
- * a path. Graphs have "head" and "tail" nodes, which are overall at the
- * left/right of the graph, with nothing before/after them. Because otherwise
- * identifying these nodes (i.e. classifying a terminal node as a head or a
- * tail) would require a topological sort, we require that all head and tail
- * nodes be in the same relative orientation. Head nodes must have edges only to
- * their right sides, and tail nodes must have edges only to their left sides.
- * There must be no possible path in the graph containing two head nodes or two
- * tail nodes.
+ * However, edges can connect to either the start or end of either node.
+ *
  */
 class VG : public Progressive {
 
 public:
 
-    /// protobuf-based representation
+    /// Protobuf-based representation.
     // NB: we can't subclass this safely, so it's best as a member
     Graph graph;
 
-    /// manages paths of the graph
-    /// initialized by setting paths._paths = graph.paths
+    /// Manages paths of the graph.
+    /// Initialized by setting paths._paths = graph.paths.
     Paths paths;
 
-    /// name
+    /// Name of the graph.
     string name;
 
-    /// current id
+    /// Current id for Node to be added next.
     id_t current_id;
     // todo
     //id_t min_id;
     //id_t max_id;
 
-    /// nodes by id
+    /// `Node`s by id.
     hash_map<id_t, Node*> node_by_id;
 
-    /// edges by sides of nodes they connect.
+    /// `Edge`s by sides of `Node`s they connect.
     /// Since duplicate edges are not permitted, two edges cannot connect the same pair of node sides.
     /// Each edge is indexed here with the smaller NodeSide first. The actual node order is recorded in the Edge object.
     pair_hash_map<pair<NodeSide, NodeSide>, Edge*> edge_by_sides;
@@ -151,7 +143,7 @@ public:
     size_t size(void); ///< Number of nodes
     size_t length(void); ///< Total sequence length
 
-    /// Clear everything
+    // Clear everything
     //void clear(void);
 
     // constructors
@@ -162,11 +154,11 @@ public:
     /// Construct from protobufs.
     VG(istream& in, bool showp = false);
 
-    /// construct from an arbitrary source of Graph protobuf messages (which
+    /// Construct from an arbitrary source of Graph protobuf messages (which
     /// populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false);
 
-    /// construct from sets of nodes and edges. For example, from a subgraph of
+    /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
@@ -195,9 +187,9 @@ public:
     map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
                        
                        
-    /// chops up the nodes.
+    /// Chop up the nodes.
     void dice_nodes(int max_node_size);
-    /// does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
+    /// Does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels.
     void unchop(void);
     /// Get the set of components that could be merged into single nodes without
     /// changing the path space of the graph. Emits oriented traversals of
@@ -211,15 +203,15 @@ public:
     set<set<id_t> > multinode_strongly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
-    /// removes all elements which are not in a strongly connected component.
+    /// Remove all elements which are not in a strongly connected component.
     void keep_multinode_strongly_connected_components(void);
-    /// does the specified node have any self-loops?
+    /// Does the specified node have any self-loops?
     bool is_self_looping(Node* node);
     /// Get simple cycles following Johnson's elementary cycles algorithm.
     set<list<NodeTraversal> > elementary_cycles(void);
     /// Concatenates the nodes into a new node with the same external linkage as
     /// the provided component. After calling this, paths will be invalid until
-    /// paths.compact_ranks() is called.
+    /// Paths::compact_ranks() is called.
     Node* concat_nodes(const list<NodeTraversal>& nodes);
     /// Merge the nodes into a single node, preserving external linkages.
     /// Use the orientation of the first node as the basis.
@@ -237,7 +229,7 @@ public:
     /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
                            map<id_t, pair<id_t, bool> >& node_translation);
-    /// Represents the whole graph up to max_length across an inversion on the forward strand.
+    /// Represent the whole graph up to max_length across an inversion on the forward strand.
     VG unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation);
     /// Assume two node translations, the over is based on the under; merge them.
@@ -251,7 +243,9 @@ public:
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
 
+    /// Build a graph from a GFA stream.
     void from_gfa(istream& in, bool showp = false);
+    /// Build a graph from a Turtle stream.
     void from_turtle(string filename, string baseuri, bool showp = false);
 
     /// Destructor.
@@ -368,8 +362,9 @@ public:
     /// the other graph.
     void extend(VG& g, bool warn_on_duplicates = false);
     /// This version does not sort path mappings by rank. In order to preserve
-    /// paths, call paths.sort_by_mapping_rank() and paths.rebuild_mapping_aux()
-    /// after you are done adding in graphs to this graph.
+    /// paths, call Paths::sort_by_mapping_rank() and
+    /// Paths::rebuild_mapping_aux() after you are done adding in graphs to this
+    /// graph.
     void extend(Graph& graph, bool warn_on_duplicates = false);
     // TODO: Do a member group for these overloads
 
@@ -383,10 +378,10 @@ public:
     /// just ensure that ids are unique, then apply extend.
     void combine(VG& g);
 
-    /// Edit the graph to include the path.
+    /// %Edit the graph to include the path.
     void include(const Path& path);
 
-    /// Edit the graph to include all the sequence and edges added by the given
+    /// %Edit the graph to include all the sequence and edges added by the given
     /// paths. Can handle paths that visit nodes in any orientation.
     vector<Translation> edit(const vector<Path>& paths);
 
@@ -409,7 +404,7 @@ public:
     /// in the path's node ID space to a table of offset and actual node, add in
     /// all the new sequence and edges required by the path. The given path must
     /// not contain adjacent perfect match edits in the same mapping (the removal
-    /// of which can be accomplished with the simplify() function).
+    /// of which can be accomplished with the Path::simplify() function).
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, Node*>& added_seqs,
@@ -531,9 +526,9 @@ public:
     void destroy_node(id_t id);
     /// Determine if the graph has a node with the given ID.
     bool has_node(id_t id);
-    /// Determine if the graph contains the goven node.
+    /// Determine if the graph contains the given node.
     bool has_node(Node* node);
-    /// Determine if the graph contains the goven node.
+    /// Determine if the graph contains the given node.
     bool has_node(const Node& node);
     /// Find a node with the given name, or create a new one if none is found.
     Node* find_node_by_name_or_add_new(string name);
