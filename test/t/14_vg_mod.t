@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 38
+plan tests 39
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -30,7 +30,7 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg 
 rm t.vg
 rm -rf t.idx
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') 7cd68c575e236202fab8522724d7e9df "graph complexity reduction works as expected"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') ce5d5ffaa71fea6a25cb4a5b836ccb89 "graph complexity reduction works as expected"
 
 is $( vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg view - | grep ^S | wc -l) 186 "short subgraph pruning works"
 
@@ -58,13 +58,18 @@ is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - 
    $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
    "vg mod removes non-path nodes and edge"
 
-is "$(vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate - && echo 'Graph is valid')" "Graph is valid" "chopping a graph works correctly with reverse mappings"
+set -o pipefail
+vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate -
+is "$?" "0" "chopping a graph works correctly with reverse mappings"
+set +o pipefail
 
 is $(vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -B 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -x - | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
-is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 0e7a50bb7367d9f84fbc9bd78378d70f "unchop correctly handles a graph with an inversion"
+is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 99caa2e7716596c7597535a6f0bc9c6e "unchop correctly handles a graph with an inversion"
 
-is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 84138fe8bd1015fb6b80278c2ed8f7c6 "normalization works on a graph with an inversion"
+is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - | grep "nodes" | cut -f2)" "1" "unchop handles doubly-reversing edges"
+
+is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 02e484f8bc83bf4f37ecda0ad684b235 "normalization works on a graph with an inversion"
 
 vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -B 16 -Nz | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
@@ -109,7 +114,7 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
 vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | wc -l) 1280 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1322 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg

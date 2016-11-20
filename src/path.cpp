@@ -464,6 +464,10 @@ void Paths::remove_node(id_t id) {
     node_mapping.erase(id);
 }
 
+list<Mapping>::iterator Paths::find_mapping(Mapping* m) {
+    return mapping_itr[m];
+}
+
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     // The mapping has to exist
     assert(mapping_path.find(m) != mapping_path.end());
@@ -1226,6 +1230,70 @@ Mapping simplify(const Mapping& m) {
     }
     //cerr << "post simplify " << pb2json(n) << endl;
     return n;
+}
+
+Path trim_hanging_ends(const Path& p) {
+
+    if (p.is_circular()) {
+        return p;
+    }
+    
+    Path trimmed_path;
+    int first_m = -1;
+    int first_e = -1;
+    int last_m = -2;
+    int last_e = -2;
+
+    // walk left-to-right until we find a match
+    for (int mi = 0; mi < p.mapping_size() && first_m < 0; ++mi) {
+        const Mapping& mapping = p.mapping(mi);
+        for (int ei = 0; ei < mapping.edit_size() && first_e < 0; ++ei) {
+            const Edit& edit = mapping.edit(ei);
+            if (edit_is_match(edit)) {
+                first_m = mi;
+                first_e = ei;
+            }
+        }
+    }
+
+    // walk right-to-left until we find a match
+    if (first_m >= 0) {
+        for (int mi = p.mapping_size() - 1; mi >=0 && last_m < 0; --mi) {
+            const Mapping& mapping = p.mapping(mi);
+            for (int ei = mapping.edit_size() - 1; ei >= 0 && last_e < 0; --ei) {
+                const Edit& edit = mapping.edit(ei);
+                if (edit_is_match(edit)) {
+                    last_m = mi;
+                    last_e = ei;
+                }
+            }
+        }
+    }
+
+    // no reason to cross over since we search for same thing in both dirs
+    assert(first_m < last_m || (first_m == last_m && first_e <= last_e));
+
+    // Make a new path beginning at first_m, first_e and ending at last_m, last_e
+    Path r;
+    r.set_name(p.name());
+    // todo: handle length field?
+
+    int rank = 1;
+    for (int mi = first_m; mi <= last_m; ++mi) {
+        const Mapping& mapping = p.mapping(mi);
+        Mapping* new_mapping = r.add_mapping();
+        *new_mapping->mutable_position() = mapping.position();
+        new_mapping->set_rank(rank);
+        int ei = mi == first_m ? first_e : 0;
+        int lei = mi == last_m ? last_e : mapping.edit_size() - 1;
+        for (; ei <= lei; ++ei) {
+            const Edit& edit = mapping.edit(ei);
+            Edit* new_edit = new_mapping->add_edit();
+            *new_edit = edit;
+        }
+    }
+
+    return r;
 }
 
 bool mapping_ends_in_deletion(const Mapping& m){

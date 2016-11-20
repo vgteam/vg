@@ -16,21 +16,8 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
     // Set up our output vector
     vector<NestedSite> to_return;
     
-    // get endpoints using node ranks
-    pair<NodeSide, NodeSide> source_sink = graph.paths.has_path(hint_path_name) ? 
-        get_cactus_source_sink(graph, hint_path_name, 50)
-        : get_cactus_source_sink(graph);
-        
-    // Don't keep going if we can't find sources/sinks
-    assert(graph.has_node(source_sink.first.node));
-    assert(graph.has_node(source_sink.second.node));
-
     // Get the bubble tree in Cactus format
-    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
-
-    // Temporary workaround for duplicate node problem in tree
-    bubble_up_bubbles(bubble_tree);
-    bubble_down_bubbles(bubble_tree);
+    BubbleTree* bubble_tree = ultrabubble_tree(graph);
 
     // Convert to NestedSites
     
@@ -38,11 +25,11 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
     // are ready to be converted.
     map<BubbleTree::Node*, NestedSite> converted_children;
 
-    bubble_tree.for_each_postorder([&](BubbleTree::Node* node) {
+    bubble_tree->for_each_postorder([&](BubbleTree::Node* node) {
         // Process children before parents so we can embed them in the parent.
         
         Bubble& bubble = node->v;
-        if (node != bubble_tree.root) {
+        if (node != bubble_tree->root) {
             // If we aren't the root node of the tree, we need to be a NestedSite
             
             // We're going to fill in this NestedSite.
@@ -137,6 +124,8 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
             
         } 
     });
+
+    delete bubble_tree;
     
     // Now emit all the top-level sites
     
@@ -185,6 +174,79 @@ double FixedGenotypePriorCalculator::calculate_log_prior(const Genotype& genotyp
     // Return the appropriate prior depending on whether the alleles are all the
     // same (homozygous) or not (heterozygous).
     return all_same ? homozygous_prior_ln : heterozygous_prior_ln;
+}
+
+TrivialTraversalFinder::TrivialTraversalFinder(VG& graph) : graph(graph) {
+    // Nothing to do!
+}
+
+vector<SiteTraversal> TrivialTraversalFinder::find_traversals(const NestedSite& site) {
+    // We'll fill this in and send it back
+    vector<SiteTraversal> to_return;
+    
+    // We don't want to be duplicating partial paths, so we store for each
+    // NodeTraversal we can reach the previous NodeTraversal we can reach it
+    // from.
+    map<NodeTraversal, NodeTraversal> previous;
+    
+    list<NodeTraversal> stack{site.start};
+    
+    while (!stack.empty()) { 
+        // While there's still stuff on the stack
+        
+        // Grab the first thing
+        NodeTraversal here = stack.front();
+        stack.pop_front();
+        
+        if (here == site.end) {
+            // Trace back a path
+            SiteTraversal path;
+            
+            while (true) {
+                // Until we get to the start of the site
+            
+                // Put this traversal on the front of the path
+                path.visits.push_front(SiteTraversal::Visit(here));
+                
+                if (here == site.start) {
+                    // Stop when we've reached the start of the site
+                    break;
+                }
+                
+                // Trace back
+                here = previous.at(here);
+            }
+            
+            // Stick the path on the back of the vector of paths
+            to_return.emplace_back(std::move(path));
+            
+            // Stop eary after having found one path
+            break;
+        } else {
+            // We haven't reached the end of the site
+            
+            for (NodeTraversal next : graph.nodes_next(here)) {
+                // Look at all the places we can go from this node
+                if (previous.count(next)) {
+                    // We already know how to get there.
+                    continue;
+                }
+                
+                if (!site.nodes.count(next.node)) {
+                    // We would be leaving the site, so we can't go there
+                    continue;
+                }
+                
+                // Remember how we got there
+                previous[next] = here;
+                // Explore it, depth first
+                stack.push_front(next);
+            }
+        }
+    }
+    
+    // When we get here, either we found a path, or there isn't one.
+    return to_return;
 }
 
 }

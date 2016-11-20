@@ -1,6 +1,6 @@
-#ifndef VG_H
+#ifndef VG_VG_H
 
-#define VG_H
+#define VG_VG_H
 
 #include <vector>
 #include <set>
@@ -27,7 +27,7 @@
 #include "vg.pb.h"
 #include "hash_map.hpp"
 
-#include "progress_bar.hpp"
+#include "progressive.hpp"
 #include "lru_cache.h"
 
 #include "Variant.h"
@@ -82,7 +82,7 @@ namespace vg {
 // their right sides, and tail nodes must have edges only to their left sides.
 // There must be no possible path in the graph containing two head nodes or two
 // tail nodes.
-class VG {
+class VG : public Progressive {
 
 public:
 
@@ -161,43 +161,38 @@ public:
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
-    // construct from VCF
-    VG(vcflib::VariantCallFile& variantCallFile,
-       FastaReference& reference,
-       string& target,
-       bool target_is_chrom,
-       int vars_per_region,
-       int max_node_size = 0,
-       bool flat_input_vcf = false,
-       bool load_phasing_paths = false,
-       bool load_variant_alt_paths = false,
-       bool showprog = false,
-       set<string>* allowed_variants = nullptr);
-       
-    // Build the graph from a bunch of alleles, organized by position.
-    void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
-                      const map<pair<long, int>, vector<bool>>& visits,
-                      size_t num_phasings,
-                      const map<pair<long, int>, vector<pair<string, int>>>& variant_alts,
-                      string& seq,
-                      string& chrom);
-    void vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, vector<vcflib::VariantAllele> >& altp,
-                                map<pair<long, int>, vector<bool>>* phase_visits,
-                                map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
-                                bool flat_input_vcf = false);
-    void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
-                       int start_pos,
-                       int stop_pos,
-                       int max_node_size);
+    // Takes in a VCF file
+    // and returns a map [node] = vcflib::variant
+    // Unfortunately this is specific to a given graph
+    // and VCF.
+    //
+    // It will need to throw warnings if the node or variant
+    // is not in the graph.
+    //
+    // This is useful for VCF masking:
+    // if map.find(node) then mask variant
+    //
+    // It's also useful for calling known variants
+    // for m in alignment.mappings:
+    //    node = m.Pos.nodeID
+    //    if node in node_to_vcf:
+    //        return (alignment supports variant)
+    //
+    // It would be nice if this also supported edges (e.g.
+    // for inversions/transversions/breakpoints?)
+    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
+    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+                       
+                       
     // chops up the nodes
     void dice_nodes(int max_node_size);
     // does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels
     void unchop(void);
     // the set of components that could be merged into single nodes without
-    // changing the path space of the graph
-    set<list<Node*>> simple_components(int min_size = 1);
-    set<list<Node*>> simple_multinode_components(void);
+    // changing the path space of the graph. Emits oriented traversals of nodes,
+    // in the order and orientation in which they are to be merged.
+    set<list<NodeTraversal>> simple_components(int min_size = 1);
+    set<list<NodeTraversal>> simple_multinode_components(void);
     // strongly connected components of the graph
     set<set<id_t> > strongly_connected_components(void);
     // only multi-node components
@@ -211,7 +206,8 @@ public:
     // simple cycles following Johnson's elementary cycles algorithm
     set<list<NodeTraversal> > elementary_cycles(void);
     // concatenates the nodes into a new node with the same external linkage as the provided component
-    Node* concat_nodes(const list<Node*>& nodes);
+    // After calling this, paths will be invalid until paths.compact_ranks() is called.
+    Node* concat_nodes(const list<NodeTraversal>& nodes);
     // merge the nodes into a single node, preserving external linkages
     // use the sequence of the first node as the basis
     Node* merge_nodes(const list<Node*>& nodes);
@@ -528,10 +524,18 @@ public:
         // called when we meet an edge in the current tree component
         const function<void(Edge*)>& edge_curr_fn,
         // called when we meet an edge in an already-traversed tree component
-        const function<void(Edge*)>& edge_cross_fn);
+        const function<void(Edge*)>& edge_cross_fn,
+        // start only at these node traversals
+        const vector<NodeTraversal>* sources,
+        // when hitting a sink, don't keep walking
+        const set<NodeTraversal>* sinks);         
+
     // specialization of dfs for only handling nodes
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
-             const function<void(NodeTraversal)>& node_end_fn);
+             const function<void(NodeTraversal)>& node_end_fn,
+             const vector<NodeTraversal>* sources = NULL,
+             const set<NodeTraversal>* sinks = NULL);         
+
     // specialization of dfs for only handling nodes + break function
     void dfs(const function<void(NodeTraversal)>& node_begin_fn,
              const function<void(NodeTraversal)>& node_end_fn,
@@ -593,29 +597,6 @@ public:
     // (e.g. from a vcf) and returns the node id which
     // contains that position.
     id_t get_node_at_nucleotide(string pathname, int nuc);
-
-    // Takes in a VCF file
-    // and returns a map [node] = vcflib::variant
-    // Unfortunately this is specific to a given graph
-    // and VCF.
-    //
-    // It will need to throw warnings if the node or variant
-    // is not in the graph.
-    //
-    // This is useful for VCF masking:
-    // if map.find(node) then mask variant
-    //
-    // It's also useful for calling known variants
-    // for m in alignment.mappings:
-    //    node = m.Pos.nodeID
-    //    if node in node_to_vcf:
-    //        return (alignment supports variant)
-    //
-    // It would be nice if this also supported edges (e.g.
-    // for inversions/transversions/breakpoints?)
-    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
-    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
-
 
     // edges
     // If the given edge cannot be created, returns null.
@@ -700,7 +681,7 @@ public:
                 bool color_variants = false,
                 bool superbubble_ranking = false,
                 bool superbubble_labeling = false,
-                bool cactusbubble_labeling = false,
+                bool ultrabubble_labeling = false,
                 bool skip_missing_nodes = false,
                 int random_seed = 0);
 
@@ -864,18 +845,20 @@ public:
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
     // true if nodes share all paths and the mappings they share in these paths
-    // are adjacent
-    bool nodes_are_perfect_path_neighbors(id_t id1, id_t id2);
+    // are adjacent, in the specified relative order and orientation.
+    bool nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right);
     // true if the mapping completely covers the node it maps to and is a perfect match
     bool mapping_is_total_match(const Mapping& m);
     // concatenate the mappings for a pair of nodes; handles multiple mappings per path
     map<string, vector<Mapping>> concat_mappings_for_node_pair(id_t id1, id_t id2);
-    // for a list of nodes that we want to concatenate
-    map<string, vector<Mapping>> concat_mappings_for_nodes(const list<Node*>& nodes);
-    // helper function
-    map<string, map<int, Mapping>>
-        concat_mapping_groups(map<string, map<int, Mapping>>& r1,
-                              map<string, map<int, Mapping>>& r2);
+    // Concatenate mappings for a list of nodes that we want to concatenate.
+    // Returns, for each path name, a vector of merged mappings, once per path
+    // traversal of the run of nodes. Those merged mappings are in the
+    // orientation of the merged node (so mappings to nodes that are traversed
+    // in reverse will have their flags toggled). We assume that all mappings on
+    // the given nodes are full-length perfect matches, and that all the nodes
+    // are perfect path neighbors.
+    map<string, vector<Mapping>> concat_mappings_for_nodes(const list<NodeTraversal>& nodes);
 
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we
@@ -1075,16 +1058,6 @@ public:
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
                                id_t start_id = 0, id_t end_id = 0);
-
-    bool show_progress;
-    string progress_message;
-    long progress_count;
-    long last_progress;
-    ProgressBar* progress;
-    void create_progress(const string& message, long count);
-    void create_progress(long count);
-    void update_progress(long i);
-    void destroy_progress(void);
 
     // for managing parallel construction
     struct Plan {

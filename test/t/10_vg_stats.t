@@ -11,7 +11,7 @@ vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
 
 nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
-is $nodes 84557 "vg stats reports the expected number of nodes"
+is $nodes 84555 "vg stats reports the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
 is $edges 115361 "vg stats reports the expected number of edges"
@@ -32,20 +32,20 @@ is $(vg stats -n 13 -d t.vg | cut -f 2) 38 "distance to head is correct"
 is $(vg stats -n 13 -t t.vg | cut -f 2) 11 "distance to tail is correct"
 
 is $(vg stats -b t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a superbubble's internal nodes are correctly reported"
-is $(vg stats -C t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a cactusbubble's internal nodes are correctly reported"
+is $(vg stats -u t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a ultrabubble's internal nodes are correctly reported"
 rm -f t.vg
 
 is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -b - | grep 79,80,81,299, | wc -l) 1 "superbubbles are detected even when the graph initially has reversing edges"
-is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -C - | grep 79,80,81,299, | wc -l) 1 "cactusbubbles are detected even when the graph initially has reversing edges"
+is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -u - | grep 79,80,81,299, | wc -l) 1 "ultrabubbles are detected even when the graph initially has reversing edges"
 
 vg stats z.vg -b > sb.txt
-vg stats z.vg -C > cb.txt
+vg stats z.vg -u > cb.txt
 is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for 1mb1kgp"
 rm -f z.vg sb.txt cb.txt
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg mod -X 1 - > tiny.vg
 vg stats tiny.vg -b > sb.txt
-vg stats tiny.vg -C > cb.txt
+vg stats tiny.vg -u > cb.txt
 is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for atomized tiny"
 
 rm sb.txt cb.txt tiny.vg

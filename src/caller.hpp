@@ -376,7 +376,7 @@ int call2vcf(
     // heterozygous if even one read supports each allele.
     double maxHetBias,
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias,
+    double maxRefHetBias,
     // How much should we multiply the bias limits for indels?
     double indelBiasMultiple,
     // What's the minimum integer number of reads that must support a call? We

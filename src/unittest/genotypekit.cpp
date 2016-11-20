@@ -129,17 +129,23 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
             REQUIRE(sites[0].end.node->id() == 6);
             REQUIRE(sites[0].end.backward == false);
             
-            SECTION("and should contain exactly nodes 1 and 6") {
+            SECTION("and should contain exactly nodes 1 through 6") {
                 auto& nodes = sites[0].nodes;
-                set<Node*> correct{graph.get_node(1), graph.get_node(6)};
+                set<Node*> correct{graph.get_node(1), graph.get_node(2),
+                        graph.get_node(3), graph.get_node(4),
+                        graph.get_node(5), graph.get_node(6)};
                 REQUIRE(nodes == correct);
             }
             
-            SECTION("and should contain exactly edges 1->6, 1->2, and 5->6") {
+            SECTION("and should contain exactly edges 1->6, 1->2, 2->3, 2->4, 3->5, 4->5, 5->6") {
                 auto& edges = sites[0].edges;
                 set<Edge*> correct{
                     graph.get_edge(NodeSide(1, true), NodeSide(6)),
                     graph.get_edge(NodeSide(1, true), NodeSide(2)),
+                    graph.get_edge(NodeSide(2, true), NodeSide(3)),
+                    graph.get_edge(NodeSide(2, true), NodeSide(4)),
+                    graph.get_edge(NodeSide(3, true), NodeSide(5)),
+                    graph.get_edge(NodeSide(4, true), NodeSide(5)),
                     graph.get_edge(NodeSide(5, true), NodeSide(6))
                 };
                 REQUIRE(edges == correct);
@@ -230,6 +236,101 @@ TEST_CASE("fixed priors can be assigned to genotypes", "[genotype]") {
     }
     
     delete calculator;
+}
+
+TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
+    // Build a toy graph
+    const string graph_json = R"(
+    
+    {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "A"},
+            {"id": 7, "sequence": "C"},
+            {"id": 8, "sequence": "A"},
+            {"id": 9, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 6},
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4, "to": 5},
+            {"from": 5, "to": 6},
+            {"from": 6, "to": 7},
+            {"from": 6, "to": 8},
+            {"from": 7, "to": 9},
+            {"from": 8, "to": 9}
+            
+        ],
+        "path": [
+            {"name": "hint", "mapping": [
+                {"position": {"node_id": 1}},
+                {"position": {"node_id": 6}},
+                {"position": {"node_id": 8}},
+                {"position": {"node_id": 9}}
+            ]}
+        ]
+    }
+    
+    )";
+    
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+    
+    // Make a site
+    NestedSite site;
+    
+    // Put the 2,3,4,5 replacement in
+    site.nodes.insert(graph.get_node(2));
+    site.nodes.insert(graph.get_node(3));
+    site.nodes.insert(graph.get_node(4));
+    site.nodes.insert(graph.get_node(5));
+    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(3)));
+    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(4)));
+    site.edges.insert(graph.get_edge(NodeSide(3, true), NodeSide(5)));
+    site.edges.insert(graph.get_edge(NodeSide(4, true), NodeSide(5)));
+    site.start = NodeTraversal(graph.get_node(2));
+    site.end = NodeTraversal(graph.get_node(5));
+    
+    // Make the TraversalFinder
+    TraversalFinder* finder = new TrivialTraversalFinder(graph);
+    
+    SECTION("at least one path can be found") {
+        auto site_traversals = finder->find_traversals(site);
+        
+        REQUIRE(!site_traversals.empty());
+        
+        SECTION("the path must visit 3 nodes to span the site") {
+            REQUIRE(site_traversals.front().visits.size() == 3);
+            
+            SECTION("the path must start at the start") {
+                auto& visit = site_traversals.front().visits.front();
+                REQUIRE(visit.node == site.start.node);
+                REQUIRE(visit.backward == site.start.backward);
+                REQUIRE(visit.child == nullptr);
+            }
+            
+            SECTION("the path must end at the end") {
+                auto& visit = site_traversals.front().visits.back();
+                REQUIRE(visit.node == site.end.node);
+                REQUIRE(visit.backward == site.end.backward);
+                REQUIRE(visit.child == nullptr);
+            }
+        }
+    }
+    
+    delete finder;
+    
+
 }
 
 }

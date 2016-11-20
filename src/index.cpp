@@ -857,18 +857,16 @@ void Index::load_graph(VG& graph) {
         thread_count = omp_get_num_threads();
     }
     omp_set_num_threads(1);
-    graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
+    graph.preload_progress("indexing nodes of " + graph.name);
     rocksdb::WriteBatch batch;
     graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch); });
-    graph.destroy_progress();
-    graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
+    graph.preload_progress("indexing edges of " + graph.name);
     graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
     rocksdb::Status s = db->Write(write_options, &batch);
     omp_set_num_threads(thread_count);
 }
 
 void Index::load_paths(VG& graph) {
-    graph.destroy_progress();
     graph.create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
     store_paths(graph);
     graph.destroy_progress();
@@ -928,15 +926,20 @@ void Index::put_path_name_to_id(int64_t id, const string& name) {
 
 string Index::get_path_name(int64_t id) {
     string data;
-    get_metadata(path_id_prefix(id), data);
-    return data;
+    // TODO: reraise errors other than NotFound...
+    if (get_metadata(path_id_prefix(id), data).ok()) {
+        return data;
+    }
+    return string();
 }
 
 int64_t Index::get_path_id(const string& name) {
     string data;
-    get_metadata(path_name_prefix(name), data);
     int64_t id = 0;
-    memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    // TODO: reraise errors other than NotFound...
+    if (get_metadata(path_name_prefix(name), data).ok()) {
+        memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    }
     return id;
 }
 
@@ -978,7 +981,7 @@ void Index::store_path(VG& graph, const Path& path) {
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
 
-        graph.update_progress(graph.progress_count+1);
+        graph.increment_progress();
     }
 }
 
@@ -1606,9 +1609,12 @@ pair<int64_t, bool> Index::path_last_node(int64_t path_id, int64_t& path_length)
     int64_t node_id = 0;
     bool backward;
     it->Seek(end);
-    it->Prev();
-    // horrible hack
-    if (!it->Valid()) it->SeekToLast(); // XXXX
+    if (it->Valid()) {
+        it->Prev();
+    }
+    else {
+        it->SeekToLast();
+    }
     if (it->Valid()) {
         string key = it->key().ToString();
         string value = it->value().ToString();

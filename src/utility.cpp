@@ -34,7 +34,7 @@ static const char complement[256] = {'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 240
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', // 248
                                      'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N'};// 256
-    
+
 char reverse_complement(const char& c) {
     return complement[c];
 }
@@ -152,21 +152,38 @@ string get_or_make_variant_id(vcflib::Variant variant) {
         return variant.id;
     } else {
         // Synthesize a name for the variant
-        
+
         // Let's just hash
         SHA1 hasher;
-        
+
         // Turn the variant back into a string line and hash it.
         // Note that this keeps the modified 0-based position.
         std::stringstream variant_stringer;
         variant_stringer << variant;
         hasher.update(variant_stringer.str());
-        
+
         // Name the variant with the hex hash. Will be unique unless two
         // identical variant lines are in the file.
         return hasher.final();
-        
+
     }
+}
+
+string make_variant_id(vcflib::Variant variant) {
+    // Synthesize a name for the variant
+
+    // Let's just hash
+    SHA1 hasher;
+
+    // Turn the variant back into a string line and hash it.
+    // Note that this keeps the modified 0-based position.
+    std::stringstream variant_stringer;
+    variant_stringer << variant;
+    hasher.update(variant_stringer.str());
+
+    // Name the variant with the hex hash. Will be unique unless two
+    // identical variant lines are in the file.
+    return hasher.final();
 }
 
 double median(std::vector<int> &v) {
@@ -179,6 +196,51 @@ double median(std::vector<int> &v) {
         std::nth_element(v.begin(), v.begin()+n-1, v.end());
         return 0.5*(vn+v[n-1]);
     }
+}
+
+void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {
+    
+    // Just combine the two operations below in the way they're supposed to be used together    
+    get_input_file(get_input_file_name(optind, argc, argv), callback);
+
+}
+
+string get_input_file_name(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Complain that the user didn't specify a filename
+        cerr << "error:[get_input_file_name] specify input filename, or \"-\" for standard input" << endl;
+        exit(1);
+    }
+    
+    string file_name(argv[optind++]);
+    
+    if (file_name.empty()) {
+        cerr << "error:[get_input_file_name] specify a non-empty input filename" << endl;
+        exit(1);
+    }
+    
+    return file_name;
+    
+}
+
+void get_input_file(const string& file_name, function<void(istream&)> callback) {
+
+    if (file_name == "-") {
+        // Just use standard input
+        callback(std::cin);
+    } else {
+        // Open a file
+        ifstream in;
+        in.open(file_name.c_str());
+        if (!in.is_open()) {
+            // The user gave us a bad filename
+            cerr << "error:[get_input_file] could not open file \"" << file_name << "\"" << endl;
+            exit(1);
+        }
+        callback(in);
+    }
+    
 }
 
 

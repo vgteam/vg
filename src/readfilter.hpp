@@ -24,10 +24,7 @@ public:
     // Filtering parameters
     double min_secondary = 0.;
     double min_primary = 0.;
-    double min_sec_delta = 0.;
-    double min_pri_delta = 0.;
     bool frac_score = false;
-    bool frac_delta = false;
     bool sub_score = false;
     int max_overhang = 99999;
     int context_size = 0;
@@ -37,8 +34,40 @@ public:
     // How far in from the end should we look for ambiguous end alignment to
     // clip off?
     int defray_length = 0;
+    // Limit defray recursion to visit this many nodes
+    int defray_count = 99999;
     // Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
+    // default to 1 thread (as opposed to all)
+    int threads = 1;
+
+    // Keep some basic counts for when verbose mode is enabled
+    struct Counts {
+        vector<size_t> read;
+        vector<size_t> filtered;
+        vector<size_t> min_score;
+        vector<size_t> max_overhang;
+        vector<size_t> min_mapq;
+        vector<size_t> split;
+        vector<size_t> repeat;
+        vector<size_t> defray;
+        Counts() : read(2, 0), filtered(2, 0), min_score(2, 0),
+                   max_overhang(2, 0), min_mapq(2, 0),
+                   split(2, 0), repeat(2, 0), defray(2, 0) {}
+        Counts& operator+=(const Counts& other) {
+            for (int i = 0; i < 2; ++i) {
+                read[i] += other.read[i];
+                filtered[i] += other.filtered[i];
+                min_score[i] += other.min_score[i];
+                max_overhang[i] += other.max_overhang[i];
+                min_mapq[i] += other.min_mapq[i];
+                split[i] += other.split[i];
+                repeat[i] += other.repeat[i];
+                defray[i] += other.defray[i];
+            }
+            return *this;
+        }
+    };
     
     // Extra filename things we need for chunking. TODO: refactor that somehow
     // to maybe be a different class?

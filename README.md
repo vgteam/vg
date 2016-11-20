@@ -1,6 +1,6 @@
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg)](https://travis-ci.org/vgteam/vg) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -29,6 +29,8 @@ You can also run `make get-deps`.
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 
 Other libraries may be required. Please report any build difficulties.
+
+Note that a 64-bit OS is required. Ubuntu 16.04 should work.
 
 Now, obtain the repo and its submodules:
 

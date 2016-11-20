@@ -1,0 +1,50 @@
+{
+  "node": [
+    {
+      "sequence": "AGCCTC",
+      "id": 4674
+    },
+    {
+      "sequence": "T",
+      "id": 4673
+    },
+    {
+      "sequence": "C",
+      "id": 4676
+    },
+    {
+      "sequence": "CAAGTAGC",
+      "id": 7198
+    },
+    {
+      "sequence": "GCCT",
+      "id": 4671
+    }
+  ],
+  "edge": [
+    {
+      "to_end": true,
+      "from_start": true,
+      "from": 4676,
+      "to": 4674
+    },
+    {
+      "to_end": true,
+      "from_start": true,
+      "from": 4674,
+      "to": 4673
+    },
+    {
+      "to_end": true,
+      "from_start": true,
+      "from": 7198,
+      "to": 4676
+    },
+    {
+      "to_end": true,
+      "from_start": true,
+      "from": 4673,
+      "to": 4671
+    }
+  ]
+}
