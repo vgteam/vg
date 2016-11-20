@@ -9,7 +9,7 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 
-/**
+/** \file
  * Provides a way to filter and transform reads, implementing the bulk of the
  * `vg filter` command.
  *

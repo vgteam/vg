@@ -1,7 +1,7 @@
 #ifndef VG_CONSTRUCTOR_HPP
 #define VG_CONSTRUCTOR_HPP
 
-/**
+/** \file
  * constructor.hpp: defines a tool class used for constructing VG graphs from
  * VCF files.
  */

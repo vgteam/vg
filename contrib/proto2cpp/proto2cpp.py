@@ -146,6 +146,11 @@ class proto2cpp:
         # Convert to C++-style separator and block instead of statement
         line = "namespace" + line[:matchPackage.start()] + line[matchPackage.end():].replace(".", "::").replace(";", " {")
       
+      # Search for "repeated" fields and make them template-y
+      matchRepeated = re.search(r"\brepeated\b", line)
+      if matchRepeated is not None and (matchComment is None or matchRepeated.start() < matchComment.start()):
+        # Convert to a template
+        line = re.sub(r'repeated\s+(\S+)', r'repeated<\1>', line)
 
       # Search for "enum" and if one is found before comment,
       # start changing all semicolons (";") to commas (",").
