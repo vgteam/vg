@@ -23,7 +23,7 @@
 #include "xg.hpp"
 #include "position.hpp"
 #include "vcfheader.hpp"
-/**
+/** \file
 * Deconstruct is getting rewritten.
 * New functionality:
 * -Detect superbubbles and bubbles
