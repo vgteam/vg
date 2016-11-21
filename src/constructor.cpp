@@ -1375,13 +1375,20 @@ namespace vg {
                         // Seek to just the whole contig
                         found_region = buffer->set_region(vcf_name);
                     }
+
+                    if (found_region){
+                        // This buffer is the one!
+                        // Construct the graph for this contig with the FASTA and VCF
+                        construct_graph(vcf_name, *reference, *buffer, callback, do_svs, insertions);
+                        break;
+                    }
+                }
                     if (!found_region) {
                     // None of the VCFs include variants on this sequence.
                     // Just build the graph for this sequence with no varaints.
                     VcfBuffer empty(nullptr);
                     construct_graph(vcf_name, *reference, empty, callback, do_svs, insertions);
                 }
-            }
             }
         } else {
             // If we have no set of contigs
