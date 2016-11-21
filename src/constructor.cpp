@@ -185,7 +185,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             node->set_id(next_id++);
             node->set_sequence(node_sequence);
             
-            // Tack it on the end of the list
+            if (!created.empty()) {
+                // We need to link to the previous node in this run of sequence
+                auto* edge = to_return.graph.add_edge();
+                edge->set_from(created.back()->id());
+                edge->set_to(node->id());
+            }
+
+            // Tack the new node on the end of the list
             created.push_back(node);
             
             // Advance the cursor since we made this node
@@ -206,17 +213,27 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
     
         // Remember the total node length we have scanned through
         size_t seen_bases = 0;
-    
-        for (Node* node : new_nodes) {
-            // Add matches on the reference path for all the new nodes
-            add_match(ref_path, node);
-            
+        
+        if (!new_nodes.empty()) {
+            // Add the start node to the starting at map.
+            // Interior nodes break at locations that are arbitrary, and we know
+            // nothign wants to attach to them there. Plus they're already linked to
+            // each other and we shouldn't link them again.
             // Remember where it starts and ends along the reference path
-            nodes_starting_at[reference_cursor + seen_bases].insert(node->id());
-            nodes_ending_at[reference_cursor + seen_bases + node->sequence().size() - 1].insert(node->id());
+            nodes_starting_at[reference_cursor].insert(new_nodes.front()->id());
             
-            // Remember how long that node was so we place the next one right.
-            seen_bases += node->sequence().size();
+    
+            for (Node* node : new_nodes) {
+                // Add matches on the reference path for all the new nodes
+                add_match(ref_path, node);
+                
+                // Remember how long that node was so we place the next one right.
+                seen_bases += node->sequence().size();
+            }
+        
+            // Add the end node to the ending at map.
+            nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
+            
         }
     
         // Advance the cursor
