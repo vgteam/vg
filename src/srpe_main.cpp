@@ -11,6 +11,7 @@
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "srpe.hpp"
+#include "filter.hpp"
 
 using namespace std;
 using namespace vg;

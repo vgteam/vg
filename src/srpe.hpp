@@ -1,9 +1,8 @@
-#ifndef SRPE
-#define SRPE
+#ifndef SRPE_x
+#define SRPE_x
 #include "filter.hpp"
 #include "index.hpp"
 #include "vg.pb.h"
-
 #include "vg.hpp"
 #include "gcsa.h"
 #include "alignment.hpp"
@@ -27,12 +26,12 @@ namespace vg{
 class SRPE{
 //    vcfparse::variant locus_to_sv_vcf(Locus ll);
     string locus_to_sv_vcf(Locus ll);
-    
-    public:
-        void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);
-        void filter(vector<Alignment>& in_alns, vector<Alignment>& out_alns);
 
-        Filter ff;
+   void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);
+
+    void filter(vector<Alignment>& in_alns, vector<Alignment>& out_alns);
+    public:
+    vg::Filter ff;
         vg::VG* vg;
 
 
