@@ -1,3 +1,5 @@
+#ifndef SRPE
+#define SRPE
 #include "filter.hpp"
 #include "index.hpp"
 #include "vg.pb.h"
@@ -36,3 +38,4 @@ class SRPE{
 
 };
 }
+#endif

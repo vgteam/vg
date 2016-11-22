@@ -1,3 +1,5 @@
+#ifndef SRPE_MAIN
+#define SRPE_MAIN
 #include <iostream>
 #include <vector>
 #include <getopt.h>
@@ -458,3 +460,4 @@ int main_srpe(int argc, char** argv){
      * Next we will convert those alignments to Locus records.
      */
 
+#endif
