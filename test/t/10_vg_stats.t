@@ -51,9 +51,9 @@ is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical fo
 rm sb.txt cb.txt tiny.vg
 
 vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
-vg index -x x.xg x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -x x.xg >x.reads
-vg map -V x.vg -k 16 -r x.reads -L 10 >x.gam
+vg map -x x.xg -g x.gcsa -r x.reads -a >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"
-rm -f x.vg x.xg x.gam x.reads
+rm -f x.vg x.xg x.gcsa x.gam x.reads
 
