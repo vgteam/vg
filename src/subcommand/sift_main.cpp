@@ -1,5 +1,5 @@
-#ifndef SIFT_MAIN
-#define SIFT_MAIN
+#ifndef SIFT_MAIN_x
+#define SIFT_MAIN_x
 
 #include <iostream>
 #include <fstream>
@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <functional>
 #include <omp.h>
+#include "subcommand.hpp"
 #include "gcsa.h"
 #include "stream.hpp"
 // From gcsa2
@@ -20,6 +21,7 @@
 
 using namespace std;
 using namespace vg;
+using namespace vg::subcommand;
 
 //TODO ideal behavior is to filter READ PAIRS
 //when a mate fails one of the individual read filters.
@@ -309,5 +311,8 @@ if (buffer.size() > 0) {
 
 return 0;
 }
+
+static Subcommand vg_sift("sift", "GAM filter / scrubber", main_sift);
+
 
 #endif

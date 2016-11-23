@@ -1,5 +1,6 @@
-#ifndef HOMOG_MAIN
-#define HOMOG_MAIN
+#ifndef HOMOG_MAIN_x
+#define HOMOG_MAIN_x
+
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -7,12 +8,12 @@
 #include <getopt.h>
 #include <sys/stat.h>
 #include "gcsa.h"
+#include "subcommand.hpp"
 // From gcsa2
 #include "files.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
-#include "vg_set.hpp"
 #include "index.hpp"
 #include "mapper.hpp"
 #include "Variant.h"
@@ -21,10 +22,6 @@
 #include "alignment.hpp"
 #include "convert.hpp"
 #include "pileup.hpp"
-#include "caller.hpp"
-#include "deconstructor.hpp"
-#include "vectorizer.hpp"
-#include "sampler.hpp"
 #include "filter.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
@@ -34,9 +31,11 @@
 #include "bubbles.hpp"
 #include "translator.hpp"
 #include "homogenizer.hpp"
+#include "subcommand.hpp"
 
 using namespace std;
 using namespace vg;
+using namespace vg::subcommand;
 
 void help_homogenize(char** argv){
     cerr << "Usage: " << argv[0] << " homogenize [options] <graph.vg>" << endl
@@ -203,5 +202,8 @@ int main_homogenize(int argc, char** argv){
     delete o_graph;
 
 }
+
+
+static Subcommand vg_homogenize("homogenize", "homogenize augmented graphs", main_homogenize);
 
 #endif

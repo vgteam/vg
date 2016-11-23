@@ -1,9 +1,10 @@
-#ifndef SRPE_MAIN
-#define SRPE_MAIN
+#ifndef SRPE_MAIN_x
+#define SRPE_MAIN_x
 #include <iostream>
 #include <vector>
 #include <getopt.h>
 #include <functional>
+#include "subcommand.hpp"
 #include "stream.hpp"
 #include "mapper.hpp"
 #include "index.hpp"
@@ -15,6 +16,7 @@
 
 using namespace std;
 using namespace vg;
+using namespace vg::subcommand;
 
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
@@ -456,9 +458,6 @@ int main_srpe(int argc, char** argv){
     }
 }
 
-
-    /**
-     * Next we will convert those alignments to Locus records.
-     */
+static Subcommand vg_srpe ("srpe", "graph-external SV detection", main_srpe);
 
 #endif
