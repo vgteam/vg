@@ -75,7 +75,78 @@ namespace vg {
             buffer.setVariantCallFile(file);
         }
     }
+   
+    /*
+     *=======
+    
+        // We'll fill this in with created nodes
+        vector<Node*> created;
+        
+        // We keep a cursor to the next non-made-into-a-node base
+        size_t cursor = 0;
+        
+        while (cursor < sequence.size()) {
+            // There's still sequence to do, so bite off a piece
+            size_t next_node_size = std::min(piece_size, sequence.size() - cursor);
+            string node_sequence = sequence.substr(cursor, next_node_size);
+            
+            // Make a node
+            auto* node = to_return.graph.add_node();
+            node->set_id(next_id++);
+            node->set_sequence(node_sequence);
+            
+            if (!created.empty()) {
+                // We need to link to the previous node in this run of sequence
+                auto* edge = to_return.graph.add_edge();
+                edge->set_from(created.back()->id());
+                edge->set_to(node->id());
+            }
 
+            // Tack the new node on the end of the list
+            created.push_back(node);
+            
+            // Advance the cursor since we made this node
+            cursor += next_node_size;
+        }
+        
+        return created;
+    };
+    
+    // We have a function to emit reference nodes from wherever the current
+    // cursor position is up to the given position, advancing the cursor. The
+    // target position must be <= the length of the reference. This function
+    // adds the nodes to the starting and ending position indexes.
+    auto add_reference_nodes_until = [&](size_t target_position) {
+        
+        // Make new nodes for all the sequence we want to add
+        auto new_nodes = create_nodes(reference_sequence.substr(reference_cursor, target_position - reference_cursor));
+    
+        // Remember the total node length we have scanned through
+        size_t seen_bases = 0;
+        
+        if (!new_nodes.empty()) {
+            // Add the start node to the starting at map.
+            // Interior nodes break at locations that are arbitrary, and we know
+            // nothign wants to attach to them there. Plus they're already linked to
+            // each other and we shouldn't link them again.
+            // Remember where it starts and ends along the reference path
+            nodes_starting_at[reference_cursor].insert(new_nodes.front()->id());
+            
+    
+            for (Node* node : new_nodes) {
+                // Add matches on the reference path for all the new nodes
+                add_match(ref_path, node);
+                
+                // Remember how long that node was so we place the next one right.
+                seen_bases += node->sequence().size();
+            }
+        
+            // Add the end node to the ending at map.
+            nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
+            
+>>>>>>> 2e9de457202b455eb867c75481bea8ef3f877b3a
+ 
+     */
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
             vector<vcflib::Variant> variants, size_t chunk_offset) const {
 
@@ -169,55 +240,73 @@ namespace vg {
                 // Remember we may have a partial piece at the end.
             }
 
-            // We'll fill this in with created nodes
-            vector<Node*> created;
-
-            // We keep a cursor to the next non-made-into-a-node base
-            size_t cursor = 0;
-
-            while (cursor < sequence.size()) {
-                // There's still sequence to do, so bite off a piece
-                size_t next_node_size = std::min(piece_size, sequence.size() - cursor);
-                string node_sequence = sequence.substr(cursor, next_node_size);
-
-                // Make a node
-                auto* node = to_return.graph.add_node();
-                node->set_id(next_id++);
-                node->set_sequence(node_sequence);
-
-                // Tack it on the end of the list
-                created.push_back(node);
-
-                // Advance the cursor since we made this node
-                cursor += next_node_size;
+ 
+        // We'll fill this in with created nodes
+        vector<Node*> created;
+        
+        // We keep a cursor to the next non-made-into-a-node base
+        size_t cursor = 0;
+        
+        while (cursor < sequence.size()) {
+            // There's still sequence to do, so bite off a piece
+            size_t next_node_size = std::min(piece_size, sequence.size() - cursor);
+            string node_sequence = sequence.substr(cursor, next_node_size);
+            
+            // Make a node
+            auto* node = to_return.graph.add_node();
+            node->set_id(next_id++);
+            node->set_sequence(node_sequence);
+            
+            if (!created.empty()) {
+                // We need to link to the previous node in this run of sequence
+                auto* edge = to_return.graph.add_edge();
+                edge->set_from(created.back()->id());
+                edge->set_to(node->id());
             }
 
-            return created;
-        };
-
-        // We have a function to emit reference nodes from wherever the current
-        // cursor position is up to the given position, advancing the cursor. The
-        // target position must be <= the length of the reference. This function
-        // adds the nodes to the starting and ending position indexes.
-        auto add_reference_nodes_until = [&](size_t target_position) {
-
-            // Make new nodes for all the sequence we want to add
-            auto new_nodes = create_nodes(reference_sequence.substr(reference_cursor, target_position - reference_cursor));
-
-            // Remember the total node length we have scanned through
-            size_t seen_bases = 0;
-
+            // Tack the new node on the end of the list
+            created.push_back(node);
+            
+            // Advance the cursor since we made this node
+            cursor += next_node_size;
+        }
+        
+        return created;
+    };
+    
+    // We have a function to emit reference nodes from wherever the current
+    // cursor position is up to the given position, advancing the cursor. The
+    // target position must be <= the length of the reference. This function
+    // adds the nodes to the starting and ending position indexes.
+    auto add_reference_nodes_until = [&](size_t target_position) {
+        
+        // Make new nodes for all the sequence we want to add
+        auto new_nodes = create_nodes(reference_sequence.substr(reference_cursor, target_position - reference_cursor));
+    
+        // Remember the total node length we have scanned through
+        size_t seen_bases = 0;
+        
+        if (!new_nodes.empty()) {
+            // Add the start node to the starting at map.
+            // Interior nodes break at locations that are arbitrary, and we know
+            // nothign wants to attach to them there. Plus they're already linked to
+            // each other and we shouldn't link them again.
+            // Remember where it starts and ends along the reference path
+            nodes_starting_at[reference_cursor].insert(new_nodes.front()->id());
+            
+    
             for (Node* node : new_nodes) {
                 // Add matches on the reference path for all the new nodes
                 add_match(ref_path, node);
-
-                // Remember where it starts and ends along the reference path
-                nodes_starting_at[reference_cursor + seen_bases].insert(node->id());
-                nodes_ending_at[reference_cursor + seen_bases + node->sequence().size() - 1].insert(node->id());
-
+                
                 // Remember how long that node was so we place the next one right.
                 seen_bases += node->sequence().size();
             }
+        
+            // Add the end node to the ending at map.
+            nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
+            
+        }
 
             // Advance the cursor
             reference_cursor = target_position;

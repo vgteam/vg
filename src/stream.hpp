@@ -229,9 +229,6 @@ void for_each_parallel(std::istream& in,
         delete gzip_in;
         delete raw_in;
     }
-
-    // Don't clean up function locals before tasks finish using them
-    #pragma omp taskwait
 }
 
 template <typename T>
