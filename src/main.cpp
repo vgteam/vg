@@ -6900,20 +6900,6 @@ int main_view(int argc, char** argv) {
             << endl;
     }
 
-void help_deconstruct(char** argv){
-    cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
-         << "options: " << endl
-         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
-         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
-         << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
-         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
-         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
-         << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
-         << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
-         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
-         << endl;
-}
-
 void help_locify(char** argv){
     cerr << "usage: " << argv[0] << " locify [options] " << endl
          << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
@@ -6921,7 +6907,8 @@ void help_locify(char** argv){
          << "    -x, --xg-idx FILE    use this xg index" << endl
          << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
          << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
-         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl;
+         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl
+         << "    -b, --n-best N       keep only the N-best alleles by alignment support" << endl;
         // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
@@ -6933,6 +6920,7 @@ int main_locify(int argc, char** argv){
     bool name_alleles = false;
     bool forwardize = false;
     string loci_out;
+    int n_best = 0;
 
     if (argc <= 2){
         help_locify(argv);
@@ -6951,11 +6939,12 @@ int main_locify(int argc, char** argv){
             {"name-alleles", no_argument, 0, 'n'},
             {"forwardize", no_argument, 0, 'f'},
             {"loci-out", required_argument, 0, 'o'},
+            {"n-best", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:x:g:nfo:",
+        c = getopt_long (argc, argv, "hl:x:g:nfo:b:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -6986,6 +6975,11 @@ int main_locify(int argc, char** argv){
 
         case 'o':
             loci_out = optarg;
+            break;
+
+        case 'b':
+            n_best = atoi(optarg);
+            name_alleles = true;
             break;
 
         case 'h':
@@ -7027,7 +7021,11 @@ int main_locify(int argc, char** argv){
     map<string, Alignment> alignments_with_loci;
     map<pos_t, set<string> > pos_to_loci;
     map<string, set<pos_t> > locus_to_pos;
+    map<string, map<string, int> > locus_allele_support;
+    map<string, vector<int> > locus_to_best_n_alleles;
+    map<string, set<string> > locus_to_keep;
     int count = 0;
+
     std::function<void(Locus&)> lambda = [&](Locus& l){
         locus_names.push_back(l.name());
         set<vg::id_t> nodes_in_locus;
@@ -7068,6 +7066,11 @@ int main_locify(int argc, char** argv){
                 auto& allele = l.allele(best);
                 string s;
                 allele.SerializeToString(&s);
+                if (n_best) {
+                    // record support for this allele
+                    // we'll use to filter the locus records later
+                    locus_allele_support[l.name()][s]++;
+                }
                 auto& l_names = locus_allele_names[l.name()];
                 auto f = l_names.find(s);
                 if (f == l_names.end()) {
@@ -7119,6 +7122,43 @@ int main_locify(int argc, char** argv){
         }
     }
 
+    // filter out the non-best alleles
+    if (n_best) {
+        // find the n-best
+        for (auto& supp : locus_allele_support) {
+            auto& name = supp.first;
+            auto& alleles = supp.second;
+            map<int, string> ranked;
+            for (auto& allele : alleles) {
+                ranked[allele.second] = allele.first;
+            }
+            auto& to_keep = locus_to_keep[name];
+            for (auto r = ranked.rbegin(); r != ranked.rend(); ++r) {
+                to_keep.insert(r->second);
+                if (to_keep.size() == n_best) {
+                    break;
+                }
+            }
+        }
+        // filter out non-n-best from the alignments
+        for (auto& a : alignments_with_loci) {
+            auto& aln = a.second;
+            vector<Locus> kept;
+            for (int i = 0; i < aln.locus_size(); ++i) {
+                auto& allele = aln.locus(i).allele(0);
+                string s; allele.SerializeToString(&s);
+                if (locus_to_keep[aln.locus(i).name()].count(s)) {
+                    kept.push_back(aln.locus(i));
+                }
+            }
+            aln.clear_locus();
+            for (auto& l : kept) {
+                *aln.add_locus() = l;
+            }
+        }
+        // TODO filter out non-n-best from the loci ??
+    }
+
     // sort them using... ? ids?
     sort(non_nested_loci.begin(), non_nested_loci.end(),
          [&locus_to_pos](const string& s1, const string& s2) {
@@ -7151,6 +7191,20 @@ int main_locify(int argc, char** argv){
     stream::write_buffered(cout, output_buf, 0);        
     
     return 0;
+}
+
+void help_deconstruct(char** argv){
+    cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
+         << "options: " << endl
+         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
+         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
+         << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
+         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
+         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+         << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
+         << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
+         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
+         << endl;
 }
 
 int main_deconstruct(int argc, char** argv){
