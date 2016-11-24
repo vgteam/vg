@@ -2608,8 +2608,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     // do the alignment
                     // always use the banded global mode
-                    bool banded_global = true;
-                    //bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
+                    //bool banded_global = true;
+                    bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
                     id_t pinned_id = 0;
                     bool pinned_reverse = false;
                     // use the pinning if we are in a soft clip
