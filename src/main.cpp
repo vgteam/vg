@@ -7066,11 +7066,6 @@ int main_locify(int argc, char** argv){
                 auto& allele = l.allele(best);
                 string s;
                 allele.SerializeToString(&s);
-                if (n_best) {
-                    // record support for this allele
-                    // we'll use to filter the locus records later
-                    locus_allele_support[l.name()][s]++;
-                }
                 auto& l_names = locus_allele_names[l.name()];
                 auto f = l_names.find(s);
                 if (f == l_names.end()) {
@@ -7080,9 +7075,15 @@ int main_locify(int argc, char** argv){
                 } else {
                     ss << f->second;
                 }
+                string allele_name = ss.str();
                 Path p;
-                p.set_name(ss.str());
+                p.set_name(allele_name);
                 *matching.add_allele() = p;
+                if (n_best) {
+                    // record support for this allele
+                    // we'll use to filter the locus records later
+                    locus_allele_support[l.name()][allele_name]++;
+                }
             } else {
                 *matching.add_allele() = l.allele(best);
                 // TODO get quality score relative to this specific allele / alignment
@@ -7146,8 +7147,7 @@ int main_locify(int argc, char** argv){
             vector<Locus> kept;
             for (int i = 0; i < aln.locus_size(); ++i) {
                 auto& allele = aln.locus(i).allele(0);
-                string s; allele.SerializeToString(&s);
-                if (locus_to_keep[aln.locus(i).name()].count(s)) {
+                if (locus_to_keep[aln.locus(i).name()].count(allele.name())) {
                     kept.push_back(aln.locus(i));
                 }
             }
