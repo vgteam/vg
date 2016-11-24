@@ -127,6 +127,8 @@ public:
     map<string, set<Mapping*> >& get_node_mapping(Node* n);
     map<string, set<Mapping*> >& get_node_mapping(id_t id);
     map<string, map<int, Mapping*> > get_node_mappings_by_rank(id_t id);
+    // Copy all the mappings for the node with the given ID, and return them in
+    // a map by path name and then by rank.
     map<string, map<int, Mapping> > get_node_mapping_copies_by_rank(id_t id);
     // Go left along the path that this Mapping* belongs to, and return the
     // Mapping* there, or null if this Mapping* is the first in its path.

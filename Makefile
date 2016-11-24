@@ -54,7 +54,7 @@ OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(
 UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o $(UNITTEST_OBJ_DIR)/constructor.o
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
-SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct.o $(SUBCOMMAND_OBJ_DIR)/simplify.o $(SUBCOMMAND_OBJ_DIR)/index.o 
+SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct.o $(SUBCOMMAND_OBJ_DIR)/simplify.o $(SUBCOMMAND_OBJ_DIR)/index.o $(SUBCOMMAND_OBJ_DIR)/mod.o 
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -74,7 +74,7 @@ DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
-.PHONY: clean get-deps test set-path static .pre-build
+.PHONY: clean get-deps test set-path static docs .pre-build
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -90,6 +90,10 @@ get-deps:
 
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf
 	. ./source_me.sh && cd test && $(MAKE)
+
+docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(CPP_DIR)/vg.pb.cc
+	doxygen
+	cd doc && sphinx-build -b html . sphinx
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
@@ -115,7 +119,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(S
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 # common dependencies to build before all vg src files
-DEPS:= #$(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libssw.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa.h  $(LIB_DIR)/libgcsa2.a $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libgssw.a $(INC_DIR)/lru_cache.h $(INC_DIR)/dynamic.hpp $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsonlib.a $(LIB_DIR)/libpinchesandcacti.a $(INC_DIR)/globalDefs.hpp $(LIB_DIR)/libraptor2.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/sha1.o 
+DEPS:= $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libssw.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa.h  $(LIB_DIR)/libgcsa2.a $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libgssw.a $(INC_DIR)/lru_cache.h $(INC_DIR)/dynamic.hpp $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsonlib.a $(LIB_DIR)/libpinchesandcacti.a $(INC_DIR)/globalDefs.hpp $(LIB_DIR)/libraptor2.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/sha1.o 
 
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
@@ -145,7 +149,7 @@ $(LIB_DIR)/libhts.a:
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp $(XG_DIR)/src/xg.cpp $(INC_DIR)/sparsehash/sparse_hash_map
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c $(XG_DIR)/src/xg.cpp -o $(CWD)/$(OBJ_DIR)/xg.o $(LD_INCLUDE_FLAGS) -I$(INC_DIR)/dynamic && ar rs $(CWD)/$(LIB_DIR)/libxg.a $(CWD)/$(OBJ_DIR)/xg.o $(CWD)/$(CPP_DIR)/vg.pb.o && cp $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libvcflib.a: $(VCFLIB_DIR)/src/* $(VCFLIB_DIR)/intervaltree/*
+$(LIB_DIR)/libvcflib.a: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) libvcflib.a && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
@@ -293,7 +297,7 @@ $(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(DEPS)
 $(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(OBJ_DIR)/readfilter.o: $(SRC_DIR)/readfilter.cpp $(SRC_DIR)/readfilter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
+$(OBJ_DIR)/readfilter.o: $(SRC_DIR)/readfilter.cpp $(SRC_DIR)/readfilter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(DEPS)
@@ -348,6 +352,9 @@ $(SUBCOMMAND_OBJ_DIR)/simplify.o: $(SUBCOMMAND_SRC_DIR)/simplify.cpp $(SUBCOMMAN
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(SUBCOMMAND_OBJ_DIR)/index.o: $(SUBCOMMAND_SRC_DIR)/index.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+	 
+$(SUBCOMMAND_OBJ_DIR)/mod.o: $(SUBCOMMAND_SRC_DIR)/mod.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################

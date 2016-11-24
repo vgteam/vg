@@ -1192,7 +1192,7 @@ void VG::remove_non_path(void) {
     }
 }
 
-set<list<Node*>> VG::simple_multinode_components(void) {
+set<list<NodeTraversal>> VG::simple_multinode_components(void) {
     return simple_components(2);
 }
 
@@ -1202,17 +1202,17 @@ bool VG::mapping_is_total_match(const Mapping& m) {
         && mapping_from_length(m) == get_node(m.position().node_id())->sequence().size();
 }
 
-bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
+bool VG::nodes_are_perfect_path_neighbors(NodeTraversal left, NodeTraversal right) {
     // it is not possible for the nodes to be perfect neighbors if
     // they do not have exactly the same counts of paths
-    if (paths.of_node(id1) != paths.of_node(id2)) return false;
+    if (paths.of_node(left.node->id()) != paths.of_node(right.node->id())) return false;
     // now we know that the paths are identical in count and name between the two nodes
 
     // get the mappings for each node
-    auto& m1 = paths.get_node_mapping(id1);
-    auto& m2 = paths.get_node_mapping(id2);
+    auto& m1 = paths.get_node_mapping(left.node->id());
+    auto& m2 = paths.get_node_mapping(right.node->id());
 
-    // verify that they are all perfect matches
+    // verify that they are all perfect matches that take up their entire nodes
     for (auto& p : m1) {
         for (auto* m : p.second) {
             if (!mapping_is_total_match(*m)) return false;
@@ -1224,11 +1224,13 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
         }
     }
 
-    // it is still possible that we have the same path annotations
-    // but the components of the paths we have are not contiguous across these nodes
-    // to verify, we check that each mapping on the first immediately proceeds one on the second
+    // It is still possible that we have the same path annotations, but the
+    // components of the paths we have are not contiguous across these nodes. To
+    // verify, we check that each mapping on the left node is adjacent to one on
+    // the right node in the correct relative order and orientation.
 
     // order the mappings by rank so we can quickly check if everything is adjacent
+    // Holds mappings by path name, then rank.
     map<string, map<int, Mapping*>> r1, r2;
     for (auto& p : m1) {
         auto& name = p.first;
@@ -1239,15 +1241,30 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
     }
     // verify adjacency
     for (auto& p : r1) {
+        // For every path name and collection of mappings by rank on the left node...
         auto& name = p.first;
         auto& ranked1 = p.second;
         map<int, Mapping*>& ranked2 = r2[name];
         for (auto& r : ranked1) {
+            // For every rank and mapping on the left node...
             auto rank = r.first;
             auto& m = *r.second;
-            auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
+            
+            // A forward mapping on a forward traversal, or a reverse mapping on
+            // a reverse traversal, means we need the mapping with rank 1
+            // greater on the right node. Mismatching combinations means we need
+            // the mapping with rank 1 less.
+            
+            // Look for the mapping on the right node
+            auto f = ranked2.find(rank + ((m.position().is_reverse() == left.backward) ? 1 : -1));
             if (f == ranked2.end()) return false;
-            if (f->second->position().is_reverse() != m.position().is_reverse()) return false;
+            
+            // If the mapping went with the traversal on the left, we expect it
+            // to go with the traversal on the right. And if it didn't, we
+            // expect it not to.
+            if ((m.position().is_reverse() == left.backward) != (f->second->position().is_reverse() == right.backward)) {
+                return false;
+            }
             ranked2.erase(f); // remove so we can verify that we have fully matched
         }
     }
@@ -1263,189 +1280,207 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
 // the set of components that could be merged into single nodes without
 // changing the path space of the graph
 // respects stored paths
-set<list<Node*>> VG::simple_components(int min_size) {
+set<list<NodeTraversal>> VG::simple_components(int min_size) {
 
     // go around and establish groupings
     set<Node*> seen;
-    set<list<Node*>> components;
+    set<list<NodeTraversal>> components;
     for_each_node([this, min_size, &components, &seen](Node* n) {
             if (seen.count(n)) return;
+            
+#ifdef debug
+            cerr << "Component based on " << n->id() << endl;
+#endif
+            
             seen.insert(n);
             // go left and right through each as far as we have only single edges connecting us
             // to nodes that have only single edges coming in or out
-            // and these edges are "normal" in that they go from the tail to the head
-            list<Node*> c;
+            // that go to other nodes
+            list<NodeTraversal> c;
             // go left
             {
-                Node* l = n;
-                auto sides = sides_to(NodeSide(l->id(), false));
-                while (sides.size() == 1
-                       && start_degree(l) == 1
-                       && end_degree(get_node(sides.begin()->node)) == 1
-                       && sides.begin()->is_end) {
-                    id_t last_id = l->id();
-                    l = get_node(sides.begin()->node);
-                    seen.insert(l);
+                NodeTraversal l(n, false);
+                vector<NodeTraversal> prev = nodes_prev(l);
+#ifdef debug
+                cerr << "\tLeft: ";
+                for (auto& x : prev) {
+                    cerr << x << "(" << node_count_next(x) << " edges right) ";
+                }
+                cerr << endl;
+#endif
+                while (prev.size() == 1
+                       && node_count_next(prev.front()) == 1) {   
+                       
+                    // While there's only one node left of here, and one node right of that node...
+                    auto last = l;
+                    // Move over left to that node
+                    l = prev.front();
                     // avoid merging if it breaks stored paths
-                    if (!nodes_are_perfect_path_neighbors(l->id(), last_id)) break;
-                    sides = sides_to(NodeSide(l->id(), false));
+                    if (!nodes_are_perfect_path_neighbors(l, last)) {
+#ifdef debug
+                        cerr << "\tNot perfect neighbors!" << endl;
+#endif
+                        break;
+                    }
+                    // avoid merging if it's already in this or any other component (catch self loops)
+                    if (seen.count(l.node)) {
+#ifdef debug
+                        cerr << "\tAlready seen!" << endl;
+#endif
+                        break;
+                    }
+                    prev = nodes_prev(l);
+#ifdef debug
+                    cerr << "\tLeft: ";
+                    for (auto& x : prev) {
+                        cerr << x << "(" << node_count_next(x) << " edges right) ";
+                    }
+                    cerr << endl;
+#endif
                     c.push_front(l);
+                    seen.insert(l.node);
                 }
             }
             // add the node (in the middle)
-            c.push_back(n);
+            c.push_back(NodeTraversal(n, false));
             // go right
             {
-                Node* r = n;
-                auto sides = sides_from(NodeSide(r->id(), true));
-                while (sides.size() == 1
-                       && end_degree(r) == 1
-                       && start_degree(get_node(sides.begin()->node)) == 1
-                       && !sides.begin()->is_end) {
-                    id_t last_id = r->id();
-                    seen.insert(r);
-                    r = get_node(sides.begin()->node);
+                NodeTraversal r(n, false);
+                vector<NodeTraversal> next = nodes_next(r);
+#ifdef debug
+                cerr << "\tRight: ";
+                for (auto& x : next) {
+                    cerr << x << "(" << node_count_prev(x) << " edges left) ";
+                }
+                cerr << endl;
+#endif
+                while (next.size() == 1
+                       && node_count_prev(next.front()) == 1) {   
+                       
+                    // While there's only one node right of here, and one node left of that node...
+                    auto last = r;
+                    // Move over right to that node
+                    r = next.front();
                     // avoid merging if it breaks stored paths
-                    if (!nodes_are_perfect_path_neighbors(last_id, r->id())) break;
-                    sides = sides_from(NodeSide(r->id(), true));
+                    if (!nodes_are_perfect_path_neighbors(last, r)) {
+#ifdef debug
+                        cerr << "\tNot perfect neighbors!" << endl;
+#endif
+                        break;
+                    }
+                    // avoid merging if it's already in this or any other component (catch self loops)
+                    if (seen.count(r.node)) {
+#ifdef debug
+                        cerr << "\tAlready seen!" << endl;
+#endif
+                        break;
+                    }
+                    next = nodes_next(r);
+#ifdef debug
+                    cerr << "\tRight: ";
+                    for (auto& x : next) {
+                        cerr << x << "(" << node_count_prev(x) << " edges left) ";
+                    }
+                    cerr << endl;
+#endif
                     c.push_back(r);
+                    seen.insert(r.node);
                 }
             }
             if (c.size() >= min_size) {
                 components.insert(c);
             }
         });
-    /*
+#ifdef debug
     cerr << "components " << endl;
     for (auto& c : components) {
         for (auto x : c) {
-            cerr << x->id() << " ";
+            cerr << x << " ";
         }
         cerr << endl;
     }
-    */
+#endif
     return components;
 }
 
-// merges right, so we take the rightmost rank as the new rank
-map<string, map<int, Mapping>>
-    VG::concat_mapping_groups(map<string, map<int, Mapping>>& r1,
-                              map<string, map<int, Mapping>>& r2) {
-    map<string, map<int, Mapping>> new_mappings;
-    /*
-    cerr << "merging mapping groups" << endl;
-    cerr << "r1" << endl;
-    for (auto& p : r1) {
-        auto& name = p.first;
-        auto& ranked1 = p.second;
-        for (auto& r : ranked1) {
-            cerr << pb2json(r.second) << endl;
-        }
-    }
-    cerr << "r2" << endl;
-    for (auto& p : r2) {
-        auto& name = p.first;
-        auto& ranked1 = p.second;
-        for (auto& r : ranked1) {
-            cerr << pb2json(r.second) << endl;
-        }
-    }
-    cerr << "------------------" << endl;
-    */
-    // collect new mappings
-    for (auto& p : r1) {
-        auto& name = p.first;
-        auto& ranked1 = p.second;
-        map<int, Mapping>& ranked2 = r2[name];
-        for (auto& r : ranked1) {
-            auto rank = r.first;
-            auto& m = r.second;
-            auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
-            //cerr << "seeking " << rank+(!m.position().is_reverse()? 1 : -1) << endl;
-            assert(f != ranked2.end());
-            auto& o = f->second;
-            assert(m.position().is_reverse() == o.position().is_reverse());
-            // make the new mapping for this pair of nodes
-            Mapping n;
-            if (!m.position().is_reverse()) {
-                // in the forward orientation, we merge from left to right
-                // and keep the right's rank
-                n = concat_mappings(m, o);
-                n.set_rank(o.rank());
-            } else {
-                // in the reverse orientation, we merge from left to right
-                // but we keep the lower rank
-                n = concat_mappings(o, m);
-                n.set_rank(o.rank());
-            }
-            new_mappings[name][n.rank()] = n;
-            ranked2.erase(f); // remove so we can verify that we have fully matched
-        }
-    }
-    return new_mappings;
-}
-
 map<string, vector<Mapping>>
-    VG::concat_mappings_for_nodes(const list<Node*>& nodes) {
+    VG::concat_mappings_for_nodes(const list<NodeTraversal>& nodes) {
 
-    // determine the common paths that will apply to the new node
-    // to do the ptahs right, we can only combine nodes if they also share all of their paths
-    // and equal numbers of traversals
-    set<map<string,int>> path_groups;
-    for (auto n : nodes) {
-        path_groups.insert(paths.node_path_traversal_counts(n->id()));
+    // We know all the nodes are perfect path neighbors.
+    
+    // Get the total length of all the nodes
+    size_t total_length = 0;
+    for (auto& traversal : nodes) {
+        total_length += traversal.node->sequence().size();
     }
-
-    if (path_groups.size() != 1) {
-        cerr << "[VG::cat_nodes] error: cannot merge nodes with differing paths" << endl;
-        exit(1); // we should be raising an error
-    }
-
-    auto ns = nodes; // to modify destructively
-    auto np = nodes.front();
-    ns.pop_front();
-    // store the first base
-    // we will use this to drive the merge
-    auto base = paths.get_node_mapping_copies_by_rank(np->id());
-
-    while (!ns.empty()) {
-        // merge
-        auto op = ns.front();
-        ns.pop_front();
-        // if this is our first batch, just keep them
-        auto next = paths.get_node_mapping_copies_by_rank(op->id());
-        // then merge the next in
-        base = concat_mapping_groups(base, next);
-    }
-
-    // stores a merged mapping for each path traversal through the nodes we are merging
+    
+    // Make sure we actually have nodes
+    assert(total_length > 0);
+    
+    // We'll fill this in with a vectors of mappings, one mapping for each visit
+    // of the path to the run of nodes.
     map<string, vector<Mapping>> new_mappings;
-    for (auto& p : base) {
-        auto& name = p.first;
-        for (auto& m : p.second) {
-            new_mappings[name].push_back(m.second);
+    
+    // Copy all the mappings for this first node, in a map by path name and then
+    // by rank
+    auto first_node_mappings = paths.get_node_mapping_copies_by_rank(nodes.front().node->id());
+    
+    for (auto& name_and_ranked_mappings : first_node_mappings) {
+        // For every path
+        auto& name = name_and_ranked_mappings.first;
+        for (auto& rank_and_mapping : name_and_ranked_mappings.second) {
+            // For every mapping on that path
+            auto& mapping = rank_and_mapping.second;
+            
+            // Copy it as the representative for the whole run. Preserves the rank.
+            new_mappings[name].push_back(mapping);
+            
+            if (nodes.front().backward) {
+                // Invert the orientation of the mapping if it was to a node
+                // that was backward relative to the run.
+                new_mappings[name].back().mutable_position()->set_is_reverse(!new_mappings[name].back().position().is_reverse());
+            }
+            
+            // Clobber the edits and replace with a new full-length perfect
+            // match. We know all the mappings to these nodes in the run were
+            // also full-length perfect matches.
+            new_mappings[name].back().clear_edit();
+            Edit* match = new_mappings[name].back().add_edit();
+            match->set_from_length(total_length);
+            match->set_to_length(total_length);
+            
+            // Caller is responsible for fixing the node ID.
         }
     }
-
+    
+    // We know all the other nodes will look like the first node, modulo
+    // orientations. So we don't have to look at them.
+    
     return new_mappings;
 }
 
-Node* VG::concat_nodes(const list<Node*>& nodes) {
+Node* VG::concat_nodes(const list<NodeTraversal>& nodes) {
 
-    // make the new mappings for the node
+    // Make sure we have at least 2 nodes
+    assert(!nodes.empty() && nodes.front() != nodes.back());
+
+    // We also require no edges enter or leave the run of nodes, but we can't check that now.
+
+    // make the new mappings for the node. Doesn't insert them in the paths, but
+    // makes sure they have the right ranks.
     map<string, vector<Mapping>> new_mappings = concat_mappings_for_nodes(nodes);
 
-    // make a new node that concatenates the labels in the order they occur in the graph
+    // make a new node that concatenates the labels in the order and orientation specified
     string seq;
     for (auto n : nodes) {
-        seq += n->sequence();
+        seq += n.backward ? reverse_complement(n.node->sequence()) : n.node->sequence();
     }
-    auto node = create_node(seq);
+    Node* node = create_node(seq);
 
     // remove the old mappings
     for (auto n : nodes) {
         set<Mapping*> to_remove;
-        for (auto p : paths.get_node_mapping(n)) {
+        for (auto p : paths.get_node_mapping(n.node)) {
             for (auto* m : p.second) {
                 to_remove.insert(m);
             }
@@ -1458,47 +1493,92 @@ Node* VG::concat_nodes(const list<Node*>& nodes) {
     // change the position of the new mappings to point to the new node
     // and store them in the path
     for (map<string, vector<Mapping>>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
+        // For each path and vector of mappings for this node on this path
         vector<Mapping>& ms = nm->second;
         for (vector<Mapping>::iterator m = ms.begin(); m != ms.end(); ++m) {
+            // For each new mapping
+            // Attach it to the new node
             m->mutable_position()->set_node_id(node->id());
             m->mutable_position()->set_offset(0); // uhhh
-            if (m->position().is_reverse()) {
-                paths.prepend_mapping(nm->first, *m);
-            } else {
-                paths.append_mapping(nm->first, *m);
-            }
+            
+            // Stick it in the path at the end. Later the mappings will be
+            // sorted by rank and ranks recalculated to close the gaps.
+            paths.append_mapping(nm->first, *m);
         }
     }
 
     // connect this node to the left and right connections of the set
 
-    // do the left connections
-    auto old_start = NodeSide(nodes.front()->id(), false);
-    auto new_start = NodeSide(node->id(), false);
-    // forward
-    for (auto side : sides_to(old_start)) {
-        create_edge(side, new_start);
+    for (auto prev : nodes_prev(nodes.front())) {
+        // For each traversal left of our first treaversal
+        
+        if (prev.node == nodes.back().node) {
+            // This is going to become a duplicating self loop.
+            
+            // Convert to point to the new node in the correct orientation.
+            prev.node = node;
+            // if the node at the end was concatenated into the new node
+            // forward, we keep the orientation. Otherwise we flip.
+            prev.backward = prev.backward != nodes.back().backward;
+            
+            // It has to be in the correct orientation for a duplicating self
+            // loop. The above complicated xor should always be false if our
+            // caller followed the preconditions.
+            assert(!prev.backward);
+            
+            create_edge(prev, NodeTraversal(node, false));
+        } else if (prev.node == nodes.front().node) {
+            // This is going to become a reversing self loop.
+            
+            // Convert to point to the new node in the correct orientation.
+            prev.node = node;
+            // if the node at the start was concatenated into the new node
+            // forward, we keep the orientation. Otherwise we flip.
+            prev.backward = prev.backward != nodes.front().backward;
+            
+            // It has to be in the correct orientation for a reversing self
+            // loop. The above complicated xor should always be true if our
+            // caller followed the preconditions.
+            assert(prev.backward);
+            
+            create_edge(prev, NodeTraversal(node, false));
+        } else {
+            // Assume it's some other node not merged into this one at all.
+            create_edge(prev, NodeTraversal(node, false));
+        }
+        
     }
-    // reverse
-    for (auto side : sides_from(old_start)) {
-        create_edge(new_start, side);
-    }
-
-    // do the right connections
-    auto old_end = NodeSide(nodes.back()->id(), true);
-    auto new_end = NodeSide(node->id(), true);
-    // forward
-    for (auto side : sides_from(old_end)) {
-        create_edge(new_end, side);
-    }
-    // reverse
-    for (auto side : sides_to(old_end)) {
-        create_edge(side, new_end);
+    
+    for (auto next : nodes_next(nodes.back())) {
+    
+        if (next.node == nodes.back().node) {
+            // This is going to become a reversing self loop.
+            
+            // Convert to point to the new node in the correct orientation.
+            next.node = node;
+            // if the node at the end was concatenated into the new node
+            // forward, we keep the orientation. Otherwise we flip.
+            next.backward = next.backward != nodes.back().backward;
+            
+            // It has to be in the correct orientation for a reversing self
+            // loop. The above complicated xor should always be true if our
+            // caller followed the preconditions.
+            assert(next.backward);
+            
+            create_edge(NodeTraversal(node, false), next);
+        } else if (next.node == nodes.front().node) {
+            // We already handled this duplicating self loop from the other end!
+            continue;
+        } else {
+            // Assume it's some other node not merged into this one at all.
+            create_edge(NodeTraversal(node, false), next);
+        }
+    
     }
 
     // remove the old nodes
     for (auto n : nodes) {
-        destroy_node(n);
+        destroy_node(n.node);
     }
 
     return node;

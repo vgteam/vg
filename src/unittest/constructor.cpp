@@ -200,6 +200,8 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
 
     Constructor constructor;
     constructor.alt_paths = true;
+    // Make sure we can test the node splitting behavior at reasonable sizes
+    constructor.max_node_size = 50;
 
     // Construct the graph    
     return constructor.construct_chunk(ref_sequence, ref_name, variants, 0);
@@ -833,6 +835,90 @@ ref	3	rs1337	TTC	TTAC	29	PASS	.	GT
     }
 
 }
+
+TEST_CASE( "Large deletions are broken appropriately", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	2	rs1337	CATTTAATTATTAATTAAATAATTTAATTTATTTATTATTATAAATTTATTAATATAAATTAAATA	C	29	PASS	.	GT
+)";
+
+    auto ref = "GCATTTAATTATTAATTAAATAATTTAATTTATTTATTATTATAAATTTATTAATATAAATTAAATAG";
+    
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    // We insist on building this GATT,A,CA with the minimum insert
+    
+    SECTION("the graph should have 4 nodes") {
+        REQUIRE(result.graph.node_size() == 4);
+        
+        SECTION("the nodes should be pre-deletion, deleted sequence 1, deleted sequence 2, and post-deletion") {
+            CHECK(result.graph.node(0).sequence() == "GC");
+            CHECK(result.graph.node(1).sequence() == "ATTTAATTATTAATTAAATAATTTAATTTATTTATTATTATAAATTTATT");
+            CHECK(result.graph.node(2).sequence() == "AATATAAATTAAATA");
+            CHECK(result.graph.node(3).sequence() == "G");
+        }
+        
+        SECTION("the nodes should be numbered 1, 2, 3, and 4, in order") {
+            CHECK(result.graph.node(0).id() == 1);
+            CHECK(result.graph.node(1).id() == 2);
+            CHECK(result.graph.node(2).id() == 3);
+            CHECK(result.graph.node(3).id() == 4);
+        }
+    }
+    
+    SECTION("the graph should have 4 edges") {
+        REQUIRE(result.graph.edge_size() == 4);
+    }
+
+    SECTION("the graph should have 3 paths") {
+        REQUIRE(result.graph.path_size() == 3);
+        
+        // Find the primary path, and the paths for the two alleles
+        Path primary;
+        Path allele0;
+        Path allele1;
+        
+        for (size_t i = 0; i < result.graph.path_size(); i++) {
+            auto& path = result.graph.path(i);
+            
+            // Path names can't be empty for us to inspect them how we want.
+            REQUIRE(path.name().size() > 0);
+            
+            if (path.name() == "ref") {
+                primary = path;
+            } else if (path.name()[path.name().size() - 1] == '0') {
+                // The name ends with 0, so it ought to be the ref allele path
+                allele0 = path;
+            } else if (path.name()[path.name().size() - 1] == '1') {
+                // The name ends with 1, so it ought to be the alt allele path
+                allele1 = path;
+            }
+        }
+        
+        SECTION("the path for the ref allele should have 2 nodes") {
+            CHECK(allele0.mapping_size() == 2);
+        }
+        
+        SECTION("the path for the alt allele should be completely empty") {
+            CHECK(allele1.mapping_size() == 0);
+        }
+    }
+
+}
+
 
 TEST_CASE( "Multiple inserts don't cross-link", "[constructor]" ) {
 
