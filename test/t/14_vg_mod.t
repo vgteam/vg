@@ -62,9 +62,9 @@ is "$(vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate - 
 
 is $(vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -B 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -x - | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
-is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) a2ed07d72bda1bbaeb52df9de98013d5 "unchop correctly handles a graph with an inversion"
+is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 0e7a50bb7367d9f84fbc9bd78378d70f "unchop correctly handles a graph with an inversion"
 
-is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 876b72da24ab5a6359773661bc849318 "normalization works on a graph with an inversion"
+is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 84138fe8bd1015fb6b80278c2ed8f7c6 "normalization works on a graph with an inversion"
 
 vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -B 16 -Nz | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
@@ -99,9 +99,9 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg mod -D - | vg mod -U 10 - >c.vg
-is $(cat c.vg| vg mod -X 30 - | vg mod -w 100 - | vg stats -N -) 31 "dagify correctly calculates the minimum distance through the unrolled component"
-is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 2) 422 "dagify only takes one step past our component length limit"
+vg msga -f msgas/cycle.fa -b s1 -B 16 -t 1 | vg mod -D - | vg mod -U 10 - >c.vg
+is $(cat c.vg| vg mod -X 30 - | vg mod -w 100 - | vg stats -N -) 36 "dagify correctly calculates the minimum distance through the unrolled component"
+is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 2) 400 "dagify only takes one step past our component length limit"
 rm -f c.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -116,7 +116,7 @@ vg construct -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
 vg index -x 2snp.xg 2snp.vg
 vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
-vg index -x flat.xg -g flat.gcsa flat.vg
+vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f -1 -d\ ) d47169ce8fb4251904d1d2238a44555c "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
