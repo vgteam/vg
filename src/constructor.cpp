@@ -1224,10 +1224,23 @@ namespace vg {
 
                     if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
                         vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1));
-                        
-                        vvar->alt[alt_pos] = (allATGC(a)) ? a : "<INS>";
                         if (vvar->alt[alt_pos] == "<INS>"){
                             variant_acceptable = false;
+                        }
+                        else if (do_external_insertions){
+                                regex arrows("<|>");
+                                string var_name = regex_replace(vvar->alt[alt_pos], arrows, "");
+                            if (insertion_fasta->index->find(var_name) != insertion_fasta->index->end()){
+                                cerr << "Replacing insertion with sequence of " << var_name << endl;
+                                vvar->alt[alt_pos] = insertion_fasta->getSequence(var_name);
+                                vvar->updateAlleleIndexes();
+                            }
+                        }
+                        else if (allATGC(a)){
+                            // we don't have to do anything - our INS is already in the correct format!
+                        }
+                        else{
+
                         }
                     }
                     else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){

@@ -11,6 +11,7 @@
 #include <map>
 #include <cstdlib>
 #include <functional>
+#include <regex>
 
 #include "types.hpp"
 #include "progressive.hpp"
