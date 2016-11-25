@@ -48,12 +48,15 @@ Position make_position(id_t id, bool is_rev, off_t off);
 
 // xg/position traversal helpers with caching
 // used by the Sampler and by the Mapper
+string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the length of a Node from an xg::XG index, with cacheing of deserialized nodes.
 size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the character at a position in an xg::XG index, with cacheing of deserialized nodes.
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the characters at positions after the given position from an xg::XG index, with cacheing of deserialized nodes.
 map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum);
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 
 }
 

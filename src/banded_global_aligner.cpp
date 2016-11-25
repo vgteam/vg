@@ -358,7 +358,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8
         }
         if (top_diag_outside || top_diag_abutting) {
 #ifdef debug_banded_aligner_fill_matrix
-            cerr << "[BAMatrix::fill_matrix]: node still at top of matrix, adding implied gap to match of length " << cumulative_seq_len << " and initializing rest of column to -inf" << endl;
+            cerr << "[BAMatrix::fill_matrix]: node still at top of matrix, adding implied gap to match of length " << cumulative_seq_len << " with a match score of " << (int) match_score << " for a total score of " << match_score - gap_open - (cumulative_seq_len - 1) * gap_extend << " and initializing rest of column to -inf" << endl;
 #endif
             // match after implied gap along top edge
             match[idx] = match_score - gap_open - (cumulative_seq_len - 1) * gap_extend;
@@ -411,14 +411,14 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8
             cerr << "[BAMatrix::fill_matrix]: doing POA across boundary from " << seed_num << "-th seed node " << seed->node->id() << endl;
 #endif
             
+            // compute the interval of diagonals that this seed reaches
             int64_t seed_node_seq_len = seed->node->sequence().length();
-            
             int64_t seed_next_top_diag = seed->top_diag + seed_node_seq_len;
             int64_t seed_next_bottom_diag = seed->bottom_diag + seed_node_seq_len;
             
-            bool beyond_top_of_matrix = seed_next_top_diag < 0;
+            bool beyond_or_abutting_top_of_matrix = seed_next_top_diag <= 0;
             bool beyond_bottom_of_matrix = seed_next_bottom_diag >= (int64_t) read.length();
-            int64_t seed_next_top_diag_iter = beyond_top_of_matrix ? 0 : seed_next_top_diag;
+            int64_t seed_next_top_diag_iter = beyond_or_abutting_top_of_matrix ? 0 : seed_next_top_diag;
             int64_t seed_next_bottom_diag_iter = beyond_bottom_of_matrix ? (int64_t) read.length() - 1 : seed_next_bottom_diag;
             
 #ifdef debug_banded_aligner_fill_matrix
@@ -428,7 +428,10 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8
             idx = (seed_next_top_diag_iter - top_diag) * ncols;
             
             // may not be able to extend a match if at top of matrix
-            if (!beyond_top_of_matrix) {
+            if (!beyond_or_abutting_top_of_matrix) {
+#ifdef debug_banded_aligner_fill_matrix
+                cerr << "[BAMatrix::fill_matrix]: top cell in match matrix is reachable without a lead gap" << endl;
+#endif
                 diag_idx = (seed_next_top_diag_iter - seed_next_top_diag) * seed_node_seq_len + seed_node_seq_len - 1;
                 if (qual_adjusted) {
                     match_score = score_mat[25 * base_quality[seed_next_top_diag_iter] + 5 * nt_table[node_seq[0]] + nt_table[read[seed_next_top_diag_iter]]];
@@ -1152,20 +1155,23 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                 }
                 
                 int64_t seed_col = seed_ncols - 1;
-                int64_t seed_row = curr_diag - seed_extended_top_diag + (curr_mat == InsertCol);
+                int64_t seed_row = -(seed_extended_top_diag - top_diag) + i + (curr_mat == InsertCol);
                 next_idx = seed_row * seed_ncols + seed_col;
                 
 #ifdef debug_banded_aligner_traceback
-                cerr << "[BAMatrix::traceback_internal] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << ")" << endl;
+                cerr << "[BAMatrix::traceback_internal] checking seed rectangular coordinates (" << seed_row << ", " << seed_col << "), with indices calculated from current diagonal " << curr_diag << " (top diag " << top_diag << " + offset " << i << "), seed top diagonal " << seed->top_diag << ", seed seq length " << seed_ncols << " with insert column offset " << (curr_mat == InsertCol) << endl;
 #endif
                 
                 switch (curr_mat) {
                     case Match:
                     {
-                        // does match lead into a lead row gap?
-                        if (seed_row + seed_col == -seed_extended_top_diag) {
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_internal] traceback points to a lead column gap of length " << seed->cumulative_seq_len + seed_ncols << " with score " << -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend << endl;
+                        cerr << "[BAMatrix::traceback_internal] poa backwards from match, seed extended top diag " << seed_extended_top_diag << endl;
+#endif
+                        // does match lead into a lead row gap?
+                        if (seed->top_diag + seed_row + seed_col == -1) {
+#ifdef debug_banded_aligner_traceback
+                            cerr << "[BAMatrix::traceback_internal] traceback points to a lead column gap of length " << seed->cumulative_seq_len + seed_ncols << " with score " << (int) -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend << " extending to score here of " << (int) curr_score << " with match score " << (int) match_score << endl;
 #endif
                             // score of implied column gap
                             source_score = -gap_open - (seed->cumulative_seq_len + seed_ncols - 1) * gap_extend;
