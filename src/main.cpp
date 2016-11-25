@@ -6907,8 +6907,9 @@ void help_locify(char** argv){
          << "    -x, --xg-idx FILE    use this xg index" << endl
          << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
          << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
-         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl
-         << "    -b, --n-best N       keep only the N-best alleles by alignment support" << endl;
+         << "    -s, --sorted-loci FILE  write the non-nested loci out in their sorted order" << endl
+         << "    -b, --n-best N       keep only the N-best alleles by alignment support" << endl
+         << "    -o, --out-loci FILE  rewrite the loci with only N-best alleles kept" << endl;
         // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
@@ -6919,7 +6920,7 @@ int main_locify(int argc, char** argv){
     string xg_idx_name;
     bool name_alleles = false;
     bool forwardize = false;
-    string loci_out;
+    string loci_out, sorted_loci;
     int n_best = 0;
 
     if (argc <= 2){
@@ -6938,13 +6939,14 @@ int main_locify(int argc, char** argv){
             {"xg-idx", required_argument, 0, 'x'},
             {"name-alleles", no_argument, 0, 'n'},
             {"forwardize", no_argument, 0, 'f'},
+            {"sorted-loci", required_argument, 0, 's'},
             {"loci-out", required_argument, 0, 'o'},
             {"n-best", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:x:g:nfo:b:",
+        c = getopt_long (argc, argv, "hl:x:g:nfo:b:s:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -6975,6 +6977,10 @@ int main_locify(int argc, char** argv){
 
         case 'o':
             loci_out = optarg;
+            break;
+
+        case 's':
+            sorted_loci = optarg;
             break;
 
         case 'b':
@@ -7021,9 +7027,9 @@ int main_locify(int argc, char** argv){
     map<string, Alignment> alignments_with_loci;
     map<pos_t, set<string> > pos_to_loci;
     map<string, set<pos_t> > locus_to_pos;
-    map<string, map<string, int> > locus_allele_support;
+    map<string, map<int, int> > locus_allele_support;
     map<string, vector<int> > locus_to_best_n_alleles;
-    map<string, set<string> > locus_to_keep;
+    map<string, set<int> > locus_to_keep;
     int count = 0;
 
     std::function<void(Locus&)> lambda = [&](Locus& l){
@@ -7061,28 +7067,28 @@ int main_locify(int argc, char** argv){
             Locus matching;
             matching.set_name(l.name());
             if (name_alleles) {
-                stringstream ss;
                 //map<string, map<string, int > > locus_allele_names;
                 auto& allele = l.allele(best);
                 string s;
                 allele.SerializeToString(&s);
                 auto& l_names = locus_allele_names[l.name()];
                 auto f = l_names.find(s);
+                int name_int = 0;
                 if (f == l_names.end()) {
                     int next_id = l_names.size() + 1;
                     l_names[s] = next_id;
-                    ss << next_id;
+                    name_int = next_id;
                 } else {
-                    ss << f->second;
+                    name_int = f->second;
                 }
-                string allele_name = ss.str();
+                string allele_name = convert(name_int);
                 Path p;
                 p.set_name(allele_name);
                 *matching.add_allele() = p;
                 if (n_best) {
                     // record support for this allele
                     // we'll use to filter the locus records later
-                    locus_allele_support[l.name()][allele_name]++;
+                    locus_allele_support[l.name()][name_int]++;
                 }
             } else {
                 *matching.add_allele() = l.allele(best);
@@ -7129,7 +7135,7 @@ int main_locify(int argc, char** argv){
         for (auto& supp : locus_allele_support) {
             auto& name = supp.first;
             auto& alleles = supp.second;
-            map<int, string> ranked;
+            map<int, int> ranked;
             for (auto& allele : alleles) {
                 ranked[allele.second] = allele.first;
             }
@@ -7147,7 +7153,7 @@ int main_locify(int argc, char** argv){
             vector<Locus> kept;
             for (int i = 0; i < aln.locus_size(); ++i) {
                 auto& allele = aln.locus(i).allele(0);
-                if (locus_to_keep[aln.locus(i).name()].count(allele.name())) {
+                if (locus_to_keep[aln.locus(i).name()].count(atoi(allele.name().c_str()))) {
                     kept.push_back(aln.locus(i));
                 }
             }
@@ -7156,7 +7162,42 @@ int main_locify(int argc, char** argv){
                 *aln.add_locus() = l;
             }
         }
-        // TODO filter out non-n-best from the loci ??
+    }
+
+    if (n_best && !loci_out.empty()) {
+        // filter out non-n-best from the loci
+        if (!loci_file.empty()){
+            ofstream outloci(loci_out);
+            vector<Locus> buffer;
+            std::function<void(Locus&)> lambda = [&](Locus& l){
+                // remove the alleles which are to filter
+                //map<string, map<string, int > > locus_allele_names;
+                auto& allele_names = locus_allele_names[l.name()];
+                auto& to_keep = locus_to_keep[l.name()];
+                vector<Path> alleles_to_keep;
+                for (int i = 0; i < l.allele_size(); ++i) {
+                    auto allele = l.allele(i);
+                    string s; allele.SerializeToString(&s);
+                    auto& name = allele_names[s];
+                    if (to_keep.count(name)) {
+                        allele.set_name(convert(name));
+                        alleles_to_keep.push_back(allele);
+                    }
+                }
+                l.clear_allele();
+                for (auto& allele : alleles_to_keep) {
+                    *l.add_allele() = allele;
+                }
+                buffer.push_back(l);
+                stream::write_buffered(outloci, buffer, 100);
+            };
+            ifstream ifi(loci_file);
+            stream::for_each(ifi, lambda);
+            stream::write_buffered(outloci, buffer, 0);
+            outloci.close();
+        } else {
+            cerr << "[vg locify] Warning: empty locus file given, could not update loci." << endl;
+        }
     }
 
     // sort them using... ? ids?
@@ -7165,12 +7206,12 @@ int main_locify(int argc, char** argv){
              return *locus_to_pos[s1].begin() < *locus_to_pos[s2].begin();
          });
 
-    if (!loci_out.empty()) {
-        ofstream outloci(loci_out);
+    if (!sorted_loci.empty()) {
+        ofstream outsorted(sorted_loci);
         for (auto& name : non_nested_loci) {
-            outloci << name << endl;
+            outsorted << name << endl;
         }
-        outloci.close();
+        outsorted.close();
     }
 
     vector<Alignment> output_buf;
