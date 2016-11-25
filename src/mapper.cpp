@@ -2607,7 +2607,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
 
                     // do the alignment
-                    // always use the banded global mode
+                    // it would be good to always use the banded global mode
+                    // but we can't because it introduces artifacts instead of soft clips
+                    // correct resolution will be an update to GSSW to give a bonus to full-length alignments
                     //bool banded_global = true;
                     bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
                     id_t pinned_id = 0;
