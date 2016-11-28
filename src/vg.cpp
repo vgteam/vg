@@ -6282,18 +6282,16 @@ Alignment VG::align(const Alignment& alignment,
 
     auto aln = alignment;
 
-    /*
-    for(auto& character : *(aln.mutable_sequence())) {
-        // Make sure everything is upper-case for alignment.
-        character = toupper(character);
-    }
-    */
-    //cerr << "aligning " << pb2json(alignment) << " to " << pb2json(graph) << endl;
-    //cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
+#ifdef debug
+    cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
+#endif
+    
 
     auto do_align = [&](Graph& g) {
-        //write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
-        //serialize_to_file(hash_alignment(alignment) + ".vg");
+#ifdef debug
+        write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
+        serialize_to_file(hash_alignment(alignment) + ".vg");
+#endif
         if (aligner && qual_adj_aligner) {
             cerr << "error:[VG] cannot both adjust and not adjust alignment for base quality" << endl;
             exit(1);
@@ -6343,16 +6341,6 @@ Alignment VG::align(const Alignment& alignment,
         VG dag = unfold(max_length, unfold_trans)
             .dagify(max_length, dagify_trans, max_length, component_length_max);
 
-        /*
-        // enforce characters in the graph to be upper case
-        dag.for_each_node_parallel([](Node* node) {
-                for(auto& character : *(node->mutable_sequence())) {
-                    // Make sure everything is upper-case for alignment.
-                    character = toupper(character);
-                }
-            });
-        */
-
         // overlay the translations
         auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 
@@ -6367,7 +6355,7 @@ Alignment VG::align(const Alignment& alignment,
         // run the alignment
         do_align(dag.graph);
 
-        /*
+#ifdef debug
         auto check_aln = [&](VG& graph, const Alignment& a) {
             if (a.has_path()) {
                 auto seq = graph.path_string(a.path());
@@ -6384,12 +6372,15 @@ Alignment VG::align(const Alignment& alignment,
             }
         };
         check_aln(dag, aln);
-        */
+#endif
+        
         translate_nodes(aln, trans, [&](id_t node_id) {
                 // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
                 return get_node(node_id)->sequence().size();
             });
-        //check_aln(*this, aln);
+#ifdef debug
+        check_aln(*this, aln);
+#endif
 
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
