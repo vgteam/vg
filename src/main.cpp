@@ -7120,7 +7120,6 @@ void vg_help(char** argv) {
          << "  -- call          prune the graph by genotyping a pileup" << endl
          << "  -- genotype      compute genotypes from aligned reads" << endl
          << "  -- compare       compare the kmer space of two graphs" << endl
-         << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments" << endl
          << "  -- circularize   circularize a path within a graph." << endl
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
