@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <getopt.h>
 #include <sys/stat.h>
-#include "gcsa/gcsa.h"
-#include "gcsa/algorithms.h"
+#include "gcsa.h"
+#include "algorithms.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
@@ -5319,7 +5319,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, 0, false, banded_global, debug);
+        alignment = graph->align(seq, &aligner, 0, false, false, banded_global, debug);
     }
 
     if (!seq_name.empty()) {

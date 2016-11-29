@@ -4,7 +4,7 @@
 #include <set>
 #include <regex>
 #include <stdlib.h>
-#include "gcsa/gcsa.h"
+#include "gcsa.h"
 #include "vg.hpp"
 #include "index.hpp"
 #include "xg.hpp"
