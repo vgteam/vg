@@ -54,7 +54,7 @@ namespace vg {
         
         // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                            bool pinned, bool pin_left, int32_t max_alt_alns,
+                            bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
                             bool print_score_matrices = false);
         
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
@@ -86,7 +86,7 @@ namespace vg {
         // the final base of the read sequence and the final base of a sink node sequence
         //
         // assumes that graph is topologically sorted by node index
-        void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
+        void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
                 
         // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -95,7 +95,7 @@ namespace vg {
         //
         // assumes that graph is topologically sorted by node index
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                bool pin_left, int32_t max_alt_alns);
+                                bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0);
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
@@ -157,11 +157,11 @@ namespace vg {
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
-        void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
+        void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                bool pin_left, int32_t max_alt_alns);
+                                bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0);
         
         
         void init_mapping_quality(double gc_content);
@@ -180,7 +180,7 @@ namespace vg {
                                           double gc_content);
         
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                            bool pinned, bool pin_left, int32_t max_alt_alns,
+                            bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
                             bool print_score_matrices = false);
         
 

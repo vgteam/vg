@@ -84,7 +84,7 @@ namespace vg {
                 
                 Aligner aligner;
                 
-                Node* n0 = graph.create_node("AGTG");
+                Node* n0 = graph.create_node("GGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
                 Node* n3 = graph.create_node("TGAAGT");
@@ -94,7 +94,7 @@ namespace vg {
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
                 
-                string read = string("AGTGCTGAAGT");
+                string read = string("GGTGCTGAAGT");
                 Alignment aln;
                 aln.set_sequence(read);
                 
@@ -201,7 +201,7 @@ namespace vg {
                 
                 Aligner aligner;
                 
-                Node* n0 = graph.create_node("AGTG");
+                Node* n0 = graph.create_node("TGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
                 Node* n3 = graph.create_node("TGAAGC");
@@ -211,7 +211,7 @@ namespace vg {
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
                 
-                string read = string("AGTGCTGAAGT");
+                string read = string("TGTGCTGAAGT");
                 Alignment aln;
                 aln.set_sequence(read);
                 
@@ -260,7 +260,7 @@ namespace vg {
                 
                 Aligner aligner;
                 
-                Node* n0 = graph.create_node("AGTG");
+                Node* n0 = graph.create_node("CGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
                 Node* n3 = graph.create_node("TGAAGC");
@@ -270,7 +270,7 @@ namespace vg {
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
                 
-                string read = string("AGTGCTGAAGT");
+                string read = string("CGTGCTGAAGT");
                 Alignment aln;
                 aln.set_sequence(read);
                 
@@ -919,6 +919,600 @@ namespace vg {
                 REQUIRE(path.mapping(1).edit(0).to_length() == 1);
                 REQUIRE(path.mapping(1).edit(0).sequence().empty());
             }
+            
+            SECTION( "Right-pinned alignment will take a mismatch near the left tail to gain a full-length alignment bonus" ) {
+                
+                VG graph;
+                
+                Aligner aligner(1, 4, 6, 1);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AATCCCAGGCTGAAGT");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                Node* pinned_node = n3;
+                bool pin_left = false;
+                int8_t full_length_bonus = 3;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 2);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 2);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(0).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(0).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(0).edit(1).sequence() == "T");
+                
+                REQUIRE(path.mapping(0).edit(2).from_length() == 6);
+                REQUIRE(path.mapping(0).edit(2).to_length() == 6);
+                REQUIRE(path.mapping(0).edit(2).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 6);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 6);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                // score is correct
+                REQUIRE(aln.score() == 2 - 4 + 6 + 1 + 6 + full_length_bonus);
+            }
+            
+            SECTION( "Left-pinned alignment will take a mismatch near the right tail to gain a full-length alignment bonus" ) {
+                
+                VG graph;
+                
+                Aligner aligner(1, 4, 6, 1);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGACGT");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                Node* pinned_node = n0;
+                bool pin_left = true;
+                int8_t full_length_bonus = 3;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 3);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 3);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "C");
+                
+                REQUIRE(path.mapping(2).edit(2).from_length() == 2);
+                REQUIRE(path.mapping(2).edit(2).to_length() == 2);
+                REQUIRE(path.mapping(2).edit(2).sequence().empty());
+                
+                // score is correct
+                REQUIRE(aln.score() == 9 + 1 + 3 - 4 + 2 + full_length_bonus);
+            }
+            
+            SECTION( "Pinned alignment will take a mismatch on the tail to gain a full-length alignment bonus if it is greater than the mismatch penalty" ) {
+                
+                VG graph;
+                
+                Aligner aligner(1, 4, 6, 1);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGAAGG");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                Node* pinned_node = n0;
+                bool pin_left = true;
+                int8_t full_length_bonus = 5;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+                
+                // score is correct
+                REQUIRE(aln.score() == 9 + 1 + 5 - 4 + full_length_bonus);
+            }
+            
+            SECTION( "Pinned alignment will not take a mismatch on the tail to gain a full-length alignment bonus if it is less than the mismatch penalty" ) {
+                
+                VG graph;
+                
+                Aligner aligner(1, 4, 6, 1);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGAAGG");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                Node* pinned_node = n0;
+                bool pin_left = true;
+                int8_t full_length_bonus = 2;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 0);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+                
+                // score is correct
+                REQUIRE(aln.score() == 9 + 1 + 5);
+            }
+        }
+        
+        TEST_CASE( "Pinned alignment behaves correctly with quality adjusted alignments",
+                  "[alignment][pinned][mapping]" ) {
+        
+            SECTION( "Quality adjusted left-pinned alignment runs" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGAAGG");
+                string qual = string("HHHHHHHHHHHHHHHH");
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                Node* pinned_node = n0;
+                bool pin_left = true;
+                int8_t full_length_bonus = 5;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+            }
+            
+            SECTION( "Quality adjusted right-pinned alignment runs" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGAAGG");
+                string qual = string("HHHHHHHHHHHHHHHH");
+
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                Node* pinned_node = n3;
+                bool pin_left = false;
+                int8_t full_length_bonus = 5;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+            }
+            
+            SECTION( "Quality adjusted pinned alignment runs with non-trivial quality scores" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGAAGG");
+                string qual = string("HHHDDD<<<88800((");
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                Node* pinned_node = n3;
+                bool pin_left = false;
+                int8_t full_length_bonus = 5;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+            }
+            
+            SECTION( "Quality adjusted pinned alignment runs with non-trivial quality scores and score scaling" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 64);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAACCCAGGCTGAAGG");
+                string qual = string("HHHDDD<<<88800((");
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                Node* pinned_node = n3;
+                bool pin_left = false;
+                int8_t full_length_bonus = 5;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 9);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+            }
+            
+            SECTION( "Quality adjusted pinned alignment runs with all features activated" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 64);
+                
+                Node* n0 = graph.create_node("AAACCCAGG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("CAACCCAGGCTGAAGG");
+                string qual = string("HHHDDD<<<88800HH");
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                Node* pinned_node = n0;
+                bool pin_left = true;
+                int8_t full_length_bonus = 3;
+                
+                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                const Path& path = aln.path();
+                
+                // is a pinned alignment
+                if (pin_left) {
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
+                }
+                else {
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
+                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
+                }
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(0).edit(0).sequence() == "C");
+                
+                REQUIRE(path.mapping(0).edit(1).from_length() == 8);
+                REQUIRE(path.mapping(0).edit(1).to_length() == 8);
+                REQUIRE(path.mapping(0).edit(1).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 5);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(1).from_length() == 0);
+                REQUIRE(path.mapping(2).edit(1).to_length() == 1);
+                REQUIRE(path.mapping(2).edit(1).sequence() == "G");
+            }
         }
         
         TEST_CASE( "Pinned multi-alignment produces correct alternate alignments in different traceback scenarios",
@@ -1431,6 +2025,8 @@ namespace vg {
             // TODO: temporarily disabling this test because it seems to be hitting the E matrix bug
             // in gssw after only the sixth alternate alignment--this will likely need to be addressed
             // before the multi alignment becomes practical
+            // Also, multi-alignment can produce duplicate alignments with a gap bridging them to the pinned
+            // end now because the gap can be located on the final node or the dummy node
             
 //            SECTION( "Pinned multi-alignment does not produce duplicate alignments" ) {
 //                
