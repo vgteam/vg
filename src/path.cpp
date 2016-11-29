@@ -131,6 +131,8 @@ void Paths::extend(Paths& p) {
     for (auto& l : p._paths) {
         const string& name = l.first;
         list<Mapping>& path = l.second;
+        // Make sure we preserve empty paths
+        get_create_path(name);
         for (auto& m : path) {
             append_mapping(name, m);
         }
@@ -146,6 +148,8 @@ void Paths::append(Paths& paths) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
         const list<Mapping>& path = p.second;
+        // Make sure we preserve empty paths
+        get_create_path(name);
         for (auto& m : path) {
             append_mapping(name, m);
         }
@@ -160,6 +164,8 @@ void Paths::append(Paths& paths) {
 void Paths::append(Graph& g) {
     for (int i = 0; i < g.path_size(); ++i) {
         const Path& p = g.path(i);
+        // Make sure we preserve empty paths
+        get_create_path(p.name());
         for (int j = 0; j < p.mapping_size(); ++j) {
             const Mapping& m = p.mapping(j);
             append_mapping(p.name(), m);
