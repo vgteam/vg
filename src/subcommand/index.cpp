@@ -16,7 +16,8 @@
 #include "../vg_set.hpp"
 #include "../utility.hpp"
 
-#include "gcsa.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/algorithms.h"
 
 using namespace std;
 using namespace vg;
@@ -674,16 +675,16 @@ int main_index(int argc, char** argv) {
         // build the GCSA index
         gcsa::GCSA* gcsa_index = new gcsa::GCSA(input_graph, params);
 
-        if (verify_index) {
-            //cerr << "verifying index" << endl;
-            if (!gcsa_index->verifyIndex(input_graph)) {
-                cerr << "[vg::main]: GCSA2 index verification failed" << endl;
-            }
-        }
-
         // build the LCP array
         string lcp_name = gcsa_name + ".lcp";
         gcsa::LCPArray* lcp_array = new gcsa::LCPArray(input_graph, params);
+
+        if (verify_index) {
+            //cerr << "verifying index" << endl;
+            if (!gcsa::verifyIndex(*gcsa_index, lcp_array, input_graph)) {
+                cerr << "[vg::main]: GCSA2 index verification failed" << endl;
+            }
+        }
 
         // clean up input graph temp files
         if (dbg_names.empty()) {

@@ -153,6 +153,17 @@ public:
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_0 and
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?
     bool alt_paths = false;
+
+    // Should we also store the alt_paths as loci?
+    // e.g.
+    // Locus{
+    //  Name: locus1,
+    //  paths: [alt1, alt2, alt3]
+    // }
+    //
+    // Hacky variant index: map<string, Locus> where
+    // string is a string name for the VCF entry (referenceID_contig_pos_SVTYPE_hash(alt_sequence))
+    bool alts_as_loci = false;
     
     // If true, break boring sequence into pieces greedily. If false, divide
     // over-long nodes into more even pieces.

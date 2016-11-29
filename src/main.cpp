@@ -4,9 +4,8 @@
 #include <cstdio>
 #include <getopt.h>
 #include <sys/stat.h>
-#include "gcsa.h"
-// From gcsa2
-#include "files.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/algorithms.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
@@ -1781,7 +1780,7 @@ int main_msga(int argc, char** argv) {
     int context_depth = 7;
     // same here; initial clustering
     int thread_extension = 10;
-    float min_identity = 0.75;
+    float min_identity = 0.0;
     int band_width = 256;
     size_t doubling_steps = 3;
     bool debug = false;
@@ -1794,7 +1793,7 @@ int main_msga(int argc, char** argv) {
     bool allow_nonpath = false;
     int iter_max = 1;
     int max_mem_length = 0;
-    int min_mem_length = 0;
+    int min_mem_length = 8;
     bool greedy_accept = false;
     float accept_identity = 0;
     int max_target_factor = 100;
@@ -2060,22 +2059,38 @@ int main_msga(int argc, char** argv) {
         names_in_order.push_back(name);
     }
 
+    // always go from biggest to smallest in progression
+    sort(names_in_order.begin(), names_in_order.end(),
+         [&strings](const string& s1, const string& s2) {
+             return strings[s1].size() > strings[s2].size(); });
+
     // align, include, repeat
 
     if (debug) cerr << "preparing initial graph" << endl;
 
+    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
+    // limit max node size
+    if (!node_max) node_max = 2*idx_kmer_size;
+
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
-        auto build_graph = [&graph](const string& seq, const string& name) {
-            auto node = graph->create_node(seq);
-            Path path;
+        auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
+            graph->create_node(seq);
+            graph->dice_nodes(node_max);
+            graph->sort();
+            graph->compact_ids();
+            // the graph will have a single embedded path in it
+            Path& path = *graph->graph.add_path();
             path.set_name(name);
-            auto mapping = path.add_mapping();
-            mapping->mutable_position()->set_node_id(node->id());
-            auto edit = mapping->add_edit();
-            edit->set_from_length(node->sequence().size());
-            edit->set_to_length(node->sequence().size());
+            graph->for_each_node([&path](Node* node) {
+                    auto mapping = path.add_mapping();
+                    mapping->mutable_position()->set_node_id(node->id());
+                    auto edit = mapping->add_edit();
+                    edit->set_from_length(node->sequence().size());
+                    edit->set_to_length(node->sequence().size());
+                });
             graph->paths.extend(path);
+            graph->sync_paths(); // sync the paths
         };
         // what's the first sequence?
         if (base_seq_name.empty()) {
@@ -2085,12 +2100,7 @@ int main_msga(int argc, char** argv) {
         build_graph(strings[base_seq_name], base_seq_name);
     }
 
-    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
-    // limit max node size
-    if (!node_max) node_max = 2*idx_kmer_size;
-    graph->dice_nodes(node_max);
-    graph->sort();
-    graph->compact_ids();
+    //cerr << "path going in " << pb2json(graph->graph.path(0)) << endl;
 
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
@@ -2104,13 +2114,17 @@ int main_msga(int argc, char** argv) {
 
     auto rebuild = [&](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
-
+        graph->sort();
+        graph->sync_paths();
+        graph->rebuild_indexes();
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
         if (lcpidx) delete lcpidx;
 
         if (debug) cerr << "building xg index" << endl;
+        graph->sync_paths();
+        graph->paths.to_graph(graph->graph);
         xgidx = new xg::XG(graph->graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;
@@ -2150,7 +2164,7 @@ int main_msga(int argc, char** argv) {
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
             mapper->init_node_cache();
-
+            mapper->init_node_pos_cache();
             mapper->mem_threading = true;
         }
     };
@@ -2161,11 +2175,21 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& name : names_in_order) {
+        //cerr << "do... " << name << " ?" << endl;
         if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         auto& seq = strings[name];
-        //graph->serialize_to_file("msga-pre-" + name + ".vg");
+        //cerr << "doing... " << name << endl;
+        /*
+        {
+            
+            graph->serialize_to_file("msga-pre-" + name + ".vg");
+            ofstream db_out("msga-pre-" + name + ".xg");
+            xgidx->serialize(db_out);
+            db_out.close();
+        }
+        */
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
@@ -2176,16 +2200,22 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
             Alignment aln = simplify(mapper->align(seq, 0, sens_step, max_mem_length, band_width));
-            auto aln_seq = graph->path_string(aln.path());
-            if (aln_seq != seq) {
-                cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
-                cerr << "expected " << seq << endl;
-                cerr << "got      " << aln_seq << endl;
-                ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
-                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                f.close();
-                graph->serialize_to_file(name + "-corrupted-alignment.vg");
-                exit(1);
+            if (aln.path().mapping_size()) {
+                auto aln_seq = graph->path_string(aln.path());
+                if (aln_seq != seq) {
+                    cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
+                    cerr << "expected " << seq << endl;
+                    cerr << "got      " << aln_seq << endl;
+                    ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
+                    stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                    f.close();
+                    graph->serialize_to_file(name + "-corrupted-alignment.vg");
+                    exit(1);
+                }
+            } else {
+                Edit* edit = aln.mutable_path()->add_mapping()->add_edit();
+                edit->set_sequence(aln.sequence());
+                edit->set_to_length(aln.sequence().size());
             }
             alns.push_back(aln);
             //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
@@ -4929,6 +4959,7 @@ void help_align(char** argv) {
          << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -D, --debug           print out score matrices and other debugging info" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
@@ -4955,6 +4986,7 @@ int main_align(int argc, char** argv) {
     int gap_extend = 1;
     string ref_seq;
     bool debug = false;
+    bool banded_global = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4972,11 +5004,12 @@ int main_align(int argc, char** argv) {
             {"gap-extend", required_argument, 0, 'e'},
             {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
+            {"banded-global", no_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:b",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5021,6 +5054,10 @@ int main_align(int argc, char** argv) {
             debug = true;
             break;
 
+        case 'b':
+            banded_global = true;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -5048,7 +5085,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, aligner, 0, debug);
+        alignment = graph->align(seq, &aligner, 0, 0, false, banded_global, debug);
     }
 
     if (!seq_name.empty()) {
@@ -5080,8 +5117,6 @@ void help_map(char** argv) {
          << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-         << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
-         << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
          << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -I, --quality STR     Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
@@ -5185,12 +5220,10 @@ int main_map(int argc, char** argv) {
     float accept_identity = 0;
     size_t kmer_min = 8;
     int softclip_threshold = 0;
-    bool build_in_memory = false;
     int max_mem_length = 0;
     int min_mem_length = 0;
     bool mem_threading = false;
     int max_target_factor = 100;
-    bool in_mem_path_only = false;
     int buffer_size = 100;
     int match = 1;
     int mismatch = 4;
@@ -5247,8 +5280,6 @@ int main_map(int argc, char** argv) {
                 {"always-rescue", no_argument, 0, 'U'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
-                {"in-memory", no_argument, 0, 'V'},
-                {"in-mem-path-only", no_argument, 0, 'O'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
@@ -5269,7 +5300,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:wW:a2:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:",
                          long_options, &option_index);
 
 
@@ -5287,10 +5318,6 @@ int main_map(int argc, char** argv) {
             qual = string_quality_char_to_short(string(optarg));
                 break;
 
-        case 'V':
-            build_in_memory = true;
-            break;
-
         case 'd':
             db_name = optarg;
             break;
@@ -5305,11 +5332,6 @@ int main_map(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
-            break;
-
-
-        case 'O':
-            in_mem_path_only = true;
             break;
 
         case 'Q':
@@ -5567,48 +5589,35 @@ int main_map(int argc, char** argv) {
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
 
-    // for testing, we sometimes want to run the mapper on indexes we build in memory
-    if (build_in_memory) {
-        VG* graph;
-        get_input_file(file_name, [&](istream& in) {
-            graph = new VG(in);
-        });
-        xindex = new xg::XG(graph->graph);
-        assert(kmer_size);
-        int doubling_steps = 3;
-        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, in_mem_path_only, false, 2);
-        delete graph;
-    } else {
-        // We try opening the file, and then see if it worked
-        ifstream xg_stream(xg_name);
+    // We try opening the file, and then see if it worked
+    ifstream xg_stream(xg_name);
 
-        if(xg_stream) {
-            // We have an xg index!
-            if(debug) {
-                cerr << "Loading xg index " << xg_name << "..." << endl;
-            }
-            xindex = new xg::XG(xg_stream);
+    if(xg_stream) {
+        // We have an xg index!
+        if(debug) {
+            cerr << "Loading xg index " << xg_name << "..." << endl;
         }
+        xindex = new xg::XG(xg_stream);
+    }
 
-        ifstream gcsa_stream(gcsa_name);
-        if(gcsa_stream) {
-            // We have a GCSA index too!
-            if(debug) {
-                cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
-            }
-            gcsa = new gcsa::GCSA();
-            gcsa->load(gcsa_stream);
+    ifstream gcsa_stream(gcsa_name);
+    if(gcsa_stream) {
+        // We have a GCSA index too!
+        if(debug) {
+            cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
+        gcsa = new gcsa::GCSA();
+        gcsa->load(gcsa_stream);
+    }
 
-        string lcp_name = gcsa_name + ".lcp";
-        ifstream lcp_stream(lcp_name);
-        if (lcp_stream) {
-            if(debug) {
-                cerr << "Loading LCP index " << gcsa_name << "..." << endl;
-            }
-            lcp = new gcsa::LCPArray();
-            lcp->load(lcp_stream);
+    string lcp_name = gcsa_name + ".lcp";
+    ifstream lcp_stream(lcp_name);
+    if (lcp_stream) {
+        if(debug) {
+            cerr << "Loading LCP index " << gcsa_name << "..." << endl;
         }
+        lcp = new gcsa::LCPArray();
+        lcp->load(lcp_stream);
     }
 
     Index* idx = nullptr;
@@ -6666,20 +6675,6 @@ int main_view(int argc, char** argv) {
             << endl;
     }
 
-void help_deconstruct(char** argv){
-    cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
-         << "options: " << endl
-         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
-         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
-         << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
-         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
-         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
-         << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
-         << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
-         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
-         << endl;
-}
-
 void help_locify(char** argv){
     cerr << "usage: " << argv[0] << " locify [options] " << endl
          << "    -l, --loci FILE      input loci over which to locify the alignments" << endl
@@ -6687,7 +6682,9 @@ void help_locify(char** argv){
          << "    -x, --xg-idx FILE    use this xg index" << endl
          << "    -n, --name-alleles   generate names for each allele rather than using full Paths" << endl
          << "    -f, --forwardize     flip alignments on the reverse strand to the forward" << endl
-         << "    -o, --loci-out FILE  write the non-nested loci out in their sorted order" << endl;
+         << "    -s, --sorted-loci FILE  write the non-nested loci out in their sorted order" << endl
+         << "    -b, --n-best N       keep only the N-best alleles by alignment support" << endl
+         << "    -o, --out-loci FILE  rewrite the loci with only N-best alleles kept" << endl;
         // TODO -- add some basic filters that are useful downstream in whatshap
 }
 
@@ -6698,7 +6695,8 @@ int main_locify(int argc, char** argv){
     string xg_idx_name;
     bool name_alleles = false;
     bool forwardize = false;
-    string loci_out;
+    string loci_out, sorted_loci;
+    int n_best = 0;
 
     if (argc <= 2){
         help_locify(argv);
@@ -6716,12 +6714,14 @@ int main_locify(int argc, char** argv){
             {"xg-idx", required_argument, 0, 'x'},
             {"name-alleles", no_argument, 0, 'n'},
             {"forwardize", no_argument, 0, 'f'},
+            {"sorted-loci", required_argument, 0, 's'},
             {"loci-out", required_argument, 0, 'o'},
+            {"n-best", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:x:g:nfo:",
+        c = getopt_long (argc, argv, "hl:x:g:nfo:b:s:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -6752,6 +6752,15 @@ int main_locify(int argc, char** argv){
 
         case 'o':
             loci_out = optarg;
+            break;
+
+        case 's':
+            sorted_loci = optarg;
+            break;
+
+        case 'b':
+            n_best = atoi(optarg);
+            name_alleles = true;
             break;
 
         case 'h':
@@ -6793,7 +6802,11 @@ int main_locify(int argc, char** argv){
     map<string, Alignment> alignments_with_loci;
     map<pos_t, set<string> > pos_to_loci;
     map<string, set<pos_t> > locus_to_pos;
+    map<string, map<int, int> > locus_allele_support;
+    map<string, vector<int> > locus_to_best_n_alleles;
+    map<string, set<int> > locus_to_keep;
     int count = 0;
+
     std::function<void(Locus&)> lambda = [&](Locus& l){
         locus_names.push_back(l.name());
         set<vg::id_t> nodes_in_locus;
@@ -6829,23 +6842,29 @@ int main_locify(int argc, char** argv){
             Locus matching;
             matching.set_name(l.name());
             if (name_alleles) {
-                stringstream ss;
                 //map<string, map<string, int > > locus_allele_names;
                 auto& allele = l.allele(best);
                 string s;
                 allele.SerializeToString(&s);
                 auto& l_names = locus_allele_names[l.name()];
                 auto f = l_names.find(s);
+                int name_int = 0;
                 if (f == l_names.end()) {
                     int next_id = l_names.size() + 1;
                     l_names[s] = next_id;
-                    ss << next_id;
+                    name_int = next_id;
                 } else {
-                    ss << f->second;
+                    name_int = f->second;
                 }
+                string allele_name = convert(name_int);
                 Path p;
-                p.set_name(ss.str());
+                p.set_name(allele_name);
                 *matching.add_allele() = p;
+                if (n_best) {
+                    // record support for this allele
+                    // we'll use to filter the locus records later
+                    locus_allele_support[l.name()][name_int]++;
+                }
             } else {
                 *matching.add_allele() = l.allele(best);
                 // TODO get quality score relative to this specific allele / alignment
@@ -6885,18 +6904,89 @@ int main_locify(int argc, char** argv){
         }
     }
 
+    // filter out the non-best alleles
+    if (n_best) {
+        // find the n-best
+        for (auto& supp : locus_allele_support) {
+            auto& name = supp.first;
+            auto& alleles = supp.second;
+            map<int, int> ranked;
+            for (auto& allele : alleles) {
+                ranked[allele.second] = allele.first;
+            }
+            auto& to_keep = locus_to_keep[name];
+            for (auto r = ranked.rbegin(); r != ranked.rend(); ++r) {
+                to_keep.insert(r->second);
+                if (to_keep.size() == n_best) {
+                    break;
+                }
+            }
+        }
+        // filter out non-n-best from the alignments
+        for (auto& a : alignments_with_loci) {
+            auto& aln = a.second;
+            vector<Locus> kept;
+            for (int i = 0; i < aln.locus_size(); ++i) {
+                auto& allele = aln.locus(i).allele(0);
+                if (locus_to_keep[aln.locus(i).name()].count(atoi(allele.name().c_str()))) {
+                    kept.push_back(aln.locus(i));
+                }
+            }
+            aln.clear_locus();
+            for (auto& l : kept) {
+                *aln.add_locus() = l;
+            }
+        }
+    }
+
+    if (n_best && !loci_out.empty()) {
+        // filter out non-n-best from the loci
+        if (!loci_file.empty()){
+            ofstream outloci(loci_out);
+            vector<Locus> buffer;
+            std::function<void(Locus&)> lambda = [&](Locus& l){
+                // remove the alleles which are to filter
+                //map<string, map<string, int > > locus_allele_names;
+                auto& allele_names = locus_allele_names[l.name()];
+                auto& to_keep = locus_to_keep[l.name()];
+                vector<Path> alleles_to_keep;
+                for (int i = 0; i < l.allele_size(); ++i) {
+                    auto allele = l.allele(i);
+                    string s; allele.SerializeToString(&s);
+                    auto& name = allele_names[s];
+                    if (to_keep.count(name)) {
+                        allele.set_name(convert(name));
+                        alleles_to_keep.push_back(allele);
+                    }
+                }
+                l.clear_allele();
+                for (auto& allele : alleles_to_keep) {
+                    *l.add_allele() = allele;
+                }
+                buffer.push_back(l);
+                stream::write_buffered(outloci, buffer, 100);
+            };
+            ifstream ifi(loci_file);
+            stream::for_each(ifi, lambda);
+            stream::write_buffered(outloci, buffer, 0);
+            outloci.close();
+        } else {
+            cerr << "[vg locify] Warning: empty locus file given, could not update loci." << endl;
+        }
+    }
+
     // sort them using... ? ids?
     sort(non_nested_loci.begin(), non_nested_loci.end(),
          [&locus_to_pos](const string& s1, const string& s2) {
              return *locus_to_pos[s1].begin() < *locus_to_pos[s2].begin();
          });
 
-    if (!loci_out.empty()) {
-        ofstream outloci(loci_out);
+    if (!sorted_loci.empty()) {
+        ofstream outsorted(sorted_loci);
         for (auto& name : non_nested_loci) {
-            outloci << name << endl;
+            outsorted << name << endl;
         }
-        outloci.close();
+        outsorted.close();
     }
 
     vector<Alignment> output_buf;
@@ -6917,6 +7007,20 @@ int main_locify(int argc, char** argv){
     stream::write_buffered(cout, output_buf, 0);        
     
     return 0;
+}
+
+void help_deconstruct(char** argv){
+    cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
+         << "options: " << endl
+         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
+         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
+         << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
+         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
+         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+         << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
+         << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
+         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
+         << endl;
 }
 
 int main_deconstruct(int argc, char** argv){

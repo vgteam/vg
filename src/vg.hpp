@@ -15,8 +15,8 @@
 #include <random>
 
 #include "gssw.h"
-#include "gcsa.h"
-#include "lcp.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/lcp.h"
 #include "gssw_aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
@@ -789,16 +789,22 @@ public:
     /// Will modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
-                    Aligner& aligner,
+                    Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     /// Will modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
-                    Aligner& aligner,
+                    Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -807,6 +813,9 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
@@ -814,6 +823,9 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
@@ -821,16 +833,22 @@ public:
     /// Will modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner& qual_adj_aligner,
+                                  QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
+                                  int64_t pinned_node_id = 0,
+                                  bool pin_left = false,
+                                  bool banded_global = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     /// Will modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const string& sequence,
-                                  QualAdjAligner& qual_adj_aligner,
+                                  QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
+                                  int64_t pinned_node_id = 0,
+                                  bool pin_left = false,
+                                  bool banded_global = false,
                                   bool print_score_matrices = false);
     
     
@@ -1112,8 +1130,11 @@ private:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
-                    size_t max_query_graph_ratio,
-                    bool print_score_matrices);
+                    size_t max_query_graph_ratio = 0,
+                    int64_t pinned_node_id = 0,
+                    bool pin_left = false,
+                    bool banded_global = false,
+                    bool print_score_matrices = false);
 
 
 public:

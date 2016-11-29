@@ -9,9 +9,9 @@ PATH=../bin:$PATH # for vg
 plan tests 6
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
-vg index -x tiny.vg.xg tiny.vg
+vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
 vg sim -s 1337 -n 100 -x tiny.vg.xg -l 30 > reads.txt
-vg map -r reads.txt -k 8 -V tiny.vg > tiny.gam
+vg map -r reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
 
 vg genotype tiny.vg tiny.gam.index > /dev/null
@@ -23,17 +23,17 @@ is "$?" "0" "vg genotype runs successfully when emitting vcf"
 rm -Rf tiny.vg tiny.vg.xg tiny.gam.index tiny.gam reads.txt
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
-vg index -x tiny.vg.xg tiny.vg
+vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
 # Simulate 0 reads
 vg sim -s 1337 -n 0 -x tiny.vg.xg -l 30 > reads.txt
-vg map -r reads.txt -k 8 -V tiny.vg > tiny.gam
+vg map -r reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
 
 is "$(vg genotype tiny.vg tiny.gam.index -Sp --ref notARealPath 2>&1 | grep 'Found 0 superbubbles' | wc -l)" "1" "vg genotype finds no superbubbles for an empty subset"
 
 is "$(vg genotype tiny.vg tiny.gam.index -vSp 2>&1 | grep 'Found 9 superbubbles' | wc -l)" "1" "vg genotype finds few superbubbles for a subset of just the reference"
 
-rm -Rf tiny.vg tiny.vg.xg tiny.gam.index tiny.gam reads.txt
+rm -Rf tiny.vg tiny.vg.xg tiny.vg.gcsa tiny.gam.index tiny.gam reads.txt
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg index -x flat.xg -g flat.gcsa -k 8 flat.vg
