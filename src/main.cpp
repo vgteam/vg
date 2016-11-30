@@ -6057,11 +6057,11 @@ int main_map(int argc, char** argv) {
                  &max_mem_length,
                  &band_width,
                  &pair_window,
-                 &only_top_pairs,
+                 &top_pairs_only,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, only_top_pairs);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6073,7 +6073,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window,
-                                                                       only_top_pairs);
+                                                                       top_pairs_only);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6092,7 +6092,7 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
                                                                band_width, pair_window,
-                                                               only_top_pairs);
+                                                               top_pairs_only);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -6140,11 +6140,11 @@ int main_map(int argc, char** argv) {
                  &max_mem_length,
                  &band_width,
                  &pair_window,
-                 &only_top_pairs,
+                 &top_pairs_only,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, only_top_pairs);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6156,7 +6156,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window,
-                                                                       only_top_pairs);
+                                                                       top_pairs_only);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6174,7 +6174,7 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
                                                                band_width, pair_window,
-                                                               only_top_pairs);
+                                                               top_pairs_only);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -6212,11 +6212,11 @@ int main_map(int argc, char** argv) {
                  &band_width,
                  &compare_gam,
                  &pair_window,
-                 &only_top_pairs,
+                 &top_pairs_only,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, only_top_pairs);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6228,7 +6228,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window,
-                                                                       only_top_pairs);
+                                                                       top_pairs_only);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6246,7 +6246,7 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
                                                                band_width, pair_window,
-                                                               only_top_pairs);
+                                                               top_pairs_only);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
