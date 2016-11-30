@@ -226,6 +226,8 @@ public:
     void get_range(int64_t from_id, int64_t to_id, VG& graph);
     void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
+    // Get the edges of the given node
+    void get_edges_of(int64_t node, vector<Edge>& edges);
     // Get the edges on the end of the given node
     void get_edges_on_end(int64_t node, vector<Edge>& edges);
     // Get the edges on the start of the given node

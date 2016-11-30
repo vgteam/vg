@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 31
+plan tests 32
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -95,3 +95,7 @@ is $(vg find -G x.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTA
 
 rm -rf x.vg x.xg x.gcsa x.gam
 
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
+vg index -x tiny.xg tiny.vg 
+is $(vg find -x tiny.xg -n 12 -n 13 -n 14 -n 15 | vg view - | grep ^L | wc -l) 4 "find gets connected edges between queried nodes by default"
+rm -rf tiny.xg tiny.vg

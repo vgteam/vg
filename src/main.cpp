@@ -4594,7 +4594,7 @@ int main_find(int argc, char** argv) {
     int kmer_size=0;
     int kmer_stride = 1;
     vector<string> kmers;
-    vector<int64_t> node_ids;
+    vector<vg::id_t> node_ids;
     int context_size=0;
     bool use_length = false;
     bool count_kmers = false;
@@ -4853,9 +4853,19 @@ int main_find(int argc, char** argv) {
         if (!node_ids.empty() && path_name.empty() && !pairwise_distance) {
             // get the context of the node
             vector<Graph> graphs;
+            set<vg::id_t> ids;
+            for (auto node_id : node_ids) ids.insert(node_id);
             for (auto node_id : node_ids) {
                 Graph g;
                 xindex.neighborhood(node_id, context_size, g, !use_length);
+                if (context_size == 0) {
+                    for (auto& edge : xindex.edges_of(node_id)) {
+                        // if both ends of the edge are in our targets, keep them
+                        if (ids.count(edge.to()) && ids.count(edge.from())) {
+                            *g.add_edge() = edge;
+                        }
+                    }
+                }
                 graphs.push_back(g);
             }
             VG result_graph;
