@@ -146,8 +146,7 @@ namespace vg {
     class BandedGlobalAligner<IntType>::BAMatrix {
     private:
 
-        // these indicate the diagonals in this matrix that the band passes through
-        // the bottom index is inclusive
+        /// The diagonals in the DP matrix that the band passes through with the bottom index inclusive
         int64_t top_diag;
         int64_t bottom_diag;
         
@@ -155,14 +154,18 @@ namespace vg {
         
         Alignment& alignment;
         
-        // length of shortest sequence leading to matrix from a source node
+        /// Length of shortest sequence leading to matrix from a source node
         int64_t cumulative_seq_len;
         
+        /// Matrices for nodes with edges into this node
         BAMatrix** seeds;
         int64_t num_seeds;
         
+        /// DP matrix
         IntType* match;
+        /// DP matrix
         IntType* insert_col;
+        /// DP matrix
         IntType* insert_row;
         
         void traceback_internal(BABuilder& builder, AltTracebackStack& traceback_stack, int64_t start_row,
@@ -170,7 +173,9 @@ namespace vg {
                                 int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
                                 IntType min_inf);
         
+        /// Debugging function
         void print_matrix(matrix_t which_mat);
+        /// Debugging function
         void print_band(matrix_t which_mat);
         
     public:
