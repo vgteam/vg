@@ -4548,7 +4548,7 @@ int main_paths(int argc, char** argv) {
 }
 
 void help_find(char** argv) {
-    cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
+    cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
          << "options:" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
@@ -4786,6 +4786,11 @@ int main_find(int argc, char** argv) {
         }
     }
     if (optind < argc) {
+        cerr << "[vg find] find does not accept positional arguments" << endl;
+        return 1;
+    }
+
+    if (db_name.empty() && gcsa_in.empty() && xg_name.empty()) {
         cerr << "[vg find] find requires -d, -g, or -x to know where to find its database" << endl;
         return 1;
     }
