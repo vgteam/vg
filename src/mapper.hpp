@@ -8,8 +8,8 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
-#include "gcsa/gcsa.h"
-#include "gcsa/lcp.h"
+#include "gcsa.h"
+#include "lcp.h"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
@@ -113,7 +113,7 @@ private:
     Alignment align_to_graph(const Alignment& aln,
                              VG& vg,
                              size_t max_query_graph_ratio,
-                             int64_t pinned_node_id = 0,
+                             bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
