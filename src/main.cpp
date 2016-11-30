@@ -4567,6 +4567,7 @@ void help_find(char** argv) {
          << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
          << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
          << "    -o, --alns-on N:M      writes alignments which align to any of the nodes between N and M (inclusive)" << endl
+         << "    -A, --to-graph VG      get alignments to the provided subgraph" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
@@ -4617,6 +4618,7 @@ int main_find(int argc, char** argv) {
     string haplotype_alignments;
     string gam_file;
     int max_mem_length = 0;
+    string to_graph_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4650,11 +4652,12 @@ int main_find(int argc, char** argv) {
                 {"distance", no_argument, 0, 'D'},
                 {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
+                {"to-graph", required_argument, 0, 'A'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4768,6 +4771,10 @@ int main_find(int argc, char** argv) {
             gam_file = optarg;
             break;
 
+        case 'A':
+            to_graph_file = optarg;
+            break;
+
         case 'h':
         case '?':
             help_find(argv);
@@ -4864,6 +4871,21 @@ int main_find(int argc, char** argv) {
         for (auto i = start_id; i <= end_id; ++i) {
             ids.push_back(i);
         }
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_alignment_to_nodes(ids, lambda);
+        stream::write_buffered(cout, output_buf, 0);
+    }
+
+    if (!to_graph_file.empty()) {
+        assert(vindex != nullptr);
+        ifstream tgi(to_graph_file);
+        VG graph(tgi);
+        vector<vg::id_t> ids;
+        graph.for_each_node([&](Node* n) { ids.push_back(n->id()); });
         vector<Alignment> output_buf;
         auto lambda = [&output_buf](const Alignment& aln) {
             output_buf.push_back(aln);
