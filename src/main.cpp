@@ -4554,6 +4554,7 @@ void help_find(char** argv) {
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
          << "graph features:" << endl
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
+         << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
@@ -4595,6 +4596,7 @@ int main_find(int argc, char** argv) {
     int kmer_stride = 1;
     vector<string> kmers;
     vector<vg::id_t> node_ids;
+    string node_list_file;
     int context_size=0;
     bool use_length = false;
     bool count_kmers = false;
@@ -4626,6 +4628,7 @@ int main_find(int argc, char** argv) {
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa", required_argument, 0, 'g'},
                 {"node", required_argument, 0, 'n'},
+                {"node-list", required_argument, 0, 'N'},
                 {"edges-end", required_argument, 0, 'e'},
                 {"edges-start", required_argument, 0, 's'},
                 {"kmer", required_argument, 0, 'k'},
@@ -4651,7 +4654,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4717,6 +4720,10 @@ int main_find(int argc, char** argv) {
             node_ids.push_back(atoi(optarg));
             break;
 
+        case 'N':
+            node_list_file = optarg;
+            break;
+
         case 'e':
             end_id = atoi(optarg);
             break;
@@ -4779,6 +4786,23 @@ int main_find(int argc, char** argv) {
     if (context_size > 0 && use_length == true && xg_name.empty()) {
         cerr << "[vg find] error, -L not supported without -x" << endl;
         exit(1);
+    }
+
+    // process input node list
+    if (!node_list_file.empty()) {
+        ifstream nli;
+        nli.open(node_list_file);
+        if (!nli.good()){
+            cerr << "[vg find] error, unable to open the node list input file." << endl;
+            exit(1);
+        }
+        string line;
+        while (getline(nli, line)){
+            for (auto& idstr : split_delims(line, " \t")) {
+                node_ids.push_back(atol(idstr.c_str()));
+            }
+        }
+        nli.close();
     }
 
     // open index
