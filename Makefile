@@ -58,6 +58,7 @@ SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/constru
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
+GPERF_DIR:=deps/gperftools
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
@@ -119,7 +120,10 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(S
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 # common dependencies to build before all vg src files
-DEPS:= $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libssw.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa/gcsa.h  $(LIB_DIR)/libgcsa2.a $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libgssw.a $(INC_DIR)/lru_cache.h $(INC_DIR)/dynamic.hpp $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsonlib.a $(LIB_DIR)/libpinchesandcacti.a $(INC_DIR)/globalDefs.hpp $(LIB_DIR)/libraptor2.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/sha1.o 
+DEPS:= $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libssw.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa/gcsa.h  $(LIB_DIR)/libgcsa2.a $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libgssw.a $(INC_DIR)/lru_cache.h $(INC_DIR)/dynamic.hpp $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsonlib.a $(LIB_DIR)/libpinchesandcacti.a $(INC_DIR)/globalDefs.hpp $(LIB_DIR)/libraptor2.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/sha1.o $(LIB_DIR)/libtcmalloc_minimal.a
+
+$(LIB_DIR)/libtcmalloc_minimal.a:
+	+. ./source_me.sh && cd $(GPERF_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
