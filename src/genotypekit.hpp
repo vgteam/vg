@@ -36,16 +36,25 @@ struct NestedSite;
  * genotype.
  */
 struct SiteTraversal {
-    // We just act like a vector of these, which are oriented traversals of
+    // We just act like a list of these, which are oriented traversals of
     // either nodes or NestedSites.
     struct Visit {
         Node* node = nullptr;
         NestedSite* child = nullptr;
+        // Indicates:
+        //   if node != nullptr  : reverse complement of node
+        //   if child != nullptr : traversal of child site entering backwards through
+        //                          end and leaving backwards through start
         bool backward = false;
     };
     
     // We keep a list of these, which we could potentially splice up to flatten
     // down to just nodes.
+    //
+    // NB: If a Visit contains a child site, the list SHOULD NOT contain a Visit for
+    // the node where we entered the NestedSite, but it SHOULD contain a Visit for the
+    // node where we leave it (this simplifies the case where two NestedSites are
+    // adjacent to each other).
     list<Visit> visits;
 };
 
@@ -265,7 +274,7 @@ public:
     
 };
     
-class PathRestrictedTraversalFinder : TraversalFinder {
+class ReadRestrictedTraversalFinder : TraversalFinder {
     
     VG& graph;
     const map<string, Alignment*>& reads_by_name;
@@ -281,10 +290,10 @@ class PathRestrictedTraversalFinder : TraversalFinder {
     int max_path_search_steps;
     
 public:
-    PathRestrictedTraversalFinder(VG& graph, const map<string, Alignment*>& reads_by_name
+    ReadRestrictedTraversalFinder(VG& graph, const map<string, Alignment*>& reads_by_name
                                   int min_recurrence = 2, int max_path_search_steps = 100);
     
-    virtual ~PathRestrictedTraversalFinder() = default;
+    virtual ~ReadRestrictedTraversalFinder() = default;
     
     /**
      * For the given site, emit all traversals with unique sequences that run from
