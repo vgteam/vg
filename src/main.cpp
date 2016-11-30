@@ -4554,6 +4554,7 @@ void help_find(char** argv) {
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
          << "graph features:" << endl
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
+         << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
@@ -4566,6 +4567,7 @@ void help_find(char** argv) {
          << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
          << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
          << "    -o, --alns-on N:M      writes alignments which align to any of the nodes between N and M (inclusive)" << endl
+         << "    -A, --to-graph VG      get alignments to the provided subgraph" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
@@ -4594,7 +4596,8 @@ int main_find(int argc, char** argv) {
     int kmer_size=0;
     int kmer_stride = 1;
     vector<string> kmers;
-    vector<int64_t> node_ids;
+    vector<vg::id_t> node_ids;
+    string node_list_file;
     int context_size=0;
     bool use_length = false;
     bool count_kmers = false;
@@ -4615,6 +4618,7 @@ int main_find(int argc, char** argv) {
     string haplotype_alignments;
     string gam_file;
     int max_mem_length = 0;
+    string to_graph_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4626,6 +4630,7 @@ int main_find(int argc, char** argv) {
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa", required_argument, 0, 'g'},
                 {"node", required_argument, 0, 'n'},
+                {"node-list", required_argument, 0, 'N'},
                 {"edges-end", required_argument, 0, 'e'},
                 {"edges-start", required_argument, 0, 's'},
                 {"kmer", required_argument, 0, 'k'},
@@ -4647,11 +4652,12 @@ int main_find(int argc, char** argv) {
                 {"distance", no_argument, 0, 'D'},
                 {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
+                {"to-graph", required_argument, 0, 'A'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4717,6 +4723,10 @@ int main_find(int argc, char** argv) {
             node_ids.push_back(atoi(optarg));
             break;
 
+        case 'N':
+            node_list_file = optarg;
+            break;
+
         case 'e':
             end_id = atoi(optarg);
             break;
@@ -4761,6 +4771,10 @@ int main_find(int argc, char** argv) {
             gam_file = optarg;
             break;
 
+        case 'A':
+            to_graph_file = optarg;
+            break;
+
         case 'h':
         case '?':
             help_find(argv);
@@ -4779,6 +4793,23 @@ int main_find(int argc, char** argv) {
     if (context_size > 0 && use_length == true && xg_name.empty()) {
         cerr << "[vg find] error, -L not supported without -x" << endl;
         exit(1);
+    }
+
+    // process input node list
+    if (!node_list_file.empty()) {
+        ifstream nli;
+        nli.open(node_list_file);
+        if (!nli.good()){
+            cerr << "[vg find] error, unable to open the node list input file." << endl;
+            exit(1);
+        }
+        string line;
+        while (getline(nli, line)){
+            for (auto& idstr : split_delims(line, " \t")) {
+                node_ids.push_back(atol(idstr.c_str()));
+            }
+        }
+        nli.close();
     }
 
     // open index
@@ -4849,13 +4880,38 @@ int main_find(int argc, char** argv) {
         stream::write_buffered(cout, output_buf, 0);
     }
 
+    if (!to_graph_file.empty()) {
+        assert(vindex != nullptr);
+        ifstream tgi(to_graph_file);
+        VG graph(tgi);
+        vector<vg::id_t> ids;
+        graph.for_each_node([&](Node* n) { ids.push_back(n->id()); });
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_alignment_to_nodes(ids, lambda);
+        stream::write_buffered(cout, output_buf, 0);
+    }
+
     if (!xg_name.empty()) {
         if (!node_ids.empty() && path_name.empty() && !pairwise_distance) {
             // get the context of the node
             vector<Graph> graphs;
+            set<vg::id_t> ids;
+            for (auto node_id : node_ids) ids.insert(node_id);
             for (auto node_id : node_ids) {
                 Graph g;
                 xindex.neighborhood(node_id, context_size, g, !use_length);
+                if (context_size == 0) {
+                    for (auto& edge : xindex.edges_of(node_id)) {
+                        // if both ends of the edge are in our targets, keep them
+                        if (ids.count(edge.to()) && ids.count(edge.from())) {
+                            *g.add_edge() = edge;
+                        }
+                    }
+                }
                 graphs.push_back(g);
             }
             VG result_graph;

@@ -1753,6 +1753,11 @@ void Index::approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uin
     db->GetApproximateSizes(&ranges[0], kmers.size(), &sizes[0]);
 }
 
+void Index::get_edges_of(int64_t node, vector<Edge>& edges) {
+    get_edges_on_start(node, edges);
+    get_edges_on_end(node, edges);
+}
+
 void Index::get_edges_on_start(int64_t node_id, vector<Edge>& edges) {
     rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     string key_start = key_prefix_for_edges_on_node_start(node_id);
