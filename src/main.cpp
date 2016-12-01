@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <getopt.h>
 #include <sys/stat.h>
-#include "gcsa.h"
-#include "algorithms.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/algorithms.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
@@ -5429,6 +5429,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -T, --full-l-bonus N  the full-length alignment bonus" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
@@ -5441,7 +5442,7 @@ void help_map(char** argv) {
          << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
          << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
-         << "    -T, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
+         << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
          << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
@@ -5519,6 +5520,7 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
     int extra_pairing_multimaps = 4;
     int method_code = 1;
@@ -5569,7 +5571,7 @@ int main_map(int argc, char** argv) {
                 {"min-identity", required_argument, 0, 'P'},
                 {"always-rescue", no_argument, 0, 'U'},
                 {"kmer-min", required_argument, 0, 'l'},
-                {"softclip-trig", required_argument, 0, 'T'},
+                {"softclip-trig", required_argument, 0, '3'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
@@ -5586,11 +5588,12 @@ int main_map(int argc, char** argv) {
                 {"compare", no_argument, 0, 'w'},
                 {"fragment-max", required_argument, 0, 'W'},
                 {"fragment-sigma", required_argument, 0, '2'},
+                {"full-l-bonus", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:",
                          long_options, &option_index);
 
 
@@ -5667,6 +5670,10 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'T':
+            full_length_bonus = atoi(optarg);
+            break;
+
+        case '3':
             softclip_threshold = atoi(optarg);
             break;
 
@@ -5989,6 +5996,7 @@ int main_map(int argc, char** argv) {
         m->always_rescue = always_rescue;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
+        m->full_length_alignment_bonus = full_length_bonus;
         mapper[i] = m;
     }
 

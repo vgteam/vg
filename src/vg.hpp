@@ -15,8 +15,8 @@
 #include <random>
 
 #include "gssw.h"
-#include "gcsa.h"
-#include "lcp.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/lcp.h"
 #include "gssw_aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
@@ -793,6 +793,7 @@ public:
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
@@ -804,6 +805,7 @@ public:
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     
@@ -815,6 +817,7 @@ public:
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
@@ -825,6 +828,7 @@ public:
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     
@@ -837,6 +841,7 @@ public:
                                   size_t max_query_graph_ratio = 0,
                                   bool pinned_alignment = false,
                                   bool pin_left = false,
+                                  int8_t full_length_bonus = 0,
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
@@ -848,6 +853,7 @@ public:
                                   size_t max_query_graph_ratio = 0,
                                   bool pinned_alignment = false,
                                   bool pin_left = false,
+                                  int8_t full_length_bonus = 0,
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     
@@ -1133,6 +1139,7 @@ private:
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
 
