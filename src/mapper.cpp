@@ -48,6 +48,7 @@ Mapper::Mapper(Index* idex,
     , since_last_fragment_length_estimate(0)
     , fragment_length_estimate_interval(100)
     , perfect_pair_identity_threshold(0.95)
+    , full_length_alignment_bonus(5)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -193,8 +194,9 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  VG& vg,
                                  size_t max_query_graph_ratio,
-                                 int64_t pinned_node_id,
+                                 bool pinned_alignment,
                                  bool pin_left,
+                                 int8_t full_length_bonus,
                                  bool banded_global) {
     // check if we have a cached aligner for this thread
     if (aln.quality().empty()) {
@@ -203,8 +205,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         return vg.align(aln,
                         aligner,
                         max_query_graph_ratio,
-                        pinned_node_id,
+                        pinned_alignment,
                         pin_left,
+                        full_length_bonus,
                         banded_global);
     } else {
         auto aligner = get_qual_adj_aligner();
@@ -212,15 +215,17 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             return vg.align_qual_adjusted(aln,
                                           aligner,
                                           max_query_graph_ratio,
-                                          pinned_node_id,
+                                          pinned_alignment,
                                           pin_left,
+                                          full_length_bonus,
                                           banded_global);
         } else {
             return vg.align(aln,
                             aligner,
                             max_query_graph_ratio,
-                            pinned_node_id,
+                            pinned_alignment,
                             pin_left,
+                            full_length_bonus,
                             banded_global);
         }
     }
@@ -2621,25 +2626,15 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // correct resolution will be an update to GSSW to give a bonus to full-length alignments
                     //bool banded_global = true;
                     bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
-                    id_t pinned_id = 0;
+                    id_t pinned_alignment = !banded_global;
                     bool pinned_reverse = false;
-                    // use the pinning if we are in a soft clip
-                    if (soft_clip_to_right) {
-                        auto heads = graph.head_nodes();
-                        if (heads.size()) {
-                            pinned_id = graph.head_nodes().front()->id();
-                            pinned_reverse = true;
-                        }
-                    } else if (soft_clip_to_left) {
-                        auto tails = graph.tail_nodes();
-                        if (tails.size()) {
-                            pinned_id = graph.tail_nodes().front()->id();
-                        }
-                    }
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
-                                           pinned_id, pinned_reverse, banded_global);
+                                           pinned_alignment,
+                                           pinned_reverse,
+                                           full_length_alignment_bonus,
+                                           banded_global);
 
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {

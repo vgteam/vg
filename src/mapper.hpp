@@ -113,8 +113,9 @@ private:
     Alignment align_to_graph(const Alignment& aln,
                              VG& vg,
                              size_t max_query_graph_ratio,
-                             int64_t pinned_node_id = 0,
+                             bool pinned_alignment = false,
                              bool pin_left = false,
+                             int8_t full_length_bonus = 0,
                              bool global = false);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
@@ -382,6 +383,7 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
+    int8_t full_length_alignment_bonus;
 
 };
 
