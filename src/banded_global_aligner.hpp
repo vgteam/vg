@@ -22,7 +22,8 @@ using namespace std;
 
 namespace vg {
     
-    /* The outward-facing interface for banded global graph alignment. It computes optimal alignment
+    /**
+     * The outward-facing interface for banded global graph alignment. It computes optimal alignment
      * of a DNA sequence to a DAG with POA. The alignment will start at any source node in the graph and
      * end at any sink node. It is also restricted to falling within a certain diagonal band from the
      * start node. Any signed integer type can be used for the dynamic programming matrices, but there
@@ -138,7 +139,7 @@ namespace vg {
                                 unordered_set<Node*> source_nodes);
     };
 
-    /*
+    /**
      * Represents the band from the DP matrix for one node in the graph
      *
      */
@@ -200,7 +201,7 @@ namespace vg {
         friend class AltTracebackStack; // not a fan of this one, but constructor ugly without it
     };
     
-    /*
+    /**
      * Specialized linked list stack that finds and keeps track of the top-scoring non-optimal alignments.
      * Sub-optimal alignments are represented by the locations where their traceback deviates from the optimal
      * traceback, with other steps of the traceback implicitly following the optimal path. New tracebacks can
@@ -258,7 +259,7 @@ namespace vg {
                                      const int64_t col_idx, const int64_t to_node_id, const matrix_t to_matrix);
     };
     
-    /*
+    /**
      * Represents a deviation from the optimal traceback that a sub-optimal traceback takes.
      */
     template <class IntType>
@@ -280,7 +281,7 @@ namespace vg {
         const matrix_t to_matrix;
     };
     
-    /*
+    /**
      * Translates a traceback path into a Path object and stores it in an Alignment object
      */
     template <class IntType>
