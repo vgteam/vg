@@ -4,7 +4,7 @@
 #include <set>
 #include <regex>
 #include <stdlib.h>
-#include "gcsa.h"
+#include "gcsa/gcsa.h"
 #include "vg.hpp"
 #include "index.hpp"
 #include "xg.hpp"
@@ -18,13 +18,10 @@ public:
 
     vector<string> filenames;
 
-    VGset()
-        : show_progress(false)
-        { };
+    VGset() { };
 
     VGset(vector<string>& files)
         : filenames(files)
-        , show_progress(false)
         { };
 
     void transform(std::function<void(VG*)> lambda);
@@ -71,8 +68,9 @@ public:
     vector<string> write_gcsa_kmers_binary(int kmer_size,
                                            bool path_only, bool forward_only,
                                            int64_t head_id=0, int64_t tail_id=0);
-
-    bool show_progress;
+                              
+    // Should we show our progress running through each graph?             
+    bool show_progress = false;
 
 private:
 

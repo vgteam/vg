@@ -8,8 +8,8 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
-#include "gcsa.h"
-#include "lcp.h"
+#include "gcsa/gcsa.h"
+#include "gcsa/lcp.h"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
@@ -24,15 +24,19 @@ using namespace std;
     
 enum MappingQualityMethod { Approx, Exact, None };
 
+class Mapper;
+
 class MaximalExactMatch {
 
 public:
 
+    //const string* source;
     string::const_iterator begin;
     string::const_iterator end;
     gcsa::range_type range;
     size_t match_count;
     std::vector<gcsa::node_type> nodes;
+    map<string, vector<size_t> > positions;
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
@@ -40,27 +44,59 @@ public:
         : begin(b), end(e), range(r), match_count(m) { }
 
     // construct the sequence of the MEM; useful in debugging
-    string sequence(void) const {
-        string seq; //seq.resize(end-begin);
-        string::const_iterator c = begin;
-        while (c != end) seq += *c++;
-        return seq;
-    }
+    string sequence(void) const;
     // uses GCSA to get the positions matching the range
-    void fill_nodes(gcsa::GCSA* gcsa) {
-        gcsa->locate(range, nodes);
-    }
+    void fill_nodes(gcsa::GCSA* gcsa);
     // uses GCSA to get a count of the number of graph nodes in our range
-    void fill_match_count(gcsa::GCSA* gcsa) {
-        match_count = gcsa->count(range);
-    }
-    int length(void) const {
-        return end - begin;
-    }
+    void fill_match_count(gcsa::GCSA* gcsa);
+    // get the length of the MEM
+    int length(void) const;
+    // uses an xgindex to fill out the MEM positions
+    void fill_positions(Mapper* mapper);
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+    friend ostream& operator<<(ostream& out, const MaximalExactMatch& m);
 
+    MaximalExactMatch(void) = default;                                      // Copy constructor
+    MaximalExactMatch(const MaximalExactMatch&) = default;               // Copy constructor
+    MaximalExactMatch(MaximalExactMatch&&) = default;                    // Move constructor
+    MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // MaximalExactMatchopy assignment operator
+    MaximalExactMatch& operator=(MaximalExactMatch&&) & = default;       // Move assignment operator
+    //virtual ~MaximalExactMatch() { }                     // Destructor
+};
+
+
+class MEMMarkovModelVertex {
+public:
+    MaximalExactMatch mem;
+    vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
+    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for traceback
+    double weight;
+    double score;
+    MEMMarkovModelVertex* prev;
+    MEMMarkovModelVertex(void) = default;                                      // Copy constructor
+    MEMMarkovModelVertex(const MEMMarkovModelVertex&) = default;               // Copy constructor
+    MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
+    MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
+    MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
+    virtual ~MEMMarkovModelVertex() { }                     // Destructor
+};
+
+class MEMMarkovModel {
+public:
+    vector<MEMMarkovModelVertex> model;
+    MEMMarkovModel(
+        const Alignment& aln,
+        const vector<MaximalExactMatch>& matches,
+        Mapper* mapper,
+        const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
+        int band_width = 10);
+    void score(const set<MEMMarkovModelVertex*>& exclude);
+    MEMMarkovModelVertex* max_vertex(void);
+    vector<vector<MaximalExactMatch> > traceback(int alt_alns);
+    void display(ostream& out);
+    void clear_scores(void);
 };
 
 
@@ -138,6 +174,12 @@ public:
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
 
+    // match node traversals to path positions
+    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
+    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
+    void init_node_pos_cache(void);
+    map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
+
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
@@ -156,7 +198,7 @@ public:
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignment_mean_path_positions(const Alignment& aln);
+    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -183,6 +225,9 @@ public:
     Alignment mem_to_alignment(MaximalExactMatch& mem);
     // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment
     Alignment patch_alignment(const Alignment& aln);
+    // try to locally align portions of the alignment with "knots" where we slip backwards in the graph
+    Alignment smooth_alignment(const Alignment& aln);
+    // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
     int32_t score_alignment(const Alignment& aln);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
@@ -267,6 +312,8 @@ public:
     char pos_char(pos_t pos);
     // the next positions and their characters following the same strand of the graph
     map<pos_t, char> next_pos_chars(pos_t pos);
+    // get the positions some specific distance from the given position (in the forward direction)
+    set<pos_t> positions_bp_from(pos_t pos, int distance, bool rev);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
     vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
@@ -277,6 +324,8 @@ public:
 
     // fargment length estimation
     map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    // uses the cached information about the graph in the xg index to get an approximate node length
+    double average_node_length(void);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
@@ -299,7 +348,7 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
-    int mem_threading; // whether to use the mem threading mapper or not
+    bool mem_threading; // whether to use the mem threading mapper or not
 
     // general parameters, applying to both types of mapping
     //
@@ -329,6 +378,7 @@ public:
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
+    float perfect_pair_identity_threshold;
 
 };
 

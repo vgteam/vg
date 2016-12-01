@@ -1,8 +1,15 @@
 // construct.cpp: define the "vg construct" subcommand.
 
+#include <omp.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <memory>
+
 #include "subcommand.hpp"
 
-#include "../vg.hpp"
+#include "../stream.hpp"
+#include "../constructor.hpp"
+#include "../region.hpp"
 
 using namespace std;
 using namespace vg;
@@ -11,12 +18,11 @@ using namespace vg::subcommand;
 void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
-         << "    -v, --vcf FILE        input VCF" << endl
-         << "    -r, --reference FILE  input FASTA reference" << endl
-         << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
-         << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
+         << "    -v, --vcf FILE        input VCF (may repeat)" << endl
+         << "    -r, --reference FILE  input FASTA reference (may repeat)" << endl
+         << "    -n, --rename V=F      rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION   specify a particular chromosome" << endl
+         << "    -R, --region REGION   specify a particular chromosome or 1-based inclusive region" << endl
          << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
          << "                          sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N   variants per region to parallelize" << endl
@@ -35,21 +41,17 @@ int main_construct(int argc, char** argv) {
         return 1;
     }
 
-    string fasta_file_name, vcf_file_name, json_filename;
+    // Make a constructor to fill in
+    Constructor constructor;
+
+    // We also parse some arguments separately.
+    vector<string> fasta_filenames;
+    vector<string> vcf_filenames;
     string region;
     bool region_is_chrom = false;
-    string output_type = "VG";
-    bool progress = false;
-    int vars_per_region = 25000;
-    int max_node_size = 1000;
-    string ref_paths_file;
-    bool flat_alts = false;
-    // Should we make paths out of phasing blocks in the called samples?
-    bool load_phasing_paths = false;
-    // Should we make alt paths for variants?
-    bool load_alt_paths = false;
 
     int c;
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
@@ -57,9 +59,7 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
-                // TODO: change the long option here?
-                {"ref-paths", required_argument, 0, 'P'},
-                {"phase-blocks", no_argument, 0, 'B'},
+                {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
@@ -72,7 +72,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -82,31 +82,40 @@ int main_construct(int argc, char** argv) {
         switch (c)
         {
         case 'v':
-            vcf_file_name = optarg;
+            vcf_filenames.push_back(optarg);
             break;
 
         case 'r':
-            fasta_file_name = optarg;
+            fasta_filenames.push_back(optarg);
             break;
-
-        case 'P':
-            ref_paths_file = optarg;
-            break;
-
-        case 'B':
-            load_phasing_paths = true;
+            
+        case 'n':
+            {
+                // Parse the rename old=new
+                string key_value(optarg);
+                auto found = key_value.find('=');
+                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
+                    cerr << "error:[vg construct] could not parse rename " << key_value << endl;
+                    exit(1);
+                }
+                // Parse out the two parts
+                string vcf_contig = key_value.substr(0, found);
+                string fasta_contig = key_value.substr(found + 1);
+                // Add the name mapping
+                constructor.add_name_mapping(vcf_contig, fasta_contig);
+            }
             break;
 
         case 'a':
-            load_alt_paths = true;
+            constructor.alt_paths = true;
             break;
 
         case 'p':
-            progress = true;
+            constructor.show_progress = true;
             break;
 
         case 'z':
-            vars_per_region = atoi(optarg);
+            constructor.vars_per_chunk = atoi(optarg);
             break;
 
         case 'R':
@@ -122,11 +131,11 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'm':
-            max_node_size = atoi(optarg);
+            constructor.max_node_size = atoi(optarg);
             break;
 
         case 'f':
-            flat_alts = true;
+            constructor.flat = true;
             break;
 
         case 'h':
@@ -141,69 +150,107 @@ int main_construct(int argc, char** argv) {
 
         }
     }
+    
+    if (constructor.max_node_size == 0) {
+        // Make sure we can actually make nodes
+        cerr << "error:[vg construct] max node size cannot be 0" << endl;
+        exit(1);
+    }
+    
+    if (!region.empty()) {
+        // We want to limit to a certain region
+        if (!region_is_chrom) {
+            // We are allowed to parse the region.
+            // Break out sequence name and region bounds
+            string seq_name;
+            int start_pos = 0, stop_pos = 0;
+            parse_region(region,
+                         seq_name,
+                         start_pos,
+                         stop_pos);
+                         
+            if (start_pos != 0 && stop_pos != 0) {
+                // These are 0-based, so if both are nonzero we got a real set of coordinates
+                if (constructor.show_progress) {
+                    cerr << "Restricting to " << seq_name << " from " << start_pos << " to " << stop_pos << endl;
+                }
+                constructor.allowed_vcf_names.insert(seq_name);
+                // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
+                constructor.allowed_vcf_regions[seq_name] = make_pair(start_pos - 1, stop_pos);
+            } else if (start_pos == 0 && stop_pos == 0) {
+                // We just got a name
+                cerr << "Restricting to " << seq_name << " from 1 to end" << endl;
+                constructor.allowed_vcf_names.insert(seq_name);
+            } else {
+                // This doesn't make sense. Does it have like one coordinate?
+                cerr << "error:[vg construct] could not parse " << region << endl;
+                exit(1);
+            }
+         } else {
+            // We have been told not to parse the region
+            cerr << "Restricting to " << region << " from 1 to end" << endl;
+            constructor.allowed_vcf_names.insert(region);
+         }
+    }
 
-    vcflib::VariantCallFile variant_file;
-    if (!vcf_file_name.empty()) {
-        // Make sure the file exists. Otherwise Tabix++ may exit with a non-
+    // This will own all the VCF files
+    vector<unique_ptr<vcflib::VariantCallFile>> variant_files;
+    for (auto& vcf_filename : vcf_filenames) {
+        // Make sure each VCF file exists. Otherwise Tabix++ may exit with a non-
         // helpful message.
 
         // We can't invoke stat woithout a place for it to write. But all we
         // really want is its return value.
         struct stat temp;
-        if(stat(vcf_file_name.c_str(), &temp)) {
-            cerr << "error:[vg construct] file \"" << vcf_file_name << "\" not found" << endl;
+        if(stat(vcf_filename.c_str(), &temp)) {
+            cerr << "error:[vg construct] file \"" << vcf_filename << "\" not found" << endl;
             return 1;
         }
-        variant_file.open(vcf_file_name);
-        if (!variant_file.is_open()) {
-            cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
+        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+        variant_files.emplace_back(variant_file);
+        variant_file->open(vcf_filename);
+        if (!variant_file->is_open()) {
+            cerr << "error:[vg construct] could not open" << vcf_filename << endl;
             return 1;
         }
     }
 
-    if(load_phasing_paths && ref_paths_file.empty()) {
-        cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
-        return 1;
-    }
-
-    if (fasta_file_name.empty()) {
+    if (fasta_filenames.empty()) {
         cerr << "error:[vg construct] a reference is required for graph construction" << endl;
         return 1;
     }
-    FastaReference reference;
-    reference.open(fasta_file_name);
-
-    // store our reference sequence paths
-    // TODO: use this. Maybe dump paths here instead of in the graph?
-    Paths ref_paths;
-
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
-             max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
-
-    if (!ref_paths_file.empty()) {
-        ofstream paths_out(ref_paths_file);
-        graph.paths.write(paths_out);
-        if(load_phasing_paths) {
-            // Keep only the non-phasing paths in the graph. If you keep too
-            // many paths in a graph, you'll make chunks that are too large.
-            // TODO: dynamically deliniate the chunks in the serializer so you
-            // won't write vg files you can't read.
-
-            set<string> non_phase_paths;
-            string phase_prefix = "_phase";
-            graph.paths.for_each_name([&](string path_name) {
-                    if(!equal(phase_prefix.begin(), phase_prefix.end(), path_name.begin())) {
-                        // Path is not a phase path
-                        non_phase_paths.insert(path_name);
-                    }
-                });
-
-            // Keep only the non-phase paths
-            graph.paths.keep_paths(non_phase_paths);
-        }
+    vector<unique_ptr<FastaReference>> references;
+    for (auto& fasta_filename : fasta_filenames) {
+        // Open each FASTA file
+        FastaReference* reference = new FastaReference();
+        references.emplace_back(reference);
+        reference->open(fasta_filename);
     }
 
-    graph.serialize_to_ostream(std::cout);
+    // We need a callback to handle pieces of graph as they are produced.
+    auto callback = [&](Graph& big_chunk) {
+        // TODO: these chunks may be too big to (de)serialize directly. For now,
+        // just serialize them directly anyway.
+        #pragma omp critical (cout)
+        stream::write(cout, 1, std::function<Graph(uint64_t)>([&](uint64_t chunk_number) -> Graph {
+            assert(chunk_number == 0);
+            // Just spit out our one chunk
+            return big_chunk;
+        }));
+    };
+
+    // Make vectors of just bare pointers
+    vector<vcflib::VariantCallFile*> vcf_pointers;
+    for(auto& vcf : variant_files) {
+        vcf_pointers.push_back(vcf.get());
+    }
+    vector<FastaReference*> fasta_pointers;
+    for(auto& fasta : references) {
+        fasta_pointers.push_back(fasta.get());
+    }
+
+    // Construct the graph.
+    constructor.construct_graph(fasta_pointers, vcf_pointers, callback);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:

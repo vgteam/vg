@@ -74,12 +74,19 @@ ostream& operator<<(ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
 }
 
-size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
-    //cerr << "Looking for position " << pos << endl;
+string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
     if(!cached.second) {
-        //cerr << "Not in the cache" << endl;
-        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id);
+        node_cache.put(id, cached.first);
+    }
+    Node& node = cached.first;
+    return node.sequence();
+}
+
+size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    pair<Node, bool> cached = node_cache.retrieve(id);
+    if(!cached.second) {
         cached.first = xgidx->node(id);
         node_cache.put(id, cached.first);
     }
@@ -207,7 +214,7 @@ set<pos_t> xg_cached_next_pos(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& no
 }
 
 int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum) {
-
+    if (pos1 == pos2) return 0;
     set<pos_t> seen;
     set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
     int distance = 0;
@@ -216,10 +223,13 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Nod
         for (auto& next : nexts) {
             if (!seen.count(next)) {
                 seen.insert(next);
-                todo.insert(next);
+                //set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
                 if (next == pos2) {
                     todo.clear();
-                    break;
+                    return distance+1;
+                }
+                for (auto& x : xg_cached_next_pos(next, xgidx, node_cache)) {
+                    todo.insert(x);
                 }
             }
         }
@@ -231,7 +241,52 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Nod
         ++distance;
     }
 
-    return distance;
+    return maximum;
+}
+
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    // handle base case
+    //size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+    if (rev) {
+        pos = reverse(pos, xg_cached_node_length(id(pos), xgidx, node_cache));
+    }
+    set<pos_t> positions;
+    if (distance == 0) {
+        positions.insert(pos);
+        //return positions;
+    } else {
+        set<pos_t> seen;
+        set<pos_t> nexts = xg_cached_next_pos(pos, xgidx, node_cache);
+        int walked = 0;
+        while (!nexts.empty()) {
+            if (walked+1 == distance) {
+                for (auto& next : nexts) {
+                    positions.insert(next);
+                }
+                break;
+            }
+            set<pos_t> todo;
+            for (auto& next : nexts) {
+                if (!seen.count(next)) {
+                    seen.insert(next);
+                    for (auto& x : xg_cached_next_pos(next, xgidx, node_cache)) {
+                        todo.insert(x);
+                    }
+                }
+            }
+            nexts = todo;
+            ++walked;
+        }
+    }
+    if (rev) {
+        set<pos_t> rev_pos;
+        for (auto& p : positions) {
+            rev_pos.insert(reverse(p, xg_cached_node_length(id(p), xgidx, node_cache)));
+        }
+        return rev_pos;
+    } else {
+        return positions;
+    }
 }
 
 }

@@ -46,6 +46,29 @@ struct SiteTraversal {
         //   if child != nullptr : traversal of child site entering backwards through
         //                          end and leaving backwards through start
         bool backward = false;
+        
+        /**
+         * Make a Visit form a node and an orientation
+         */
+        inline Visit(Node* node, bool backward = false) : node(node), backward(backward) {
+            // Nothing to do!
+        }
+        
+        /**
+         * Make a Visit from a child site and an orientation.
+         */
+        inline Visit(NestedSite* child, bool backward = false) : child(child), backward(backward) {
+            // Nothing to do!
+        }
+        
+        /**
+         * Make a Visit from a NodeTraversal.
+         */
+        inline Visit(const NodeTraversal& traversal) : node(traversal.node), backward(traversal.backward) {
+            // Nothing to do!
+        }
+        
+        
     };
     
     // We keep a list of these, which we could potentially splice up to flatten
@@ -68,7 +91,10 @@ struct NestedSite {
     // Each NestedSite contains all its child sites.
     vector<NestedSite> children;
     // And an index from node traversal to the child that you read into
-    // following that traversal (as an index in the above vector).
+    // following that traversal (as an index in the above vector). These are
+    // traversals of the start and end nodes of children, and the nodes they
+    // refer to are conatined within this site's children, rather than this site
+    // itself.
     map<NodeTraversal, size_t> child_border_index;
     
     // It also contains pointers to the nodes in it but not in its children.
@@ -126,7 +152,7 @@ class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
     
-    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    virtual vector<SiteTraversal> find_traversals(const NestedSite& site) = 0;
 };
 
 /**
@@ -304,6 +330,28 @@ public:
      */
     virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
     
+};
+
+/**
+ * This traversal finder finds one or more traversals through leaf sites with no
+ * children. It uses a depth-first search. It doesn't work on non-leaf sites,
+ * and is not guaranteed to find all traversals.
+ */
+class TrivialTraversalFinder : public TraversalFinder {
+
+    // Holds the vg graph we are looking for traversals in.
+    VG& graph;
+
+public:
+    TrivialTraversalFinder(VG& graph);
+
+    virtual ~TrivialTraversalFinder() = default;
+    
+    /**
+     * Find at least one traversal of the site by depth first search, if any
+     * exist. Only works on sites with no children.
+     */
+    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
 };
 
 /**

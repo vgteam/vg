@@ -11,7 +11,7 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 
-/**
+/** \file
  * Provides a way to filter Edits contained
  * within Alignments. This can be used to clean out
  * sequencing errors and to find high-quality candidates

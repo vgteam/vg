@@ -9,12 +9,10 @@ Index::Index(void) {
     start_sep = '\x00';
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
-    mem_env = false;
-    use_snappy = false;
-    // We haven't opened the index yet. We don't get false by default on all platforms.
-    is_open = false;
+    // disable write-ahead logging when writing to RocksDB. This is for write durability
+    // in the event of power failure etc. which is not really relevant to our use case.
+    write_options.disableWAL = true;
     db = nullptr;
-    //block_cache_size = 1024 * 1024 * 10; // 10MB
     rng.seed(time(NULL));
 
     threads = 1;
@@ -26,53 +24,76 @@ Index::Index(void) {
 
 }
 
-rocksdb::Options Index::GetOptions(void) {
+rocksdb::Options Index::GetOptions(bool read_only) {
+    // TODO: make the following configurable
+    const size_t block_cache_bytes = 1<<30;
+    const size_t memtable_bytes = 4 * size_t(1<<30);
 
     rocksdb::Options options;
 
-    if (mem_env) {
-        options.env = rocksdb::NewMemEnv(options.env);
+    options.create_if_missing = !read_only;
+    // TODO: error_if_exists by default, with override for user who really wishes
+    // to add into an existing index.
+    // options.error_if_exists = true;
+    if (read_only) {
+        // dump RocksDB's debug log into /tmp instead of db dir, to avoid
+        // touching the latter in read-only mode
+        options.db_log_dir = "/tmp";
     }
-
-    options.create_if_missing = true;
     options.max_open_files = -1;
-    options.compression = rocksdb::kSnappyCompression;
-    options.compaction_style = rocksdb::kCompactionStyleLevel;
-    // we are unlikely to reach either of these limits
-    options.IncreaseParallelism(threads);
-    options.max_background_flushes = threads;
-    options.max_background_compactions = threads;
-
-    options.num_levels = 2;
-    options.target_file_size_base = (long) 1024 * 1024 * 512; // ~512MB (bigger in practice)
-    options.write_buffer_size = 1024 * 1024 * 256; // ~256MB
-
-    // doesn't work this way
-    rocksdb::BlockBasedTableOptions topt;
-    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
-    topt.block_cache = rocksdb::NewLRUCache(512 * 1024 * 1024, 7);
-    topt.no_block_cache = true;
-    options.table_factory.reset(NewBlockBasedTableFactory(topt));
-    options.table_cache_numshardbits = 7;
     options.allow_mmap_reads = true;
-    options.allow_mmap_writes = false;
+    options.disableDataSync = true; // like disableWAL above
+
+    // set up table format
+    rocksdb::BlockBasedTableOptions topt;
+    topt.format_version = 2;
+    topt.block_size = 4 << 20;
+    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
+    topt.block_cache = rocksdb::NewLRUCache(block_cache_bytes);
+    options.table_factory.reset(NewBlockBasedTableFactory(topt));
+
+    // set up concurrency
+    options.IncreaseParallelism(threads);
+    options.max_background_flushes = 3; // overrides IncreaseParallelism
+
+    // set up universal compaction
+    options.OptimizeUniversalStyleCompaction(memtable_bytes);
+    options.max_write_buffer_number = 4;             // overrides OptimizeUniversalStyleCompaction
+    options.write_buffer_size = (memtable_bytes/4);  // overrides OptimizeUniversalStyleCompaction
+    options.min_write_buffer_number_to_merge = 1;    // overrides OptimizeUniversalStyleCompaction
+
+    // 3 Snappy-compressed levels [0-2]. Using background compactions, try to
+    // keep fewer than 5 files in L0 (each file being a sorted "sub-level").
+    // L1 & L2 are each fully sorted, but split into disjoint 16GB chunks.
+    // See https://github.com/facebook/rocksdb/wiki/Universal-Compaction for
+    // explanation of multi-level universal compaction.
+    // TODO: switch to zstd compression
+    options.num_levels = 3;
+    options.compression_per_level.clear();
+    options.compression = rocksdb::kSnappyCompression;
+    options.level0_file_num_compaction_trigger = 5;
+    options.target_file_size_base = 16 * size_t(1<<30);
+    options.access_hint_on_compaction_start = rocksdb::Options::AccessHint::SEQUENTIAL;
+    options.compaction_readahead_size = 16 << 20;
 
     if (bulk_load) {
-        options.PrepareForBulkLoad();
-        options.max_write_buffer_number = threads;
-        options.max_background_flushes = threads;
-        options.max_background_compactions = threads;
-        options.compaction_style = rocksdb::kCompactionStyleNone;
+        // vector memtable provides much faster loading provided there's no
+        // concurrent reading happening
         options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
-    }
 
-    options.compression_per_level.resize(options.num_levels);
-    for (int i = 0; i < options.num_levels; ++i) {
-        if (i == 0 || use_snappy == true) {
-            options.compression_per_level[i] = rocksdb::kSnappyCompression;
-        } else {
-            options.compression_per_level[i] = rocksdb::kZlibCompression;
-        }
+        // disable write throttling because we'll have other logic to let
+        // background compactions converge.
+        options.level0_slowdown_writes_trigger = (1<<30);
+        options.level0_stop_writes_trigger = (1<<30);
+        options.compaction_options_universal.compression_size_percent = -1;
+        // size amplification is not a facttor for our write-once use case
+        options.compaction_options_universal.max_size_amplification_percent = (1<<30);
+        options.compaction_options_universal.size_ratio = 10;
+        options.compaction_options_universal.min_merge_width = 2;
+        options.compaction_options_universal.max_merge_width = 10;
+    } else {
+        options.allow_concurrent_memtable_write = true;
+        options.enable_write_thread_adaptive_yield = true;
     }
 
     return options;
@@ -81,7 +102,7 @@ rocksdb::Options Index::GetOptions(void) {
 void Index::open(const std::string& dir, bool read_only) {
 
     name = dir;
-    db_options = GetOptions();
+    db_options = GetOptions(read_only);
 
     rocksdb::Status s;
     if (read_only) {
@@ -91,15 +112,17 @@ void Index::open(const std::string& dir, bool read_only) {
         s = rocksdb::DB::Open(db_options, name, &db);
     }
     if (!s.ok()) {
+        if (db) {
+            delete db;
+        }
+        db = nullptr;
         throw indexOpenException("can't open " + dir);
     }
-    is_open = true;
 
 }
 
 void Index::open_read_only(string& dir) {
     bulk_load = false;
-    //mem_env = true;
     open(dir, true);
 }
 
@@ -114,7 +137,7 @@ void Index::open_for_bulk_load(string& dir) {
 }
 
 Index::~Index(void) {
-    if (is_open) {
+    if (db) {
         close();
     }
 }
@@ -122,15 +145,33 @@ Index::~Index(void) {
 void Index::close(void) {
     flush();
     delete db;
-    is_open = false;
+    db = nullptr;
 }
 
 void Index::flush(void) {
     db->Flush(rocksdb::FlushOptions());
+
+    if (bulk_load) {
+        // Wait for compactions to converge. Specifically, wait until
+        // there's no more than one background compaction running.
+        // Argument: once that's the case, the number of L0 files isn't
+        // too much greater than level0_file_num_compaction_trigger,
+        // or else a second background compaction would start.
+        uint64_t num_running_compactions = 0;
+        while(true) {
+            num_running_compactions = 0;
+            db->GetIntProperty(rocksdb::DB::Properties::kNumRunningCompactions,
+                            &num_running_compactions);
+            if (num_running_compactions<=1) {
+                break;
+            }
+            usleep(10000);
+        }
+    }
 }
 
 void Index::compact(void) {
-    db->CompactRange(NULL, NULL);
+    db->CompactRange(rocksdb::CompactRangeOptions(), NULL, NULL);
 }
 
 // todo: replace with union / struct
@@ -821,6 +862,13 @@ void Index::put_mapping(const Mapping& mapping) {
 }
 
 void Index::put_alignment(const Alignment& alignment) {
+    static std::atomic<bool> warned_unmapped(false);
+    if (!alignment.has_path()) {
+        if (!warned_unmapped.exchange(true)) {
+            std::cerr << "[vg index] WARNING: not storing unmapped reads in alignment index. (FIXME)" << std::endl;
+        }
+        return;
+    }
     string data;
     alignment.SerializeToString(&data);
     db->Put(write_options, key_for_alignment(alignment), data);
@@ -857,18 +905,16 @@ void Index::load_graph(VG& graph) {
         thread_count = omp_get_num_threads();
     }
     omp_set_num_threads(1);
-    graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
+    graph.preload_progress("indexing nodes of " + graph.name);
     rocksdb::WriteBatch batch;
     graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch); });
-    graph.destroy_progress();
-    graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
+    graph.preload_progress("indexing edges of " + graph.name);
     graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
     rocksdb::Status s = db->Write(write_options, &batch);
     omp_set_num_threads(thread_count);
 }
 
 void Index::load_paths(VG& graph) {
-    graph.destroy_progress();
     graph.create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
     store_paths(graph);
     graph.destroy_progress();
@@ -983,7 +1029,7 @@ void Index::store_path(VG& graph, const Path& path) {
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
 
-        graph.update_progress(graph.progress_count+1);
+        graph.increment_progress();
     }
 }
 
@@ -1705,6 +1751,11 @@ void Index::approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uin
         ranges.push_back(rocksdb::Range(start, end));
     }
     db->GetApproximateSizes(&ranges[0], kmers.size(), &sizes[0]);
+}
+
+void Index::get_edges_of(int64_t node, vector<Edge>& edges) {
+    get_edges_on_start(node, edges);
+    get_edges_on_end(node, edges);
 }
 
 void Index::get_edges_on_start(int64_t node_id, vector<Edge>& edges) {

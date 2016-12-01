@@ -1,7 +1,7 @@
 #ifndef VG_SUBCOMMAND_SUBCOMMAND_H
 #define VG_SUBCOMMAND_SUBCOMMAND_H
 
-/**
+/** \file
  * subcommand.hpp: defines a system for registering subcommands of the vg
  * command (vg construct, vg view, etc.) at compile time. Replaces the system of
  * defining two functions and a giant run of if statements in main.cpp.
@@ -23,15 +23,16 @@
  * To make a subcommand, do something like this in a cpp file in this
  * "subcommand" directory:
  * 
- * #include "subcommand.hpp"
- * using namespace vg::subcommand;
+ *     #include "subcommand.hpp"
+ *     using namespace vg::subcommand;
  * 
- * int main_frobnicate(int argc, char** argv) {
- *     return 0;
- * }
+ *     int main_frobnicate(int argc, char** argv) {
+ *         return 0;
+ *     }
  *
- * static Subcommand vg_frobnicate("frobnicate", "frobnicate nodes and edges",
- *     main_frobnicate);
+ *     static Subcommand vg_frobnicate("frobnicate", "frobnicate nodes and edges",
+ *         main_frobnicate);
+ * 
  */
  
 #include <map>
@@ -76,6 +77,11 @@ public:
      * if no matching subcommand is found.
      */
     static const Subcommand* get(int argc, char** argv);
+    
+    /**
+     * Call the given lambda with each known subcommand, in order.
+     */
+    static void for_each(const std::function<void(const Subcommand&)>& lambda);
 
 
 private:

@@ -90,7 +90,7 @@ public:
     Index(string& name);
     ~Index(void);
 
-    rocksdb::Options GetOptions(void);
+    rocksdb::Options GetOptions(bool read_only);
     void open(const std::string& dir, bool read_only = false);
     void open_read_only(string& dir);
     void open_for_write(string& dir);
@@ -108,13 +108,10 @@ public:
     int threads;
 
     rocksdb::DB* db;
-    bool is_open;
-    bool use_snappy;
     rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
     bool bulk_load;
-    bool mem_env;
     size_t block_cache_size;
     mt19937 rng;
 
@@ -226,6 +223,8 @@ public:
     void get_range(int64_t from_id, int64_t to_id, VG& graph);
     void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
+    // Get the edges of the given node
+    void get_edges_of(int64_t node, vector<Edge>& edges);
     // Get the edges on the end of the given node
     void get_edges_on_end(int64_t node, vector<Edge>& edges);
     // Get the edges on the start of the given node
