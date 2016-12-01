@@ -158,6 +158,7 @@ public:
              string contig_name = "",
              string sample_name = "",
              string augmented_file_name = "",
+             bool use_cactus = false,
              bool subset_graph = false,
              bool show_progress = false,
              bool output_vcf = false,
