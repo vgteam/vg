@@ -306,7 +306,7 @@ vector<SiteTraversal> ExhaustiveTraversalFinder::find_traversals(const NestedSit
     return to_return;
 }
     
-PathRestrictedTraversalFinder::PathRestrictedTraversalFinder(VG& graph,
+ReadRestrictedTraversalFinder::ReadRestrictedTraversalFinder(VG& graph,
                                                              const map<string, Alignment*>& reads_by_name
                                                              int min_recurrence, int max_path_search_steps) :
                                                              graph(graph), reads_by_name(reads_by_name),
@@ -315,12 +315,12 @@ PathRestrictedTraversalFinder::PathRestrictedTraversalFinder(VG& graph,
     // nothing else to do
 }
 
-PathRestrictedTraversalFinder::~PathRestrictedTraversalFinder() {
+ReadRestrictedTraversalFinder::~ReadRestrictedTraversalFinder() {
     // no heap variables
 }
     
 // replaces get_paths_through_site
-vector<SiteTraversal> PathRestrictedTraversalFinder::find_traversals(const NestedSite& site) {
+vector<SiteTraversal> ReadRestrictedTraversalFinder::find_traversals(const NestedSite& site) {
     // We're going to emit traversals supported by any paths in the graph.
     
     // Put all our subpaths in here to deduplicate them by sequence they spell
@@ -359,7 +359,6 @@ vector<SiteTraversal> PathRestrictedTraversalFinder::find_traversals(const Neste
             auto& name = name_and_mappings.first;
             
             if(!endmappings_by_name.count(name_and_mappings.first)) {
-                //cerr << "no endmappings match" << endl;
                 // No path by this name has any mappings to the end node. Skip
                 // it early.
                 continue;
