@@ -378,7 +378,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int stride,
     int max_mem_length,
     int band_width,
-    int pair_window) {
+    int pair_window,
+    bool only_top_scoring_pair) {
 
     // We have some logic around align_mate_in_window to handle orientation
     // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
@@ -703,6 +704,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             consistent_pairs.second[i].mutable_fragment_prev()->set_name(read1.name());
             consistent_pairs.second[i].set_is_secondary(i > 0);
         }
+
+        // zap everything unless the primary alignments are individually top-scoring
+        if (only_top_scoring_pair && consistent_pairs.first.size() && 
+            (consistent_pairs.first[0].score() < alignments1[0].score() ||
+             consistent_pairs.second[0].score() < alignments2[0].score())) {
+            consistent_pairs.first.clear();
+            consistent_pairs.second.clear();
+        }        
 
         if (!consistent_pairs.first.empty()) {
             results = consistent_pairs;

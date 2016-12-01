@@ -267,6 +267,8 @@ public:
     // Alignments at corresponding positions in the two vectors may or may not
     // be corresponding paired alignments. If a read does not map, its vector
     // will be empty.
+    // If only_top_scoring_pair is set, then the vectors will be empty unless
+    // the primary pair of alignments each have top scores individually as well. 
     pair<vector<Alignment>, vector<Alignment>> 
         align_paired_multi(const Alignment& read1,
                            const Alignment& read2,
@@ -275,7 +277,8 @@ public:
                            int stride = 0,
                            int max_mem_length = 0,
                            int band_width = 1000,
-                           int pair_window = 64);
+                           int pair_window = 64,
+                           bool only_top_scoring_pair = false);
     
     // Paired-end alignment ignoring multi-mapping. Returns either the two
     // highest-scoring reads if no rescue was required, or the highest-scoring
