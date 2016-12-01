@@ -119,6 +119,22 @@ void Index::open(const std::string& dir, bool read_only) {
         throw indexOpenException("can't open " + dir);
     }
 
+    // we store a metadata key DIRTY while the index is open for writing,
+    // so that we can later detect if the indexing crashed/failed and
+    // refuse to use it.
+    string dirty_key = key_for_metadata("DIRTY"), data;
+    if (db->Get(rocksdb::ReadOptions(), dirty_key, &data).ok()) {
+        throw indexOpenException("index was not built cleanly, and should be recreated from scratch");
+    }
+
+    if (!read_only) {
+        rocksdb::WriteOptions dirty_write_options;
+        dirty_write_options.sync = true;
+        dirty_write_options.disableWAL = false;
+        if (!db->Put(dirty_write_options, dirty_key, "").ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
+            throw indexOpenException("couldn't write to index");
+        }
+    }
 }
 
 void Index::open_read_only(string& dir) {
@@ -144,6 +160,15 @@ Index::~Index(void) {
 
 void Index::close(void) {
     flush();
+    string dirty_key = key_for_metadata("DIRTY"), data;
+    if (db->Get(rocksdb::ReadOptions(), dirty_key, &data).ok()) {
+        rocksdb::WriteOptions dirty_write_options;
+        dirty_write_options.sync = true;
+        dirty_write_options.disableWAL = false;
+        if (!db->Delete(dirty_write_options, dirty_key).ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
+            throw std::runtime_error("couldn't mark index closed");
+        }
+    }
     delete db;
     db = nullptr;
 }
