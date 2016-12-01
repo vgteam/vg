@@ -4,6 +4,9 @@ namespace vg {
 
 using namespace std;
 
+// convenience macro for RocksDB error handling
+#define S(x) { rocksdb::Status __s = (x); if (!__s.ok()) throw std::runtime_error("RocksDB operation failed: " + __s.ToString()); }
+
 Index::Index(void) {
 
     start_sep = '\x00';
@@ -787,7 +790,7 @@ void Index::put_node(const Node* node) {
     string data;
     node->SerializeToString(&data);
     string key = key_for_node(node->id());
-    db->Put(write_options, key, data);
+    S(db->Put(write_options, key, data));
 }
 
 void Index::batch_node(const Node* node, rocksdb::WriteBatch& batch) {
@@ -815,18 +818,18 @@ void Index::put_edge(const Edge* edge) {
 
     if(edge->from_start()) {
         // On the from node, we're on the start
-        db->Put(write_options, key_for_edge_on_start(edge->from(), edge->to(), backward), from_data);
+        S(db->Put(write_options, key_for_edge_on_start(edge->from(), edge->to(), backward), from_data));
     } else {
         // On the from node, we're on the end
-        db->Put(write_options, key_for_edge_on_end(edge->from(), edge->to(), backward), from_data);
+        S(db->Put(write_options, key_for_edge_on_end(edge->from(), edge->to(), backward), from_data));
     }
 
     if(edge->to_end()) {
         // On the to node, we're on the end
-        db->Put(write_options, key_for_edge_on_end(edge->to(), edge->from(), backward), to_data);
+        S(db->Put(write_options, key_for_edge_on_end(edge->to(), edge->from(), backward), to_data));
     } else {
         // On the to node, we're on the start
-        db->Put(write_options, key_for_edge_on_start(edge->to(), edge->from(), backward), to_data);
+        S(db->Put(write_options, key_for_edge_on_start(edge->to(), edge->from(), backward), to_data));
     }
 }
 
@@ -865,25 +868,25 @@ void Index::batch_edge(const Edge* edge, rocksdb::WriteBatch& batch) {
 
 void Index::put_metadata(const string& tag, const string& data) {
     string key = key_for_metadata(tag);
-    db->Put(write_options, key, data);
+    S(db->Put(write_options, key, data));
 }
 
 void Index::put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, bool backward, const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_node_path_position(node_id, path_id, path_pos, backward), data);
+    S(db->Put(write_options, key_for_node_path_position(node_id, path_id, path_pos, backward), data));
 }
 
 void Index::put_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id, const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_path_position(path_id, path_pos, backward, node_id), data);
+    S(db->Put(write_options, key_for_path_position(path_id, path_pos, backward, node_id), data));
 }
 
 void Index::put_mapping(const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_mapping(mapping), data);
+    S(db->Put(write_options, key_for_mapping(mapping), data));
 }
 
 void Index::put_alignment(const Alignment& alignment) {
@@ -896,18 +899,18 @@ void Index::put_alignment(const Alignment& alignment) {
     }
     string data;
     alignment.SerializeToString(&data);
-    db->Put(write_options, key_for_alignment(alignment), data);
+    S(db->Put(write_options, key_for_alignment(alignment), data));
 }
 
 void Index::put_base(int64_t aln_id, const Alignment& alignment) {
     string data;
     alignment.SerializeToString(&data);
-    db->Put(write_options, key_for_base(aln_id), data);
+    S(db->Put(write_options, key_for_base(aln_id), data));
 }
 
 void Index::put_traversal(int64_t aln_id, const Mapping& mapping) {
     string data; // empty data
-    db->Put(write_options, key_for_traversal(aln_id, mapping), data);
+    S(db->Put(write_options, key_for_traversal(aln_id, mapping), data));
 }
 
 void Index::cross_alignment(int64_t aln_id, const Alignment& alignment) {
@@ -949,10 +952,11 @@ int64_t Index::get_max_path_id(void) {
     string data;
     int64_t id;
     rocksdb::Status s = get_metadata("max_path_id", data);
-    if (!s.ok()) {
+    if (s.IsNotFound()) {
         id = 0;
         put_max_path_id(id);
     } else {
+        S(s);
         memcpy(&id, data.c_str(), sizeof(int64_t));
     }
     return id;
@@ -999,9 +1003,11 @@ void Index::put_path_name_to_id(int64_t id, const string& name) {
 
 string Index::get_path_name(int64_t id) {
     string data;
-    // TODO: reraise errors other than NotFound...
-    if (get_metadata(path_id_prefix(id), data).ok()) {
+    rocksdb::Status s = get_metadata(path_id_prefix(id), data);
+    if (s.ok()) {
         return data;
+    } else if (!s.IsNotFound()) {
+        S(s);
     }
     return string();
 }
@@ -1009,9 +1015,11 @@ string Index::get_path_name(int64_t id) {
 int64_t Index::get_path_id(const string& name) {
     string data;
     int64_t id = 0;
-    // TODO: reraise errors other than NotFound...
-    if (get_metadata(path_name_prefix(name), data).ok()) {
+    rocksdb::Status s = get_metadata(path_name_prefix(name), data);
+    if (s.ok()) {
         memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    } else if (!s.IsNotFound()) {
+        S(s);
     }
     return id;
 }
@@ -2039,10 +2047,12 @@ void Index::for_range(string& key_start, string& key_end,
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
+        S(it->status());
         string key = it->key().ToString();
         string value = it->value().ToString();
         lambda(key, value);
     }
+    S(it->status());
     delete it;
 }
 
