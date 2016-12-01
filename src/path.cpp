@@ -1268,10 +1268,9 @@ Path trim_hanging_ends(const Path& p) {
                 }
             }
         }
+        // no reason to cross over since we search for same thing in both dirs
+        assert(first_m < last_m || (first_m == last_m && first_e <= last_e));
     }
-
-    // no reason to cross over since we search for same thing in both dirs
-    assert(first_m < last_m || (first_m == last_m && first_e <= last_e));
 
     // Make a new path beginning at first_m, first_e and ending at last_m, last_e
     Path r;
