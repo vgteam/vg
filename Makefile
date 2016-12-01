@@ -112,7 +112,7 @@ $(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
 # Make sure to delete outdated libs and headers before rebuilding
 # Outdated headers can get picked up during the build
 .rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
-	rm -f lib/libprotobuf* lib/libprotoc*
+	rm -rf $(LIB_DIR)/libprotobuf* $(LIB_DIR)/libprotoc*
 	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
@@ -134,7 +134,7 @@ $(LIB_DIR)/libssw.a:
 $(LIB_DIR)/libsnappy.a:
 	+. ./source_me.sh && cd $(SNAPPY_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
-$(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a
+$(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a $(ROCKSDB_DIR)/db/*.cc $(ROCKSDB_DIR)/db/*.h
 	+. ./source_me.sh && cd $(ROCKSDB_DIR) && $(ROCKSDB_PORTABLE) DISABLE_JEMALLOC=1 $(MAKE) static_lib && mv librocksdb.a $(CWD)/${LIB_DIR}/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
