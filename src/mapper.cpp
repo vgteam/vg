@@ -2626,8 +2626,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // correct resolution will be an update to GSSW to give a bonus to full-length alignments
                     //bool banded_global = true;
                     bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
-                    id_t pinned_alignment = !banded_global;
+                    bool pinned_alignment = soft_clip_to_right || soft_clip_to_left;
                     bool pinned_reverse = false;
+                    if (soft_clip_to_right) {
+                        pinned_reverse = true;
+                    }
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
@@ -2655,6 +2658,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) {
                                                                      return (int64_t)get_node_length(id);
                                                                  }));
+                    }
+
+                    if (debug && !check_alignment(patch)) {
+                        cerr << "patching failure " << pb2json(patched) << endl;
+                        assert(false);
                     }
 
                     // append the chunk to patched
