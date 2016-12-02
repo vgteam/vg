@@ -16,7 +16,6 @@ Index::Index(void) {
     // in the event of power failure etc. which is not really relevant to our use case.
     write_options.disableWAL = true;
     db = nullptr;
-    rng.seed(time(NULL));
 
     threads = 1;
 #pragma omp parallel
@@ -89,7 +88,7 @@ rocksdb::Options Index::GetOptions(bool read_only) {
         options.level0_slowdown_writes_trigger = (1<<30);
         options.level0_stop_writes_trigger = (1<<30);
         options.compaction_options_universal.compression_size_percent = -1;
-        // size amplification is not a facttor for our write-once use case
+        // size amplification is not a factor for our write-once use case
         options.compaction_options_universal.max_size_amplification_percent = (1<<30);
         options.compaction_options_universal.size_ratio = 10;
         options.compaction_options_universal.min_merge_width = 2;
@@ -138,6 +137,18 @@ void Index::open(const std::string& dir, bool read_only) {
             throw indexOpenException("couldn't write to index");
         }
     }
+
+    next_nonce = 42; // arbitrary initial value
+    s = get_metadata("next_nonce", data);
+    if (s.ok()) {
+        auto p = strtoull(data.c_str(), nullptr, 10);
+        if (p < next_nonce || p == ULLONG_MAX) {
+            throw indexOpenException("corrupt next_nonce entry");
+        }
+        next_nonce = p;
+    } else if (!s.IsNotFound()) {
+        throw indexOpenException("couldn't read metadata");
+    }
 }
 
 void Index::open_read_only(string& dir) {
@@ -165,10 +176,14 @@ void Index::close(void) {
     flush();
     string dirty_key = key_for_metadata("DIRTY"), data;
     if (db->Get(rocksdb::ReadOptions(), dirty_key, &data).ok()) {
+        // persist next_nonce and delete the dirty marker
+        rocksdb::WriteBatch batch;
+        batch.Put(key_for_metadata("next_nonce"), to_string(next_nonce));
+        batch.Delete(dirty_key);
         rocksdb::WriteOptions dirty_write_options;
         dirty_write_options.sync = true;
         dirty_write_options.disableWAL = false;
-        if (!db->Delete(dirty_write_options, dirty_key).ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
+        if (!db->Write(dirty_write_options, &batch).ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
             throw std::runtime_error("couldn't mark index closed");
         }
     }
@@ -365,19 +380,17 @@ const string Index::key_for_mapping_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_mapping(const Mapping& mapping) {
-    const string prefix = key_for_mapping_prefix(mapping.position().node_id());
-    // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
-    uniform_int_distribution<int> dist(0, 1e8);
-    stringstream t;
-    t << dist(rng);
-    string data = t.str();
-    //mapping.SerializeToString(&data);
-    const string hash = sha1head(data, 8);
-    string key = prefix;
-    key.resize(prefix.size() + sizeof(char) + hash.size());
-    char* k = (char*) key.c_str();
-    k[prefix.size()] = start_sep;
-    memcpy(k + prefix.size() + sizeof(char), hash.c_str(), hash.size());
+    string key(key_for_mapping_prefix(mapping.position().node_id()));
+    // Append a unique nonce to the node-ID-based key prefix, since there can
+    // be many mappings to one node. It just needs to be unique, so we use
+    // a variable-length, little-endian encoding to save a few bytes.
+    key.reserve(key.size() + 9);
+    key += start_sep;
+    uint64_t nonce = next_nonce.fetch_add(1);
+    while (nonce) {
+        key += (char) (nonce & 0xFF);
+        nonce >>= 8;
+    }
     return key;
 }
 
@@ -394,20 +407,17 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_alignment(const Alignment& alignment) {
-    const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).position().node_id());
-    // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
-    // maybe this shouldn't be a hash, but a random nonce
-    uniform_int_distribution<int> dist(0, 1e8);
-    stringstream t;
-    t << dist(rng);
-    string data = t.str();
-    //alignment.SerializeToString(&data);
-    const string hash = sha1head(data, 8);
-    string key = prefix;
-    key.resize(prefix.size() + sizeof(char) + hash.size());
-    char* k = (char*) key.c_str();
-    k[prefix.size()] = start_sep;
-    memcpy(k + prefix.size() + sizeof(char), hash.c_str(), hash.size());
+    string key(key_for_alignment_prefix(alignment.path().mapping(0).position().node_id()));
+    // Append a unique nonce to the node-ID-based key prefix, since there can
+    // be many alignments to one node. It just needs to be unique, so we use
+    // a variable-length encoding to save a few bytes.
+    key.reserve(key.size() + 9);
+    key += start_sep;
+    uint64_t nonce = next_nonce.fetch_add(1);
+    while (nonce) {
+        key += (char) (nonce & 0xFF);
+        nonce >>= 8;
+    }
     return key;
 }
 
@@ -657,21 +667,25 @@ void Index::parse_path_position(const string& key, const string& value,
     mapping.ParseFromString(value);
 }
 
-void Index::parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping) {
+void Index::parse_mapping(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Mapping& mapping) {
     const char* k = key.c_str();
     memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
-    hash.resize(8);
-    memcpy((char*)hash.c_str(), (k + 4*sizeof(char) + sizeof(int64_t)), 8*sizeof(char));
     node_id = be64toh(node_id);
+    nonce = 0;
+    for (int i = 4+sizeof(char)+sizeof(int64_t); i < key.size(); i++) {
+        nonce = (nonce<<8)+uint8_t(k[i]);
+    }
     mapping.ParseFromString(value);
 }
 
-void Index::parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment) {
+void Index::parse_alignment(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Alignment& alignment) {
     const char* k = key.c_str();
     memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
-    hash.resize(8);
-    memcpy((char*)hash.c_str(), (k + 4*sizeof(char) + sizeof(int64_t)), 8*sizeof(char));
     node_id = be64toh(node_id);
+    nonce = 0;
+    for (int i = 4+sizeof(char)+sizeof(int64_t); i < key.size(); i++) {
+        nonce = (nonce<<8)+uint8_t(k[i]);
+    }
     alignment.ParseFromString(value);
 }
 
@@ -740,20 +754,20 @@ string Index::metadata_entry_to_string(const string& key, const string& value) {
 string Index::mapping_entry_to_string(const string& key, const string& value) {
     Mapping mapping;
     int64_t node_id;
-    string hash;
-    parse_mapping(key, value, node_id, hash, mapping);
+    uint64_t nonce;
+    parse_mapping(key, value, node_id, nonce, mapping);
     stringstream s;
-    s << "{\"key\":\"+s+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(mapping) << "}";
+    s << "{\"key\":\"+s+" << node_id << "+" << nonce << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
 
 string Index::alignment_entry_to_string(const string& key, const string& value) {
     Alignment alignment;
     int64_t node_id;
-    string hash;
-    parse_alignment(key, value, node_id, hash, alignment);
+    uint64_t nonce;
+    parse_alignment(key, value, node_id, nonce, alignment);
     stringstream s;
-    s << "{\"key\":\"+a+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(alignment) << "}";
+    s << "{\"key\":\"+a+" << node_id << "+" << nonce << "\", \"value\":"<< pb2json(alignment) << "}";
     return s.str();
 }
 
@@ -963,6 +977,7 @@ int64_t Index::get_max_path_id(void) {
 }
 
 void Index::put_max_path_id(int64_t id) {
+    // TODO: ensure consistent endianness
     string data;
     data.resize(sizeof(int64_t));
     memcpy((char*)data.c_str(), &id, sizeof(int64_t));
@@ -983,6 +998,7 @@ string Index::path_name_prefix(const string& name) {
 }
 
 string Index::path_id_prefix(int64_t id) {
+    // TODO: ensure consistent endianness
     string prefix = "path_id" + start_sep;
     size_t prefix_size = prefix.size();
     prefix.resize(prefix.size() + sizeof(int64_t));
@@ -995,6 +1011,7 @@ void Index::put_path_id_to_name(int64_t id, const string& name) {
 }
 
 void Index::put_path_name_to_id(int64_t id, const string& name) {
+    // TODO: ensure consistent endianness
     string data;
     data.resize(sizeof(int64_t));
     memcpy((char*)data.c_str(), &id, sizeof(int64_t));
