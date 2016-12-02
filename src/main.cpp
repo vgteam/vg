@@ -251,6 +251,7 @@ int main_filter(int argc, char** argv) {
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
+                {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
@@ -6944,6 +6945,7 @@ void help_map(char** argv) {
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
+         << "    -a, --top-pairs-only       only produce paired alignments if both sides of the pair are top scoring individually" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N        for very long sequences, align in chunks then merge paths, no mapping quality (default 1000bp)" << endl
          << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
@@ -7014,6 +7016,7 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     bool always_rescue = false;
+    bool top_pairs_only = false;    
     float min_kmer_entropy = 0;
     float accept_identity = 0;
     size_t kmer_min = 8;
@@ -7071,6 +7074,7 @@ int main_map(int argc, char** argv) {
                 {"output-json", no_argument, 0, 'J'},
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
+                {"top-pairs-only", no_argument, 0, 'a'},
                 {"fastq", no_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
@@ -7100,7 +7104,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:2",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ual:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:2",
                          long_options, &option_index);
 
 
@@ -7259,6 +7263,10 @@ int main_map(int argc, char** argv) {
         case 'U':
             always_rescue = true;
             break;
+
+        case 'a':
+            top_pairs_only = true;
+            break;            
 
         case 'l':
             kmer_min = atoi(optarg);
@@ -7625,11 +7633,12 @@ int main_map(int argc, char** argv) {
                 &kmer_size,
                 &kmer_stride,
                 &band_width,
-                &pair_window]
+                &pair_window,
+                &top_pairs_only]
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window, top_pairs_only);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7674,11 +7683,12 @@ int main_map(int argc, char** argv) {
                 &kmer_size,
                 &kmer_stride,
                 &band_width,
-                &pair_window]
+                &pair_window,
+                &top_pairs_only]
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window, top_pairs_only);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {

@@ -295,7 +295,8 @@ bool Mapper::alignments_consistent(const map<string, double>& pos1,
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     const Alignment& read1, const Alignment& read2,
-    int kmer_size, int stride, int band_width, int pair_window) {
+    int kmer_size, int stride, int band_width, int pair_window,
+    bool only_top_scoring_pair) {
 
     // what we *really* should be doing is using paired MEM seeding, so we
     // don't have to make loads of full alignments of each read to search for
@@ -612,6 +613,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             consistent_pairs.second[i].mutable_fragment_prev()->set_name(read1.name());
             consistent_pairs.second[i].set_is_secondary(i > 0);
         }
+
+        // zap everything unless the primary alignments are individually top-scoring
+        if (only_top_scoring_pair && consistent_pairs.first.size() && 
+            (consistent_pairs.first[0].score() < alignments1[0].score() ||
+             consistent_pairs.second[0].score() < alignments2[0].score())) {
+            consistent_pairs.first.clear();
+            consistent_pairs.second.clear();
+        }
+          
         return consistent_pairs;
     } else {
 
