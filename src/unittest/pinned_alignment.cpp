@@ -1421,9 +1421,7 @@ namespace vg {
                 int8_t full_length_bonus = 5;
                 
                 aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
-                
-                cerr << pb2json(aln) << endl;
-                
+                                
                 const Path& path = aln.path();
                 
                 // is a pinned alignment
@@ -1958,8 +1956,6 @@ namespace vg {
                 int64_t prev_score = numeric_limits<int64_t>::max();
                 for (Alignment& alt_aln : multi_alns) {
                     const Path& path = alt_aln.path();
-                    
-                    cerr << pb2json(alt_aln) << endl;
                     
                     // is a pinned alignment
                     if (pin_left) {

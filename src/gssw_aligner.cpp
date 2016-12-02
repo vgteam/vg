@@ -183,9 +183,6 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                                                                        gap_extension,
                                                                        full_length_bonus);
         
-        cerr << "graph mapping:" << endl;
-        gssw_print_graph_mapping(gms[0], stderr);
-        
         if (pin_left) {
             // translate graph and mappings into original node space
             unreverse_graph(reversed_graph);
@@ -199,8 +196,6 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         if (gms[0]->score > 0) {
             // have a mapping, can just convert normally
             gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
-            cerr << "alignment object after leaving gssw mapping to alignment:" << endl;
-            cerr << pb2json(alignment) << endl;
         }
         else if (g.node_size() > 0) {
             // gssw will not identify mappings with 0 score, infer location based on pinning
@@ -347,9 +342,9 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
 
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* ncs = gc->elements;
-    cerr << "gm->position " << gm->position << endl;
+    //cerr << "gm->position " << gm->position << endl;
     string& to_seq = *alignment.mutable_sequence();
-    cerr << "-------------" << endl;
+    //cerr << "-------------" << endl;
 
     if (print_score_matrices) {
         gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
@@ -374,9 +369,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         }
         
         // need to detect insertions or deletions that have been recorded on the dummy node and move them onto real nodes
-        cerr << "before adjusting dummy deletions and insertions:" << endl;
-        gssw_print_graph_mapping(gm, stderr);
-        
         if (pin_left) {
             gssw_cigar* dummy_node_cigar = ncs[0].cigar;
             
@@ -533,9 +525,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 }
             }
         }
-        
-        cerr << "after adjusting dummy deletions and insertions:" << endl;
-        gssw_print_graph_mapping(gm, stderr);
     }
     
     int to_pos = 0;
@@ -555,7 +544,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         
         if (i > graph_cigar_start){
              // reset for each node after the first
-            cerr << "i > " << graph_cigar_start << " (start), setting from pos = 0" << endl;
             from_pos = 0;
         }
         
@@ -563,11 +551,11 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         mapping->mutable_position()->set_offset(from_pos);
         mapping->set_rank(path->mapping_size());
 
-        cerr << from_node->id() << ":" << endl;
+        //cerr << from_node->id() << ":" << endl;
 
         for (int j=0; j < l; ++j, ++e) {
             int32_t length = e->length;
-            cerr << e->length << e->type << endl;
+            //cerr << e->length << e->type << endl;
             
             Edit* edit;
             switch (e->type) {
@@ -580,7 +568,7 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 int last_start = from_pos;
                 int k = to_pos;
                 for ( ; h < from_pos + length; ++h, ++k) {
-                    cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
                     if (from_seq[h] != to_seq[k]) {
                         // emit the last "match" region
                         if (h - last_start > 0) {
