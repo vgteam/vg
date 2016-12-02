@@ -39,8 +39,8 @@ struct SiteTraversal {
     // We just act like a list of these, which are oriented traversals of
     // either nodes or NestedSites.
     struct Visit {
-        const Node* node = nullptr;
-        const NestedSite* child = nullptr;
+        Node* node = nullptr;
+        NestedSite const* child = nullptr;
         // backward indicates:
         //   if node != nullptr  : reverse complement of node
         //   if child != nullptr : traversal of child site entering backwards through
