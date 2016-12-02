@@ -15,6 +15,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
+#include "../pathindex.hpp"
 
 #include "gcsa/gcsa.h"
 #include "gcsa/algorithms.h"
@@ -372,6 +373,10 @@ int main_index(int argc, char** argv) {
 
                 // How many bases is it?
                 size_t path_length = index.path_length(path_name);
+                
+                // We're going to extract it and index it, so we don't keep
+                // making queries against it for every sample.
+                PathIndex path_index(index.path(path_name));
 
                 // Allocate some threads to store phase threads
                 vector<xg::XG::thread_t> active_phase_threads{num_phases};
@@ -410,10 +415,26 @@ int main_index(int argc, char** argv) {
                     }
                 };
 
+                // We need a way to convert Mappings to ThreadMappings
+                // TODO: add a converting constructor?
+                auto mapping_to_thread_mapping = [](const Mapping& mapping) {
+                    xg::XG::ThreadMapping thread_mapping;
+                    thread_mapping.node_id = mapping.position().node_id();
+                    thread_mapping.is_reverse = mapping.position().is_reverse();
+                    return thread_mapping;
+                };
+                // And NodeSides to thread mappings
+                auto node_side_to_thread_mapping = [](const NodeSide& side) {
+                    xg::XG::ThreadMapping thread_mapping;
+                    thread_mapping.node_id = side.node;
+                    thread_mapping.is_reverse = side.is_end;
+                    return thread_mapping;
+                };
+
                 // We need a way to dump mappings into pahse threads. The
                 // mapping edits and rank and offset info will be ignored; the
                 // Mapping just represents an oriented node traversal.
-                auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
+                auto append_mapping = [&](size_t phase_number, const xg::XG::ThreadMapping& mapping) {
                     // Find the path to add to
                     xg::XG::thread_t& to_extend = active_phase_threads[phase_number];
 
@@ -423,11 +444,11 @@ int main_index(int argc, char** argv) {
                         const xg::XG::ThreadMapping& previous = to_extend[to_extend.size() - 1];
 
                         // Break out the IDs and flags we need to check for the edge
-                        int64_t last_node = previous.node_id;
-                        bool last_from_start = previous.is_reverse;
+                        const int64_t& last_node = previous.node_id;
+                        const bool& last_from_start = previous.is_reverse;
 
-                        int64_t new_node = mapping.position().node_id();
-                        bool new_to_end = mapping.position().is_reverse();
+                        const int64_t& new_node = mapping.node_id;
+                        const bool& new_to_end = mapping.is_reverse;
 
                         if (!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
                             // We can't have a thread take this edge. Split ane
@@ -442,9 +463,8 @@ int main_index(int argc, char** argv) {
                         }
                     }
 
-                    // Add a new ThreadMapping for the mapping
-                    xg::XG::ThreadMapping tm = {mapping.position().node_id(), mapping.position().is_reverse()};
-                    active_phase_threads[phase_number].push_back(tm);
+                    // Add the ThreadMapping
+                    active_phase_threads[phase_number].push_back(mapping);
                 };
 
                 // We need an easy way to append any reference mappings from the
@@ -460,14 +480,15 @@ int main_index(int argc, char** argv) {
                         // While there is intervening reference
                         // sequence, add it to our phase.
 
-                        // What mapping is here?
-                        Mapping ref_mapping = index.mapping_at_path_position(path_name, ref_pos);
+                        // What node side is the node that covers here?
+                        auto ref_side = path_index.at_position(ref_pos);
 
                         // Stick it in the phase path
-                        append_mapping(phase_number, ref_mapping);
+                        append_mapping(phase_number, node_side_to_thread_mapping(ref_side));
 
                         // Advance to what's after that mapping
-                        ref_pos += index.node_length(ref_mapping.position().node_id());
+                        // TODO: maybe node lengths should be cached?                   
+                        ref_pos += index.node_length(ref_side.node);
                     }
                     nonvariant_starts[phase_number] = ref_pos;
                 };
@@ -581,18 +602,8 @@ int main_index(int argc, char** argv) {
                                     // We have the ref path so we can just look at its first node
                                     auto first_ref_node = ref_path_iter->second.mapping(0).position().node_id();
                                     
-                                    // Find everywhere it starts in the ref path
-                                    auto starts = index.node_positions_in_path(first_ref_node, path_name);
-                                    
-                                    // There needs to be only one occurrence of
-                                    // this node on the reference path.
-                                    assert(starts.size() == 1);
-                                    
-                                    // Where that node happens is the first
-                                    // reference base inside this variant's
-                                    // actually variable part.
-                                    first_ref_base = starts.at(0);
-                                    
+                                    // Find the first place it starts in the ref path
+                                    first_ref_base = path_index.by_id.at(first_ref_node).first;
                                 } else if (alt_path_iter != alt_paths.end() && alt_path_iter->second.mapping_size() != 0)  {
                                     // We have an alt path, so we can look at
                                     // the ref node before it and go one after
@@ -618,22 +629,19 @@ int main_index(int argc, char** argv) {
                                             continue;
                                         }
 
-                                        // Find everywhere the node occurs in
-                                        // the reference path
-                                        auto starts = index.node_positions_in_path(other_id, path_name);
-                                        if (starts.empty()) {
-                                            // Skip nodes that aren;t in the reference path
+                                        if (path_index.by_id.count(other_id) == 0) {
+                                            // Skip nodes that aren't in the reference path
                                             continue;
                                         }
+
+                                        // Look up where the node starts in the reference
+                                        auto start = path_index.by_id.at(other_id).first;
+                                        // There plus the length of the node will be the first ref base in our site
+                                        first_ref_base = max(first_ref_base, start + index.node_length(other_id));
                                         
-                                        // Complain if we have a looping reference path
-                                        assert(starts.size() == 1);
-                                        
-                                        // We need to fill in the reference to
-                                        // past the end of this node that
-                                        // happens on the reference path before
-                                        // this alt.
-                                        first_ref_base = max(first_ref_base, starts.at(0) + index.node_length(other_id));
+                                        // TODO: handling of cases where the alt
+                                        // connects to multiple reference nodes
+                                        // in different orientations.
                                     }
                                 } else {
                                     // We lack both the ref and the alt path.
@@ -670,7 +678,8 @@ int main_index(int argc, char** argv) {
                                     for (size_t i = 0; (alt_path_iter != alt_paths.end() &&
                                         i < alt_path_iter->second.mapping_size()); i++) {
                                         // Then blit mappings from the alt over to the phase thread
-                                        append_mapping(sample_number * 2 + phase_offset, alt_path_iter->second.mapping(i));
+                                        append_mapping(sample_number * 2 + phase_offset,
+                                            mapping_to_thread_mapping(alt_path_iter->second.mapping(i)));
                                     }
 
                                     // Say we've accounted for the reference on
