@@ -4,6 +4,7 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
+osx_image: xcode8.2
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
 # out our submodules and then restores the cache over them. We move the cached
