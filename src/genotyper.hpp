@@ -16,6 +16,7 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
+#include "genotypekit.hpp"
 
 namespace vg {
 

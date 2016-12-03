@@ -1558,8 +1558,6 @@ int main_genotype(int argc, char** argv) {
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
 
-    // Should we do superbubbles/sites with Cactus (true) or supbub (false)
-    bool use_cactus = false;
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
@@ -1592,7 +1590,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qSid:P:pt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1634,10 +1632,6 @@ int main_genotype(int argc, char** argv) {
         case 'q':
             // Use mapping qualities
             use_mapq = true;
-            break;
-        case 'C':
-            // Use Cactus to find sites
-            use_cactus = true;
             break;
         case 'S':
             // Find sites on the graph subset with any read support
@@ -1752,7 +1746,6 @@ int main_genotype(int argc, char** argv) {
                   contig_name,
                   sample_name,
                   augmented_file_name,
-                  use_cactus,
                   subset_graph,
                   show_progress,
                   output_vcf,

@@ -120,6 +120,42 @@ message Alignment {
     repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
 }
 
+// A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
+// of part of the read and part of the graph such that any path through the MultipathAlignment
+// indicates a valid alignment of a read to the graph
+message MultipathAlignment {
+    string sequence = 1;
+    bytes quality = 2;
+    string name = 3;
+    string sample_name = 4;
+    string read_group = 5;
+
+    // non-branching paths of the multipath alignment, each containing an alignment of part of
+    // the sequence to a Graph
+    // IMPORTANT: downstream applications will assume these are in topological order
+    repeated Subpath subpath = 6;
+
+    // -log_10(P_mismap)
+    int32 mapping_quality = 7;
+
+    // optional: indices of Subpaths that align the beginning of the read (i.e. source nodes)
+    repeated uint32 start = 8;
+}
+
+// A non-branching path of a MultipathAlignment
+message Subpath {
+    // describes node sequence and edits to the graph sequences
+    Path path = 1;
+
+    // the indices of subpaths in the multipath alignment that are to the right of this path
+    // where right is in the direction of the end of the read sequence
+    repeated uint32 next = 2;
+
+    // score of this subpath's alignment
+    int32 score = 3;
+}
+
+
 // Used to serialize kmer matches.
 message KmerMatch {
     string sequence = 1;
