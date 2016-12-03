@@ -321,6 +321,8 @@ int main_index(int argc, char** argv) {
             if (!variant_file.is_open()) {
                 cerr << "error:[vg index] could not open" << vcf_name << endl;
                 return 1;
+            } else if (show_progress) {
+                cerr << "Opened variant file " << vcf_name << endl;
             }
 
         }
@@ -342,8 +344,17 @@ int main_index(int argc, char** argv) {
         // store the graphs
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
+<<<<<<< HEAD
         xg::XG index;
         graphs.to_xg(index, store_threads, is_alt, alt_paths);
+=======
+        unique_ptr<xg::XG> index_ptr(graphs.to_xg(store_threads, is_alt, alt_paths));
+        xg::XG& index = *index_ptr;
+
+        if (show_progress) {
+            cerr << "Built base XG index" << endl;
+        }
+>>>>>>> 95c9ca4... Use new xg
 
         // We're going to collect all the phase threads as XG threads (which
         // aren't huge like Protobuf Paths), and then insert them all into xg in
