@@ -882,7 +882,7 @@ namespace vg {
 
 
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-            function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions) {
+            const vector<FastaReference*>& insertions, function<void(Graph&)> callback) {
 
         // Our caller will set up indexing. We just work with the buffered source that we pull variants from.
 
@@ -1406,7 +1406,7 @@ namespace vg {
 
     void Constructor::construct_graph(const vector<FastaReference*>& references,
             const vector<vcflib::VariantCallFile*>& variant_files,
-            function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions) {
+            const vector<FastaReference*>& insertions, function<void(Graph&)> callback) {
 
         // Make a map from contig name to fasta reference containing it.
         map<string, FastaReference*> reference_for;
@@ -1481,7 +1481,7 @@ namespace vg {
                     if (found_region){
                         // This buffer is the one!
                         // Construct the graph for this contig with the FASTA and VCF
-                        construct_graph(vcf_name, *reference, *buffer, callback, do_svs, insertions);
+                        construct_graph(vcf_name, *reference, *buffer, insertions, callback);
                         break;
                     }
                 }
@@ -1489,7 +1489,7 @@ namespace vg {
                     // None of the VCFs include variants on this sequence.
                     // Just build the graph for this sequence with no varaints.
                     VcfBuffer empty(nullptr);
-                    construct_graph(vcf_name, *reference, empty, callback, do_svs, insertions);
+                    construct_graph(vcf_name, *reference, empty, insertions, callback);
                 }
             }
         } else {
@@ -1515,7 +1515,7 @@ namespace vg {
                     auto* reference = reference_for[fasta_contig];
 
                     // Construct on it with the appropriate FastaReference for that contig
-                    construct_graph(vcf_contig, *reference, *buffer, callback, do_svs, insertions);
+                    construct_graph(vcf_contig, *reference, *buffer, insertions, callback);
                     // Remember we did this one
                     constructed.insert(vcf_contig);
 
@@ -1548,7 +1548,7 @@ namespace vg {
 
                 // Construct all the contigs we didn't do yet with no varaints.
                 VcfBuffer empty(nullptr);
-                construct_graph(vcf_contig, *reference, empty, callback, do_svs, insertions);
+                construct_graph(vcf_contig, *reference, empty, insertions, callback);
             }
 
             // Now we've constructed everything we can. We're done!

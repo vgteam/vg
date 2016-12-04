@@ -154,6 +154,10 @@ public:
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?
     bool alt_paths = false;
 
+    // Should we handle structural variants in the VCF file,
+    // or at least the ones we know how to?
+    bool do_svs = false;
+
     // Should we also store the alt_paths as loci?
     // e.g.
     // Locus{
@@ -250,7 +254,7 @@ public:
      * the file first before passing it in.
      */
     void construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
-        function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions);
+         const vector<FastaReference*>& insertion, function<void(Graph&)> callback);
     
     /**
      * Construct a graph using the given FASTA references and VCFlib VCF files.
@@ -260,7 +264,7 @@ public:
      * one FASTA file. Reference and VCF vectors may not contain nulls.
      */
     void construct_graph(const vector<FastaReference*>& references, const vector<vcflib::VariantCallFile*>& variant_files,
-        function<void(Graph&)> callback, bool do_svs, const vector<FastaReference*>& insertions);
+        const vector<FastaReference*>& insertions, function<void(Graph&)> callback);
     
 protected:
     

@@ -1,5 +1,5 @@
-#ifndef VG_FILTER_HPP
-#define VG_FILTER_HPP
+#ifndef VG_FILTER
+#define VG_FILTER
 
 #include <vector>
 #include <cstdlib>

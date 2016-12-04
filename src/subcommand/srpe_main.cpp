@@ -1,9 +1,8 @@
-#ifndef SRPE_MAIN_x
-#define SRPE_MAIN_x
 #include <iostream>
 #include <vector>
 #include <getopt.h>
 #include <functional>
+#include <regex>
 #include "subcommand.hpp"
 #include "stream.hpp"
 #include "mapper.hpp"
@@ -21,6 +20,8 @@ using namespace vg::subcommand;
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
         << "Options: " << endl
+        
+        << "   -S/ --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
        << endl;
         //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
         
@@ -45,9 +46,13 @@ int main_srpe(int argc, char** argv){
     string gcsa_name = "";
     string lcp_name = "";
 
+    string spec_vcf = "";
+
     int max_iter = 2;
     int max_frag_len = 10000;
     int min_soft_clip = 12;
+
+    bool do_all = false;
 
     /*
      * int sc_cutoff
@@ -71,11 +76,13 @@ int main_srpe(int argc, char** argv){
             {"xg-index", required_argument, 0, 'x'},
             {"help", no_argument, 0, 'h'},
             {"gcsa-index", required_argument, 0, 'g'},
+            {"specific", required_argument, 0, 'S'},
+            {"all", no_argument, 0, 'A'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:",
+        c = getopt_long (argc, argv, "hx:g:m:S:A",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -86,11 +93,20 @@ int main_srpe(int argc, char** argv){
         {
             case 'm':
                 max_iter = atoi(optarg);
+                break;
+
+            case 'A':
+                do_all = true;
+                break;
             case 'x':
                 xg_name = optarg;
                 break;
             case 'g':
                 gcsa_name = optarg;
+                break;
+            case 'S':
+                spec_vcf = optarg;
+                optind++;
                 break;
             case 'h':
             case '?':
@@ -132,6 +148,39 @@ int main_srpe(int argc, char** argv){
     else{
 
     }
+
+    auto var_t_from_path = [](){
+
+    };
+
+    auto get_nodes_from_path = [](list<Mapping> x){
+        
+    };
+
+    regex is_alt ("_alt_.*");
+
+    if (do_all){
+        vector<Support> supports;
+        for (auto x_path : (graph->paths)._paths){
+            cerr << x_path.first << endl;
+            if (regex_match(x_path.first, is_alt)){
+                vector<Alignment> alns;
+                vector<int64_t> var_node_ids;
+                for (Mapping x_m : x_path.second){
+                    var_node_ids.push_back(x_m.position().node_id()); 
+                }
+               
+                std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+                    cerr << a.name() << endl;
+                };
+                gamind.for_alignment_to_nodes(var_node_ids, incr);
+            }
+
+        }
+    }
+
+
+
     /***
      * First we need to find discordant Aligments
      * so that we can generate signatures for each SVTYPE.
@@ -180,9 +229,6 @@ int main_srpe(int argc, char** argv){
     };
 
 
-    gam_name = argv[optind];
-    gam_index_name = argv[++optind];
-    graph_name = argv[++optind];
 
     // Read in GAM and filter for Sigs
     
@@ -456,8 +502,8 @@ int main_srpe(int argc, char** argv){
         // 
     }
     }
+    return 0;
 }
 
 static Subcommand vg_srpe ("srpe", "graph-external SV detection", main_srpe);
 
-#endif

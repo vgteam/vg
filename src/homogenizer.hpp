@@ -1,3 +1,5 @@
+#ifndef VG_HOMOGENIZER
+#define VG_HOMOGENIZEER
 #include <iostream>
 #include <vector>
 #include "vg.hpp"
@@ -8,8 +10,7 @@
 #include "vg.pb.h"
 #include "types.hpp"
 
-#ifndef HOMOGENIZE_HPP
-#define HOMOGENIZE_HPP
+
 using namespace vg;
 using namespace std;
 

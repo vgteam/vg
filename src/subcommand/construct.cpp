@@ -55,7 +55,6 @@ int main_construct(int argc, char** argv) {
     string region;
     bool region_is_chrom = false;
 
-    bool handle_svs = false;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -98,7 +97,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'S':
-            handle_svs = true;
+            constructor.do_svs = true;
             break;
 
         case 'I':
@@ -285,8 +284,7 @@ int main_construct(int argc, char** argv) {
 
     // Construct the graph.
     constructor.construct_graph(fasta_pointers, vcf_pointers,
-                                callback, handle_svs,
-                                ins_pointers);
+                                ins_pointers, callback);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:
