@@ -487,19 +487,27 @@ int main_index(int argc, char** argv) {
                     // any. For which we need access to the last variant's past-
                     // the-end reference position.
                     size_t ref_pos = nonvariant_starts[phase_number];
-                    while(ref_pos < end) {
+                    
+                    // Get an iterator to the next node visit to add
+                    PathIndex::iterator next_to_add = path_index.find_position(ref_pos);
+                    
+                    while(ref_pos < end && next_to_add != path_index.end()) {
                         // While there is intervening reference
                         // sequence, add it to our phase.
 
                         // What node side is the node that covers here?
-                        auto ref_side = path_index.at_position(ref_pos);
+                        NodeSide ref_side = next_to_add->second;
 
                         // Stick it in the phase path
                         append_mapping(phase_number, node_side_to_thread_mapping(ref_side));
 
-                        // Advance to what's after that mapping
-                        // TODO: maybe node lengths should be cached?                   
-                        ref_pos += index.node_length(ref_side.node);
+                        // Advance to what's after that mapping, pulling node
+                        // length from the path index
+                        ref_pos += path_index.node_length(next_to_add);
+                        
+                        // Budge the iterator over so we don't need to do
+                        // another tree query.
+                        next_to_add++;
                     }
                     nonvariant_starts[phase_number] = ref_pos;
                 };

@@ -28,8 +28,11 @@ PathIndex::PathIndex(const Path& path) {
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
         
         // Just advance and don't grab sequence.
-        path_base +=mapping_from_length(mapping);
+        path_base += mapping_from_length(mapping);
     }
+    
+    // Record the length of the last mapping, since there's no next mapping to work it out from
+    last_node_length = path.mapping_size() > 0 ? mapping_from_length(path.mapping(path.mapping_size() - 1)) : 0;
 
 #ifdef debug    
     // Announce progress.
@@ -114,6 +117,11 @@ PathIndex::PathIndex(const Path& path, VG& vg) {
         
         // TODO: handle leading bogus characters in calls on the first node.
     }
+    
+    // Record the length of the last mapping's node, since there's no next mapping to work it out from
+    last_node_length = path.mapping_size() > 0 ? 
+        vg.get_node(path.mapping(path.mapping_size() - 1).position().node_id())->sequence().size() :
+        0;
     
     // Create the actual reference sequence we will use
     sequence = seq_stream.str();
@@ -207,6 +215,11 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
         // TODO: handle leading bogus characters in calls on the first node.
     }
     
+    // Record the length of the last mapping's node, since there's no next mapping to work it out from
+    last_node_length = path.mapping_size() > 0 ?
+        index.node_length(path.mapping(path.mapping_size() - 1).position().node_id()) :
+        0;
+    
     // Create the actual reference sequence we will use
     sequence = seq_stream.str();
     
@@ -247,7 +260,19 @@ PathIndex::PathIndex(const xg::XG& index, const string& path_name, bool extract_
     }
 }
 
-NodeSide PathIndex::at_position(size_t position) {
+NodeSide PathIndex::at_position(size_t position) const {
+    return find_position(position)->second;
+}
+
+PathIndex::iterator PathIndex::begin() const {
+    return by_start.begin();
+}
+
+PathIndex::iterator PathIndex::end() const {
+    return by_start.end();
+}
+
+PathIndex::iterator PathIndex::find_position(size_t position) const {
     assert(!by_start.empty());
     
     // Look up the iterator to whatever starts after here
@@ -264,7 +289,24 @@ NodeSide PathIndex::at_position(size_t position) {
 #endif
     
     // Return that
-    return starts_next->second;
+    return starts_next;
+}
+
+size_t PathIndex::node_length(const iterator& here) const {
+    assert(here != by_start.end());
+    
+    // Look at the next node visit
+    iterator next = here;
+    next++;
+    
+    if (next == by_start.end()) {
+        // We want the length of the last visit
+        return last_node_length;        
+    } else {
+        // We have a next node visit, so from our start to its start is our
+        // length
+        return next->first - here->first;
+    }
 }
 
 }
