@@ -588,10 +588,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     };
 
     // add alignment to all appropriate buffers, flushing as necessary
-    function<void(int, Alignment&)> update_buffers = [&buffer, &region_map,
-                                                 &get_chunks, &flush_buffer](int tid, Alignment& aln) {
-        vector<int> aln_chunks;
-        get_chunks(aln, aln_chunks);
+    function<void(int, Alignment&, const vector<int>&)> update_buffers = [
+        &buffer, &region_map, &get_chunks, &flush_buffer](int tid, Alignment& aln,
+                                                          const vector<int>& aln_chunks) {
         for (auto chunk : aln_chunks) {
             buffer[tid][chunk].push_back(aln);
             if (buffer[tid][chunk].size() >= buffer_size) {
@@ -612,7 +611,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
-        int tid = omp_get_thread_num();
+        int tid = omp_get_thread_num();        
         Counts& counts = counts_vec[tid];
         bool keep = true;
         double score = (double)aln.score();
@@ -669,6 +668,14 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             ++counts.min_mapq[co];
             keep = false;
         }
+
+        // do region check before heavier filters
+        vector<int> aln_chunks;
+        if (keep || verbose) {
+            get_chunks(aln, aln_chunks);
+            keep = !aln_chunks.empty();
+        }
+        
         if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
             ++counts.split[co];
             keep = false;
@@ -687,7 +694,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
         // add to write buffer
         if (keep) {
-            update_buffers(tid, aln);
+            update_buffers(tid, aln, aln_chunks);
         }
     };
     stream::for_each_parallel(*alignment_stream, lambda);
