@@ -570,7 +570,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     static const int buffer_size = 1000; // we let this be off by 1
 
     // remember if write or append
-    vector<bool> chunk_append(chunk_names.size(), false);
+    vector<bool> chunk_append(chunk_names.size(), append_regions);
 
     // flush a buffer specified by cur_buffer to target in chunk_names, and clear it
     function<void(int, int)> flush_buffer = [&buffer, &chunk_names, &chunk_append](int tid, int cur_buffer) {

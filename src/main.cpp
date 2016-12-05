@@ -204,6 +204,7 @@ void help_filter(char** argv) {
          << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -A, --append-regions    append to alignments created with -RB" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
@@ -243,6 +244,7 @@ int main_filter(int argc, char** argv) {
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
+                {"append-regions", no_argument, 0, 'A'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
@@ -254,7 +256,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -288,6 +290,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'B':
             filter.outbase = optarg;
+            break;
+        case 'A':
+            filter.append_regions = true;
             break;
         case 'c':
             filter.context_size = atoi(optarg);
