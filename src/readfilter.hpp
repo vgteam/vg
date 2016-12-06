@@ -73,6 +73,7 @@ public:
     // to maybe be a different class?
     string regions_file;
     string outbase;
+    bool append_regions = false;
     
     /**
      * Filter the alignments available from the given stream, placing them on
