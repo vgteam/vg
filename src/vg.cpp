@@ -6328,7 +6328,7 @@ Alignment VG::align(const Alignment& alignment,
     if (is_acyclic() && !has_inverting_edges()) {
         // join to common head if not using global banded
         Node* root = nullptr;
-        if (!banded_global) root = this->join_heads();
+        if (!banded_global && !pinned_alignment) root = this->join_heads();
         // graph is a non-inverting DAG, so we just need to sort
         sort();
         // run the alignment
@@ -6337,7 +6337,7 @@ Alignment VG::align(const Alignment& alignment,
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
         // might need that node ID.
-        if (!banded_global) destroy_node(root);
+        if (root != nullptr) destroy_node(root);
 
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;
@@ -6357,7 +6357,7 @@ Alignment VG::align(const Alignment& alignment,
         // and break any remaining cycles
 
         Node* root = nullptr;
-        if (!banded_global) root = dag.join_heads();
+        if (!banded_global && !pinned_alignment) root = dag.join_heads();
         dag.sort();
 
         // run the alignment
@@ -6393,7 +6393,7 @@ Alignment VG::align(const Alignment& alignment,
         // Clean up the node we added. This is important because this graph will
         // later be extended with more material for softclip handling, and we
         // might need that node ID.
-        if (!banded_global) destroy_node(root);
+        if (root != nullptr) destroy_node(root);
 
     }
 

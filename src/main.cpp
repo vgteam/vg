@@ -2416,15 +2416,14 @@ int main_msga(int argc, char** argv) {
         int iter = 0;
         auto& seq = strings[name];
         //cerr << "doing... " << name << endl;
-        /*
+#ifdef debug
         {
-            
             graph->serialize_to_file("msga-pre-" + name + ".vg");
             ofstream db_out("msga-pre-" + name + ".xg");
             xgidx->serialize(db_out);
             db_out.close();
         }
-        */
+#endif
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
