@@ -23,8 +23,12 @@ using namespace std;
 
 namespace vg {
     
-    // a collection of haplotypes that represent all of the chromosomes of a genome (including
-    // phasing) as walks through a variation graph, also maintains indices for sites and nodes
+    /** 
+     * A collection of haplotypes that represent all of the chromosomes of a genome (including
+     * phasing) as walks through a variation graph. Designed for fast editing at a site level,
+     * so it maintains indices of sites for that purpose.
+     *
+     */
     class PhasedGenome {
         
         // TODO: Do I also need to keep track of the ploidy of sites in case the path includes them
@@ -41,24 +45,24 @@ namespace vg {
          *  CONSTRUCTION METHODS
          */
         
-        // constructor
+        /// Constructor
         PhasedGenome(VG& graph);
         ~PhasedGenome();
         
-        // build a haplotype in place from an iterator that returns NodeTraversal objects from its
-        // dereference operator (allows construction without instantiating the haplotype elsewhere)
-        // returns the numerical id of the new haplotype
-        //
-        // note: the haplotype must have at least one node
+        /// Build a haplotype in place from an iterator that returns NodeTraversal objects from its
+        /// dereference operator (allows construction without instantiating the haplotype elsewhere)
+        /// returns the numerical id of the new haplotype
+        ///
+        /// note: the haplotype must have at least one node
         template <typename NodeTraversalIterator>
         int add_haplotype(NodeTraversalIterator first, NodeTraversalIterator last);
         
         // TODO: make an interface for constructing a set of homologous haplotypes at the same time
         // from a single iterator so that they don't need to be instantiated anywhere else
         
-        // construct the site ends, node locations, and haplotype site location indices
-        // intended to be called one time after building haplotypes, after which the indices
-        // are maintained automatically during edit operations
+        /// Construct the site ends, node locations, and haplotype site location indices. This method
+        /// is intended to be called one time after building haplotypes. After this, the are maintained
+        /// automatically during edit operations.
         void build_indices(vector<NestedSite>& top_level_sites);
         
         /*
@@ -67,32 +71,36 @@ namespace vg {
         
         size_t num_haplotypes();
         
-        // unidirectional iterators beginnning at the left telomere and moving to the right
+        /// Unidirectional iterator starting at the left telomere and moving to the right. Requires
+        /// a haplotype id as input
         iterator begin(int which_haplotype);
+        /// Iterator representing the past-the-last position of the given haplotype, with the last
+        /// position being the right telomere node.
         iterator end(int which_haplotype);
         
         /*
          *  HAPLOTYPE EDITING METHODS
          */
         
-        // swap the allele from one haplotype to the other, maintaining all indices
-        // if a nested site is being swapped, only the topmost site should be given
+        /// Swap the allele from between two haplotypes, maintaining all indices. If a nested site is
+        /// being swapped, this method should be called only once for the top-most site. Child sites
+        /// are swapped along with the top-most site automatically.
         void swap_alleles(NestedSite& site, int haplotype_1, int haplotype_2);
         
-        // set the allele at a site with an iterator that yields its node sequence (not including the
-        // source or sink nodes of the site, e.g. an empty iterator for a deletion)
-        // allele should be provided in the order indicated by the NestedSite (i.e. from start to end)
-        //
-        // note: function does not check that the allele path takes only edges that are actually
-        // included in the graph, so client must ensure this itself
+        /// Set the allele at a site with an iterator that yields its node sequence. The allele should be
+        /// provided in the order indicated by the NestedSite (i.e. from start to end) and it should not
+        /// include the source or the sink nodes of the NestedSite.
+        ///
+        /// Note: This method does not check that the allele path takes only edges that are actually
+        /// included in the graph, so client must ensure this itself.
         template <typename NodeTraversalIterator>
         void set_allele(NestedSite& site, NodeTraversalIterator first, NodeTraversalIterator last,
                         int which_haplotype);
         
-        // returns the score of the highest scoring alignment contained in the multipath alignment
-        // that is restricted to the phased genome's paths through the variation graph
+        // Returns the score of the highest scoring alignment contained in the multipath alignment
+        // that is restricted to the phased genome's paths through the variation graph.
         //
-        // note: assumes that MultipathAlignment has 'start' field filled in
+        // Note: assumes that MultipathAlignment has 'start' field filled in
         int32_t optimal_score_on_genome(const MultipathAlignment& multipath_aln);
         
         // TODO: make a local subalignment optimal score function (main obstacle is scoring partial subpaths)
@@ -102,30 +110,37 @@ namespace vg {
         struct HaplotypeNode;
         class Haplotype;
         
-        // graph though which the genome is threaded
+        /// Graph though which the genome is threaded
         VG& graph;
         
-        // all haplotypes in the genome (generally 2 per chromosome)
+        /// All haplotypes in the genome (generally 2 per chromosome)
         vector<Haplotype*> haplotypes;
         
-        // an index of where nodes from the graph occur in the graph
+        /// Index of where nodes from the graph occur in the phased genome
         unordered_map<int64_t, list<HaplotypeNode*> > node_locations;
         
-        // sufficient for these purposes to maintain only node ids instead of node sides
-        // since the path must go through the site either before or after entering here
+        /// Index of which nodes are starts of NestedSites
         unordered_map<int64_t, NestedSite*> site_starts;
+        /// Index of which nodes are ends of NestedSites
         unordered_map<int64_t, NestedSite*> site_ends;
+        // note: sufficient for these purposes to maintain only node ids instead of node sides
+        // since the path must go through the site either before or after entering here
         
-        // helper function
+        // Helper function
         void build_site_indices_internal(NestedSite* site);
         
-        // no safety checks that the adjacent nodes aren't null (should only be used in interior of haplotype)
-        // these operations maintain the node location indices but no others
+        // Editing methods:
+        // note: no safety checks that the adjacent nodes aren't null (should only be used in interior
+        // of haplotype) these operations maintain the node location indices but no others
+        
+        /// Insert a node traversal to the left of this haplotype node and update indices.
         inline void insert_left(NodeTraversal node_traversal, HaplotypeNode* haplo_node);
+        /// Insert a node traversal to the right of this haplotype node and update indices.
         inline void insert_right(NodeTraversal node_traversal, HaplotypeNode* haplo_node);
+        /// Remove this haplotype node from its haplotype and update indices.
         inline void remove(HaplotypeNode* haplo_node);
         
-        // swap a site location in indices after swapping an allele
+        /// Update a subsite's location in indices after swapping its parent allele
         void swap_label(NestedSite& site, Haplotype& haplotype_1, Haplotype& haplotype_2);
         
     };
@@ -134,27 +149,35 @@ namespace vg {
      *  INTERNAL OBJECTS (NO PUBLIC-FACING API BELOW HERE)
      */
     
-    // a node in walk through the graph taken by a haplotype
+    /**
+     * A node in walk through the graph taken by a haplotype.
+     *
+     */
     struct PhasedGenome::HaplotypeNode {
     public:
         
+        /// Node and strand
         NodeTraversal node_traversal;
+        /// Next node in walk
         HaplotypeNode* next;
+        /// Previous node in walk
         HaplotypeNode* prev;
         
+        /// Constructor
         HaplotypeNode(NodeTraversal node_traversal, HaplotypeNode* next, HaplotypeNode* prev);
+        /// Destructor
         ~HaplotypeNode();
         
     };
     
-    // hash function for node traversals
+    /// Hash function for node traversals for use in indices
     struct HashNodeTraversal {
         size_t operator()(const NodeTraversal& node_traversal) const {
             return (size_t) 1099511628211ull * ((uintptr_t) node_traversal.node + node_traversal.backward * 16777619ull) + 14695981039346656037ull;
         }
     };
     
-    // hash function for sites
+    /// Hash function for sites for use in indices
     struct HashSite {
         size_t operator()(const NestedSite& site) const {
             HashNodeTraversal hsh;
@@ -162,28 +185,40 @@ namespace vg {
         }
     };
     
-    // a specialized linked list that tracks a walk through the variation graph and maintains
-    // an index of sites
+    /**
+     * Specialized linked list that tracks a walk through the variation graph and maintains
+     * an index of sites.
+     *
+     */
     class PhasedGenome::Haplotype {
         
+    private:
+        /// Leftmost node in walk
         PhasedGenome::HaplotypeNode* left_telomere_node;
+        /// Rightmost node in walk
         PhasedGenome::HaplotypeNode* right_telomere_node;
         
-        // assumes pairs are given such that .first->prev and .second->next are outside the bubble
+        /// Index of the location in the haplotype of nested sites. Locations of sites are stored
+        /// as the nodes on haplotype that correspond to the start and end node of the site. The pair
+        /// of haplotype nodes is stored in left-to-right order along the haplotype (i.e. .first->prev
+        /// and .second->next are outside the bubble).
         unordered_map<NestedSite, pair<HaplotypeNode*, HaplotypeNode*>, HashSite> sites;
         
     public:
-        // construct a haplotype with a single node
+        /// Construct a haplotype with a single node
         Haplotype(NodeTraversal node_traversal);
         
-        // construct a haplotype with a list of nodes
+        /// Construct a haplotype with an iterator that yields NodeTraversals
         template <typename NodeTraversalIterator>
         Haplotype(NodeTraversalIterator first, NodeTraversalIterator last);
         
         ~Haplotype();
         
-        // intended for use by the PhasedGenome to build haploytpes initially, returns new node
+        /// Add a haplotype node for this node traversal to left end of haplotye and return new node.
+        /// Does not maintain indices; intended for use by the PhasedGenome for initial haplotype build.
         inline HaplotypeNode* append_left(NodeTraversal node_traversal);
+        /// Add a haplotype node for this node traversal to right end of haplotye and return new node.
+        /// Does not maintain indices; intended for use by the PhasedGenome for initial haplotype build.
         inline HaplotypeNode* append_right(NodeTraversal node_traversal);
         
         friend class PhasedGenome;
@@ -191,20 +226,30 @@ namespace vg {
         
     };
     
-    // iterator to obtain the NodeTraversals of a haplotype
+    /**
+     * Unidirectional iterator to obtain the NodeTraversals of a haplotype. Can be come invalid
+     * if the PhasedGenome is edited while iterating.
+     *
+     */
     class PhasedGenome::iterator {
     private:
         
+        /// Ordinal position along the haplotype (to distinguish the same node with multiple copies)
         size_t rank;
+        /// The ID of the haplotype
         int haplotype_number;
+        /// The position along the haplotype
         HaplotypeNode* haplo_node;
         
         iterator(size_t rank, int haplotype_number, HaplotypeNode* haplo_node);
         
     public:
         
+        /// Default constructor
         iterator();
+        /// Copy constructor
         iterator(const iterator& other);
+        /// Destructor
         ~iterator();
         
         // UNIDIRECTIONAL ITERATOR INTERFACE
