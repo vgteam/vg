@@ -72,7 +72,9 @@ namespace vg {
             HaplotypeNode* haplo_node = haplotype->left_telomere_node;
             while (haplo_node != nullptr) {
                 int64_t node_id = haplo_node->node_traversal.node->id();
-                
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::build_indices]: recording an instance of node " << node_id << " in a haplotype node at " << haplo_node << endl;
+#endif
                 // mark this instance of the node in the node location index
                 node_locations[node_id].push_back(haplo_node);
                 

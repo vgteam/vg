@@ -271,13 +271,19 @@ namespace vg {
     template <typename NodeTraversalIterator>
     void PhasedGenome::set_allele(NestedSite& site, NodeTraversalIterator first, NodeTraversalIterator last,
                                   int which_haplotype) {
-        
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::set_allele]: setting allele on haplotype " << which_haplotype << endl;
+#endif
         Haplotype& haplotype = *haplotypes[which_haplotype];
         
         // can only set the allele of a site that already is in the haplotype
         assert(haplotype.sites.count(site));
         
         pair<HaplotypeNode*, HaplotypeNode*> haplo_site = haplotype.sites[site];
+        
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::set_allele]: deleting allele at site " << haplo_site.first->node_traversal.node->id() << "->" << haplo_site.second->node_traversal.node->id() << endl;
+#endif
         
         // remove the current site
         HaplotypeNode* haplo_node = haplo_site.first->next;
@@ -286,13 +292,22 @@ namespace vg {
             // once on end) since unordered_map.erase is defined in both cases
             int64_t node_id = haplo_node->node_traversal.node->id();
             if (site_starts.count(node_id)) {
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::set_allele]: deleting nested site starting at node " << node_id << " from index" << endl;
+#endif
                 NestedSite* subsite = site_starts[node_id];
                 haplotype.sites.erase(*subsite);
             }
             else if (site_ends.count(node_id)) {
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::set_allele]: deleting nested site ending at node " << node_id << " from index" << endl;
+#endif
                 NestedSite* subsite = site_ends[node_id];
                 haplotype.sites.erase(*subsite);
             }
+#ifdef debug_phased_genome
+            cerr << "[PhasedGenome::set_allele]: deleting haplotype node " << node_id << endl;
+#endif
             // cut out each node and iterate to next node
             HaplotypeNode* next_haplo_node = haplo_node->next;
             remove(haplo_node);
@@ -315,10 +330,16 @@ namespace vg {
             
             // create the next node in the allele and move the pointer onto the new node
             if (forward) {
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::set_allele]: inserting in forward direction " << (*first).node->id() << ((*first).backward ? "-" : "+") << endl;
+#endif
                 insert_right(*first, haplo_node);
                 haplo_node = haplo_node->next;
             }
             else {
+#ifdef debug_phased_genome
+                cerr << "[PhasedGenome::set_allele]: inserting in reverse direction " << (*first).node->id() << ((*first).backward ? "-" : "+") << endl;
+#endif
                 insert_left(*first, haplo_node);
                 haplo_node = haplo_node->prev;
             }
@@ -330,6 +351,9 @@ namespace vg {
                 NestedSite* subsite = site_starts[node_id];
                 // are we entering or leaving this site?
                 if (subsite_end_side.count(*subsite)) {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::set_allele]: detected leaving a site in its reverse orientation" << endl;
+#endif
                     // add this site into the haplotype's site index
                     HaplotypeNode* other_side_node = subsite_end_side[*subsite];
                     // the site sides should always be entered in the order that
@@ -338,6 +362,9 @@ namespace vg {
                                                         : make_pair(haplo_node, other_side_node);
                 }
                 else {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::set_allele]: detected entering a site in its forward orientation" << endl;
+#endif
                     // we are entering a site, mark the location of the entrance
                     subsite_start_side[*subsite] = haplo_node;
                 }
@@ -348,6 +375,9 @@ namespace vg {
                 NestedSite* subsite = site_ends[node_id];
                 // are we entering or leaving this site?
                 if (subsite_start_side.count(*subsite)) {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::set_allele]: detected leaving a site in its forward orientation" << endl;
+#endif
                     // add this site into the haplotype's site index
                     HaplotypeNode* other_side_node = subsite_start_side[*subsite];
                     // the site sides should always be entered in the order that
@@ -356,6 +386,9 @@ namespace vg {
                                                         : make_pair(haplo_node, other_side_node);
                 }
                 else {
+#ifdef debug_phased_genome
+                    cerr << "[PhasedGenome::set_allele]: detected entering a site in its reverse orientation" << endl;
+#endif
                     // we are entering a site, mark the location of the entrance
                     subsite_end_side[*subsite] = haplo_node;
                 }
@@ -417,6 +450,10 @@ namespace vg {
         haplo_node->prev->next = new_node;
         haplo_node->prev = new_node;
         
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::insert_left]: recording inserted node " << node_traversal.node->id() << " in haplotype node at " << haplo_node << endl;
+#endif
+        
         node_locations[node_traversal.node->id()].push_back(new_node);
     }
     
@@ -426,6 +463,9 @@ namespace vg {
         haplo_node->next->prev = new_node;
         haplo_node->next = new_node;
         
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::insert_right]: recording inserted node " << node_traversal.node->id() << " in haplotype node at " << haplo_node << endl;
+#endif
         node_locations[node_traversal.node->id()].push_back(new_node);
     }
     
@@ -437,10 +477,15 @@ namespace vg {
         
         // remove the node from the node locations index
         int64_t node_id = haplo_node->node_traversal.node->id();
+        
         list<HaplotypeNode*>& node_occurrences = node_locations[node_id];
+#ifdef debug_phased_genome
+        cerr << "[PhasedGenome::remove]: node " << node_id << " occurs in " << node_occurrences.size() << " places, must search through each to find which to delete from indices" << endl;
+#endif
         for (auto iter = node_occurrences.begin(); iter != node_occurrences.end(); iter++) {
             if (*iter == haplo_node) {
                 node_occurrences.erase(iter);
+                break;
             }
         }
         
