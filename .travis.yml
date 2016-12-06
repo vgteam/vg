@@ -4,7 +4,6 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
-osx_image: xcode8.2
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
 # out our submodules and then restores the cache over them. We move the cached
@@ -41,7 +40,6 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
-    #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew unlink gcc49; fi
   - python ./configure.py
   - source ./source_me.sh
 install:

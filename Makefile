@@ -18,7 +18,7 @@ CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g
 CWD:=$(shell pwd)
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
-LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -ltcmalloc_minimal
+LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib
 
 ifeq ($(shell uname -s),Darwin)
     # We may need libraries from Macports
@@ -33,7 +33,7 @@ ifeq ($(shell uname -s),Darwin)
     # TODO: configure RPATH-equivalent on OS X for finding libraries without environment variables at runtime
 else
     # We can also have a normal Unix rpath
-    LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)  
+    LD_LIB_FLAGS += -ltcmalloc_minimal -Wl,-rpath,$(CWD)/$(LIB_DIR)  
 endif
 
 # RocksDB's dependecies depend on whether certain compression libraries
@@ -79,7 +79,7 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
-	
+
 # We also want to present the xg binary, which tests can use.
 $(BIN_DIR)/xg: $(LIB_DIR)/libxg.a $(OBJ_DIR)/xg-main.o
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/xg $(OBJ_DIR)/xg-main.o $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
@@ -316,7 +316,7 @@ $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(D
 
 $(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
-	
+
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
 $(OBJ_DIR)/xg-main.o: $(XG_DIR)/src/main.cpp $(XG_DIR)/src/xg.hpp $(DEPS)
