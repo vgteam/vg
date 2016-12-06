@@ -2917,6 +2917,12 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             }
         }
     }
+    if (!softclip_start(aln)) {
+        score += full_length_alignment_bonus;
+    }
+    if (!softclip_end(aln)) {
+        score += full_length_alignment_bonus;
+    }
     if (debug) cerr << "score from score_alignment " << score << endl;
     return max(0, score);
 }
