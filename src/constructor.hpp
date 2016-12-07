@@ -250,14 +250,33 @@ public:
     
 protected:
     
-    // This map maps from VCF sequence names to FASTA sequence names. If a
-    // VCF sequence name doesn't appear in here, it gets passed through
-    // unchanged. Note that the primary path for each contig will be named after
-    // the FASTA sequence name and not the VCF sequence name.
+    /// This map maps from VCF sequence names to FASTA sequence names. If a
+    /// VCF sequence name doesn't appear in here, it gets passed through
+    /// unchanged. Note that the primary path for each contig will be named after
+    /// the FASTA sequence name and not the VCF sequence name.
     map<string, string> vcf_to_fasta_renames;
     
-    // This is the reverse map from FASTA sequence name to VCF sequence name.
+    /// This is the reverse map from FASTA sequence name to VCF sequence name.
     map<string, string> fasta_to_vcf_renames;
+    
+private:
+
+    /**
+     * Given a list of VariantAllele edits, trim in from the left and right,
+     * leaving a core of edits bounded by edits that actually change the
+     * reference.
+     */
+    static void trim_to_variable(list<vcflib::VariantAllele>& parsed_allele); 
+
+    /**
+     * Given a vector of lists of VariantAllele edits that have been trimmed
+     * with trim_to_variable() above, one per non-reference alt for a variant,
+     * return the position of the first varaible base, and the position of the
+     * last variable base. If there's no variable-region, the result is max
+     * int64_t and -1, and if there's a 0-length variable region, the result is
+     * the base after it and the base before it.
+     */
+    static pair<int64_t, int64_t> get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant);
     
 
 };

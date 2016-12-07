@@ -33,6 +33,7 @@ void help_index(char** argv) {
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
          << "                           the graph(s) (effectively replaces rocksdb)" << endl
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
+         << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
@@ -79,6 +80,8 @@ int main_index(int argc, char** argv) {
     string xg_name;
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
+    // This maps from graph path name (FASTA name) to VCF contig name
+    map<string,string> path_to_vcf;
     vector<string> dbg_names;
     int kmer_size = 0;
     bool path_only = false;
@@ -130,6 +133,7 @@ int main_index(int argc, char** argv) {
             {"gcsa-name", required_argument, 0, 'g'},
             {"xg-name", required_argument, 0, 'x'},
             {"vcf-phasing", required_argument, 0, 'v'},
+            {"rename", required_argument, 0, 'r'},
             {"verify-index", no_argument, 0, 'V'},
             {"forward-only", no_argument, 0, 'F'},
             {"size-limit", no_argument, 0, 'Z'},
@@ -142,7 +146,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -161,6 +165,23 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+            
+        case 'r':
+            {
+                // Parse the rename old=new
+                string key_value(optarg);
+                auto found = key_value.find('=');
+                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
+                    cerr << "error:[vg construct] could not parse rename " << key_value << endl;
+                    exit(1);
+                }
+                // Parse out the two parts
+                string vcf_contig = key_value.substr(0, found);
+                string graph_contig = key_value.substr(found + 1);
+                // Add the name mapping
+                path_to_vcf[graph_contig] = vcf_contig;
+            }
             break;
 
         case 'P':
@@ -319,7 +340,7 @@ int main_index(int argc, char** argv) {
 
             variant_file.open(vcf_name);
             if (!variant_file.is_open()) {
-                cerr << "error:[vg index] could not open" << vcf_name << endl;
+                cerr << "error:[vg index] could not open " << vcf_name << endl;
                 return 1;
             } else if (show_progress) {
                 cerr << "Opened variant file " << vcf_name << endl;
@@ -378,6 +399,13 @@ int main_index(int argc, char** argv) {
 
                 // What path is this?
                 string path_name = index.path_name(path_rank);
+                
+                // Convert to VCF space if applicable
+                string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
+                
+                if (show_progress) {
+                    cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
+                }
 
                 // We already know it's not a variant's alt, since those were
                 // removed, so it might be a primary contig.
@@ -461,9 +489,10 @@ int main_index(int argc, char** argv) {
                         const int64_t& new_node = mapping.node_id;
                         const bool& new_to_end = mapping.is_reverse;
 
-                        if (!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
-                            // We can't have a thread take this edge. Split ane
-                            // emit the current mappings and start a new path.
+                        if (!index.has_edge(xg::make_edge(last_node, last_from_start, new_node, new_to_end))) {
+                            // We can't have a thread take this edge (or an
+                            // equivalent). Split and emit the current mappings
+                            // and start a new path.
 #ifdef debug
                             cerr << "warning:[vg index] phase " << phase_number << " wants edge "
                                 << last_node << (last_from_start ? "L" : "R") << " - "
@@ -471,6 +500,7 @@ int main_index(int argc, char** argv) {
                                 << " which does not exist. Splitting!" << endl;
 #endif
                             finish_phase(phase_number);
+                            assert(false);
                         }
                     }
 
@@ -585,12 +615,30 @@ int main_index(int argc, char** argv) {
                         
                         // If it is phased, parse out the two alleles and handle
                         // each separately.
-                        vector<int> alt_indices({stoi(genotype.substr(0, bar_pos)),
-                                stoi(genotype.substr(bar_pos + 1))});
+                        vector<string> alt_indices({genotype.substr(0, bar_pos),
+                                genotype.substr(bar_pos + 1)});
 
                         for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
                             // Handle each phase and its alt
-                            int& alt_index = alt_indices[phase_offset];
+                            string& alt_string = alt_indices[phase_offset];
+                            
+                            if (alt_string == ".") {
+                                // This is a missing data call. Skip it. TODO:
+                                // that means we'll just treat it like a
+                                // reference call, when really we should break
+                                // the haplotype here and not touch either alt.
+                                // But if the reference path is empty, and we
+                                // don't have a handy alt, we don't necessarily
+                                // know where the site actually *is*, so we
+                                // can't break phasing. What we should really do
+                                // is iterate alt numbers until we find one, but
+                                // that's going to be slow.
+                                continue;
+                            }
+                            
+                            // Otherwise it must be a proper number reference.
+                            // Parse it.
+                            int alt_index = stoi(alt_string);
 
                             if (alt_index != 0) {
                                 // If this sample doesn't take the reference
@@ -714,26 +762,23 @@ int main_index(int argc, char** argv) {
                 };
 
                 // Look for variants only on this path
-                variant_file.setRegion(path_name);
+                variant_file.setRegion(vcf_contig_name);
 
                 // Set up progress bar
                 ProgressBar* progress = nullptr;
                 // Message needs to last as long as the bar itself.
-                string progress_message = "loading variants for " + path_name;
+                string progress_message = "loading variants for " + vcf_contig_name;
                 if (show_progress) {
                     progress = new ProgressBar(path_length, progress_message.c_str());
                     progress->Progressed(0);
                 }
-
-                // TODO: For a first attempt, let's assume we can actually store
-                // all the Path objects for all the phases.
 
                 // Allocate a place to store actual variants
                 vcflib::Variant var(variant_file);
 
                 // How many variants have we done?
                 size_t variants_processed = 0;
-                while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+                while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name) {
                     // this ... maybe we should remove it as for when we have calls against N
                     bool isDNA = allATGC(var.ref);
                     for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
@@ -743,9 +788,9 @@ int main_index(int argc, char** argv) {
                     if (!isDNA) {
                         continue;
                     }
-
+                    
                     var.position -= 1; // convert to 0-based
-
+                    
                     // Handle the variant
                     handle_variant(var);
 
@@ -756,19 +801,28 @@ int main_index(int argc, char** argv) {
                     }
                 }
 
-                // Now finish up all the threads
-                for (size_t i = 0; i < num_phases; i++) {
-                    // Each thread runs out until the end of the reference path
-                    append_reference_mappings_until(i, path_length);
+                if (variants_processed > 0) {
+                    // There were actually some variants on this path. We only
+                    // want to actually have samples traverse the path if there
+                    // were variants on it.
 
-                    // And then we save all the threads
-                    finish_phase(i);
+                    // Now finish up all the threads
+                    for (size_t i = 0; i < num_phases; i++) {
+                        // Each thread runs out until the end of the reference path
+                        append_reference_mappings_until(i, path_length);
+
+                        // And then we save all the threads
+                        finish_phase(i);
+                    }
                 }
 
                 if (progress != nullptr) {
                     // Throw out our progress bar
                     delete progress;
                     cerr << endl;
+                    if (show_progress) {
+                        cerr << "Processed " << variants_processed << " variants" << endl;
+                    }
                 }
 
             }
