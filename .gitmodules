@@ -67,3 +67,6 @@
 [submodule "deps/sonLib"]
 	path = deps/sonLib
 	url = https://github.com/benedictpaten/sonLib.git
+[submodule "deps/gperftools"]
+	path = deps/gperftools
+	url = https://github.com/gperftools/gperftools.git
