@@ -83,7 +83,8 @@ def run(cmd, proc_stdout = sys.stdout, proc_stderr = sys.stderr,
         check = True):
     """ run command in shell and throw exception if it doesn't work 
     """
-    print cmd
+    sys.stderr.write(cmd + '\n')
+    sys.stderr.flush()
     proc = subprocess.Popen(cmd, shell=True, bufsize=-1,
                             stdout=proc_stdout, stderr=proc_stderr)
     output, errors = proc.communicate()
