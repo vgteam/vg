@@ -262,11 +262,20 @@ protected:
 private:
 
     /**
-     * Given a list of VariantAllele edits, trim in from the left and right,
-     * leaving a core of edits bounded by edits that actually change the
-     * reference.
+     * Given a vector of lists of VariantAllele edits, trim in from the left and
+     * right, leaving a core of edits bounded by edits that actually change the
+     * reference in at least one allele.
+     *
+     * Postcondition: either all lists of VariantAlleles are empty, or at least
+     * one begins with a non-match and at least one ends with a non-match.
      */
-    static void trim_to_variable(list<vcflib::VariantAllele>& parsed_allele); 
+    static void trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles);
+    
+    /**
+     * Given a list of VariantAllele edits, condense adjacent perfect match
+     * edits to be maximally long.
+     */
+    static void condense_edits(list<vcflib::VariantAllele>& parsed_allele); 
 
     /**
      * Given a vector of lists of VariantAllele edits that have been trimmed

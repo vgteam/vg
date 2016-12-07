@@ -967,6 +967,102 @@ ref	6	rs10666768	C	CG,CGG,G	100	PASS	.	GT
 
 }
 
+TEST_CASE( "A combination insertion and deletion gets appropriate alt paths", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	2	rs554978012;rs201121256	GTA	GTATA,G	.	GT
+)";
+
+    auto ref = "CGTATACC";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    // We build this as CG,TA,TA,TAC, with both TAs being taken in the longest
+    // allele, neither in the shortestallele, and the rightmost one in the
+    // reference allele.
+    
+    SECTION("the graph should have 4 nodes") {
+        REQUIRE(result.graph.node_size() == 4);
+        
+        SECTION("the nodes should be pre-variant, inserted TA, deleted TA, and post-variant") {
+            CHECK(result.graph.node(0).sequence() == "CG");
+            CHECK(result.graph.node(1).sequence() == "TA");
+            CHECK(result.graph.node(2).sequence() == "TA");
+            CHECK(result.graph.node(3).sequence() == "TACC");
+        }
+        
+        SECTION("the nodes should be numbered 1, 2, 3, and 4, in order") {
+            CHECK(result.graph.node(0).id() == 1);
+            CHECK(result.graph.node(1).id() == 2);
+            CHECK(result.graph.node(2).id() == 3);
+            CHECK(result.graph.node(3).id() == 4);
+        }
+    }
+    
+    SECTION("the graph should have 5 edges") {
+        REQUIRE(result.graph.edge_size() == 5);
+    }
+
+    SECTION("the graph should have 4 paths") {
+        REQUIRE(result.graph.path_size() == 4);
+        
+        // Find the primary path, and the paths for the two alleles
+        Path primary;
+        Path allele0;
+        Path allele1;
+        Path allele2;
+        
+        for (size_t i = 0; i < result.graph.path_size(); i++) {
+            auto& path = result.graph.path(i);
+            
+            // Path names can't be empty for us to inspect them how we want.
+            REQUIRE(path.name().size() > 0);
+            
+            if (path.name() == "ref") {
+                primary = path;
+            } else if (path.name()[path.name().size() - 1] == '0') {
+                // The name ends with 0, so it ought to be the ref allele path
+                allele0 = path;
+            } else if (path.name()[path.name().size() - 1] == '1') {
+                // The name ends with 1, so it ought to be the long alt allele path
+                allele1 = path;
+            } else if (path.name()[path.name().size() - 1] == '2') {
+                // The name ends with 2, so it ought to be the short alt allele path
+                allele2 = path;
+            }
+        }
+        
+        SECTION("the path for the reference alt should visit the second TA node") {
+            REQUIRE(allele0.mapping_size() == 1);
+            REQUIRE(allele0.mapping(0).position().node_id() == 3);
+        }
+        
+        SECTION("the path for the insert alt should visit the second first and second TA nodes") {
+            REQUIRE(allele1.mapping_size() == 2);
+            REQUIRE(allele1.mapping(0).position().node_id() == 2);
+            REQUIRE(allele1.mapping(1).position().node_id() == 3);
+        }
+        
+        SECTION("the path for the delete alt should be empty") {
+            REQUIRE(allele2.mapping_size() == 0);
+        }
+    }
+
+}
+
 
 TEST_CASE( "A VCF with multiple clumps can be constructed", "[constructor]" ) {
 
