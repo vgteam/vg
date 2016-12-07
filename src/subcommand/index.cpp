@@ -500,7 +500,6 @@ int main_index(int argc, char** argv) {
                                 << " which does not exist. Splitting!" << endl;
 #endif
                             finish_phase(phase_number);
-                            assert(false);
                         }
                     }
 
