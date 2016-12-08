@@ -124,6 +124,18 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
             }
         }
 
+        if (i == 0) {
+            // The first chunk will always include all the 0-length paths.
+            // TODO: if there are too many, this chunk may grow too large!
+            paths.for_each_name([&](const string& name) {
+                // For every path
+                if (paths.get_path(name).empty()) {
+                    // If its mapping list has no mappings, make it in the chunk
+                    g.paths.create_path(name);
+                }
+            });
+        }
+
         // record our circular paths
         g.paths.circular = this->paths.circular;
         // but this is broken as our paths have been reordered as
@@ -5258,11 +5270,6 @@ bool VG::is_valid(bool check_nodes,
             [this, &paths_ok]
             (const Path& path) {
             if (!paths_ok) {
-                return;
-            }
-            if (!path.mapping_size()) {
-                cerr << "graph invalid: path " << path.name() << " has no component mappings" << endl;
-                paths_ok = false;
                 return;
             }
             if (path.mapping_size() == 1) {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 31
+plan tests 35
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -88,6 +88,9 @@ vg sim -s 1337 -n 100 -x x.xg >x.reads
 vg map -x x.xg -g x.gcsa -r x.reads >x.gam
 vg index -d x.db -N x.gam
 is $(vg find -o 127 -d x.db | vg view -a - | wc -l) 6 "the index can return the set of alignments mapping to a particular node"
+is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) -d x.db | vg view -a - | wc -l) 15 "a subgraph query may be used to obtain a particular subset of alignments"
+vg index -d x.db -a x.gam
+is $(vg find -i 100:127 -d x.db | vg view -a - | wc -l) 20 "the index can return the set of alignments whose start node is within a given range"
 rm -rf x.db x.gam x.reads
 
 vg sim -s 1337 -n 1 -x x.xg -a >x.gam
@@ -95,3 +98,11 @@ is $(vg find -G x.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTA
 
 rm -rf x.vg x.xg x.gcsa x.gam
 
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
+vg index -x tiny.xg tiny.vg 
+is $(vg find -x tiny.xg -n 12 -n 13 -n 14 -n 15 | vg view - | grep ^L | wc -l) 4 "find gets connected edges between queried nodes by default"
+echo 12 13 >get.nodes
+echo 14 >>get.nodes
+echo 15 >>get.nodes
+is $(vg find -x tiny.xg -N get.nodes | vg view - | grep ^S | wc -l) 4 "find gets nodes provided in a node file list"
+rm -rf tiny.xg tiny.vg get.nodes

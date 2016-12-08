@@ -1,6 +1,3 @@
-#ifndef HOMOG_MAIN_x
-#define HOMOG_MAIN_x
-
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -206,4 +203,3 @@ int main_homogenize(int argc, char** argv){
 
 static Subcommand vg_homogenize("homogenize", "homogenize augmented graphs", main_homogenize);
 
-#endif

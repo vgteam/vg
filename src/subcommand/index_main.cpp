@@ -63,11 +63,9 @@ void help_index(char** argv) {
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
-
 }
-
+#define debug
 int main_index(int argc, char** argv) {
 
     if (argc == 2) {
@@ -98,7 +96,6 @@ int main_index(int argc, char** argv) {
     bool allow_negs = false;
     bool compact = false;
     bool dump_alignments = false;
-    bool use_snappy = false;
     int doubling_steps = 3;
     bool verify_index = false;
     bool forward_only = false;
@@ -129,7 +126,6 @@ int main_index(int argc, char** argv) {
             {"path-layout", no_argument, 0, 'L'},
             {"compact", no_argument, 0, 'C'},
             {"allow-negs", no_argument, 0, 'n'},
-            {"use-snappy", no_argument, 0, 'Q'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"xg-name", required_argument, 0, 'x'},
             {"vcf-phasing", required_argument, 0, 'v'},
@@ -145,7 +141,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:VFZ:Oi:TNo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -232,10 +228,6 @@ int main_index(int argc, char** argv) {
             compact = true;
             break;
 
-        case 'Q':
-            use_snappy = true;
-            break;
-
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
@@ -298,18 +290,18 @@ int main_index(int argc, char** argv) {
         //return 1;
     }
 
-    if(kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {
+    if (kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {
         // gcsa doesn't do anything if we tell it a kmer size of 0.
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
         return 1;
     }
 
-    if(kmer_size < 0) {
+    if (kmer_size < 0) {
         cerr << "error:[vg index] kmer size cannot be negative" << endl;
         return 1;
     }
 
-    if(kmer_stride <= 0) {
+    if (kmer_stride <= 0) {
         // kmer strides of 0 (or negative) are silly.
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
@@ -321,7 +313,7 @@ int main_index(int argc, char** argv) {
         // We'll fill this with the opened VCF file if we need one.
         vcflib::VariantCallFile variant_file;
 
-        if(!vcf_name.empty()) {
+        if (!vcf_name.empty()) {
             // There's a VCF we should load haplotype info from
 
             variant_file.open(vcf_name);
@@ -340,7 +332,7 @@ int main_index(int argc, char** argv) {
         // This is matched against the entire string.
         regex is_alt("_alt_.+_[0-9]+");
 
-        if(file_names.empty()) {
+        if (file_names.empty()) {
             // VGset or something segfaults when we feed it no graphs.
             cerr << "error:[vg index] at least one graph is required to build an xg index" << endl;
             return 1;
@@ -357,7 +349,7 @@ int main_index(int argc, char** argv) {
         // much as a real vg::Paths index or vector<Path> would)
         vector<xg::XG::thread_t> all_phase_threads;
 
-        if(variant_file.is_open()) {
+        if (variant_file.is_open()) {
             // Now go through and add the varaints.
 
             // How many phases are there?
@@ -365,7 +357,7 @@ int main_index(int argc, char** argv) {
             // And how many phases?
             size_t num_phases = num_samples * 2;
 
-            for(size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
+            for (size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
                 // Find all the reference paths and loop over them. We'll just
                 // assume paths that don't start with "_" might appear in the
                 // VCF. We need to use the xg path functions, since we didn't
@@ -398,7 +390,7 @@ int main_index(int argc, char** argv) {
                     // Find where this path is in our vector
                     xg::XG::thread_t& to_save = active_phase_threads[phase_number];
 
-                    if(to_save.size() > 0) {
+                    if (to_save.size() > 0) {
                         // Only actually do anything if we put in some mappings.
 
                         // Count this thread from this phase as being saved.
@@ -425,7 +417,7 @@ int main_index(int argc, char** argv) {
                     xg::XG::thread_t& to_extend = active_phase_threads[phase_number];
 
                     // See if the edge we need to follow exists
-                    if(to_extend.size() > 0) {
+                    if (to_extend.size() > 0) {
                         // If there's a previous mapping, go find it
                         const xg::XG::ThreadMapping& previous = to_extend[to_extend.size() - 1];
 
@@ -436,7 +428,7 @@ int main_index(int argc, char** argv) {
                         int64_t new_node = mapping.position().node_id();
                         bool new_to_end = mapping.position().is_reverse();
 
-                        if(!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
+                        if (!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
                             // We can't have a thread take this edge. Split ane
                             // emit the current mappings and start a new path.
 #ifdef debug
@@ -486,17 +478,29 @@ int main_index(int argc, char** argv) {
                     // Grab its id, or make one by hashing stuff if it doesn't
                     // have an ID.
                     string var_name = make_variant_id(variant);
+    
+                    // We have alt paths like _alt_<var_name>_0 ...
+                    // _alt_<var_name>_n. Up to one of them may be missing, in
+                    // which case it represents a 0-length path that's just the
+                    // edge from the node before the variable part of the
+                    // variant to the node after.
+                    
+                    // If we take the ref allele when the ref path is missing,
+                    // we don't care! We'll make mappings through here when we
+                    // hit the next nonreference variant or the end of the
+                    // contig and add the reference matches.
+                    
+                    // If we take an allele that's present, we go up through the
+                    // end of the ref node that's before it, and then visit the
+                    // allele.
+                    
+                    // If we take an alt allele when its path is missing, we go
+                    // up to the end of the ref node before it, and then mark us
+                    // as complete through there plus the length of the nodes
+                    // along the ref path for the variant (which must be
+                    // nonempty).
 
-                    if(alt_paths.count("_alt_" + var_name + "_0") == 0) {
-                        // There isn't a reference alt path for this variant.
-#ifdef debug
-                        cerr << "Reference alt for " << var_name << " not in VG set! Skipping!" << endl;
-#endif
-                        // Don't bother with this variant
-                        return;
-                    }
-
-                    for(int sample_number = 0; sample_number < num_samples; sample_number++) {
+                    for (int sample_number = 0; sample_number < num_samples; sample_number++) {
                         // For each sample
 
                         // What sample is it?
@@ -508,65 +512,175 @@ int main_index(int argc, char** argv) {
                         // Find the phasing bar
                         auto bar_pos = genotype.find('|');
 
-                        if(bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
+                        if (bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
                             // If it isn't phased, or we otherwise don't like
                             // it, we need to break phasing paths.
-                            for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
-                                // Finish both the phases for this sample.
+                            for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                                // For each of the two phases for the sample
+                                
+                                // Remember where the end of the last variant was
+                                auto cursor = nonvariant_starts[sample_number * 2 + phase_offset];
+                                
+                                // Make the phase thread reference up to the
+                                // start of this variant. Doesn't have to be
+                                // into the variable region.
+                                append_reference_mappings_until(sample_number * 2 + phase_offset, variant.position);
+                            
+                                // Finish the phase thread and start a new one
                                 finish_phase(sample_number * 2 + phase_offset);
+                                
+                                // Walk the cursor back so we repeat the
+                                // reference segment, which we need to do in
+                                // order to properly handle zero-length alleles
+                                // at the ends of phase blocks.
+                                nonvariant_starts[sample_number * 2 + phase_offset] = cursor;
+                                
+                                // TODO: we still can't handle deletions
+                                // adjacent to SNPs where phasing gets lost. We
+                                // have to have intervening reference bases. But
+                                // that's a defect of the data model.
                             }
                         }
-
+                        
                         // If it is phased, parse out the two alleles and handle
                         // each separately.
                         vector<int> alt_indices({stoi(genotype.substr(0, bar_pos)),
                                 stoi(genotype.substr(bar_pos + 1))});
 
-                        for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                        for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
                             // Handle each phase and its alt
                             int& alt_index = alt_indices[phase_offset];
 
-                            // If this sample doesn't take the reference path at this
-                            // variant
-                            if(alt_index != 0) {
-                                // We need to find the path for this alt of this
+                            if (alt_index != 0) {
+                                // If this sample doesn't take the reference
+                                // path at this variant, we need to actually go
+                                // through it and not just call
+                                // append_reference_mappings_until
+                            
+                                // We need to fill this in with the first
+                                // reference position covered by the ref allele
+                                // of this site, as actually represented in the
+                                // path for the ref alt (i.e. after clipping
+                                // fixed bases off the start and end in the
+                                // VCF). This is the base after the insertion
+                                // for pure insertions.
+                                size_t first_ref_base = 0;
+                                
+                                // We need to look for the ref path for this variant
+                                string ref_path_name = "_alt_" + var_name + "_0";
+                                auto ref_path_iter = alt_paths.find(ref_path_name);
+                                
+                                // We also need to look for the path for this alt of this
                                 // variant. 
                                 string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
+                                auto alt_path_iter = alt_paths.find(alt_path_name);
+                                
+                                
+                                if (ref_path_iter != alt_paths.end() && ref_path_iter->second.mapping_size() != 0) {
+                                    // We have the ref path so we can just look at its first node
+                                    auto first_ref_node = ref_path_iter->second.mapping(0).position().node_id();
+                                    
+                                    // Find everywhere it starts in the ref path
+                                    auto starts = index.node_positions_in_path(first_ref_node, path_name);
+                                    
+                                    // There needs to be only one occurrence of
+                                    // this node on the reference path.
+                                    assert(starts.size() == 1);
+                                    
+                                    // Where that node happens is the first
+                                    // reference base inside this variant's
+                                    // actually variable part.
+                                    first_ref_base = starts.at(0);
+                                    
+                                } else if (alt_path_iter != alt_paths.end() && alt_path_iter->second.mapping_size() != 0)  {
+                                    // We have an alt path, so we can look at
+                                    // the ref node before it and go one after
+                                    // its end
+                                    
+                                    // Find the first node in the alt
+                                    auto first_alt_id = alt_path_iter->second.mapping(0).position().node_id();
+                                    bool first_alt_orientation = alt_path_iter->second.mapping(0).position().is_reverse();
+                                    
+                                    // Get all the edges coming in to it
+                                    auto left_edges = (first_alt_orientation ? index.edges_on_end(first_alt_id) :
+                                        index.edges_on_start(first_alt_id));
+                                        
+                                    // We need to fill in the ref to past the
+                                    // end of the latest reference node that can
+                                    // come before this alt.
+                                    first_ref_base = 0;
+                                    for (auto& edge : left_edges) {
+                                        // For every edge, see what other node it attaches to
+                                        auto other_id = (edge.from() == first_alt_id ? edge.to() : edge.from());
+                                        if (other_id == first_alt_id) {
+                                            // Skip self loops
+                                            continue;
+                                        }
 
-                                if(alt_paths.count(alt_path_name) == 0) {
-                                    // Either this variant was skipped during
-                                    // construction (due to having a symbolic
-                                    // alt?) or something is wrong.
-                                    cerr << "warning:[vg index] Alt path " << alt_path_name
-                                        << " missing! Do VCF and FASTA match?" << endl;
+                                        // Find everywhere the node occurs in
+                                        // the reference path
+                                        auto starts = index.node_positions_in_path(other_id, path_name);
+                                        if (starts.empty()) {
+                                            // Skip nodes that aren;t in the reference path
+                                            continue;
+                                        }
+                                        
+                                        // Complain if we have a looping reference path
+                                        assert(starts.size() == 1);
+                                        
+                                        // We need to fill in the reference to
+                                        // past the end of this node that
+                                        // happens on the reference path before
+                                        // this alt.
+                                        first_ref_base = max(first_ref_base, starts.at(0) + index.node_length(other_id));
+                                    }
+                                } else {
+                                    // We lack both the ref and the alt path.
+                                    // This site must have been skipped during
+                                    // construction.
+                                    cerr << "warning:[vg index] Alt and ref paths for " << var_name 
+                                        << " at " << variant.sequenceName << ":" << variant.position
+                                        << " missing/empty! Was variant skipped during construction?" << endl;
                                     continue;
                                 }
-
-                                // We can pull out the whole thing since it
-                                // should be short.
-                                Path alt_path = alt_paths.at(alt_path_name);
-
-                                if((nonvariant_starts[sample_number * 2 + phase_offset] <= variant.position) ||
+                                
+                                // Now we know the first ref base in our ref
+                                // allele. What's the past-the-end base after we
+                                // go through our ref allele.
+                                size_t last_ref_base = first_ref_base;
+                                if (ref_path_iter != alt_paths.end()) {
+                                    for (size_t i = 0; i < ref_path_iter->second.mapping_size(); i++) {
+                                        // Scoot it along with the length of
+                                        // every node on our reference allele
+                                        // path.
+                                        last_ref_base += index.node_length(
+                                            ref_path_iter->second.mapping(i).position().node_id());
+                                    }
+                                }
+                            
+                                if ((nonvariant_starts[sample_number * 2 + phase_offset] <= first_ref_base) ||
                                     !discard_overlaps) {
+                                    
+                                    // We need reference mappings from the last
+                                    // variant up until the first actually
+                                    // variable ref base in this site
+                                    append_reference_mappings_until(sample_number * 2 + phase_offset, first_ref_base);
 
-                                    for(size_t i = 0; i < alt_path.mapping_size(); i++) {
+                                    for (size_t i = 0; (alt_path_iter != alt_paths.end() &&
+                                        i < alt_path_iter->second.mapping_size()); i++) {
                                         // Then blit mappings from the alt over to the phase thread
-                                        append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                                        append_mapping(sample_number * 2 + phase_offset, alt_path_iter->second.mapping(i));
                                     }
 
-                                    nonvariant_starts[sample_number * 2 + phase_offset] = variant.position + variant.ref.size();
+                                    // Say we've accounted for the reference on
+                                    // this path through the end of the variable
+                                    // region, which we have.
+                                    nonvariant_starts[sample_number * 2 + phase_offset] = last_ref_base;
                                 }
                             }
-
-                            // TODO: We can't really land anywhere on the other
-                            // side of a deletion if the phasing breaks right at
-                            // it, because we don't know that the first
-                            // reference base after the deletion hasn't been
-                            // replaced. TODO: can we inspect the next reference
-                            // node and see if any alt paths touch it?
                         }
 
-                        // Now we have processed both phasinbgs for this sample.
+                        // Now we have processed both phasings for this sample.
                     }
                 };
 
@@ -577,7 +691,7 @@ int main_index(int argc, char** argv) {
                 ProgressBar* progress = nullptr;
                 // Message needs to last as long as the bar itself.
                 string progress_message = "loading variants for " + path_name;
-                if(show_progress) {
+                if (show_progress) {
                     progress = new ProgressBar(path_length, progress_message.c_str());
                     progress->Progressed(0);
                 }
@@ -614,7 +728,7 @@ int main_index(int argc, char** argv) {
                 }
 
                 // Now finish up all the threads
-                for(size_t i = 0; i < num_phases; i++) {
+                for (size_t i = 0; i < num_phases; i++) {
                     // Each thread runs out until the end of the reference path
                     append_reference_mappings_until(i, path_length);
 
@@ -622,14 +736,15 @@ int main_index(int argc, char** argv) {
                     finish_phase(i);
                 }
 
-                if(progress != nullptr) {
+                if (progress != nullptr) {
                     // Throw out our progress bar
                     delete progress;
+                    cerr << endl;
                 }
 
             }
 
-            if(show_progress) {
+            if (show_progress) {
                 cerr << "Inserting all phase threads into DAG..." << endl;
             }
 
@@ -640,7 +755,7 @@ int main_index(int argc, char** argv) {
 
         }
 
-        if(show_progress) {
+        if (show_progress) {
             cerr << "Saving index to disk..." << endl;
         }
 
@@ -650,11 +765,11 @@ int main_index(int argc, char** argv) {
         db_out.close();
     }
 
-    if(!gcsa_name.empty()) {
+    if (!gcsa_name.empty()) {
         // We need to make a gcsa index.
 
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
-        if(!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        if (!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
         // Load up the graphs
         vector<string> tmpfiles;
@@ -706,7 +821,6 @@ int main_index(int argc, char** argv) {
     if (!rocksdb_name.empty()) {
 
         Index index;
-        index.use_snappy = use_snappy;
 
         if (compact) {
             index.open_for_write(rocksdb_name);
@@ -735,7 +849,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_node_alignments && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
+            index.open_for_bulk_load(rocksdb_name);
             int64_t aln_idx = 0;
             function<void(Alignment&)> lambda = [&index,&aln_idx](Alignment& aln) {
                 index.cross_alignment(aln_idx++, aln);
@@ -750,13 +864,13 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_alignments && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
+            index.open_for_bulk_load(rocksdb_name);
             function<void(Alignment&)> lambda = [&index](Alignment& aln) {
                 index.put_alignment(aln);
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    stream::for_each_parallel(in, lambda);
                 });
             }
             index.flush();
@@ -776,7 +890,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_mappings && file_names.size() > 0) {
-            index.open_for_write(rocksdb_name);
+            index.open_for_bulk_load(rocksdb_name);
             function<void(Alignment&)> lambda = [&index](Alignment& aln) {
                 const Path& path = aln.path();
                 for (int i = 0; i < path.mapping_size(); ++i) {
@@ -785,7 +899,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    stream::for_each_parallel(in, lambda);
                 });
             }
             index.flush();
