@@ -270,10 +270,11 @@ void Genotyper::run(VG& graph,
     // If we're doing VCF output we need a VCF header
     vcflib::VariantCallFile* vcf = nullptr;
     // And a reference index tracking the primary path
-    ReferenceIndex* reference_index = nullptr;
+    PathIndex* reference_index = nullptr;
     if(output_vcf) {
         // Build a reference index on our reference path
-        reference_index = new ReferenceIndex(graph, ref_path_name);
+        // Make sure to capture the sequence
+        reference_index = new PathIndex(graph, ref_path_name, true);
         
         // Start up a VCF
         vcf = start_vcf(cout, *reference_index, sample_name, contig_name, length_override);
@@ -320,13 +321,13 @@ void Genotyper::run(VG& graph,
                     }
                     
                     if(reference_index != nullptr &&
-                       reference_index->byId.count(site.start.node->id()) &&
-                       reference_index->byId.count(site.end.node->id())) {
+                       reference_index->by_id.count(site.start.node->id()) && 
+                       reference_index->by_id.count(site.end.node->id())) {
                         // This site is on the reference (and we are indexing a reference because we are going to vcf)
                         
                         // Where do the start and end nodes fall in the reference?
-                        auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
-                        auto end_ref_appearance = reference_index->byId.at(site.end.node->id());
+                        auto start_ref_appearance = reference_index->by_id.at(site.start.node->id());
+                        auto end_ref_appearance = reference_index->by_id.at(site.end.node->id());
                         
                         // Are the ends running with the reference (false) or against it (true)
                         auto start_rel_orientation = (site.start.backward != start_ref_appearance.second);
@@ -543,12 +544,12 @@ void Genotyper::run(VG& graph,
 }
     
 
-pair<pair<int64_t, int64_t>, bool> Genotyper::get_site_reference_bounds(const Site& site, const ReferenceIndex& index) {
+pair<pair<int64_t, int64_t>, bool> Genotyper::get_site_reference_bounds(const Site& site, const PathIndex& index) {
     // Grab the start and end node IDs.
     auto first_id = site.start.node->id();
     auto last_id = site.end.node->id();
     
-    if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
+    if(!index.by_id.count(first_id) || !index.by_id.count(last_id)) {
         // Site isn;t actually on the reference path so return a sentinel.
         return make_pair(make_pair(-1, -1), false);
     }
@@ -557,13 +558,13 @@ pair<pair<int64_t, int64_t>, bool> Genotyper::get_site_reference_bounds(const Si
     // position along the reference at which it occurs. Our bubble
     // goes forward in the reference, so we must come out of the
     // opposite end of the node from the one we have stored.
-    auto referenceIntervalStart = index.byId.at(first_id).first + site.start.node->sequence().size();
+    auto referenceIntervalStart = index.by_id.at(first_id).first + site.start.node->sequence().size();
     
     // The position we have stored for the end node is the first
     // position it occurs in the reference, and we know we go into
     // it in a reference-concordant direction, so we must have our
     // past-the-end position right there.
-    auto referenceIntervalPastEnd = index.byId.at(last_id).first;
+    auto referenceIntervalPastEnd = index.by_id.at(last_id).first;
     
     // Is this bubble articulated backwards relative to the reference?
     bool site_is_reverse = false;
@@ -575,8 +576,8 @@ pair<pair<int64_t, int64_t>, bool> Genotyper::get_site_reference_bounds(const Si
         // Recalculate reference positions Use the end node, which we've now
         // made first_id, to get the length offset to the start of the actual
         // internal variable bit.
-        referenceIntervalStart = index.byId.at(first_id).first + site.end.node->sequence().size();
-        referenceIntervalPastEnd = index.byId.at(last_id).first;
+        referenceIntervalStart = index.by_id.at(first_id).first + site.end.node->sequence().size();
+        referenceIntervalPastEnd = index.by_id.at(last_id).first;
     }
     
     return make_pair(make_pair(referenceIntervalStart, referenceIntervalPastEnd), site_is_reverse);
@@ -2161,7 +2162,7 @@ void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << std::endl;
 }
 
-vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size) {
+vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const PathIndex& index, const string& sample_name, const string& contig_name, size_t contig_size) {
     // Generate a vcf header. We can't make Variant records without a
     // VariantCallFile, because the variants need to know which of their
     // available info fields or whatever are defined in the file's header, so
@@ -2185,7 +2186,7 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const Refere
 vector<vcflib::Variant>
 Genotyper::locus_to_variant(VG& graph,
                             const Site& site,
-                            const ReferenceIndex& index,
+                            const PathIndex& index,
                             vcflib::VariantCallFile& vcf,
                             const Locus& locus,
                             const string& sample_name) {
@@ -2212,7 +2213,7 @@ Genotyper::locus_to_variant(VG& graph,
     auto first_id = site.start.node->id();
     auto last_id = site.end.node->id();
     
-    if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
+    if(!index.by_id.count(first_id) || !index.by_id.count(last_id)) {
         // We need to be anchored to the primary path to make a variant
         #pragma omp critical (cerr)
         cerr << "Warning: Superbubble endpoints not on reference!" << endl;
@@ -2505,97 +2506,7 @@ Genotyper::locus_to_variant(VG& graph,
     
 }
 
-ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
-    // Make sure the reference path is present
-    assert(vg.paths.has_path(refPathName));
-    
-    // We're also going to build the reference sequence string
-    std::stringstream refSeqStream;
-    
-    // What base are we at in the reference
-    size_t referenceBase = 0;
-    
-    // What was the last rank? Ranks must always go up.
-    int64_t lastRank = -1;
-    
-    for(auto mapping : vg.paths.get_path(refPathName)) {
-    
-        if(!byId.count(mapping.position().node_id())) {
-            // This is the first time we have visited this node in the reference
-            // path.
-            
-            // Add in a mapping.
-            byId[mapping.position().node_id()] = 
-                std::make_pair(referenceBase, mapping.position().is_reverse());
-#ifdef debug
-            #pragma omp critical (cerr)
-            std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
-                << " starts at base " << referenceBase << " with "
-                << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
-#endif
-            
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > lastRank);
-            lastRank = mapping.rank();
-        }
-        
-        // Find the node's sequence
-        std::string sequence = vg.get_node(mapping.position().node_id())->sequence();
-        
-        while(referenceBase == 0 && sequence.size() > 0 &&
-            (sequence[0] != 'A' && sequence[0] != 'T' && sequence[0] != 'C' &&
-            sequence[0] != 'G' && sequence[0] != 'N')) {
-            
-            // If the path leads with invalid characters (like "X"), throw them
-            // out when computing reference path positions.
-            
-            // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
-            // which leads with an X.
-            #pragma omp critical (cerr)
-            std::cerr << "Warning: dropping invalid leading character "
-                << sequence[0] << " from node " << mapping.position().node_id()
-                << std::endl;
-                
-            sequence.erase(sequence.begin());
-        }
-        
-        if(mapping.position().is_reverse()) {
-            // Put the reverse sequence in the reference path
-            refSeqStream << vg::reverse_complement(sequence);
-        } else {
-            // Put the forward sequence in the reference path
-            refSeqStream << sequence;
-        }
-            
-        // Say that this node appears here along the reference in this
-        // orientation.
-        byStart[referenceBase] = vg::NodeTraversal(
-            vg.get_node(mapping.position().node_id()), mapping.position().is_reverse()); 
-            
-        // Whether we found the right place for this node in the reference or
-        // not, we still need to advance along the reference path. We assume the
-        // whole node (except any leading bogus characters) is included in the
-        // path (since it sort of has to be, syntactically, unless it's the
-        // first or last node).
-        referenceBase += sequence.size();
-        
-        // TODO: handle leading bogus characters in calls on the first node.
-    }
-    
-    // Create the actual reference sequence we will use
-    sequence = refSeqStream.str();
-    
-    // Announce progress.
-    #pragma omp critical (cerr)
-    std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
-    
-    if(sequence.size() < 100) {
-        #pragma omp critical (cerr)
-        std::cerr << "Reference sequence: " << sequence << std::endl;
-    }
-}
-
-void Genotyper::report_site(const Site& site, const ReferenceIndex* index) {
+void Genotyper::report_site(const Site& site, const PathIndex* index) {
     if(site.contents.size() == 2) {
         // Skip degenerate sites
         return;

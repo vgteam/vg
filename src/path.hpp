@@ -65,6 +65,7 @@ public:
     // (which can then be used to get the list its iterator belongs to).
     map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
+    /// Reassign ranks and rebuild indexes, treating the mapping lists in _paths as the truth.
     void rebuild_mapping_aux(void);
     // We need this in order to make sure we aren't adding duplicate mappings
     // with the same rank in the same path. Maps from path name and rank to
@@ -84,7 +85,6 @@ public:
     void make_linear(const string& name);
     
     void rebuild_node_mapping(void);
-    //void sync_paths_with_mapping_lists(void);
     
     // Find the given mapping in its path, so mappings can be inserted before
     // it.
@@ -162,6 +162,7 @@ public:
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);
+    /// Add all paths into the given Protobuf graph. Creates a new path for every path.
     void to_graph(Graph& g);
     // get a path
     Path path(const string& name);

@@ -76,6 +76,156 @@ VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file) {
     }
 }
 
+void Constructor::trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles) {
+
+#ifdef debug
+    for (auto& allele : parsed_alleles) {
+        cerr << "Allele:" << endl;
+        
+        for (auto& edit : allele) {
+            cerr << "\tHave " << edit.ref << " -> " << edit.alt << " @ " << edit.position << endl; 
+        }
+    }
+#endif
+
+    // Return the length of perfect match common to all alleles at the left or
+    // the right (based on the front parameter). Only looks at the first or last
+    // edit in each allele
+    auto get_match_count = [&](bool front) -> size_t { 
+        // Start with the max possible value
+        size_t match_count = numeric_limits<size_t>::max();
+        for (auto& allele : parsed_alleles) {
+            // Go throught the alleles
+            if (allele.empty()) {
+                // No shared ref match possible with an empty allele
+                return 0;
+            }
+            // Find the edit on the appropriate edge of this alt
+            auto& edit = front ? allele.front() : allele.back();
+            if (edit.ref != edit.alt) {
+                // This alt has a non-match edit on its edge
+                return 0;
+            }
+            
+            // Otherwise we have a leading or trailing match so mix in its length
+            match_count = min(match_count, edit.ref.size());
+        }
+        if (match_count == numeric_limits<size_t>::max()) {
+            // If nobody exists we have 0 shared matches.
+            return 0;
+        }
+        return match_count;
+    };
+    
+    for(size_t front_match_count = get_match_count(true); front_match_count > 0; front_match_count = get_match_count(true)) {
+        // While we have shared matches at the front
+        for (auto& allele : parsed_alleles) {
+            // Trim each allele
+            if (allele.front().ref.size() > front_match_count) {
+                // This perfect match needs to be made shorter
+                auto new_match_string = allele.front().ref.substr(front_match_count);
+#ifdef debug
+                cerr << "Trim " << allele.front().ref << " to " << new_match_string
+                    << " @ " << allele.front().position << endl;
+#endif
+                allele.front().ref = new_match_string;
+                allele.front().alt = new_match_string;
+            } else {
+                // This perfect match can be completely eliminated
+#ifdef debug
+                cerr << "Drop " << allele.front().ref << " -> " << allele.front().alt
+                    << " @ " << allele.front().position << endl;
+#endif
+                allele.pop_front();
+            }
+        }
+    }
+    
+    for(size_t back_match_count = get_match_count(false); back_match_count > 0; back_match_count = get_match_count(false)) {
+        // While we have shared matches at the back
+        for (auto& allele : parsed_alleles) {
+            // Trim each allele
+            if (allele.back().ref.size() > back_match_count) {
+                // This perfect match needs to be made shorter
+                auto new_match_string = allele.back().ref.substr(back_match_count);
+#ifdef debug
+                cerr << "Trim " << allele.back().ref << " to " << new_match_string
+                    << " @ " << allele.back().position << endl;
+#endif
+                allele.back().ref = new_match_string;
+                allele.back().alt = new_match_string;
+            } else {
+                // This perfect match can be completely eliminated
+                allele.pop_back();
+                
+#ifdef debug
+                cerr << "Drop " << allele.back().ref << " -> " << allele.back().alt
+                    << " @ " << allele.back().position << endl; 
+#endif
+                
+            }
+        }
+    }
+    
+#ifdef debug
+    for (auto& allele : parsed_alleles) {
+        cerr << "Allele: " << endl;
+        for (auto& edit : allele) {
+            cerr << "\tKept " << edit.ref << " -> " << edit.alt << " @ " << edit.position << endl; 
+        }
+    }
+#endif
+
+}
+
+void Constructor::condense_edits(list<vcflib::VariantAllele>& parsed_allele) {
+    for(auto i = parsed_allele.begin(); i != parsed_allele.end(); ++i) {
+        // Scan through the edits in the alt
+        if (i->ref == i->alt) {
+            // We can merge into this edit
+            auto next = i;
+            ++next;
+            
+            // We'll use a string stream to generate the combined string
+            stringstream combined;
+            combined << i->ref;
+            
+            while (next != parsed_allele.end() && next->ref == next->alt) {
+                // Glom up all the subsequent matches and remove their nodes.
+                combined << next->ref;
+                next = parsed_allele.erase(next);
+            }
+            
+            // Put the finished string into the node that led the run
+            i->ref = combined.str();
+            i->alt = combined.str();
+        }
+    }
+}
+
+pair<int64_t, int64_t> Constructor::get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant) {
+
+    // We track the variable site bounds through all the alts
+    int64_t variable_start = numeric_limits<int64_t>::max();
+    int64_t variable_stop = -1;
+
+    for (auto& trimmed_parts : trimmed_variant) {
+        // For every variable core of an alt (which may be empty)
+        if (!trimmed_parts.empty()) {
+            // We have at least one valid non-match edit on this alt. Expand the range.
+            variable_start = min(variable_start, (int64_t) trimmed_parts.front().position);
+            variable_stop = max(variable_stop, (int64_t) (trimmed_parts.back().position + trimmed_parts.back().ref.size() - 1));
+        }
+    }
+    
+#ifdef debug
+    cerr << "Edits for variant run " << variable_start << " through " << variable_stop
+        << " ref length " << (variable_stop - variable_start + 1) << endl;
+#endif
+    
+    return make_pair(variable_start, variable_stop);
+}
+
 ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
     vector<vcflib::Variant> variants, size_t chunk_offset) const {
     
@@ -271,10 +421,22 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
             // IDs.
             map<string, vcflib::Variant*> variants_by_name;
             
+            // This holds the min and max values for the starts and ends of
+            // edits in each variant that are actual change-making edits. These
+            // are in chunk coordinates. They are only populated if a variant
+            // has a variable region. They can enclose a 0-length variable
+            // region by having the end before the beginning.
+            map<vcflib::Variant*, pair<int64_t, int64_t>> variable_bounds;
+            
             // This holds the min and max values for starts and ends of edits
-            // not removed from the clump.
+            // not removed from the clump. These are in chunk coordinates.
             int64_t first_edit_start = numeric_limits<int64_t>::max();
             int64_t last_edit_end = -1;
+            
+            // We'll fill this with any duplicate variants that should be
+            // ignored, out of the clump. This is better than erasing out of a
+            // vector.
+            set<vcflib::Variant*> duplicates;
             
             for (vcflib::Variant* variant : clump) {
             
@@ -293,6 +455,15 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 // Name the variant and place it in the order that we'll
                 // actually construct nodes in (see utility.hpp)
                 string variant_name = make_variant_id(*variant);
+                if (variants_by_name.count(variant_name)) {
+                    // Some VCFs may include multiple variants at the same
+                    // position with the same ref and alt. We will only take the
+                    // first one.
+                    cerr << "warning:[vg::Constructor] Skipping duplicate variant with hash " << variant_name
+                        << " at " << variant->sequenceName << ":" << variant->position << endl;
+                    duplicates.insert(variant);
+                    continue;
+                }
                 variants_by_name[variant_name] = variant;
             
                 // We need to parse the variant into alts, each of which is a
@@ -334,42 +505,33 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     // Copy all the VariantAlleles into the list
                     alt_parts.assign(kv.second.begin(), kv.second.end());
                     
-                    while (!alt_parts.empty() && alt_parts.front().ref == alt_parts.front().alt) {
-                        // Drop leading ref matches
-#ifdef debug
-                        cerr << "\tDrop " << alt_parts.front().ref << " -> " << alt_parts.front().alt
-                            << " @ " << alt_parts.front().position - chunk_offset << endl;
-#endif
-                        alt_parts.pop_front();
-                    }
+                    // Condense adjacent perfect match edits, so we only break
+                    // matching nodes when necessary.
+                    condense_edits(alt_parts);
+                }
+                
+                // Trim the alts down to the variant's (possibly empty) variable
+                // region
+                trim_to_variable(parsed_clump[variant]);
+                
+                // Get the variable bounds in VCF space for all the trimmed alts of this variant
+                auto bounds = get_bounds(parsed_clump[variant]);
+                if (bounds.first != numeric_limits<int64_t>::max() || bounds.second != -1) {
+                    // There's a (possibly 0-length) variable region
+                    bounds.first -= chunk_offset;
+                    bounds.second -= chunk_offset;
+                    // Save the bounds for making reference node path visits
+                    // inside the ref allele of the variable region.
+                    variable_bounds[variant] = bounds;
                     
-                    while (!alt_parts.empty() && alt_parts.back().ref == alt_parts.back().alt) {
-                        // Drop trailing ref matches
-#ifdef debug
-                        cerr << "\tDrop " << alt_parts.back().ref << " -> " << alt_parts.back().alt
-                            << " @ " << alt_parts.back().position - chunk_offset << endl; 
-#endif
-                        alt_parts.pop_back();
-                    }
-                    
-#ifdef debug
-                    for (auto& edit : alt_parts) {
-                        cerr << "\tKept " << edit.ref << " -> " << edit.alt << " @ " << edit.position - chunk_offset << endl; 
-                    }
-#endif
-                    
-                    if (!alt_parts.empty()) {
-                        // If this alt's interior non-ref portion exists, see if
-                        // it extends beyond those of other alts in the clump.
-                        first_edit_start = min(first_edit_start, (int64_t) (alt_parts.front().position - chunk_offset));
-                        last_edit_end = max(last_edit_end,
-                            (int64_t) (alt_parts.back().position - chunk_offset + alt_parts.back().ref.size() - 1));
-                    }
+                    // Expand bounds for the variable region of the chunk as a whole
+                    first_edit_start = min(first_edit_start, bounds.first);
+                    last_edit_end = max(last_edit_end, bounds.second);
                 }
             }
             
-            // We have to have some non-ref material, even if it occupies 0
-            // reference space.
+            // We have to have some non-ref material in the clump, even if it
+            // occupies 0 reference space.
             assert(last_edit_end != -1);
             assert(first_edit_start != numeric_limits<int64_t>::max());
             
@@ -576,10 +738,14 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                 
             };
             
-            // Note that in some cases (i.e. pure inserts) we may not need any ref nodes at all.
+            // Note that in some cases (i.e. pure inserts) we may not need any
+            // ref nodes at all. Also note that in other cases (variants with
+            // exterior matches) some ref nodes overlapping the variant may not
+            // really belong on the ref path for the variant, because the alt
+            // path for the variant starts/end further in.
             
             while (reference_cursor < last_edit_end + 1) {
-                // Until we hot the end
+                // Until we hit the end
                 
                 // Find where the next node run must end to attach to stuff
                 size_t next_end = next_breakpoint_after(reference_cursor);
@@ -616,12 +782,21 @@ ConstructedChunk Constructor::construct_chunk(string reference_sequence, string 
                     if (alt_paths) {
                         for (vcflib::Variant* variant : clump) {
                             // For each variant we might also be part of the ref allele of
-                            if (reference_cursor >= variant->position - chunk_offset &&
-                                reference_cursor < variant->position - chunk_offset + variant->ref.size()) {
-                                // If this run of nodes starts within the varaint...
-                                // (We know if it starts in the variant it has to
-                                // end in the variant, because the variant ends with
+                            if (!duplicates.count(variant) &&
+                                variable_bounds.count(variant) &&
+                                reference_cursor >= variable_bounds[variant].first &&
+                                reference_cursor <= variable_bounds[variant].second) {
+                                // For unique variants that actually differ from reference,
+                                // if this run of nodes starts within the variant's variable region...
+                                // (We know if it starts in the variable region it has to
+                                // end in the variant, because the variable region ends with
                                 // a node break)
+                                
+                                if (variant_ref_paths.count(variant) == 0) {
+                                    // All unique variants ought to have a ref path created
+                                    cerr << "error:[vg::Constructor] no ref path for " << *variant << endl;
+                                    exit(1);
+                                }
                                 
                                 // Add a match along the variant's ref allele path
                                 add_match(variant_ref_paths[variant], node);
