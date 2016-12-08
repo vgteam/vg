@@ -133,6 +133,90 @@ void for_each_parallel(std::istream& in,
                        const std::function<void(T&)>& lambda,
                        const std::function<void(uint64_t)>& handle_count) {
 
+    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
+          new ::google::protobuf::io::IstreamInputStream(&in);
+    ::google::protobuf::io::GzipInputStream *gzip_in =
+          new ::google::protobuf::io::GzipInputStream(raw_in);
+    ::google::protobuf::io::CodedInputStream *coded_in =
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
+
+    uint64_t count;
+    bool more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
+    bool more_objects = false;
+    // this loop handles a chunked file with many pieces
+    // such as we might write in a multithreaded process
+    std::list<T> objects;
+    int64_t object_count = 0;
+    int64_t read_threshold = 5000;
+#pragma omp parallel shared(more_input, more_objects, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
+    while (more_input || more_objects) {
+
+        bool has_object = false;
+        T object;
+#pragma omp critical (objects)
+        {
+            if (!objects.empty()) {
+                object = objects.back();
+                objects.pop_back();
+                --object_count;
+                has_object = true;
+            }
+        }
+        if (has_object) {
+            lambda(object);
+        }
+
+#pragma omp master
+        {
+            while (more_input && object_count < read_threshold) {
+                handle_count(count);
+                std::string s;
+                for (uint64_t i = 0; i < count; ++i) {
+                    uint32_t msgSize = 0;
+                    // the messages are prefixed by their size
+                    delete coded_in;
+                    coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
+                    coded_in->ReadVarint32(&msgSize);
+                    if ((msgSize > 0) &&
+                        (coded_in->ReadString(&s, msgSize))) {
+                        T object;
+                        object.ParseFromString(s);
+#pragma omp critical (objects)
+                        {
+                            objects.push_front(object);
+                            ++object_count;
+                        }
+                    }
+                }
+                more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
+            }
+            
+            // TODO: Between when the master announces there is no more input,
+            // and when it says there are again more objects to process, the
+            // other threads can all quit out, leaving it alone to finish up.
+            
+        }
+#pragma omp critical (objects)
+        more_objects = (object_count > 0);
+    }
+
+    delete coded_in;
+    delete gzip_in;
+    delete raw_in;
+}
+
+template <typename T>
+void for_each_parallel(std::istream& in,
+              const std::function<void(T&)>& lambda) {
+    std::function<void(uint64_t)> noop = [](uint64_t) { };
+    for_each_parallel(in, lambda, noop);
+}
+
+template <typename T>
+void for_each_parallel_batched(std::istream& in,
+                               const std::function<void(T&)>& lambda,
+                               const std::function<void(uint64_t)>& handle_count) {
+
     // objects will be handed off to worker threads in batches of this many
     const uint64_t batch_size = 1024;
     // max # of such batches to be holding in memory
@@ -232,10 +316,10 @@ void for_each_parallel(std::istream& in,
 }
 
 template <typename T>
-void for_each_parallel(std::istream& in,
-              const std::function<void(T&)>& lambda) {
+void for_each_parallel_batched(std::istream& in,
+                               const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each_parallel(in, lambda, noop);
+    for_each_parallel_batched(in, lambda, noop);
 }
 
 }
