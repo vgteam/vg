@@ -1063,6 +1063,43 @@ ref	2	rs554978012;rs201121256	GTA	GTATA,G	.	GT
 
 }
 
+TEST_CASE( "An insert with adjacent SNP can be constructed", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	2	rs572383716	T	TA	100	PASS	.	GT    
+ref	3	rs76837267	A	T	100	PASS	.	GT
+)";
+
+    auto ref = "CTATAC";
+
+    // Build the graph
+    auto result = construct_test_chunk(ref, "ref", vcf_data);
+    
+    // It should be like
+    // CT,A/-,A/T,AC
+    
+    
+#ifdef debug
+    std::cerr << pb2json(result.graph) << std::endl;
+#endif
+    
+    SECTION("the graph should have 5 nodes") {
+        REQUIRE(result.graph.node_size() == 5);
+    }
+    
+    SECTION("the graph should have 7 edges") {
+        REQUIRE(result.graph.edge_size() == 7);
+    }
+}
+
 
 TEST_CASE( "A VCF with multiple clumps can be constructed", "[constructor]" ) {
 
