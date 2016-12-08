@@ -341,7 +341,8 @@ int main_index(int argc, char** argv) {
         // store the graphs
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
-        xg::XG index = graphs.to_xg(store_threads, is_alt, alt_paths);
+        xg::XG index;
+        graphs.to_xg(index, store_threads, is_alt, alt_paths);
 
         // We're going to collect all the phase threads as XG threads (which
         // aren't huge like Protobuf Paths), and then insert them all into xg in

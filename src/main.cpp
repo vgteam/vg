@@ -207,6 +207,7 @@ void help_filter(char** argv) {
          << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -A, --append-regions    append to alignments created with -RB" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
@@ -246,6 +247,7 @@ int main_filter(int argc, char** argv) {
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
+                {"append-regions", no_argument, 0, 'A'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
@@ -257,7 +259,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -291,6 +293,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'B':
             filter.outbase = optarg;
+            break;
+        case 'A':
+            filter.append_regions = true;
             break;
         case 'c':
             filter.context_size = atoi(optarg);
@@ -1325,9 +1330,10 @@ int main_genotype(int argc, char** argv) {
 
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
-
+    
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
+
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
@@ -1673,7 +1679,7 @@ int main_pileup(int argc, char** argv) {
             int tid = omp_get_thread_num();
             pileups[tid].compute_from_alignment(aln);
         };
-        stream::for_each_parallel(alignment_stream, lambda);
+        stream::for_each_parallel_batched(alignment_stream, lambda);
     });
 
     // single-threaded (!) merge
@@ -2183,15 +2189,14 @@ int main_msga(int argc, char** argv) {
         int iter = 0;
         auto& seq = strings[name];
         //cerr << "doing... " << name << endl;
-        /*
+#ifdef debug
         {
-            
             graph->serialize_to_file("msga-pre-" + name + ".vg");
             ofstream db_out("msga-pre-" + name + ".xg");
             xgidx->serialize(db_out);
             db_out.close();
         }
-        */
+#endif
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
@@ -4019,7 +4024,7 @@ int main_stats(int argc, char** argv) {
         };
 
         // Actually go through all the reads and count stuff up.
-        stream::for_each_parallel(alignment_stream, lambda);
+        stream::for_each_parallel_batched(alignment_stream, lambda);
 
         // Calculate stats about the reads per allele data
         for(auto& site_and_alleles : reads_on_allele) {
@@ -5022,7 +5027,10 @@ void help_align(char** argv) {
          << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -T, --full-l-bonus N  provide this bonus for alignments that are full length (default: 5)" << endl
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
+         << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
+         << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
          << "    -D, --debug           print out score matrices and other debugging info" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
@@ -5047,9 +5055,12 @@ int main_align(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    int full_length_bonus = 5;
     string ref_seq;
     bool debug = false;
     bool banded_global = false;
+    bool pinned_alignment = false;
+    bool pin_left = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5068,11 +5079,14 @@ int main_align(int argc, char** argv) {
             {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
             {"banded-global", no_argument, 0, 'b'},
+            {"full-l-bonus", required_argument, 0, 'T'},
+            {"pinned", no_argument, 0, 'p'},
+            {"pinned-left", no_argument, 0, 'L'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:b",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:pL",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5109,6 +5123,10 @@ int main_align(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
 
+        case 'T':
+            full_length_bonus = atoi(optarg);
+            break;
+
         case 'r':
             ref_seq = optarg;
             break;
@@ -5119,6 +5137,14 @@ int main_align(int argc, char** argv) {
 
         case 'b':
             banded_global = true;
+            break;
+
+        case 'p':
+            pinned_alignment = true;
+            break;
+
+        case 'L':
+            pin_left = true;
             break;
 
         case 'h':
@@ -5148,7 +5174,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, 0, false, banded_global, debug);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus, banded_global, debug);
     }
 
     if (!seq_name.empty()) {
@@ -5202,6 +5228,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -T, --full-l-bonus N  the full-length alignment bonus" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
@@ -5215,7 +5242,7 @@ void help_map(char** argv) {
          << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
          << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
-         << "    -T, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
+         << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
          << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
@@ -5294,6 +5321,7 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
     int extra_pairing_multimaps = 4;
     int method_code = 1;
@@ -5345,7 +5373,7 @@ int main_map(int argc, char** argv) {
                 {"always-rescue", no_argument, 0, 'U'},
                 {"top-pairs-only", no_argument, 0, 'O'},
                 {"kmer-min", required_argument, 0, 'l'},
-                {"softclip-trig", required_argument, 0, 'T'},
+                {"softclip-trig", required_argument, 0, '3'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
@@ -5362,11 +5390,12 @@ int main_map(int argc, char** argv) {
                 {"compare", no_argument, 0, 'w'},
                 {"fragment-max", required_argument, 0, 'W'},
                 {"fragment-sigma", required_argument, 0, '2'},
+                {"full-l-bonus", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:",
                          long_options, &option_index);
 
 
@@ -5443,6 +5472,10 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'T':
+            full_length_bonus = atoi(optarg);
+            break;
+
+        case '3':
             softclip_threshold = atoi(optarg);
             break;
 
@@ -5769,6 +5802,7 @@ int main_map(int argc, char** argv) {
         m->always_rescue = always_rescue;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
+        m->full_length_alignment_bonus = full_length_bonus;
         mapper[i] = m;
     }
 
@@ -7409,6 +7443,9 @@ void vg_help(char** argv) {
 
 int main(int argc, char *argv[])
 {
+
+    // set a higher value for tcmalloc warnings
+    setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
 
     if (argc == 1) {
         vg_help(argv);

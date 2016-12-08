@@ -26,9 +26,10 @@ namespace vg {
 
     class Aligner {
     protected:
+        
         // for construction
         // needed when constructing an alignable graph from the nodes
-        gssw_graph* create_gssw_graph(Graph& g, int64_t pinned_node_id, gssw_node** gssw_pinned_node_out);
+        gssw_graph* create_gssw_graph(Graph& g, bool add_pinning_node, gssw_node** gssw_pinned_node_out);
         void topological_sort(list<gssw_node*>& sorted_nodes);
         void visit_node(gssw_node* node,
                         list<gssw_node*>& sorted_nodes,
@@ -46,12 +47,14 @@ namespace vg {
         void gssw_mapping_to_alignment(gssw_graph* graph,
                                        gssw_graph_mapping* gm,
                                        Alignment& alignment,
+                                       bool pinned,
+                                       bool pin_left,
                                        bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
-        // internal function for pinned and local alignment
+        // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                            int64_t pinned_node_id, bool pin_left, int32_t max_alt_alns,
+                            bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
                             bool print_score_matrices = false);
         
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
@@ -76,20 +79,23 @@ namespace vg {
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
-        // fixed to the end a node sequence
-        // pinning left means that that the alignment starts with the first base of the read sequence and the
-        // first base of the node sequence, pinning right means that the alignment starts with the final base
-        // of the read sequence and the final base of the node sequence
+        // guaranteed to align to a source/sink node
+        //
+        // pinning left means that that the alignment starts with the first base of the read sequence and
+        // the first base of a source node sequence, pinning right means that the alignment starts with
+        // the final base of the read sequence and the final base of a sink node sequence
+        //
         // assumes that graph is topologically sorted by node index
-        void align_pinned(Alignment& alignment, Graph& g, int64_t pinned_node_id, bool pin_left);
+        void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
                 
         // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
         // the return value, then it includes all alignments with a positive score. the optimal alignment
         // will be stored in both the vector and in the main alignment object
+        //
         // assumes that graph is topologically sorted by node index
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                int64_t pinned_node_id, bool pin_left, int32_t max_alt_alns);
+                                bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0);
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
@@ -151,9 +157,11 @@ namespace vg {
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
-        void align_pinned(Alignment& alignment, Graph& g, int64_t node_id, bool pin_left);
+        void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
+        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+                                bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0);
         
         
         void init_mapping_quality(double gc_content);
@@ -166,10 +174,15 @@ namespace vg {
         
         int32_t score_exact_match(const string& sequence, const string& base_quality);
         
-    private:
+    protected:
         void init_quality_adjusted_scores(int8_t _max_scaled_score,
                                           uint8_t _max_qual_score,
                                           double gc_content);
+        
+        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
+                            bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
+                            bool print_score_matrices = false);
+        
 
     };
 } // end namespace vg
