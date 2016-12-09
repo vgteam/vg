@@ -87,6 +87,7 @@ OBJ += $(OBJ_DIR)/progressive.o
 OBJ += $(OBJ_DIR)/flow_sort.o
 OBJ += $(OBJ_DIR)/homogenizer.o
 OBJ += $(OBJ_DIR)/path_index.o
+OBJ += $(OBJ_DIR)/phase_duplicator.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -392,13 +393,14 @@ $(OBJ_DIR)/multipath_alignment.o: $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/
 $(OBJ_DIR)/flow_sort.o: $(SRC_DIR)/flow_sort.cpp $(SRC_DIR)/flow_sort.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 $(OBJ_DIR)/srpe.o: $(SRC_DIR)/srpe.cpp $(SRC_DIR)/srpe.hpp $(OBJ_DIR)/filter.o $(DEPS)
-	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/pathindex.o: $(SRC_DIR)/pathindex.cpp $(SRC_DIR)/pathindex.hpp $(DEPS)
-	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
-	###################################
-	## VG unit test compilation begins here
-	####################################
+$(OBJ_DIR)/path_index.o: $(SRC_DIR)/path_index.cpp $(SRC_DIR)/path_index.hpp $(DEPS)
+
+$(OBJ_DIR)/phase_duplicator.o: $(SRC_DIR)/phase_duplicator.cpp $(SRC_DIR)/phase_duplicator.hpp $(SRC_DIR)/types.hpp $(DEPS)
+
+###################################
+## VG unit test compilation begins here
+####################################
 
 $(UNITTEST_OBJ_DIR)/driver.o: $(UNITTEST_SRC_DIR)/driver.cpp $(UNITTEST_SRC_DIR)/driver.hpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 
