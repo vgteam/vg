@@ -668,8 +668,7 @@ void Aligner::reverse_graph(Graph& g, Graph& reversed_graph_out) {
         reversed_edge->set_from_start(original_edge.to_end());
         reversed_edge->set_to_end(original_edge.from_start());
     }
-    
-    // TODO: what does the overlap field on the edge mean?
+
 }
 
 void Aligner::unreverse_graph(Graph& graph) {

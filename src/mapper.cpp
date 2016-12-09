@@ -31,7 +31,7 @@ Mapper::Mapper(Index* idex,
     , min_kmer_entropy(0)
     , debug(false)
     , alignment_threads(1)
-    , min_mem_length(0)
+    , min_mem_length(8)
     , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
