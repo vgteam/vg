@@ -17,7 +17,7 @@
 #include "utility.hpp"
 #include "types.hpp"
 #include "genotypekit.hpp"
-#include "pathindex.hpp"
+#include "path_index.hpp"
 
 namespace vg {
 
