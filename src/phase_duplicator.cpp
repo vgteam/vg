@@ -8,7 +8,7 @@ PhaseDuplicator::PhaseDuplicator(const xg::XG& index) : index(index) {
     // Nothing to do!
 }
 
-pair<Graph, vector<Translation>>&& PhaseDuplicator::duplicate(set<id_t> subgraph, id_t& next_id) const {
+pair<Graph, vector<Translation>> PhaseDuplicator::duplicate(set<id_t> subgraph, id_t& next_id) const {
 
     // Allocate space for the result
     pair<Graph, vector<Translation>> to_return;
@@ -19,7 +19,7 @@ pair<Graph, vector<Translation>>&& PhaseDuplicator::duplicate(set<id_t> subgraph
     // TODO: actually do the duplication
     
     // Ship out the result
-    return move(to_return);
+    return to_return;
 }
 
 }

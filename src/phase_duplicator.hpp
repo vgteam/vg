@@ -46,7 +46,7 @@ public:
      * TODO: invent some kind of thread safe ID allocator so we can do multiple
      * subgraphs in parallel without renumbering later.
      */
-    pair<Graph, vector<Translation>>&& duplicate(set<id_t> subgraph, id_t& next_id) const;
+    pair<Graph, vector<Translation>> duplicate(set<id_t> subgraph, id_t& next_id) const;
     
 private:
     /// What XG index describes the graph we operate on?
