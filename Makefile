@@ -48,14 +48,69 @@ ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cu
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o $(OBJ_DIR)/multipath_alignment.o $(OBJ_DIR)/phased_genome.o  $(OBJ_DIR)/constructor.o $(OBJ_DIR)/progressive.o $(OBJ_DIR)/flow_sort.o $(OBJ_DIR)/homogenizer.o $(OBJ_DIR)/path_index.o
+OBJ =
+OBJ += cpp/vg.pb.o
+OBJ += $(OBJ_DIR)/gssw_aligner.o
+OBJ += $(OBJ_DIR)/vg.o 
+OBJ += $(OBJ_DIR)/index.o
+OBJ += $(OBJ_DIR)/mapper.o
+OBJ += $(OBJ_DIR)/region.o
+OBJ += $(OBJ_DIR)/progress_bar.o
+OBJ += $(OBJ_DIR)/vg_set.o
+OBJ += $(OBJ_DIR)/utility.o
+OBJ += $(OBJ_DIR)/path.o
+OBJ += $(OBJ_DIR)/alignment.o
+OBJ += $(OBJ_DIR)/edit.o
+OBJ += $(OBJ_DIR)/sha1.o
+OBJ += $(OBJ_DIR)/json2pb.o
+OBJ += $(OBJ_DIR)/entropy.o
+OBJ += $(OBJ_DIR)/pileup.o
+OBJ += $(OBJ_DIR)/caller.o
+OBJ += $(OBJ_DIR)/call2vcf.o
+OBJ += $(OBJ_DIR)/genotyper.o
+OBJ += $(OBJ_DIR)/genotypekit.o
+OBJ += $(OBJ_DIR)/position.o
+OBJ += $(OBJ_DIR)/deconstructor.o
+OBJ += $(OBJ_DIR)/vectorizer.o
+OBJ += $(OBJ_DIR)/sampler.o
+OBJ += $(OBJ_DIR)/filter.o
+OBJ += $(OBJ_DIR)/readfilter.o
+OBJ += $(OBJ_DIR)/ssw_aligner.o
+OBJ += $(OBJ_DIR)/bubbles.o
+OBJ += $(OBJ_DIR)/translator.o
+OBJ += $(OBJ_DIR)/version.o
+OBJ += $(OBJ_DIR)/banded_global_aligner.o
+OBJ += $(OBJ_DIR)/multipath_alignment.o
+OBJ += $(OBJ_DIR)/phased_genome.o
+OBJ += $(OBJ_DIR)/constructor.o
+OBJ += $(OBJ_DIR)/progressive.o
+OBJ += $(OBJ_DIR)/flow_sort.o
+OBJ += $(OBJ_DIR)/homogenizer.o
+OBJ += $(OBJ_DIR)/path_index.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
-UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o $(UNITTEST_OBJ_DIR)/constructor.o $(UNITTEST_OBJ_DIR)/flow_sort_test.o $(UNITTEST_OBJ_DIR)/srpe_filter.o
+UNITTEST_OBJ =
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/driver.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/distributions.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/genotypekit.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/readfilter.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/banded_global_aligner.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/pinned_alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phased_genome.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/flow_sort_test.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/srpe_filter.o
 
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
-SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct_main.o $(SUBCOMMAND_OBJ_DIR)/simplify_main.o $(SUBCOMMAND_OBJ_DIR)/index_main.o $(SUBCOMMAND_OBJ_DIR)/mod_main.o 
+SUBCOMMAND_OBJ =
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/subcommand.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/construct_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/simplify_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/index_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/mod_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -77,7 +132,34 @@ SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # common dependencies to build before all vg src files
-DEPS:= $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libssw.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa/gcsa.h  $(LIB_DIR)/libgcsa2.a $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libgssw.a $(INC_DIR)/lru_cache.h $(INC_DIR)/dynamic.hpp $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsonlib.a $(LIB_DIR)/libpinchesandcacti.a $(INC_DIR)/globalDefs.hpp $(LIB_DIR)/libraptor2.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/sha1.o
+DEPS = 
+DEPS += $(LIB_DIR)/libprotobuf.a
+DEPS += $(CPP_DIR)/vg.pb.h
+DEPS += $(LIB_DIR)/libsdsl.a
+DEPS += $(LIB_DIR)/libssw.a
+DEPS += $(LIB_DIR)/libsnappy.a
+DEPS += $(LIB_DIR)/librocksdb.a
+DEPS += $(INC_DIR)/gcsa/gcsa.h
+DEPS += $(LIB_DIR)/libgcsa2.a
+DEPS += $(OBJ_DIR)/progress_bar.o
+DEPS += $(OBJ_DIR)/Fasta.o
+DEPS += $(LIB_DIR)/libhts.a
+DEPS += $(LIB_DIR)/libxg.a
+DEPS += $(LIB_DIR)/libvcflib.a
+DEPS += $(LIB_DIR)/libgssw.a
+DEPS += $(INC_DIR)/lru_cache.h
+DEPS += $(INC_DIR)/dynamic.hpp
+DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
+DEPS += $(LIB_DIR)/libvcfh.a
+DEPS += $(LIB_DIR)/libgfakluge.a
+DEPS += $(INC_DIR)/gfakluge.hpp
+DEPS += $(LIB_DIR)/libsupbub.a
+DEPS += $(LIB_DIR)/libsonlib.a
+DEPS += $(LIB_DIR)/libpinchesandcacti.a
+DEPS += $(INC_DIR)/globalDefs.hpp
+DEPS += $(LIB_DIR)/libraptor2.a
+DEPS += $(INC_DIR)/sha1.hpp
+DEPS += $(OBJ_DIR)/sha1.o
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
