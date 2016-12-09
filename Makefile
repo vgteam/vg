@@ -251,7 +251,7 @@ $(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/stream.hpp $(DEPS) $(SRC_DIR)/
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
+$(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(DEPS)
@@ -263,7 +263,7 @@ $(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(DEPS)
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/alignment.hpp $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp $(DEPS)
+$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/alignment.hpp $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp $(INC_DIR)/stream.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_INCLUDE_FLAGS)
 
 $(OBJ_DIR)/json2pb.o: $(SRC_DIR)/json2pb.cpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/bin2ascii.h $(DEPS)
