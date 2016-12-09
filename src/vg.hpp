@@ -66,6 +66,9 @@ struct KmerPosition {
     set<string> next_positions;
 };
 
+class Aligner; // forward declarations
+class QualAdjAligner;
+
 }
 
 namespace vg {

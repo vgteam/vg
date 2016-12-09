@@ -114,7 +114,7 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
 vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | wc -l) 1322 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1344 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg
@@ -123,7 +123,7 @@ vg index -x 2snp.xg 2snp.vg
 vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim >2snp.gam
-is $(vg mod -i 2snp.gam flat.vg | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f -1 -d\ ) d47169ce8fb4251904d1d2238a44555c "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
+is $(vg mod -i 2snp.gam flat.vg | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
 
 # Note the math (and subsetting) only works out on a flat alleles graph
