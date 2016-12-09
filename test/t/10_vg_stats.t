@@ -11,13 +11,16 @@ vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
 
 nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
-is $nodes 84555 "vg stats reports the expected number of nodes"
+real_nodes=$(vg view -j z.vg | jq -c '.node[]' | wc -l)
+is $nodes $real_nodes "vg stats reports the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
-is $edges 115361 "vg stats reports the expected number of edges"
+real_edges=$(vg view -j z.vg | jq -c '.edge[]' | wc -l)
+is $edges $real_edges "vg stats reports the expected number of edges"
 
 graph_length=$(vg stats -l z.vg | tail -1 | cut -f 2)
-is $graph_length 1029257 "vg stats reports the expected graph length"
+real_length=$(vg view -j z.vg | jq -r '.node[].sequence' | tr -d '\n' | wc -c)
+is $graph_length $real_length "vg stats reports the expected graph length"
 
 subgraph_count=$(vg stats -s z.vg | wc -l)
 is $subgraph_count 1 "vg stats reports the correct number of subgraphs"

@@ -2340,7 +2340,9 @@ int main_msga(int argc, char** argv) {
         build_graph(strings[base_seq_name], base_seq_name);
     }
 
-    //cerr << "path going in " << pb2json(graph->graph.path(0)) << endl;
+#ifdef debug
+    cerr << "path going in " << pb2json(graph->graph.path(0)) << endl;
+#endif
 
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
@@ -2353,18 +2355,19 @@ int main_msga(int argc, char** argv) {
     size_t iter = 0;
 
     auto rebuild = [&](VG* graph) {
-        //stringstream s; s << iter++ << ".vg";
-        graph->sort();
-        graph->sync_paths();
-        graph->rebuild_indexes();
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
         if (lcpidx) delete lcpidx;
+    
+        //stringstream s; s << iter++ << ".vg";
+        graph->sort();
+        graph->sync_paths();
+        graph->graph.clear_path();
+        graph->paths.to_graph(graph->graph);
+        graph->rebuild_indexes();
 
         if (debug) cerr << "building xg index" << endl;
-        graph->sync_paths();
-        graph->paths.to_graph(graph->graph);
         xgidx = new xg::XG(graph->graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;

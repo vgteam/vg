@@ -15,6 +15,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
+#include "../pathindex.hpp"
 
 #include "gcsa/gcsa.h"
 #include "gcsa/algorithms.h"
@@ -32,6 +33,7 @@ void help_index(char** argv) {
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
          << "                           the graph(s) (effectively replaces rocksdb)" << endl
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
+         << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
@@ -78,6 +80,8 @@ int main_index(int argc, char** argv) {
     string xg_name;
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
+    // This maps from graph path name (FASTA name) to VCF contig name
+    map<string,string> path_to_vcf;
     vector<string> dbg_names;
     int kmer_size = 0;
     bool path_only = false;
@@ -129,6 +133,7 @@ int main_index(int argc, char** argv) {
             {"gcsa-name", required_argument, 0, 'g'},
             {"xg-name", required_argument, 0, 'x'},
             {"vcf-phasing", required_argument, 0, 'v'},
+            {"rename", required_argument, 0, 'r'},
             {"verify-index", no_argument, 0, 'V'},
             {"forward-only", no_argument, 0, 'F'},
             {"size-limit", no_argument, 0, 'Z'},
@@ -141,7 +146,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNo",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -160,6 +165,23 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+            
+        case 'r':
+            {
+                // Parse the rename old=new
+                string key_value(optarg);
+                auto found = key_value.find('=');
+                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
+                    cerr << "error:[vg construct] could not parse rename " << key_value << endl;
+                    exit(1);
+                }
+                // Parse out the two parts
+                string vcf_contig = key_value.substr(0, found);
+                string graph_contig = key_value.substr(found + 1);
+                // Add the name mapping
+                path_to_vcf[graph_contig] = vcf_contig;
+            }
             break;
 
         case 'P':
@@ -318,8 +340,10 @@ int main_index(int argc, char** argv) {
 
             variant_file.open(vcf_name);
             if (!variant_file.is_open()) {
-                cerr << "error:[vg index] could not open" << vcf_name << endl;
+                cerr << "error:[vg index] could not open " << vcf_name << endl;
                 return 1;
+            } else if (show_progress) {
+                cerr << "Opened variant file " << vcf_name << endl;
             }
 
         }
@@ -344,6 +368,10 @@ int main_index(int argc, char** argv) {
         xg::XG index;
         graphs.to_xg(index, store_threads, is_alt, alt_paths);
 
+        if (show_progress) {
+            cerr << "Built base XG index" << endl;
+        }
+
         // We're going to collect all the phase threads as XG threads (which
         // aren't huge like Protobuf Paths), and then insert them all into xg in
         // a batch, for speed. This will take a lot of memory (although not as
@@ -366,12 +394,23 @@ int main_index(int argc, char** argv) {
 
                 // What path is this?
                 string path_name = index.path_name(path_rank);
+                
+                // Convert to VCF space if applicable
+                string vcf_contig_name = path_to_vcf.count(path_name) ? path_to_vcf[path_name] : path_name;
+                
+                if (show_progress) {
+                    cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
+                }
 
                 // We already know it's not a variant's alt, since those were
                 // removed, so it might be a primary contig.
 
                 // How many bases is it?
                 size_t path_length = index.path_length(path_name);
+                
+                // We're going to extract it and index it, so we don't keep
+                // making queries against it for every sample.
+                PathIndex path_index(index.path(path_name));
 
                 // Allocate some threads to store phase threads
                 vector<xg::XG::thread_t> active_phase_threads{num_phases};
@@ -410,10 +449,26 @@ int main_index(int argc, char** argv) {
                     }
                 };
 
+                // We need a way to convert Mappings to ThreadMappings
+                // TODO: add a converting constructor?
+                auto mapping_to_thread_mapping = [](const Mapping& mapping) {
+                    xg::XG::ThreadMapping thread_mapping;
+                    thread_mapping.node_id = mapping.position().node_id();
+                    thread_mapping.is_reverse = mapping.position().is_reverse();
+                    return thread_mapping;
+                };
+                // And NodeSides to thread mappings
+                auto node_side_to_thread_mapping = [](const NodeSide& side) {
+                    xg::XG::ThreadMapping thread_mapping;
+                    thread_mapping.node_id = side.node;
+                    thread_mapping.is_reverse = side.is_end;
+                    return thread_mapping;
+                };
+
                 // We need a way to dump mappings into pahse threads. The
                 // mapping edits and rank and offset info will be ignored; the
                 // Mapping just represents an oriented node traversal.
-                auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
+                auto append_mapping = [&](size_t phase_number, const xg::XG::ThreadMapping& mapping) {
                     // Find the path to add to
                     xg::XG::thread_t& to_extend = active_phase_threads[phase_number];
 
@@ -423,15 +478,16 @@ int main_index(int argc, char** argv) {
                         const xg::XG::ThreadMapping& previous = to_extend[to_extend.size() - 1];
 
                         // Break out the IDs and flags we need to check for the edge
-                        int64_t last_node = previous.node_id;
-                        bool last_from_start = previous.is_reverse;
+                        const int64_t& last_node = previous.node_id;
+                        const bool& last_from_start = previous.is_reverse;
 
-                        int64_t new_node = mapping.position().node_id();
-                        bool new_to_end = mapping.position().is_reverse();
+                        const int64_t& new_node = mapping.node_id;
+                        const bool& new_to_end = mapping.is_reverse;
 
-                        if (!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
-                            // We can't have a thread take this edge. Split ane
-                            // emit the current mappings and start a new path.
+                        if (!index.has_edge(xg::make_edge(last_node, last_from_start, new_node, new_to_end))) {
+                            // We can't have a thread take this edge (or an
+                            // equivalent). Split and emit the current mappings
+                            // and start a new path.
 #ifdef debug
                             cerr << "warning:[vg index] phase " << phase_number << " wants edge "
                                 << last_node << (last_from_start ? "L" : "R") << " - "
@@ -442,9 +498,8 @@ int main_index(int argc, char** argv) {
                         }
                     }
 
-                    // Add a new ThreadMapping for the mapping
-                    xg::XG::ThreadMapping tm = {mapping.position().node_id(), mapping.position().is_reverse()};
-                    active_phase_threads[phase_number].push_back(tm);
+                    // Add the ThreadMapping
+                    active_phase_threads[phase_number].push_back(mapping);
                 };
 
                 // We need an easy way to append any reference mappings from the
@@ -456,18 +511,27 @@ int main_index(int argc, char** argv) {
                     // any. For which we need access to the last variant's past-
                     // the-end reference position.
                     size_t ref_pos = nonvariant_starts[phase_number];
-                    while(ref_pos < end) {
+                    
+                    // Get an iterator to the next node visit to add
+                    PathIndex::iterator next_to_add = path_index.find_position(ref_pos);
+                    
+                    while(ref_pos < end && next_to_add != path_index.end()) {
                         // While there is intervening reference
                         // sequence, add it to our phase.
 
-                        // What mapping is here?
-                        Mapping ref_mapping = index.mapping_at_path_position(path_name, ref_pos);
+                        // What node side is the node that covers here?
+                        NodeSide ref_side = next_to_add->second;
 
                         // Stick it in the phase path
-                        append_mapping(phase_number, ref_mapping);
+                        append_mapping(phase_number, node_side_to_thread_mapping(ref_side));
 
-                        // Advance to what's after that mapping
-                        ref_pos += index.node_length(ref_mapping.position().node_id());
+                        // Advance to what's after that mapping, pulling node
+                        // length from the path index
+                        ref_pos += path_index.node_length(next_to_add);
+                        
+                        // Budge the iterator over so we don't need to do
+                        // another tree query.
+                        next_to_add++;
                     }
                     nonvariant_starts[phase_number] = ref_pos;
                 };
@@ -545,12 +609,30 @@ int main_index(int argc, char** argv) {
                         
                         // If it is phased, parse out the two alleles and handle
                         // each separately.
-                        vector<int> alt_indices({stoi(genotype.substr(0, bar_pos)),
-                                stoi(genotype.substr(bar_pos + 1))});
+                        vector<string> alt_indices({genotype.substr(0, bar_pos),
+                                genotype.substr(bar_pos + 1)});
 
                         for (int phase_offset = 0; phase_offset < 2; phase_offset++) {
                             // Handle each phase and its alt
-                            int& alt_index = alt_indices[phase_offset];
+                            string& alt_string = alt_indices[phase_offset];
+                            
+                            if (alt_string == ".") {
+                                // This is a missing data call. Skip it. TODO:
+                                // that means we'll just treat it like a
+                                // reference call, when really we should break
+                                // the haplotype here and not touch either alt.
+                                // But if the reference path is empty, and we
+                                // don't have a handy alt, we don't necessarily
+                                // know where the site actually *is*, so we
+                                // can't break phasing. What we should really do
+                                // is iterate alt numbers until we find one, but
+                                // that's going to be slow.
+                                continue;
+                            }
+                            
+                            // Otherwise it must be a proper number reference.
+                            // Parse it.
+                            int alt_index = stoi(alt_string);
 
                             if (alt_index != 0) {
                                 // If this sample doesn't take the reference
@@ -581,18 +663,8 @@ int main_index(int argc, char** argv) {
                                     // We have the ref path so we can just look at its first node
                                     auto first_ref_node = ref_path_iter->second.mapping(0).position().node_id();
                                     
-                                    // Find everywhere it starts in the ref path
-                                    auto starts = index.node_positions_in_path(first_ref_node, path_name);
-                                    
-                                    // There needs to be only one occurrence of
-                                    // this node on the reference path.
-                                    assert(starts.size() == 1);
-                                    
-                                    // Where that node happens is the first
-                                    // reference base inside this variant's
-                                    // actually variable part.
-                                    first_ref_base = starts.at(0);
-                                    
+                                    // Find the first place it starts in the ref path
+                                    first_ref_base = path_index.by_id.at(first_ref_node).first;
                                 } else if (alt_path_iter != alt_paths.end() && alt_path_iter->second.mapping_size() != 0)  {
                                     // We have an alt path, so we can look at
                                     // the ref node before it and go one after
@@ -618,22 +690,19 @@ int main_index(int argc, char** argv) {
                                             continue;
                                         }
 
-                                        // Find everywhere the node occurs in
-                                        // the reference path
-                                        auto starts = index.node_positions_in_path(other_id, path_name);
-                                        if (starts.empty()) {
-                                            // Skip nodes that aren;t in the reference path
+                                        if (path_index.by_id.count(other_id) == 0) {
+                                            // Skip nodes that aren't in the reference path
                                             continue;
                                         }
+
+                                        // Look up where the node starts in the reference
+                                        auto start = path_index.by_id.at(other_id).first;
+                                        // There plus the length of the node will be the first ref base in our site
+                                        first_ref_base = max(first_ref_base, start + index.node_length(other_id));
                                         
-                                        // Complain if we have a looping reference path
-                                        assert(starts.size() == 1);
-                                        
-                                        // We need to fill in the reference to
-                                        // past the end of this node that
-                                        // happens on the reference path before
-                                        // this alt.
-                                        first_ref_base = max(first_ref_base, starts.at(0) + index.node_length(other_id));
+                                        // TODO: handling of cases where the alt
+                                        // connects to multiple reference nodes
+                                        // in different orientations.
                                     }
                                 } else {
                                     // We lack both the ref and the alt path.
@@ -670,7 +739,8 @@ int main_index(int argc, char** argv) {
                                     for (size_t i = 0; (alt_path_iter != alt_paths.end() &&
                                         i < alt_path_iter->second.mapping_size()); i++) {
                                         // Then blit mappings from the alt over to the phase thread
-                                        append_mapping(sample_number * 2 + phase_offset, alt_path_iter->second.mapping(i));
+                                        append_mapping(sample_number * 2 + phase_offset,
+                                            mapping_to_thread_mapping(alt_path_iter->second.mapping(i)));
                                     }
 
                                     // Say we've accounted for the reference on
@@ -686,26 +756,23 @@ int main_index(int argc, char** argv) {
                 };
 
                 // Look for variants only on this path
-                variant_file.setRegion(path_name);
+                variant_file.setRegion(vcf_contig_name);
 
                 // Set up progress bar
                 ProgressBar* progress = nullptr;
                 // Message needs to last as long as the bar itself.
-                string progress_message = "loading variants for " + path_name;
+                string progress_message = "loading variants for " + vcf_contig_name;
                 if (show_progress) {
                     progress = new ProgressBar(path_length, progress_message.c_str());
                     progress->Progressed(0);
                 }
-
-                // TODO: For a first attempt, let's assume we can actually store
-                // all the Path objects for all the phases.
 
                 // Allocate a place to store actual variants
                 vcflib::Variant var(variant_file);
 
                 // How many variants have we done?
                 size_t variants_processed = 0;
-                while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+                while (variant_file.is_open() && variant_file.getNextVariant(var) && var.sequenceName == vcf_contig_name) {
                     // this ... maybe we should remove it as for when we have calls against N
                     bool isDNA = allATGC(var.ref);
                     for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
@@ -715,9 +782,9 @@ int main_index(int argc, char** argv) {
                     if (!isDNA) {
                         continue;
                     }
-
+                    
                     var.position -= 1; // convert to 0-based
-
+                    
                     // Handle the variant
                     handle_variant(var);
 
@@ -728,19 +795,28 @@ int main_index(int argc, char** argv) {
                     }
                 }
 
-                // Now finish up all the threads
-                for (size_t i = 0; i < num_phases; i++) {
-                    // Each thread runs out until the end of the reference path
-                    append_reference_mappings_until(i, path_length);
+                if (variants_processed > 0) {
+                    // There were actually some variants on this path. We only
+                    // want to actually have samples traverse the path if there
+                    // were variants on it.
 
-                    // And then we save all the threads
-                    finish_phase(i);
+                    // Now finish up all the threads
+                    for (size_t i = 0; i < num_phases; i++) {
+                        // Each thread runs out until the end of the reference path
+                        append_reference_mappings_until(i, path_length);
+
+                        // And then we save all the threads
+                        finish_phase(i);
+                    }
                 }
 
                 if (progress != nullptr) {
                     // Throw out our progress bar
                     delete progress;
                     cerr << endl;
+                    if (show_progress) {
+                        cerr << "Processed " << variants_processed << " variants" << endl;
+                    }
                 }
 
             }
