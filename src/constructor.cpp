@@ -66,6 +66,7 @@ namespace vg {
         }
     }
 
+
     VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file) {
         // Our buffer needs to know about the VCF file it is reading from, because
         // it cares about the sample names. If it's not associated properely, we
@@ -76,77 +77,7 @@ namespace vg {
         }
     }
    
-    /*
-     *=======
-    
-        // We'll fill this in with created nodes
-        vector<Node*> created;
-        
-        // We keep a cursor to the next non-made-into-a-node base
-        size_t cursor = 0;
-        
-        while (cursor < sequence.size()) {
-            // There's still sequence to do, so bite off a piece
-            size_t next_node_size = std::min(piece_size, sequence.size() - cursor);
-            string node_sequence = sequence.substr(cursor, next_node_size);
-            
-            // Make a node
-            auto* node = to_return.graph.add_node();
-            node->set_id(next_id++);
-            node->set_sequence(node_sequence);
-            
-            if (!created.empty()) {
-                // We need to link to the previous node in this run of sequence
-                auto* edge = to_return.graph.add_edge();
-                edge->set_from(created.back()->id());
-                edge->set_to(node->id());
-            }
-
-            // Tack the new node on the end of the list
-            created.push_back(node);
-            
-            // Advance the cursor since we made this node
-            cursor += next_node_size;
-        }
-        
-        return created;
-    };
-    
-    // We have a function to emit reference nodes from wherever the current
-    // cursor position is up to the given position, advancing the cursor. The
-    // target position must be <= the length of the reference. This function
-    // adds the nodes to the starting and ending position indexes.
-    auto add_reference_nodes_until = [&](size_t target_position) {
-        
-        // Make new nodes for all the sequence we want to add
-        auto new_nodes = create_nodes(reference_sequence.substr(reference_cursor, target_position - reference_cursor));
-    
-        // Remember the total node length we have scanned through
-        size_t seen_bases = 0;
-        
-        if (!new_nodes.empty()) {
-            // Add the start node to the starting at map.
-            // Interior nodes break at locations that are arbitrary, and we know
-            // nothign wants to attach to them there. Plus they're already linked to
-            // each other and we shouldn't link them again.
-            // Remember where it starts and ends along the reference path
-            nodes_starting_at[reference_cursor].insert(new_nodes.front()->id());
-            
-    
-            for (Node* node : new_nodes) {
-                // Add matches on the reference path for all the new nodes
-                add_match(ref_path, node);
-                
-                // Remember how long that node was so we place the next one right.
-                seen_bases += node->sequence().size();
-            }
-        
-            // Add the end node to the ending at map.
-            nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
-            
->>>>>>> 2e9de457202b455eb867c75481bea8ef3f877b3a
- 
-     */
+  
     ConstructedChunk Constructor::construct_chunk(string reference_sequence, string reference_path_name,
             vector<vcflib::Variant> variants, size_t chunk_offset) const {
 
@@ -307,74 +238,95 @@ namespace vg {
             nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
             
         }
-
-            // Advance the cursor
-            reference_cursor = target_position;
-        };
-
-        while (next_variant != variants.end() || !clump.empty()) {
-            // While there are more variants, or while we have the last clump to do...
-
-            // Group variants into clumps of overlapping variants.
-            if (clump.empty() || 
-                    (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
-
-                // Either there are no variants in the clump, or this variant
-                // overlaps the clump. It belongs in the clump
-                clump.push_back(&(*next_variant));
-                // It may make the clump longer and necessitate adding more variants.
-                clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
-
-                // Try the variant after that
-                next_variant++;
-            } else {
-                // The next variant doesn't belong in this clump.
-                // Handle the clump.
-
-                // Parse all the variants into VariantAllele edits
-
-                // This holds a map from Variant pointer to a vector of lists
-                // of VariantAllele edits, one list per non-ref allele of the
-                // variant.
-                map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
-
-                // This determines the order we will process variants in. We use it
-                // to sort variants in a clump by hash for the purposes of assigning
-                // IDs.
-                map<string, vcflib::Variant*> variants_by_name;
-
-                // This holds the min and max values for starts and ends of edits
-                // not removed from the clump.
-                int64_t first_edit_start = numeric_limits<int64_t>::max();
-                int64_t last_edit_end = -1;
-
-                for (vcflib::Variant* variant : clump) {
-
-                    // Check the variant's reference sequence to catch bad VCF/FASTA pairings
-                    auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
-
-                    if(variant->ref != expected_ref) {
-                        // TODO: report error to caller somehow
-#pragma omp critical (cerr)
-                        cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
-                            << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
-                            << "Variant: " << *variant << endl;
-                        exit(1);
-                    }
-
-                    // Name the variant and place it in the order that we'll
-                    // actually construct nodes in (see utility.hpp)
-                    string variant_name = make_variant_id(*variant);
-                    variants_by_name[variant_name] = variant;
-
-                    // We need to parse the variant into alts, each of which is a
-                    // series of VariantAllele edits. This holds the full alt allele
-                    // string and the edits needed to make it. The VariantAlleles
-                    // completely cover the alt, and some of them may be perfect
-                    // matches to stretches of reference sequence. Note that the
-                    // reference allele of the variant won't appear here.
-                    map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
-                        variant->parsedAlternates();
+    
+        // Advance the cursor
+        reference_cursor = target_position;
+    };
+    
+    while (next_variant != variants.end() || !clump.empty()) {
+        // While there are more variants, or while we have the last clump to do...
+    
+        // Group variants into clumps of overlapping variants.
+        if (clump.empty() || 
+            (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
+            
+            // Either there are no variants in the clump, or this variant
+            // overlaps the clump. It belongs in the clump
+            clump.push_back(&(*next_variant));
+            // It may make the clump longer and necessitate adding more variants.
+            clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
+            
+            // Try the variant after that
+            next_variant++;
+        } else {
+            // The next variant doesn't belong in this clump.
+            // Handle the clump.
+            
+            // Parse all the variants into VariantAllele edits
+            
+            // This holds a map from Variant pointer to a vector of lists
+            // of VariantAllele edits, one list per non-ref allele of the
+            // variant.
+            map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
+            
+            // This determines the order we will process variants in. We use it
+            // to sort variants in a clump by hash for the purposes of assigning
+            // IDs.
+            map<string, vcflib::Variant*> variants_by_name;
+            
+            // This holds the min and max values for the starts and ends of
+            // edits in each variant that are actual change-making edits. These
+            // are in chunk coordinates. They are only populated if a variant
+            // has a variable region. They can enclose a 0-length variable
+            // region by having the end before the beginning.
+            map<vcflib::Variant*, pair<int64_t, int64_t>> variable_bounds;
+            
+            // This holds the min and max values for starts and ends of edits
+            // not removed from the clump. These are in chunk coordinates.
+            int64_t first_edit_start = numeric_limits<int64_t>::max();
+            int64_t last_edit_end = -1;
+            
+            // We'll fill this with any duplicate variants that should be
+            // ignored, out of the clump. This is better than erasing out of a
+            // vector.
+            set<vcflib::Variant*> duplicates;
+            
+            for (vcflib::Variant* variant : clump) {
+            
+                // Check the variant's reference sequence to catch bad VCF/FASTA pairings
+                auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
+            
+                if(variant->ref != expected_ref) {
+                    // TODO: report error to caller somehow
+                    #pragma omp critical (cerr)
+                    cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
+                        << " vs " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
+                        << "Variant: " << *variant << endl;
+                    exit(1);
+                }
+            
+                // Name the variant and place it in the order that we'll
+                // actually construct nodes in (see utility.hpp)
+                string variant_name = make_variant_id(*variant);
+                if (variants_by_name.count(variant_name)) {
+                    // Some VCFs may include multiple variants at the same
+                    // position with the same ref and alt. We will only take the
+                    // first one.
+                    cerr << "warning:[vg::Constructor] Skipping duplicate variant with hash " << variant_name
+                        << " at " << variant->sequenceName << ":" << variant->position << endl;
+                    duplicates.insert(variant);
+                    continue;
+                }
+                variants_by_name[variant_name] = variant;
+            
+                // We need to parse the variant into alts, each of which is a
+                // series of VariantAllele edits. This holds the full alt allele
+                // string and the edits needed to make it. The VariantAlleles
+                // completely cover the alt, and some of them may be perfect
+                // matches to stretches of reference sequence. Note that the
+                // reference allele of the variant won't appear here.
+                map<string, vector<vcflib::VariantAllele>> alternates = flat ? variant->flatAlternates() :
+                    variant->parsedAlternates();
 
                     for (auto& kv : alternates) {                
                         // For each alt in the variant
@@ -444,6 +396,7 @@ namespace vg {
                 // reference space.
                 assert(last_edit_end != -1);
                 assert(first_edit_start != numeric_limits<int64_t>::max());
+
 
 #ifdef debug
                 cerr << "Edits run between " << first_edit_start << " and " << last_edit_end << endl;
@@ -560,6 +513,7 @@ namespace vg {
                                 // What is the before-the-beginning position (last non-deleted, may be -1)
                                 int64_t arc_start = (int64_t) edit.position - chunk_offset - 1;
 
+
 #ifdef debug
                                 cerr << "Ensure deletion arc " << arc_start << " to " << arc_end << endl;
 #endif
@@ -573,6 +527,7 @@ namespace vg {
 
                                 // Remember that an arc comes from this base
                                 deletion_starts.insert(arc_start);
+
                             }
 
                         }

@@ -189,8 +189,8 @@ string tmpfilename(const string& base);
 
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
 // one.
-string get_or_make_variant_id(vcflib::Variant variant);
-string make_variant_id(vcflib::Variant variant);
+string get_or_make_variant_id(const vcflib::Variant& variant);
+string make_variant_id(const vcflib::Variant& variant);
 
 // Simple little tree
 template<typename T>
