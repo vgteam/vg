@@ -6333,7 +6333,7 @@ int main_map(int argc, char** argv) {
                     }
                 }
             };
-            gam_paired_interleaved_for_each_parallel(gam_in, lambda);
+            stream::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];

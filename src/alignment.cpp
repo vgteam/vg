@@ -327,31 +327,6 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 
 }
 
-void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda) {
-    vector<Alignment> aln_buf;
-    std::function<void(Alignment&)> handler = [&](Alignment& aln) {
-        bool got_pair = false;
-        Alignment aln1;
-        Alignment aln2;
-#pragma omp critical(input)
-        {
-            if (aln_buf.size() == 1) {
-                aln1 = aln_buf.front();
-                aln2 = aln;
-                aln_buf.clear();
-                got_pair = true;
-            } else if (aln_buf.size() == 0) {
-                aln_buf.push_back(aln);
-            }
-        }
-        // now align
-        if (got_pair) {
-            lambda(aln1, aln2);
-        }
-    };
-    stream::for_each_parallel(in, handler);
-}
-
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split_delims(header, "\n");
