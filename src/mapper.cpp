@@ -31,7 +31,7 @@ Mapper::Mapper(Index* idex,
     , min_kmer_entropy(0)
     , debug(false)
     , alignment_threads(1)
-    , min_mem_length(0)
+    , min_mem_length(8)
     , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
@@ -386,9 +386,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     auto align_mate = [&](const Alignment& read, Alignment& mate) {
         // Make an alignment to align in the same local orientation as the read
         Alignment aln_same = mate;
+        aln_same.clear_path();
         // And one to align in the opposite local orientation
         // Always reverse the opposite direction sequence
-        Alignment aln_opposite = reverse_complement_alignment(mate, [&](id_t id) {return get_node_length(id);});
+        Alignment aln_opposite = reverse_complement_alignment(aln_same, [&](id_t id) {return get_node_length(id);});
         
         // We can't rescue off an unmapped read
         assert(read.has_path() && read.path().mapping_size() > 0);

@@ -2736,9 +2736,15 @@ void VG::print_edges(void) {
 
 void VG::sort(void) {
     if (size() <= 1) return;
+    // Join heads to a root to ensure stable topo sort
+    Node* root = join_heads();
     // Topologically sort, which orders and orients all the nodes.
     deque<NodeTraversal> sorted_nodes;
     topological_sort(sorted_nodes);
+    // destroy the root node
+    sorted_nodes.pop_front();
+    destroy_node(root);
+    // organize the nodes in the order from the topological sort
     deque<NodeTraversal>::iterator n = sorted_nodes.begin();
     int i = 0;
     for ( ; i < graph.node_size() && n != sorted_nodes.end();
@@ -6290,10 +6296,17 @@ Alignment VG::align(const Alignment& alignment,
 
     auto aln = alignment;
 
+    // empty graph means unaligned
+    if (this->size() == 0) {
+        // unaligned
+        aln.set_score(0);
+        aln.clear_path();
+        return aln;
+    }
+
 #ifdef debug
     cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
 #endif
-    
 
     auto do_align = [&](Graph& g) {
 #ifdef debug
@@ -6326,18 +6339,10 @@ Alignment VG::align(const Alignment& alignment,
     };
 
     if (is_acyclic() && !has_inverting_edges()) {
-        // join to common head if not using global banded
-        Node* root = nullptr;
-        if (!banded_global && !pinned_alignment) root = this->join_heads();
         // graph is a non-inverting DAG, so we just need to sort
         sort();
         // run the alignment
         do_align(this->graph);
-
-        // Clean up the node we added. This is important because this graph will
-        // later be extended with more material for softclip handling, and we
-        // might need that node ID.
-        if (root != nullptr) destroy_node(root);
 
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;
@@ -6355,9 +6360,6 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
-
-        Node* root = nullptr;
-        if (!banded_global && !pinned_alignment) root = dag.join_heads();
         dag.sort();
 
         // run the alignment
@@ -6389,11 +6391,6 @@ Alignment VG::align(const Alignment& alignment,
 #ifdef debug
         check_aln(*this, aln);
 #endif
-
-        // Clean up the node we added. This is important because this graph will
-        // later be extended with more material for softclip handling, and we
-        // might need that node ID.
-        if (root != nullptr) destroy_node(root);
 
     }
 

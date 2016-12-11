@@ -5258,9 +5258,9 @@ void help_map(char** argv) {
          << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
-         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
+         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -a, --mem-threading      use the MEM-threading alingment algorithm" << endl
+         << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -5316,8 +5316,8 @@ int main_map(int argc, char** argv) {
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     int max_mem_length = 0;
-    int min_mem_length = 0;
-    bool mem_threading = false;
+    int min_mem_length = 8;
+    bool mem_threading = true;
     int max_target_factor = 100;
     int buffer_size = 100;
     int match = 1;
@@ -5380,7 +5380,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
-                {"mem-threading", no_argument, 0, 'a'},
+                {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -5570,7 +5570,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'a':
-            mem_threading = true;
+            mem_threading = false;
             break;
 
         case 'H':
