@@ -27,13 +27,6 @@ void help_srpe(char** argv){
         
 
 
-    /**
-     * --sv-type
-     * --threads
-     * --max-iter
-     * --realign
-     */
-
 }
 
 
@@ -54,11 +47,6 @@ int main_srpe(int argc, char** argv){
 
     bool do_all = false;
 
-    /*
-     * int sc_cutoff
-     * int max_dist between reads
-     *
-     */
     vector<string> search_types;
     search_types.push_back("DEL");
 
