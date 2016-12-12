@@ -17,7 +17,7 @@ using namespace std;
 namespace vg{
     class Homogenizer{
         public:
-            /* Locates tips in the graph
+            /** Locates tips in the graph
              * and tries to generate a single
              * edge / node to represent them. 
              * This edge is then added, the offending sequences
