@@ -819,7 +819,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     if(results.first.empty()) {
-        results.first.push_back(read2);
+        results.first.push_back(read1);
         auto& aln = results.first.back();
         aln.clear_path();
         aln.clear_score();
@@ -1412,6 +1412,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns);
     // TODO RECALCULATE QUALITY BASED ON SCORING
+    merged.set_score(score_alignment(merged));
     merged.set_quality(read.quality());
     merged.set_name(read.name());
 
