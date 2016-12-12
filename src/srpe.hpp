@@ -8,6 +8,8 @@
 #include "gcsa.h"
 #include "alignment.hpp"
 #include "mapper.hpp"
+using namespace std;
+namespace vg{
 
 /**
  * Overview:
@@ -22,9 +24,9 @@
  *          Translocations: Distant read pairs
  */
 
-using namespace std;
-namespace vg{
-class SRPE{
+
+    class SRPE{
+
     string locus_to_sv_vcf(Locus ll);
 
    void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);

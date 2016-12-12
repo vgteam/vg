@@ -1,6 +1,3 @@
-#ifndef SIFT_MAIN_x
-#define SIFT_MAIN_x
-
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -315,4 +312,3 @@ return 0;
 static Subcommand vg_sift("sift", "GAM filter / scrubber", main_sift);
 
 
-#endif

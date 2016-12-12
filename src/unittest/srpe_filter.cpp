@@ -1,4 +1,4 @@
-/**
+/** \file
  * unittest/sift_test.cpp: tests for both paired and unpaired read filtering
  */
 

@@ -29,20 +29,20 @@ namespace vg{
         private:
 
             Translator translator;
-            /* Find tips (nodes with an indegree/outdegree of 0 in the graph */
+            /** Find tips (nodes with an indegree/outdegree of 0 in the graph */
             vector<vg::id_t> find_tips(vg::VG* graph);
 
-            /* Find non-ref tips */
+            /** Find non-ref tips */
             vector<vg::id_t> find_non_ref_tips(vg::VG* graph);
 
-            /* remap a set of Alignments to the graph */
+            /** remap a set of Alignments to the graph */
             int remap(vector<Alignment> reads, vg::VG graph);
-            /* Remove all tips from the graph.
+            /** Remove all tips from the graph.
              * WARNING: may cut head/tail nodes.*/
             void cut_tips(vg::VG* graph);
-            /* Remove specific nodes and their edges from the graph */
+            /** Remove specific nodes and their edges from the graph */
             void cut_tips(vector<id_t> tip_ids, vg::VG* graph);
-
+            /** Remove non-reference tips from the graph. */
             void cut_nonref_tips(vg::VG* graph);
             
 
