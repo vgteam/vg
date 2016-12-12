@@ -5463,7 +5463,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "    -T, --full-l-bonus N  the full-length alignment bonus" << endl
+         << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
