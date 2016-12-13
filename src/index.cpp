@@ -4,18 +4,18 @@ namespace vg {
 
 using namespace std;
 
+// convenience macro for RocksDB error handling
+#define S(x) { rocksdb::Status __s = (x); if (!__s.ok()) throw std::runtime_error("RocksDB operation failed: " + __s.ToString()); }
+
 Index::Index(void) {
 
     start_sep = '\x00';
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
-    mem_env = false;
-    use_snappy = false;
-    // We haven't opened the index yet. We don't get false by default on all platforms.
-    is_open = false;
+    // disable write-ahead logging when writing to RocksDB. This is for write durability
+    // in the event of power failure etc. which is not really relevant to our use case.
+    write_options.disableWAL = true;
     db = nullptr;
-    //block_cache_size = 1024 * 1024 * 10; // 10MB
-    rng.seed(time(NULL));
 
     threads = 1;
 #pragma omp parallel
@@ -26,53 +26,76 @@ Index::Index(void) {
 
 }
 
-rocksdb::Options Index::GetOptions(void) {
+rocksdb::Options Index::GetOptions(bool read_only) {
+    // TODO: make the following configurable
+    const size_t block_cache_bytes = 1<<30;
+    const size_t memtable_bytes = 4 * size_t(1<<30);
 
     rocksdb::Options options;
 
-    if (mem_env) {
-        options.env = rocksdb::NewMemEnv(options.env);
+    options.create_if_missing = !read_only;
+    // TODO: error_if_exists by default, with override for user who really wishes
+    // to add into an existing index.
+    // options.error_if_exists = true;
+    if (read_only) {
+        // dump RocksDB's debug log into /tmp instead of db dir, to avoid
+        // touching the latter in read-only mode
+        options.db_log_dir = "/tmp";
     }
-
-    options.create_if_missing = true;
     options.max_open_files = -1;
-    options.compression = rocksdb::kSnappyCompression;
-    options.compaction_style = rocksdb::kCompactionStyleLevel;
-    // we are unlikely to reach either of these limits
-    options.IncreaseParallelism(threads);
-    options.max_background_flushes = threads;
-    options.max_background_compactions = threads;
-
-    options.num_levels = 2;
-    options.target_file_size_base = (long) 1024 * 1024 * 512; // ~512MB (bigger in practice)
-    options.write_buffer_size = 1024 * 1024 * 256; // ~256MB
-
-    // doesn't work this way
-    rocksdb::BlockBasedTableOptions topt;
-    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
-    topt.block_cache = rocksdb::NewLRUCache(512 * 1024 * 1024, 7);
-    topt.no_block_cache = true;
-    options.table_factory.reset(NewBlockBasedTableFactory(topt));
-    options.table_cache_numshardbits = 7;
     options.allow_mmap_reads = true;
-    options.allow_mmap_writes = false;
+    options.disableDataSync = true; // like disableWAL above
+
+    // set up table format
+    rocksdb::BlockBasedTableOptions topt;
+    topt.format_version = 2;
+    topt.block_size = 4 << 20;
+    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
+    topt.block_cache = rocksdb::NewLRUCache(block_cache_bytes);
+    options.table_factory.reset(NewBlockBasedTableFactory(topt));
+
+    // set up concurrency
+    options.IncreaseParallelism(threads);
+    options.max_background_flushes = 3; // overrides IncreaseParallelism
+
+    // set up universal compaction
+    options.OptimizeUniversalStyleCompaction(memtable_bytes);
+    options.max_write_buffer_number = 4;             // overrides OptimizeUniversalStyleCompaction
+    options.write_buffer_size = (memtable_bytes/4);  // overrides OptimizeUniversalStyleCompaction
+    options.min_write_buffer_number_to_merge = 1;    // overrides OptimizeUniversalStyleCompaction
+
+    // 3 Snappy-compressed levels [0-2]. Using background compactions, try to
+    // keep fewer than 5 files in L0 (each file being a sorted "sub-level").
+    // L1 & L2 are each fully sorted, but split into disjoint 16GB chunks.
+    // See https://github.com/facebook/rocksdb/wiki/Universal-Compaction for
+    // explanation of multi-level universal compaction.
+    // TODO: switch to zstd compression
+    options.num_levels = 3;
+    options.compression_per_level.clear();
+    options.compression = rocksdb::kSnappyCompression;
+    options.level0_file_num_compaction_trigger = 5;
+    options.target_file_size_base = 16 * size_t(1<<30);
+    options.access_hint_on_compaction_start = rocksdb::Options::AccessHint::SEQUENTIAL;
+    options.compaction_readahead_size = 16 << 20;
 
     if (bulk_load) {
-        options.PrepareForBulkLoad();
-        options.max_write_buffer_number = threads;
-        options.max_background_flushes = threads;
-        options.max_background_compactions = threads;
-        options.compaction_style = rocksdb::kCompactionStyleNone;
+        // vector memtable provides much faster loading provided there's no
+        // concurrent reading happening
         options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
-    }
 
-    options.compression_per_level.resize(options.num_levels);
-    for (int i = 0; i < options.num_levels; ++i) {
-        if (i == 0 || use_snappy == true) {
-            options.compression_per_level[i] = rocksdb::kSnappyCompression;
-        } else {
-            options.compression_per_level[i] = rocksdb::kZlibCompression;
-        }
+        // disable write throttling because we'll have other logic to let
+        // background compactions converge.
+        options.level0_slowdown_writes_trigger = (1<<30);
+        options.level0_stop_writes_trigger = (1<<30);
+        options.compaction_options_universal.compression_size_percent = -1;
+        // size amplification is not a factor for our write-once use case
+        options.compaction_options_universal.max_size_amplification_percent = (1<<30);
+        options.compaction_options_universal.size_ratio = 10;
+        options.compaction_options_universal.min_merge_width = 2;
+        options.compaction_options_universal.max_merge_width = 10;
+    } else {
+        options.allow_concurrent_memtable_write = true;
+        options.enable_write_thread_adaptive_yield = true;
     }
 
     return options;
@@ -81,7 +104,7 @@ rocksdb::Options Index::GetOptions(void) {
 void Index::open(const std::string& dir, bool read_only) {
 
     name = dir;
-    db_options = GetOptions();
+    db_options = GetOptions(read_only);
 
     rocksdb::Status s;
     if (read_only) {
@@ -91,15 +114,45 @@ void Index::open(const std::string& dir, bool read_only) {
         s = rocksdb::DB::Open(db_options, name, &db);
     }
     if (!s.ok()) {
+        if (db) {
+            delete db;
+        }
+        db = nullptr;
         throw indexOpenException("can't open " + dir);
     }
-    is_open = true;
 
+    // we store a metadata key DIRTY while the index is open for writing,
+    // so that we can later detect if the indexing crashed/failed and
+    // refuse to use it.
+    string dirty_key = key_for_metadata("DIRTY"), data;
+    if (db->Get(rocksdb::ReadOptions(), dirty_key, &data).ok()) {
+        throw indexOpenException("index was not built cleanly, and should be recreated from scratch");
+    }
+
+    if (!read_only) {
+        rocksdb::WriteOptions dirty_write_options;
+        dirty_write_options.sync = true;
+        dirty_write_options.disableWAL = false;
+        if (!db->Put(dirty_write_options, dirty_key, "").ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
+            throw indexOpenException("couldn't write to index");
+        }
+    }
+
+    next_nonce = 42; // arbitrary initial value
+    s = get_metadata("next_nonce", data);
+    if (s.ok()) {
+        auto p = strtoull(data.c_str(), nullptr, 10);
+        if (p < next_nonce || p == ULLONG_MAX) {
+            throw indexOpenException("corrupt next_nonce entry");
+        }
+        next_nonce = p;
+    } else if (!s.IsNotFound()) {
+        throw indexOpenException("couldn't read metadata");
+    }
 }
 
 void Index::open_read_only(string& dir) {
     bulk_load = false;
-    //mem_env = true;
     open(dir, true);
 }
 
@@ -114,23 +167,54 @@ void Index::open_for_bulk_load(string& dir) {
 }
 
 Index::~Index(void) {
-    if (is_open) {
+    if (db) {
         close();
     }
 }
 
 void Index::close(void) {
     flush();
+    string dirty_key = key_for_metadata("DIRTY"), data;
+    if (db->Get(rocksdb::ReadOptions(), dirty_key, &data).ok()) {
+        // persist next_nonce and delete the dirty marker
+        rocksdb::WriteBatch batch;
+        batch.Put(key_for_metadata("next_nonce"), to_string(next_nonce));
+        batch.Delete(dirty_key);
+        rocksdb::WriteOptions dirty_write_options;
+        dirty_write_options.sync = true;
+        dirty_write_options.disableWAL = false;
+        if (!db->Write(dirty_write_options, &batch).ok() || !db->Flush(rocksdb::FlushOptions()).ok()) {
+            throw std::runtime_error("couldn't mark index closed");
+        }
+    }
     delete db;
-    is_open = false;
+    db = nullptr;
 }
 
 void Index::flush(void) {
     db->Flush(rocksdb::FlushOptions());
+
+    if (bulk_load) {
+        // Wait for compactions to converge. Specifically, wait until
+        // there's no more than one background compaction running.
+        // Argument: once that's the case, the number of L0 files isn't
+        // too much greater than level0_file_num_compaction_trigger,
+        // or else a second background compaction would start.
+        uint64_t num_running_compactions = 0;
+        while(true) {
+            num_running_compactions = 0;
+            db->GetIntProperty(rocksdb::DB::Properties::kNumRunningCompactions,
+                            &num_running_compactions);
+            if (num_running_compactions<=1) {
+                break;
+            }
+            usleep(10000);
+        }
+    }
 }
 
 void Index::compact(void) {
-    db->CompactRange(NULL, NULL);
+    db->CompactRange(rocksdb::CompactRangeOptions(), NULL, NULL);
 }
 
 // todo: replace with union / struct
@@ -296,19 +380,17 @@ const string Index::key_for_mapping_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_mapping(const Mapping& mapping) {
-    const string prefix = key_for_mapping_prefix(mapping.position().node_id());
-    // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
-    uniform_int_distribution<int> dist(0, 1e8);
-    stringstream t;
-    t << dist(rng);
-    string data = t.str();
-    //mapping.SerializeToString(&data);
-    const string hash = sha1head(data, 8);
-    string key = prefix;
-    key.resize(prefix.size() + sizeof(char) + hash.size());
-    char* k = (char*) key.c_str();
-    k[prefix.size()] = start_sep;
-    memcpy(k + prefix.size() + sizeof(char), hash.c_str(), hash.size());
+    string key(key_for_mapping_prefix(mapping.position().node_id()));
+    // Append a unique nonce to the node-ID-based key prefix, since there can
+    // be many mappings to one node. It just needs to be unique, so we use
+    // a variable-length, little-endian encoding to save a few bytes.
+    key.reserve(key.size() + 9);
+    key += start_sep;
+    uint64_t nonce = next_nonce.fetch_add(1);
+    while (nonce) {
+        key += (char) (nonce & 0xFF);
+        nonce >>= 8;
+    }
     return key;
 }
 
@@ -325,20 +407,17 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_alignment(const Alignment& alignment) {
-    const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).position().node_id());
-    // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
-    // maybe this shouldn't be a hash, but a random nonce
-    uniform_int_distribution<int> dist(0, 1e8);
-    stringstream t;
-    t << dist(rng);
-    string data = t.str();
-    //alignment.SerializeToString(&data);
-    const string hash = sha1head(data, 8);
-    string key = prefix;
-    key.resize(prefix.size() + sizeof(char) + hash.size());
-    char* k = (char*) key.c_str();
-    k[prefix.size()] = start_sep;
-    memcpy(k + prefix.size() + sizeof(char), hash.c_str(), hash.size());
+    string key(key_for_alignment_prefix(alignment.path().mapping(0).position().node_id()));
+    // Append a unique nonce to the node-ID-based key prefix, since there can
+    // be many alignments to one node. It just needs to be unique, so we use
+    // a variable-length encoding to save a few bytes.
+    key.reserve(key.size() + 9);
+    key += start_sep;
+    uint64_t nonce = next_nonce.fetch_add(1);
+    while (nonce) {
+        key += (char) (nonce & 0xFF);
+        nonce >>= 8;
+    }
     return key;
 }
 
@@ -588,21 +667,25 @@ void Index::parse_path_position(const string& key, const string& value,
     mapping.ParseFromString(value);
 }
 
-void Index::parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping) {
+void Index::parse_mapping(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Mapping& mapping) {
     const char* k = key.c_str();
     memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
-    hash.resize(8);
-    memcpy((char*)hash.c_str(), (k + 4*sizeof(char) + sizeof(int64_t)), 8*sizeof(char));
     node_id = be64toh(node_id);
+    nonce = 0;
+    for (int i = 4+sizeof(char)+sizeof(int64_t); i < key.size(); i++) {
+        nonce = (nonce<<8)+uint8_t(k[i]);
+    }
     mapping.ParseFromString(value);
 }
 
-void Index::parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment) {
+void Index::parse_alignment(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Alignment& alignment) {
     const char* k = key.c_str();
     memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
-    hash.resize(8);
-    memcpy((char*)hash.c_str(), (k + 4*sizeof(char) + sizeof(int64_t)), 8*sizeof(char));
     node_id = be64toh(node_id);
+    nonce = 0;
+    for (int i = 4+sizeof(char)+sizeof(int64_t); i < key.size(); i++) {
+        nonce = (nonce<<8)+uint8_t(k[i]);
+    }
     alignment.ParseFromString(value);
 }
 
@@ -671,20 +754,20 @@ string Index::metadata_entry_to_string(const string& key, const string& value) {
 string Index::mapping_entry_to_string(const string& key, const string& value) {
     Mapping mapping;
     int64_t node_id;
-    string hash;
-    parse_mapping(key, value, node_id, hash, mapping);
+    uint64_t nonce;
+    parse_mapping(key, value, node_id, nonce, mapping);
     stringstream s;
-    s << "{\"key\":\"+s+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(mapping) << "}";
+    s << "{\"key\":\"+s+" << node_id << "+" << nonce << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
 
 string Index::alignment_entry_to_string(const string& key, const string& value) {
     Alignment alignment;
     int64_t node_id;
-    string hash;
-    parse_alignment(key, value, node_id, hash, alignment);
+    uint64_t nonce;
+    parse_alignment(key, value, node_id, nonce, alignment);
     stringstream s;
-    s << "{\"key\":\"+a+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(alignment) << "}";
+    s << "{\"key\":\"+a+" << node_id << "+" << nonce << "\", \"value\":"<< pb2json(alignment) << "}";
     return s.str();
 }
 
@@ -721,7 +804,7 @@ void Index::put_node(const Node* node) {
     string data;
     node->SerializeToString(&data);
     string key = key_for_node(node->id());
-    db->Put(write_options, key, data);
+    S(db->Put(write_options, key, data));
 }
 
 void Index::batch_node(const Node* node, rocksdb::WriteBatch& batch) {
@@ -749,18 +832,18 @@ void Index::put_edge(const Edge* edge) {
 
     if(edge->from_start()) {
         // On the from node, we're on the start
-        db->Put(write_options, key_for_edge_on_start(edge->from(), edge->to(), backward), from_data);
+        S(db->Put(write_options, key_for_edge_on_start(edge->from(), edge->to(), backward), from_data));
     } else {
         // On the from node, we're on the end
-        db->Put(write_options, key_for_edge_on_end(edge->from(), edge->to(), backward), from_data);
+        S(db->Put(write_options, key_for_edge_on_end(edge->from(), edge->to(), backward), from_data));
     }
 
     if(edge->to_end()) {
         // On the to node, we're on the end
-        db->Put(write_options, key_for_edge_on_end(edge->to(), edge->from(), backward), to_data);
+        S(db->Put(write_options, key_for_edge_on_end(edge->to(), edge->from(), backward), to_data));
     } else {
         // On the to node, we're on the start
-        db->Put(write_options, key_for_edge_on_start(edge->to(), edge->from(), backward), to_data);
+        S(db->Put(write_options, key_for_edge_on_start(edge->to(), edge->from(), backward), to_data));
     }
 }
 
@@ -799,42 +882,49 @@ void Index::batch_edge(const Edge* edge, rocksdb::WriteBatch& batch) {
 
 void Index::put_metadata(const string& tag, const string& data) {
     string key = key_for_metadata(tag);
-    db->Put(write_options, key, data);
+    S(db->Put(write_options, key, data));
 }
 
 void Index::put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, bool backward, const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_node_path_position(node_id, path_id, path_pos, backward), data);
+    S(db->Put(write_options, key_for_node_path_position(node_id, path_id, path_pos, backward), data));
 }
 
 void Index::put_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id, const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_path_position(path_id, path_pos, backward, node_id), data);
+    S(db->Put(write_options, key_for_path_position(path_id, path_pos, backward, node_id), data));
 }
 
 void Index::put_mapping(const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_mapping(mapping), data);
+    S(db->Put(write_options, key_for_mapping(mapping), data));
 }
 
 void Index::put_alignment(const Alignment& alignment) {
+    static std::atomic<bool> warned_unmapped(false);
+    if (!alignment.has_path()) {
+        if (!warned_unmapped.exchange(true)) {
+            std::cerr << "[vg index] WARNING: not storing unmapped reads in alignment index. (FIXME)" << std::endl;
+        }
+        return;
+    }
     string data;
     alignment.SerializeToString(&data);
-    db->Put(write_options, key_for_alignment(alignment), data);
+    S(db->Put(write_options, key_for_alignment(alignment), data));
 }
 
 void Index::put_base(int64_t aln_id, const Alignment& alignment) {
     string data;
     alignment.SerializeToString(&data);
-    db->Put(write_options, key_for_base(aln_id), data);
+    S(db->Put(write_options, key_for_base(aln_id), data));
 }
 
 void Index::put_traversal(int64_t aln_id, const Mapping& mapping) {
     string data; // empty data
-    db->Put(write_options, key_for_traversal(aln_id, mapping), data);
+    S(db->Put(write_options, key_for_traversal(aln_id, mapping), data));
 }
 
 void Index::cross_alignment(int64_t aln_id, const Alignment& alignment) {
@@ -857,18 +947,16 @@ void Index::load_graph(VG& graph) {
         thread_count = omp_get_num_threads();
     }
     omp_set_num_threads(1);
-    graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
+    graph.preload_progress("indexing nodes of " + graph.name);
     rocksdb::WriteBatch batch;
     graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch); });
-    graph.destroy_progress();
-    graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
+    graph.preload_progress("indexing edges of " + graph.name);
     graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
     rocksdb::Status s = db->Write(write_options, &batch);
     omp_set_num_threads(thread_count);
 }
 
 void Index::load_paths(VG& graph) {
-    graph.destroy_progress();
     graph.create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
     store_paths(graph);
     graph.destroy_progress();
@@ -878,16 +966,18 @@ int64_t Index::get_max_path_id(void) {
     string data;
     int64_t id;
     rocksdb::Status s = get_metadata("max_path_id", data);
-    if (!s.ok()) {
+    if (s.IsNotFound()) {
         id = 0;
         put_max_path_id(id);
     } else {
+        S(s);
         memcpy(&id, data.c_str(), sizeof(int64_t));
     }
     return id;
 }
 
 void Index::put_max_path_id(int64_t id) {
+    // TODO: ensure consistent endianness
     string data;
     data.resize(sizeof(int64_t));
     memcpy((char*)data.c_str(), &id, sizeof(int64_t));
@@ -908,6 +998,7 @@ string Index::path_name_prefix(const string& name) {
 }
 
 string Index::path_id_prefix(int64_t id) {
+    // TODO: ensure consistent endianness
     string prefix = "path_id" + start_sep;
     size_t prefix_size = prefix.size();
     prefix.resize(prefix.size() + sizeof(int64_t));
@@ -920,6 +1011,7 @@ void Index::put_path_id_to_name(int64_t id, const string& name) {
 }
 
 void Index::put_path_name_to_id(int64_t id, const string& name) {
+    // TODO: ensure consistent endianness
     string data;
     data.resize(sizeof(int64_t));
     memcpy((char*)data.c_str(), &id, sizeof(int64_t));
@@ -928,15 +1020,24 @@ void Index::put_path_name_to_id(int64_t id, const string& name) {
 
 string Index::get_path_name(int64_t id) {
     string data;
-    get_metadata(path_id_prefix(id), data);
-    return data;
+    rocksdb::Status s = get_metadata(path_id_prefix(id), data);
+    if (s.ok()) {
+        return data;
+    } else if (!s.IsNotFound()) {
+        S(s);
+    }
+    return string();
 }
 
 int64_t Index::get_path_id(const string& name) {
     string data;
-    get_metadata(path_name_prefix(name), data);
     int64_t id = 0;
-    memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    rocksdb::Status s = get_metadata(path_name_prefix(name), data);
+    if (s.ok()) {
+        memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    } else if (!s.IsNotFound()) {
+        S(s);
+    }
     return id;
 }
 
@@ -978,7 +1079,7 @@ void Index::store_path(VG& graph, const Path& path) {
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
 
-        graph.update_progress(graph.progress_count+1);
+        graph.increment_progress();
     }
 }
 
@@ -1400,170 +1501,6 @@ Mapping Index::path_relative_mapping(int64_t node_id, bool backward, int64_t pat
 // source -> surjection (in path_name coordinate space)
 // the product is equivalent to a pairwise alignment between this path and the other
 
-// new approach
-// get path sequence
-// get graph component overlapping path
-// removing elements which aren't in the path of interest
-// realign to this graph
-// cross fingers
-
-            // what we need:
-            /*
-                         const string& refseq,
-                         const int32_t refpos,
-                         const string& cigar,
-                         const string& mateseq,
-                         const int32_t matepos,
-                         const int32_t tlen);
-            */
-bool Index::surject_alignment(const Alignment& source,
-                              set<string>& path_names,
-                              Alignment& surjection,
-                              string& path_name,
-                              int64_t& path_pos,
-                              bool& path_reverse,
-                              int window) {
-    VG graph;
-    // get start and end nodes in path
-    // get range between +/- window
-    if (!source.has_path() || source.path().mapping_size() == 0) {
-#ifdef debug
-
-#pragma omp critical (cerr)
-        cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
-
-#endif
-        return false;
-    }
-    // TODO: replace ID windowing with a real notion of region
-    
-    int64_t first_id = source.path().mapping(0).position().node_id();
-    int64_t last_id = source.path().mapping(source.path().mapping_size()-1).position().node_id();
-    if(last_id < first_id) {
-        swap(first_id, last_id);
-    }
-    
-    int64_t from_id = first_id - window;
-    int64_t to_id = last_id + window;
-    get_range(max((int64_t)0, from_id), to_id, graph);
-    graph.remove_orphan_edges();
-    // which path(s) did we keep?
-    set<string> kept_paths;
-    graph.keep_paths(path_names, kept_paths);
-    
-#ifdef debug
-
-#pragma omp critical (cerr)
-        cerr << "Alignment " << source.name() << " should surject into to window from " << from_id << " to " << to_id << " which contains " << graph.size() << " nodes on " << kept_paths.size() << "/" << path_names.size() << " kept paths" << endl;
-
-#endif
-    
-    // We need this for inverting mappings to the correct strand
-    function<int64_t(id_t)> node_length = [&graph](id_t node) {
-        return graph.get_node(node)->sequence().size();
-    };
-    
-    // What is our alignment to surject spelled the other way around? We can't
-    // just use the normal alignment RC function because the mappings reference
-    // nonexistent nodes.
-    // Make sure to copy all the things about the alignment (name, etc.)
-    Alignment source_rc = source;
-    source_rc.set_sequence(reverse_complement(source.sequence()));
-    
-    // Align the old alignment to the graph in both orientations. Apparently
-    // align only does a single oriantation, and we have no idea, even looking
-    // at the mappings, which of the orientations will correspond to the one the
-    // alignment is actually in.
-    auto surjection_forward = graph.align(source);
-    auto surjection_reverse = graph.align(source_rc);
-    
-#ifdef debug
-
-#pragma omp critical (cerr)
-        cerr << surjection_forward.score() << " forwards, " << surjection_reverse.score() << " reverse" << endl;
-
-#endif
-    
-    if(surjection_reverse.score() > surjection_forward.score()) {
-        // Even if we have to surject backwards, we have to send the same string out as we got in.
-        surjection = reverse_complement_alignment(surjection_reverse, node_length);
-    } else {
-        surjection = surjection_forward;
-    }
-    
-    
-
-#ifdef debug
-
-#pragma omp critical (cerr)
-        cerr << surjection.path().mapping_size() << " mappings, " << kept_paths.size() << " paths" << endl;
-
-#endif
-
-    if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
-        // determine the paths of the node we mapped into
-        //  ... get the id of the first node, get the paths of it
-        assert(kept_paths.size() == 1);
-        path_name = *kept_paths.begin();
-
-        int64_t path_id = get_path_id(path_name);
-        int64_t hit_id = surjection.path().mapping(0).position().node_id();
-        Node hit_node;
-        get_node(hit_id, hit_node);
-        bool hit_backward = surjection.path().mapping(0).position().is_reverse();
-        int64_t pos = surjection.path().mapping(0).position().offset();
-        // we pick up positional information using the index
-        int64_t prev_pos=0, next_pos=0;
-        bool prev_orientation, next_orientation;
-        list<pair<int64_t, bool>> path_prev, path_next;
-        get_node_path_relative_position(hit_id, hit_backward, path_id, path_prev, prev_pos, prev_orientation,
-                                        path_next, next_pos, next_orientation);
-        // as a surjection this node must be in the path
-        // the nearest place we map should be the head of this node
-        assert(path_prev.size()==1 && hit_id == path_prev.front().first && hit_backward == path_prev.front().second);
-        
-        if(prev_orientation) {
-            // We really are running backward along the path.
-            // Get a version for which the path runs forward
-            Alignment path_oriented_surjection = reverse_complement_alignment(surjection, node_length);
-            
-            // Use that instead
-            hit_id = path_oriented_surjection.path().mapping(0).position().node_id();
-            get_node(hit_id, hit_node);
-            hit_backward = path_oriented_surjection.path().mapping(0).position().is_reverse();
-            pos = path_oriented_surjection.path().mapping(0).position().offset();
-            get_node_path_relative_position(hit_id, hit_backward, path_id, path_prev, prev_pos, prev_orientation,
-                                            path_next, next_pos, next_orientation);
-                                            
-            assert(path_prev.size()==1 && hit_id == path_prev.front().first && hit_backward == path_prev.front().second);
-            assert(!prev_orientation);
-            
-            path_reverse = true;
-        } else {
-            // The orientation of the best alignment runs forward along the path.
-            path_reverse = false;
-        }
-        
-        // Make sure we're landing in the right direction.
-        assert(next_pos >= prev_pos);
-        assert(prev_orientation == next_orientation);
-        
-        // we then add the position of this node against the path to our offset in the node (from the left side)
-        // to get the final chrom+position for the surjection
-        path_pos = prev_pos + (hit_backward ? hit_node.sequence().size() - pos - 1 : pos);
-        // we need the cigar, but this comes from a function on the alignment itself
-        return true;
-    } else {
-#ifdef debug
-
-#pragma omp critical (cerr)
-        cerr << "Alignment " << source.name() << " did not align to the surjection subgraph" << endl;
-
-#endif
-        return false;
-    }
-}
-
 map<string, int64_t> Index::paths_by_id(void) {
     map<string, int64_t> byid;
     string start = key_for_metadata(path_id_prefix(0));
@@ -1605,9 +1542,12 @@ pair<int64_t, bool> Index::path_last_node(int64_t path_id, int64_t& path_length)
     int64_t node_id = 0;
     bool backward;
     it->Seek(end);
-    it->Prev();
-    // horrible hack
-    if (!it->Valid()) it->SeekToLast(); // XXXX
+    if (it->Valid()) {
+        it->Prev();
+    }
+    else {
+        it->SeekToLast();
+    }
     if (it->Valid()) {
         string key = it->key().ToString();
         string value = it->value().ToString();
@@ -1861,6 +1801,11 @@ void Index::approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uin
         ranges.push_back(rocksdb::Range(start, end));
     }
     db->GetApproximateSizes(&ranges[0], kmers.size(), &sizes[0]);
+}
+
+void Index::get_edges_of(int64_t node, vector<Edge>& edges) {
+    get_edges_on_start(node, edges);
+    get_edges_on_end(node, edges);
 }
 
 void Index::get_edges_on_start(int64_t node_id, vector<Edge>& edges) {
@@ -2119,10 +2064,12 @@ void Index::for_range(string& key_start, string& key_end,
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
+        S(it->status());
         string key = it->key().ToString();
         string value = it->value().ToString();
         lambda(key, value);
     }
+    S(it->status());
     delete it;
 }
 

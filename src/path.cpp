@@ -131,6 +131,8 @@ void Paths::extend(Paths& p) {
     for (auto& l : p._paths) {
         const string& name = l.first;
         list<Mapping>& path = l.second;
+        // Make sure we preserve empty paths
+        get_create_path(name);
         for (auto& m : path) {
             append_mapping(name, m);
         }
@@ -146,6 +148,8 @@ void Paths::append(Paths& paths) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
         const list<Mapping>& path = p.second;
+        // Make sure we preserve empty paths
+        get_create_path(name);
         for (auto& m : path) {
             append_mapping(name, m);
         }
@@ -160,6 +164,8 @@ void Paths::append(Paths& paths) {
 void Paths::append(Graph& g) {
     for (int i = 0; i < g.path_size(); ++i) {
         const Path& p = g.path(i);
+        // Make sure we preserve empty paths
+        get_create_path(p.name());
         for (int j = 0; j < p.mapping_size(); ++j) {
             const Mapping& m = p.mapping(j);
             append_mapping(p.name(), m);
@@ -462,6 +468,10 @@ void Paths::rebuild_mapping_aux(void) {
 
 void Paths::remove_node(id_t id) {
     node_mapping.erase(id);
+}
+
+list<Mapping>::iterator Paths::find_mapping(Mapping* m) {
+    return mapping_itr[m];
 }
 
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
@@ -1228,6 +1238,69 @@ Mapping simplify(const Mapping& m) {
     return n;
 }
 
+Path trim_hanging_ends(const Path& p) {
+
+    if (p.is_circular()) {
+        return p;
+    }
+    
+    Path trimmed_path;
+    int first_m = -1;
+    int first_e = -1;
+    int last_m = -2;
+    int last_e = -2;
+
+    // walk left-to-right until we find a match
+    for (int mi = 0; mi < p.mapping_size() && first_m < 0; ++mi) {
+        const Mapping& mapping = p.mapping(mi);
+        for (int ei = 0; ei < mapping.edit_size() && first_e < 0; ++ei) {
+            const Edit& edit = mapping.edit(ei);
+            if (edit_is_match(edit)) {
+                first_m = mi;
+                first_e = ei;
+            }
+        }
+    }
+
+    // walk right-to-left until we find a match
+    if (first_m >= 0) {
+        for (int mi = p.mapping_size() - 1; mi >=0 && last_m < 0; --mi) {
+            const Mapping& mapping = p.mapping(mi);
+            for (int ei = mapping.edit_size() - 1; ei >= 0 && last_e < 0; --ei) {
+                const Edit& edit = mapping.edit(ei);
+                if (edit_is_match(edit)) {
+                    last_m = mi;
+                    last_e = ei;
+                }
+            }
+        }
+        // no reason to cross over since we search for same thing in both dirs
+        assert(first_m < last_m || (first_m == last_m && first_e <= last_e));
+    }
+
+    // Make a new path beginning at first_m, first_e and ending at last_m, last_e
+    Path r;
+    r.set_name(p.name());
+    // todo: handle length field?
+
+    int rank = 1;
+    for (int mi = first_m; mi <= last_m; ++mi) {
+        const Mapping& mapping = p.mapping(mi);
+        Mapping* new_mapping = r.add_mapping();
+        *new_mapping->mutable_position() = mapping.position();
+        new_mapping->set_rank(rank);
+        int ei = mi == first_m ? first_e : 0;
+        int lei = mi == last_m ? last_e : mapping.edit_size() - 1;
+        for (; ei <= lei; ++ei) {
+            const Edit& edit = mapping.edit(ei);
+            Edit* new_edit = new_mapping->add_edit();
+            *new_edit = edit;
+        }
+    }
+
+    return r;
+}
+
 bool mapping_ends_in_deletion(const Mapping& m){
     return m.edit_size() >= 1 && edit_is_deletion(m.edit(m.edit_size()-1));
 }
@@ -1300,16 +1373,51 @@ Mapping reverse_complement_mapping(const Mapping& m,
     // Make a new reversed mapping
     Mapping reversed = m;
 
-    // switching around to the reverse strand requires us to find the end of the mapping
-    // on the forward and convert to the reverse --- or vice versa
+    // switching around to the reverse strand requires us to change offsets
+    // that are nonzero to count the unused bases on the other side of the block
+    // of used bases.
     if(m.has_position() && m.position().node_id() != 0) {
-        Position p = m.position();
-        // set to the end of the mapping
-        p.set_offset(p.offset() + mapping_from_length(m));
-        // then flip the position onto the other side
-        *reversed.mutable_position()
-            = make_position(reverse(make_pos_t(p),
-                                    node_length(m.position().node_id())));
+        Position* p = reversed.mutable_position();
+        
+        if(m.edit_size() == 0) {
+            // This is an old-style perfect match mapping with no edits.
+            
+            // The offset becomes unused bases after the mapping
+            size_t unused_bases_after = p->offset();
+            size_t used_bases = node_length(p->node_id()) - unused_bases_after;
+            
+            // There are now no unused bases before
+            p->set_offset(0);
+            // And we are on the other strand
+            p->set_is_reverse(!p->is_reverse());
+            
+            // But we have to have a mapping in there in order to actually
+            // specify that we're ending at the not-at-the-end position where we
+            // used to start.
+            Edit* edit = reversed.add_edit();
+            edit->set_from_length(used_bases);
+            edit->set_to_length(used_bases);
+        } else {
+            // We have edits; we may not be a full-length perfect match.
+        
+            // How many node bases are used by the mapping?
+            size_t used_bases = mapping_from_length(m);
+            // How many are taken up by the offset on the other strand?
+            size_t unused_bases_after = p->offset();
+            // The remainder ought to be taken up by the offset on this strand.
+            size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
+            
+    #ifdef debug
+            cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", "
+                << used_bases << ", " << unused_bases_after << endl;
+    #endif
+            
+            // Adopt the new offset
+            p->set_offset(unused_bases_before);
+            // Toggle the reversed-ness flag
+            p->set_is_reverse(!p->is_reverse());
+            
+        }
     }
 
     // Clear out all the edits. TODO: we wasted time copying them
@@ -1681,10 +1789,67 @@ double identity(const Path& path) {
     return total_length == 0 ? 0.0 : (double) matched_length / (double) total_length;
 }
 
+
+void
+decompose(const Path& path,
+          map<pos_t, int>& ref_positions,
+          map<int, Edit>& edits) {
+    int read_pos = 0;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        pos_t ref_pos = make_pos_t(mapping.position());
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                int p = offset(ref_pos);
+                for (int q = p; q < edit.from_length()+p; ++q) {
+                    ref_positions[ref_pos]++;
+                    get_offset(ref_pos)++;
+                }
+            } else {
+                edits[read_pos] = edit;
+                get_offset(ref_pos) += edit.from_length();
+            }
+            read_pos += edit.to_length();
+        }
+    }
+}
+
 double overlap(const Path& p1, const Path& p2) {
-    // to make a mapping for each position in both paths
-    // then to compare these
-    // simpler --- just compare mappings
+    map<pos_t, int> ref1, ref2;
+    map<int, Edit> edit1, edit2;
+    decompose(p1, ref1, edit1);
+    decompose(p2, ref2, edit2);
+    // compare the two position sets
+    int matching = 0;
+    int total = 0;
+    // match positions from 1 in 2
+    for (auto& p : ref1) {
+        total += p.second;
+        auto f = ref2.find(p.first);
+        if (f != ref2.end()) {
+            matching += min(p.second, f->second);
+            ref2.erase(f);
+        }
+    }
+    // unmatched positions from 2
+    for (auto& p : ref2) {
+        total += p.second;
+    }
+    // handle edits
+    for (auto& e : edit1) {
+        auto& edit = e.second;
+        total += edit.to_length();
+        
+        auto f = edit2.find(e.first);
+        if (f != edit2.end()) {
+            if (edit == f->second) {
+                matching += edit.to_length();
+            }
+            edit2.erase(f);
+        }
+    }
+    return (double) matching / (double) total;
 }
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {

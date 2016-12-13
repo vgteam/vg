@@ -4,7 +4,7 @@
 #include <set>
 #include <regex>
 #include <stdlib.h>
-#include "gcsa.h"
+#include "gcsa/gcsa.h"
 #include "vg.hpp"
 #include "index.hpp"
 #include "xg.hpp"
@@ -18,13 +18,10 @@ public:
 
     vector<string> filenames;
 
-    VGset()
-        : show_progress(false)
-        { };
+    VGset() { };
 
     VGset(vector<string>& files)
         : filenames(files)
-        , show_progress(false)
         { };
 
     void transform(std::function<void(VG*)> lambda);
@@ -34,11 +31,11 @@ public:
     // necessary when storing many graphs in the same index
     int64_t merge_id_space(void);
 
-    // Transforms to a succinct, queryable representation
-    xg::XG to_xg(bool store_threads = false);
-    // As above, except paths with names matching the given regex are removed
-    // and returned separately by inserting them into the provided map.
-    xg::XG to_xg(bool store_threads, const regex& paths_to_take, map<string, Path>& removed_paths);
+    /// Transforms to a succinct, queryable representation
+    void to_xg(xg::XG& index, bool store_threads = false);
+    /// As above, except paths with names matching the given regex are removed
+    /// and returned separately by inserting them into the provided map.
+    void to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>& removed_paths);
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);
@@ -71,8 +68,9 @@ public:
     vector<string> write_gcsa_kmers_binary(int kmer_size,
                                            bool path_only, bool forward_only,
                                            int64_t head_id=0, int64_t tail_id=0);
-
-    bool show_progress;
+                              
+    // Should we show our progress running through each graph?             
+    bool show_progress = false;
 
 private:
 

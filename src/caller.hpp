@@ -18,6 +18,71 @@ namespace vg {
 
 using namespace std;
 
+// container for storing pairs of support for calls (value for each strand)
+struct StrandSupport {
+    int fs; // forward support
+    int rs; // reverse support
+    int os; // support for other stuff (ie errors)
+    double likelihood; // log likelihood from caller (0 if not available)
+    StrandSupport(int f = 0, int r = 0, int o = 0, double ll = -1e100) :
+        fs(f), rs(r), os(o), likelihood(ll) {}
+    bool operator<(const StrandSupport& other) const {
+        if ((fs + rs) == (other.fs + other.rs)) {
+            // more strand bias taken as less support
+            return abs(fs - rs) > abs(other.fs - rs);
+        } 
+        return fs + rs < other.fs + other.rs;
+    }
+    bool operator>=(const StrandSupport& other) const {
+        return !(*this < other);
+    }
+    bool operator==(const StrandSupport& other) const {
+        return fs == other.fs && rs == other.rs && os == other.os && likelihood == other.likelihood;
+    }
+    // min out at 0
+    StrandSupport operator-(const StrandSupport& other) const {
+        return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs),
+                             max(0, os - other.os), likelihood);
+    }
+    StrandSupport& operator+=(const StrandSupport& other) {
+        fs += other.fs;
+        rs += other.rs;
+        os += other.os;
+        likelihood = max(likelihood, other.likelihood);
+        return *this;
+    }
+    int depth() { return fs + rs + os; }
+    int total() { return fs + rs; }
+};
+
+inline StrandSupport minSup(vector<StrandSupport>& s) {
+    if (s.empty()) {
+        return StrandSupport();
+    }
+    return *min_element(s.begin(), s.end());
+}
+inline StrandSupport avgSup(vector<StrandSupport>& s) {
+    StrandSupport ret;
+    if (!s.empty()) {
+        ret.likelihood = 0;
+        for (auto sup : s) {
+            ret.fs += sup.fs;
+            ret.rs += sup.rs;
+            ret.os += sup.os;
+            ret.likelihood += sup.likelihood;
+        }
+        ret.fs /= s.size();
+        ret.rs /= s.size();
+        ret.os /= s.size();
+        ret.likelihood /= s.size();
+    }
+    return ret;
+}
+
+inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
+    return os << sup.fs << ", " << sup.rs << ", " << sup.os << ", " << sup.likelihood;
+}
+
 // We need to break apart nodes but remember where they came from to update edges.
 // Wrap all this up in this class.  For a position in the input graph, we can have
 // up to three nodes in the augmented graph (Ref, Alt1, Alt2), so we map to node
@@ -27,19 +92,21 @@ struct NodeDivider {
     // up to three fragments per position in augmented graph (basically a Node 3-tuple,
     // avoiding aweful C++ tuple syntax)
     enum EntryCat {Ref = 0, Alt1, Alt2, Last};
-    struct Entry { Entry(Node* r = 0, char cn_r = (char)0,
-                         Node* a1 = 0, char cn_a1 = (char)0,
-                         Node* a2 = 0, char cn_a2 = (char)0) : ref(r), alt1(a1), alt2(a2),
-                                                               cn_ref(cn_r), cn_alt1(cn_a1), cn_alt2(cn_a2){}
+    struct Entry { Entry(Node* r = 0, vector<StrandSupport> sup_r = vector<StrandSupport>(),
+                         Node* a1 = 0, vector<StrandSupport> sup_a1 = vector<StrandSupport>(),
+                         Node* a2 = 0, vector<StrandSupport> sup_a2 = vector<StrandSupport>()) : ref(r), alt1(a1), alt2(a2),
+                                                               sup_ref(sup_r), sup_alt1(sup_a1), sup_alt2(sup_a2){}
         Node* ref; Node* alt1; Node* alt2;
-        char cn_ref; char cn_alt1; char cn_alt2;
+        vector<StrandSupport> sup_ref;
+        vector<StrandSupport> sup_alt1;
+        vector<StrandSupport> sup_alt2;
         Node*& operator[](int i) {
             assert(i >= 0 && i <= 2);
             return i == EntryCat::Ref ? ref : (i == EntryCat::Alt1 ? alt1 : alt2);
         }
-        char& cn(int i) {
+        vector<StrandSupport>& sup(int i) {
             assert(i >= 0 && i <= 2);
-            return i == EntryCat::Ref ? cn_ref : (i == EntryCat::Alt1 ? cn_alt1 : cn_alt2);
+            return i == EntryCat::Ref ? sup_ref : (i == EntryCat::Alt1 ? sup_alt1 : sup_alt2);
         }
     };
     // offset in original graph node -> up to 3 nodes in call graph
@@ -50,7 +117,7 @@ struct NodeDivider {
     int64_t* _max_id;
     // map given node to offset i of node with id in original graph
     // this function can never handle overlaps (and should only be called before break_end)
-    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, int cn);
+    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, vector<StrandSupport> sup);
     // break node if necessary so that we can attach edge at specified side
     // this function wil return NULL if there's no node covering the given location
     Entry break_end(const Node* orig_node, VG* graph, int offset, bool left_side);
@@ -120,12 +187,12 @@ public:
     // - = missing
     typedef pair<string, string> Genotype;
     vector<Genotype> _node_calls;
-    vector<double> _node_likelihoods;
+    vector<pair<StrandSupport, StrandSupport> > _node_supports;
     // separate structure for isnertion calls since they
     // don't really have reference coordinates (instead happen just to
     // right of offset).  
     vector<Genotype> _insert_calls;
-    vector<double> _insert_likelihoods;
+    vector<pair<StrandSupport, StrandSupport> > _insert_supports;
     // buffer for current node;
     const Node* _node;
     // max id in call_graph
@@ -134,7 +201,7 @@ public:
     // to figure out where edges go
     NodeDivider _node_divider;
     unordered_set<int64_t> _visited_nodes;
-    unordered_set<pair<NodeSide, NodeSide> > _called_edges;
+    unordered_map<pair<NodeSide, NodeSide>, StrandSupport> _called_edges; // map to support
     // deletes can don't necessarily need to be in incident to node ends
     // so we throw in an offset into the mix. 
     typedef pair<NodeSide, int> NodeOffSide;
@@ -144,11 +211,20 @@ public:
     // keep track of inserted nodes for tsv output
     struct InsertionRecord {
         Node* node;
-        int cn;
+        StrandSupport sup;
         int64_t orig_id;
         int orig_offset;
     };
-    vector<InsertionRecord> _inserted_nodes;
+    typedef unordered_map<int64_t, InsertionRecord> InsertionHash;
+    InsertionHash _inserted_nodes;
+    // hack for better estimating support for edges that go around
+    // insertions (between the adjacent ref nodes)
+    typedef unordered_map<pair<NodeOffSide, NodeOffSide>, StrandSupport> EdgeSupHash;
+    EdgeSupHash _insertion_supports;
+
+    // need to keep track of support for augmented deletions
+    // todo: generalize augmented edge support
+    EdgeSupHash _deletion_supports;
 
     // used to favour homozygous genotype (r from MAQ paper)
     double _het_log_prior;
@@ -211,39 +287,33 @@ public:
                                  string& second_base, int& second_count, int& second_rev_count,
                                  int& total_count, bool inserts);
     
-    // compute genotype for a position with maximum prob
-    double mp_snp_genotype(const BasePileup& bp,
-                           const vector<pair<int64_t, int64_t> >& base_offsets,
-                           const string& top_base, const string& second_base,
-                           Genotype& mp_genotype);
-    // compute likelihood of a genotype samtools-style
-    double genotype_log_likelihood(const BasePileup& pb,
-                                   const vector<pair<int64_t, int64_t> >& base_offsets,
-                                   double g, const string& first, const string& second);
+    // compute a likelihood from the pileup qualities
+    // "first" and "second" are used to virtually split the pileup across two nodes:
+    // all bases == "first" are kept
+    // all bases == "second" are ignored
+    // all otherse are squarerooted (to split their probabilities evenly between the two virtual pileups)
+    // returns pair of (likelihood, effective depth), where the effective depth is the number
+    // of pileup entries that were considered in computing the likelihood
+    pair<double, int> base_log_likelihood(const BasePileup& pb,
+                                             const vector<pair<int64_t, int64_t> >& base_offsets,
+                                             const string& val, const string& first, const string& second);
 
     // write graph structure corresponding to all the calls for the current
     // node.  
     void create_node_calls(const NodePileup& np);
 
     void create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
-                               Node* node2, int to_offset, bool left_side2, bool aug2, char cat);
+                               Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
+                               StrandSupport support);
 
     // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, char cn, int64_t orig_id, int orig_offset);
-    void write_edge_tsv(Edge* edge, char call, char cn = '.');
+    void write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
+    void write_edge_tsv(Edge* edge, char call, StrandSupport support);
     void write_nd_tsv();
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {
-        return v == 0. ? Log_zero : ::log(v);
-    }
-
-    // tranform ascii phred into probability of error
-    static double phred2prob(char q) {
-        //q -= 33; dont think we need this after all
-        assert(q >= 0);
-        // error prob = 10^(-PHRED/10)
-        return pow(10., -(double)q / (10.));
+        return v == 0. ? Log_zero : ::log10(v);
     }
 
     // call missing
@@ -269,7 +339,75 @@ public:
 };
 
 ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
+}
 
+namespace glenn2vcf {
+// old glenn2vcf interface
+// todo: integrate more smoothly into caller class
+int call2vcf(
+    // Augmented graph
+    vg::VG& vg,
+    // "glennfile" as string (relic from old pipeline)
+    const string& glennfile,
+    // Option variables
+    // What's the name of the reference path in the graph?
+    string refPathName,
+    // What name should we give the contig in the VCF file?
+    string contigName,
+    // What name should we use for the sample in the VCF file?
+    string sampleName,
+    // How far should we offset positions of variants?
+    int64_t variantOffset,
+    // How many nodes should we be willing to look at on our path back to the
+    // primary path? Keep in mind we need to look at all valid paths (and all
+    // combinations thereof) until we find a valid pair.
+    int64_t maxDepth,
+    // What should the total sequence length reported in the VCF header be?
+    int64_t lengthOverride,
+    // Should we load a pileup and print out pileup info as comments after
+    // variants?
+    string pileupFilename,
+    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
+    // Default to 0 because vg call is still applying depth thresholding
+    double minFractionForCall,
+    // What fraction of the reads supporting an alt are we willing to discount?
+    // At 2, if twice the reads support one allele as the other, we'll call
+    // homozygous instead of heterozygous. At infinity, every call will be
+    // heterozygous if even one read supports each allele.
+    double maxHetBias,
+    // Like above, but applied to ref / alt ratio (instead of alt / ref)
+    double maxRefHetBias,
+    // How much should we multiply the bias limits for indels?
+    double indelBiasMultiple,
+    // What's the minimum integer number of reads that must support a call? We
+    // don't necessarily want to call a SNP as het because we have a single
+    // supporting read, even if there are only 10 reads on the site.
+    size_t minTotalSupportForCall,
+    // Bin size used for counting coverage along the reference path.  The
+    // bin coverage is used for computing the probability of an allele
+    // of a certain depth
+    size_t refBinSize,
+    // On some graphs, we can't get the coverage because it's split over
+    // parallel paths.  Allow overriding here
+    size_t expCoverage,
+    // Should we drop variants that would overlap old ones? TODO: we really need
+    // a proper system for accounting for usage of graph material.
+    bool suppress_overlaps,
+    // Should we use average support instead minimum support for our calculations?
+    bool useAverageSupport,
+    // Should we use the site finder and multiallelic support?
+    bool multiallelic_support,
+    // What's the max ref length of a site that we genotype as a whole instead
+    // of splitting?
+    size_t max_ref_length,
+    // What's the maximum number of bubble path combinations we can explore
+    // while finding one with maximum support?
+    size_t max_bubble_paths,
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)    
+    size_t min_mad_for_filter,
+    // print warnings etc. to stderr
+    bool verbose);
 
 }
 

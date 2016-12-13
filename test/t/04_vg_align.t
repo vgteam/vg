@@ -5,9 +5,9 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 15
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "alignment traverses the correct path"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "alignment traverses the correct path"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
 
@@ -41,3 +41,7 @@ is $? 0 "alignment correctly handles an inversion"
 
 vg align -s AAACATACATTTTC graphs/exploding.vg >/dev/null
 is $? 0 "the exploding graph doesn't blow up"
+
+is $(vg align -s GTAATGGTAATGGATATGTTGGGCTTTTTTCTTT -j -p graphs/f.vg | jq '.path | length') 1 "pinning doesn't cause problems for gssw"
+
+is $(vg align -s GTAATGGTAATGGATATGTTGGGCTTTTTTCTTT -j -p -L graphs/f.vg | jq '.path | length') 1 "left pinning is correctly handled"

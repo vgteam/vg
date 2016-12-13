@@ -90,7 +90,7 @@ public:
     Index(string& name);
     ~Index(void);
 
-    rocksdb::Options GetOptions(void);
+    rocksdb::Options GetOptions(bool read_only);
     void open(const std::string& dir, bool read_only = false);
     void open_read_only(string& dir);
     void open_for_write(string& dir);
@@ -108,15 +108,11 @@ public:
     int threads;
 
     rocksdb::DB* db;
-    bool is_open;
-    bool use_snappy;
     rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
     bool bulk_load;
-    bool mem_env;
-    size_t block_cache_size;
-    mt19937 rng;
+    std::atomic<uint64_t> next_nonce;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);
@@ -199,8 +195,8 @@ public:
                          int64_t& node_id, int64_t& path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
     void parse_path_position(const string& key, const string& value,
                              int64_t& path_id, int64_t& path_pos, bool& backward, int64_t& node_id, Mapping& mapping);
-    void parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping);
-    void parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment);
+    void parse_mapping(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Mapping& mapping);
+    void parse_alignment(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Alignment& alignment);
     void parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment);
     void parse_traversal(const string& key, const string& value, int64_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id);
 
@@ -226,6 +222,8 @@ public:
     void get_range(int64_t from_id, int64_t to_id, VG& graph);
     void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
+    // Get the edges of the given node
+    void get_edges_of(int64_t node, vector<Edge>& edges);
     // Get the edges on the end of the given node
     void get_edges_on_end(int64_t node, vector<Edge>& edges);
     // Get the edges on the start of the given node
@@ -274,17 +272,6 @@ public:
                                   list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
                                   list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
 
-    // Surject an alignment. Fills in path_name with the path surjected onto,
-    // path_pos with the leftmost position along that path that is used, and
-    // path_reverse with whether the alignemnt lands on the path in a reverse
-    // orientation.
-    bool surject_alignment(const Alignment& source,
-                           set<string>& path_names,
-                           Alignment& surjection,
-                           string& path_name,
-                           int64_t& path_pos,
-                           bool& path_reverse,
-                           int window = 5);
     // Populates layout with path start and end nodes (and orientations),
     // indexed by path names, and lengths with path lengths indexed by path
     // names.

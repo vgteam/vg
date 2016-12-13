@@ -136,6 +136,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     // re-derive the alignment's sequence
     mutaln = simplify(mutaln);
     mutaln.set_sequence(alignment_seq(mutaln));
+    mutaln.set_name(aln.name());
     return mutaln;
 }
 
@@ -151,6 +152,38 @@ string Sampler::alignment_seq(const Alignment& aln) {
     }
     VG g; g.extend(sub);
     return g.path_string(aln.path());
+}
+
+vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {
+    // simulate forward/reverse pair by first simulating a long read
+    normal_distribution<> norm_dist(fragment_length, fragment_std_dev);
+    int frag_len = round(norm_dist(rng));
+    auto fragment = alignment_with_error(frag_len, base_error, indel_error);
+    // then taking the ends
+    auto fragments = alignment_ends(fragment, read_length, read_length);
+    auto& aln1 = fragments.front();
+    auto& aln2 = fragments.back();
+    { // name the alignments
+        string data;
+        aln1.SerializeToString(&data);
+        aln2.SerializeToString(&data);
+        int n;
+#pragma omp critical(nonce)
+        n = nonce++;
+        data += std::to_string(n);
+        const string hash = sha1head(data, 16);
+        aln1.set_name(hash + "_1");
+        aln2.set_name(hash + "_2");
+    }
+    // set the appropriate flags for pairing
+    aln1.mutable_fragment_next()->set_name(aln2.name());
+    aln2.mutable_fragment_prev()->set_name(aln1.name());
+    // reverse complement the back fragment
+    fragments.back() = reverse_complement_alignment(fragments.back(),
+                                                  (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                                          return (int64_t)node_length(id);
+                                                      }));
+    return fragments;
 }
 
 // generates a perfect alignment from the graph
@@ -187,8 +220,20 @@ Alignment Sampler::alignment(size_t length) {
     } while (seq.size() < length);
     // save our sequence in the alignment
     aln.set_sequence(seq);
+    aln = simplify(aln);
+    { // name the alignment
+        string data;
+        aln.SerializeToString(&data);
+        int n;
+#pragma omp critical(nonce)
+        n = nonce++;
+        data += std::to_string(n);
+        const string hash = sha1head(data, 16);
+        aln.set_name(hash);
+    }
     // and simplify it
-    return simplify(aln);
+    aln.set_identity(identity(aln.path()));
+    return aln;
 }
 
 Alignment Sampler::alignment_with_error(size_t length,
@@ -217,60 +262,20 @@ Alignment Sampler::alignment_with_error(size_t length,
     } else {
         aln = alignment(length);
     }
+    aln.set_identity(identity(aln.path()));
     return aln;
 }
 
+size_t Sampler::node_length(id_t id) {
+    return xg_cached_node_length(id, xgidx, node_cache);
+}
 
 char Sampler::pos_char(pos_t pos) {
-    return xgidx->pos_char(id(pos), is_rev(pos), offset(pos));
+    return xg_cached_pos_char(pos, xgidx, node_cache);
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    map<pos_t, char> nexts;
-    
-    // See if the node is cached (did we just visit it?)
-    pair<Node, bool> cached = node_cache.retrieve(id(pos));
-    
-    if(!cached.second) {
-        // If it's not in the cache, put it in
-        cached.first = xgidx->node(id(pos));
-        node_cache.put(id(pos), cached.first);
-    }
-    
-    Node& node = cached.first;
-    // if we are still in the node, return the next position and character
-    if (offset(pos) < node.sequence().size()-1) {
-        ++get_offset(pos);
-        nexts[pos] = pos_char(pos);
-    } else {
-        // look at the next positions we could reach
-        if (!is_rev(pos)) {
-            // we are on the forward strand, the next things from this node come off the end
-            for (auto& edge : xgidx->edges_on_end(id(pos))) {
-                if (edge.from() == id(pos)) {
-                    pos_t p = make_pos_t(edge.to(), edge.to_end(), 0);
-                    nexts[p] = pos_char(p);
-                } else if (edge.from_start() && edge.to_end() && edge.to() == id(pos)) {
-                    // doubly inverted, should be normalized to forward but we handle here for safety
-                    pos_t p = make_pos_t(edge.from(), false, 0);
-                    nexts[p] = pos_char(p);
-                }
-            }
-        } else {
-            // we are on the reverse strand, the next things from this node come off the start
-            for (auto& edge : xgidx->edges_on_start(id(pos))) {
-                if (edge.to() == id(pos)) {
-                    pos_t p = make_pos_t(edge.from(), !edge.from_start(), 0);
-                    nexts[p] = pos_char(p);
-                } else if (edge.from_start() && edge.to_end() && edge.from() == id(pos)) {
-                    // doubly inverted, should be normalized to forward but we handle here for safety
-                    pos_t p = make_pos_t(edge.to(), true, 0);
-                    nexts[p] = pos_char(p);
-                }
-            }
-        }
-    }
-    return nexts;
+    return xg_cached_next_pos_chars(pos, xgidx, node_cache);
 }
 
 }

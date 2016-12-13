@@ -1,6 +1,6 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/ekg/vcflib.git
+	url = https://github.com/vcflib/vcflib.git
 [submodule "fastahack"]
 	path = deps/fastahack
 	url = https://github.com/ekg/fastahack.git
@@ -16,9 +16,6 @@
 [submodule "lru_cache"]
 	path = deps/lru_cache
 	url = https://github.com/ekg/lru_cache.git
-[submodule "rocksdb"]
-	path = deps/rocksdb
-	url = https://github.com/ekg/rocksdb.git
 [submodule "htslib"]
 	path = deps/htslib
 	url = https://github.com/samtools/htslib.git
@@ -67,3 +64,12 @@
 [submodule "deps/sonLib"]
 	path = deps/sonLib
 	url = https://github.com/benedictpaten/sonLib.git
+[submodule "deps/fermi-lite"]
+	path = deps/fermi-lite
+    url = https://github.com/edawson/fermi-lite.git
+[submodule "deps/rocksdb"]
+    path = deps/rocksdb
+    url = https://github.com/facebook/rocksdb.git
+[submodule "deps/gperftools"]
+	path = deps/gperftools
+	url = https://github.com/gperftools/gperftools.git

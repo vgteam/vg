@@ -3,38 +3,49 @@
 
 #include "vg.pb.h"
 
+
+
 namespace vg {
 
 using namespace std;
 
-// Represents a node traversed in a certain orientation. The default orientation
-// is start to end, but if `backward` is set, represents the node being
-// traversed end to start. A list of these can serve as an edit-free version of
-// a path, especially if supplemented with a length and an initial node offset.
-// A path node has a left and a right side, which are the start and end of the
-// node if it is forward, or the end and start of the node if it is backward.
+/// Represents a node traversed in a certain orientation. The default orientation
+/// is start to end, but if `backward` is set, represents the node being
+/// traversed end to start. A list of these can serve as an edit-free version of
+/// a path, especially if supplemented with a length and an initial node offset.
+/// A path node has a left and a right side, which are the start and end of the
+/// node if it is forward, or the end and start of the node if it is backward.
 class NodeTraversal {
 public:
+    /// What Node is being traversed?
     Node* node;
+    /// In what orientation is it being traversed?
     bool backward;
 
-    inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
+    
+    /// Make a NodeTraversal that traverses the given Node in the given orientation.
+    /// We don't want Node*s to turn into NodeTraversals when we aren't expecting it, so this is explicit.
+    explicit inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
         // Nothing to do
     }
 
+    /// Create a NodeTraversal of no node.
     inline NodeTraversal(): NodeTraversal(nullptr) {
         // Nothing to do
     }
 
+    /// Equality operator.
     inline bool operator==(const NodeTraversal& other) const {
         return node == other.node && backward == other.backward;
     }
 
+    /// Inequality operator.
     inline bool operator!=(const NodeTraversal& other) const {
         return node != other.node || backward != other.backward;
     }
 
-    // Make sure to sort by node ID and not pointer value, because people will expect that.
+    /// Comparison operator for sorting in sets and maps.
+    /// Make sure to sort by node ID and not pointer value, because people will expect that.
     inline bool operator<(const NodeTraversal& other) const {
         if(node == nullptr && other.node != nullptr) {
             // We might have a null node when they don't.
@@ -52,17 +63,18 @@ public:
         return node->id() < other.node->id() || (node == other.node && backward < other.backward);
     }
 
-    // reverse complement the node traversal
+    /// Reverse complement the node traversal, returning a traversal of the same node in the opposite direction.
     inline NodeTraversal reverse(void) const {
         return NodeTraversal(node, !backward);
     }
-
 };
 
+/// Print the given NodeTraversal.
 inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
-    return out << nodetraversal.node->id() << " " << (nodetraversal.backward ? "rev" : "fwd");
+    return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t)0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
 }
 
 }
+
 
 #endif

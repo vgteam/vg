@@ -57,6 +57,12 @@ inline JSONStreamHelper<T>::JSONStreamHelper(const std::string& file_name) {
         // Open the file for reading
         _fp = fopen(file_name.c_str(), "r");
     }
+    
+    if (_fp == nullptr) {
+        // We didn't manage to open the file. Complain and exit, before we try to dereference the pointer.
+        std::cerr << "error:[JSONStreamHelper] could not open " << file_name << ": " << strerror(errno) << std::endl;
+        exit(1);
+    }
 }
 
 template <class T>
@@ -69,6 +75,9 @@ inline JSONStreamHelper<T>::~JSONStreamHelper() {
 template <class T>
 inline std::function<bool(T&)> JSONStreamHelper<T>::get_read_fn() {
     return [&](T& obj) -> bool {
+        // zap protobuf object, since we want to overwrite and not append
+        obj = T();
+      
         // Check if the file ends now, and skip whitespace between records.
         char peeked;
         do {

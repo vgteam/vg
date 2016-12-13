@@ -65,6 +65,7 @@ public:
     // (which can then be used to get the list its iterator belongs to).
     map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
+    /// Reassign ranks and rebuild indexes, treating the mapping lists in _paths as the truth.
     void rebuild_mapping_aux(void);
     // We need this in order to make sure we aren't adding duplicate mappings
     // with the same rank in the same path. Maps from path name and rank to
@@ -84,8 +85,17 @@ public:
     void make_linear(const string& name);
     
     void rebuild_node_mapping(void);
-    //void sync_paths_with_mapping_lists(void);
+    
+    // Find the given mapping in its path, so mappings can be inserted before
+    // it.
+    list<Mapping>::iterator find_mapping(Mapping* m);
+    // remove the given Mapping from its path. Returns an iterator to the
+    // mapping that came after it, or the end of the list if no mapping came
+    // after it.
     list<Mapping>::iterator remove_mapping(Mapping* m);
+    // insert the given mapping into the given path, before the mapping pointed
+    // to by the given iterator. Returns an iterator to the newly-inserted
+    // mapping.
     list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w,
                                            const string& path_name, const Mapping& m);
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, const Position& pos);
@@ -117,6 +127,8 @@ public:
     map<string, set<Mapping*> >& get_node_mapping(Node* n);
     map<string, set<Mapping*> >& get_node_mapping(id_t id);
     map<string, map<int, Mapping*> > get_node_mappings_by_rank(id_t id);
+    // Copy all the mappings for the node with the given ID, and return them in
+    // a map by path name and then by rank.
     map<string, map<int, Mapping> > get_node_mapping_copies_by_rank(id_t id);
     // Go left along the path that this Mapping* belongs to, and return the
     // Mapping* there, or null if this Mapping* is the first in its path.
@@ -150,6 +162,7 @@ public:
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);
+    /// Add all paths into the given Protobuf graph. Creates a new path for every path.
     void to_graph(Graph& g);
     // get a path
     Path path(const string& name);
@@ -220,6 +233,8 @@ Path reverse_complement_path(const Path& path,
 Path simplify(const Path& p);
 // does the same for a single mapping element
 Mapping simplify(const Mapping& m);
+// trim path so it starts and begins with a match (or is empty)
+Path trim_hanging_ends(const Path& p);
 // make a new mapping that concatenates the mappings
 Mapping concat_mappings(const Mapping& m, const Mapping& n);
 // make a new path that concatenates the two given paths
@@ -247,6 +262,8 @@ double divergence(const Mapping& m);
 double identity(const Path& path);
 // compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
+// helps estimate overapls quickly
+void decompose(const Path& path, map<pos_t, int>& ref_positions, map<int, Edit>& edits);
 
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);

@@ -4,14 +4,19 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
-# We have some shenanigans to let us cache submodules, and update changed files without messing up mtimes and triggering rebuilds unnecessarily.
+# We have some shenanigans to let us cache submodules, and update changed files
+# without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
+# out our submodules and then restores the cache over them. We move the cached
+# version out of the way, check out the versions we want, rsync over only the
+# differing/updated files (updating only their mtimes), and then put the fixed
+# version back.
 before_install:
   - if [ -e deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
   - rsync -rv --checksum deps/ deps_cached/
   - rm -Rf deps
   - mv deps_cached deps
-  - ls -lah deps/; ls -lah lib/; ls -lah include/
+  - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
@@ -23,8 +28,10 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap homebrew/science; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap homebrew/versions; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal gtk-doc bison raptor rasqal; brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal gtk-doc bison raptor rasqal gperftools autogen gcc49; brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew uninstall libtool; brew install libtool; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi

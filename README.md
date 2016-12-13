@@ -1,6 +1,7 @@
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg)](https://travis-ci.org/vgteam/vg) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+[![Documentation Status](https://readthedocs.org/projects/vg/badge/?version=latest)](http://vg.readthedocs.io/en/latest/?badge=latest)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -26,7 +27,11 @@ Before you begin, you'll need to install some basic tools if they are not alread
 
 You can also run `make get-deps`.
 
+At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
+
 Other libraries may be required. Please report any build difficulties.
+
+Note that a 64-bit OS is required. Ubuntu 16.04 should work.
 
 Now, obtain the repo and its submodules:
 
@@ -40,7 +45,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison google-perftools md5sha1-sum rasqal gmake autogen
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
@@ -146,26 +151,24 @@ vg surject -p x -b -d x.vg.index aln.gam >aln.bam
 ```
 ### Variant Calling
 
-The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.  Note: VCF export requires  [glenn2vcf](https://github.com/adamnovak/glenn2vcf) and [vt](http://varianttools.sourceforge.net/Association/HomePage)
+The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.   
 
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter graph.vg alignment.gam -r 0.90 -d 0.05 -e 0.05 -afu -s 10000 -o 10 > filtered.gam
+vg filter graph.vg alignment.gam -r 0.90 -afu -s 2 -o 0 --defray_ends 999 > filtered.gam
 
 # create pileup for every graph position and edge in the graph
 vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
 
-# create "augmented graph" (original graph plus new newly called stuff)
-# and tsv file containing some annotations on this graph needed for vcf export
-vg call graph.vg graph.pileup -r 0.0001 -b 0.4 -f 0.25 -d 8 -l -c augmented.tsv -j > augmented.vg
+# create "augmented graph" (original graph plus new newly called stuff) and project to calls in vcf format
+vg call graph.vg graph.pileup > calls.vcf
 
-# export to vcf. note: -s -s -r -o parameters will have to be changed to fit your data
-glenn2vcf augmented.vg augmented.tsv -c chr13 -s NA12878 -r ref -o 32314860 > calls.vcf
-
-# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases:
-vt decompose calls.vcf | vt decompose_blocksub -a - | vt normalize -r FASTA_FILE - | uniq > calls.clean.vcf
+# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://genome.sph.umich.edu/wiki/Vt)):
+vt decompose_blocksub -a calls.vcf | vt normalize -r FASTA_FILE - > calls.clean.vcf
 
 ```
+
+To produce a VCF file for a whole chromosome, the graph must be cut up along the reference genome and called in chunks.  `scripts/chunked_call` wraps this functionality to produce chromosome-sized VCFs in a single command line (from a GAM file and XG index)
 
 ### Command line interface
 

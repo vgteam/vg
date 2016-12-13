@@ -57,21 +57,20 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
-xg::XG VGset::to_xg(bool store_threads) {
+void VGset::to_xg(xg::XG& index, bool store_threads) {
     map<string, Path> dummy;
     // Nothing matches the default-constructed regex, so nothing will ever be
     // sent to the map.
-    return to_xg(store_threads, regex(), dummy);
+    to_xg(index, store_threads, regex(), dummy);
 }
 
-xg::XG VGset::to_xg(bool store_threads, const regex& paths_to_take, map<string, Path>& removed_paths) {
+void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>& removed_paths) {
     
     // We need to sort out the mappings from different paths by rank. This maps
     // from path anme and then rank to Mapping.
     map<string, map<int64_t, Mapping>> mappings;
     
     // Set up an XG index
-    xg::XG index;
     index.from_callback([&](function<void(Graph&)> callback) {
         for (auto& name : filenames) {
 #ifdef debug
@@ -79,6 +78,8 @@ xg::XG VGset::to_xg(bool store_threads, const regex& paths_to_take, map<string, 
 #endif
             // Load chunks from all the files and pass them into XG.
             std::ifstream in(name);
+            
+            if (!in) throw ifstream::failure("failed to open " + name);
             
             function<void(Graph&)> handle_graph = [&](Graph& graph) {
 #ifdef debug
@@ -165,10 +166,6 @@ xg::XG VGset::to_xg(bool store_threads, const regex& paths_to_take, map<string, 
 #endif
         }
     });
-    
-    // Send out the XG object to the caller. Let the compiler use return value
-    // optimization, because the move constructor seems to fail.
-    return index;
 }
 
 void VGset::store_in_index(Index& index) {
@@ -234,9 +231,10 @@ void VGset::index_kmers(Index& index, int kmer_size, bool path_only, int edge_ma
             }
         };
 
-        g->create_progress("indexing kmers of " + g->name, buffer.size());
+        // Each graph manages its own progress bars
+        g->show_progress = show_progress;
+        g->preload_progress("indexing kmers of " + g->name);
         g->for_each_kmer_parallel(kmer_size, path_only, edge_max, cache_kmer, stride, false, allow_negatives);
-        g->destroy_progress();
 
         g->create_progress("flushing kmer buffers " + g->name, g->size());
         int tid = 0;
@@ -259,7 +257,7 @@ void VGset::for_each_kmer_parallel(
     int kmer_size, bool path_only, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
     for_each([&lambda, kmer_size, path_only, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
         g->show_progress = show_progress;
-        g->progress_message = "processing kmers of " + g->name;
+        g->preload_progress("processing kmers of " + g->name);
         g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
     });
 }
