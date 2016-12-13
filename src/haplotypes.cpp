@@ -860,50 +860,6 @@ void haplo_d::print_neighbours(ostream& stream) {
   }
 }
 
-thread_t extract_thread(xg::XG& index, xg::XG::ThreadMapping node, int64_t offset = 0, int64_t max_length = 0) {
-  thread_t path;
-  int64_t side = (node.node_id)*2 + node.is_reverse;
-  bool continue_search = true;
-  while(continue_search) {
-    xg::XG::ThreadMapping m = {index.rank_to_id(side / 2), (bool) (side % 2)};
-    path.push_back(m);
-    // Work out where we go:
-    // What edge of the available edges do we take?
-    int64_t edge_index = index.bs_get(side, offset);
-    assert(edge_index != index.BS_SEPARATOR);
-    if(edge_index == index.BS_NULL) {
-        // Path ends here.
-        break;
-    } else {
-        // If we've got an edge, convert to an actual edge index
-        edge_index -= 2;
-    }
-    // We also should not have negative edges.
-    assert(edge_index >= 0);
-    // Look at the edges we could have taken next
-    vector<Edge> edges_out = side % 2 ? index.edges_on_start(index.rank_to_id(side / 2)) :
-          index.edges_on_end(index.rank_to_id(side / 2));
-    assert(edge_index < edges_out.size());
-    Edge& taken = edges_out[edge_index];
-    // Follow the edge
-    int64_t other_node = taken.from() == index.rank_to_id(side / 2) ? taken.to() :
-          taken.from();
-    bool other_orientation = (side % 2) != taken.from_start() != taken.to_end();
-    // Get the side
-    int64_t other_side = index.id_to_rank(other_node) * 2 + other_orientation;
-    // Go there with where_to
-    offset = index.where_to(side, offset, other_side);
-    side = other_side;
-    // Continue the process from this new side
-    if(max_length != 0) {
-      if(path.size() >= max_length) {
-        continue_search = false;
-      }
-    }
-  }
-  return path;
-}
-
 void haplo_d::log_calculate_Is(xg::XG& graph) {
   // Things which were calculated in the constructor:
   // -- A's
