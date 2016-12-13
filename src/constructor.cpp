@@ -1377,9 +1377,21 @@ namespace vg {
 
                     if(!allATGC(alt)) {
                         // It may be a symbolic allele or something. Skip this variant.
-#pragma omp critical (cerr)
-                        cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant!" << endl;
                         variant_acceptable = false;
+#pragma omp critical (cerr)
+                        {
+                            bool warn = true;
+                            if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
+                                if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
+                                    warn = false;
+                                } else {
+                                    symbolic_allele_warnings.insert(alt);
+                                }
+                            }
+                            if (warn) {
+                                cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s)!" << endl;
+                            }
+                        }
                         break;
                     }
                 }

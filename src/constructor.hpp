@@ -276,7 +276,11 @@ protected:
     
     /// This is the reverse map from FASTA sequence name to VCF sequence name.
     map<string, string> fasta_to_vcf_renames;
-    
+
+    /// Remembers which unusable symbolic alleles we've already emitted a warning
+    /// about during construction.
+    set<string> symbolic_allele_warnings;
+
 private:
 
     /**
