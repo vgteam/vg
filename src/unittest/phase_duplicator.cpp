@@ -51,7 +51,7 @@ const string duplicator_graph_1 = R"(
         ]
     }
     )";
-        
+
 TEST_CASE("PhaseDuplicator can emit a single traversal", "[phaseduplicator][indexing]") {
         
     // Make a graph
@@ -268,7 +268,7 @@ TEST_CASE("PhaseDuplicator can produce internal traversals", "[phaseduplicator][
         {7, false},
         {9, false}
     }, {
-        {4, true},
+        {4, true}
     }};
     index.insert_threads_into_dag(threads);
     
@@ -291,7 +291,7 @@ TEST_CASE("PhaseDuplicator can produce internal traversals", "[phaseduplicator][
     
     // Check the result
     SECTION("the duplicated graph should have 4 nodes") {
-        REQUIRE(duped.node_size() == 3);
+        REQUIRE(duped.node_size() == 4);
         
         SECTION("the nodes should be A, T, T, and GGG") {
             bool a_found = false;

@@ -129,8 +129,8 @@ vector<pair<xg::XG::thread_t, int>> PhaseDuplicator::list_haplotypes(const set<i
     // nodes, and all the threads starting at interior nodes, and then orient
     // and deduplicate.
     
-    // Get all the border traversals
-    vector<xg::XG::ThreadMapping> borders = find_borders(subgraph);
+    // Get all the border traversals, and put them in a set for querying
+    set<xg::XG::ThreadMapping> borders {find_borders(subgraph)};
     
     // This holds all the traversals observed (full and partial) in their canonical orientations, with their total counts
     map<xg::XG::thread_t, int> observed_traversals;
@@ -145,9 +145,31 @@ vector<pair<xg::XG::thread_t, int>> PhaseDuplicator::list_haplotypes(const set<i
         }
     }
     
-    // TODO: Add in the traversals that start in the middle
-    
-    // TODO: deduplicate prefixes/suffixes of existing traversals
+    for (auto& start_node : subgraph) {
+        // For every node we could start at
+        for (auto& orientation : {false, true}) {
+            // In every orientation
+            
+            // Consider starting there
+            xg::XG::ThreadMapping start {start_node, orientation};
+            
+            if (borders.count(start)) {
+                // We already handled all the threads coming through this
+                // orientation, starting there or not.
+                continue;
+            }
+            
+            // Get the haplotypes that start with a traversal of this node
+            vector<pair<xg::XG::thread_t, int>> threads_and_counts = list_haplotypes_from(start, subgraph);
+            
+            for (auto& found : threads_and_counts) {
+                // Add each found traversal to the set in its canonical orientation.
+                // TODO: should we remove prefixes or suffixes of existing traversals?
+                observed_traversals[canonicalize(found.first)] += found.second;
+            }
+            
+        }
+    }
     
     // Vectorize the map
     // TODO: skip this copy somehow (maybe use sets throughout?)
@@ -179,6 +201,12 @@ vector<pair<xg::XG::thread_t, int>> PhaseDuplicator::list_haplotypes_from(xg::XG
     
     // We want all haplotypes that start their threads actually at this side of this node.
     xg::XG::ThreadSearchState start_state = index.select_starting(start_node);
+    
+#ifdef debug
+    cerr << "Starting search for threads from " << start_node.node_id << " "
+        << start_node.is_reverse << " with range " << start_state.current_side 
+        << ", " << start_state.range_start << ", " << start_state.range_end << endl;
+#endif
     
     // Call the search starting with only the threads that begin here selected.
     return list_haplotypes(start_node, start_state, subgraph);
@@ -235,8 +263,7 @@ vector<pair<xg::XG::thread_t, int>> PhaseDuplicator::list_haplotypes(xg::XG::Thr
             
             // Try searching with where the edge goes
             xg::XG::ThreadSearchState new_state = last_state;
-            xg::XG::thread_t next_thread = {next_node};
-            index.extend_search(new_state, next_thread);
+            index.extend_search(new_state, next_node);
             
             if (!new_state.is_empty()) {
                 // We found something. Remember it
@@ -269,11 +296,11 @@ vector<pair<xg::XG::thread_t, int>> PhaseDuplicator::list_haplotypes(xg::XG::Thr
     return search_results;
 }
 
-vector<xg::XG::ThreadMapping> PhaseDuplicator::find_borders(const set<id_t> subgraph) const {
+set<xg::XG::ThreadMapping> PhaseDuplicator::find_borders(const set<id_t> subgraph) const {
     // We want all the traversals along which we can enter the subgraph.
     
     // We'll put them all in here
-    vector<xg::XG::ThreadMapping> borders;
+    set<xg::XG::ThreadMapping> borders;
     
     for (auto& node_id : subgraph) {
         // For every node
@@ -299,10 +326,8 @@ vector<xg::XG::ThreadMapping> PhaseDuplicator::find_borders(const set<id_t> subg
             
             if (is_border) {
                 // We can read into the subgraph and hit this traversal.
-                xg::XG::ThreadMapping mapping;
-                mapping.node_id = node_id;
-                mapping.is_reverse = is_reverse;
-                borders.push_back(mapping);
+                xg::XG::ThreadMapping mapping {node_id, is_reverse};
+                borders.insert(mapping);
             }
         }
     }

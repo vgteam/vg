@@ -80,7 +80,7 @@ public:
      * Get the traversals that represent the borders of the subgraph, through
      * which we can enter the subgraph.
      */
-    vector<xg::XG::ThreadMapping> find_borders(const set<id_t> subgraph) const;
+    set<xg::XG::ThreadMapping> find_borders(const set<id_t> subgraph) const;
     
     /**
      * Find the edges on the given side of the given oriented ThreadMapping that
