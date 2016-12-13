@@ -66,6 +66,9 @@ struct KmerPosition {
     set<string> next_positions;
 };
 
+class Aligner; // forward declarations
+class QualAdjAligner;
+
 }
 
 namespace vg {
@@ -791,8 +794,9 @@ public:
     Alignment align(const string& sequence,
                     Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
@@ -802,8 +806,9 @@ public:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     
@@ -813,8 +818,9 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
@@ -823,8 +829,9 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
     
@@ -835,8 +842,9 @@ public:
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
-                                  int64_t pinned_node_id = 0,
+                                  bool pinned_alignment = false,
                                   bool pin_left = false,
+                                  int8_t full_length_bonus = 0,
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
@@ -846,8 +854,9 @@ public:
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
-                                  int64_t pinned_node_id = 0,
+                                  bool pinned_alignment = false,
                                   bool pin_left = false,
+                                  int8_t full_length_bonus = 0,
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     
@@ -1131,8 +1140,9 @@ private:
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio = 0,
-                    int64_t pinned_node_id = 0,
+                    bool pinned_alignment = false,
                     bool pin_left = false,
+                    int8_t full_length_bonus = 0,
                     bool banded_global = false,
                     bool print_score_matrices = false);
 

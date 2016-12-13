@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include "gssw.h"
 #include "vg.pb.h"
+#include "vg.hpp"
 #include "Variant.h"
 #include "Fasta.h"
 #include "path.hpp"

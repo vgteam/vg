@@ -245,7 +245,8 @@ namespace vg {
             for (auto p_name : p_to_mappings){
                 var.sequenceName = p_name.first;
             }
-            var.position = my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
+            //var.position = my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
+            var.position = 1; //my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
 
             //var.sequenceName = my_vg->paths.get_node_mapping(pos_id);
             //

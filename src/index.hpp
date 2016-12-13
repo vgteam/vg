@@ -112,8 +112,7 @@ public:
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
     bool bulk_load;
-    size_t block_cache_size;
-    mt19937 rng;
+    std::atomic<uint64_t> next_nonce;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);
@@ -196,8 +195,8 @@ public:
                          int64_t& node_id, int64_t& path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
     void parse_path_position(const string& key, const string& value,
                              int64_t& path_id, int64_t& path_pos, bool& backward, int64_t& node_id, Mapping& mapping);
-    void parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping);
-    void parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment);
+    void parse_mapping(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Mapping& mapping);
+    void parse_alignment(const string& key, const string& value, int64_t& node_id, uint64_t& nonce, Alignment& alignment);
     void parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment);
     void parse_traversal(const string& key, const string& value, int64_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id);
 
