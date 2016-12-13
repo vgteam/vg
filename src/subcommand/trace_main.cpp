@@ -11,7 +11,7 @@
 
 using namespace vg;
 using namespace std;
-
+using namespace vg::subcommand;
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
@@ -144,3 +144,5 @@ int main_trace(int argc, char** argv) {
 
   return 0;
 }
+
+static Subcommand vg_trace("trace", "trace haplotypes", main_trace);

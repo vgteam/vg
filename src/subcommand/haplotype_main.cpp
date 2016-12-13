@@ -11,6 +11,7 @@
 
 using namespace vg;
 using namespace std;
+using namespace vg::subcommand;
 
 void help_haplo(char** argv) {
     cerr << "usage: " << argv[0] << " <command> [options]" << endl
@@ -283,3 +284,5 @@ int main_haplo(int argc, char** argv) {
 
   return 0;
 }
+
+static Subcommand vg_haplo("haplo", "work with haplotype decompositions", main_haplo);
