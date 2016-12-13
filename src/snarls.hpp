@@ -18,6 +18,10 @@ using namespace std;
 
 namespace vg {
     
+    /**
+     * A structure to keep track of the tree relationships between Snarls and perform utility algorithms
+     * on them
+     */
     class SnarlManager {
     public:
         
@@ -37,6 +41,9 @@ namespace vg {
         /// Returns a pointer to the parent of a Snarl or nullptr if there is none
         const Snarl* parent_of(const Snarl& snarl);
         
+        /// Returns a reference to a vector with the roots of the Snarl trees
+        const vector<const Snarl*>& top_level_snarls();
+        
         /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (includes the
         /// Nodes that form the boundaries of child Snarls, does not include Snarl's own boundary Nodes)
         pair<vector<Node*>, vector<Edge*> > shallow_contents(const Snarl&, VG& graph);
@@ -44,9 +51,6 @@ namespace vg {
         /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (does not
         /// include Snarl's own boundary Nodes)
         pair<vector<Node*>, vector<Edge*> > deep_contents(const Snarl&, VG& graph);
-        
-        /// Returns a reference to a vector with the roots of the Snarl trees
-        const vector<const Snarl*>& top_level_snarls();
         
         /// Execute a function on all top level sites in parallel
         void for_each_top_level_snarl_parallel(const function<void(const Snarl&)>& lambda);
@@ -79,7 +83,12 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
-    // must place template and inline function in header
+    
+    
+    
+    
+    // must place template and inline functions in header
+    
     template <typename SnarlIterator>
     SnarlManager::SnarlManager(SnarlIterator begin, SnarlIterator end) {
         // add snarls to master list
