@@ -251,35 +251,35 @@ int main_haplo(int argc, char** argv) {
       n.is_reverse = backwards;
       r = extract_thread(xindex, n, target, extend_distance);
     }
-    if(l.size() == 0 || r.size() == 0) {
-      cerr << "[xg haplo] error: need two nonempty haplotypes to recombine" << endl;
-    } else {
-      if(findnode) {
-        if(cutpoint == -2) {
-          cerr << "[xg haplo] error: need specify cutpoint (use -C <cutpoint>)" << endl;
-        } else {
-          haplo_d hl = haplo_d(l, xindex);
-          haplo_d hr = haplo_d(r, xindex);
-          xg::XG::ThreadMapping to_find = hl.cs[cutpoint].get_node();
-          int result = find_node(hr, to_find, cutpoint);
-          cout << result << endl;
-          cout << start_node << "\t" << r[result].node_id << endl;
-        }
-      } else {
-        if(cutpoint == -2 || joinpoint == -2) {
-          cerr << "[xg haplo] error: need specify cutpoint and joinpoint (use -C <cutpoint> -J <joinpoint>)" << endl;
-        } else {
-          haplo_d hl = haplo_d(l, xindex);
-          hl.log_calculate_Is(xindex);
-          haplo_d hr = haplo_d(r, xindex);
-          hr.log_calculate_Is(xindex);
-          if(joinpoint > 0) {
-            haplo_d h = recombine_arms(hl, hr, cutpoint, joinpoint, xindex);
-            h.print_detailed(cout);
-          }
-        }
-      }
-    }
+    // if(l.size() == 0 || r.size() == 0) {
+    //   cerr << "[xg haplo] error: need two nonempty haplotypes to recombine" << endl;
+    // } else {
+    //   if(findnode) {
+    //     if(cutpoint == -2) {
+    //       cerr << "[xg haplo] error: need specify cutpoint (use -C <cutpoint>)" << endl;
+    //     } else {
+    //       haplo_d hl = haplo_d(l, xindex);
+    //       haplo_d hr = haplo_d(r, xindex);
+    //       xg::XG::ThreadMapping to_find = hl.cs[cutpoint].get_node();
+    //       int result = find_node(hr, to_find, cutpoint);
+    //       cout << result << endl;
+    //       cout << start_node << "\t" << r[result].node_id << endl;
+    //     }
+    //   } else {
+    //     if(cutpoint == -2 || joinpoint == -2) {
+    //       cerr << "[xg haplo] error: need specify cutpoint and joinpoint (use -C <cutpoint> -J <joinpoint>)" << endl;
+    //     } else {
+    //       haplo_d hl = haplo_d(l, xindex);
+    //       hl.log_calculate_Is(xindex);
+    //       haplo_d hr = haplo_d(r, xindex);
+    //       hr.log_calculate_Is(xindex);
+    //       if(joinpoint > 0) {
+    //         haplo_d h = recombine_arms(hl, hr, cutpoint, joinpoint, xindex);
+    //         h.print_detailed(cout);
+    //       }
+    //     }
+    //   }
+    // }
   }
 
   return 0;
