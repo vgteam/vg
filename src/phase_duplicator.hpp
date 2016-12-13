@@ -46,7 +46,62 @@ public:
      * TODO: invent some kind of thread safe ID allocator so we can do multiple
      * subgraphs in parallel without renumbering later.
      */
-    pair<Graph, vector<Translation>> duplicate(set<id_t> subgraph, id_t& next_id) const;
+    pair<Graph, vector<Translation>> duplicate(const set<id_t>& subgraph, id_t& next_id) const;
+    
+    /**
+     * List all the distinct haplotypes within a subgraph and their counts.
+     * Reports each haplotype in only one direction.
+     */
+    vector<pair<xg::XG::thread_t, int>> list_haplotypes(const set<id_t>& subgraph) const;
+    
+    /**
+     * List all the distinct haplotypes going through the given node in the given
+     * orientation, and staying within the given subgraph, along with their
+     * counts. Some may be suffixes of others.
+     */
+    vector<pair<xg::XG::thread_t, int>> list_haplotypes_through(xg::XG::ThreadMapping start_node, const set<id_t>& subgraph) const;
+    
+    /**
+     * List all the distinct haplotypes actually beginning at the given node in
+     * the given orientation, and staying within the given subgraph, along with
+     * their counts. Haplotypes that begin and end at the same side may or may
+     * not be reported multiple times, in differing orientations.
+     */
+    vector<pair<xg::XG::thread_t, int>> list_haplotypes_from(xg::XG::ThreadMapping start_node, const set<id_t>& subgraph) const;
+    
+    /**
+     * List all the distinct haplotypes beginning at the given node, using the
+     * given starting search state, that traverse through the subgraph.
+     */
+    vector<pair<xg::XG::thread_t, int>> list_haplotypes(xg::XG::ThreadMapping start_node,
+        xg::XG::ThreadSearchState start_state, const set<id_t>& subgraph) const;
+        
+    /**
+     * Get the traversals that represent the borders of the subgraph, through
+     * which we can enter the subgraph.
+     */
+    vector<xg::XG::ThreadMapping> find_borders(const set<id_t> subgraph) const;
+    
+    /**
+     * Find the edges on the given side of the given oriented ThreadMapping that
+     * cross the border of the given subgraph.
+     */
+    vector<Edge> find_border_edges(xg::XG::ThreadMapping mapping, bool on_start, const set<id_t>& subgraph) const;
+    
+    /**
+     * Follow the given edge from the given node visited in the given
+     * orientation, and return the node and orientation we land in.
+     *
+     * TODO: I think I may have written this logic already with one of the other
+     * two oriented node types (NodeTraversal and NodeSide).
+     */
+    static xg::XG::ThreadMapping traverse_edge(const Edge& e, const xg::XG::ThreadMapping& prev);
+    
+    /**
+     * Return a copy of the given thread in a canonical orientation (either
+     * forward or reverse, whichever compares smaller).
+     */
+    static xg::XG::thread_t canonicalize(const xg::XG::thread_t& thread);
     
 private:
     /// What XG index describes the graph we operate on?
