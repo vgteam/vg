@@ -20,6 +20,9 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
+#include "bubbles.hpp"
+#include "distributions.hpp"
+#include "snarls.hpp"
 
 namespace vg {
 
@@ -143,6 +146,22 @@ public:
      */
     virtual void for_each_site_parallel(const function<void(NestedSite)>& lambda) = 0;
 };
+    
+/**
+ * Represents a strategy for finding (nested) sites in a vg graph that can be described
+ * by snarls. Polymorphic base class/interface.
+ */
+class SnarlFinder {
+public:
+    virtual ~SnarlFinder() = default;
+    
+    /**
+     * Run a function on all root-level NestedSites in parallel. Site trees are
+     * passed by value so they have a clear place to live during parallel
+     * operations.
+     */
+    virtual SnarlManager find_snarls() = 0;
+};
 
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
@@ -154,6 +173,8 @@ public:
     
     virtual vector<SiteTraversal> find_traversals(const NestedSite& site) = 0;
 };
+    
+    
 
 /**
  * Represents a strategy for computing consistency between Alignments and
@@ -279,6 +300,28 @@ public:
 
 };
     
+class CactusUltrabubbleFinder : public SnarlFinder {
+    
+    // Holds the vg graph we are looking for sites in.
+    VG& graph;
+    
+    // Use this path name as a rooting hint, if present.
+    string hint_path_name;
+    
+public:
+    /**
+     * Make a new CactusSiteFinder to find sites in the given graph.
+     */
+    CactusUltrabubbleFinder(VG& graph, const string& hint_path_name);
+    
+    /**
+     * Find all the sites in parallel with Cactus, make the site tree, and call
+     * the given function on all the top-level sites.
+     */
+    virtual SnarlManager find_snarls();
+    
+};
+    
 class ExhaustiveTraversalFinder : TraversalFinder {
     
     VG& graph;
@@ -369,7 +412,24 @@ public:
     virtual double calculate_log_prior(const Genotype& genotype);
 };
 
-
+/**
+ * TBD
+ *
+ */
+//class StandardVcfRecordConverter {
+//private:
+//    const ReferenceIndex& index;
+//    vcflib::VariantCallFile& vcf;
+//    const string& sample_name;
+//    
+//public:
+//    StandardVcfRecordConverter();
+//    virtual ~StandardVcfRecordConverter() = default;
+//    
+//    virtual vcflib::Variant convert(const Locus& locus) = 0;
+//};
+    
+    
 }
 
 #endif

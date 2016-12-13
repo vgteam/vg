@@ -187,15 +187,59 @@ message NodePileup {
 // Keep pileup-like record for reads that span edges
 message EdgePileup {
     Edge edge = 1;
- 	 int32 num_reads = 2;	// total reads mapped
-	 int32 num_forward_reads = 3; // number of reads mapped on forward strand
-	 bytes qualities = 4;
+    int32 num_reads = 2;	// total reads mapped
+    int32 num_forward_reads = 3; // number of reads mapped on forward strand
+    bytes qualities = 4;
 }
 
 // Bundle up Node and Edge pileups
 message Pileup {
     repeated NodePileup node_pileups = 1;
     repeated EdgePileup edge_pileups = 2;
+}
+
+// Enumeration of the classifications of snarls
+enum SnarlType {
+	ULTRABUBBLE = 0;
+	UNCLASSIFIED = 1;
+}
+
+// Describes a subgraph that is connected to the rest of the graph by two nodes.
+message Snarl {    
+    // What type of snarl is this?
+    SnarlType type = 1;
+
+    // Visits that connect the Snarl to the rest of the graph
+    Visit start = 2; // points *INTO* the snarl
+    Visit end = 3;   // points *OUT OF* the snarl
+
+    // If this Snarl is nested in another, this field should be filled in with a Snarl
+    // that has the start and end visits filled in (other information is optional/extraneous)
+    Snarl parent = 4;
+}
+
+// Describes a step of a walk through a Snarl either on a node or through a child Snarl
+message Visit {
+    // The node ID or snarl of this step (only one should be given)
+    int64 node_id = 1;
+    Snarl snarl = 2; // only needs to contain the start and end Visits
+
+    // Indicates:
+    //   if node_id is specified     reverse complement of node
+    //   if feature_id is specified  traversal of a child snarl entering backwards through
+    //                               end and leaving backwards through start
+    bool backward = 3;
+}
+
+// Describes a walk through a Snarl where each step is given as either a node or
+// a child Snarl (leaving the walk through the child Snarl to another SnarlTraversal)
+message SnarlTraversal {
+    // Steps of the walk oriented from the start of the Snarl to the end, not including
+    // the start and end nodes. If the traversal includes a Visit that represents a
+    // Snarl, the node entering the Snarl *SHOULD NOT* be included in the traversal, but 
+    // the node leaving the Snarl *SHOULD* be inluded (this simplifies the case where a
+    // node is a boundary of two adjacent Snarls)
+    repeated Visit visits = 1;
 }
 
 // Describes a genetic locus with multiple possible alleles, a genotype, and observational support.
