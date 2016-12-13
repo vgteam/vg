@@ -4344,6 +4344,7 @@ void help_find(char** argv) {
          << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
          << "    -o, --alns-on N:M      writes alignments which align to any of the nodes between N and M (inclusive)" << endl
          << "    -A, --to-graph VG      get alignments to the provided subgraph" << endl
+         << "    -R, --ram              RocksDB memory budget in GiB (default: 4)" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
@@ -4395,6 +4396,7 @@ int main_find(int argc, char** argv) {
     string gam_file;
     int max_mem_length = 0;
     string to_graph_file;
+    size_t rocksdb_memory_budget = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4429,11 +4431,12 @@ int main_find(int argc, char** argv) {
                 {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
                 {"to-graph", required_argument, 0, 'A'},
+                {"ram", required_argument, 0, 'R'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:R:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4551,6 +4554,10 @@ int main_find(int argc, char** argv) {
             to_graph_file = optarg;
             break;
 
+        case 'R':
+            rocksdb_memory_budget = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             help_find(argv);
@@ -4598,7 +4605,7 @@ int main_find(int argc, char** argv) {
     if (db_name.empty()) {
         assert(!gcsa_in.empty() || !xg_name.empty());
     } else {
-        vindex = new Index;
+        vindex = new Index(rocksdb_memory_budget);
         vindex->open_read_only(db_name);
     }
 
@@ -5263,11 +5270,11 @@ void help_map(char** argv) {
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
-         << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
-         << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -k, --kmer-size N         use this kmer size, it must be < kmer size in db (default: from index)" << endl
+         << "    -j, --kmer-stride N       step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
-         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
-         << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl;
+         << "    -l, --kmer-min N          give up aligning if kmer size gets below this threshold (default: 8)" << endl
+         << "    -F, --prefer-forward      if the forward alignment of the read works, accept it" << endl;
 }
 
 int main_map(int argc, char** argv) {

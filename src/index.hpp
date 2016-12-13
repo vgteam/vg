@@ -86,8 +86,7 @@ class Index {
 
 public:
 
-    Index(void);
-    Index(string& name);
+    Index(size_t memory_budget_GiB = 4);
     ~Index(void);
 
     rocksdb::Options GetOptions(bool read_only);
@@ -111,6 +110,7 @@ public:
     rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
+    size_t memory_budget_GiB;
     bool bulk_load;
     std::atomic<uint64_t> next_nonce;
 

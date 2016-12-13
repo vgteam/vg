@@ -7,8 +7,8 @@ using namespace std;
 // convenience macro for RocksDB error handling
 #define S(x) { rocksdb::Status __s = (x); if (!__s.ok()) throw std::runtime_error("RocksDB operation failed: " + __s.ToString()); }
 
-Index::Index(void) {
-
+Index::Index(size_t memory_budget_GiB) {
+    this->memory_budget_GiB = memory_budget_GiB;
     start_sep = '\x00';
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
@@ -27,9 +27,11 @@ Index::Index(void) {
 }
 
 rocksdb::Options Index::GetOptions(bool read_only) {
-    // TODO: make the following configurable
-    const size_t block_cache_bytes = 1<<30;
-    const size_t memtable_bytes = 4 * size_t(1<<30);
+    const size_t GiB = 1<<30;
+    // provision the memory budget for either the block cache (reading) or the
+    // memtables (writing)
+    const size_t block_cache_bytes = read_only ? memory_budget_GiB*GiB : GiB;
+    const size_t memtable_bytes = read_only ? GiB : memory_budget_GiB*GiB;
 
     rocksdb::Options options;
 
@@ -74,7 +76,7 @@ rocksdb::Options Index::GetOptions(bool read_only) {
     options.compression_per_level.clear();
     options.compression = rocksdb::kSnappyCompression;
     options.level0_file_num_compaction_trigger = 5;
-    options.target_file_size_base = 16 * size_t(1<<30);
+    options.target_file_size_base = 16 * GiB;
     options.access_hint_on_compaction_start = rocksdb::Options::AccessHint::SEQUENTIAL;
     options.compaction_readahead_size = 16 << 20;
 

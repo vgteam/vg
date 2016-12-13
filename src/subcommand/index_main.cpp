@@ -64,6 +64,7 @@ void help_index(char** argv) {
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
+         << "    -R, --ram              RocksDB memory budget in GiB (default: 4; increase on high-memory machines to improve performance)" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
@@ -106,6 +107,7 @@ int main_index(int argc, char** argv) {
     size_t size_limit = 200; // in gigabytes
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
+    size_t rocksdb_memory_budget = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -143,11 +145,12 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"ram", required_argument, 0, 'R'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoR:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -287,6 +290,10 @@ int main_index(int argc, char** argv) {
 
         case 'N':
             store_node_alignments = true;
+            break;
+
+        case 'R':
+            rocksdb_memory_budget = atoi(optarg);
             break;
 
         case 'h':
@@ -898,7 +905,7 @@ int main_index(int argc, char** argv) {
 
     if (!rocksdb_name.empty()) {
 
-        Index index;
+        Index index(rocksdb_memory_budget);
 
         if (compact) {
             index.open_for_write(rocksdb_name);
