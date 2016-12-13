@@ -1,4 +1,4 @@
-#include "pathindex.hpp"
+#include "path_index.hpp"
 
 namespace vg {
 
