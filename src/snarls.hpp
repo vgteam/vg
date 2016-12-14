@@ -14,6 +14,7 @@
 #include "vg.pb.h"
 #include "hash_map.hpp"
 
+
 using namespace std;
 
 namespace vg {
@@ -63,7 +64,7 @@ namespace vg {
         /// Roots of snarl trees
         vector<const Snarl*> roots;
         
-        /// Map of snarls to the child snarls they contain
+        /// Map of snarls to the child snarls they contain ()
         unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, vector<const Snarl*> > children;
         unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, const Snarl*> parent;
         
@@ -72,7 +73,6 @@ namespace vg {
         
         /// Builds tree indices after Snarls have been added
         void build_trees();
-        
     };
     
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead
@@ -82,10 +82,6 @@ namespace vg {
     /// Converts a Visit to a NodeTraversal in the opposite orientation. Throws an exception if the
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
-    
-    
-    
-    
     
     // must place template and inline functions in header
     
@@ -108,6 +104,22 @@ namespace vg {
         assert(visit.node_id());
         return NodeTraversal(graph.get_node(visit.node_id()), !visit.backward());
     }
+}
+
+// note: this hash funtion is not used internally because we want the internal indices to ignore any
+// additional information so that the Snarls stored as references map to the same place
+// as the original objects
+namespace std {
+    /// hash function for Snarls
+    template<>
+    struct hash<const vg::Snarl> {
+        size_t operator()(const vg::Snarl& snarl) const {
+            return hash<pair<pair<int64_t, bool>, pair<int64_t, bool> > >()(make_pair(make_pair(snarl.start().node_id(),
+                                                                                                snarl.start().backward()),
+                                                                                      make_pair(snarl.end().node_id(),
+                                                                                                snarl.end().backward())));
+        }
+    };
 }
 
 #endif /* snarls_hpp */

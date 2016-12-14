@@ -25,7 +25,6 @@ namespace vg {
         }
     }
     
-    // can put inline function outside header since it is only used in this file
     inline pair<pair<int64_t, bool>, pair<int64_t, bool> > SnarlManager::key_form(const Snarl& snarl) {
         return make_pair(make_pair(snarl.start().node_id(), snarl.start().backward()),
                          make_pair(snarl.end().node_id(), snarl.end().backward()));
