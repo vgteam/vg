@@ -16,32 +16,12 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
+#include "genotypekit.hpp"
+#include "pathindex.hpp"
 
 namespace vg {
 
 using namespace std;
-
-/**
- * Holds indexes of the reference in a graph: position to node, node to position
- * and orientation, and the full reference string.
- */
-struct ReferenceIndex {
-    // Index from node ID to first position on the reference string and
-    // orientation it occurs there.
-    std::map<int64_t, std::pair<size_t, bool>> byId;
-    
-    // Index from start position on the reference to the oriented node that
-    // begins there.  Some nodes may be backward (orientation true) at their
-    // canonical reference positions. In this case, the last base of the node
-    // occurs at the given position.
-    std::map<size_t, vg::NodeTraversal> byStart;
-    
-    // The actual sequence of the reference.
-    std::string sequence;
-    
-    // Make a ReferenceIndex from a path in a graph
-    ReferenceIndex(VG& vg, string refPathName);
-};
 
 /**
  * Class to hold on to genotyping parameters and genotyping functions.
@@ -292,7 +272,7 @@ public:
      * Sometimes if we can't make a variant for the superbubble against the
      * reference path, we'll emit 0 variants.
      */
-    vector<vcflib::Variant> locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
+    vector<vcflib::Variant> locus_to_variant(VG& graph, const Site& site, const PathIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
         const string& sample_name = "SAMPLE");
     
     /**
@@ -303,7 +283,7 @@ public:
     /**
      * Start VCF output to a stream. Returns a VCFlib VariantCallFile that needs to be deleted.
      */
-    vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size);
+    vcflib::VariantCallFile* start_vcf(std::ostream& stream, const PathIndex& index, const string& sample_name, const string& contig_name, size_t contig_size);
     
     /**
      * Utility function for getting the reference bounds (start and past-end) of
@@ -312,14 +292,14 @@ public:
      * returns whether the reference path goes through the site forwards (false)
      * or backwards (true).
      */
-    pair<pair<int64_t, int64_t>, bool> get_site_reference_bounds(const Site& site, const ReferenceIndex& index);
+    pair<pair<int64_t, int64_t>, bool> get_site_reference_bounds(const Site& site, const PathIndex& index);
     
     /**
      * Tell the statistics tracking code that a site exists. We can do things
      * like count up the site length in the reference and so on. Called only
      * once per site, but may be called on multiple threads simultaneously.
      */
-    void report_site(const Site& site, const ReferenceIndex* index = nullptr);
+    void report_site(const Site& site, const PathIndex* index = nullptr);
     
     /**
      * Tell the statistics tracking code that a read traverses a site

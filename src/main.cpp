@@ -29,12 +29,15 @@
 #include "genotyper.hpp"
 #include "bubbles.hpp"
 #include "translator.hpp"
+#include "homogenize_main.cpp"
+#include "sift_main.cpp"
+#include "srpe_main.cpp"
 #include "readfilter.hpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
-
+#include "flow_sort.hpp"
 
 
 using namespace std;
@@ -204,6 +207,7 @@ void help_filter(char** argv) {
          << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -A, --append-regions    append to alignments created with -RB" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
@@ -243,6 +247,7 @@ int main_filter(int argc, char** argv) {
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
+                {"append-regions", no_argument, 0, 'A'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
@@ -254,7 +259,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -288,6 +293,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'B':
             filter.outbase = optarg;
+            break;
+        case 'A':
+            filter.append_regions = true;
             break;
         case 'c':
             filter.context_size = atoi(optarg);
@@ -456,241 +464,6 @@ int main_validate(int argc, char** argv) {
     } else {
         return 1;
     }
-}
-
-void help_scrub(char** argv){
-    cerr << "usage: " << argv[0] << " scrub [options] <alignments.gam> > filtered.gam" << endl
-        << "Filter alignments by various common metrics." << endl
-        << endl
-        << "options: " << endl
-        << "  -d --depth <DEPTH>    filter any edits seen fewer than DEPTH times." << endl
-        << "  -q --qual <QUAL>      filter edits with a per-base quality below <QUAL>" << endl
-        << "  -a --average-qual <AQUAL>  filter alignments with an average quality below <AQUAL>" << endl
-        << "  -w --window-size <WIN>     when filtering by average quality or average depth, use a sliding window if size <WIN>." << endl
-        << "  -p --percent-identity <PCTID> remove alignments that arbelow <PCTID>" << endl
-        << "  -r --remove-edits     scrub failing edits and return the modified original alignment" << endl
-        << "               (default behavior: return an empty alignment if it fails any filter.)" << endl
-        << "  -v --inverse          invert a filter so that failing alignments are returned (like grep -v)" << endl
-        << "  -m --filter-matches   filter both mismatches to the graph and matches to the graph." << endl
-        << "  -P --path-divergence  filter alignments that map across two distinct paths." << endl
-        << "  -S --split-read <DIST>      filter alignments that are split across more than <DIST> bp." << endl
-        << "  -R --reversing        filter alignments that have both forward and reverse segments." << endl
-        << "  -C --soft-clip <CLIP>       filter alignments with more than <CLIP> bases hanging off their ends." << endl
-        << "  -x --xg-index <INDEX> An xg index, required for path divergence" << endl
-
-        << endl;
-}
-
-int main_scrub(int argc, char** argv){
-    string alignment_file;
-    int threads = 1;
-
-    int min_depth = 0;
-    int min_qual = 0;
-    int soft_clip_limit = -1;
-    int split_read_limit = -1;
-    int sliding_window_length = -1;
-    double min_percent_identity = 0.0;
-    double min_avg_qual = 0.0;
-    bool do_inverse = false;
-    bool do_path_div = false;
-    bool do_reversing = false;
-    bool remove_failing_edits  = false;
-    bool filter_matches = false;
-    string xg_name;
-    xg::XG* xg_index;
-
-    if (argc <= 2){
-        help_scrub(argv);
-        exit(1);
-    }
-    int c;
-    optind = 2; // force optind past command positional argument
-    while (true) {
-        static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {"depth", required_argument, 0, 'd'},
-            {"quality", required_argument,0, 'q'},
-            {"average-quality", required_argument, 0, 'a'},
-            {"percent-identity", required_argument, 0, 'p'},
-            {"remove-edits", no_argument, 0, 'r'},
-            {"filter-matches", no_argument, 0, 'm'},
-            {"path-divergence", no_argument, 0, 'P'},
-            {"reversing", no_argument, 0, 'R'},
-            {"soft-clip", required_argument, 0, 'C'},
-            {"split-read", required_argument, 0, 'S'},
-            {"inverse", no_argument, 0, 'v'},
-            {"window-length", required_argument, 0, 'w'},
-            {"threads", required_argument, 0, 't'},
-            {"xg-index", required_argument, 0, 'x'},
-            {0, 0, 0, 0}
-
-        };
-        int option_index = 0;
-        c = getopt_long (argc, argv, "hvmxrRPd:p:q:a:w:C:S:t:",
-                long_options, &option_index);
-
-        // Detect the end of the options.
-        if (c == -1)
-            break;
-
-        switch (c)
-        {
-            case '?':
-            case 'h':
-                help_scrub(argv);
-                return 1;
-            case 't':
-                threads = atoi(optarg);
-                break;
-            case 'd':
-                min_depth = atoi(optarg);
-                break;
-            case 'q':
-                min_qual = atoi(optarg);
-                break;
-            case 'm':
-                filter_matches = true;
-                break;
-            case 'a':
-                min_avg_qual = atof(optarg);
-                break;
-            case 'x':
-                xg_name = optarg;
-                break;
-            case 'p':
-                min_percent_identity = atof(optarg);
-                break;
-            case 'r':
-                remove_failing_edits = true;
-                break;
-            case 'S':
-                split_read_limit = atoi(optarg);
-                break;
-            case 'C':
-                soft_clip_limit = atoi(optarg);
-                break;
-            case 'P':
-                do_path_div = true;
-                break;
-            case 'R':
-                do_reversing = true;
-                break;
-            case 'w':
-                sliding_window_length = atoi(optarg);
-                break;
-            case 'v':
-                do_inverse = true;
-                break;
-            default:
-                abort();
-        }
-    }
-
-    omp_set_num_threads(threads);
-
-    vector<Alignment> buffer;
-    static const int buffer_size = 1000; // we let this be off by 1
-    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
-        return buffer[i];
-    };
-
-    Filter ff = Filter();
-    ff.set_min_depth(min_depth);
-    ff.set_min_qual(min_qual);
-    ff.set_min_percent_identity(min_percent_identity);
-
-    ff.set_remove_failing_edits(remove_failing_edits);
-    ff.set_inverse(do_inverse);
-    ff.set_filter_matches(filter_matches);
-
-    ff.set_avg_qual(min_avg_qual);
-    ff.set_window_length(sliding_window_length);
-    ff.set_soft_clip_limit(soft_clip_limit);
-    ff.set_split_read_limit(split_read_limit);
-    ff.set_reversing(do_reversing);
-
-    if (do_path_div && xg_name.empty()){
-        cerr << "Error: an xg index must be provided for path divergence filtering." << endl;
-        return 1;
-    }
-    ff.set_path_divergence(do_path_div);
-    if (!xg_name.empty()){
-        ifstream in(xg_name);
-        xg_index = new xg::XG(in);
-        ff.set_my_xg_idx(xg_index);
-    }
-
-    std::function<void(Alignment&)> qual_fil = [&ff, &buffer](Alignment& aln){
-        aln = ff.qual_filter(aln);
-        if (aln.sequence().size() > 0){
-          buffer.push_back(aln);
-        }
-    };
-
-    /**
-     * Depth and (later) average depth should be done in serial.
-     */
-    std::function<void(Alignment&)> serial_filters_lambda = [&ff, &buffer](Alignment& aln){
-       if (ff.get_min_depth() > 0){
-            aln = ff.depth_filter(aln);
-       }
-
-
-       if (aln.sequence().size() > 0){
-            buffer.push_back(aln);
-       }
-
-    };
-    // TODO: not actually called
-
-    /**
-     * Quality, average quality, soft clipping, reversing, split_read, percent identity, and path
-     * divergence can likely all safely be done in parallel.
-     */
-    std::function<void(Alignment&)> parallel_filters_lambda = [&ff, &buffer](Alignment& aln){
-        if (ff.get_min_depth() >= 0){
-            aln = ff.depth_filter(aln);
-        }
-        if (ff.get_min_qual() > 0){
-            aln = ff.qual_filter(aln);
-        }
-        if (ff.get_do_reversing()){
-            aln = ff.reversing_filter(aln);
-        }
-        if (ff.get_soft_clip_limit() > 0){
-            aln = ff.soft_clip_filter(aln);
-        }
-        if (ff.get_split_read_limit() > 0){
-            aln = ff.split_read_filter(aln);
-        }
-        if (ff.get_do_path_divergence()){
-            aln = ff.path_divergence_filter(aln);
-        }
-        if (ff.get_min_avg_qual() > 0.0){
-            aln = ff.avg_qual_filter(aln);
-        }
-        if (ff.get_min_percent_identity() > 0.0){
-            aln = ff.percent_identity_filter(aln);
-        }
-
-
-        if (aln.sequence().size() > 0){
-            buffer.push_back(aln);
-        }
-    };
-
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        stream::for_each(in, parallel_filters_lambda);
-    });
-
-    if (buffer.size() > 0) {
-        stream::write(cout, buffer.size(), write_buffer);
-        buffer.clear();
-    }
-
-    return 0;
 }
 
 void help_vectorize(char** argv){
@@ -1905,7 +1678,7 @@ int main_pileup(int argc, char** argv) {
             int tid = omp_get_thread_num();
             pileups[tid].compute_from_alignment(aln);
         };
-        stream::for_each_parallel(alignment_stream, lambda);
+        stream::for_each_parallel_batched(alignment_stream, lambda);
     });
 
     // single-threaded (!) merge
@@ -2334,7 +2107,9 @@ int main_msga(int argc, char** argv) {
         build_graph(strings[base_seq_name], base_seq_name);
     }
 
-    //cerr << "path going in " << pb2json(graph->graph.path(0)) << endl;
+#ifdef debug
+    cerr << "path going in " << pb2json(graph->graph.path(0)) << endl;
+#endif
 
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
@@ -2347,18 +2122,19 @@ int main_msga(int argc, char** argv) {
     size_t iter = 0;
 
     auto rebuild = [&](VG* graph) {
-        //stringstream s; s << iter++ << ".vg";
-        graph->sort();
-        graph->sync_paths();
-        graph->rebuild_indexes();
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
         if (lcpidx) delete lcpidx;
+    
+        //stringstream s; s << iter++ << ".vg";
+        graph->sort();
+        graph->sync_paths();
+        graph->graph.clear_path();
+        graph->paths.to_graph(graph->graph);
+        graph->rebuild_indexes();
 
         if (debug) cerr << "building xg index" << endl;
-        graph->sync_paths();
-        graph->paths.to_graph(graph->graph);
         xgidx = new xg::XG(graph->graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;
@@ -2415,15 +2191,14 @@ int main_msga(int argc, char** argv) {
         int iter = 0;
         auto& seq = strings[name];
         //cerr << "doing... " << name << endl;
-        /*
+#ifdef debug
         {
-            
             graph->serialize_to_file("msga-pre-" + name + ".vg");
             ofstream db_out("msga-pre-" + name + ".xg");
             xgidx->serialize(db_out);
             db_out.close();
         }
-        */
+#endif
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
@@ -4251,7 +4026,7 @@ int main_stats(int argc, char** argv) {
         };
 
         // Actually go through all the reads and count stuff up.
-        stream::for_each_parallel(alignment_stream, lambda);
+        stream::for_each_parallel_batched(alignment_stream, lambda);
 
         // Calculate stats about the reads per allele data
         for(auto& site_and_alleles : reads_on_allele) {
@@ -4548,7 +4323,7 @@ int main_paths(int argc, char** argv) {
 }
 
 void help_find(char** argv) {
-    cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
+    cerr << "usage: " << argv[0] << " find [options] >sub.vg" << endl
          << "options:" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
@@ -4786,6 +4561,11 @@ int main_find(int argc, char** argv) {
         }
     }
     if (optind < argc) {
+        cerr << "[vg find] find does not accept positional arguments" << endl;
+        return 1;
+    }
+
+    if (db_name.empty() && gcsa_in.empty() && xg_name.empty()) {
         cerr << "[vg find] find requires -d, -g, or -x to know where to find its database" << endl;
         return 1;
     }
@@ -5249,7 +5029,10 @@ void help_align(char** argv) {
          << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -T, --full-l-bonus N  provide this bonus for alignments that are full length (default: 5)" << endl
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
+         << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
+         << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
          << "    -D, --debug           print out score matrices and other debugging info" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
@@ -5274,9 +5057,12 @@ int main_align(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    int full_length_bonus = 5;
     string ref_seq;
     bool debug = false;
     bool banded_global = false;
+    bool pinned_alignment = false;
+    bool pin_left = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5295,11 +5081,14 @@ int main_align(int argc, char** argv) {
             {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
             {"banded-global", no_argument, 0, 'b'},
+            {"full-l-bonus", required_argument, 0, 'T'},
+            {"pinned", no_argument, 0, 'p'},
+            {"pinned-left", no_argument, 0, 'L'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:b",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:pL",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5336,6 +5125,10 @@ int main_align(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
 
+        case 'T':
+            full_length_bonus = atoi(optarg);
+            break;
+
         case 'r':
             ref_seq = optarg;
             break;
@@ -5346,6 +5139,14 @@ int main_align(int argc, char** argv) {
 
         case 'b':
             banded_global = true;
+            break;
+
+        case 'p':
+            pinned_alignment = true;
+            break;
+
+        case 'L':
+            pin_left = true;
             break;
 
         case 'h':
@@ -5375,7 +5176,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, 0, false, banded_global, debug);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus, banded_global, debug);
     }
 
     if (!seq_name.empty()) {
@@ -5429,6 +5230,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
@@ -5436,12 +5238,13 @@ void help_map(char** argv) {
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
+         << "    -O, --top-pairs-only       only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N        for very long sequences, align in chunks then merge paths, no mapping quality (default 1000bp)" << endl
          << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
          << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
-         << "    -T, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
+         << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
          << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
@@ -5454,9 +5257,9 @@ void help_map(char** argv) {
          << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
-         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
+         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -a, --mem-threading      use the MEM-threading alingment algorithm" << endl
+         << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -5506,19 +5309,21 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     bool always_rescue = false;
+    bool top_pairs_only = false;
     float min_kmer_entropy = 0;
     float accept_identity = 0;
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     int max_mem_length = 0;
-    int min_mem_length = 0;
-    bool mem_threading = false;
+    int min_mem_length = 8;
+    bool mem_threading = true;
     int max_target_factor = 100;
     int buffer_size = 100;
     int match = 1;
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
     int extra_pairing_multimaps = 4;
     int method_code = 1;
@@ -5568,12 +5373,13 @@ int main_map(int argc, char** argv) {
                 {"band-width", required_argument, 0, 'B'},
                 {"min-identity", required_argument, 0, 'P'},
                 {"always-rescue", no_argument, 0, 'U'},
+                {"top-pairs-only", no_argument, 0, 'O'},
                 {"kmer-min", required_argument, 0, 'l'},
-                {"softclip-trig", required_argument, 0, 'T'},
+                {"softclip-trig", required_argument, 0, '3'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
-                {"mem-threading", no_argument, 0, 'a'},
+                {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -5586,11 +5392,12 @@ int main_map(int argc, char** argv) {
                 {"compare", no_argument, 0, 'w'},
                 {"fragment-max", required_argument, 0, 'W'},
                 {"fragment-sigma", required_argument, 0, '2'},
+                {"full-l-bonus", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:",
                          long_options, &option_index);
 
 
@@ -5667,6 +5474,10 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'T':
+            full_length_bonus = atoi(optarg);
+            break;
+
+        case '3':
             softclip_threshold = atoi(optarg);
             break;
 
@@ -5741,6 +5552,10 @@ int main_map(int argc, char** argv) {
             always_rescue = true;
             break;
 
+        case 'O':
+            top_pairs_only = true;
+            break;            
+            
         case 'l':
             kmer_min = atoi(optarg);
             break;
@@ -5754,7 +5569,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'a':
-            mem_threading = true;
+            mem_threading = false;
             break;
 
         case 'H':
@@ -5989,6 +5804,7 @@ int main_map(int argc, char** argv) {
         m->always_rescue = always_rescue;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
+        m->full_length_alignment_bonus = full_length_bonus;
         mapper[i] = m;
     }
 
@@ -6106,10 +5922,11 @@ int main_map(int argc, char** argv) {
                  &max_mem_length,
                  &band_width,
                  &pair_window,
+                 &top_pairs_only,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6120,7 +5937,8 @@ int main_map(int argc, char** argv) {
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
-                                                                       band_width, pair_window);
+                                                                       band_width, pair_window,
+                                                                       top_pairs_only);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6138,7 +5956,8 @@ int main_map(int argc, char** argv) {
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
-                                                               band_width, pair_window);
+                                                               band_width, pair_window,
+                                                               top_pairs_only);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -6186,10 +6005,11 @@ int main_map(int argc, char** argv) {
                  &max_mem_length,
                  &band_width,
                  &pair_window,
+                 &top_pairs_only,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6200,7 +6020,8 @@ int main_map(int argc, char** argv) {
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
-                                                                       band_width, pair_window);
+                                                                       band_width, pair_window,
+                                                                       top_pairs_only);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6217,7 +6038,8 @@ int main_map(int argc, char** argv) {
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
-                                                               band_width, pair_window);
+                                                               band_width, pair_window,
+                                                               top_pairs_only);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -6255,10 +6077,11 @@ int main_map(int argc, char** argv) {
                  &band_width,
                  &compare_gam,
                  &pair_window,
+                 &top_pairs_only,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6269,7 +6092,8 @@ int main_map(int argc, char** argv) {
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
-                                                                       band_width, pair_window);
+                                                                       band_width, pair_window,
+                                                                       top_pairs_only);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6286,7 +6110,8 @@ int main_map(int argc, char** argv) {
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
-                                                               band_width, pair_window);
+                                                               band_width, pair_window,
+                                                               top_pairs_only);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -7451,6 +7276,102 @@ int main_deconstruct(int argc, char** argv){
     return 0;
 }
 
+
+void help_sort(char** argv){
+    cerr << "usage: " << argv[0] << " sort [options] -i <input_file> -r <reference_name> > sorted.vg " << endl
+         << "options: " << endl
+         << "           -g, --gfa              input in GFA format" << endl
+         << "           -i, --in               input file" << endl
+         << "           -r, --ref              reference name" << endl
+         << "           -w, --without-grooming no grooming mode" << endl
+         << "           -f, --fast             sort using Eades algorithm, otherwise max-flow sorting is used" << endl   
+         << endl;
+}
+
+int main_sort(int argc, char *argv[]) {
+
+    //default input format is vg
+    bool gfa_input = false;
+    string file_name = "";
+    string reference_name = "";
+    bool without_grooming = false;
+    bool use_fast_algorithm = false;
+    int c;
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"gfa", no_argument, 0, 'g'},
+                {"in", required_argument, 0, 'i'},
+                {"ref", required_argument, 0, 'r'},
+                {"without-grooming", no_argument, 0, 'w'},
+                {"fast", no_argument, 0, 'f'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "i:r:gwf",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'g':
+            gfa_input = true;
+            break;
+        case 'r':
+            reference_name = optarg;
+            break;
+        case 'i':
+            file_name = optarg;
+            break;
+        case 'w':
+            without_grooming = true;
+            break;
+        case 'f':
+            use_fast_algorithm = true;
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_sort(argv);
+            exit(1);
+            break;
+        default:
+            abort ();
+        }
+    }
+  
+    if (reference_name.empty() || file_name.empty()) {
+        help_sort(argv);
+        exit(1);
+    }
+    
+    ifstream in;
+    std::unique_ptr<VG> graph;
+    {
+        in.open(file_name.c_str());        
+        if (gfa_input) {
+            graph.reset(new VG());
+            graph->from_gfa(in);
+        } else {
+            graph.reset(new VG(in));
+        }
+    }
+    FlowSort flow_sort(*graph.get());
+    if (use_fast_algorithm) {
+        flow_sort.fast_linear_sort(reference_name, !without_grooming);
+    } else {
+        flow_sort.max_flow_sort(reference_name);
+    }
+    
+    graph->serialize_to_ostream(std::cout);
+    in.close();
+    return 0;
+}
+
 void help_version(char** argv){
     cerr << "usage: " << argv[0] << " version" << endl
          << "options: " << endl
@@ -7506,22 +7427,27 @@ void vg_help(char** argv) {
          << "  -- concat        concatenate graphs tail-to-head" << endl
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
+         << "  -- mod           filter, transform, and edit the graph" << endl
+         << "  -- homogenize    homogenize long variants in the graph to improve genotyping" << endl
          << "  -- surject       map alignments onto specific paths" << endl
          << "  -- msga          multiple sequence graph alignment" << endl
          << "  -- pileup        build a pileup from a set of alignments" << endl
          << "  -- call          prune the graph by genotyping a pileup" << endl
          << "  -- genotype      compute genotypes from aligned reads" << endl
          << "  -- compare       compare the kmer space of two graphs" << endl
-         << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments" << endl
          << "  -- circularize   circularize a path within a graph." << endl
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
+         << "  -- sort          sort variant graph using max flow algorithm or Eades fast heuristic algorithm" << endl
          << "  -- test          run unit tests" << endl
          << "  -- version       version information" << endl;
 }
 
 int main(int argc, char *argv[])
 {
+
+    // set a higher value for tcmalloc warnings
+    setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
 
     if (argc == 1) {
         vg_help(argv);
@@ -7581,18 +7507,24 @@ int main(int argc, char *argv[])
         return main_filter(argc, argv);
     } else if (command == "vectorize") {
         return main_vectorize(argc, argv);
-    } else if (command == "scrub"){
-        return main_scrub(argc, argv);
     } else if (command == "circularize"){
         return main_circularize(argc, argv);
     }  else if (command == "translate") {
         return main_translate(argc, argv);
     }  else if (command == "version") {
         return main_version(argc, argv);
+    }  else if (command == "homogenize"){
+        return main_homogenize(argc, argv);
+    } else if (command == "sift"){
+        return main_sift(argc, argv);  
     } else if (command == "test") {
         return main_test(argc, argv);
+    } else if (command == "srpe"){
+        return main_srpe(argc, argv);
     } else if (command == "locify"){
         return main_locify(argc, argv);
+    } else if (command == "sort") {
+        return main_sort(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

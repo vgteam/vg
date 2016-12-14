@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 42
+plan tests 45
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
@@ -49,23 +49,39 @@ rm -f x.gcsa x.gcsa.lcp x.graph
 vg index -s -k 11 -d x.idx x.vg
 num_records=$(vg index -D -d x.idx | wc -l)
 is $? 0 "dumping graph index"
-is $num_records 3207 "correct number of records in graph index"
+is $num_records 3208 "correct number of records in graph index"
 
 vg index -x x.xg x.vg
-vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -a - -d x.vg.aln
-is $(vg index -D -d x.vg.aln | wc -l) 100 "index can store alignments"
+vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx > x1337.gam
+vg index -a x1337.gam -d x.vg.aln
+is $(vg index -D -d x.vg.aln | wc -l) 101 "index can store alignments"
 is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
 
 # repeat with an unmapped read (sequence from phiX)
 rm -rf x.vg.aln
-(vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x.idx; vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx) | vg index -a - -d x.vg.aln
-is $(vg index -D -d x.vg.aln | wc -l) 100 "FIXME: alignment index does NOT store unmapped reads!"
+(vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x.idx; cat x1337.gam) | vg index -a - -d x.vg.aln
+is $(vg index -D -d x.vg.aln | wc -l) 101 "FIXME: alignment index does NOT store unmapped reads!"
+
+# load the same data again & see that the records are duplicated.
+# that's not really a wise use-case, but it tests that we don't
+# overwrite anything in an existing alignment index, by virtue
+# of keying each entry with a unqiue nonce.
+vg index -a x1337.gam -d x.vg.aln
+is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using sequential invocations; next_nonce persistence"
 
 vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -m - -d x.vg.map
-is $(vg index -D -d x.vg.map | wc -l) 1476 "index stores all mappings"
+is $(vg index -D -d x.vg.map | wc -l) 1477 "index stores all mappings"
 
-rm -rf x.idx x.vg.map x.vg.aln
-rm -f x.vg x.xg
+rm -rf x.idx x.vg.map x.vg.aln x1337.gam
+
+vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
+vg index -x x.xg -v small/x.vcf.gz x.vg
+is $? 0 "building an xg index containing a gPBWT"
+
+xg -i x.xg -x > part.vg
+is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 4 "the gPBWT contains the expected number of threads"
+
+rm -f x.vg x.xg part.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
@@ -79,8 +95,8 @@ vg index -s -d x.idx x.vg
 single=$(vg index -D -d x.idx | wc -l)
 triple=$(vg index -D -d q.idx | wc -l)
 
-# subtract two for metadata lines about paths that aren't duplicated in the merged
-is $triple $(echo "$single * 3 - 2" | bc) "storage of multiple graphs in an index succeeds"
+# subtract four for metadata lines about paths that aren't duplicated in the merged
+is $triple $(echo "$single * 3 - 4" | bc) "storage of multiple graphs in an index succeeds"
 
 vg ids -j x.vg q.vg
 vg index -k 2 -g qx.vg.gcsa q.vg x.vg
@@ -123,7 +139,7 @@ is $(vg index -D -d r.idx | grep '"from": 55' | grep '"from_start": true' | wc -
 is $(vg index -D -d r.idx | grep '"to": 55' | grep '"to_end": true' | wc -l) 2 "to_end edges in index"
 
 vg map -r <(vg sim -s 1338 -n 100 -x r.xg) -d r.idx | vg index -a - -d r.aln.idx
-is $(vg index -D -d r.aln.idx | wc -l) 100 "index can store alignments to backward nodes"
+is $(vg index -D -d r.aln.idx | wc -l) 101 "index can store alignments to backward nodes"
 
 rm -rf r.idx r.aln.idx r.xg
 
@@ -132,7 +148,7 @@ is $? 0 "index can store a cyclic graph"
 
 vg index -x c.xg cyclic/all.vg
 vg map -r <(vg sim -s 1337 -n 100 -x c.xg) -d c.idx | vg index -a - -d all.vg.aln
-is $(vg index -D -d all.vg.aln | wc -l) 100 "index can store alignments to cyclic graphs"
+is $(vg index -D -d all.vg.aln | wc -l) 101 "index can store alignments to cyclic graphs"
 
 rm -rf c.idx all.vg.aln c.xg
 

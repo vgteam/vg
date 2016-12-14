@@ -12,6 +12,7 @@
 #include <cmath>
 #include <limits>
 #include <unordered_set>
+#include <unordered_map>
 #include <list>
 #include "vg.pb.h"
 #include "vg.hpp"
@@ -19,6 +20,9 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
+#include "bubbles.hpp"
+#include "distributions.hpp"
+#include "snarls.hpp"
 
 namespace vg {
 
@@ -35,11 +39,15 @@ struct NestedSite;
  * genotype.
  */
 struct SiteTraversal {
-    // We just act like a vector of these, which are oriented traversals of
+    // We just act like a list of these, which are oriented traversals of
     // either nodes or NestedSites.
     struct Visit {
         Node* node = nullptr;
-        NestedSite* child = nullptr;
+        NestedSite const* child = nullptr;
+        // backward indicates:
+        //   if node != nullptr  : reverse complement of node
+        //   if child != nullptr : traversal of child site entering backwards through
+        //                         end and leaving backwards through start
         bool backward = false;
         
         /**
@@ -68,6 +76,11 @@ struct SiteTraversal {
     
     // We keep a list of these, which we could potentially splice up to flatten
     // down to just nodes.
+    //
+    // NB: If a Visit contains a child site, the list SHOULD NOT contain a Visit for
+    // the node where we entered the NestedSite, but it SHOULD contain a Visit for the
+    // node where we leave it (or a NestedSite if this node is also the start of a
+    // second site).
     list<Visit> visits;
 };
 
@@ -96,9 +109,18 @@ struct NestedSite {
     set<Edge*> edges;
     
     // And its oriented start and end anchoring node traversals.
-    NodeTraversal start;
-    NodeTraversal end;
+    NodeTraversal start; // points into site
+    NodeTraversal end; // points out of site
     
+    inline bool operator==(const NestedSite& other) const {
+        return start == other.start && end == other.end;
+    }
+    inline bool operator<(const NestedSite& other) const {
+        return start < other.start ? true : (end < other.end ? true : false);
+    }
+    inline bool operator>(const NestedSite& other) const {
+        return !(*this < other);
+    }
 };
 
 // For genotypes we use the protobuf Genotype object, in the context of the
@@ -124,6 +146,22 @@ public:
      */
     virtual void for_each_site_parallel(const function<void(NestedSite)>& lambda) = 0;
 };
+    
+/**
+ * Represents a strategy for finding (nested) sites in a vg graph that can be described
+ * by snarls. Polymorphic base class/interface.
+ */
+class SnarlFinder {
+public:
+    virtual ~SnarlFinder() = default;
+    
+    /**
+     * Run a function on all root-level NestedSites in parallel. Site trees are
+     * passed by value so they have a clear place to live during parallel
+     * operations.
+     */
+    virtual SnarlManager find_snarls() = 0;
+};
 
 /**
  * Represents a strategy for finding traversals of (nested) sites. Polymorphic
@@ -135,6 +173,8 @@ public:
     
     virtual vector<SiteTraversal> find_traversals(const NestedSite& site) = 0;
 };
+    
+    
 
 /**
  * Represents a strategy for computing consistency between Alignments and
@@ -248,7 +288,7 @@ public:
     /**
      * Make a new CactusSiteFinder to find sites in the given graph.
      */
-    CactusSiteFinder(VG& graph, const string& hint_path_name);    
+    CactusSiteFinder(VG& graph, const string& hint_path_name);
     
     virtual ~CactusSiteFinder() = default;
     
@@ -258,6 +298,81 @@ public:
      */
     virtual void for_each_site_parallel(const function<void(NestedSite)>& lambda);
 
+};
+    
+class CactusUltrabubbleFinder : public SnarlFinder {
+    
+    // Holds the vg graph we are looking for sites in.
+    VG& graph;
+    
+    // Use this path name as a rooting hint, if present.
+    string hint_path_name;
+    
+public:
+    /**
+     * Make a new CactusSiteFinder to find sites in the given graph.
+     */
+    CactusUltrabubbleFinder(VG& graph, const string& hint_path_name);
+    
+    /**
+     * Find all the sites in parallel with Cactus, make the site tree, and call
+     * the given function on all the top-level sites.
+     */
+    virtual SnarlManager find_snarls();
+    
+};
+    
+class ExhaustiveTraversalFinder : TraversalFinder {
+    
+    VG& graph;
+    
+public:
+    ExhaustiveTraversalFinder(VG& graph);
+    
+    virtual ~ExhaustiveTraversalFinder();
+    
+    /**
+     * Exhaustively enumerate all traversals through the site
+     *
+     * If a traversal includes a NestedSite, the node traversal that enters
+     * the site will not be included (instead it will a site traversal), but 
+     * the node traversal that leaves the site will be included, unless that
+     * node traversal is also enters another site
+     */
+    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    
+};
+    
+class ReadRestrictedTraversalFinder : TraversalFinder {
+    
+    VG& graph;
+    const map<string, Alignment*>& reads_by_name;
+    
+    // How many times must a path recur before we try aligning to it? Also, how
+    // many times must a node in the graph be visited before we use it in indel
+    // realignment for nearby indels? Note that the primary path counts as a
+    // recurrence. TODO: novel inserts can't recur, and novel deletions can't be
+    // filtered in this way.
+    int min_recurrence;
+    
+    // How many nodes max should we walk when checking if a path runs through a superbubble/site
+    int max_path_search_steps;
+    
+public:
+    ReadRestrictedTraversalFinder(VG& graph, const map<string, Alignment*>& reads_by_name,
+                                  int min_recurrence = 2, int max_path_search_steps = 100);
+    
+    virtual ~ReadRestrictedTraversalFinder();
+    
+    /**
+     * For the given site, emit all traversals with unique sequences that run from
+     * start to end, out of the paths in the graph. Uses the map of reads by
+     * name to determine if a path is a read or a real named path. Paths through
+     * the site supported only by reads are subject to a min recurrence count,
+     * while those supported by actual embedded named paths are not.
+     */
+    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    
 };
 
 /**
@@ -297,7 +412,24 @@ public:
     virtual double calculate_log_prior(const Genotype& genotype);
 };
 
-
+/**
+ * TBD
+ *
+ */
+//class StandardVcfRecordConverter {
+//private:
+//    const ReferenceIndex& index;
+//    vcflib::VariantCallFile& vcf;
+//    const string& sample_name;
+//    
+//public:
+//    StandardVcfRecordConverter();
+//    virtual ~StandardVcfRecordConverter() = default;
+//    
+//    virtual vcflib::Variant convert(const Locus& locus) = 0;
+//};
+    
+    
 }
 
 #endif

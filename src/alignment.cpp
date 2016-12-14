@@ -902,25 +902,25 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
     }
 }
 
-int softclip_start(Alignment& alignment) {
-    if (alignment.mutable_path()->mapping_size() > 0) {
-        Path* path = alignment.mutable_path();
-        Mapping* first_mapping = path->mutable_mapping(0);
-        Edit* first_edit = first_mapping->mutable_edit(0);
-        if (first_edit->from_length() == 0 && first_edit->to_length() > 0) {
-            return first_edit->to_length();
+int softclip_start(const Alignment& alignment) {
+    if (alignment.path().mapping_size() > 0) {
+        auto& path = alignment.path();
+        auto& first_mapping = path.mapping(0);
+        auto& first_edit = first_mapping.edit(0);
+        if (first_edit.from_length() == 0 && first_edit.to_length() > 0) {
+            return first_edit.to_length();
         }
     }
     return 0;
 }
 
-int softclip_end(Alignment& alignment) {
-    if (alignment.mutable_path()->mapping_size() > 0) {
-        Path* path = alignment.mutable_path();
-        Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
-        Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
-        if (last_edit->from_length() == 0 && last_edit->to_length() > 0) {
-            return last_edit->to_length();
+int softclip_end(const Alignment& alignment) {
+    if (alignment.path().mapping_size() > 0) {
+        auto& path = alignment.path();
+        auto& last_mapping = path.mapping(path.mapping_size()-1);
+        auto& last_edit = last_mapping.edit(last_mapping.edit_size()-1);
+        if (last_edit.from_length() == 0 && last_edit.to_length() > 0) {
+            return last_edit.to_length();
         }
     }
     return 0;

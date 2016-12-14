@@ -124,6 +124,18 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
             }
         }
 
+        if (i == 0) {
+            // The first chunk will always include all the 0-length paths.
+            // TODO: if there are too many, this chunk may grow too large!
+            paths.for_each_name([&](const string& name) {
+                // For every path
+                if (paths.get_path(name).empty()) {
+                    // If its mapping list has no mappings, make it in the chunk
+                    g.paths.create_path(name);
+                }
+            });
+        }
+
         // record our circular paths
         g.paths.circular = this->paths.circular;
         // but this is broken as our paths have been reordered as
@@ -2724,9 +2736,15 @@ void VG::print_edges(void) {
 
 void VG::sort(void) {
     if (size() <= 1) return;
+    // Join heads to a root to ensure stable topo sort
+    Node* root = join_heads();
     // Topologically sort, which orders and orients all the nodes.
     deque<NodeTraversal> sorted_nodes;
     topological_sort(sorted_nodes);
+    // destroy the root node
+    sorted_nodes.pop_front();
+    destroy_node(root);
+    // organize the nodes in the order from the topological sort
     deque<NodeTraversal>::iterator n = sorted_nodes.begin();
     int i = 0;
     for ( ; i < graph.node_size() && n != sorted_nodes.end();
@@ -5260,11 +5278,6 @@ bool VG::is_valid(bool check_nodes,
             if (!paths_ok) {
                 return;
             }
-            if (!path.mapping_size()) {
-                cerr << "graph invalid: path " << path.name() << " has no component mappings" << endl;
-                paths_ok = false;
-                return;
-            }
             if (path.mapping_size() == 1) {
                 // handle the single-entry case
                 if (!path.mapping(0).has_position()) {
@@ -6275,17 +6288,25 @@ Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
+                    int8_t full_length_bonus,
                     bool banded_global,
                     bool print_score_matrices) {
 
     auto aln = alignment;
 
+    // empty graph means unaligned
+    if (this->size() == 0) {
+        // unaligned
+        aln.set_score(0);
+        aln.clear_path();
+        return aln;
+    }
+
 #ifdef debug
     cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
 #endif
-    
 
     auto do_align = [&](Graph& g) {
 #ifdef debug
@@ -6302,11 +6323,11 @@ Alignment VG::align(const Alignment& alignment,
             } else if (qual_adj_aligner && !aligner) {
                 qual_adj_aligner->align_global_banded(aln, g, 1);
             }
-        } else if (pinned_node_id) {
+        } else if (pinned_alignment) {
             if (aligner && !qual_adj_aligner) {
-                aligner->align_pinned(aln, g, pinned_node_id, pin_left);
+                aligner->align_pinned(aln, g, pin_left, full_length_bonus);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align_pinned(aln, g, pinned_node_id, pin_left);
+                qual_adj_aligner->align_pinned(aln, g, pin_left, full_length_bonus);
             }
         } else {
             if (aligner && !qual_adj_aligner) {
@@ -6318,18 +6339,10 @@ Alignment VG::align(const Alignment& alignment,
     };
 
     if (is_acyclic() && !has_inverting_edges()) {
-        // join to common head if not using global banded
-        Node* root = nullptr;
-        if (!banded_global) root = this->join_heads();
         // graph is a non-inverting DAG, so we just need to sort
         sort();
         // run the alignment
         do_align(this->graph);
-
-        // Clean up the node we added. This is important because this graph will
-        // later be extended with more material for softclip handling, and we
-        // might need that node ID.
-        if (!banded_global) destroy_node(root);
 
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;
@@ -6347,9 +6360,6 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
-
-        Node* root = nullptr;
-        if (!banded_global) root = dag.join_heads();
         dag.sort();
 
         // run the alignment
@@ -6382,11 +6392,6 @@ Alignment VG::align(const Alignment& alignment,
         check_aln(*this, aln);
 #endif
 
-        // Clean up the node we added. This is important because this graph will
-        // later be extended with more material for softclip handling, and we
-        // might need that node ID.
-        if (!banded_global) destroy_node(root);
-
     }
 
     // Copy back the not-case-corrected sequence
@@ -6398,72 +6403,84 @@ Alignment VG::align(const Alignment& alignment,
 Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
+                    int8_t full_length_bonus,
                     bool banded_global,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, full_length_bonus,
+                 banded_global, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
                     Aligner* aligner,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
+                    int8_t full_length_bonus,
                     bool banded_global,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, full_length_bonus,
+                 banded_global, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
+                    int8_t full_length_bonus,
                     bool banded_global,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, full_length_bonus,
+                 banded_global, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
                     size_t max_query_graph_ratio,
-                    int64_t pinned_node_id,
+                    bool pinned_alignment,
                     bool pin_left,
+                    int8_t full_length_bonus,
                     bool banded_global,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, full_length_bonus,
+                 banded_global, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio,
-                                  int64_t pinned_node_id,
+                                  bool pinned_alignment,
                                   bool pin_left,
+                                  int8_t full_length_bonus,
                                   bool banded_global,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, max_query_graph_ratio,
-                 pinned_node_id, pin_left, banded_global, print_score_matrices);
+                 pinned_alignment, pin_left, full_length_bonus,
+                 banded_global, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
                                   size_t max_query_graph_ratio,
-                                  int64_t pinned_node_id,
+                                  bool pinned_alignment,
                                   bool pin_left,
+                                  int8_t full_length_bonus,
                                   bool banded_global,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio,
-                               pinned_node_id, pin_left, banded_global, print_score_matrices);
+                               pinned_alignment, pin_left, full_length_bonus,
+                               banded_global, print_score_matrices);
 }
 
 const string VG::hash(void) {

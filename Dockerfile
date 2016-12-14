@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 
 MAINTAINER Erik Garrison <erik.garrison@gmail.com>
 
@@ -10,30 +10,34 @@ RUN mkdir /app
 WORKDIR /app
 COPY Makefile /app/Makefile
 
+RUN sed -i "s/sudo//g" /app/Makefile
+
 # Install vg dependencies and clear the package index
 RUN \
-    echo "deb http://archive.ubuntu.com/ubuntu trusty-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list && \
+    echo "deb http://archive.ubuntu.com/ubuntu trusty-backports main restricted universe multiverse" | tee -a /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y \
         build-essential \
-        gcc4.9 \
-        g++4.9 \
+        libprotoc-dev \
+        gcc-5-base \
+        libgcc-5-dev \
         pkg-config \
         jq/trusty-backports \
-        sudo && \
-    make get-deps && \
-    rm -rf /var/lib/apt/lists/*
+        zlib1g-dev \
+        && \
+    make get-deps
     
 # Move in all the other files
-COPY . /app
-    
-# Build vg
-RUN . ./source_me.sh && make -j8
-
-# Make tests. We can't do it in parallel since it cleans up the test binary
-RUN make test
+COPY . /app 
 
 ENV LD_LIBRARY_PATH=/app/lib
+ENV LIBRARY_PATH /app/lib:$LIBRARY_PATH
+ENV LD_LIBRARY_PATH /app/lib:$LD_LIBRARY_PATH
+ENV LD_INCLUDE_PATH /app/include:$LD_INCLUDE_PATH
+ENV C_INCLUDE_PATH /app/include:$C_INCLUDE_PATH
+ENV CPLUS_INCLUDE_PATH /app/include:$CPLUS_INCLUDE_PATH
+ENV INCLUDE_PATH /app/include:$INCLUDE_PATH
 
+RUN cd /app && . ./source_me.sh && make && make test
 ENTRYPOINT ["/app/bin/vg"]
 

@@ -31,7 +31,7 @@ Mapper::Mapper(Index* idex,
     , min_kmer_entropy(0)
     , debug(false)
     , alignment_threads(1)
-    , min_mem_length(0)
+    , min_mem_length(8)
     , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
@@ -48,6 +48,7 @@ Mapper::Mapper(Index* idex,
     , since_last_fragment_length_estimate(0)
     , fragment_length_estimate_interval(100)
     , perfect_pair_identity_threshold(0.95)
+    , full_length_alignment_bonus(5)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -193,8 +194,9 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  VG& vg,
                                  size_t max_query_graph_ratio,
-                                 int64_t pinned_node_id,
+                                 bool pinned_alignment,
                                  bool pin_left,
+                                 int8_t full_length_bonus,
                                  bool banded_global) {
     // check if we have a cached aligner for this thread
     if (aln.quality().empty()) {
@@ -203,8 +205,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         return vg.align(aln,
                         aligner,
                         max_query_graph_ratio,
-                        pinned_node_id,
+                        pinned_alignment,
                         pin_left,
+                        full_length_bonus,
                         banded_global);
     } else {
         auto aligner = get_qual_adj_aligner();
@@ -212,15 +215,17 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             return vg.align_qual_adjusted(aln,
                                           aligner,
                                           max_query_graph_ratio,
-                                          pinned_node_id,
+                                          pinned_alignment,
                                           pin_left,
+                                          full_length_bonus,
                                           banded_global);
         } else {
             return vg.align(aln,
                             aligner,
                             max_query_graph_ratio,
-                            pinned_node_id,
+                            pinned_alignment,
                             pin_left,
+                            full_length_bonus,
                             banded_global);
         }
     }
@@ -373,16 +378,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int stride,
     int max_mem_length,
     int band_width,
-    int pair_window) {
+    int pair_window,
+    bool only_top_scoring_pair) {
 
     // We have some logic around align_mate_in_window to handle orientation
     // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
     auto align_mate = [&](const Alignment& read, Alignment& mate) {
         // Make an alignment to align in the same local orientation as the read
         Alignment aln_same = mate;
+        aln_same.clear_path();
         // And one to align in the opposite local orientation
         // Always reverse the opposite direction sequence
-        Alignment aln_opposite = reverse_complement_alignment(mate, [&](id_t id) {return get_node_length(id);});
+        Alignment aln_opposite = reverse_complement_alignment(aln_same, [&](id_t id) {return get_node_length(id);});
         
         // We can't rescue off an unmapped read
         assert(read.has_path() && read.path().mapping_size() > 0);
@@ -699,6 +706,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             consistent_pairs.second[i].set_is_secondary(i > 0);
         }
 
+        // zap everything unless the primary alignments are individually top-scoring
+        if (only_top_scoring_pair && consistent_pairs.first.size() && 
+            (consistent_pairs.first[0].score() < alignments1[0].score() ||
+             consistent_pairs.second[0].score() < alignments2[0].score())) {
+            consistent_pairs.first.clear();
+            consistent_pairs.second.clear();
+        }        
+
         if (!consistent_pairs.first.empty()) {
             results = consistent_pairs;
         } else {
@@ -804,7 +819,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     if(results.first.empty()) {
-        results.first.push_back(read2);
+        results.first.push_back(read1);
         auto& aln = results.first.back();
         aln.clear_path();
         aln.clear_score();
@@ -1397,6 +1412,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns);
     // TODO RECALCULATE QUALITY BASED ON SCORING
+    merged.set_score(score_alignment(merged));
     merged.set_quality(read.quality());
     merged.set_name(read.name());
 
@@ -2612,25 +2628,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // correct resolution will be an update to GSSW to give a bonus to full-length alignments
                     //bool banded_global = true;
                     bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
-                    id_t pinned_id = 0;
+                    bool pinned_alignment = soft_clip_to_right || soft_clip_to_left;
                     bool pinned_reverse = false;
-                    // use the pinning if we are in a soft clip
                     if (soft_clip_to_right) {
-                        auto heads = graph.head_nodes();
-                        if (heads.size()) {
-                            pinned_id = graph.head_nodes().front()->id();
-                            pinned_reverse = true;
-                        }
-                    } else if (soft_clip_to_left) {
-                        auto tails = graph.tail_nodes();
-                        if (tails.size()) {
-                            pinned_id = graph.tail_nodes().front()->id();
-                        }
+                        pinned_reverse = true;
                     }
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
-                                           pinned_id, pinned_reverse, banded_global);
+                                           pinned_alignment,
+                                           pinned_reverse,
+                                           full_length_alignment_bonus,
+                                           banded_global);
 
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
@@ -2651,6 +2660,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) {
                                                                      return (int64_t)get_node_length(id);
                                                                  }));
+                    }
+
+                    if (debug && !check_alignment(patch)) {
+                        cerr << "patching failure " << pb2json(patched) << endl;
+                        assert(false);
                     }
 
                     // append the chunk to patched
@@ -2904,6 +2918,12 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 score -= aligner->gap_open + dist * aligner->gap_extension;
             }
         }
+    }
+    if (!softclip_start(aln)) {
+        score += full_length_alignment_bonus;
+    }
+    if (!softclip_end(aln)) {
+        score += full_length_alignment_bonus;
     }
     if (debug) cerr << "score from score_alignment " << score << endl;
     return max(0, score);

@@ -1692,7 +1692,7 @@ namespace vg {
         }
         
         TEST_CASE( "Banded global aligner produces correct alternate alignments in different traceback scenarios",
-                  "[alignment][banded][mapping]" ) {
+                  "[alignment][multialignment][banded][mapping]" ) {
             
             
             SECTION( "Banded global aligner returns alternate alignments in descending score order" ) {

@@ -113,8 +113,9 @@ private:
     Alignment align_to_graph(const Alignment& aln,
                              VG& vg,
                              size_t max_query_graph_ratio,
-                             int64_t pinned_node_id = 0,
+                             bool pinned_alignment = false,
                              bool pin_left = false,
+                             int8_t full_length_bonus = 0,
                              bool global = false);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
@@ -266,6 +267,8 @@ public:
     // Alignments at corresponding positions in the two vectors may or may not
     // be corresponding paired alignments. If a read does not map, its vector
     // will be empty.
+    // If only_top_scoring_pair is set, then the vectors will be empty unless
+    // the primary pair of alignments each have top scores individually as well. 
     pair<vector<Alignment>, vector<Alignment>> 
         align_paired_multi(const Alignment& read1,
                            const Alignment& read2,
@@ -274,7 +277,8 @@ public:
                            int stride = 0,
                            int max_mem_length = 0,
                            int band_width = 1000,
-                           int pair_window = 64);
+                           int pair_window = 64,
+                           bool only_top_scoring_pair = false);
     
     // Paired-end alignment ignoring multi-mapping. Returns either the two
     // highest-scoring reads if no rescue was required, or the highest-scoring
@@ -379,6 +383,7 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
+    int8_t full_length_alignment_bonus;
 
 };
 

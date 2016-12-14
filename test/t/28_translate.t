@@ -14,9 +14,9 @@ vg map -G tiny.sim -x tiny.xg -g tiny.gcsa -a -L 8 -t 1 > tiny.gam
 vg mod -Z tiny.trans -i tiny.gam tiny.vg >tiny.mod.vg
 vg paths -x tiny.mod.vg | vg view -a - | grep -v x | sort | vg view -JGa - >tiny.paths.gam
 vg translate -a tiny.paths.gam tiny.trans | vg view -a - | sort | vg view -JGa - >tiny.paths.trans.gam
-vg mod -Z tiny.trans.1 -i tiny.paths.trans.gam tiny.vg >tiny.mod.vg.1
+vg mod -Z tiny.trans.1 -i tiny.paths.trans.gam tiny.vg | vg mod -U 10 - >tiny.mod.vg.1
 
-is $(vg view tiny.mod.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg view tiny.mod.vg.1 | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "alignments used to modify a graph may be projected back to the original graph and used to regenerate the same graph"
+is $(vg mod -U 10 tiny.mod.vg | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg mod -U 10 tiny.mod.vg.1 | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "alignments used to modify a graph may be projected back to the original graph and used to regenerate the same graph"
 
 rm -Rf tiny.vg tiny.xg tiny.gcsa tiny.sim tiny.gam tiny.trans tiny.mod.vg tiny.trans.1 tiny.paths.gam tiny.paths.trans.gam tiny.mod.vg.1
 
