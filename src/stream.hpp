@@ -1,6 +1,7 @@
 #ifndef STREAM_H
 #define STREAM_H
 
+// de/serialization of protobuf objects from/to a length-prefixed, gzipped binary stream
 // from http://www.mail-archive.com/protobuf@googlegroups.com/msg03417.html
 
 #include <cassert>
@@ -128,97 +129,22 @@ void for_each(std::istream& in,
     for_each(in, lambda, noop);
 }
 
+// Parallelized versions of for_each
+
+// First, an internal implementation underlying several variants below.
+// lambda2 is invoked on interleaved pairs of elements from the stream. The
+// elements of each pair are in order, but the overall order in which lambda2
+// is invoked on pairs is undefined (concurrent). lambda1 is invoked on an odd
+// last element of the stream, if any.
 template <typename T>
-void for_each_parallel(std::istream& in,
-                       const std::function<void(T&)>& lambda,
-                       const std::function<void(uint64_t)>& handle_count) {
-
-    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-          new ::google::protobuf::io::IstreamInputStream(&in);
-    ::google::protobuf::io::GzipInputStream *gzip_in =
-          new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
-
-    uint64_t count;
-    bool more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
-    bool more_objects = false;
-    // this loop handles a chunked file with many pieces
-    // such as we might write in a multithreaded process
-    std::list<T> objects;
-    int64_t object_count = 0;
-    int64_t read_threshold = 5000;
-#pragma omp parallel shared(more_input, more_objects, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
-    while (more_input || more_objects) {
-
-        bool has_object = false;
-        T object;
-#pragma omp critical (objects)
-        {
-            if (!objects.empty()) {
-                object = objects.back();
-                objects.pop_back();
-                --object_count;
-                has_object = true;
-            }
-        }
-        if (has_object) {
-            lambda(object);
-        }
-
-#pragma omp master
-        {
-            while (more_input && object_count < read_threshold) {
-                handle_count(count);
-                std::string s;
-                for (uint64_t i = 0; i < count; ++i) {
-                    uint32_t msgSize = 0;
-                    // the messages are prefixed by their size
-                    delete coded_in;
-                    coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
-                    coded_in->ReadVarint32(&msgSize);
-                    if ((msgSize > 0) &&
-                        (coded_in->ReadString(&s, msgSize))) {
-                        T object;
-                        object.ParseFromString(s);
-#pragma omp critical (objects)
-                        {
-                            objects.push_front(object);
-                            ++object_count;
-                        }
-                    }
-                }
-                more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
-            }
-            
-            // TODO: Between when the master announces there is no more input,
-            // and when it says there are again more objects to process, the
-            // other threads can all quit out, leaving it alone to finish up.
-            
-        }
-#pragma omp critical (objects)
-        more_objects = (object_count > 0);
-    }
-
-    delete coded_in;
-    delete gzip_in;
-    delete raw_in;
-}
-
-template <typename T>
-void for_each_parallel(std::istream& in,
-              const std::function<void(T&)>& lambda) {
-    std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each_parallel(in, lambda, noop);
-}
-
-template <typename T>
-void for_each_parallel_batched(std::istream& in,
-                               const std::function<void(T&)>& lambda,
-                               const std::function<void(uint64_t)>& handle_count) {
+void __for_each_parallel_impl(std::istream& in,
+                              const std::function<void(T&,T&)>& lambda2,
+                              const std::function<void(T&)>& lambda1,
+                              const std::function<void(uint64_t)>& handle_count) {
 
     // objects will be handed off to worker threads in batches of this many
-    const uint64_t batch_size = 1024;
+    const uint64_t batch_size = 256;
+    static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
     const uint64_t max_batches_outstanding = 256;
     // number of batches currently being processed
@@ -226,7 +152,7 @@ void for_each_parallel_batched(std::istream& in,
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda, handle_count, batches_outstanding)
+    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
@@ -261,7 +187,7 @@ void for_each_parallel_batched(std::istream& in,
                     batch->push_back(std::move(s));
                 }
 
-                if (batch->size() >= batch_size) {
+                if (batch->size() == batch_size) {
                     // time to enqueue this batch for processing. first, block if
                     // we've hit max_batches_outstanding.
                     uint64_t b;
@@ -273,16 +199,17 @@ void for_each_parallel_batched(std::istream& in,
                         b = batches_outstanding;
                     }
                     // spawn task to process this batch
-                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle)
+                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle)
                     {
                         {
-                            T object;
-                            for (const std::string& s_j : *batch) {
-                                // parse protobuf object and invoke lambda on it
-                                handle(object.ParseFromString(s_j));
-                                lambda(object);
+                            T obj1, obj2;
+                            for (int i = 0; i<batch_size; i+=2) {
+                                // parse protobuf objects and invoke lambda on the pair
+                                handle(obj1.ParseFromString(batch->at(i)));
+                                handle(obj2.ParseFromString(batch->at(i+1)));
+                                lambda2(obj1,obj2);
                             }
-                        } // scope object
+                        } // scope obj1 & obj2
                         delete batch;
                         #pragma omp atomic update
                         batches_outstanding--;
@@ -291,21 +218,28 @@ void for_each_parallel_batched(std::istream& in,
                     batch = nullptr;
                 }
 
-                // recycle the CodedInputStream in order to avoid its byte limit
+                // recycle the CodedInputStream in order to avoid its cumulative byte limit
                 delete coded_in;
                 coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
             }
         }
 
+        #pragma omp taskwait
         // process final batch
         if (batch) {
             {
-                T object;
-                for (const std::string& s_j : *batch) {
-                    handle(object.ParseFromString(s_j));
-                    lambda(object);
+                T obj1, obj2;
+                int i = 0;
+                for (; i < batch->size()-1; i+=2) {
+                    handle(obj1.ParseFromString(batch->at(i)));
+                    handle(obj2.ParseFromString(batch->at(i+1)));
+                    lambda2(obj1, obj2);
                 }
-            } // scope object
+                if (i == batch->size()-1) { // odd last object
+                    handle(obj1.ParseFromString(batch->at(i)));
+                    lambda1(obj1);
+                }
+            } // scope obj1 & obj2
             delete batch;
         }
 
@@ -315,11 +249,30 @@ void for_each_parallel_batched(std::istream& in,
     }
 }
 
+// parallel iteration over interleaved pairs of elements; error out if there's an odd number of elements
 template <typename T>
-void for_each_parallel_batched(std::istream& in,
-                               const std::function<void(T&)>& lambda) {
+void for_each_interleaved_pair_parallel(std::istream& in,
+                                        const std::function<void(T&,T&)>& lambda2) {
+    std::function<void(T&)> err1 = [](T&){
+        throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
+    };
+    __for_each_parallel_impl(in, lambda2, err1, [](uint64_t) { });
+}
+
+// parallelized for each individual element
+template <typename T>
+void for_each_parallel(std::istream& in,
+                       const std::function<void(T&)>& lambda1,
+                       const std::function<void(uint64_t)>& handle_count) {
+    std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
+    __for_each_parallel_impl(in, lambda2, lambda1, handle_count);
+}
+
+template <typename T>
+void for_each_parallel(std::istream& in,
+              const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each_parallel_batched(in, lambda, noop);
+    for_each_parallel(in, lambda, noop);
 }
 
 }

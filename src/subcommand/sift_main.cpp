@@ -280,13 +280,11 @@ else{
     if (in.good()){
 
         if (is_paired && forced){
-            //void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
-        cerr << "Processing..." << endl;
-            gam_paired_interleaved_for_each_parallel(in, pair_filters);
+            cerr << "Processing..." << endl;
+            stream::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else if (is_paired){
-            //void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
-            gam_paired_interleaved_for_each_parallel(in, pair_filters);
+            stream::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{
             stream::for_each_parallel(in, single_filters);

@@ -32,7 +32,6 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda);
 size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda);
-void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
