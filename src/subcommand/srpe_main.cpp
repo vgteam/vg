@@ -268,7 +268,7 @@ int main_srpe(int argc, char** argv){
 
     if (!gam_name.empty()){
         ifstream gamfi(gam_name);
-        gam_paired_interleaved_for_each_parallel(gamfi, lambda);
+        stream::for_each_interleaved_pair_parallel(gamfi, lambda);
     }
     else{
         cerr << "NO GAM PROVIDED" << endl;
