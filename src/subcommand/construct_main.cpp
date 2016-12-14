@@ -31,7 +31,11 @@ void help_construct(char** argv) {
          << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress        show progress" << endl
          << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
+         << "    -S, --handle-sv       include SVs in construction of graph." << endl
+         << "    -I, --insertions FILE a FASTA file containing insertion sequences "<< endl 
+         << "                           (referred to in VCF) to add to graph." << endl
          << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
+
 }
 
 int main_construct(int argc, char** argv) {
@@ -47,6 +51,7 @@ int main_construct(int argc, char** argv) {
     // We also parse some arguments separately.
     vector<string> fasta_filenames;
     vector<string> vcf_filenames;
+    vector<string> insertion_filenames;
     string region;
     bool region_is_chrom = false;
 
@@ -61,6 +66,8 @@ int main_construct(int argc, char** argv) {
                 {"reference", required_argument, 0, 'r'},
                 {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
+                {"handle-sv", no_argument, 0, 'S'},
+                {"insertions", required_argument, 0, 'I'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
@@ -72,7 +79,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:Cf",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -88,6 +95,15 @@ int main_construct(int argc, char** argv) {
         case 'r':
             fasta_filenames.push_back(optarg);
             break;
+
+        case 'S':
+            constructor.do_svs = true;
+            break;
+
+        case 'I':
+            insertion_filenames.push_back(optarg);
+            break;
+
             
         case 'n':
             {
@@ -227,6 +243,14 @@ int main_construct(int argc, char** argv) {
         reference->open(fasta_filename);
     }
 
+    vector<unique_ptr<FastaReference> > insertions;
+    for (auto& insertion_filename : insertion_filenames){
+        // Open up those insertion files
+        FastaReference* insertion = new FastaReference();
+        insertions.emplace_back(insertion);
+        insertion->open(insertion_filename);
+    }
+
     // We need a callback to handle pieces of graph as they are produced.
     auto callback = [&](Graph& big_chunk) {
         // TODO: these chunks may be too big to (de)serialize directly. For now,
@@ -248,9 +272,19 @@ int main_construct(int argc, char** argv) {
     for(auto& fasta : references) {
         fasta_pointers.push_back(fasta.get());
     }
+    vector<FastaReference*> ins_pointers;
+    for (auto& ins : insertions){
+        ins_pointers.push_back(ins.get());
+    }
+
+    if (ins_pointers.size() > 1){
+        cerr << "Error: only one insertion file may be provided." << endl;
+        exit(1);
+    }
 
     // Construct the graph.
-    constructor.construct_graph(fasta_pointers, vcf_pointers, callback);
+    constructor.construct_graph(fasta_pointers, vcf_pointers,
+                                ins_pointers, callback);
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:

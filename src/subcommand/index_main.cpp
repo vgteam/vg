@@ -15,7 +15,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
-#include "../pathindex.hpp"
+#include "../path_index.hpp"
 
 #include "gcsa/gcsa.h"
 #include "gcsa/algorithms.h"
