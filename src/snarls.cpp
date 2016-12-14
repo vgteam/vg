@@ -4,6 +4,7 @@
 //
 
 #include "snarls.hpp"
+#include "json2pb.h"
 
 namespace vg {
     const vector<const Snarl*>& SnarlManager::children_of(const Snarl& snarl) {
@@ -81,7 +82,7 @@ namespace vg {
         vector<Node*> stack;
         
         Node* start_node = graph.get_node(snarl.start().node_id());
-        Node* end_node = graph.get_node(snarl.start().node_id());
+        Node* end_node = graph.get_node(snarl.end().node_id());
         
         // mark the boundary nodes as already stacked so that paths will terminate on them
         already_stacked.insert(start_node);
@@ -94,11 +95,12 @@ namespace vg {
         // stack up the nodes one edge inside the snarl from the start
         graph.edges_of_node(start_node, edges_of_node);
         for (Edge* edge : edges_of_node) {
+            
             // does the edge point into the snarl?
             if (edge->from() == snarl.start().node_id() && edge->from_start() == snarl.start().backward()) {
 
                 Node* node = graph.get_node(edge->to());
-
+                
                 if (!already_stacked.count(node)) {
                     stack.push_back(node);
                     already_stacked.insert(node);
@@ -159,7 +161,7 @@ namespace vg {
             
             // record that this node is in the snarl
             nodes.insert(node);
-            
+                        
             // are either the ends of the node facing into a snarl?
             bool forward_is_snarl = false;
             bool backward_is_snarl = false;
@@ -266,7 +268,7 @@ namespace vg {
         vector<Node*> stack;
         
         Node* start_node = graph.get_node(snarl.start().node_id());
-        Node* end_node = graph.get_node(snarl.start().node_id());
+        Node* end_node = graph.get_node(snarl.end().node_id());
         
         // mark the boundary nodes as already stacked so that paths will terminate on them
         already_stacked.insert(start_node);

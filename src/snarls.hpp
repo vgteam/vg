@@ -46,7 +46,7 @@ namespace vg {
         const vector<const Snarl*>& top_level_snarls();
         
         /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (includes the
-        /// Nodes that form the boundaries of child Snarls, does not include Snarl's own boundary Nodes)
+        /// Nodes that form the boundaries of child Snarls, does not include this Snarl's own boundary Nodes)
         pair<vector<Node*>, vector<Edge*> > shallow_contents(const Snarl&, VG& graph);
         
         /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (does not

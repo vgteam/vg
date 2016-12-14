@@ -200,8 +200,8 @@ message Pileup {
 
 // Enumeration of the classifications of snarls
 enum SnarlType {
-	ULTRABUBBLE = 0;
-	UNCLASSIFIED = 1;
+    UNCLASSIFIED = 0;
+	ULTRABUBBLE = 1;
 }
 
 // Describes a subgraph that is connected to the rest of the graph by two nodes.
