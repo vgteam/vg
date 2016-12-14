@@ -157,7 +157,8 @@ string Sampler::alignment_seq(const Alignment& aln) {
 vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {
     // simulate forward/reverse pair by first simulating a long read
     normal_distribution<> norm_dist(fragment_length, fragment_std_dev);
-    int frag_len = round(norm_dist(rng));
+    // bound at read length so we always get enough sequence
+    int frag_len = max((int)read_length, (int)round(norm_dist(rng)));
     auto fragment = alignment_with_error(frag_len, base_error, indel_error);
     // then taking the ends
     auto fragments = alignment_ends(fragment, read_length, read_length);
