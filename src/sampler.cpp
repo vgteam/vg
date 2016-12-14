@@ -241,9 +241,9 @@ Alignment Sampler::alignment_with_error(size_t length,
                                         double indel_error) {
     size_t maxiter = 100;
     Alignment aln;
+    size_t iter = 0;
     if (base_error > 0 || indel_error > 0) {
         // sample a longer-than necessary alignment, then trim
-        size_t iter = 0;
         while (iter++ < maxiter) {
             aln = mutate(
                 alignment(length + 2 * ((double) length * indel_error)),
@@ -255,12 +255,18 @@ Alignment Sampler::alignment_with_error(size_t length,
                 break;
             }
         }
-        if (iter == maxiter) {
-            cerr << "[vg::Sampler] Warning: could not generate alignment of sufficient length. "
-                 << "Graph may be too small, or indel rate too high." << endl;
-        }
     } else {
-        aln = alignment(length);
+        size_t iter = 0;
+        while (iter++ < maxiter) {
+            aln = alignment(length);
+            if (aln.sequence().size() == length) {
+                break;
+            }
+        }
+    }
+    if (iter == maxiter) {
+        cerr << "[vg::Sampler] Warning: could not generate alignment of sufficient length. "
+             << "Graph may be too small, or indel rate too high." << endl;
     }
     aln.set_identity(identity(aln.path()));
     return aln;
