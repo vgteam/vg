@@ -9,6 +9,8 @@
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
+#include "genotyper.hpp"
+#include "path_index.hpp"
 #include "vg.hpp"
 #include "srpe.hpp"
 #include "filter.hpp"
@@ -21,7 +23,8 @@ void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
         << "Options: " << endl
         
-        << "   -S/ --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
+        << "   -S / --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
+        << "   -R / --recall            recall (i.e. type) all variants with paths stored in the graph." << endl
        << endl;
         //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
         
@@ -65,12 +68,12 @@ int main_srpe(int argc, char** argv){
             {"help", no_argument, 0, 'h'},
             {"gcsa-index", required_argument, 0, 'g'},
             {"specific", required_argument, 0, 'S'},
-            {"all", no_argument, 0, 'A'},
+            {"recall", no_argument, 0, 'R'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:S:A",
+        c = getopt_long (argc, argv, "hx:g:m:S:R",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -83,7 +86,7 @@ int main_srpe(int argc, char** argv){
                 max_iter = atoi(optarg);
                 break;
 
-            case 'A':
+            case 'R':
                 do_all = true;
                 break;
             case 'x':
@@ -137,20 +140,22 @@ int main_srpe(int argc, char** argv){
 
     }
 
-    auto var_t_from_path = [](){
 
-    };
-
-    auto get_nodes_from_path = [](list<Mapping> x){
-        
-    };
-
+    map<string, Locus> name_to_loc;
+    map<string, PathIndex*> pindexes;
     regex is_alt ("_alt_.*");
 
     if (do_all){
         vector<Support> supports;
+
+        for (auto r_path : (graph->paths)._paths){
+            if (!regex_match(x_path.first, is_alt)){
+                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
+            }
+        }
         for (auto x_path : (graph->paths)._paths){
             cerr << x_path.first << endl;
+            int32_t support = 0;
             if (regex_match(x_path.first, is_alt)){
                 vector<Alignment> alns;
                 vector<int64_t> var_node_ids;
@@ -159,11 +164,11 @@ int main_srpe(int argc, char** argv){
                 }
                
                 std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-                    cerr << a.name() << endl;
+                    ++support;
                 };
                 gamind.for_alignment_to_nodes(var_node_ids, incr);
+                cerr << support << " reads support " << x_path.first << endl;
             }
-
         }
     }
 
