@@ -483,8 +483,11 @@ int main_index(int argc, char** argv) {
 
                         const int64_t& new_node = mapping.node_id;
                         const bool& new_to_end = mapping.is_reverse;
+                        
+                        // Get the canonical orientation of this edge (i.e. flip it if it doesn't exist in this orientation)
+                        Edge canonical = index.canonicalize(xg::make_edge(last_node, last_from_start, new_node, new_to_end));
 
-                        if (!index.has_edge(xg::make_edge(last_node, last_from_start, new_node, new_to_end))) {
+                        if (!index.has_edge(canonical.from(), canonical.from_start(), canonical.to(), canonical.to_end())) {
                             // We can't have a thread take this edge (or an
                             // equivalent). Split and emit the current mappings
                             // and start a new path.
