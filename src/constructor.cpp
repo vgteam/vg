@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <memory>
 
+#define debug TRUE
+
 namespace vg {
 
     using namespace std;
@@ -1303,7 +1305,7 @@ namespace vg {
                             sv_len = (size_t) abs(stol(vvar->info["SVLEN"][alt_pos]));
                         }
                         else if (vvar->info.find("END") != vvar->info.end()){
-                            sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
+                            sv_len = abs((size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position));
                         }
                         else{
                             // If we have neither, we'll ignore it.
@@ -1321,7 +1323,7 @@ namespace vg {
                                 string var_name = regex_replace(vvar->alt[alt_pos], arrows, "");
                                 if (insertion_fasta->index->find(var_name) != insertion_fasta->index->end()){
                                     cerr << "Replacing insertion with sequence of " << var_name << endl;
-                                    vvar->alt[alt_pos] = insertion_fasta->getSequence(var_name);
+                                    vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->position, 1) + insertion_fasta->getSequence(var_name);
                                     vvar->updateAlleleIndexes();
                                 }
                             }
@@ -1335,11 +1337,11 @@ namespace vg {
                         else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){
 
 
-                            vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, sv_len ));
+                            vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, sv_len + 1 ));
 
                             vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->position, 1));
 
-                            if (vvar->ref.size() != sv_len){
+                            if (vvar->ref.size() != sv_len + 1){
                                 cerr << "Variant made is incorrect size" << endl;
                                 cerr << vvar->ref.size() - 1 << "\t" << sv_len << endl;
                                 cerr <<vvar->ref[vvar->ref.size() - 1] << "\t" << endl;
@@ -1395,6 +1397,8 @@ namespace vg {
                         break;
                     }
                 }
+
+
                 if (!variant_acceptable) {
                     // Skip variants that have symbolic alleles or other nonsense we can't parse.
                     variant_source.handle_buffer();
@@ -1406,13 +1410,14 @@ namespace vg {
                     // Add it in
                     chunk_variants.push_back(*(vvar));
                     // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                    chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+
+                    chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size() );
 
                     // Try the next variant
                     variant_source.handle_buffer();
                     variant_source.fill_buffer();
 
-                } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->position < chunk_start + bases_per_chunk) {
+                } else if(chunk_variants.size() < vars_per_chunk && vvar->position < chunk_start + bases_per_chunk) {
                     // Otherwise if this variant is close enough and the chunk isn't too big yet, put it in and try the next.
 
                     // TODO: unify with above code?
