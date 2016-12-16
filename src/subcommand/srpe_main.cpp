@@ -14,6 +14,7 @@
 #include "vg.hpp"
 #include "srpe.hpp"
 #include "filter.hpp"
+#include "utility.hpp"
 
 using namespace std;
 using namespace vg;
@@ -97,7 +98,6 @@ int main_srpe(int argc, char** argv){
                 break;
             case 'S':
                 spec_vcf = optarg;
-                optind++;
                 break;
             case 'h':
             case '?':
@@ -137,6 +137,13 @@ int main_srpe(int argc, char** argv){
         graph = new VG(in, false);
     }
     else{
+
+    }
+
+    // Open a variant call file,
+    // hash each variant to an hash ID
+    // have in if in the loop below.
+    if (!spec_vcf.empty()){
 
     }
 
