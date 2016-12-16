@@ -281,7 +281,7 @@ $(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(INC_DIR)/stre
 $(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $(SRC_DIR)/caller.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(DEPS)
+$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/genotypekit.cpp $(SRC_DIR)/snarls.cpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/pathindex.hpp $(SRC_DIR)/json2pb.h $(DEPS) $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/utility.hpp
@@ -335,7 +335,7 @@ $(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp 
 $(OBJ_DIR)/xg-main.o: $(XG_DIR)/src/main.cpp $(XG_DIR)/src/xg.hpp $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c $(XG_DIR)/src/main.cpp -o $(OBJ_DIR)/xg-main.o $(LD_INCLUDE_FLAGS) -I$(INC_DIR)/dynamic
 
-$(OBJ_DIR)/phased_genome.o: $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/phased_genome.hpp $(DEPS)
+$(OBJ_DIR)/phased_genome.o: $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/snarls.cpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(OBJ_DIR)/multipath_alignment.o: $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/multipath_alignment.hpp $(DEPS)

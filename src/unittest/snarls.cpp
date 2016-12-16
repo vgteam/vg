@@ -78,7 +78,7 @@ namespace vg {
                                            top_level_snarls[0]->end().backward()));
                 REQUIRE(top_level_correct);
                 
-                const vector<const Snarl*>& middle_level_snarls = snarl_manager.children_of(*top_level_snarls[0]);
+                const vector<const Snarl*>& middle_level_snarls = snarl_manager.children_of(top_level_snarls[0]);
                 REQUIRE(middle_level_snarls.size() == 1);
                 
                 bool middle_level_correct = ((middle_level_snarls[0]->start().node_id() == n2->id() &&
@@ -91,7 +91,7 @@ namespace vg {
                                               middle_level_snarls[0]->end().backward()));
                 REQUIRE(middle_level_correct);
                 
-                const vector<const Snarl*>& bottom_level_snarls = snarl_manager.children_of(*middle_level_snarls[0]);
+                const vector<const Snarl*>& bottom_level_snarls = snarl_manager.children_of(middle_level_snarls[0]);
                 REQUIRE(bottom_level_snarls.size() == 1);
                 
                 bool bottom_level_correct = ((bottom_level_snarls[0]->start().node_id() == n3->id() &&
@@ -139,24 +139,17 @@ namespace vg {
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
                 
-                pair<vector<Node*>, vector<Edge*> > contents;
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
                         (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = snarl_manager.shallow_contents(*snarl, graph);
+                        contents = snarl_manager.shallow_contents(snarl, graph, false);
+                        break;
                     }
                 }
                 
-                set<Node*> nodes;
-                set<Edge*> edges;
-                
-                for (Node* node : contents.first) {
-                    nodes.insert(node);
-                }
-                
-                for (Edge* edge : contents.second) {
-                    edges.insert(edge);
-                }
+                unordered_set<Node*>& nodes = contents.first;
+                unordered_set<Edge*>& edges = contents.second;
                 
                 REQUIRE(nodes.size() == 2);
                 
@@ -203,24 +196,17 @@ namespace vg {
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
                 
-                pair<vector<Node*>, vector<Edge*> > contents;
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
                         (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = snarl_manager.deep_contents(*snarl, graph);
+                        contents = snarl_manager.deep_contents(snarl, graph, false);
+                        break;
                     }
                 }
                 
-                set<Node*> nodes;
-                set<Edge*> edges;
-                
-                for (Node* node : contents.first) {
-                    nodes.insert(node);
-                }
-                
-                for (Edge* edge : contents.second) {
-                    edges.insert(edge);
-                }
+                unordered_set<Node*>& nodes = contents.first;
+                unordered_set<Edge*>& edges = contents.second;
                 
                 REQUIRE(nodes.size() == 6);
                 
@@ -288,24 +274,17 @@ namespace vg {
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
                 
-                pair<vector<Node*>, vector<Edge*> > contents;
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
                         (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = snarl_manager.shallow_contents(*snarl, graph);
+                        contents = snarl_manager.shallow_contents(snarl, graph, false);
+                        break;
                     }
                 }
                 
-                set<Node*> nodes;
-                set<Edge*> edges;
-                
-                for (Node* node : contents.first) {
-                    nodes.insert(node);
-                }
-                
-                for (Edge* edge : contents.second) {
-                    edges.insert(edge);
-                }
+                unordered_set<Node*>& nodes = contents.first;
+                unordered_set<Edge*>& edges = contents.second;
                 
                 REQUIRE(nodes.size() == 3);
                 
@@ -366,24 +345,17 @@ namespace vg {
                 
                 const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
                 
-                pair<vector<Node*>, vector<Edge*> > contents;
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
                 for (const Snarl* snarl : top_level_snarls) {
                     if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
                         (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = snarl_manager.deep_contents(*snarl, graph);
+                        contents = snarl_manager.deep_contents(snarl, graph, false);
+                        break;
                     }
                 }
                 
-                set<Node*> nodes;
-                set<Edge*> edges;
-                
-                for (Node* node : contents.first) {
-                    nodes.insert(node);
-                }
-                
-                for (Edge* edge : contents.second) {
-                    edges.insert(edge);
-                }
+                unordered_set<Node*>& nodes = contents.first;
+                unordered_set<Edge*>& edges = contents.second;
                 
                 REQUIRE(nodes.size() == 4);
                 

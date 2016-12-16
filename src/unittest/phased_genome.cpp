@@ -714,7 +714,7 @@ namespace vg {
                 
                 // find the site we want to switch
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
-                const Snarl* subsite = snarl_manager.children_of(*site)[0];
+                const Snarl* subsite = snarl_manager.children_of(site)[0];
                 
                 genome.swap_alleles(*site, 0, 1);
                 genome.set_allele(*subsite, allele.begin(), allele.end(), 1);
@@ -772,7 +772,7 @@ namespace vg {
                 PhasedGenome genome = PhasedGenome(snarl_manager);
                 
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
-                const Snarl* subsite = snarl_manager.children_of(*site)[0];
+                const Snarl* subsite = snarl_manager.children_of(site)[0];
                 
                 // add haplotypes
                 
@@ -897,7 +897,7 @@ namespace vg {
                 PhasedGenome genome = PhasedGenome(snarl_manager);
                 
                 const Snarl* site = snarl_manager.top_level_snarls()[0];
-                const Snarl* subsite = snarl_manager.children_of(*site)[0];
+                const Snarl* subsite = snarl_manager.children_of(site)[0];
                 
                 list<NodeTraversal> haplotype_1;
                 list<NodeTraversal> haplotype_2;

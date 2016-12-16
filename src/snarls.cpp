@@ -7,11 +7,11 @@
 #include "json2pb.h"
 
 namespace vg {
-    const vector<const Snarl*>& SnarlManager::children_of(const Snarl& snarl) {
+    const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) {
         return children[key_form(snarl)];
     }
     
-    const Snarl* SnarlManager::parent_of(const Snarl& snarl) {
+    const Snarl* SnarlManager::parent_of(const Snarl* snarl) {
         return parent[key_form(snarl)];
     }
     
@@ -26,9 +26,54 @@ namespace vg {
         }
     }
     
-    inline pair<pair<int64_t, bool>, pair<int64_t, bool> > SnarlManager::key_form(const Snarl& snarl) {
-        return make_pair(make_pair(snarl.start().node_id(), snarl.start().backward()),
-                         make_pair(snarl.end().node_id(), snarl.end().backward()));
+    void SnarlManager::for_each_top_level_snarl(const function<void(const Snarl&)>& lambda) {
+        for (const Snarl* snarl : roots) {
+            lambda(*snarl);
+        }
+    }
+    
+    void SnarlManager::flip(const Snarl* snarl) {
+        
+        // kinda ugly workaround of constness that avoids exposing non-const pointers while
+        // still letting client edit Snarls in this controlled manner
+        
+        // get the offset of this snarl in the master list
+        int64_t offset = (intptr_t) snarl - (intptr_t) snarls.data();
+        // make sure this pointer is aligned to the
+        if (offset % sizeof(Snarl) != 0) {
+            cerr << "error:[SnarlManager] attempted to flip a Snarl with a pointer that is not owned by SnarlManager" << endl;
+            assert(0);
+        }
+        
+        Snarl& to_flip = snarls[offset / sizeof(Snarl)];
+        
+        // save the key used in the indices before editing the snarl
+        auto old_key = key_form(snarl);
+        
+        // swap and reverse the start and end Visits
+        int64_t start_id = to_flip.start().node_id();
+        bool start_orientation = to_flip.start().backward();
+        
+        to_flip.mutable_start()->set_node_id(to_flip.end().node_id());
+        to_flip.mutable_start()->set_backward(!to_flip.end().backward());
+        
+        to_flip.mutable_end()->set_node_id(start_id);
+        to_flip.mutable_end()->set_backward(!start_orientation);
+        
+        // update parent index
+        parent[key_form(snarl)] = parent[old_key];
+        parent.erase(old_key);
+        
+        // update children index
+        // TODO: is there a way to do this without deep-copying the vector?
+        children[key_form(snarl)] = children[old_key];
+        children.erase(old_key);
+    }
+    
+    // can include definition of inline function apart from forward declaration b/c only used in this file
+    inline pair<pair<int64_t, bool>, pair<int64_t, bool> > SnarlManager::key_form(const Snarl* snarl) {
+        return make_pair(make_pair(snarl->start().node_id(), snarl->start().backward()),
+                         make_pair(snarl->end().node_id(), snarl->end().backward()));
     }
     
     void SnarlManager::build_trees() {
@@ -36,26 +81,26 @@ namespace vg {
         for (Snarl& snarl : snarls) {
             
             // ensures that all snarls are in the children map
-            if (!children.count(key_form(snarl))) {
-                children.insert(make_pair(key_form(snarl), vector<const Snarl*>()));
+            if (!children.count(key_form(&snarl))) {
+                children.insert(make_pair(key_form(&snarl), vector<const Snarl*>()));
             }
             
             // is this a top-level snarl?
             if (snarl.has_parent()) {
                 // add parent to child-to-parent index
-                parent.insert(make_pair(key_form(snarl), &snarl));
+                parent.insert(make_pair(key_form(&snarl), &snarl));
                 
                 // add this snarl to the parent-to-children index
-                if (!children.count(key_form(snarl.parent()))) {
-                    children.insert(make_pair(key_form(snarl.parent()), vector<const Snarl*>(1, &snarl)));
+                if ( !children.count(key_form(&(snarl.parent()))) ) {
+                    children.insert(make_pair(key_form(&snarl.parent()), vector<const Snarl*>(1, &snarl)));
                 }
                 else {
-                    children[key_form(snarl.parent())].push_back(&snarl);
+                    children[key_form(&(snarl.parent()))].push_back(&snarl);
                 }
             }
             else {
                 // add null parent to index
-                parent.insert(make_pair(key_form(snarl), nullptr));
+                parent.insert(make_pair(key_form(&snarl), nullptr));
                 
                 // record top level status
                 roots.push_back(&snarl);
@@ -63,7 +108,8 @@ namespace vg {
         }
     }
     
-    pair<vector<Node*>, vector<Edge*> > SnarlManager::shallow_contents(const Snarl& snarl, VG& graph) {
+    pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
+                                                                                     bool include_boundary_nodes) {
         
         // construct maps that lets us "skip over" child snarls
         map<Node*, const Snarl*> child_snarl_starts;
@@ -73,22 +119,25 @@ namespace vg {
             child_snarl_ends.insert(make_pair(graph.get_node(subsnarl->end().node_id()), subsnarl));
         }
         
-        unordered_set<Node*> nodes;
-        unordered_set<Edge*> edges;
+        pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
         
-        set<Node*> already_stacked;
+        unordered_set<Node*> already_stacked;
         
         // initialize stack for DFS traversal of site
         vector<Node*> stack;
         
-        Node* start_node = graph.get_node(snarl.start().node_id());
-        Node* end_node = graph.get_node(snarl.end().node_id());
+        Node* start_node = graph.get_node(snarl->start().node_id());
+        Node* end_node = graph.get_node(snarl->end().node_id());
         
         // mark the boundary nodes as already stacked so that paths will terminate on them
         already_stacked.insert(start_node);
         already_stacked.insert(end_node);
         
-        // note: do not record the boundary nodes in the node list
+        // add boundary nodes as directed
+        if (include_boundary_nodes) {
+            to_return.first.insert(start_node);
+            to_return.first.insert(end_node);
+        }
         
         vector<Edge*> edges_of_node;
         
@@ -97,7 +146,7 @@ namespace vg {
         for (Edge* edge : edges_of_node) {
             
             // does the edge point into the snarl?
-            if (edge->from() == snarl.start().node_id() && edge->from_start() == snarl.start().backward()) {
+            if (edge->from() == snarl->start().node_id() && edge->from_start() == snarl->start().backward()) {
 
                 Node* node = graph.get_node(edge->to());
                 
@@ -106,9 +155,9 @@ namespace vg {
                     already_stacked.insert(node);
                 }
 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
-            else if (edge->to() == snarl.start().node_id() && edge->to_end() != snarl.start().backward()) {
+            else if (edge->to() == snarl->start().node_id() && edge->to_end() != snarl->start().backward()) {
 
                 Node* node = graph.get_node(edge->from());
                 
@@ -117,7 +166,7 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
         }
         edges_of_node.clear();
@@ -126,7 +175,7 @@ namespace vg {
         graph.edges_of_node(end_node, edges_of_node);
         for (Edge* edge : edges_of_node) {
             // does the edge point into the snarl?
-            if (edge->from() == snarl.end().node_id() && edge->from_start() != snarl.start().backward()) {
+            if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->start().backward()) {
                 
                 Node* node = graph.get_node(edge->to());
                 
@@ -135,9 +184,9 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
-            else if (edge->to() == snarl.start().node_id() && edge->to_end() == snarl.start().backward()) {
+            else if (edge->to() == snarl->start().node_id() && edge->to_end() == snarl->start().backward()) {
                 
                 Node* node = graph.get_node(edge->from());
                 
@@ -146,7 +195,7 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
         }
         edges_of_node.clear();
@@ -160,8 +209,8 @@ namespace vg {
             stack.pop_back();
             
             // record that this node is in the snarl
-            nodes.insert(node);
-                        
+            to_return.first.insert(node);
+            
             // are either the ends of the node facing into a snarl?
             bool forward_is_snarl = false;
             bool backward_is_snarl = false;
@@ -213,7 +262,7 @@ namespace vg {
                     if ((edge->from_start() && !backward_is_snarl) ||
                         (!edge->from_start() && !forward_is_snarl)) {
                         
-                        edges.insert(edge);
+                        to_return.second.insert(edge);
                         Node* next_node = graph.get_node(edge->to());
                         
                         if (!already_stacked.count(next_node)) {
@@ -228,7 +277,7 @@ namespace vg {
                     if ((edge->to_end() && !forward_is_snarl) ||
                         (!edge->to_end() && !backward_is_snarl)) {
                         
-                        edges.insert(edge);
+                        to_return.second.insert(edge);
                         Node* next_node = graph.get_node(edge->from());
                         
                         if (!already_stacked.count(next_node)) {
@@ -243,38 +292,31 @@ namespace vg {
             edges_of_node.clear();
         }
         
-        // put the nodes and edges that DFS traversed into the return vector
-        pair<vector<Node*>, vector<Edge*> > to_return;
-        
-        for (Node* node : nodes) {
-            to_return.first.push_back(node);
-        }
-        
-        for (Edge* edge : edges) {
-            to_return.second.push_back(edge);
-        }
-        
         return to_return;
     }
     
-    pair<vector<Node*>, vector<Edge*> > SnarlManager::deep_contents(const Snarl& snarl, VG& graph) {
+    pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::deep_contents(const Snarl* snarl, VG& graph,
+                                                                                  bool include_boundary_nodes) {
         
-        unordered_set<Node*> nodes;
-        unordered_set<Edge*> edges;
+        pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
         
-        set<Node*> already_stacked;
+        unordered_set<Node*> already_stacked;
         
         // initialize stack for DFS traversal of site
         vector<Node*> stack;
         
-        Node* start_node = graph.get_node(snarl.start().node_id());
-        Node* end_node = graph.get_node(snarl.end().node_id());
+        Node* start_node = graph.get_node(snarl->start().node_id());
+        Node* end_node = graph.get_node(snarl->end().node_id());
         
         // mark the boundary nodes as already stacked so that paths will terminate on them
         already_stacked.insert(start_node);
         already_stacked.insert(end_node);
         
-        // note: do not record the boundary nodes in the node list
+        // add boundary nodes as directed
+        if (include_boundary_nodes) {
+            to_return.first.insert(start_node);
+            to_return.first.insert(end_node);
+        }
         
         vector<Edge*> edges_of_node;
         
@@ -282,7 +324,7 @@ namespace vg {
         graph.edges_of_node(start_node, edges_of_node);
         for (Edge* edge : edges_of_node) {
             // does the edge point into the snarl?
-            if (edge->from() == snarl.start().node_id() && edge->from_start() == snarl.start().backward()) {
+            if (edge->from() == snarl->start().node_id() && edge->from_start() == snarl->start().backward()) {
                 
                 Node* node = graph.get_node(edge->to());
                 
@@ -291,9 +333,9 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
-            else if (edge->to() == snarl.start().node_id() && edge->to_end() != snarl.start().backward()) {
+            else if (edge->to() == snarl->start().node_id() && edge->to_end() != snarl->start().backward()) {
                 
                 Node* node = graph.get_node(edge->from());
                 
@@ -302,7 +344,7 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
         }
         edges_of_node.clear();
@@ -311,7 +353,7 @@ namespace vg {
         graph.edges_of_node(end_node, edges_of_node);
         for (Edge* edge : edges_of_node) {
             // does the edge point into the snarl?
-            if (edge->from() == snarl.end().node_id() && edge->from_start() != snarl.start().backward()) {
+            if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->start().backward()) {
                 
                 Node* node = graph.get_node(edge->to());
                 
@@ -320,9 +362,9 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
-            else if (edge->to() == snarl.start().node_id() && edge->to_end() == snarl.start().backward()) {
+            else if (edge->to() == snarl->start().node_id() && edge->to_end() == snarl->start().backward()) {
                 
                 Node* node = graph.get_node(edge->from());
                 
@@ -331,7 +373,7 @@ namespace vg {
                     already_stacked.insert(node);
                 }
                 
-                edges.insert(edge);
+                to_return.second.insert(edge);
             }
         }
         edges_of_node.clear();
@@ -345,12 +387,12 @@ namespace vg {
             stack.pop_back();
             
             // record that this node is in the snarl
-            nodes.insert(node);
+            to_return.first.insert(node);
             
             graph.edges_of_node(node, edges_of_node);
             
             for (Edge* edge : edges_of_node) {
-                edges.insert(edge);
+                to_return.second.insert(edge);
                 // get the other end of the edge
                 Node* next_node = edge->from() == node->id() ? graph.get_node(edge->to()) :
                                                                graph.get_node(edge->from());
@@ -361,17 +403,6 @@ namespace vg {
             }
             
             edges_of_node.clear();
-        }
-        
-        // put the nodes and edges that DFS traversed into the return vector
-        pair<vector<Node*>, vector<Edge*> > to_return;
-        
-        for (Node* node : nodes) {
-            to_return.first.push_back(node);
-        }
-        
-        for (Edge* edge : edges) {
-            to_return.second.push_back(edge);
         }
         
         return to_return;
