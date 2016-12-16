@@ -6,6 +6,7 @@
 #include "vg.hpp"
 #include "constructor.hpp"
 
+#include <cstdlib>
 #include <set>
 #include <tuple>
 #include <list>
@@ -1299,11 +1300,9 @@ namespace vg {
                             }
 
                         if (vvar->info.find("SVLEN") != vvar->info.end()){
-
-                            sv_len = (size_t) (uint32_t) stol(vvar->info["SVLEN"][alt_pos]);
+                            sv_len = (size_t) abs(stol(vvar->info["SVLEN"][alt_pos]));
                         }
                         else if (vvar->info.find("END") != vvar->info.end()){
-
                             sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
                         }
                         else{
@@ -1344,6 +1343,7 @@ namespace vg {
                                 cerr << "Variant made is incorrect size" << endl;
                                 cerr << vvar->ref.size() - 1 << "\t" << sv_len << endl;
                                 cerr <<vvar->ref[vvar->ref.size() - 1] << "\t" << endl;
+                                variant_acceptable = false;
                                 //  exit(1);
                             }
                             vvar->updateAlleleIndexes();

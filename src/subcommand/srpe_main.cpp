@@ -156,7 +156,7 @@ int main_srpe(int argc, char** argv){
         vector<Support> supports;
 
         for (auto r_path : (graph->paths)._paths){
-            if (!regex_match(x_path.first, is_alt)){
+            if (!regex_match(r_path.first, is_alt)){
                 pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
             }
         }
