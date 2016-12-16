@@ -1679,7 +1679,7 @@ int main_pileup(int argc, char** argv) {
             int tid = omp_get_thread_num();
             pileups[tid].compute_from_alignment(aln);
         };
-        stream::for_each_parallel_batched(alignment_stream, lambda);
+        stream::for_each_parallel(alignment_stream, lambda);
     });
 
     // single-threaded (!) merge
@@ -4027,7 +4027,7 @@ int main_stats(int argc, char** argv) {
         };
 
         // Actually go through all the reads and count stuff up.
-        stream::for_each_parallel_batched(alignment_stream, lambda);
+        stream::for_each_parallel(alignment_stream, lambda);
 
         // Calculate stats about the reads per allele data
         for(auto& site_and_alleles : reads_on_allele) {
@@ -6101,7 +6101,7 @@ int main_map(int argc, char** argv) {
                     }
                 }
             };
-            gam_paired_interleaved_for_each_parallel(gam_in, lambda);
+            stream::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
