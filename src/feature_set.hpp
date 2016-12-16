@@ -41,6 +41,8 @@ public:
         size_t first;
         /// What is the last base's position on the path, inclusive?
         size_t last;
+        /// What is the feature name?
+        string feature_name;
         
         /// What extra BED data should we bring along with this feature?
         /// TODO: BED blocks are not parsed and updated, but they should be.
