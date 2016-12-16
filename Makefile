@@ -88,6 +88,7 @@ OBJ += $(OBJ_DIR)/flow_sort.o
 OBJ += $(OBJ_DIR)/homogenizer.o
 OBJ += $(OBJ_DIR)/path_index.o
 OBJ += $(OBJ_DIR)/phase_duplicator.o
+OBJ += $(OBJ_DIR)/feature_set.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -399,6 +400,8 @@ $(OBJ_DIR)/path_index.o: $(SRC_DIR)/path_index.cpp $(SRC_DIR)/path_index.hpp $(D
 
 $(OBJ_DIR)/phase_duplicator.o: $(SRC_DIR)/phase_duplicator.cpp $(SRC_DIR)/phase_duplicator.hpp $(SRC_DIR)/types.hpp $(DEPS)
 
+$(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/types.hpp $(DEPS)
+
 ###################################
 ## VG unit test compilation begins here
 ####################################
@@ -438,7 +441,7 @@ $(SUBCOMMAND_OBJ_DIR)/subcommand.o: $(SUBCOMMAND_SRC_DIR)/subcommand.cpp $(SUBCO
 
 $(SUBCOMMAND_OBJ_DIR)/construct_main.o: $(SUBCOMMAND_SRC_DIR)/construct_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/constructor.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/simplify_main.o: $(SUBCOMMAND_SRC_DIR)/simplify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/simplify_main.o: $(SUBCOMMAND_SRC_DIR)/simplify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.cpp $(OBJ_DIR)/homogenizer.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/vg.o
 

@@ -1,10 +1,11 @@
-// simplify.cpp: define the "vg simplify" subcommand, which removes small variation
+// simplify_main.cpp: define the "vg simplify" subcommand, which removes small variation
 
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
 
 #include <list>
+#include <fstream>
 
 #include "subcommand.hpp"
 
@@ -12,6 +13,10 @@
 // This provides the CactusSiteFinder
 #include "../genotypekit.hpp"
 #include "../utility.hpp"
+#include "../path.hpp"
+#include "../feature_set.hpp"
+#include "../path_index.hpp"
+
 
 
 using namespace std;
@@ -19,11 +24,13 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_simplify(char** argv) {
-    cerr << "usage: " << argv[0] << " simplify [options] <old.vg >new.vg" << endl
+    cerr << "usage: " << argv[0] << " simplify [options] old.vg >new.vg" << endl
          << "options:" << endl
          << "    -m, --min-size N       remove leaf sites with fewer than N bases involved (default: 10)" << endl
          << "    -i, --max-iterations N perform up to N iterations of simplification (default: 10)" << endl
          << "    -p, --progress         show progress" << endl
+         << "    -b, --bed-in           read in the given BED file in the cordinates of the original paths" << endl
+         << "    -B, --bed-out          output transformed features in the coordinates of the new paths" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl;
 }
 
@@ -37,6 +44,8 @@ int main_simplify(int argc, char** argv) {
 
     size_t min_size = 10;
     size_t max_iterations = 10;
+    string bed_in_filename;
+    string bed_out_filename;
     bool show_progress = false;
 
     int c;
@@ -47,13 +56,15 @@ int main_simplify(int argc, char** argv) {
                 {"min-size", required_argument, 0, 'm'},
                 {"max-iterations", required_argument, 0, 'i'},
                 {"progress",  no_argument, 0, 'p'},
+                {"bed-in", required_argument, 0, 'b'},
+                {"bed-out", required_argument, 0, 'B'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "m:i:pt:h?",
+        c = getopt_long (argc, argv, "m:i:pb:B:t:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -73,6 +84,14 @@ int main_simplify(int argc, char** argv) {
 
         case 'p':
             show_progress = true;
+            break;
+            
+        case 'b':
+            bed_in_filename = optarg;
+            break;
+        
+        case 'B':
+            bed_out_filename = optarg;
             break;
 
         case 't':
@@ -99,6 +118,15 @@ int main_simplify(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in, show_progress);
     });
+    
+    // Make a FeatureSet to manage BED files
+    FeatureSet features;
+    
+    if (!bed_in_filename.empty()) {
+        // Load BED features
+        ifstream bed_stream(bed_in_filename.c_str());
+        features.load_bed(bed_stream);
+    }
     
     // We need this to get the bubble tree
     CactusSiteFinder site_finder(*graph, "");
@@ -135,7 +163,6 @@ int main_simplify(int argc, char** argv) {
             cerr << "Iteration " << iteration << ": Scanning " << graph->node_count() << " nodes and "
                 << graph->edge_count() << " edges for sites..." << endl;
         }
-            
         
         site_finder.for_each_site_parallel([&](NestedSite root) {
             // For every tree of sites
@@ -147,7 +174,7 @@ int main_simplify(int argc, char** argv) {
             #pragma omp critical (cerr)
             cerr << "Found root site with " << root.children.size() << " children" << endl;
 #endif
-            
+
             while (!to_check.empty()) {
                 // Until we have seen all the sites, check one
                 NestedSite& check = *(to_check.front());
@@ -201,6 +228,13 @@ int main_simplify(int argc, char** argv) {
             cerr << "Found " << leaves.size() << " leaves" << endl;
         }
         
+        // Index all the graph paths
+        map<string, unique_ptr<PathIndex>> path_indexes;
+        graph->paths.for_each_name([&](const string& name) {
+            // For every path name, go index it and put it in this collection
+            path_indexes.insert(make_pair(name, move(unique_ptr<PathIndex>(new PathIndex(*graph, name)))));
+        });
+        
         // Now we have a list of all the leaf sites.
         graph->create_progress("simplifying leaves", leaves.size());
         
@@ -219,13 +253,6 @@ int main_simplify(int argc, char** argv) {
                 total_size += node->sequence().size();
             }
             
-#ifdef debug
-            cerr << "Found " << total_size << " bp leaf" << endl;
-            for (auto* node : leaf.nodes) {
-                cerr << "\t" << node->id() << ": " << node->sequence() << endl;
-            }
-#endif
-            
             if (total_size == 0) {
                 // This site is just the start and end nodes, so it doesn't make
                 // sense to try and remove it.
@@ -236,6 +263,13 @@ int main_simplify(int argc, char** argv) {
                 // This site is too big to remove
                 continue;
             }
+            
+#ifdef debug
+            cerr << "Found " << total_size << " bp leaf" << endl;
+            for (auto* node : leaf.nodes) {
+                cerr << "\t" << node->id() << ": " << node->sequence() << endl;
+            }
+#endif
             
             // Otherwise we want to simplify this site away
             
@@ -250,6 +284,20 @@ int main_simplify(int argc, char** argv) {
             // Get the collection of visits in the traversal we want to keep.
             // Copy them into a vector for random access.
             vector<SiteTraversal::Visit> visits{traversals.front().visits.begin(), traversals.front().visits.end()};
+            
+            // Determine the length of the new traversal
+            size_t new_site_length = 0;
+            for (size_t i = 1; i + 1 < visits.size(); i++) {
+                // For every non-anchoring node
+                auto& visit = visits[i];
+                // Total up the lengths of all the nodes that are newly visited.
+                assert(visit.node != nullptr);
+                new_site_length += visit.node->sequence().size();
+            }
+
+#ifdef debug
+            cerr << "Chosen traversal is " << new_site_length << " bp" << endl;
+#endif
             
             // Now we have to rewrite paths that visit nodes/edges not on this
             // traversal, or in a different order, or whatever. To be safe we'll
@@ -294,6 +342,9 @@ int main_simplify(int argc, char** argv) {
                     bool found_end = false;
                     Mapping* here = start_mapping;
                     
+                    // We want to remember the end mapping when we find it
+                    Mapping* end_mapping = nullptr;
+                    
 #ifdef debug
                     cerr << "Scanning " << path_name << " from " << pb2json(*here)
                         << " for " << leaf.end << " orientation " << backward << endl;
@@ -313,6 +364,7 @@ int main_simplify(int argc, char** argv) {
                             // for the start.
                             
                             found_end = true;
+                            end_mapping = here;
                             
                             // Know we got to this mapping at the end from the
                             // start, so we don't need to clobber everything
@@ -374,6 +426,7 @@ int main_simplify(int argc, char** argv) {
                         break;
                     }
                     
+                    
                     if (!found_end) {
                         // This path only partly traverses the site, and is
                         // anchored at the start. Remove the part inside the site.
@@ -384,6 +437,8 @@ int main_simplify(int argc, char** argv) {
                             // Trim the path out of the site
                             graph->paths.remove_mapping(mapping);
                         }
+                        
+                        // TODO: update feature positions if we trim off the start of a path
 
                         // Maybe the next time the path visits the site it will go
                         // all the way through.
@@ -399,6 +454,36 @@ int main_simplify(int argc, char** argv) {
                         existing_mappings.reverse();
                     }
                     
+                    // Where does the variable region of the site start for this
+                    // traversal of the path? If there are no existing mappings,
+                    // it's the start mapping's position if we traverse the site
+                    // backwards and the end mapping's position if we traverse
+                    // the site forwards. If there are existing mappings, it's
+                    // the first existing mapping's position in the path. TODO:
+                    // This is super ugly. Can we view the site in path
+                    // coordinates or something?
+                    PathIndex& path_index = *path_indexes.at(path_name).get();
+                    Mapping* mapping_after_first = existing_mappings.empty() ?
+                        (backward ? start_mapping : end_mapping) : existing_mappings.front();
+                    assert(path_index.mapping_positions.count(mapping_after_first));
+                    size_t variable_start = path_index.mapping_positions.at(mapping_after_first); 
+                    
+                    
+                    
+                    // Determine the total length of the old traversal of the site
+                    size_t old_site_length = 0;
+                    for (auto* mapping : existing_mappings) {
+                        // Add in the lengths of all the mappings that will get
+                        // removed.
+                        old_site_length += mapping_from_length(*mapping);
+                    }
+#ifdef debug
+                    cerr << "Replacing " << old_site_length << " bp at " << variable_start
+                        << " with " << new_site_length << " bp" << endl;
+#endif
+
+                    // Actually update any BED features
+                    features.on_path_edit(path_name, variable_start, old_site_length, new_site_length);
                     
                     // Where will we insert the new site traversal into the path?
                     list<Mapping>::iterator insert_position;
@@ -412,9 +497,9 @@ int main_simplify(int argc, char** argv) {
                             // removed. At the end we'll have the position of the
                             // mapping to the end of the site.
                             
-    #ifdef debug
+#ifdef debug
                             cerr << path_name << ": Drop mapping " << pb2json(*mapping) << endl;
-    #endif
+#endif
                             
                             insert_position = graph->paths.remove_mapping(mapping);
                         }
@@ -467,6 +552,10 @@ int main_simplify(int argc, char** argv) {
                         insert_position = graph->paths.insert_mapping(insert_position, path_name, new_mapping);
                         
                     }
+                    
+                    // Now we've corrected this site on this path. Update its index.
+                    // TODO: right now this means retracing the entire path.
+                    path_indexes[path_name].get()->update_mapping_positions(*graph, path_name);
                 }
                 
                 if (kill_path) {
@@ -476,6 +565,7 @@ int main_simplify(int argc, char** argv) {
                 }
                 
             }
+            
             
             // It's possible a path can enter the site through the end node and
             // never hit the start. So we're going to trim those back before we delete nodes and edges.
@@ -598,7 +688,27 @@ int main_simplify(int argc, char** argv) {
 #ifdef debug
                     cerr << leaf.start << " - " << leaf.end << ": Delete node: " << pb2json(*node) << endl;
 #endif
+                    // There may be paths still touching this node, if they
+                    // managed to get into the site without touching the start
+                    // node. We'll delete those paths.
+                    set<string> paths_to_kill;
+                    for (auto& kv : graph->paths.get_node_mapping(node)) {
+                    
+                        if (mappings_by_path.count(kv.first)) {
+                            // We've already actually updated this path; the
+                            // node_mapping data is just out of date.
+                            continue;
+                        }
+                    
+                        paths_to_kill.insert(kv.first);
+                    }
+                    for (auto& path : paths_to_kill) {
+                        graph->paths.remove_path(path);
+                        cerr << "warning:[vg simplify] Path " << path << " removed" << endl;
+                    }
+
                     graph->destroy_node(node);
+                    
                     deleted_nodes++;
                 }
             }
@@ -622,6 +732,12 @@ int main_simplify(int argc, char** argv) {
     
     // Serialize the graph
     graph->serialize_to_ostream(std::cout);
+    
+    if (!bed_out_filename.empty()) {
+        // Save BED features
+        ofstream bed_stream(bed_out_filename.c_str());
+        features.save_bed(bed_stream);
+    }
     
     delete graph;
 
