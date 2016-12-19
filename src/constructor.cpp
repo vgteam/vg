@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <memory>
 
-#define debug TRUE
 
 namespace vg {
 
