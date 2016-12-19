@@ -1413,6 +1413,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     Alignment merged = merge_alignments(alns);
     // TODO RECALCULATE QUALITY BASED ON SCORING
     merged.set_score(score_alignment(merged));
+    merged.set_identity(identity(merged.path()));
     merged.set_quality(read.quality());
     merged.set_name(read.name());
 
