@@ -5237,7 +5237,7 @@ void help_map(char** argv) {
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
          << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
+         << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 1)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only       only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -5326,7 +5326,8 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_pairing_multimaps = 4;
+    int extra_multimaps = 1;
+    int max_mapping_quality = 64;
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
@@ -5388,7 +5389,7 @@ int main_map(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, '1'},
-                {"pairing-multimaps", required_argument, 0, 'u'},
+                {"extra-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", no_argument, 0, 'w'},
                 {"fragment-max", required_argument, 0, 'W'},
@@ -5602,7 +5603,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'u':
-            extra_pairing_multimaps = atoi(optarg);
+            extra_multimaps = atoi(optarg);
             break;
 
         case 'v':
@@ -5800,12 +5801,13 @@ int main_map(int argc, char** argv) {
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
-        m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
         m->full_length_alignment_bonus = full_length_bonus;
+        m->max_mapping_quality = max_mapping_quality;
         mapper[i] = m;
     }
 
