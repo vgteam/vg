@@ -5358,7 +5358,7 @@ int main_map(int argc, char** argv) {
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
                 {"hit-max", required_argument, 0, 'm'},
-                {"max-multimaps", required_argument, 0, 'N'},
+                {"max-multimaps", required_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"gam-input", required_argument, 0, 'G'},

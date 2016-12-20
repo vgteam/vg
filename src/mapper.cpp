@@ -1675,7 +1675,7 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
     
 // filters down to requested number of alignments and marks
 void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int additional_multimaps) {
-    int total_multimaps = max_multimaps + additional_multimaps;
+    int total_multimaps = max_multimaps;
     if (sorted_unique_alignments.size() > total_multimaps){
         sorted_unique_alignments.resize(total_multimaps);
     }
