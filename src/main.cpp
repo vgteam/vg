@@ -1731,6 +1731,7 @@ void help_msga(char** argv) {
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "mem mapping:" << endl
+         << "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
          << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
@@ -1800,6 +1801,7 @@ int main_msga(int argc, char** argv) {
     bool normalize = false;
     bool allow_nonpath = false;
     int iter_max = 1;
+    bool use_mem_threader = true;
     int max_mem_length = 0;
     int min_mem_length = 8;
     bool greedy_accept = false;
@@ -1837,6 +1839,7 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
+                {"no-mem-threader", no_argument, 0, 'l'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'H'},
@@ -1857,7 +1860,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:C",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:C",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1866,6 +1869,10 @@ int main_msga(int argc, char** argv) {
 
         switch (c)
         {
+
+        case 'l':
+            use_mem_threader = false;
+            break;
 
         case 'L':
             min_mem_length = atoi(optarg);
@@ -2166,7 +2173,7 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
-            mapper->mem_threading = true;
+            mapper->mem_threading = use_mem_threader;
 
             // set up the multi-threaded alignment interface
             // TODO abstract this into a single call!!
@@ -2176,7 +2183,6 @@ int main_msga(int argc, char** argv) {
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
             mapper->init_node_cache();
             mapper->init_node_pos_cache();
-            mapper->mem_threading = true;
         }
     };
 
