@@ -5224,7 +5224,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --compare         if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
+         << "    -w, --compare         consider GAM input (-G) as thruth, table of name, overlap with truth, identity, score, mapqual" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
@@ -6061,8 +6061,14 @@ int main_map(int argc, char** argv) {
                 if (compare_gam) {
 #pragma omp critical (cout)
                     {
-                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path()) << endl;
-                        cout << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path()) << endl;
+                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path())
+                                            << "\t" << alnp.first.front().identity()
+                                            << "\t" << alnp.first.front().score()
+                                            << "\t" << alnp.first.front().mapping_quality() << endl
+                             << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path())
+                                            << "\t" << alnp.second.front().identity()
+                                            << "\t" << alnp.second.front().score()
+                                            << "\t" << alnp.second.front().mapping_quality() << endl;
                     }
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
@@ -6137,7 +6143,10 @@ int main_map(int argc, char** argv) {
                 }
                 if (compare_gam) {
 #pragma omp critical (cout)
-                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
+                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
+                                             << "\t" << alignments.front().identity()
+                                             << "\t" << alignments.front().score()
+                                             << "\t" << alignments.front().mapping_quality() << endl;
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);

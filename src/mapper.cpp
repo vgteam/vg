@@ -744,6 +744,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         
         results = make_pair(alignments1, alignments2);
+        compute_mapping_qualities(results);
     }
 
     // change the potential set of MEMs by dropping the maximum MEM size
@@ -809,7 +810,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     if (imperfect_pair && fragment_max) {
-        //cerr << "saving" << endl;
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
