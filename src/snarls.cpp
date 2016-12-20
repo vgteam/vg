@@ -19,16 +19,16 @@ namespace vg {
         return roots;
     }
     
-    void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl&)>& lambda) {
+    void SnarlManager::for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda) {
 #pragma omp parallel for
         for (int i = 0; i < roots.size(); i++) {
-            lambda(*roots[i]);
+            lambda(roots[i]);
         }
     }
     
-    void SnarlManager::for_each_top_level_snarl(const function<void(const Snarl&)>& lambda) {
+    void SnarlManager::for_each_top_level_snarl(const function<void(const Snarl*)>& lambda) {
         for (const Snarl* snarl : roots) {
-            lambda(*snarl);
+            lambda(snarl);
         }
     }
     

@@ -287,19 +287,22 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
     graph.merge(chunk);
     
     // Make a site
-    NestedSite site;
+    Snarl site;
+    site.mutable_start()->set_node_id(2);
+    site.mutable_end()->set_node_id(5);
+    site.set_type(ULTRABUBBLE);
     
-    // Put the 2,3,4,5 replacement in
-    site.nodes.insert(graph.get_node(2));
-    site.nodes.insert(graph.get_node(3));
-    site.nodes.insert(graph.get_node(4));
-    site.nodes.insert(graph.get_node(5));
-    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(3)));
-    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(4)));
-    site.edges.insert(graph.get_edge(NodeSide(3, true), NodeSide(5)));
-    site.edges.insert(graph.get_edge(NodeSide(4, true), NodeSide(5)));
-    site.start = NodeTraversal(graph.get_node(2));
-    site.end = NodeTraversal(graph.get_node(5));
+//    // Put the 2,3,4,5 replacement in
+//    site.nodes.insert(graph.get_node(2));
+//    site.nodes.insert(graph.get_node(3));
+//    site.nodes.insert(graph.get_node(4));
+//    site.nodes.insert(graph.get_node(5));
+//    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(3)));
+//    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(4)));
+//    site.edges.insert(graph.get_edge(NodeSide(3, true), NodeSide(5)));
+//    site.edges.insert(graph.get_edge(NodeSide(4, true), NodeSide(5)));
+//    site.start = NodeTraversal(graph.get_node(2));
+//    site.end = NodeTraversal(graph.get_node(5));
     
     // Make the TraversalFinder
     TraversalFinder* finder = new TrivialTraversalFinder(graph);
@@ -309,21 +312,17 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
         
         REQUIRE(!site_traversals.empty());
         
-        SECTION("the path must visit 3 nodes to span the site") {
-            REQUIRE(site_traversals.front().visits.size() == 3);
+        SECTION("the path must visit 1 node to span the site") {
+            REQUIRE(site_traversals.front().visits_size() == 1);
             
-            SECTION("the path must start at the start") {
-                auto& visit = site_traversals.front().visits.front();
-                REQUIRE(visit.node == site.start.node);
-                REQUIRE(visit.backward == site.start.backward);
-                REQUIRE(visit.child == nullptr);
-            }
-            
-            SECTION("the path must end at the end") {
-                auto& visit = site_traversals.front().visits.back();
-                REQUIRE(visit.node == site.end.node);
-                REQUIRE(visit.backward == site.end.backward);
-                REQUIRE(visit.child == nullptr);
+            SECTION("the site must follow one of the two paths in the correct orientation") {
+                bool followed_path_1 = site_traversals.front().visits(0).node_id() == 3 &&
+                                       site_traversals.front().visits(0).backward() == false;
+                
+                bool followed_path_2 = site_traversals.front().visits(0).node_id() == 4 &&
+                                       site_traversals.front().visits(0).backward() == false;
+                
+                REQUIRE(followed_path_1 != followed_path_2);
             }
         }
     }

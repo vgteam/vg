@@ -1342,15 +1342,15 @@ int call2vcf(
         CactusUltrabubbleFinder finder(vg, refPathName);
         SnarlManager site_manager = finder.find_snarls();
         
-        site_manager.for_each_top_level_snarl_parallel([&](const Snarl& site) {
-            if(!index.byId.count(site.start().node_id()) || !index.byId.count(site.end().node_id())) {
+        site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
+            if(!index.byId.count(site->start().node_id()) || !index.byId.count(site->end().node_id())) {
                 // Skip top-level sites that aren't on the reference path at both ends.
                 return;
             }
         
             // Stick all the sites in this vector.
             #pragma omp critical (sites)
-            site_queue.emplace_back(&site);
+            site_queue.emplace_back(site);
         });
         
         // We're going to run through all the top-level sites and break up the

@@ -171,15 +171,15 @@ class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
     
-    virtual vector<SiteTraversal> find_traversals(const NestedSite& site) = 0;
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
 };
     
     
 
 /**
  * Represents a strategy for computing consistency between Alignments and
- * SiteTraversals. Determines whether a read is consistent with a SiteTraversal
- * or not (but has access to all the SiteTraversals). Polymorphic base
+ * SnarlTraversals. Determines whether a read is consistent with a SnarlTraversal
+ * or not (but has access to all the SnarlTraversals). Polymorphic base
  * class/interface.
  */
 class ConsistencyCalculator {
@@ -190,12 +190,12 @@ public:
      * Return true or false for each tarversal of the site, depending on if the
      * read is consistent with it or not.
      */
-    virtual vector<bool> calculate_consistency(const NestedSite& site, 
-        const vector<SiteTraversal>& traversals, const Alignment& read) const = 0;
+    virtual vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const = 0;
 };
 
 /**
- * Represents a strategy for calculating Supports for SiteTraversals.
+ * Represents a strategy for calculating Supports for SnarlTraversals.
  * Polymorphic base class/interface.
  */ 
 class TraversalSupportCalculator {
@@ -203,14 +203,17 @@ public:
     virtual ~TraversalSupportCalculator() = default;
     
     /**
-     * Return Supports for all the SiteTraversals, given the reads and their
+     * Return Supports for all the SnarlTraversals, given the reads and their
      * consistency flags.
      */
-    virtual vector<Support> calculate_supports(const NestedSite& site, 
-        const vector<SiteTraversal>& traversals, const vector<Alignment*>& reads,
+    virtual vector<Support> calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
         const vector<vector<bool>>& consistencies) const = 0;
 };
 
+// TODO: This needs to be redesigned vis a vis the Genotype object. Genotypes
+// need an accompanying Locus object in order to have the Path of the allele
+// and also they are not site tree aware.
 /**
  * Represents a strategy for calculating genotype likelihood for a (nested)
  * Site. Polymorphic base class/interface.
@@ -222,8 +225,8 @@ public:
     /**
      * Return the log likelihood of the given genotype.
      */
-    virtual double calculate_log_likelihood(const NestedSite& site, 
-        const vector<SiteTraversal>& traversals, const Genotype& genotype,
+    virtual double calculate_log_likelihood(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Genotype& genotype,
         const vector<vector<bool>>& consistencies, const vector<Support>& supports,
         const vector<Alignment*>& reads) = 0;
 };
@@ -325,27 +328,28 @@ public:
 class ExhaustiveTraversalFinder : TraversalFinder {
     
     VG& graph;
+    SnarlManager& snarl_manager;
     
 public:
-    ExhaustiveTraversalFinder(VG& graph);
+    ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager);
     
     virtual ~ExhaustiveTraversalFinder();
     
     /**
-     * Exhaustively enumerate all traversals through the site
-     *
-     * If a traversal includes a NestedSite, the node traversal that enters
-     * the site will not be included (instead it will a site traversal), but 
-     * the node traversal that leaves the site will be included, unless that
-     * node traversal is also enters another site
+     * Exhaustively enumerate all traversals through the site. Only valid for
+     * acyclic Snarls.
      */
-    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+    
+private:
+    void stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack);
     
 };
     
 class ReadRestrictedTraversalFinder : TraversalFinder {
     
     VG& graph;
+    SnarlManager& snarl_manager;
     const map<string, Alignment*>& reads_by_name;
     
     // How many times must a path recur before we try aligning to it? Also, how
@@ -359,8 +363,9 @@ class ReadRestrictedTraversalFinder : TraversalFinder {
     int max_path_search_steps;
     
 public:
-    ReadRestrictedTraversalFinder(VG& graph, const map<string, Alignment*>& reads_by_name,
-                                  int min_recurrence = 2, int max_path_search_steps = 100);
+    ReadRestrictedTraversalFinder(VG& graph, SnarlManager& snarl_manager, const map<string,
+                                  Alignment*>& reads_by_name, int min_recurrence = 2,
+                                  int max_path_search_steps = 100);
     
     virtual ~ReadRestrictedTraversalFinder();
     
@@ -371,14 +376,14 @@ public:
      * the site supported only by reads are subject to a min recurrence count,
      * while those supported by actual embedded named paths are not.
      */
-    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
 };
 
 /**
  * This traversal finder finds one or more traversals through leaf sites with no
  * children. It uses a depth-first search. It doesn't work on non-leaf sites,
- * and is not guaranteed to find all traversals.
+ * and is not guaranteed to find all traversals. Only works on ultrabubbles.
  */
 class TrivialTraversalFinder : public TraversalFinder {
 
@@ -394,7 +399,7 @@ public:
      * Find at least one traversal of the site by depth first search, if any
      * exist. Only works on sites with no children.
      */
-    virtual vector<SiteTraversal> find_traversals(const NestedSite& site);
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 };
 
 /**

@@ -61,10 +61,10 @@ namespace vg {
                                                                         bool include_boundary_nodes);
         
         /// Execute a function on all top level sites
-        void for_each_top_level_snarl(const function<void(const Snarl&)>& lambda);
+        void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
         
         /// Execute a function on all top level sites in parallel
-        void for_each_top_level_snarl_parallel(const function<void(const Snarl&)>& lambda);
+        void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda);
         
     private:
         
@@ -93,6 +93,15 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
+    /// Converts a NodeTraversal to a Visit.
+    inline Visit to_visit(const NodeTraversal& node_traversal);
+    
+    /// Converts a NodeTraversal to a Visit in the opposite orientation.
+    inline Visit to_rev_visit(const NodeTraversal& node_traversal);
+    
+    // Copies the boundary Visits from one Snarl into another
+    inline void transfer_boundary_info(const Snarl& from, Snarl& to);
+    
     /****
      * Template and Inlines:
      ****/
@@ -116,6 +125,26 @@ namespace vg {
         assert(visit.node_id());
         return NodeTraversal(graph.get_node(visit.node_id()), !visit.backward());
     }
+    
+    inline Visit to_visit(const NodeTraversal& node_traversal) {
+        Visit to_return;
+        to_return.set_node_id(node_traversal.node->id());
+        to_return.set_backward(node_traversal.backward);
+        return to_return;
+    }
+    
+    inline Visit to_rev_visit(const NodeTraversal& node_traversal) {
+        Visit to_return;
+        to_return.set_node_id(node_traversal.node->id());
+        to_return.set_backward(!node_traversal.backward);
+        return to_return;
+    }
+    
+    inline void transfer_boundary_info(const Snarl& from, Snarl& to) {
+        *to.mutable_start() = from.start();
+        *to.mutable_end() = from.end();
+    }
+    
 }
 
 // note: this hash funtion is not used internally because we want the internal indices to ignore any
