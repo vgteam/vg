@@ -301,7 +301,6 @@ namespace vg {
                 REQUIRE(edges.count(e9));
             }
             
-            
             SECTION( "SnarlManager can correctly extract the full contents of a snarl containing cycles and tips") {
                 
                 VG graph;
@@ -374,6 +373,41 @@ namespace vg {
                 REQUIRE(edges.count(e7));
                 REQUIRE(edges.count(e8));
                 REQUIRE(edges.count(e9));
+            }            
+            
+            SECTION( "SnarlManager can flip the internal representation of a snarl") {
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("C");
+                Node* n3 = graph.create_node("A");
+                Node* n4 = graph.create_node("CTGA");
+                
+                Edge* e1 = graph.create_edge(n1, n2);
+                Edge* e2 = graph.create_edge(n1, n3);
+                Edge* e3 = graph.create_edge(n2, n4);
+                Edge* e4 = graph.create_edge(n3, n4);
+                
+                Snarl snarl;
+                snarl.mutable_start()->set_node_id(n1->id());
+                snarl.mutable_end()->set_node_id(n4->id());
+                snarl.set_type(ULTRABUBBLE);
+                
+                list<Snarl> snarls;
+                snarls.push_back(snarl);
+                
+                SnarlManager snarl_manager(snarls.begin(), snarls.end());
+                
+                const Snarl* snarl_ref = snarl_manager.top_level_snarls()[0];
+                
+                auto id_start = snarl_ref->start().node_id();
+                auto id_end = snarl_ref->end().node_id();
+                
+                snarl_manager.flip(snarl_ref);
+                
+                REQUIRE(snarl_ref->start().node_id() == id_end);
+                REQUIRE(snarl_ref->end().node_id() == id_start);
             }
         }
     }
