@@ -921,12 +921,9 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         exit(EXIT_FAILURE);
     }
     
-    size_t size = alignment_pairs.first.size();
-    
-    if (size != alignment_pairs.second.size()) {
-        cerr << "error:[Aligner] unpaired alignments included with pairs" << endl;
-        exit(EXIT_FAILURE);
-    }
+    size_t size = min(
+        alignment_pairs.first.size(),
+        alignment_pairs.second.size());
     
     if (size == 0) {
         return;
