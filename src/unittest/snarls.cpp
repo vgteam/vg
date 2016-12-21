@@ -409,6 +409,66 @@ namespace vg {
                 REQUIRE(snarl_ref->start().node_id() == id_end);
                 REQUIRE(snarl_ref->end().node_id() == id_start);
             }
+            
+            SECTION( "SnarlManager can create boundary indices") {
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("C");
+                Node* n3 = graph.create_node("A");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("GCA");
+                Node* n6 = graph.create_node("T");
+                Node* n7 = graph.create_node("G");
+                Node* n8 = graph.create_node("AGTA");
+                
+                Edge* e1 = graph.create_edge(n1, n2);
+                Edge* e2 = graph.create_edge(n2, n7);
+                Edge* e3 = graph.create_edge(n2, n4);
+                Edge* e4 = graph.create_edge(n3, n4);
+                Edge* e5 = graph.create_edge(n4, n5);
+                Edge* e6 = graph.create_edge(n4, n6);
+                Edge* e7 = graph.create_edge(n5, n6);
+                Edge* e8 = graph.create_edge(n6, n2, false, true);
+                Edge* e9 = graph.create_edge(n6, n7);
+                Edge* e10 = graph.create_edge(n7, n8);
+                
+                Snarl snarl1;
+                snarl1.mutable_start()->set_node_id(n2->id());
+                snarl1.mutable_end()->set_node_id(n7->id());
+                snarl1.set_type(UNCLASSIFIED);
+                
+                Snarl snarl2;
+                snarl2.mutable_start()->set_node_id(n4->id());
+                snarl2.mutable_end()->set_node_id(n6->id());
+                snarl2.set_type(ULTRABUBBLE);
+                *snarl2.mutable_parent() = snarl1;
+                
+                list<Snarl> snarls;
+                snarls.push_back(snarl1);
+                snarls.push_back(snarl2);
+                
+                SnarlManager snarl_manager(snarls.begin(), snarls.end());
+                
+                const Snarl* top_snarl = snarl_manager.top_level_snarls()[0];
+                const Snarl* child_snarl = snarl_manager.children_of(top_snarl)[0];
+                
+                auto boundary_index = snarl_manager.child_boundary_index(top_snarl, graph);
+                auto start_index = snarl_manager.child_start_index(top_snarl, graph);
+                auto end_index = snarl_manager.child_end_index(top_snarl, graph);
+                
+                NodeTraversal child_start = to_node_traversal(child_snarl->start(), graph);
+                NodeTraversal child_end = to_rev_node_traversal(child_snarl->end(), graph);
+                
+                REQUIRE(boundary_index.count(child_start));
+                REQUIRE(boundary_index.count(child_end));
+                REQUIRE(start_index.count(child_start));
+                REQUIRE(end_index.count(child_end));
+                REQUIRE(boundary_index.size() == 2);
+                REQUIRE(start_index.size() == 1);
+                REQUIRE(end_index.size() == 1);
+            }
         }
     }
 }

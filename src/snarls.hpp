@@ -60,6 +60,16 @@ namespace vg {
         pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
                                                                         bool include_boundary_nodes);
         
+        // Returns a map from the boundaries of the child Snarls to the respective child Snarl. End NodeTraversals
+        // are reversed to point into the Snarl.
+        map<NodeTraversal, const Snarl*> child_boundary_index(const Snarl* snarl, VG& graph);
+        
+        // Returns a map from the start boundary of the children to the respective child Snarl.
+        map<NodeTraversal, const Snarl*> child_start_index(const Snarl* snarl, VG& graph);
+        
+        // Returns a map from the reversed end boundary of the children to the respective child Snarl.
+        map<NodeTraversal, const Snarl*> child_end_index(const Snarl* snarl, VG& graph);
+        
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
         

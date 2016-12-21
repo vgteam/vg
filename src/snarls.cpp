@@ -70,6 +70,31 @@ namespace vg {
         children.erase(old_key);
     }
     
+    map<NodeTraversal, const Snarl*> SnarlManager::child_boundary_index(const Snarl* snarl, VG& graph) {
+        map<NodeTraversal, const Snarl*> index;
+        for (const Snarl* child : children_of(snarl)) {
+            index[to_node_traversal(child->start(), graph)] = child;
+            index[to_rev_node_traversal(child->end(), graph)] = child;
+        }
+        return index;
+    }
+    
+    map<NodeTraversal, const Snarl*> SnarlManager::child_start_index(const Snarl* snarl, VG& graph) {
+        map<NodeTraversal, const Snarl*> index;
+        for (const Snarl* child : children_of(snarl)) {
+            index[to_node_traversal(child->start(), graph)] = child;
+        }
+        return index;
+    }
+    
+    map<NodeTraversal, const Snarl*> SnarlManager::child_end_index(const Snarl* snarl, VG& graph) {
+        map<NodeTraversal, const Snarl*> index;
+        for (const Snarl* child : children_of(snarl)) {
+            index[to_rev_node_traversal(child->end(), graph)] = child;
+        }
+        return index;
+    }
+    
     // can include definition of inline function apart from forward declaration b/c only used in this file
     inline pair<pair<int64_t, bool>, pair<int64_t, bool> > SnarlManager::key_form(const Snarl* snarl) {
         return make_pair(make_pair(snarl->start().node_id(), snarl->start().backward()),
