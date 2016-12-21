@@ -725,26 +725,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     } else {
 
+        results = make_pair(alignments1, alignments2);
+        compute_mapping_qualities(results);
+
         // Truncate to max multimaps
-        if(alignments1.size() > max_multimaps) {
-            alignments1.resize(max_multimaps);
+        if(results.first.size() > max_multimaps) {
+            results.first.resize(max_multimaps);
         }
-        if(alignments2.size() > max_multimaps) {
-            alignments2.resize(max_multimaps);
+        if(results.second.size() > max_multimaps) {
+            results.second.resize(max_multimaps);
         }
 
         // mark primary and secondary
-        for (int i = 0; i < alignments1.size(); i++) {
-            alignments1[i].mutable_fragment_next()->set_name(read2.name());
-            alignments1[i].set_is_secondary(i > 0);
+        for (int i = 0; i < results.first.size(); i++) {
+            results.first[i].mutable_fragment_next()->set_name(read2.name());
+            results.first[i].set_is_secondary(i > 0);
         }
-        for (int i = 0; i < alignments2.size(); i++) {
-            alignments2[i].mutable_fragment_prev()->set_name(read1.name());
-            alignments2[i].set_is_secondary(i > 0);
+        for (int i = 0; i < results.second.size(); i++) {
+            results.second[i].mutable_fragment_prev()->set_name(read1.name());
+            results.second[i].set_is_secondary(i > 0);
         }
         
-        results = make_pair(alignments1, alignments2);
-        compute_mapping_qualities(results);
     }
 
     // change the potential set of MEMs by dropping the maximum MEM size
@@ -815,6 +816,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.second.clear();
         // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
         queued_resolve_later = true;
+    }
+
+    // remove results we don't need given our requested number of multimaps
+    if (results.first.size() > max_multimaps) {
+        results.first.resize(max_multimaps);
+    }
+    if (results.second.size() > max_multimaps) {
+        results.second.resize(max_multimaps);
     }
 
     if(results.first.empty()) {
@@ -1675,7 +1684,7 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
     
 // filters down to requested number of alignments and marks
 void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int additional_multimaps) {
-    int total_multimaps = max_multimaps;
+    int total_multimaps = max_multimaps + additional_multimaps;
     if (sorted_unique_alignments.size() > total_multimaps){
         sorted_unique_alignments.resize(total_multimaps);
     }
@@ -1691,7 +1700,8 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, extra_multimaps, nullptr);
 }
     
-vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, const Alignment& aln,
+vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
+                                               const Alignment& aln,
                                                int kmer_size, int stride,
                                                int max_mem_length,
                                                int band_width, int additional_multimaps,
@@ -1756,9 +1766,10 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
     // compute mapping quality before removing extra alignments
     if (compute_unpaired_quality) {
         compute_mapping_qualities(alignments);
+        filter_and_process_multimaps(alignments, 0);
+    } else {
+        filter_and_process_multimaps(alignments, additional_multimaps);
     }
-    
-    filter_and_process_multimaps(alignments, additional_multimaps);
     
     return alignments;
 }
