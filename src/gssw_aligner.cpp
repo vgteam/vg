@@ -893,7 +893,7 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
 
     vector<double> scaled_scores(size);
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base * alignments[i].score();
+        scaled_scores[i] = log_base * alignments[i].score() * alignments[i].identity();
     }
     
     double mapping_quality;
@@ -932,7 +932,9 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     vector<double> scaled_scores(size);
 
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        scaled_scores[i] = log_base
+            * (alignment_pairs.first[i].score() * alignment_pairs.first[i].identity()
+               + alignment_pairs.second[i].score() * alignment_pairs.second[i].identity());
     }
     
     size_t max_idx;
