@@ -874,7 +874,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     
     *max_idx_out = max_idx;
     //cerr << "mapping qual " << quality_scale_factor << " * (" << max_score << " - " << next_count << " * " << next_score << ") = " << quality_scale_factor * (max_score - next_count * next_score) << endl;
-    return quality_scale_factor * (max_score - next_count * next_score);
+    return max((double)0, quality_scale_factor * (max_score - next_count * next_score));
 }
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
@@ -893,7 +893,7 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
 
     vector<double> scaled_scores(size);
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base * alignments[i].score() * alignments[i].identity();
+        scaled_scores[i] = log_base * alignments[i].score();
     }
     
     double mapping_quality;
@@ -932,9 +932,7 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     vector<double> scaled_scores(size);
 
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base
-            * (alignment_pairs.first[i].score() * alignment_pairs.first[i].identity()
-               + alignment_pairs.second[i].score() * alignment_pairs.second[i].identity());
+        scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
     }
     
     size_t max_idx;
