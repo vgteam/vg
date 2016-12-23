@@ -371,10 +371,11 @@ public:
     int max_softclip_iterations; // Extend no more than this many times (while softclips are getting shorter)
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
-    int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
+    int extra_multimaps; // Extra mappings considered
     
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+    int max_mapping_quality; // the cap for mapping quality
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths

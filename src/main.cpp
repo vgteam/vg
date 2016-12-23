@@ -5224,7 +5224,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --compare         if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
+         << "    -w, --compare         consider GAM input (-G) as thruth, table of name, overlap with truth, identity, score, mapqual" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
@@ -5237,7 +5237,7 @@ void help_map(char** argv) {
          << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
          << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
+         << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 1)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only       only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -5326,7 +5326,8 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_pairing_multimaps = 4;
+    int extra_multimaps = 1;
+    int max_mapping_quality = 64;
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
@@ -5357,7 +5358,7 @@ int main_map(int argc, char** argv) {
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
                 {"hit-max", required_argument, 0, 'm'},
-                {"max-multimaps", required_argument, 0, 'N'},
+                {"max-multimaps", required_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"gam-input", required_argument, 0, 'G'},
@@ -5388,7 +5389,7 @@ int main_map(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, '1'},
-                {"pairing-multimaps", required_argument, 0, 'u'},
+                {"extra-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", no_argument, 0, 'w'},
                 {"fragment-max", required_argument, 0, 'W'},
@@ -5602,7 +5603,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'u':
-            extra_pairing_multimaps = atoi(optarg);
+            extra_multimaps = atoi(optarg);
             break;
 
         case 'v':
@@ -5800,12 +5801,13 @@ int main_map(int argc, char** argv) {
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
-        m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
         m->full_length_alignment_bonus = full_length_bonus;
+        m->max_mapping_quality = max_mapping_quality;
         mapper[i] = m;
     }
 
@@ -6059,8 +6061,14 @@ int main_map(int argc, char** argv) {
                 if (compare_gam) {
 #pragma omp critical (cout)
                     {
-                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path()) << endl;
-                        cout << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path()) << endl;
+                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path())
+                                            << "\t" << alnp.first.front().identity()
+                                            << "\t" << alnp.first.front().score()
+                                            << "\t" << alnp.first.front().mapping_quality() << endl
+                             << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path())
+                                            << "\t" << alnp.second.front().identity()
+                                            << "\t" << alnp.second.front().score()
+                                            << "\t" << alnp.second.front().mapping_quality() << endl;
                     }
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
@@ -6135,7 +6143,10 @@ int main_map(int argc, char** argv) {
                 }
                 if (compare_gam) {
 #pragma omp critical (cout)
-                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
+                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
+                                             << "\t" << alignments.front().identity()
+                                             << "\t" << alignments.front().score()
+                                             << "\t" << alignments.front().mapping_quality() << endl;
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);

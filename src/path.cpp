@@ -1110,7 +1110,8 @@ Path simplify(const Path& p) {
         // remove wholly-deleted or empty mappings as these are redundant
         if ((m.edit_size() == 1 && edit_is_deletion(m.edit(0)))
             || m.edit_size() == 0) continue;
-        if (s.mapping_size()) {
+        if (s.mapping_size()
+            && m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
             // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
