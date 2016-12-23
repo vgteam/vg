@@ -2634,16 +2634,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
 
                     // do the alignment
-                    // it would be good to always use the banded global mode
-                    // but we can't because it introduces artifacts instead of soft clips
-                    // correct resolution will be an update to GSSW to give a bonus to full-length alignments
-                    //bool banded_global = true;
                     bool banded_global = !soft_clip_to_right && !soft_clip_to_left;
                     bool pinned_alignment = soft_clip_to_right || soft_clip_to_left;
                     bool pinned_reverse = false;
                     if (soft_clip_to_right) {
                         pinned_reverse = true;
                     }
+
                     patch = align_to_graph(patch,
                                            graph,
                                            max_query_graph_ratio,
