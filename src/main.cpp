@@ -4350,6 +4350,7 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
+         << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -4429,11 +4430,12 @@ int main_find(int argc, char** argv) {
                 {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
                 {"to-graph", required_argument, 0, 'A'},
+                {"max-mem", required_argument, 0, 'Y'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:Y:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4462,14 +4464,18 @@ int main_find(int argc, char** argv) {
             sequence = optarg;
             break;
 
-            case 'M':
-                sequence = optarg;
-                get_mems = true;
-                break;
+        case 'M':
+            sequence = optarg;
+            get_mems = true;
+            break;
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
         case 'z':
             kmer_size = atoi(optarg);
