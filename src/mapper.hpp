@@ -300,14 +300,19 @@ public:
                                 int window);
 
     // MEM-based mapping
-    // finds absolute super-maximal exact matches
-    vector<MaximalExactMatch> find_smems(const string& seq, int max_length);
+    // find maximal exact matches
+    // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
+    // Enables reseeding of long matches when reseed_length > 0.
+    // Reseeding requires an occurrence count for the MEM that we are reseeding.
+    // Where k is the number of hits for the MEM we are reseeding,
+    // we return the MEMs shorter than the MEM to reseed that have count > k.
+    vector<MaximalExactMatch> find_mems(string::const_iterator seq_begin,
+                                        string::const_iterator seq_end,
+                                        int max_mem_length,
+                                        int reseed_length = 0);
     bool get_mem_hits_if_under_max(MaximalExactMatch& mem);
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
-    // finds "forward" maximal exact matches of the sequence using the GCSA index
-    // stepping step between each one
-    vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1, int max_mem_length = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     // walks the graph one base at a time from pos1 until we find pos2
@@ -353,6 +358,7 @@ public:
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
     bool mem_threading; // whether to use the mem threading mapper or not
+    int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
 
     // general parameters, applying to both types of mapping
     //
