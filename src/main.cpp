@@ -6244,8 +6244,9 @@ void help_view(char** argv) {
 
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
 
-         << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
+         << "    -f, --fastq-in       input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
+         << "    -X, --fastq-out      output fastq (input defaults to GAM)" << endl
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
@@ -6316,7 +6317,8 @@ int main_view(int argc, char** argv) {
                 {"align-in", no_argument, 0, 'a'},
                 {"gam", no_argument, 0, 'G'},
                 {"bam", no_argument, 0, 'b'},
-                {"fastq", no_argument, 0, 'f'},
+                {"fastq-in", no_argument, 0, 'f'},
+                {"fastq-out", no_argument, 0, 'X'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"aln-graph", required_argument, 0, 'A'},
                 {"show-paths", no_argument, 0, 'p'},
@@ -6341,7 +6343,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:z",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6468,6 +6470,14 @@ int main_view(int argc, char** argv) {
             if(output_type.empty()) {
                 // Default to FASTQ -> GAM
                 output_type = "gam";
+            }
+            break;
+
+        case 'X':
+            output_type = "fastq";
+            if(input_type.empty()) {
+                // Default to FASTQ -> GAM
+                input_type = "gam";
             }
             break;
 
@@ -6598,6 +6608,20 @@ int main_view(int argc, char** argv) {
                         a.set_identity(0);
                     }
                     cout << pb2json(a) << "\n";
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+            } else if (output_type == "fastq") {
+                function<void(Alignment&)> lambda = [](Alignment& a) {
+                    cout << "@" << a.name() << endl
+                         << a.sequence() << endl
+                    << "+" << endl;
+                    if (a.quality().empty()) {
+                        cout << string(a.sequence().size(), quality_short_to_char(30)) << endl;
+                    } else {
+                        cout << string_quality_short_to_char(a.quality()) << endl;
+                    }
                 };
                 get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);
