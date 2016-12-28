@@ -5334,7 +5334,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 2;
+    int extra_multimaps = 1;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
