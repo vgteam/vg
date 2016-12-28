@@ -1034,21 +1034,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     for (auto& cluster : clusters) {
         if (++multimaps > total_multimaps) { break; }
         Alignment partial_alignment = mems_to_alignment(aln, cluster);
-        // look through the alignments and see if we have high overlap with anything
-        bool unique = true;
-        for (auto& aln : alns) {
-            if (overlap(aln.path(), partial_alignment.path()) > 0) {
-                unique = false;
-                break;
-            }
-        }
-        if (unique) {
-            auto patch = patch_alignment(partial_alignment);
-            if (debug) { cerr << "patch identity " << patch.identity() << endl; }
-            if (patch.identity() > min_identity) {
-                alns.emplace_back(patch);
-                alns.back().set_name(aln.name());
-            }
+        auto patch = patch_alignment(partial_alignment);
+        //if (debug) { cerr << "patch identity " << patch.identity() << endl; }
+        if (patch.identity() > min_identity) {
+            alns.emplace_back(patch);
+            alns.back().set_name(aln.name());
         }
     }
     if (debug) {
