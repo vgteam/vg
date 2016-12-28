@@ -957,8 +957,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             } else {
                 double weight = (double)1.0 / (double)(abs(jump) + 1);
                 if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                    weight /= 10;
-                    //return (double)-1.0;
+                    //weight /= 10;
+                    return (double)-1.0;
                 }
                 return weight;
             }
