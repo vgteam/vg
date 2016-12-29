@@ -2672,8 +2672,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     if (debug) cerr << "patch: " << pb2json(patch) << endl;
                     patch.clear_sequence(); // we set the whole sequence later
-                    if (min_identity && patch.identity() < min_identity
-                        || patch.score() == 0) {
+                    if (min_identity && patch.identity() < min_identity) {
                         //cerr << "doing that other thing" << endl;
                         score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                         *new_mapping->add_edit() = edit;
