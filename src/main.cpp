@@ -4723,7 +4723,7 @@ int main_find(int argc, char** argv) {
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
                 cout << node_id;
-                vector<size_t> positions = xindex.node_positions_in_path(node_id, path_name);
+                vector<size_t> positions = xindex.position_in_path(node_id, path_name);
                 for (auto pos : positions) {
                     cout << "\t" << pos;
                 }

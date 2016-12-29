@@ -2142,7 +2142,7 @@ map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type nod
     auto cached = pos_cache.retrieve(node);
     if(!cached.second) {
         // todo use approximate estimate
-        cached.first = xindex->node_positions_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node));
+        cached.first = xindex->position_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));
         pos_cache.put(node, cached.first);
     }
     return cached.first;
@@ -2897,19 +2897,24 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             Position last_pos = mapping.position();
             last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
             Position next_pos = path.mapping(i+1).position();
-            //cerr << "gap: " << last_pos << " to " << next_pos << endl;
+            if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
             int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist == aln.sequence().size()) {
-                // we failed to find a distance
-                if (i+2 < path.mapping_size()) {
-                    next_pos = path.mapping(i+2).position();
-                    dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
-                }
-                // try to find the distance to the next mapping
-                if (dist < aln.sequence().size()) {
-                    if (debug) {
-                        cerr << "distance delta with subsequent match suggests MEMs are overlapping" << endl;
+                if (debug) cerr << "could not find distance to next target" << endl;
+                if (xindex->path_count) {
+                    // use the embedded paths
+                    dist = abs(xindex->min_distance_in_paths(
+                                   last_pos.node_id(), last_pos.is_reverse(), last_pos.offset(),
+                                   next_pos.node_id(), next_pos.is_reverse(), next_pos.offset()));
+                    if (debug) cerr << "found distance using embedded paths" << endl;
+                } else {
+                    // we failed to find a distance
+                    if (i+2 < path.mapping_size()) {
+                        next_pos = path.mapping(i+2).position();
+                        dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+                        dist -= mapping_from_length(path.mapping(i+1));
                     }
+                    if (debug) cerr << "found distance using next mapping" << endl;
                 }
             }
             if (dist) dist -= 1;
@@ -3864,7 +3869,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         bool hit_backward = surjection.path().mapping(0).position().is_reverse();
         // we pick up positional information using the index
 
-        auto path_posns = xindex->node_positions_in_path(hit_id, path_name);
+        auto path_posns = xindex->position_in_path(hit_id, path_name);
         if (path_posns.size() > 1) {
             cerr << "[vg map] surject_alignment: warning, multiple positions for node " << hit_id << " in " << path_name << " but will use only first: " << path_posns.front() << endl;
         } else if (path_posns.size() == 0) {
@@ -3883,7 +3888,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                 path_pos = path_posns.front() + first_pos.offset();
             } else {
                 auto pos = reverse_complement_alignment(surjection, node_length).path().mapping(0).position();
-                path_pos = xindex->node_positions_in_path(pos.node_id(), path_name).front() + pos.offset();
+                path_pos = xindex->position_in_path(pos.node_id(), path_name).front() + pos.offset();
             }
             path_reverse = !hit_backward;
         } else {
@@ -3891,7 +3896,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                 path_pos = path_posns.front() + first_pos.offset();
             } else {
                 auto pos = reverse_complement_alignment(surjection, node_length).path().mapping(0).position();
-                path_pos = xindex->node_positions_in_path(pos.node_id(), path_name).front() + pos.offset();
+                path_pos = xindex->position_in_path(pos.node_id(), path_name).front() + pos.offset();
             }
             path_reverse = hit_backward;
         }
