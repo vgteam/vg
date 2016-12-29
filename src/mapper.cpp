@@ -917,53 +917,53 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     int total_multimaps = max_multimaps + additional_multimaps;
     
     double avg_node_len = average_node_length();
-    // go through the ordered MEMs
+    // go through the ordered single-hit MEMs
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
         // find the difference in m1.end and m2.begin
         // find the positional difference in the graph between m1.end and m2.begin
-        //if (debug) cerr << m1.sequence() << " ";
+        int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
         pos_t m1_pos, m2_pos;
-        for (auto& node : m1.nodes) {
+        {
+            auto& node = m1.nodes.front();
             id_t id = gcsa::Node::id(node);
             size_t offset = gcsa::Node::offset(node);
             bool is_rev = gcsa::Node::rc(node);
             m1_pos = make_pos_t(id, is_rev, offset);
-            //if (debug) cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
         }
-        //cerr << endl;
-        //cerr << "vs" << endl;
-        //if (debug) cerr << m2.sequence() << " ";
-        for (auto& node : m2.nodes) {
+        {
+            auto& node = m2.nodes.front();
             id_t id = gcsa::Node::id(node);
             size_t offset = gcsa::Node::offset(node);
             bool is_rev = gcsa::Node::rc(node);
             m2_pos = make_pos_t(id, is_rev, offset);
-            //if (debug) cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
         }
         // approximate distance by node lengths
         int max_length = m1.length() + m2.length();
         double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) / avg_node_len;
         //if (debug) cerr << "approx distance " << approx_distance << endl;
-        if (approx_distance < max_length) { // && approx_distance > -avg_node_len) {
+        if (approx_distance > max_length) {
+            // to far
+            return (double)-1.0;
+        } else {
             int distance = graph_distance(m1_pos, m2_pos, max_length);
             if (distance == max_length) {
                 return (double)-1.0;
             }
             double jump = (m2.begin - m1.begin) - distance;
             if (jump < 0) {
+                // disable reversings
                 return (double)-1.0;
             } else {
-                double weight = (double)1.0 / (double)(abs(jump) + 1);
                 if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                    //weight /= 10;
+                    // disable inversions
                     return (double)-1.0;
+                } else {
+                    // accepted transition
+                    return (double)1.0 / (double)(abs(jump) + 1) * unique_coverage;
                 }
-                return weight;
             }
-        } else {
-            return (double)-1.0;
         }
     };
 
@@ -971,10 +971,20 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     MEMMarkovModel markov_model(aln, mems, this, transition_weight, 10);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps);
 
+    // rank the clusters by the number of unique read bases they cover
+    auto cluster_coverage = [&](const vector<MaximalExactMatch>& cluster) {
+        set<string::const_iterator> seen;
+        for (auto& mem : cluster) {
+            string::const_iterator c = mem.begin;
+            while (c != mem.end) seen.insert(c++);
+        }
+        return seen.size();
+    };
+
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
         for (auto& cluster : clusters) {
-            cerr << cluster.size() << " SMEMs on ";
+            cerr << cluster.size() << " MEMs covering " << cluster_coverage(cluster) << " @ ";
             for (auto& mem : cluster) {
                 size_t len = mem.begin - mem.end;
                 for (auto& node : mem.nodes) {
@@ -995,22 +1005,25 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     };
 
-    // todo cache this as sort will call it a lot
-    auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
-        int i = 0;
-        for (auto& mem : cluster) {
-            i += mem.length();
-        }
-        return i;
-    };
-
     // sort the threads by their coverage of the read
     // descending sort, so that the best clusters are at the front
-    std::sort(clusters.begin(), clusters.end(),
-              [&](const vector<MaximalExactMatch>& c1,
-                  const vector<MaximalExactMatch>& c2) {
-                  return mem_len_sum(c1) > mem_len_sum(c2);
+    /*
+    map<vector<MaximalExactMatch>*, int> cluster_query_coverage;
+    for (auto& cluster : clusters) {
+        cluster_query_coverage[&cluster] = cluster_coverage(cluster);
+    }
+
+    vector<vector<MaximalExactMatch>*> clusters_ptr;
+    for (auto& c : clusters) clusters_ptr.push_back(&c);
+    std::sort(clusters_ptr.begin(), clusters_ptr.end(),
+              [&](vector<MaximalExactMatch>*& c1,
+                  vector<MaximalExactMatch>*& c2) {
+                  return cluster_query_coverage[c1] > cluster_query_coverage[c2];
               });
+    vector<vector<MaximalExactMatch> > sorted_clusters;
+    for (auto& p : clusters_ptr) sorted_clusters.push_back(*p);
+    clusters = sorted_clusters;
+    */
 
     if (debug) {
         cerr << "### clusters:" << endl;
