@@ -970,6 +970,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // build the model
     MEMMarkovModel markov_model(aln, mems, this, transition_weight, 10);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps);
+    cerr << "cluster size " << clusters.size() << endl;
 
     // rank the clusters by the number of unique read bases they cover
     auto cluster_coverage = [&](const vector<MaximalExactMatch>& cluster) {
@@ -4055,6 +4056,8 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns) {
         //display(cerr);
         // find the maximum score
         auto* vertex = max_vertex();
+        // check if we've exhausted our MEMs
+        if (vertex->score == 0) break;
         //cerr << "is maximum " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
         // make trace
         vector<MEMMarkovModelVertex*> vertex_trace;
