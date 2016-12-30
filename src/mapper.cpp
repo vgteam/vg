@@ -970,7 +970,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // build the model
     MEMMarkovModel markov_model(aln, mems, this, transition_weight, 10);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps);
-    cerr << "cluster size " << clusters.size() << endl;
 
     // rank the clusters by the number of unique read bases they cover
     auto cluster_coverage = [&](const vector<MaximalExactMatch>& cluster) {
@@ -1005,26 +1004,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             cerr << endl;
         }
     };
-
-    // sort the threads by their coverage of the read
-    // descending sort, so that the best clusters are at the front
-    /*
-    map<vector<MaximalExactMatch>*, int> cluster_query_coverage;
-    for (auto& cluster : clusters) {
-        cluster_query_coverage[&cluster] = cluster_coverage(cluster);
-    }
-
-    vector<vector<MaximalExactMatch>*> clusters_ptr;
-    for (auto& c : clusters) clusters_ptr.push_back(&c);
-    std::sort(clusters_ptr.begin(), clusters_ptr.end(),
-              [&](vector<MaximalExactMatch>*& c1,
-                  vector<MaximalExactMatch>*& c2) {
-                  return cluster_query_coverage[c1] > cluster_query_coverage[c2];
-              });
-    vector<vector<MaximalExactMatch> > sorted_clusters;
-    for (auto& p : clusters_ptr) sorted_clusters.push_back(*p);
-    clusters = sorted_clusters;
-    */
 
     if (debug) {
         cerr << "### clusters:" << endl;
