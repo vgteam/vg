@@ -443,7 +443,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // 
     
     // find the MEMs for the alignments
-    if (fragment_size) {
+    if (false && fragment_size) {
         // use pair resolution filterings on the SMEMs to constrain the candidates
         set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
         for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
@@ -462,10 +462,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // use MEM alignment on the MEMs matching our constraints
     // We maintain the invariant that these two vectors of alignments are sorted
     // by score, descending, as returned from align_multi_internal.
+    double cluster_mq1=0, cluster_mq2=0;
     vector<Alignment> alignments1 = align_multi_internal(false, read1, kmer_size, stride, max_mem_length,
-                                                         band_width, extra_multimaps, pairable_mems_ptr_1);
+                                                         band_width, cluster_mq1, extra_multimaps, pairable_mems_ptr_1);
     vector<Alignment> alignments2 = align_multi_internal(false, read2, kmer_size, stride, max_mem_length,
-                                                         band_width, extra_multimaps, pairable_mems_ptr_2);
+                                                         band_width, cluster_mq2, extra_multimaps, pairable_mems_ptr_2);
 
     size_t best_score1 = 0;
     size_t best_score2 = 0;
@@ -695,8 +696,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 considered_pairs.insert(next_aln_pair_right);
             }
         }
-
-        compute_mapping_qualities(consistent_pairs);
+        double cluster_mq = 0;
+        compute_mapping_qualities(consistent_pairs, cluster_mq);
         
         // remove the extra pair used to compute mapping quality if necessary
         if (consistent_pairs.first.size() > max_multimaps) {
@@ -726,14 +727,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // no consistent pairs found
             // if we can decrease our MEM size
             // clear, to trigger size reduction
-
+            //results = 
             // otherwise, yolo
+            //results = make_pair(alignments1, alignments2);
+            //compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
         }
 
     } else {
 
         results = make_pair(alignments1, alignments2);
-        compute_mapping_qualities(results);
+        compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
 
         // Truncate to max multimaps
         if(results.first.size() > max_multimaps) {
@@ -901,6 +904,62 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
     return make_pair(aln1, aln2);
 }
 
+    // rank the clusters by the number of unique read bases they cover
+int Mapper::cluster_coverage(const vector<MaximalExactMatch>& cluster) {
+    set<string::const_iterator> seen;
+    for (auto& mem : cluster) {
+        string::const_iterator c = mem.begin;
+        while (c != mem.end) seen.insert(c++);
+    }
+    return seen.size();
+}
+
+double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
+                                                 const Alignment& aln) {
+    if (clusters.size() == 0) {
+        return 0;
+    }
+    if (clusters.size() == 1) {
+        return { (double)max_mapping_quality };
+    }
+    size_t read_length = aln.sequence().size();
+    // \prod fraction of the read covered / number of hits
+    vector<double> weights;
+    for (auto& cluster : clusters) {
+        //int unique_cov = cluster_coverage(cluster);
+        //cerr << "unique cov " << unique_cov << endl;
+        // count up the hits
+        //int hits = 0;
+        weights.emplace_back();
+        double& weight = weights.back();
+        for (int i = 0; i < cluster.size(); ++i) {
+            // for each mem, count half of its coverage with its neighbors towards this metric
+            auto& mem = cluster[i];
+            int shared_coverage = 0;
+            if (i > 0) {
+                auto& prev = cluster[i-1];
+                shared_coverage += (prev.end <= mem.begin ? 0 : prev.end - mem.begin);
+            }
+            if (i < cluster.size()-1) {
+                auto& next = cluster[i+1];
+                shared_coverage += (mem.end <= next.begin ? 0 : mem.end - next.begin);
+            }
+            //cerr << "Shared coverage " << shared_coverage << endl;
+            //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+            weight +=
+                (((double)mem.length() - (double)shared_coverage/2)
+                 / read_length)
+                / mem.match_count;
+        }
+        //cerr << "weight " << weight << endl;
+    }
+    //vector<double> mqz(weights.size());
+    // return the ratio between best and second best as quality
+    std::sort(weights.begin(), weights.end(), std::greater<double>());
+    return min(max_mapping_quality,
+               prob_to_phred(weights[1]/weights[0]));
+}
+
 double
 Mapper::average_node_length(void) {
     return (double) xindex->seq_length / (double) xindex->node_count;
@@ -911,7 +970,7 @@ Mapper::average_node_length(void) {
 // uses the exact matches to generate as much of each alignment as possible
 // then local dynamic programming to fill in the gaps
 vector<Alignment>
-Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps) {
+Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
 
     auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + additional_multimaps;
@@ -971,16 +1030,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     MEMMarkovModel markov_model(aln, mems, this, transition_weight, 10);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps);
 
-    // rank the clusters by the number of unique read bases they cover
-    auto cluster_coverage = [&](const vector<MaximalExactMatch>& cluster) {
-        set<string::const_iterator> seen;
-        for (auto& mem : cluster) {
-            string::const_iterator c = mem.begin;
-            while (c != mem.end) seen.insert(c++);
-        }
-        return seen.size();
-    };
-
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
         for (auto& cluster : clusters) {
@@ -991,6 +1040,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     id_t id = gcsa::Node::id(node);
                     size_t offset = gcsa::Node::offset(node);
                     bool is_rev = gcsa::Node::rc(node);
+                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
+                    /*
                     for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0, is_rev))) {
                         auto& name = ref.first;
                         for (auto pos : ref.second) {
@@ -998,6 +1049,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                             cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
                         }
                     }
+                    */
                 }
                 cerr << mem.sequence() << " ";
             }
@@ -1010,18 +1062,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         show_clusters();
     }
 
-    // by our construction of the local SMEM copies, each has only one match
-    // which is where we've used it for clustering
+    cluster_mq = compute_cluster_mapping_quality(clusters, aln);
 
     // for up to our required number of multimaps
     // make the perfect-match alignment for the SMEM cluster
     // then fix it up with DP on the little bits between the alignments
-
-    // remove clusters which are contained in other clusters
-    // use a pairwise identity metric to identify overlaps
-    // for each overlap pair found, remove the smaller cluster (by length)
-    // and continue searching for overlaps
-    // accomplish this by skipping the alignment if its exact match alignment has substantial identity with any previous alignment we've patched up
     vector<Alignment> alns;
     int multimaps = 0;
     for (auto& cluster : clusters) {
@@ -1031,7 +1076,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         //if (debug) { cerr << "patch identity " << patch.identity() << endl; }
         if (patch.identity() > min_identity) {
             alns.emplace_back(patch);
-            alns.back().set_name(aln.name());
+            auto& a = alns.back();
+            a.set_name(aln.name());
         }
     }
     if (debug) {
@@ -1346,7 +1392,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     auto do_band = [&](int i) {
         if (max_multimaps > 1) {
             vector<Alignment>& malns = multi_alns[i];
-            malns = align_multi_internal(false, bands[i], kmer_size, stride, max_mem_length, band_width, extra_multimaps, nullptr);
+            double cluster_mq = 0;
+            malns = align_multi_internal(false, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
             // always include an unaligned mapping
             malns.push_back(bands[i]);
             for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
@@ -1598,30 +1645,30 @@ LRUCache<gcsa::node_type, map<string, vector<size_t> > >& Mapper::get_node_pos_c
     return *node_pos_cache[tid];
 }
 
-void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
+void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq) {
     if (alns.empty()) return;
     auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mapping_quality, true);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, cluster_mq, true);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mapping_quality, false);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, cluster_mq, false);
             break;
         default: // None
             break;
     }
 }
     
-void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns) {
+void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, cluster_mq, true);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, false);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, cluster_mq, false);
             break;
         default: // None
             break;
@@ -1687,14 +1734,17 @@ void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_align
 }
     
 vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width) {
-    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, extra_multimaps, nullptr);
+    double cluster_mq = 0;
+    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
 }
     
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                const Alignment& aln,
                                                int kmer_size, int stride,
                                                int max_mem_length,
-                                               int band_width, int additional_multimaps,
+                                               int band_width,
+                                               double& cluster_mq,
+                                               int additional_multimaps,
                                                vector<MaximalExactMatch>* restricted_mems) {
     
     if(debug) {
@@ -1725,7 +1775,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     else {
         additional_multimaps_for_quality = additional_multimaps;
     }
-    
+
     vector<Alignment> alignments;
     if (kmer_size || xindex == nullptr) {
         // if we've defined a kmer size, use the legacy style mapper
@@ -1737,17 +1787,15 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         // use pre-restricted mems for paired mapping or find mems here
         if (restricted_mems != nullptr) {
             // mem hits will already have been queried
-            alignments = align_mem_multi(aln, *restricted_mems, additional_multimaps_for_quality);
+            alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, additional_multimaps_for_quality);
         }
         else {
             vector<MaximalExactMatch> mems = find_mems(aln.sequence().begin(), aln.sequence().end(), max_mem_length, mem_reseed_length);
-            
             // query mem hits
             if (debug) cerr << "mems before filtering " << mems_to_json(mems) << endl;
             for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
             if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
-
-            alignments = align_mem_multi(aln, mems, additional_multimaps_for_quality);
+            alignments = align_mem_multi(aln, mems, cluster_mq, additional_multimaps_for_quality);
         }
     }
     
@@ -1755,7 +1803,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     
     // compute mapping quality before removing extra alignments
     if (compute_unpaired_quality) {
-        compute_mapping_qualities(alignments);
+        compute_mapping_qualities(alignments, cluster_mq);
         filter_and_process_multimaps(alignments, 0);
     } else {
         filter_and_process_multimaps(alignments, additional_multimaps);
@@ -2996,7 +3044,7 @@ bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     return filled;
 }
 
-vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
+vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, int additional_multimaps) {
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
@@ -3005,7 +3053,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     if (mem_threading) {
-        return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps);
+        return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps, cluster_mq);
     } else {
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
     }
@@ -4036,7 +4084,7 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns) {
         // find the maximum score
         auto* vertex = max_vertex();
         // check if we've exhausted our MEMs
-        if (vertex->score == 0) break;
+        if (vertex == nullptr || vertex->score == 0) break;
         //cerr << "is maximum " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
         // make trace
         vector<MEMMarkovModelVertex*> vertex_trace;

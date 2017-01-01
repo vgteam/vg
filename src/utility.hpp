@@ -86,6 +86,16 @@ inline int logprob_to_phred(double logprob ) {
     return round(-10.0 * logprob * log10(exp(1.0)));
 }
 
+// Take the geometric mean of two logprobs
+inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
+    return log(sqrt(exp(lnprob1 + lnprob2)));
+}
+
+// Same thing in phred
+inline double phred_geometric_mean(double phred1, double phred2) {
+    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
+}
+
 template<typename T, typename V>
 set<T> map_keys_to_set(const map<T, V>& m) {
     set<T> r;

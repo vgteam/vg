@@ -879,6 +879,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
                                       int max_mapping_quality,
+                                      double cluster_mq,
                                       bool fast_approximation) {
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -904,7 +905,9 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
-    
+    // incorporate cluster mq
+    mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
+
     if (mapping_quality > max_mapping_quality) {
         alignments[max_idx].set_mapping_quality(max_mapping_quality);
     }
@@ -915,6 +918,7 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
 
 void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                              int max_mapping_quality,
+                                             double cluster_mq,
                                              bool fast_approximation) {
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -943,6 +947,9 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
+
+    // incorporate cluster mq
+    mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
 
     if (mapping_quality > max_mapping_quality) {
         alignment_pairs.first[max_idx].set_mapping_quality(max_mapping_quality);
