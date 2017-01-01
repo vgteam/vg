@@ -1321,6 +1321,7 @@ namespace vg {
                                 regex arrows("<|>");
                                 string var_name = regex_replace(vvar->alt[alt_pos], arrows, "");
                                 if (insertion_fasta->index->find(var_name) != insertion_fasta->index->end()){
+                                    vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1 ));
                                     cerr << "Replacing insertion with sequence of " << var_name << endl;
                                     vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->position, 1) + insertion_fasta->getSequence(var_name);
                                     vvar->updateAlleleIndexes();
