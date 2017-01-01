@@ -1276,8 +1276,9 @@ namespace vg {
                         !(vvar->info["SVTYPE"].empty())){
 
 
-
+                #ifdef DEBUG
                     cerr << "Processing SV at position " << vvar->position << endl;
+                #endif
                     var_is_sv = true;
 
                     for (int alt_pos = 0; alt_pos < variant_source.get()->alt.size(); ++alt_pos) {
@@ -1322,7 +1323,9 @@ namespace vg {
                                 string var_name = regex_replace(vvar->alt[alt_pos], arrows, "");
                                 if (insertion_fasta->index->find(var_name) != insertion_fasta->index->end()){
                                     vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1 ));
+                                #ifdef DEBUG
                                     cerr << "Replacing insertion with sequence of " << var_name << endl;
+                                #endif
                                     vvar->alt[alt_pos] = reference.getSubSequence(reference_contig, vvar->position, 1) + insertion_fasta->getSequence(var_name);
                                     vvar->updateAlleleIndexes();
                                 }

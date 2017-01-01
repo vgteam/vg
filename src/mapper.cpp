@@ -35,7 +35,7 @@ Mapper::Mapper(Index* idex,
     , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
-    , extra_pairing_multimaps(4)
+    , extra_multimaps(1)
     , always_rescue(false)
     , fragment_size(0)
     , fragment_max(1e5)
@@ -49,6 +49,7 @@ Mapper::Mapper(Index* idex,
     , fragment_length_estimate_interval(100)
     , perfect_pair_identity_threshold(0.95)
     , full_length_alignment_bonus(5)
+    , max_mapping_quality(64)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -454,12 +455,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // use MEM alignment on the MEMs matching our constraints
     // We maintain the invariant that these two vectors of alignments are sorted
     // by score, descending, as returned from align_multi_internal.
-    vector<Alignment> alignments1 = align_multi_internal(!report_consistent_pairs, read1, kmer_size, stride, max_mem_length,
-                                                         band_width, report_consistent_pairs * extra_pairing_multimaps,
-                                                         pairable_mems_ptr_1);
-    vector<Alignment> alignments2 = align_multi_internal(!report_consistent_pairs, read2, kmer_size, stride, max_mem_length,
-                                                         band_width, report_consistent_pairs * extra_pairing_multimaps,
-                                                         pairable_mems_ptr_2);
+    vector<Alignment> alignments1 = align_multi_internal(false, read1, kmer_size, stride, max_mem_length,
+                                                         band_width, extra_multimaps, pairable_mems_ptr_1);
+    vector<Alignment> alignments2 = align_multi_internal(false, read2, kmer_size, stride, max_mem_length,
+                                                         band_width, extra_multimaps, pairable_mems_ptr_2);
 
     size_t best_score1 = 0;
     size_t best_score2 = 0;
@@ -726,25 +725,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     } else {
 
+        results = make_pair(alignments1, alignments2);
+        compute_mapping_qualities(results);
+
         // Truncate to max multimaps
-        if(alignments1.size() > max_multimaps) {
-            alignments1.resize(max_multimaps);
+        if(results.first.size() > max_multimaps) {
+            results.first.resize(max_multimaps);
         }
-        if(alignments2.size() > max_multimaps) {
-            alignments2.resize(max_multimaps);
+        if(results.second.size() > max_multimaps) {
+            results.second.resize(max_multimaps);
         }
 
         // mark primary and secondary
-        for (int i = 0; i < alignments1.size(); i++) {
-            alignments1[i].mutable_fragment_next()->set_name(read2.name());
-            alignments1[i].set_is_secondary(i > 0);
+        for (int i = 0; i < results.first.size(); i++) {
+            results.first[i].mutable_fragment_next()->set_name(read2.name());
+            results.first[i].set_is_secondary(i > 0);
         }
-        for (int i = 0; i < alignments2.size(); i++) {
-            alignments2[i].mutable_fragment_prev()->set_name(read1.name());
-            alignments2[i].set_is_secondary(i > 0);
+        for (int i = 0; i < results.second.size(); i++) {
+            results.second[i].mutable_fragment_prev()->set_name(read1.name());
+            results.second[i].set_is_secondary(i > 0);
         }
         
-        results = make_pair(alignments1, alignments2);
     }
 
     // change the potential set of MEMs by dropping the maximum MEM size
@@ -810,12 +811,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
 
     if (imperfect_pair && fragment_max) {
-        //cerr << "saving" << endl;
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
         // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
         queued_resolve_later = true;
+    }
+
+    // remove results we don't need given our requested number of multimaps
+    if (results.first.size() > max_multimaps) {
+        results.first.resize(max_multimaps);
+    }
+    if (results.second.size() > max_multimaps) {
+        results.second.resize(max_multimaps);
     }
 
     if(results.first.empty()) {
@@ -1348,7 +1356,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     auto do_band = [&](int i) {
         if (max_multimaps > 1) {
             vector<Alignment>& malns = multi_alns[i];
-            malns = align_multi_internal(false, bands[i], kmer_size, stride, max_mem_length, band_width, 0, nullptr);
+            malns = align_multi_internal(false, bands[i], kmer_size, stride, max_mem_length, band_width, extra_multimaps, nullptr);
             // always include an unaligned mapping
             malns.push_back(bands[i]);
             for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
@@ -1411,7 +1419,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
 
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns);
-    // TODO RECALCULATE QUALITY BASED ON SCORING
+
     merged.set_score(score_alignment(merged));
     merged.set_identity(identity(merged.path()));
     merged.set_quality(read.quality());
@@ -1605,10 +1613,10 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
     auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, true);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, true);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, false);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, false);
             break;
         default: // None
             break;
@@ -1620,10 +1628,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, true);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, false);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, false);
             break;
         default: // None
             break;
@@ -1689,10 +1697,11 @@ void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_align
 }
     
 vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width) {
-    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, 0, nullptr);
+    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, extra_multimaps, nullptr);
 }
     
-vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, const Alignment& aln,
+vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
+                                               const Alignment& aln,
                                                int kmer_size, int stride,
                                                int max_mem_length,
                                                int band_width, int additional_multimaps,
@@ -1757,9 +1766,10 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
     // compute mapping quality before removing extra alignments
     if (compute_unpaired_quality) {
         compute_mapping_qualities(alignments);
+        filter_and_process_multimaps(alignments, 0);
+    } else {
+        filter_and_process_multimaps(alignments, additional_multimaps);
     }
-    
-    filter_and_process_multimaps(alignments, additional_multimaps);
     
     return alignments;
 }

@@ -873,11 +873,13 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     }
     
     *max_idx_out = max_idx;
-
+    //cerr << "mapping qual " << quality_scale_factor << " * (" << max_score << " - " << next_count << " * " << next_score << ") = " << quality_scale_factor * (max_score - next_count * next_score) << endl;
     return quality_scale_factor * (max_score - next_count * next_score);
 }
 
-void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_approximation) {
+void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
+                                      int max_mapping_quality,
+                                      bool fast_approximation) {
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
@@ -888,9 +890,8 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_a
     if (size == 0) {
         return;
     }
-    
+
     vector<double> scaled_scores(size);
-    
     for (size_t i = 0; i < size; i++) {
         scaled_scores[i] = log_base * alignments[i].score();
     }
@@ -904,8 +905,8 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_a
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
     
-    if (mapping_quality > std::numeric_limits<int32_t>::max()) {
-        alignments[max_idx].set_mapping_quality(std::numeric_limits<int32_t>::max());
+    if (mapping_quality > max_mapping_quality) {
+        alignments[max_idx].set_mapping_quality(max_mapping_quality);
     }
     else {
         alignments[max_idx].set_mapping_quality((int32_t) mapping_quality);
@@ -913,25 +914,23 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_a
 }
 
 void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
+                                             int max_mapping_quality,
                                              bool fast_approximation) {
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
     }
     
-    size_t size = alignment_pairs.first.size();
-    
-    if (size != alignment_pairs.second.size()) {
-        cerr << "error:[Aligner] unpaired alignments included with pairs" << endl;
-        exit(EXIT_FAILURE);
-    }
+    size_t size = min(
+        alignment_pairs.first.size(),
+        alignment_pairs.second.size());
     
     if (size == 0) {
         return;
     }
     
     vector<double> scaled_scores(size);
-    
+
     for (size_t i = 0; i < size; i++) {
         scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
     }
@@ -944,10 +943,10 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
-    
-    if (mapping_quality > std::numeric_limits<int32_t>::max()) {
-        alignment_pairs.first[max_idx].set_mapping_quality(std::numeric_limits<int32_t>::max());
-        alignment_pairs.second[max_idx].set_mapping_quality(std::numeric_limits<int32_t>::max());
+
+    if (mapping_quality > max_mapping_quality) {
+        alignment_pairs.first[max_idx].set_mapping_quality(max_mapping_quality);
+        alignment_pairs.second[max_idx].set_mapping_quality(max_mapping_quality);
     }
     else {
         alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
