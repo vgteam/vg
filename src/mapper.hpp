@@ -35,6 +35,7 @@ public:
     string::const_iterator end;
     gcsa::range_type range;
     size_t match_count;
+    int fragment;
     std::vector<gcsa::node_type> nodes;
     map<string, vector<size_t> > positions;
     MaximalExactMatch(string::const_iterator b,
@@ -87,14 +88,14 @@ class MEMMarkovModel {
 public:
     vector<MEMMarkovModelVertex> model;
     MEMMarkovModel(
-        const Alignment& aln,
-        const vector<MaximalExactMatch>& matches,
+        const vector<size_t>& aln_lengths,
+        const vector<vector<MaximalExactMatch> >& matches,
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10);
     void score(const set<MEMMarkovModelVertex*>& exclude);
     MEMMarkovModelVertex* max_vertex(void);
-    vector<vector<MaximalExactMatch> > traceback(int alt_alns);
+    vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool debug);
     void display(ostream& out);
     void clear_scores(void);
 };
@@ -190,8 +191,9 @@ public:
     void record_fragment_length(int length);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
-    int cached_fragment_length_mean;
-    int cached_fragment_length_stdev;
+    double fragment_length_pdf(double length);
+    double cached_fragment_length_mean;
+    double cached_fragment_length_stdev;
     int since_last_fragment_length_estimate;
     int fragment_length_estimate_interval;
 
@@ -317,7 +319,7 @@ public:
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
     // compute a mapping quality component based only on the MEMs we've obtained
-    double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, const Alignment& aln);
+    double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     // walks the graph one base at a time from pos1 until we find pos2

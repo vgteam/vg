@@ -96,6 +96,16 @@ inline double phred_geometric_mean(double phred1, double phred2) {
     return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
 }
 
+// normal pdf, from http://stackoverflow.com/a/10848293/238609
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+    static const T inv_sqrt_2pi = 0.3989422804014327;
+    T a = (x - m) / s;
+
+    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+}
+
 template<typename T, typename V>
 set<T> map_keys_to_set(const map<T, V>& m) {
     set<T> r;
