@@ -40,14 +40,14 @@ Mapper::Mapper(Index* idex,
     , fragment_size(0)
     , fragment_max(1e5)
     , fragment_sigma(4)
-    , mapping_quality_method(Approx)
-    , adjust_alignments_for_base_quality(false)
     , fragment_length_cache_size(1000)
     , cached_fragment_length_mean(0)
     , cached_fragment_length_stdev(0)
     , since_last_fragment_length_estimate(0)
     , fragment_length_estimate_interval(100)
     , perfect_pair_identity_threshold(0.95)
+    , mapping_quality_method(Approx)
+    , adjust_alignments_for_base_quality(false)
     , full_length_alignment_bonus(5)
     , max_mapping_quality(64)
     , mem_reseed_length(64)
@@ -406,7 +406,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
     if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
 
-    if (true) {
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
         // set up positions for distance query
@@ -422,59 +421,41 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             gcsa::Node::offset(node2));
 
         // approximate distance by node lengths
-        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) / avg_node_len;
+        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len;
 
         // are the two mems in the same fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
-            int unique_coverage = m1.length() + m2.length();
+            int unique_coverage = m2.length();
             int max_length = (fragment_size ? fragment_size : fragment_max);
-            // TODO we should use an actual model for the relationship between the forward and reverse
-            // for now, let's try to get them on the same strand
-            // because otherwise the path estimation doesn't work
-            if (is_rev(m1_pos)) {
-                m1_pos = reverse(m1_pos, get_node_length(id(m1_pos)));
-            }
-            if (is_rev(m2_pos)) {
-                m2_pos = reverse(m2_pos, get_node_length(id(m2_pos)));
-            }
-            if (approx_distance < max_length) {
-                int dist = (xindex->path_count ?
-                            min(
-                                abs(xindex->min_distance_in_paths(
-                                        id(m1_pos), is_rev(m1_pos), offset(m1_pos),
-                                        id(m2_pos), is_rev(m2_pos), offset(m2_pos)
-                                        )),
-                                abs(xindex->min_distance_in_paths(
-                                        id(m2_pos), is_rev(m2_pos), offset(m2_pos),
-                                        id(m1_pos), is_rev(m1_pos), offset(m1_pos)
-                                        ))
-                                )
-                            :
-                            graph_distance(m1_pos, m2_pos, max_length));
-                //int dist =  graph_distance(m1_pos, m2_pos, max_length);
-                //cerr << m1.sequence() << ":" << m1.fragment << " ->? " << m2.sequence() << ":" << m2.fragment << endl;
-                //cerr << "distance is " << dist << endl;
-                if (dist >= max_length) {
-                    return -1.0;
-                } else if (fragment_size) {
-                    return fragment_length_pdf(dist) * unique_coverage;
-                } else {
-                    return 1.0/abs(fragment_max - dist) * unique_coverage / (read1.sequence().size() + read2.sequence().size());
-                }
-            } else {
+            int dist = approx_distance;
+            //if (debug) cerr << "distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
+            if (dist >= max_length) {
                 return -1.0;
+            } else {
+                if (is_rev(m1_pos) != is_rev(m2_pos)) {
+                    m2_pos = reverse(m2_pos, get_node_length(id(m2_pos)));
+                }
+                // improve on our approximate metric if we have paths to use
+                if (xindex->path_count) {
+                    dist = abs(xindex->min_distance_in_paths(
+                                   id(m1_pos), is_rev(m1_pos), offset(m1_pos),
+                                   id(m2_pos), is_rev(m2_pos), offset(m2_pos)));
+                }
+                if (fragment_size) {
+                    return 1.0/(abs(fragment_size - dist)+1) * unique_coverage;
+                } else {
+                    return 1.0/(abs(fragment_max - dist)+1) * unique_coverage;
+                }
             }
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
             return -1.0;
         } else { //if (m1.fragment == m2.fragment) {
             int max_length = m1.length() + m2.length();
-
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
-        
             //if (debug) cerr << "approx distance " << approx_distance << endl;
             if (approx_distance > max_length) {
                 // too far
@@ -611,439 +592,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
-    multimaps = 0;
+    cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
+    if (debug) cerr << "cluster mq == " << cluster_mq << endl;
+
     for (auto& p : alns) {
-        if (++multimaps > max_multimaps) { break; }
         results.first.push_back(p.first);
         results.second.push_back(p.second);
     }
-
-    cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
-    //cerr << "cluster mq == " << cluster_mq << endl;
-
     compute_mapping_qualities(results, cluster_mq);
-
-    //return results;
-    }
+    // now truncate
+    results.first.resize(max_multimaps);
+    results.second.resize(max_multimaps);
     
-    /*
-    pair<vector<Alignment>, vector<Alignment> > alns;
-    int multimaps = 0;
-    for (auto& cluster : clusters) {
-        if (++multimaps > total_multimaps) { break; }
-        Alignment partial_alignment = mems_to_alignment(aln, cluster);
-        auto patch = patch_alignment(partial_alignment);
-        if (patch.identity() > min_identity) {
-            alns.emplace_back(patch);
-            auto& a = alns.back();
-            a.set_name(aln.name());
-        }
-    }
-
-    if (debug) {
-        for (auto& aln : alns) {
-            cerr << "cluster aln ------- " << pb2json(aln) << endl;
-        }
-        for (auto& aln : alns) {
-            if (!check_alignment(aln)) {
-                cerr << "alignment failure " << pb2json(aln) << endl;
-                assert(false);
-            }
-        }
-    }
-    */
-
-    
-    /*
-    // We have some logic around align_mate_in_window to handle orientation
-    // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
-    auto align_mate = [&](const Alignment& read, Alignment& mate) {
-        // Make an alignment to align in the same local orientation as the read
-        Alignment aln_same = mate;
-        aln_same.clear_path();
-        // And one to align in the opposite local orientation
-        // Always reverse the opposite direction sequence
-        Alignment aln_opposite = reverse_complement_alignment(aln_same, [&](id_t id) {return get_node_length(id);});
-        
-        // We can't rescue off an unmapped read
-        assert(read.has_path() && read.path().mapping_size() > 0);
-
-        // Do both the alignments
-        align_mate_in_window(read, aln_same, pair_window);
-        align_mate_in_window(read, aln_opposite, pair_window);
-
-        if(aln_same.score() >= aln_opposite.score()) {
-            // TODO: we should prefer opposign local orientations, but we can't
-            // really measure them well.
-            mate = aln_same;
-        } else {
-            // Flip the winning reverse alignment back to the original read orientation
-            aln_opposite = reverse_complement_alignment(aln_opposite, [&](id_t id) {
-                return get_node_length(id);
-            });
-            mate = aln_opposite;
-        }
-    };
-
-
-
-    //cerr << "mems before " << mems1.size() << " " << mems2.size() << endl;
-    // Do the initial alignments, making sure to get some extras if we're going to check consistency.
-
-    vector<MaximalExactMatch> pairable_mems1, pairable_mems2;
-    vector<MaximalExactMatch>* pairable_mems_ptr_1 = nullptr;
-    vector<MaximalExactMatch>* pairable_mems_ptr_2 = nullptr;
-
-    // sensitivity ramp
-    // first try to get a consistent pair
-    // if none is found, re-run the MEM generation with a shorter MEM length
-    // if still none is found, align independently with full MEMS; report inconsistent pair
-    // optionally use local resolution ...
-
-    // wishlist
-    // break out the entire MEM determination logic
-    // and merge it with the clustering
-    // 
-    
-    // find the MEMs for the alignments
-    if (fragment_size) {
-        // use pair resolution filterings on the SMEMs to constrain the candidates
-        set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
-        for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
-        for (auto& mem : mems2) if (pairable_mems.count(&mem)) pairable_mems2.push_back(mem);
-        pairable_mems_ptr_1 = &pairable_mems1;
-        pairable_mems_ptr_2 = &pairable_mems2;
-    } else {
-        pairable_mems_ptr_1 = &mems1;
-        pairable_mems_ptr_2 = &mems2;
-    }
-
-    //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
-    
-    bool report_consistent_pairs = (bool) fragment_size;
-
-    // use MEM alignment on the MEMs matching our constraints
-    // We maintain the invariant that these two vectors of alignments are sorted
-    // by score, descending, as returned from align_multi_internal.
-    double cluster_mq1=0, cluster_mq2=0;
-    vector<Alignment> alignments1 = align_multi_internal(false, read1, kmer_size, stride, max_mem_length,
-                                                         band_width, cluster_mq1, extra_multimaps, pairable_mems_ptr_1);
-    vector<Alignment> alignments2 = align_multi_internal(false, read2, kmer_size, stride, max_mem_length,
-                                                         band_width, cluster_mq2, extra_multimaps, pairable_mems_ptr_2);
-
-    size_t best_score1 = 0;
-    size_t best_score2 = 0;
-    // A nonzero best score means we have any valid alignments of that read.
-    for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
-    for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
-
-    //bool rescue = !mem_threading && fragment_size != 0; // don't try to rescue if we have a defined fragment size
-    bool rescue = fragment_size != 0;
-
-    // Rescue only if the top alignment on one side has no mappings
-    if(rescue && best_score1 == 0 && best_score2 != 0) {
-        // Must rescue 1 off of 2
-        if (debug) cerr << "Rescue read 1 off of read 2" << endl;
-        alignments1.clear();
-        
-        // We use this to deduplicate rescue alignments based on their
-        // serialized Prtotobuf paths. Relies on protobuf serialization being
-        // deterministic.
-        set<string> found;
-        
-        for(auto base : alignments2) {
-            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
-                // Can't rescue off this
-                continue;
-            }
-            Alignment mate = read1;
-            align_mate(base, mate);
-            
-            string serialized;
-            mate.path().SerializeToString(&serialized);
-            if(!found.count(serialized)) {
-                // This is a novel alignment
-                alignments1.push_back(mate);
-                found.insert(serialized);
-            }
-            
-            if(!always_rescue) {
-                // We only want to rescue off the best one, and they're sorted
-                break;
-            }
-        }
-    } else if(rescue && best_score1 != 0 && best_score2 == 0) {
-        // Must rescue 2 off of 1
-        if (debug) cerr << "Rescue read 2 off of read 1" << endl;
-        alignments2.clear();
-        
-        // We use this to deduplicate rescue alignments based on their
-        // serialized Prtotobuf paths. Relies on protobuf serialization being
-        // deterministic.
-        set<string> found;
-        
-        for(auto base : alignments1) {
-            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
-                // Can't rescue off this
-                continue;
-            }
-            Alignment mate = read2;
-            align_mate(base, mate);
-            
-            string serialized;
-            mate.path().SerializeToString(&serialized);
-            if(!found.count(serialized)) {
-                // This is a novel alignment
-                alignments2.push_back(mate);
-                found.insert(serialized);
-            }
-            
-            if(!always_rescue) {
-                // We only want to rescue off the best one, and they're sorted
-                break;
-            }
-        }
-    } else if(always_rescue) {
-        // Try rescuing each off all of the other.
-        // We need to be concerned about introducing duplicates.
-        
-        // We need temp places to hold the extra alignments we make so as to not
-        // rescue off rescues.
-        vector<Alignment> extra1;
-        vector<Alignment> extra2;
-        
-        // We use these to deduplicate alignments based on their serialized
-        // Prtotobuf paths. Relies of protobuf serialization being
-        // deterministic.
-        set<string> found1;
-        set<string> found2;
-        
-        // Fill in the known alignments
-        for(auto existing : alignments1) {
-            // Serialize each alignment's Path and put the result in the set
-            string serialized;
-            existing.path().SerializeToString(&serialized);
-            found1.insert(serialized);
-        }
-        for(auto existing : alignments2) {
-            // Serialize each alignment's Path and put the result in the set
-            string serialized;
-            existing.path().SerializeToString(&serialized);
-            found2.insert(serialized);
-        }
-        
-        for(auto base : alignments1) {
-            // Do 2 off of 1
-            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
-                // Can't rescue off this
-                continue;
-            }
-            Alignment mate = read2;
-            align_mate(base, mate);
-            
-            string serialized;
-            mate.path().SerializeToString(&serialized);
-            if(!found2.count(serialized)) {
-                // This is a novel alignment
-                extra2.push_back(mate);
-                found2.insert(serialized);
-            }
-        }
-        
-        for(auto base : alignments2) {
-            // Do 1 off of 2
-            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
-                // Can't rescue off this
-                continue;
-            }
-            Alignment mate = read1;
-            align_mate(base, mate);
-            
-            string serialized;
-            mate.path().SerializeToString(&serialized);
-            if(!found1.count(serialized)) {
-                // This is a novel alignment
-                extra1.push_back(mate);
-                found1.insert(serialized);
-            }
-        }
-        
-        // Copy over the new unique alignments
-        alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
-        alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
-    }
-    
-    // Fix up the sorting by score, descending, in case rescues came out
-    // better than normal alignments.
-    sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
-        return a.score() > b.score();
-    });
-    sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
-        return a.score() > b.score();
-    });
-
-    if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
-    */
-
-    /*
-    bool found_consistent = false;
-
-    if (fragment_size) {
-
-        map<Alignment*, map<string, double> > aln_pos;
-        for (auto& aln : alignments1) {
-            aln_pos[&aln] = alignment_mean_path_positions(aln);
-        }
-        for (auto& aln : alignments2) {
-            aln_pos[&aln] = alignment_mean_path_positions(aln);
-        }
-
-        // Now we want to emit consistent pairs, in order of decreasing total score.
-    
-        // compare pairs by the sum of their individual scores
-        // We need this functor thing to make the priority queue work.
-        struct ComparePairedAlignmentScores {
-            vector<Alignment>& alns_1;
-            vector<Alignment>& alns_2;
-            
-        public:
-            ComparePairedAlignmentScores(vector<Alignment>& alns_1, vector<Alignment>& alns_2) : alns_1(alns_1), alns_2(alns_2) {}
-            bool operator()(const pair<int, int> idxs1, const pair<int, int> idxs2) {
-                return (alns_1[idxs1.first].score() + alns_2[idxs1.second].score()
-                            < alns_1[idxs2.first].score() + alns_2[idxs2.second].score());
-            }
-        };
-        
-        ComparePairedAlignmentScores compare_paired_alignment_scores = ComparePairedAlignmentScores(alignments1, alignments2);
-        
-        // think about the pairs being laid out on a grid over the individual end multimaps, sorted in each dimension by score
-        // navigate from top left corner outward to add consistent pairs in decreasing score order
-        priority_queue<pair<int, int>, vector<pair<int, int>>, ComparePairedAlignmentScores> pair_queue(compare_paired_alignment_scores);
-        // keep track of which indices have been checked to avoid checking them twice when navigating from above and from the left
-        std::unordered_set<pair<int, int>> considered_pairs;
-        
-        pair<vector<Alignment>, vector<Alignment>> consistent_pairs;
-        // ensure that there is always an additional pair to compute a mapping quality against
-        int num_pairs = max_multimaps >= 2 ? max_multimaps : 2;
-
-        pair_queue.push(make_pair(0, 0));
-        while (!pair_queue.empty() && consistent_pairs.first.size() < num_pairs) {
-            // get index of remaining pair with highest combined score
-            pair<int, int> aln_pair = pair_queue.top();
-            pair_queue.pop();
-            
-            
-            if (alignments_consistent(aln_pos[&alignments1[aln_pair.first]], aln_pos[&alignments2[aln_pair.second]], fragment_size)) {
-                found_consistent = true;
-                consistent_pairs.first.push_back(alignments1[aln_pair.first]);
-                consistent_pairs.second.push_back(alignments2[aln_pair.second]);
-                
-                if(debug) {
-                    cerr << "Found consistent pair " << aln_pair.first << ", " << aln_pair.second
-                        << " with scores " << alignments1[aln_pair.first].score()
-                        << ", " << alignments2[aln_pair.second].score() << endl;
-                }
-                
-            }
-            
-            // add in the two adjacent indices if we haven't already
-            pair<int,int> next_aln_pair_down = make_pair(aln_pair.first + 1, aln_pair.second);
-            pair<int,int> next_aln_pair_right = make_pair(aln_pair.first, aln_pair.second + 1);
-            if (next_aln_pair_down.first < alignments1.size() && considered_pairs.find(next_aln_pair_down) == considered_pairs.end()) {
-                pair_queue.push(next_aln_pair_down);
-                considered_pairs.insert(next_aln_pair_down);
-            }
-            if (next_aln_pair_right.second < alignments2.size() && considered_pairs.find(next_aln_pair_right) == considered_pairs.end()) {
-                pair_queue.push(next_aln_pair_right);
-                considered_pairs.insert(next_aln_pair_right);
-            }
-        }
-        cluster_mq = 0;
-        compute_mapping_qualities(consistent_pairs, cluster_mq);
-        
-        // remove the extra pair used to compute mapping quality if necessary
-        if (consistent_pairs.first.size() > max_multimaps) {
-            consistent_pairs.first.resize(max_multimaps);
-            consistent_pairs.second.resize(max_multimaps);
-        }
-        
-        // mark primary and secondary
-        for (int i = 0; i < consistent_pairs.first.size(); i++) {
-            consistent_pairs.first[i].mutable_fragment_next()->set_name(read2.name());
-            consistent_pairs.first[i].set_is_secondary(i > 0);
-            consistent_pairs.second[i].mutable_fragment_prev()->set_name(read1.name());
-            consistent_pairs.second[i].set_is_secondary(i > 0);
-        }
-
-        // zap everything unless the primary alignments are individually top-scoring
-        if (only_top_scoring_pair && consistent_pairs.first.size() && 
-            (consistent_pairs.first[0].score() < alignments1[0].score() ||
-             consistent_pairs.second[0].score() < alignments2[0].score())) {
-            consistent_pairs.first.clear();
-            consistent_pairs.second.clear();
-        }        
-
-        if (!consistent_pairs.first.empty()) {
-            results = consistent_pairs;
-        } else {
-            // no consistent pairs found
-            // if we can decrease our MEM size
-            // clear, to trigger size reduction
-            // otherwise, yolo
-            //results = make_pair(alignments1, alignments2);
-            //compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
-        }
-
-    } else {
-
-        results = make_pair(alignments1, alignments2);
-        compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
-
-        // Truncate to max multimaps
-        if(results.first.size() > max_multimaps) {
-            results.first.resize(max_multimaps);
-        }
-        if(results.second.size() > max_multimaps) {
-            results.second.resize(max_multimaps);
-        }
-
-        // mark primary and secondary
-        for (int i = 0; i < results.first.size(); i++) {
-            results.first[i].mutable_fragment_next()->set_name(read2.name());
-            results.first[i].set_is_secondary(i > 0);
-        }
-        for (int i = 0; i < results.second.size(); i++) {
-            results.second[i].mutable_fragment_prev()->set_name(read1.name());
-            results.second[i].set_is_secondary(i > 0);
-        }
-        
-    }
-
-    // change the potential set of MEMs by dropping the maximum MEM size
-    // this tends to slightly boost sensitivity at minimal cost
-    if (results.first.empty()
-        || results.second.empty()
-        || !results.first.front().score()
-        || !results.second.front().score()) {
-        //|| fragment_size && !found_consistent) {
-        //cerr << "failed alignment" << endl;
-        if (kmer_sensitivity_step) {
-            int new_mem_max = max((int) min_mem_length,
-                                  (int) (max_mem_length ? max_mem_length : gcsa->order()) - kmer_sensitivity_step);
-            if (new_mem_max == min_mem_length) {
-                // do noting
-            } else if (new_mem_max > min_mem_length) {
-                //cerr << "trying with " << new_mem_max << endl;
-                return align_paired_multi(read1, read2,
-                                          queued_resolve_later,
-                                          kmer_size, stride,
-                                          new_mem_max,
-                                          band_width, pair_window);
-            }
-        }
-    }
-    */
-
     // we tried to align
     // if we don't have a fragment_size yet determined
     // and we didn't get a perfect, unambiguous hit on both reads
@@ -1269,7 +829,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
         // approximate distance by node lengths
         int max_length = m1.length() + m2.length();
-        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) / avg_node_len;
+        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len;
         //if (debug) cerr << "approx distance " << approx_distance << endl;
         if (approx_distance > max_length) {
             // too far
@@ -1309,7 +869,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     id_t id = gcsa::Node::id(node);
                     size_t offset = gcsa::Node::offset(node);
                     bool is_rev = gcsa::Node::rc(node);
-                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
+                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << "," << mem.fragment << ",";
                     /*
                     for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0, is_rev))) {
                         auto& name = ref.first;
@@ -3018,8 +2578,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
 
     // enable these to attempt alignment normalization
-    //patched = smooth_alignment(simplify(patched));
-    patched = simplify(patched);
+    patched = smooth_alignment(simplify(patched));
     patched.set_identity(identity(patched.path()));
     patched.set_score(score_alignment(patched));
     return patched;
@@ -3030,62 +2589,21 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
     auto& path = aln.path();
     Alignment head, tail, smoothed;
     bool should_smooth = false;
-    size_t before = 0;
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         size_t to_len = mapping_to_length(mapping);
-        // look forward to score any intervening gaps using graph distances
-        // and resolve local alignments that loop backward
-        if (i+1 < path.mapping_size()) {
-            // what is the distance between the last position of this mapping
-            // and the first of the next
-            size_t from_len = mapping_from_length(mapping);
-            //Position last_pos =
-            set<pos_t> poses = positions_bp_from(make_pos_t(mapping.position()), from_len, false);
-            pos_t last_pos = *poses.begin();
-            //last_pos.set_offset(last_pos.offset() + from_len);
-            //set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
-            pos_t next_pos = make_pos_t(path.mapping(i+1).position());
-            size_t next_len = mapping_to_length(path.mapping(i+1));
-            int dist = graph_distance(last_pos, next_pos, aln.sequence().size());
-            //if (dist) dist -= 1;
-            if (debug) cerr << "in smooth dist " << i << " vs " << path.mapping_size() << " @ " << dist << " " << last_pos << " " << next_pos << " next len " << next_len << endl;
-            if (dist == aln.sequence().size()) {
-                // we failed to find a distance
-                if (debug) cerr << "failed to find distance" << endl;
-                // try to align this bit in place by expanding the graph here
-                // try going down the read until we've found a bit we can align against
-                int j = i+2;
-                while (j < path.mapping_size()) {
-                    next_pos = make_pos_t(path.mapping(j).position());
-                    dist = graph_distance(last_pos, next_pos, aln.sequence().size());
-                    if (dist < aln.sequence().size()) {
-                        should_smooth = true;
-                        break;
-                    }
-                    ++j;
-                }
-            } else if (i == 0 && to_len < dist) {
-                //cerr << "trying to walk head" << endl;
-                string node_seq = xg_cached_node_sequence(mapping.position().node_id(), xindex, get_node_cache());
-                string seq = reverse_complement(mapping_sequence(mapping, node_seq));
-                pos_t from = reverse(make_pos_t(aln.path().mapping(i+1).position()), xg_cached_node_length(aln.path().mapping(i+1).position().node_id(), xindex, get_node_cache()));
-                head = walk_match(seq, from);
-                head = reverse_complement_alignment(head, (function<int64_t(int64_t)>) ([&](int64_t id) { return (int64_t)get_node_length(id); }));
-                //cerr << "walked match head " << pb2json(head) << endl;
-            } else if (i == path.mapping_size()-2 && next_len < dist) {
-                //cerr << "trying to walk tail" << endl;
-                auto& next_mapping = aln.path().mapping(i+1);
-                string node_seq = xg_cached_node_sequence(next_mapping.position().node_id(), xindex, get_node_cache());
-                string seq = mapping_sequence(next_mapping, node_seq);
-                tail = walk_match(seq, last_pos);
-                //cerr << "walked match tail " << pb2json(tail) << endl;
-                //should_smooth = true;
-                // see if we can walk the match
-                // if so
-            }
+        size_t from_len = mapping_to_length(mapping);
+        if (mapping_to_length(mapping) != mapping_from_length(mapping)) {
+            should_smooth = true;
+            break;
         }
-        before += to_len;
+        // two mappings to the same node
+        if (i < path.mapping_size()-1
+            && path.mapping(i).position().node_id()
+            == path.mapping(i+1).position().node_id()) {
+            should_smooth = true;
+            break;
+        }
     }
     if (should_smooth) {
         if (debug) cerr << "smoothing" << endl;
@@ -3137,21 +2655,6 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                                                     (function<int64_t(int64_t)>) ([&](int64_t id) {
                                                             return (int64_t)get_node_length(id);
                                                         }));
-        }
-        return simplify(smoothed);
-    } else if (head.has_path() || tail.has_path()) {
-        if (head.has_path()) {
-            //cerr << "head has path" << endl;
-            // cut the alignment, paste it on
-            smoothed = strip_from_start(aln, head.sequence().size());
-            smoothed = merge_alignments(head, smoothed);
-            //cerr << "now smoothed " << pb2json(smoothed) << endl;
-        }
-        if (tail.has_path()) {
-            //cerr << "tail has path" << endl;
-            smoothed = strip_from_end(aln, tail.sequence().size());
-            smoothed = merge_alignments(smoothed, tail);
-            //cerr << "now smoothed " << pb2json(smoothed) << endl;
         }
         return simplify(smoothed);
     } else {

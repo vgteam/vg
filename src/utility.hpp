@@ -46,6 +46,10 @@ double stdev(const T& v) {
     return std::sqrt(sq_sum / v.size());
 }
 
+// Φ is the normal cumulative distribution function
+// https://en.wikipedia.org/wiki/Cumulative_distribution_function
+double phi(double x1, double x2);
+
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);

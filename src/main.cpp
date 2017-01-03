@@ -5240,7 +5240,7 @@ void help_map(char** argv) {
          << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
+         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e4)" << endl
          << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 2)" << endl
@@ -5339,7 +5339,7 @@ int main_map(int argc, char** argv) {
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
-    int fragment_max = 1e5;
+    int fragment_max = 1e4;
     double fragment_sigma = 10;
     
 
