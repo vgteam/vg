@@ -114,7 +114,7 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
 vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | wc -l) 1344 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1332 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg
