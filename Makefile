@@ -106,6 +106,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/flow_sort_test.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/srpe_filter.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phase_duplicator.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
@@ -435,6 +436,8 @@ $(UNITTEST_OBJ_DIR)/constructor.o: $(UNITTEST_SRC_DIR)/constructor.cpp $(UNITTES
 $(UNITTEST_OBJ_DIR)/flow_sort_test.o: $(UNITTEST_SRC_DIR)/flow_sort_test.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/phase_duplicator.o: $(UNITTEST_SRC_DIR)/phase_duplicator.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phase_duplicator.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/feature_set.o: $(UNITTEST_SRC_DIR)/feature_set.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/feature_set.hpp $(DEPS)
 
 ###################################
 ## VG subcommand compilation begins here
