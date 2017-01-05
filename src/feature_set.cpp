@@ -49,7 +49,7 @@ void FeatureSet::save_bed(ostream& out) const {
     }
 }
 
-void FeatureSet::on_path_edit(string path, size_t start, size_t old_length, size_t new_length) {
+void FeatureSet::on_path_edit(const string& path, size_t start, size_t old_length, size_t new_length) {
 #ifdef debug
     cerr << "Edit at " << path << " " << start << " from length " << old_length << " to length " << new_length << endl;
 #endif
@@ -129,6 +129,10 @@ void FeatureSet::on_path_edit(string path, size_t start, size_t old_length, size
 #endif
         }
     }
+}
+
+const vector<FeatureSet::Feature>& FeatureSet::get_features(const string& path) const {
+    return features.at(path);
 }
 
 }

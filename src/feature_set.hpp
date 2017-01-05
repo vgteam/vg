@@ -73,7 +73,12 @@ public:
      * with a truly efficient algorithm to back this using some kind of skip
      * list or rope or something.
      */
-    void on_path_edit(string path, size_t start, size_t old_length, size_t new_length);
+    void on_path_edit(const string& path, size_t start, size_t old_length, size_t new_length);
+    
+    /**
+     * Get the features on a path. Generally used for testing.
+     */
+    const vector<Feature>& get_features(const string& path) const;
 
 private:
     /// Stores all the loaded features by path name
