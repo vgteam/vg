@@ -1611,6 +1611,11 @@ bool Mapper::check_alignment(const Alignment& aln) {
         VG g; g.extend(sub);
         auto seq = g.path_string(aln.path());
         //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
+        if (aln.quality().size() && aln.quality().size() != aln.sequence().size()) {
+            cerr << "alignment quality is not the same length as its sequence" << endl
+                 << pb2json(aln) << endl;
+            return false;
+        }
         if (seq != aln.sequence()) {
             cerr << "alignment does not match graph " << endl
                  << pb2json(aln) << endl
@@ -2519,6 +2524,13 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         //assert(false);
         aln.clear_path();
     }
+    if (debug) {
+        cerr << "walk_match result " << pb2json(aln) << endl;
+        if (!check_alignment(aln)) {
+            cerr << "aln is invalid!" << endl;
+            exit(1);
+        }
+    }
     return aln;
 }
 
@@ -2631,7 +2643,10 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 Alignment Mapper::patch_alignment(const Alignment& aln) {
     if (debug) {
         cerr << "patching " << pb2json(aln) << endl;
-        if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
+        if (!check_alignment(aln)) {
+            cerr << "aln is invalid!" << endl;
+            exit(1);
+        }
     }
     Alignment patched;
     int score = 0;
@@ -2651,7 +2666,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             if (debug) cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
+                //cerr << "edit is match" << endl;
                 if (!aln.quality().empty()) {
+                    //cerr << read_pos << " " << edit.to_length() << endl;
                     score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_pos, edit.to_length()),
                         aln.quality().substr(read_pos, edit.to_length()));
@@ -3257,13 +3274,9 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
         Alignment aln = mem_to_alignment(mem);
         // find and trim overlap with previous
         if (i > 0) {
-            auto& prev = mems.at(i-1);
-            // overlap is
-            int overlap = prev.end - mem.begin;
-            //cerr << "overlap be " << overlap << endl;
+            // use the end of the last mem we touched (we may have skipped several)
+            int overlap = last_end - mem.begin;
             if (overlap > 0) {
-                //cerr << "removing " << overlap << endl;
-                //cerr << pb2json(aln) << endl;
                 aln = strip_from_start(aln, overlap);
             }
         }
