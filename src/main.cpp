@@ -693,7 +693,7 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_smems(a.sequence(), max_mem_length);
+            auto mems = mapper.find_mems(a.sequence().begin(), a.sequence().end(), max_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -1678,7 +1678,7 @@ int main_pileup(int argc, char** argv) {
             int tid = omp_get_thread_num();
             pileups[tid].compute_from_alignment(aln);
         };
-        stream::for_each_parallel_batched(alignment_stream, lambda);
+        stream::for_each_parallel(alignment_stream, lambda);
     });
 
     // single-threaded (!) merge
@@ -4026,7 +4026,7 @@ int main_stats(int argc, char** argv) {
         };
 
         // Actually go through all the reads and count stuff up.
-        stream::for_each_parallel_batched(alignment_stream, lambda);
+        stream::for_each_parallel(alignment_stream, lambda);
 
         // Calculate stats about the reads per allele data
         for(auto& site_and_alleles : reads_on_allele) {
@@ -4349,6 +4349,7 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
+         << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -4428,11 +4429,12 @@ int main_find(int argc, char** argv) {
                 {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
                 {"to-graph", required_argument, 0, 'A'},
+                {"max-mem", required_argument, 0, 'Y'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:Y:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4461,14 +4463,18 @@ int main_find(int argc, char** argv) {
             sequence = optarg;
             break;
 
-            case 'M':
-                sequence = optarg;
-                get_mems = true;
-                break;
+        case 'M':
+            sequence = optarg;
+            get_mems = true;
+            break;
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
         case 'z':
             kmer_size = atoi(optarg);
@@ -4716,7 +4722,7 @@ int main_find(int argc, char** argv) {
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
                 cout << node_id;
-                vector<size_t> positions = xindex.node_positions_in_path(node_id, path_name);
+                vector<size_t> positions = xindex.position_in_path(node_id, path_name);
                 for (auto pos : positions) {
                     cout << "\t" << pos;
                 }
@@ -4967,7 +4973,7 @@ int main_find(int argc, char** argv) {
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 // get the mems
-                auto mems = mapper.find_smems(sequence, max_mem_length);
+                auto mems = mapper.find_mems(sequence.begin(), sequence.end(), max_mem_length);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
@@ -5223,7 +5229,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --compare         if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
+         << "    -w, --compare         consider GAM input (-G) as thruth, table of name, overlap with truth, identity, score, mapqual" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
@@ -5233,10 +5239,10 @@ void help_map(char** argv) {
          << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
+         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e4)" << endl
          << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
+         << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 2)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only       only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -5254,11 +5260,12 @@ void help_map(char** argv) {
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
-         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 5)" << endl
+         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
@@ -5284,7 +5291,7 @@ int main_map(int argc, char** argv) {
     string gcsa_name;
     int kmer_size = 0;
     int kmer_stride = 0;
-    int sens_step = 5;
+    int sens_step = 0;
     int best_clusters = 0;
     int cluster_min = 1;
     int max_attempts = 7;
@@ -5316,6 +5323,7 @@ int main_map(int argc, char** argv) {
     int softclip_threshold = 0;
     int max_mem_length = 0;
     int min_mem_length = 8;
+    int mem_reseed_length = 64;
     bool mem_threading = true;
     int max_target_factor = 100;
     int buffer_size = 100;
@@ -5325,12 +5333,14 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_pairing_multimaps = 4;
+    int extra_multimaps = 1;
+    int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
-    int fragment_max = 1e5;
+    int fragment_max = 1e4;
     double fragment_sigma = 10;
+    
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5356,7 +5366,7 @@ int main_map(int argc, char** argv) {
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
                 {"hit-max", required_argument, 0, 'm'},
-                {"max-multimaps", required_argument, 0, 'N'},
+                {"max-multimaps", required_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"gam-input", required_argument, 0, 'G'},
@@ -5379,6 +5389,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
+                {"mem-reseed-length", required_argument, 0, 'V'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
@@ -5387,7 +5398,7 @@ int main_map(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, '1'},
-                {"pairing-multimaps", required_argument, 0, 'u'},
+                {"extra-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", no_argument, 0, 'w'},
                 {"fragment-max", required_argument, 0, 'W'},
@@ -5397,7 +5408,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:",
                          long_options, &option_index);
 
 
@@ -5568,6 +5579,10 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
+        case 'V':
+            mem_reseed_length = atoi(optarg);
+            break;
+
         case 'a':
             mem_threading = false;
             break;
@@ -5601,7 +5616,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'u':
-            extra_pairing_multimaps = atoi(optarg);
+            extra_multimaps = atoi(optarg);
             break;
 
         case 'v':
@@ -5795,16 +5810,18 @@ int main_map(int argc, char** argv) {
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
+        m->mem_reseed_length = mem_reseed_length;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
-        m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
         m->full_length_alignment_bonus = full_length_bonus;
+        m->max_mapping_quality = max_mapping_quality;
         mapper[i] = m;
     }
 
@@ -6058,8 +6075,14 @@ int main_map(int argc, char** argv) {
                 if (compare_gam) {
 #pragma omp critical (cout)
                     {
-                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path()) << endl;
-                        cout << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path()) << endl;
+                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path())
+                                            << "\t" << alnp.first.front().identity()
+                                            << "\t" << alnp.first.front().score()
+                                            << "\t" << alnp.first.front().mapping_quality() << endl
+                             << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path())
+                                            << "\t" << alnp.second.front().identity()
+                                            << "\t" << alnp.second.front().score()
+                                            << "\t" << alnp.second.front().mapping_quality() << endl;
                     }
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
@@ -6100,7 +6123,7 @@ int main_map(int argc, char** argv) {
                     }
                 }
             };
-            gam_paired_interleaved_for_each_parallel(gam_in, lambda);
+            stream::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
@@ -6134,7 +6157,10 @@ int main_map(int argc, char** argv) {
                 }
                 if (compare_gam) {
 #pragma omp critical (cout)
-                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
+                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
+                                             << "\t" << alignments.front().identity()
+                                             << "\t" << alignments.front().score()
+                                             << "\t" << alignments.front().mapping_quality() << endl;
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);
@@ -6217,8 +6243,9 @@ void help_view(char** argv) {
 
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
 
-         << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
+         << "    -f, --fastq-in       input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
+         << "    -X, --fastq-out      output fastq (input defaults to GAM)" << endl
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
@@ -6289,7 +6316,8 @@ int main_view(int argc, char** argv) {
                 {"align-in", no_argument, 0, 'a'},
                 {"gam", no_argument, 0, 'G'},
                 {"bam", no_argument, 0, 'b'},
-                {"fastq", no_argument, 0, 'f'},
+                {"fastq-in", no_argument, 0, 'f'},
+                {"fastq-out", no_argument, 0, 'X'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"aln-graph", required_argument, 0, 'A'},
                 {"show-paths", no_argument, 0, 'p'},
@@ -6314,7 +6342,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:z",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6441,6 +6469,14 @@ int main_view(int argc, char** argv) {
             if(output_type.empty()) {
                 // Default to FASTQ -> GAM
                 output_type = "gam";
+            }
+            break;
+
+        case 'X':
+            output_type = "fastq";
+            if(input_type.empty()) {
+                // Default to FASTQ -> GAM
+                input_type = "gam";
             }
             break;
 
@@ -6571,6 +6607,20 @@ int main_view(int argc, char** argv) {
                         a.set_identity(0);
                     }
                     cout << pb2json(a) << "\n";
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+            } else if (output_type == "fastq") {
+                function<void(Alignment&)> lambda = [](Alignment& a) {
+                    cout << "@" << a.name() << endl
+                         << a.sequence() << endl
+                    << "+" << endl;
+                    if (a.quality().empty()) {
+                        cout << string(a.sequence().size(), quality_short_to_char(30)) << endl;
+                    } else {
+                        cout << string_quality_short_to_char(a.quality()) << endl;
+                    }
                 };
                 get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);

@@ -15,7 +15,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
-#include "../pathindex.hpp"
+#include "../path_index.hpp"
 
 #include "gcsa/gcsa.h"
 #include "gcsa/algorithms.h"
@@ -115,6 +115,7 @@ int main_index(int argc, char** argv) {
             //{"verbose", no_argument,       &verbose_flag, 1},
             {"db-name", required_argument, 0, 'd'},
             {"kmer-size", required_argument, 0, 'k'},
+            {"doubling-steps", required_argument, 0, 'X'},
             {"edge-max", required_argument, 0, 'e'},
             {"kmer-stride", required_argument, 0, 'j'},
             {"store-graph", no_argument, 0, 's'},

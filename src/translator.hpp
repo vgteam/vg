@@ -1,7 +1,8 @@
 #ifndef VG_TRANSLATOR_H
 #define VG_TRANSLATOR_H
-// translator.hpp: defines the Translator, which maps paths on an augmented graph
-// into the base graph defined by a set of Translations from the augmented graph
+/// \file translator.hpp
+/// Defines the Translator, which maps paths on an augmented graph into the base
+/// graph defined by a set of Translations from the augmented graph
 
 #include <iostream>
 #include <algorithm>

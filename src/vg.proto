@@ -83,6 +83,7 @@ message Position {
     int64 node_id = 1; // The Node on which the Position is.
     int64 offset = 2; // The offset into that node's sequence at which the Position occurs.
     bool is_reverse = 4; // True if we obtain the original sequence of the path by reverse complementing the mappings.
+    string name = 5; // If the position is used to represent a position against a reference path
 }
 
 // Paths are walks through nodes defined by a series of `Edit`s.
@@ -118,6 +119,7 @@ message Alignment {
     double identity = 16; // Portion of aligned bases that are perfect matches, or 0 if no bases are aligned.
     repeated Path fragment = 17; // An estimate of the length of the fragment, if this Alignment is paired.
     repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
+    repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment

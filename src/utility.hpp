@@ -46,6 +46,10 @@ double stdev(const T& v) {
     return std::sqrt(sq_sum / v.size());
 }
 
+// Φ is the normal cumulative distribution function
+// https://en.wikipedia.org/wiki/Cumulative_distribution_function
+double phi(double x1, double x2);
+
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);
@@ -84,6 +88,26 @@ inline double phred_to_logprob(int phred) {
 // Convert a natural log probability of wrongness directly to a Phred quality score.
 inline int logprob_to_phred(double logprob ) {
     return round(-10.0 * logprob * log10(exp(1.0)));
+}
+
+// Take the geometric mean of two logprobs
+inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
+    return log(sqrt(exp(lnprob1 + lnprob2)));
+}
+
+// Same thing in phred
+inline double phred_geometric_mean(double phred1, double phred2) {
+    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
+}
+
+// normal pdf, from http://stackoverflow.com/a/10848293/238609
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+    static const T inv_sqrt_2pi = 0.3989422804014327;
+    T a = (x - m) / s;
+
+    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
 
 template<typename T, typename V>
