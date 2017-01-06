@@ -834,10 +834,9 @@ double Aligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, siz
 //}
 
 double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
-    size_t size = scaled_scores.size();
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
-    if (size == 1) {
+    if (scaled_scores.size() == 1) {
         scaled_scores.push_back(0.0);
     }
 
@@ -847,7 +846,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     double next_score = -std::numeric_limits<double>::max();
     int32_t next_count = 0;
     
-    for (int32_t i = 1; i < size; i++) {
+    for (int32_t i = 1; i < scaled_scores.size(); i++) {
         double score = scaled_scores[i];
         if (score > max_score) {
             if (next_score == max_score) {
@@ -871,7 +870,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     
     *max_idx_out = max_idx;
 
-    return quality_scale_factor * (max_score - next_count * next_score);
+    return quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0));
 }
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_approximation) {
