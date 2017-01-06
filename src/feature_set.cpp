@@ -61,29 +61,47 @@ void FeatureSet::on_path_edit(const string& path, size_t start, size_t old_lengt
         // Go through all the features on the path
         auto& feature = *i;
         
-        // Set to true to erase thhe feature we are on
+        // Set to true to erase the feature we are on
         erase = false;
         
         if (feature.last < start) {
-            // If the feature ends before the start, do nothing
+            // If the feature ends before the start of the edit, do nothing
             continue;
         }
         
-        if (feature.first < start) {
-            // Else if it starts before the start
+        if (feature.first <= start) {
+            // Else if it starts at or before the start of the edit
+        
+            
         
             if (feature.last + 1 < start + old_length) {
-                // If it ends before the end, do some weird interpolation on its end
-                // TODO: interpolate end
-                // Clip for now
-                feature.last = start - 1;
+                // If it ends before the end of the edit
+                
+                if (feature.first < start) {
+                    // And actually started before the edit
+                    
+                    // Do some weird interpolation on its end
+                    // TODO: interpolate end
+                    // Clip for now
+                    feature.last = start - 1;
                 
 #ifdef debug
-                cerr << "\tRight clip feature " << feature.feature_name << " to "
-                    << feature.first << " - " << feature.last << endl;
+                    cerr << "\tRight clip feature " << feature.feature_name << " to "
+                        << feature.first << " - " << feature.last << endl;
 #endif
+                } else {
+                    // It ends before the edit ends but started at the start of
+                    // the edit. We ought to still interpolate, but we're just
+                    // going to delete it. TODO: interpolate end.
+                    
+#ifdef debug
+                    cerr << "\tDelete feature " << feature.feature_name << endl;
+#endif
+                    erase = true;
+                    continue;
+                }
             } else {
-                // If it ends at or after the end, shift its end up or down by the length difference
+                // If it ends at or after the end of the edit, shift its end up or down by the length difference
                 feature.last += ((int64_t) new_length - (int64_t) old_length);
                 
 #ifdef debug
@@ -93,15 +111,15 @@ void FeatureSet::on_path_edit(const string& path, size_t start, size_t old_lengt
             }
             
         } else if (feature.first < start + old_length) {
-            // Else if it starts at or after the start and before or at the end
+            // Else if it starts after the start of the edit and before or at the end of the edit
             
             if (feature.last + 1 >= start + old_length) {
-                // If it ends after the end, so some weird interpolation
-                // on the start, and shift the end up or down by the length
-                // difference.
-                // TODO: interpolate start
+                // If it ends after the end of the edit, do some weird
+                // interpolation on the start, and shift the end up or down by
+                // the length difference. TODO: interpolate start
+                
                 // Clip for now
-                feature.first = start + new_length - 1;
+                feature.first = start + new_length;
                 
                 // Adjust end
                 feature.last += ((int64_t) new_length - (int64_t) old_length);
@@ -111,7 +129,7 @@ void FeatureSet::on_path_edit(const string& path, size_t start, size_t old_lengt
                     << feature.first << " - " << feature.last << endl;
 #endif
             } else {
-                // If it ends at or before the end, do weird interpolation on the start and end (or just delete it)
+                // If it ends at or before the end of the edit, do weird interpolation on the start and end (or just delete it)
                 // TODO: interpolate start and end
                 // Clip for now
 #ifdef debug
@@ -121,11 +139,11 @@ void FeatureSet::on_path_edit(const string& path, size_t start, size_t old_lengt
                 continue;
             }
         } else {
-#ifdef debug
-            // Else if it starts after the end, shift its start and end up or down by the length difference
-            cerr << "\tShift feature " << feature.feature_name << " by " << ((int64_t) new_length - (int64_t) old_length) << endl;
             feature.first += ((int64_t) new_length - (int64_t) old_length);
             feature.last += ((int64_t) new_length - (int64_t) old_length);
+#ifdef debug
+            // Else if it starts after the end of the edit, shift its start and end up or down by the length difference
+            cerr << "\tShift feature " << feature.feature_name << " by " << ((int64_t) new_length - (int64_t) old_length) << endl;
 #endif
         }
     }
