@@ -20,6 +20,9 @@
 
 namespace vg {
 
+// uncomment to enable vg map --debug
+//#define debug_mapper
+
 using namespace std;
     
 enum MappingQualityMethod { Approx, Exact, None };
