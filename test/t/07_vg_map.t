@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 34
+plan tests 33
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -101,7 +101,7 @@ is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J -a | jq -c '.path.map
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 4 -J  > temp_paired_alignment.json
-vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -J  > temp_independent_alignment.json
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -u 4 -J  > temp_independent_alignment.json
 paired_score=$(jq -r ".score" < temp_paired_alignment.json | awk '{ sum+=$1} END {print sum}')
 independent_score=$(jq -r ".score" < temp_independent_alignment.json | awk '{ sum+=$1} END {print sum}')
 is $(printf "%s\t%s\n" $paired_score $independent_score | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent have lower score than unrestricted alignments"
@@ -122,8 +122,6 @@ is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'
 rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
 
 is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 4 -W 750 -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
-
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 0 -U -W 750 -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "rescue can replace extra multimappings"
 
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -W 300 -u 4 -J
 is $? 1 "error on vg map -f <nonexistent-file> (unpaired)"

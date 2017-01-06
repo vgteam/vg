@@ -693,7 +693,7 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_smems(a.sequence(), max_mem_length);
+            auto mems = mapper.find_mems(a.sequence().begin(), a.sequence().end(), max_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -4350,6 +4350,7 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
+         << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -4429,11 +4430,12 @@ int main_find(int argc, char** argv) {
                 {"haplotypes", required_argument, 0, 'H'},
                 {"gam", required_argument, 0, 'G'},
                 {"to-graph", required_argument, 0, 'A'},
+                {"max-mem", required_argument, 0, 'Y'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:Y:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4462,14 +4464,18 @@ int main_find(int argc, char** argv) {
             sequence = optarg;
             break;
 
-            case 'M':
-                sequence = optarg;
-                get_mems = true;
-                break;
+        case 'M':
+            sequence = optarg;
+            get_mems = true;
+            break;
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
         case 'z':
             kmer_size = atoi(optarg);
@@ -4717,7 +4723,7 @@ int main_find(int argc, char** argv) {
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
                 cout << node_id;
-                vector<size_t> positions = xindex.node_positions_in_path(node_id, path_name);
+                vector<size_t> positions = xindex.position_in_path(node_id, path_name);
                 for (auto pos : positions) {
                     cout << "\t" << pos;
                 }
@@ -4968,7 +4974,7 @@ int main_find(int argc, char** argv) {
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 // get the mems
-                auto mems = mapper.find_smems(sequence, max_mem_length);
+                auto mems = mapper.find_mems(sequence.begin(), sequence.end(), max_mem_length);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
@@ -5234,10 +5240,10 @@ void help_map(char** argv) {
          << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
+         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e4)" << endl
          << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 1)" << endl
+         << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 2)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only       only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -5260,6 +5266,7 @@ void help_map(char** argv) {
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
@@ -5317,6 +5324,7 @@ int main_map(int argc, char** argv) {
     int softclip_threshold = 0;
     int max_mem_length = 0;
     int min_mem_length = 8;
+    int mem_reseed_length = 64;
     bool mem_threading = true;
     int max_target_factor = 100;
     int buffer_size = 100;
@@ -5327,12 +5335,13 @@ int main_map(int argc, char** argv) {
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 1;
-    int max_mapping_quality = 64;
+    int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
-    int fragment_max = 1e5;
+    int fragment_max = 1e4;
     double fragment_sigma = 10;
+    
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5381,6 +5390,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
+                {"mem-reseed-length", required_argument, 0, 'V'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
@@ -5399,7 +5409,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:",
                          long_options, &option_index);
 
 
@@ -5568,6 +5578,10 @@ int main_map(int argc, char** argv) {
 
         case 'Y':
             max_mem_length = atoi(optarg);
+            break;
+
+        case 'V':
+            mem_reseed_length = atoi(optarg);
             break;
 
         case 'a':
@@ -5797,6 +5811,7 @@ int main_map(int argc, char** argv) {
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
+        m->mem_reseed_length = mem_reseed_length;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
@@ -6229,8 +6244,9 @@ void help_view(char** argv) {
 
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
 
-         << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
+         << "    -f, --fastq-in       input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
+         << "    -X, --fastq-out      output fastq (input defaults to GAM)" << endl
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
@@ -6301,7 +6317,8 @@ int main_view(int argc, char** argv) {
                 {"align-in", no_argument, 0, 'a'},
                 {"gam", no_argument, 0, 'G'},
                 {"bam", no_argument, 0, 'b'},
-                {"fastq", no_argument, 0, 'f'},
+                {"fastq-in", no_argument, 0, 'f'},
+                {"fastq-out", no_argument, 0, 'X'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"aln-graph", required_argument, 0, 'A'},
                 {"show-paths", no_argument, 0, 'p'},
@@ -6326,7 +6343,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:z",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6453,6 +6470,14 @@ int main_view(int argc, char** argv) {
             if(output_type.empty()) {
                 // Default to FASTQ -> GAM
                 output_type = "gam";
+            }
+            break;
+
+        case 'X':
+            output_type = "fastq";
+            if(input_type.empty()) {
+                // Default to FASTQ -> GAM
+                input_type = "gam";
             }
             break;
 
@@ -6583,6 +6608,20 @@ int main_view(int argc, char** argv) {
                         a.set_identity(0);
                     }
                     cout << pb2json(a) << "\n";
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+            } else if (output_type == "fastq") {
+                function<void(Alignment&)> lambda = [](Alignment& a) {
+                    cout << "@" << a.name() << endl
+                         << a.sequence() << endl
+                    << "+" << endl;
+                    if (a.quality().empty()) {
+                        cout << string(a.sequence().size(), quality_short_to_char(30)) << endl;
+                    } else {
+                        cout << string_quality_short_to_char(a.quality()) << endl;
+                    }
                 };
                 get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);
