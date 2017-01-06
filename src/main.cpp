@@ -5261,7 +5261,7 @@ void help_map(char** argv) {
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
-         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 5)" << endl
+         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
@@ -5292,7 +5292,7 @@ int main_map(int argc, char** argv) {
     string gcsa_name;
     int kmer_size = 0;
     int kmer_stride = 0;
-    int sens_step = 5;
+    int sens_step = 0;
     int best_clusters = 0;
     int cluster_min = 1;
     int max_attempts = 7;
