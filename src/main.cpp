@@ -5261,7 +5261,8 @@ void help_map(char** argv) {
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
-         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
+         << "    -4, --cluster-mq          include a component in the MQ that represents the cluster mapping quality" << endl
+         << "    -S, --sens-step N         decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
@@ -5341,7 +5342,7 @@ int main_map(int argc, char** argv) {
     bool compare_gam = false;
     int fragment_max = 1e4;
     double fragment_sigma = 10;
-    
+    bool use_cluster_mq = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5405,11 +5406,12 @@ int main_map(int argc, char** argv) {
                 {"fragment-max", required_argument, 0, 'W'},
                 {"fragment-sigma", required_argument, 0, '2'},
                 {"full-l-bonus", required_argument, 0, 'T'},
+                {"cluster-mq", no_argument, 0, '4'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4",
                          long_options, &option_index);
 
 
@@ -5620,6 +5622,10 @@ int main_map(int argc, char** argv) {
             extra_multimaps = atoi(optarg);
             break;
 
+        case '4':
+            use_cluster_mq = true;
+            break;
+
         case 'v':
             method_code = atoi(optarg);
             break;
@@ -5823,6 +5829,7 @@ int main_map(int argc, char** argv) {
         m->fragment_sigma = fragment_sigma;
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
+        m->use_cluster_mq = use_cluster_mq;
         mapper[i] = m;
     }
 

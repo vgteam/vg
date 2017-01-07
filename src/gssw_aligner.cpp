@@ -879,8 +879,10 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
                                       int max_mapping_quality,
+                                      bool fast_approximation,
                                       double cluster_mq,
-                                      bool fast_approximation) {
+                                      bool use_cluster_mq) {
+
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
@@ -905,21 +907,24 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
-    // incorporate cluster mq
-    mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
 
     if (mapping_quality > max_mapping_quality) {
-        alignments[max_idx].set_mapping_quality(max_mapping_quality);
+        mapping_quality = max_mapping_quality;
     }
-    else {
-        alignments[max_idx].set_mapping_quality((int32_t) mapping_quality);
+
+    if (use_cluster_mq) {
+        mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    alignments[max_idx].set_mapping_quality((int32_t) mapping_quality);
 }
 
 void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                              int max_mapping_quality,
+                                             bool fast_approximation,
                                              double cluster_mq,
-                                             bool fast_approximation) {
+                                             bool use_cluster_mq) {
+
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
@@ -948,17 +953,16 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
-    // incorporate cluster mq
-    mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
-
     if (mapping_quality > max_mapping_quality) {
-        alignment_pairs.first[max_idx].set_mapping_quality(max_mapping_quality);
-        alignment_pairs.second[max_idx].set_mapping_quality(max_mapping_quality);
+        mapping_quality = max_mapping_quality;
     }
-    else {
-        alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
-        alignment_pairs.second[max_idx].set_mapping_quality((int32_t) mapping_quality);
+
+    if (use_cluster_mq) {
+        mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
+    alignment_pairs.second[max_idx].set_mapping_quality((int32_t) mapping_quality);
 }
 
 int32_t Aligner::score_exact_match(const string& sequence) {

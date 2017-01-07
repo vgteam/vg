@@ -51,6 +51,7 @@ Mapper::Mapper(Index* idex,
     , full_length_alignment_bonus(5)
     , max_mapping_quality(64)
     , mem_reseed_length(64)
+    , use_cluster_mq(false)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -1129,10 +1130,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 #endif
 
     // calculate cluster mapping quality
-    cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
+    if (use_cluster_mq) {
+        cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
 #ifdef debug_mapper
-    if (debug) cerr << "cluster mq == " << cluster_mq << endl;
+        if (debug) cerr << "cluster mq == " << cluster_mq << endl;
 #endif
+    }
 
     // rebuild the thing we'll return
     int read1_max_score = 0;
@@ -1410,7 +1413,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
 #endif
 
-    cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
+    if (use_cluster_mq) {
+        cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
+    }
 
     // for up to our required number of multimaps
     // make the perfect-match alignment for the SMEM cluster
@@ -2023,10 +2028,10 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mapping_quality, cluster_mq, true);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mapping_quality, cluster_mq, false);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, false, cluster_mq, use_cluster_mq);
             break;
         default: // None
             break;
@@ -2038,10 +2043,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, cluster_mq, true);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, cluster_mq, false);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, false, cluster_mq, use_cluster_mq);
             break;
         default: // None
             break;
