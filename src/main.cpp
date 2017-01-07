@@ -5267,7 +5267,7 @@ void help_map(char** argv) {
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
-         << "    -4, --cluster-mq          include a component in the MQ that represents the cluster mapping quality" << endl
+         << "    -4, --no-cluster-mq       exclude the cluster-based component of the mapping quality" << endl
          << "    -S, --sens-step N         decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
@@ -5348,7 +5348,7 @@ int main_map(int argc, char** argv) {
     bool compare_gam = false;
     int fragment_max = 1e4;
     double fragment_sigma = 10;
-    bool use_cluster_mq = false;
+    bool use_cluster_mq = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5412,7 +5412,7 @@ int main_map(int argc, char** argv) {
                 {"fragment-max", required_argument, 0, 'W'},
                 {"fragment-sigma", required_argument, 0, '2'},
                 {"full-l-bonus", required_argument, 0, 'T'},
-                {"cluster-mq", no_argument, 0, '4'},
+                {"no-cluster-mq", no_argument, 0, '4'},
                 {0, 0, 0, 0}
             };
 
@@ -5629,7 +5629,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '4':
-            use_cluster_mq = true;
+            use_cluster_mq = false;
             break;
 
         case 'v':

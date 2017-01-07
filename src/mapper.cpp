@@ -1264,14 +1264,8 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
     if (clusters.size() == 1) {
         return { (double)max_mapping_quality };
     }
-    //size_t read_length = aln.sequence().size();
-    // \prod fraction of the read covered / number of hits
     vector<double> weights;
     for (auto& cluster : clusters) {
-        //int unique_cov = cluster_coverage(cluster);
-        //cerr << "unique cov " << unique_cov << endl;
-        // count up the hits
-        //int hits = 0;
         weights.emplace_back();
         double& weight = weights.back();
         for (int i = 0; i < cluster.size(); ++i) {
@@ -1290,14 +1284,11 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
                     shared_coverage += (mem.end <= next.begin ? 0 : mem.end - next.begin);
                 }
             }
-            //cerr << "Shared coverage " << shared_coverage << " mem.length() " << mem.length() << endl;
-            //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
             weight +=
                 (((double)mem.length() - (double)shared_coverage/2)
                  / read_length)
                 / mem.match_count;
         }
-        //weight = (weight < 0 ? 0 : weight);
         //cerr << "weight " << weight << endl;
     }
     // return the ratio between best and second best as quality
