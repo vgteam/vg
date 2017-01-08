@@ -128,8 +128,14 @@ double Mapper::estimate_gc_content(void) {
     return ((double) gc) / (at + gc);
 }
 
-int Mapper::half_random_match_length(void) {
-    return floor(- (log(1.0 - pow(2.0, (-1.0/xindex->seq_length))) / log(4.0)));
+int Mapper::random_match_length(double chance_random) {
+    return ceil(- (log(1.0 - pow(pow(1.0-chance_random, -1), (-1.0/xindex->seq_length))) / log(4.0)));
+}
+
+double Mapper::graph_entropy(void) {
+    const size_t seq_bytes = xindex->sequence_bit_size() / 8;
+    char* seq = (char*) xindex->sequence_data();
+    return entropy(seq, seq_bytes);
 }
 
 void Mapper::init_node_cache(void) {

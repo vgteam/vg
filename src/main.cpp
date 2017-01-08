@@ -1733,6 +1733,8 @@ void help_msga(char** argv) {
          << "mem mapping:" << endl
          << "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
          << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: estimated)" << endl
+         << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
+        //<< "    -
          << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
          << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
@@ -1814,6 +1816,7 @@ int main_msga(int argc, char** argv) {
     int gap_extend = 1;
     bool circularize = false;
     int sens_step = 5;
+    float chance_match = 0.05;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1856,11 +1859,12 @@ int main_msga(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'e'},
                 {"circularize", no_argument, 0, 'C'},
+                {"chance-match", required_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:C",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1876,6 +1880,10 @@ int main_msga(int argc, char** argv) {
 
         case 'L':
             min_mem_length = atoi(optarg);
+            break;
+
+        case 'F':
+            chance_match = atof(optarg);
             break;
 
         case 'Y':
@@ -2167,7 +2175,8 @@ int main_msga(int argc, char** argv) {
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_identity = min_identity;
-            mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length : mapper->half_random_match_length());
+            mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
+                                      : mapper->random_match_length(chance_match));
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -5271,7 +5280,8 @@ void help_map(char** argv) {
          << "    -S, --sens-step N         decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
-         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where 1/2 of hits are by chance)" << endl
+         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
+         << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
@@ -5280,8 +5290,7 @@ void help_map(char** argv) {
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
-         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
-         << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl;
+         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -5331,6 +5340,7 @@ int main_map(int argc, char** argv) {
     int softclip_threshold = 0;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    float random_match_chance = 0.05;
     int mem_reseed_length = 64;
     bool mem_threading = true;
     int max_target_factor = 100;
@@ -5349,6 +5359,7 @@ int main_map(int argc, char** argv) {
     int fragment_max = 1e4;
     double fragment_sigma = 10;
     bool use_cluster_mq = true;
+    float chance_match = 0.05;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5376,7 +5387,6 @@ int main_map(int argc, char** argv) {
                 {"hit-max", required_argument, 0, 'm'},
                 {"max-multimaps", required_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
-                {"prefer-forward", no_argument, 0, 'F'},
                 {"gam-input", required_argument, 0, 'G'},
                 {"accept-identity", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
@@ -5413,11 +5423,12 @@ int main_map(int argc, char** argv) {
                 {"fragment-sigma", required_argument, 0, '2'},
                 {"full-l-bonus", required_argument, 0, 'T'},
                 {"no-cluster-mq", no_argument, 0, '4'},
+                {"chance-match", required_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4",
                          long_options, &option_index);
 
 
@@ -5544,7 +5555,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'F':
-            prefer_forward = true;
+            chance_match = atof(optarg);
             break;
 
         case 'G':
@@ -5822,9 +5833,8 @@ int main_map(int argc, char** argv) {
         m->kmer_min = kmer_min;
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
-        // set the min mem length to the half random match estimate for the given genome
-        m->min_mem_length = (min_mem_length > 0 ? min_mem_length : m->half_random_match_length());
-        cerr << "half random match " << m->min_mem_length << endl;
+        m->min_mem_length = (min_mem_length > 0 ? min_mem_length
+                             : m->random_match_length(chance_match));
         m->mem_reseed_length = mem_reseed_length;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;

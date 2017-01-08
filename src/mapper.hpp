@@ -201,7 +201,8 @@ public:
     int fragment_length_estimate_interval;
 
     double estimate_gc_content(void);
-    int half_random_match_length(void);
+    int random_match_length(double chance_random);
+    double graph_entropy(void);
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
