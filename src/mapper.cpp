@@ -129,7 +129,15 @@ double Mapper::estimate_gc_content(void) {
 }
 
 int Mapper::random_match_length(double chance_random) {
-    return ceil(- (log(1.0 - pow(pow(1.0-chance_random, -1), (-1.0/xindex->seq_length))) / log(4.0)));
+    size_t length = 0;
+    if (xindex) {
+        length = xindex->seq_length;
+    } else if (index) {
+        length = index->approx_size_of_kmer_matches("");
+    } else {
+        return 0;
+    }
+    return ceil(- (log(1.0 - pow(pow(1.0-chance_random, -1), (-1.0/length))) / log(4.0)));
 }
 
 double Mapper::graph_entropy(void) {
