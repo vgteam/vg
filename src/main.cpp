@@ -1732,7 +1732,7 @@ void help_msga(char** argv) {
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "mem mapping:" << endl
          << "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
-         << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
+         << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: estimated)" << endl
          << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
          << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
@@ -1803,7 +1803,7 @@ int main_msga(int argc, char** argv) {
     int iter_max = 1;
     bool use_mem_threader = true;
     int max_mem_length = 0;
-    int min_mem_length = 8;
+    int min_mem_length = 0;
     bool greedy_accept = false;
     float accept_identity = 0;
     int max_target_factor = 100;
@@ -2167,7 +2167,7 @@ int main_msga(int argc, char** argv) {
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_identity = min_identity;
-            mapper->min_mem_length = min_mem_length;
+            mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length : mapper->half_random_match_length());
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -5246,12 +5246,12 @@ void help_map(char** argv) {
          << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e4)" << endl
-         << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
-         << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N    examine N extra mappings looking for a consistent read pairing (default: 2)" << endl
-         << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
-         << "    -O, --top-pairs-only       only produce paired alignments if both sides of the pair are top-scoring individually" << endl
+         << "    -W, --fragment-max N      maximum fragment size to be used for estimating the fragment length distribution (default: 1e4)" << endl
+         << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
+         << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
+         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 2)" << endl
+         << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
+         << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N        for very long sequences, align in chunks then merge paths, no mapping quality (default 1000bp)" << endl
          << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
@@ -5271,12 +5271,12 @@ void help_map(char** argv) {
          << "    -S, --sens-step N         decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
-         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 8)" << endl
+         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where 1/2 of hits are by chance)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "kmer-based mapper:" << endl
-         << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
+         << "  This algorithm is used  when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
@@ -5330,7 +5330,7 @@ int main_map(int argc, char** argv) {
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     int max_mem_length = 0;
-    int min_mem_length = 8;
+    int min_mem_length = 0;
     int mem_reseed_length = 64;
     bool mem_threading = true;
     int max_target_factor = 100;
@@ -5822,7 +5822,9 @@ int main_map(int argc, char** argv) {
         m->kmer_min = kmer_min;
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
-        m->min_mem_length = min_mem_length;
+        // set the min mem length to the half random match estimate for the given genome
+        m->min_mem_length = (min_mem_length > 0 ? min_mem_length : m->half_random_match_length());
+        cerr << "half random match " << m->min_mem_length << endl;
         m->mem_reseed_length = mem_reseed_length;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;

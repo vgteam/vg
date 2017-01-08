@@ -31,7 +31,7 @@ Mapper::Mapper(Index* idex,
     , min_kmer_entropy(0)
     , debug(false)
     , alignment_threads(1)
-    , min_mem_length(8)
+    , min_mem_length(0)
     , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
@@ -108,7 +108,7 @@ Mapper::~Mapper(void) {
     }
 }
     
-double Mapper::estimate_gc_content() {
+double Mapper::estimate_gc_content(void) {
     
     uint64_t at = 0, gc = 0;
     
@@ -126,6 +126,10 @@ double Mapper::estimate_gc_content() {
     }
     
     return ((double) gc) / (at + gc);
+}
+
+int Mapper::half_random_match_length(void) {
+    return floor(- (log(1.0 - pow(2.0, (-1.0/xindex->seq_length))) / log(4.0)));
 }
 
 void Mapper::init_node_cache(void) {
