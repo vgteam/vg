@@ -1302,11 +1302,8 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
     // return the ratio between best and second best as quality
     std::sort(weights.begin(), weights.end(), std::greater<double>());
     if (weights[0] == 0) return 0;
-    /*
-    return min(max_mapping_quality,
+    return min((double)max_mapping_quality,
                prob_to_phred(weights[1]/weights[0]));
-    */
-    return prob_to_phred(weights[1]/weights[0]);
 }
 
 double

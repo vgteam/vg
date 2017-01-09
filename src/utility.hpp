@@ -76,8 +76,8 @@ inline double phred_to_prob(int phred) {
 }
 
 // Convert probability of wrongness to integer Phred quality score.
-inline int prob_to_phred(double prob) {
-    return round(-10.0 * log10(prob));
+inline double prob_to_phred(double prob) {
+    return -10.0 * log10(prob);
 }
 
 // Convert a Phred quality score directly to a natural log probability of wrongness.
@@ -86,8 +86,8 @@ inline double phred_to_logprob(int phred) {
 }
 
 // Convert a natural log probability of wrongness directly to a Phred quality score.
-inline int logprob_to_phred(double logprob ) {
-    return round(-10.0 * logprob * log10(exp(1.0)));
+inline double logprob_to_phred(double logprob ) {
+    return -10.0 * logprob * log10(exp(1.0));
 }
 
 // Take the geometric mean of two logprobs
