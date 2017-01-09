@@ -908,12 +908,12 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
-    if (mapping_quality > max_mapping_quality) {
-        mapping_quality = max_mapping_quality;
-    }
-
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
+    }
+
+    if (mapping_quality > max_mapping_quality) {
+        mapping_quality = max_mapping_quality;
     }
 
     alignments[max_idx].set_mapping_quality((int32_t) mapping_quality);
@@ -953,12 +953,12 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
-    if (mapping_quality > max_mapping_quality) {
-        mapping_quality = max_mapping_quality;
-    }
-
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
+    }
+
+    if (mapping_quality > max_mapping_quality) {
+        mapping_quality = max_mapping_quality;
     }
 
     alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);

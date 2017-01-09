@@ -1109,16 +1109,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 
         ++multimaps;
         
-#ifdef debug_mapper
-    if (debug) { cerr << "patch identity " << patch.identity() << endl; }
-#endif
-        /*
-        if (patch.identity() > min_identity) {
-            alns.emplace_back(patch);
-            auto& a = alns.back();
-            a.set_name(aln.name());
-        }
-        */
     }
     // sort the aligned pairs
     std::sort(alns.begin(), alns.end(),
@@ -1312,8 +1302,11 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
     // return the ratio between best and second best as quality
     std::sort(weights.begin(), weights.end(), std::greater<double>());
     if (weights[0] == 0) return 0;
+    /*
     return min(max_mapping_quality,
                prob_to_phred(weights[1]/weights[0]));
+    */
+    return prob_to_phred(weights[1]/weights[0]);
 }
 
 double
@@ -2504,13 +2497,20 @@ Mapper::find_mems(string::const_iterator seq_begin,
                 if (mem.match_count > 1) {
                     continue;
                 }
-                vector<MaximalExactMatch> remems = find_mems(mem.begin, mem.end, mem.length()/2, 0);
-                for (auto& rmem : remems) {
-                    rmem.fill_match_count(gcsa);
-                    // keep if we have more than the match count of the parent
-                    if (rmem.match_count > mem.match_count) {
-                        reseeded.push_back(rmem);
+#ifdef debug_mapper
+                if (debug) cerr << "reseeding " << mem.sequence() << " with " << mem.length()/2 << endl;
+#endif
+                int reseed_to = mem.length()/2;
+                while (reseeded.empty() && reseed_to > min_mem_length) {
+                    vector<MaximalExactMatch> remems = find_mems(mem.begin, mem.end, reseed_to, 0);
+                    for (auto& rmem : remems) {
+                        rmem.fill_match_count(gcsa);
+                        // keep if we have more than the match count of the parent
+                        if (rmem.match_count > mem.match_count) {
+                            reseeded.push_back(rmem);
+                        }
                     }
+                    reseed_to /= 2;
                 }
             }
         }
@@ -2522,9 +2522,11 @@ Mapper::find_mems(string::const_iterator seq_begin,
     }
     
     // verify the matches (super costly at scale)
+    /*
 #ifdef debug_mapper
     if (debug) { check_mems(mems); }
 #endif
+    */
     return mems;
 }
 
