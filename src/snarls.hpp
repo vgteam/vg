@@ -8,8 +8,10 @@
 #ifndef snarls_hpp
 #define snarls_hpp
 
+#include <cstdint>
 #include <stdio.h>
 #include <unordered_map>
+#include <unordered_set>
 #include "vg.hpp"
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -37,24 +39,42 @@ namespace vg {
         ~SnarlManager() = default;
         
         /// Returns a vector of pointers to the children of a Snarl
-        const vector<const Snarl*>& children_of(const Snarl& snarl);
+        const vector<const Snarl*>& children_of(const Snarl* snarl);
         
         /// Returns a pointer to the parent of a Snarl or nullptr if there is none
-        const Snarl* parent_of(const Snarl& snarl);
+        const Snarl* parent_of(const Snarl* snarl);
         
         /// Returns a reference to a vector with the roots of the Snarl trees
         const vector<const Snarl*>& top_level_snarls();
         
-        /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (includes the
-        /// Nodes that form the boundaries of child Snarls, does not include Snarl's own boundary Nodes)
-        pair<vector<Node*>, vector<Edge*> > shallow_contents(const Snarl&, VG& graph);
+        /// Reverses the orientation of a snarl
+        void flip(const Snarl* snarl);
         
-        /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (does not
-        /// include Snarl's own boundary Nodes)
-        pair<vector<Node*>, vector<Edge*> > deep_contents(const Snarl&, VG& graph);
+        /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
+        /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
+        pair<unordered_set<Node*>, unordered_set<Edge*> > shallow_contents(const Snarl* snarl, VG& graph,
+                                                                           bool include_boundary_nodes);
+        
+        /// Returns the Nodes and Edges contained in this Snarl, including those in child Snarls (optionally
+        /// includes Snarl's own boundary Nodes)
+        pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
+                                                                        bool include_boundary_nodes);
+        
+        // Returns a map from the boundaries of the child Snarls to the respective child Snarl. End NodeTraversals
+        // are reversed to point into the Snarl.
+        map<NodeTraversal, const Snarl*> child_boundary_index(const Snarl* snarl, VG& graph);
+        
+        // Returns a map from the start boundary of the children to the respective child Snarl.
+        map<NodeTraversal, const Snarl*> child_start_index(const Snarl* snarl, VG& graph);
+        
+        // Returns a map from the reversed end boundary of the children to the respective child Snarl.
+        map<NodeTraversal, const Snarl*> child_end_index(const Snarl* snarl, VG& graph);
+        
+        /// Execute a function on all top level sites
+        void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
         
         /// Execute a function on all top level sites in parallel
-        void for_each_top_level_snarl_parallel(const function<void(const Snarl&)>& lambda);
+        void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda);
         
     private:
         
@@ -64,12 +84,12 @@ namespace vg {
         /// Roots of snarl trees
         vector<const Snarl*> roots;
         
-        /// Map of snarls to the child snarls they contain ()
+        /// Map of snarls to the child snarls they contain
         unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, vector<const Snarl*> > children;
         unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, const Snarl*> parent;
         
         /// Converts Snarl to the form used as keys in internal data structures
-        inline pair<pair<int64_t, bool>, pair<int64_t, bool> > key_form(const Snarl& snarl);
+        inline pair<pair<int64_t, bool>, pair<int64_t, bool> > key_form(const Snarl* snarl);
         
         /// Builds tree indices after Snarls have been added
         void build_trees();
@@ -83,7 +103,18 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
-    // must place template and inline functions in header
+    /// Converts a NodeTraversal to a Visit.
+    inline Visit to_visit(const NodeTraversal& node_traversal);
+    
+    /// Converts a NodeTraversal to a Visit in the opposite orientation.
+    inline Visit to_rev_visit(const NodeTraversal& node_traversal);
+    
+    // Copies the boundary Visits from one Snarl into another
+    inline void transfer_boundary_info(const Snarl& from, Snarl& to);
+    
+    /****
+     * Template and Inlines:
+     ****/
     
     template <typename SnarlIterator>
     SnarlManager::SnarlManager(SnarlIterator begin, SnarlIterator end) {
@@ -104,6 +135,26 @@ namespace vg {
         assert(visit.node_id());
         return NodeTraversal(graph.get_node(visit.node_id()), !visit.backward());
     }
+    
+    inline Visit to_visit(const NodeTraversal& node_traversal) {
+        Visit to_return;
+        to_return.set_node_id(node_traversal.node->id());
+        to_return.set_backward(node_traversal.backward);
+        return to_return;
+    }
+    
+    inline Visit to_rev_visit(const NodeTraversal& node_traversal) {
+        Visit to_return;
+        to_return.set_node_id(node_traversal.node->id());
+        to_return.set_backward(!node_traversal.backward);
+        return to_return;
+    }
+    
+    inline void transfer_boundary_info(const Snarl& from, Snarl& to) {
+        *to.mutable_start() = from.start();
+        *to.mutable_end() = from.end();
+    }
+    
 }
 
 // note: this hash funtion is not used internally because we want the internal indices to ignore any
@@ -114,10 +165,9 @@ namespace std {
     template<>
     struct hash<const vg::Snarl> {
         size_t operator()(const vg::Snarl& snarl) const {
-            return hash<pair<pair<int64_t, bool>, pair<int64_t, bool> > >()(make_pair(make_pair(snarl.start().node_id(),
-                                                                                                snarl.start().backward()),
-                                                                                      make_pair(snarl.end().node_id(),
-                                                                                                snarl.end().backward())));
+            auto hsh = hash<pair<pair<int64_t, bool>, pair<int64_t, bool> > >();
+            return hsh(make_pair(make_pair(snarl.start().node_id(), snarl.start().backward()),
+                                 make_pair(snarl.end().node_id(), snarl.end().backward())));
         }
     };
 }
