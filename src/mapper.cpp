@@ -1026,7 +1026,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                         return -1.0;
                     } else {
                         // accepted transition
-                        return 1.0 / (double)(abs(jump) + 1) * unique_coverage;
+                        return 1.0 / (double)(abs(jump) + 1);
                     }
                 }
             }
@@ -1345,7 +1345,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             m2_pos = make_pos_t(id, is_rev, offset);
         }
         // approximate distance by node lengths
-        int max_length = m1.length() + m2.length();
+        int max_length = 2 * (m1.length() + m2.length());
         double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len;
 #ifdef debug_mapper
         if (debug) cerr << "approx distance " << approx_distance << endl;
@@ -1368,14 +1368,14 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     return (double)-1.0;
                 } else {
                     // accepted transition
-                    return (double)1.0 / (double)(abs(jump) + 1) * unique_coverage;
+                    return 1.0 / (double)(abs(jump) + 1);
                 }
             }
         }
     };
 
     // build the model
-    MEMMarkovModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, 10);
+    MEMMarkovModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, 16);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, debug);
 
     auto show_clusters = [&](void) {
@@ -4429,7 +4429,7 @@ MEMMarkovModel::MEMMarkovModel(
                 //model.emplace_back();
                 //auto m = model.back();
                 MEMMarkovModelVertex m;
-                m.weight = (double) mem.length() / (double)aln_lengths[frag_n-1];
+                m.weight = mem.length();
                 m.prev = nullptr;
                 m.score = 0;
                 m.mem = mem;
@@ -4536,7 +4536,9 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
         auto* vertex = max_vertex();
         // check if we've exhausted our MEMs
         if (vertex == nullptr || vertex->score == 0) break;
-        //cerr << "is maximum " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
+#ifdef debug_mapper
+        if (debug) cerr << "maximum score " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
+#endif
         // make trace
         vector<MEMMarkovModelVertex*> vertex_trace;
         while (vertex != nullptr) {
