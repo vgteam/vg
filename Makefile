@@ -90,6 +90,7 @@ OBJ += $(OBJ_DIR)/path_index.o
 OBJ += $(OBJ_DIR)/phase_duplicator.o
 OBJ += $(OBJ_DIR)/feature_set.o
 OBJ += $(OBJ_DIR)/simplifier.o
+OBJ += $(OBJ_DIR)/chunker.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -109,6 +110,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phase_duplicator.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
 
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
@@ -119,6 +121,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/simplify_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/index_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/mod_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/annotate_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/chunk_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -388,6 +391,8 @@ $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(D
 
 $(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
+$(OBJ_DIR)/chunker.o: $(SRC_DIR)/chunker.cpp $(SRC_DIR)/chunker.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
 $(OBJ_DIR)/xg-main.o: $(XG_DIR)/src/main.cpp $(XG_DIR)/src/xg.hpp $(DEPS)
@@ -467,6 +472,9 @@ $(SUBCOMMAND_OBJ_DIR)/index_main.o: $(SUBCOMMAND_SRC_DIR)/index_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/mod_main.o: $(SUBCOMMAND_SRC_DIR)/mod_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/annotate_main.o: $(SUBCOMMAND_SRC_DIR)/annotate_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/chunk_main.o: $(SUBCOMMAND_SRC_DIR)/chunk_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
 
 ########################
 ## Pattern Rules
