@@ -392,6 +392,12 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     // Scan left along ther path if we found the site start backwards, and right if we found it forwards.
                     Mapping* next = backward ? graph.paths.traverse_left(here) : graph.paths.traverse_right(here);
                     
+                    if (next == nullptr) {
+                        // We hit the end of the path without finding the end of the site.
+                        // We've found all the existing mappings, so we can stop.
+                        break;
+                    }
+                    
                     // Make into NodeTraversals
                     NodeTraversal here_traversal(graph.get_node(here->position().node_id()), here->position().is_reverse());
                     NodeTraversal next_traversal(graph.get_node(next->position().node_id()), next->position().is_reverse());
