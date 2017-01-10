@@ -175,7 +175,129 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         // node, so we can go through them while tampering with them.
         map<string, set<Mapping*> > mappings_by_path = graph.paths.get_node_mapping(leaf.start.node);
         
-        // We'll keep a set of the end mappings we managed to find
+        // It's possible a path can enter the site through the end node and
+        // never hit the start. So we're going to trim those back before we delete nodes and edges.
+        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(leaf.end.node);
+        
+        if (!drop_hairpin_paths) {
+            // We shouldn't drop paths if they hairpin and can't be represented
+            // in a simplified bubble. So we instead have to not simplify
+            // bubbles that would have that problem.
+            bool found_hairpin = false;
+            
+            for (auto& kv : mappings_by_path) {
+                // For each path that hits the start node
+                
+                if (found_hairpin) {
+                    // We only care if there are 1 or more hairpins, not how many
+                    break;    
+                }
+                
+                // Unpack the name
+                auto& path_name = kv.first;
+                
+                for (Mapping* start_mapping : kv.second) {
+                    // For each visit to the start node
+                
+                    if (found_hairpin) {
+                        // We only care if there are 1 or more hairpins, not how many
+                        break;    
+                    }
+                
+                    // Determine what orientation we're going to scan in
+                    bool backward = start_mapping->position().is_reverse();
+                    
+                    // Start at the start node
+                    Mapping* here = start_mapping;
+                    
+                    while (here) {
+                        // Until we hit the start/end of the path or the mapping we want
+                        if (here->position().node_id() == leaf.end.node->id() &&
+                            here->position().is_reverse() == (leaf.end.backward != backward)) {
+                            // We made it out.
+                            // Stop scanning!
+                            break;
+                        }
+                        
+                        if (here->position().node_id() == leaf.start.node->id() &&
+                            here->position().is_reverse() != (leaf.start.backward != backward)) {
+                            // We have encountered the start node with an incorrect orientation.
+                            cerr << "warning:[vg simplify] Path " << path_name
+                                << " doubles back through start of site "
+                                << leaf.start << " - " << leaf.end << "; skipping site!" << endl;
+                                
+                            found_hairpin = true;
+                            break;
+                        }
+                        
+                        // Scan left along ther path if we found the site start backwards, and right if we found it forwards.
+                        here = backward ? graph.paths.traverse_left(here) : graph.paths.traverse_right(here);
+                    }
+                }
+            }
+            
+            for (auto& kv : end_mappings_by_path) {
+                // For each path that hits the end node
+                
+                if (found_hairpin) {
+                    // We only care if there are 1 or more hairpins, not how many
+                    break;
+                }
+                
+                // Unpack the name
+                auto& path_name = kv.first;
+                
+                for (Mapping* end_mapping : kv.second) {
+                    
+                    if (found_hairpin) {
+                        // We only care if there are 1 or more hairpins, not how many
+                        break;
+                    }
+                    
+                    // Determine what orientation we're going to scan in
+                    bool backward = end_mapping->position().is_reverse();
+                    
+                    // Start at the end
+                    Mapping* here = end_mapping;
+                    
+                    while (here) {
+                        
+                        if (here->position().node_id() == leaf.start.node->id() &&
+                            here->position().is_reverse() == (leaf.start.backward != backward)) {
+                            // We made it out.
+                            // Stop scanning!
+                            break;
+                        }
+                        
+                        if (here->position().node_id() == leaf.end.node->id() &&
+                            here->position().is_reverse() != (leaf.end.backward != backward)) {
+                            // We have encountered the end node with an incorrect orientation.
+                            cerr << "warning:[vg simplify] Path " << path_name
+                                << " doubles back through end of site "
+                                << leaf.start << " - " << leaf.end << "; dropping site!" << endl;
+                            
+                            found_hairpin = true;
+                            break;
+                        }
+                        
+                        // Scan right along the path if we found the site end backwards, and left if we found it forwards.
+                        here = backward ? graph.paths.traverse_right(here) : graph.paths.traverse_left(here);
+                        
+                    }
+                    
+                }
+                    
+            }
+            
+            if (found_hairpin) {
+                // We found a hairpin, so we want to skip the site.
+                cerr << "warning:[vg simplify] Site " << leaf.start << " - " << leaf.end << " skipped due to hairpin path." << endl;
+                continue;
+            }
+            
+        }
+        
+        // We'll keep a set of the end mappings we managed to find, starting from the start
         set<Mapping*> found_end_mappings;
         
         for (auto& kv : mappings_by_path) {
@@ -248,6 +370,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                             << " doubles back through start of site "
                             << leaf.start << " - " << leaf.end << "; dropping!" << endl;
                             
+                        assert(drop_hairpin_paths);
                         kill_path = true;
                         break;
                     }
@@ -432,12 +555,9 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             
         }
         
-        
-        // It's possible a path can enter the site through the end node and
-        // never hit the start. So we're going to trim those back before we delete nodes and edges.
-        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(leaf.end.node);
-        
         for (auto& kv : end_mappings_by_path) {
+            // Now we handle the end mappings not reachable from the start. For each path that touches the end...
+        
             // Unpack the name
             auto& path_name = kv.first;
             
@@ -473,6 +593,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                             << " doubles back through end of site "
                             << leaf.start << " - " << leaf.end << "; dropping!" << endl;
                             
+                        assert(drop_hairpin_paths);
                         kill_path = true;
                         break;
                     }
