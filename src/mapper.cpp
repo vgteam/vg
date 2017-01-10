@@ -980,7 +980,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             if (debug) cerr << "distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
 #endif
             if (dist >= max_length) {
-                return -1.0;
+                return -std::numeric_limits<double>::max();
             } else {
                 if (is_rev(m1_pos) != is_rev(m2_pos)) {
                     m2_pos = reverse(m2_pos, get_node_length(id(m2_pos)));
@@ -999,7 +999,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             }
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
-            return -1.0;
+            return -std::numeric_limits<double>::max();
         } else { //if (m1.fragment == m2.fragment) {
             int max_length = m1.length() + m2.length();
             // find the difference in m1.end and m2.begin
@@ -1010,23 +1010,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 #endif
             if (approx_distance > max_length) {
                 // too far
-                return -1.0;
+                return -std::numeric_limits<double>::max();
             } else {
                 int distance = graph_distance(m1_pos, m2_pos, max_length);
                 if (distance == max_length) {
-                    return -1.0;
+                    return -std::numeric_limits<double>::max();
                 }
                 double jump = (m2.begin - m1.begin) - distance;
                 if (jump < 0) {
                     // disable reversings
-                    return -1.0;
+                    return -std::numeric_limits<double>::max();
                 } else {
                     if (is_rev(m1_pos) != is_rev(m2_pos)) {
                         // disable inversions
-                        return -1.0;
+                        return -std::numeric_limits<double>::max();
                     } else {
                         // accepted transition
-                        return 1.0 / (double)(abs(jump) + 1);
+                        return (double)-abs(jump); //1.0 / (double)(abs(jump) + 1);
                     }
                 }
             }
@@ -1329,6 +1329,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         // find the difference in m1.end and m2.begin
         // find the positional difference in the graph between m1.end and m2.begin
         int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+        int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
         pos_t m1_pos, m2_pos;
         {
             auto& node = m1.nodes.front();
@@ -1345,32 +1346,56 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             m2_pos = make_pos_t(id, is_rev, offset);
         }
         // approximate distance by node lengths
-        int max_length = 2 * (m1.length() + m2.length());
-        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len;
+        //int max_length = 2 * (m1.length() + m2.length());
+        int max_length = aln.sequence().size();
+        //int max_length = 10 * abs(m2.begin - m1.begin);
+        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
 #ifdef debug_mapper
         if (debug) cerr << "approx distance " << approx_distance << endl;
 #endif
         if (approx_distance > max_length) {
             // too far
-            return (double)-1.0;
+            return -std::numeric_limits<double>::max();
         } else {
             int distance = graph_distance(m1_pos, m2_pos, max_length);
+#ifdef debug_mapper
+            if (debug) cerr << "actual distance " << distance << endl;
+#endif
             if (distance == max_length) {
-                return (double)-1.0;
+                return -std::numeric_limits<double>::max();
             }
             double jump = (m2.begin - m1.begin) - distance;
+#ifdef debug_mapper
+            if (debug) {
+                cerr << "jump " << jump << endl;
+            }
+#endif
+            /*
             if (jump < 0) {
                 // disable reversings
-                return (double)-1.0;
+                return -std::numeric_limits<double>::max();
             } else {
-                if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                    // disable inversions
-                    return (double)-1.0;
-                } else {
-                    // accepted transition
-                    return 1.0 / (double)(abs(jump) + 1);
+            */
+            if (is_rev(m1_pos) != is_rev(m2_pos)) {
+                // disable inversions
+                return -std::numeric_limits<double>::max();
+            } else {
+                // accepted transition
+#ifdef debug_mapper
+                if (debug) {
+                    cerr << "jump " << jump << endl;
                 }
+#endif
+                //return 1.0 / (double)(abs(jump) + 1) * unique_coverage;
+                jump = abs(jump);
+                if (jump) {
+                    return (double) - (aligner->gap_open + jump * aligner->gap_extension + overlap);
+                } else {
+                    return (double) - overlap;
+                }
+                //return (double) -abs(jump);
             }
+            //}
         }
     };
 
@@ -3188,7 +3213,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
 
     // enable these to attempt alignment normalization
-    patched = smooth_alignment(simplify(patched));
+    //patched = smooth_alignment(simplify(patched));
     patched.set_identity(identity(patched.path()));
     patched.set_score(score_alignment(patched));
     return patched;
@@ -4466,7 +4491,7 @@ MEMMarkovModel::MEMMarkovModel(
                 //cerr << "    breaking" << endl;
                 break;
             }
-            if (weight >= 0) {
+            if (weight > -std::numeric_limits<double>::max()) {
                 //cerr << "    saving" << endl;
                 // save if we got a weight
                 m->next_cost.push_back(make_pair(&*n, weight));
