@@ -52,6 +52,7 @@ Mapper::Mapper(Index* idex,
     , max_mapping_quality(64)
     , mem_reseed_length(64)
     , use_cluster_mq(false)
+    , smooth_alignments(false)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -3211,10 +3212,15 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     if (!aln.quality().empty()) {
         patched.set_quality(aln.quality());
     }
-
-    // enable these to attempt alignment normalization
-    //patched = smooth_alignment(simplify(patched));
+    // simplify the mapping representation
+    patched = simplify(patched);
+    // optionally smooth with realignment
+    if (smooth_alignments) {
+        patched = smooth_alignment(patched);
+    }
+    // set the identity
     patched.set_identity(identity(patched.path()));
+    // recompute the score
     patched.set_score(score_alignment(patched));
     return patched;
 }
@@ -3365,8 +3371,6 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
 #endif
                 }
             }
-            if (dist) dist -= 1;
-            // if the distance is the max...
 #ifdef debug_mapper
             if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;
 #endif

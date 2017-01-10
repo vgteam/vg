@@ -5285,6 +5285,7 @@ void help_map(char** argv) {
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
+         << "    -5, --smoothly           smooth alignments after patching" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used  when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -5360,6 +5361,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool use_cluster_mq = true;
     float chance_match = 0.05;
+    bool smooth_alignments = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5424,11 +5426,12 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'T'},
                 {"no-cluster-mq", no_argument, 0, '4'},
                 {"chance-match", required_argument, 0, 'F'},
+                {"smoothly", no_argument, 0, '5'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:45",
                          long_options, &option_index);
 
 
@@ -5643,6 +5646,10 @@ int main_map(int argc, char** argv) {
             use_cluster_mq = false;
             break;
 
+        case '5':
+            smooth_alignments = true;
+            break;
+
         case 'v':
             method_code = atoi(optarg);
             break;
@@ -5848,6 +5855,7 @@ int main_map(int argc, char** argv) {
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
+        m->smooth_alignments = smooth_alignments;
         mapper[i] = m;
     }
 
