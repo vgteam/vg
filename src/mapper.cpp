@@ -931,6 +931,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 #endif
     
     double avg_node_len = average_node_length();
+    auto aligner = (read1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + extra_multimaps;
     double cluster_mq = 0;
 
@@ -975,7 +976,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int unique_coverage = m2.length();
-            int max_length = (fragment_size ? fragment_size : fragment_max);
+            int max_length = (fragment_size ? 2*fragment_size : fragment_max);
             int dist = approx_distance;
 #ifdef debug_mapper
             if (debug) cerr << "distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
@@ -988,12 +989,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 }
                 // improve on our approximate metric if we have paths to use
                 if (xindex->path_count) {
+                    vector<id_t> ids = { id(m1_pos), id(m2_pos) };
+                    std::sort(ids.begin(), ids.end());
+                    dist = xindex->min_approx_path_distance({}, ids.front(), ids.back());
+                    /*
                     dist = abs(xindex->min_distance_in_paths(
                                    id(m1_pos), is_rev(m1_pos), offset(m1_pos),
                                    id(m2_pos), is_rev(m2_pos), offset(m2_pos)));
+                    */
                 }
+                //cerr << "approx " << approx_distance << " and dist " << dist << endl;
                 if (fragment_size) {
-                    return 1.0/(abs(fragment_size - dist)+1) * unique_coverage;
+                    return fragment_length_pdf(dist) * 10000 * unique_coverage;
                 } else {
                     return 1.0/(abs(fragment_max - dist)+1) * unique_coverage;
                 }
@@ -1006,6 +1013,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+            int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
 #ifdef debug_mapper
             if (debug) cerr << "approx distance " << approx_distance << endl;
 #endif
@@ -1014,25 +1022,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 return -std::numeric_limits<double>::max();
             } else {
                 int distance = graph_distance(m1_pos, m2_pos, max_length);
+#ifdef debug_mapper
+                if (debug) cerr << "actual distance " << distance << endl;
+#endif
                 if (distance == max_length) {
                     return -std::numeric_limits<double>::max();
                 }
                 double jump = (m2.begin - m1.begin) - distance;
-                if (jump < 0) {
-                    // disable reversings
+                if (is_rev(m1_pos) != is_rev(m2_pos)) {
+                    // disable inversions
                     return -std::numeric_limits<double>::max();
                 } else {
-                    if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                        // disable inversions
-                        return -std::numeric_limits<double>::max();
+                    // accepted transition
+                    jump = abs(jump);
+                    if (jump) {
+                        return (double) - (aligner->gap_open + jump * aligner->gap_extension + overlap);
                     } else {
-                        // accepted transition
-                        return (double)-abs(jump); //1.0 / (double)(abs(jump) + 1);
+                        return (double) - overlap;
                     }
                 }
             }
         }
-
     };
 
     // build the paired-read MEM markov model
@@ -1366,37 +1376,18 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 return -std::numeric_limits<double>::max();
             }
             double jump = (m2.begin - m1.begin) - distance;
-#ifdef debug_mapper
-            if (debug) {
-                cerr << "jump " << jump << endl;
-            }
-#endif
-            /*
-            if (jump < 0) {
-                // disable reversings
-                return -std::numeric_limits<double>::max();
-            } else {
-            */
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
                 // disable inversions
                 return -std::numeric_limits<double>::max();
             } else {
                 // accepted transition
-#ifdef debug_mapper
-                if (debug) {
-                    cerr << "jump " << jump << endl;
-                }
-#endif
-                //return 1.0 / (double)(abs(jump) + 1) * unique_coverage;
                 jump = abs(jump);
                 if (jump) {
                     return (double) - (aligner->gap_open + jump * aligner->gap_extension + overlap);
                 } else {
                     return (double) - overlap;
                 }
-                //return (double) -abs(jump);
             }
-            //}
         }
     };
 
