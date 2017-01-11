@@ -46,6 +46,11 @@ public:
     /// How many iterations of simplification should we allow in a simplify() call?
     size_t max_iterations = 10;
     
+    /// Should we simplify bubbles where paths come in and leave through the
+    /// enterance node (and delete those paths) (true)? Or should we leave those
+    /// bubbles unsimplified?
+    bool drop_hairpin_paths = false;
+    
     /// Stores the features in the graph, and gets updated as simplification
     /// proceeds. The user should load the features in and pull them out.
     FeatureSet features;
