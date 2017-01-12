@@ -15,6 +15,7 @@
 #include "srpe.hpp"
 #include "filter.hpp"
 #include "utility.hpp"
+#include "Variant.h"
 
 using namespace std;
 using namespace vg;
@@ -144,7 +145,8 @@ int main_srpe(int argc, char** argv){
     // hash each variant to an hash ID
     // have in if in the loop below.
     if (!spec_vcf.empty()){
-
+        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+        variant_file->open(spec_vcf);
     }
 
 
@@ -174,7 +176,7 @@ int main_srpe(int argc, char** argv){
                     ++support;
                 };
                 gamind.for_alignment_to_nodes(var_node_ids, incr);
-                cerr << support << " reads support " << x_path.first << endl;
+                cout << support << " reads support " << x_path.first << endl;
             }
         }
     }
