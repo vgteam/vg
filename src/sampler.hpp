@@ -17,6 +17,10 @@ namespace vg {
 
 using namespace std;
 
+/**
+ * Generate Alignments (with or without mutations, and in pairs or alone) from
+ * an XG index.
+ */
 class Sampler {
 
 public:
@@ -56,6 +60,11 @@ public:
                      double base_error,
                      double indel_error);
 
+    /**
+     * Mutate the given edit, producing a vector of edits that should replace
+     * it. Position is the position of the start of the edit, and is updated to
+     * point to the next base after the mutated edit.
+     */
     vector<Edit> mutate_edit(const Edit& edit,
                              const pos_t& position,
                              double base_error,
@@ -65,6 +74,13 @@ public:
                              uniform_int_distribution<int>& rbase);
 
     string alignment_seq(const Alignment& aln);
+    
+    /// Return true if the alignment is semantically valid against the XG index
+    /// we wrap, and false otherwise. Checks from_lengths on mappings to make
+    /// sure all node bases are accounted for. Won't accept alignments with
+    /// internal jumps between graph locations or regions; all skipped bases
+    /// need to be accounted for by deletions.
+    bool is_valid(const Alignment& aln);
 
 };
 
