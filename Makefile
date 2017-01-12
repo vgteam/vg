@@ -108,6 +108,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/srpe_filter.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phase_duplicator.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
 
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
@@ -442,6 +443,8 @@ $(UNITTEST_OBJ_DIR)/phase_duplicator.o: $(UNITTEST_SRC_DIR)/phase_duplicator.cpp
 $(UNITTEST_OBJ_DIR)/feature_set.o: $(UNITTEST_SRC_DIR)/feature_set.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/feature_set.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/mapping.o: $(UNITTEST_SRC_DIR)/mapping.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
 
 ###################################
 ## VG subcommand compilation begins here
