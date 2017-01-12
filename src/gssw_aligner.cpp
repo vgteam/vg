@@ -837,20 +837,19 @@ double Aligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, siz
 //}
 
 double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
-    size_t size = scaled_scores.size();
-    
+
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
-    if (size == 1) {
+    if (scaled_scores.size() == 1) {
         scaled_scores.push_back(0.0);
     }
 
     double max_score = scaled_scores[0];
     size_t max_idx = 0;
-    
+
     double next_score = -std::numeric_limits<double>::max();
     int32_t next_count = 0;
-    
-    for (int32_t i = 1; i < size; i++) {
+
+    for (int32_t i = 1; i < scaled_scores.size(); i++) {
         double score = scaled_scores[i];
         if (score > max_score) {
             if (next_score == max_score) {
@@ -871,15 +870,19 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
             next_count++;
         }
     }
-    
+
     *max_idx_out = max_idx;
-    //cerr << "mapping qual " << quality_scale_factor << " * (" << max_score << " - " << next_count << " * " << next_score << ") = " << quality_scale_factor * (max_score - next_count * next_score) << endl;
-    return quality_scale_factor * (max_score - next_count * next_score);
+
+    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
+
 }
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
                                       int max_mapping_quality,
-                                      bool fast_approximation) {
+                                      bool fast_approximation,
+                                      double cluster_mq,
+                                      bool use_cluster_mq) {
+
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
@@ -904,18 +907,24 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments,
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
-    
+
     if (mapping_quality > max_mapping_quality) {
-        alignments[max_idx].set_mapping_quality(max_mapping_quality);
+        mapping_quality = max_mapping_quality;
     }
-    else {
-        alignments[max_idx].set_mapping_quality((int32_t) mapping_quality);
+
+    if (use_cluster_mq) {
+        mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    alignments[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
 }
 
 void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                              int max_mapping_quality,
-                                             bool fast_approximation) {
+                                             bool fast_approximation,
+                                             double cluster_mq,
+                                             bool use_cluster_mq) {
+
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
@@ -945,13 +954,15 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     }
 
     if (mapping_quality > max_mapping_quality) {
-        alignment_pairs.first[max_idx].set_mapping_quality(max_mapping_quality);
-        alignment_pairs.second[max_idx].set_mapping_quality(max_mapping_quality);
+        mapping_quality = max_mapping_quality;
     }
-    else {
-        alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
-        alignment_pairs.second[max_idx].set_mapping_quality((int32_t) mapping_quality);
+
+    if (use_cluster_mq) {
+        mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    alignment_pairs.first[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
+    alignment_pairs.second[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
 }
 
 int32_t Aligner::score_exact_match(const string& sequence) {

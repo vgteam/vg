@@ -120,11 +120,17 @@ namespace vg {
         // probability that the alignment is not the correct one (assuming that one of the alignments
         // in the vector is correct). alignments must have been created with this Aligner for quality
         // score to be valid
-        void compute_mapping_quality(vector<Alignment>& alignments, int max_mapping_quality, bool fast_approximation);
+        void compute_mapping_quality(vector<Alignment>& alignments,
+                                     int max_mapping_quality,
+                                     bool fast_approximation,
+                                     double cluster_mq,
+                                     bool use_cluster_mq);
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             int max_mapping_quality,
-                                            bool fast_approximation);
+                                            bool fast_approximation,
+                                            double cluster_mq,
+                                            bool use_cluster_mq);
                                             
         // Convert a score to an unnormalized log likelihood for the sequence.
         // Requires log_base to have been set.

@@ -4,23 +4,20 @@ namespace vg {
 
 using namespace std;
 
-double entropy(string& st) {
-    vector<char> stvec(st.begin(), st.end());
-    set<char> alphabet(stvec.begin(), stvec.end());
-    vector<double> freqs;
-    for (set<char>::iterator c = alphabet.begin(); c != alphabet.end(); ++c) {
-        int ctr = 0;
-        for (vector<char>::iterator s = stvec.begin(); s != stvec.end(); ++s) {
-            if (*s == *c) {
-                ++ctr;
-            }
-        }
-        freqs.push_back((double)ctr / (double)stvec.size());
+double entropy(const string& st) {
+    return entropy(st.c_str(), st.length());
+}
+
+double entropy(const char* st, size_t len) {
+    map<char, int> freqs;
+    for (size_t i = 0; i < len; ++i) {
+        ++freqs[st[i]];
     }
     double ent = 0;
     double ln2 = log(2);
-    for (vector<double>::iterator f = freqs.begin(); f != freqs.end(); ++f) {
-        ent += *f * log(*f)/ln2;
+    for (auto& f : freqs) {
+        double freq = (double)f.second/len;
+        ent += freq * log(freq)/ln2;
     }
     ent = -ent;
     return ent;
