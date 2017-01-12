@@ -110,7 +110,9 @@ void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, cons
 // listed. It needs a callback to ask the length of any given node.
 void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
-// simplifies the path in the alignment
+/// Simplifies the Path in the Alignment. Note that this removes deletions at
+/// the start and end of Mappings, so code that handles simplified Alignments
+/// needs to handle offsets on internal Mappings.
 Alignment simplify(const Alignment& a);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
