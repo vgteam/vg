@@ -41,6 +41,7 @@ public:
     int fragment;
     std::vector<gcsa::node_type> nodes;
     map<string, vector<size_t> > positions;
+    
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
@@ -49,10 +50,6 @@ public:
 
     // construct the sequence of the MEM; useful in debugging
     string sequence(void) const;
-    // uses GCSA to get the positions matching the range
-    void fill_nodes(gcsa::GCSA* gcsa);
-    // uses GCSA to get a count of the number of graph nodes in our range
-    void fill_match_count(gcsa::GCSA* gcsa);
     // get the length of the MEM
     int length(void) const;
     // uses an xgindex to fill out the MEM positions
@@ -154,6 +151,14 @@ private:
                                      int stride = 0,
                                      int attempt = 0);
     
+    // MEM finding routine that can find both SMEMs and (optionally) minimally-more-frequent sub-MEMs
+    // sub_mems_out should be left as NULL to deactivate finding sub-MEMs
+    void find_mems_internal(string::const_iterator seq_begin,
+                            string::const_iterator seq_end,
+                            int max_mem_length,
+                            int min_mem_length,
+                            int reseed_length,
+                            vector<MaximalExactMatch>& mems_out);
 public:
     // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
     Mapper(Index* idex, gcsa::GCSA* g = nullptr, gcsa::LCPArray* a = nullptr);
@@ -320,15 +325,21 @@ public:
     // MEM-based mapping
     // find maximal exact matches
     // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
-    // Enables reseeding of long matches when reseed_length > 0.
-    // Reseeding requires an occurrence count for the MEM that we are reseeding.
-    // Where k is the number of hits for the MEM we are reseeding,
-    // we return the MEMs shorter than the MEM to reseed that have count > k.
     vector<MaximalExactMatch> find_mems(string::const_iterator seq_begin,
                                         string::const_iterator seq_end,
                                         int max_mem_length,
-                                        int reseed_length = 0);
-    bool get_mem_hits_if_under_max(MaximalExactMatch& mem);
+                                        int min_mem_length);
+    
+    // Find minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
+    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside
+    // of the SMEM. They will often be included twice in the return vector in order to avoid
+    // including the occurrences of the sub-MEM that are contained inside the SMEM in their GCSA2 ranges.
+    vector<MaximalExactMatch> find_mems_reseed(string::const_iterator seq_begin,
+                                               string::const_iterator seq_end,
+                                               int max_mem_length,
+                                               int min_mem_length,
+                                               int reseed_length);
+    
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
     // compute a mapping quality component based only on the MEMs we've obtained
