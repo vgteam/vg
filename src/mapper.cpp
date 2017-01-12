@@ -975,41 +975,33 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         // are the two mems in the same fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
-            int unique_coverage = m2.length();
+            //int unique_coverage = m1.length() + m2.length();
             int max_length = (fragment_size ? 2*fragment_size : fragment_max);
+            //int max_length = fragment_max;
             int dist = approx_distance;
-#ifdef debug_mapper
-            if (debug) cerr << "distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
-#endif
+            // improve on our approximate metric if we have paths to use
             if (dist >= max_length) {
                 return -std::numeric_limits<double>::max();
             } else {
-                if (is_rev(m1_pos) != is_rev(m2_pos)) {
-                    m2_pos = reverse(m2_pos, get_node_length(id(m2_pos)));
-                }
-                // improve on our approximate metric if we have paths to use
                 if (xindex->path_count) {
-                    vector<id_t> ids = { id(m1_pos), id(m2_pos) };
-                    std::sort(ids.begin(), ids.end());
-                    dist = xindex->min_approx_path_distance({}, ids.front(), ids.back());
-                    /*
-                    dist = abs(xindex->min_distance_in_paths(
-                                   id(m1_pos), is_rev(m1_pos), offset(m1_pos),
-                                   id(m2_pos), is_rev(m2_pos), offset(m2_pos)));
-                    */
+                    dist = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
                 }
-                //cerr << "approx " << approx_distance << " and dist " << dist << endl;
-                if (fragment_size) {
-                    return fragment_length_pdf(dist) * 10000 * unique_coverage;
+#ifdef debug_mapper
+                if (debug) cerr << "distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
+#endif
+                if (dist >= max_length) {
+                    return -std::numeric_limits<double>::max();
+                } else if (fragment_size) {
+                    return fragment_length_pdf(dist); // * unique_coverage;
                 } else {
-                    return 1.0/(abs(fragment_max - dist)+1) * unique_coverage;
+                    return 1.0/(abs(fragment_max - dist)+1); // * unique_coverage;
                 }
             }
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
             return -std::numeric_limits<double>::max();
         } else { //if (m1.fragment == m2.fragment) {
-            int max_length = m1.length() + m2.length();
+            int max_length = 2 * (m1.length() + m2.length());
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
