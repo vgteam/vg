@@ -5258,7 +5258,7 @@ void help_map(char** argv) {
          << "    -W, --fragment-max N      maximum fragment size to be used for estimating the fragment length distribution (default: 1e4)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 2)" << endl
+         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 1)" << endl
          << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
