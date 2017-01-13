@@ -56,7 +56,7 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
         }
         vector<MaximalExactMatch> m = mapper->find_mems(n->sequence().begin(),
                                                         n->sequence().end(),
-                                                        200, 0);
+                                                        200);
         // Why >1? Because we need to match the node AND somewhere else in the graph.
         if (m.size() > 1){
             cerr << "POTENTIAL NEW EDGE" << endl;

@@ -82,6 +82,12 @@ is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(md5su
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(vg find -M ATTCATNNNNNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) "we find the same MEMs sequences with different lengths of Ns"
 rm -f giab.vg giab.xg giab.gcsa
 
+
+vg construct -r mem/r.fa > r.vg
+vg index -x r.xg -g r.gcsa -k 16 r.vg
+is $(vg find -M GAGGCAGTGAAGAGATCGTGGGAGGGAC -R 10 -Z 10 -g r.gcsa -x r.xg) '[["GAGGCAGTGAAGAGATCGTGGGAG",["1:20"]],["GCAGTGAAGAGATCGTGGGAGGGAC",["1:43"]],["CAGTGAAGAGATCGTGGGAGG",["1:0"]]]' "we can find sub-MEMs and only return hits that are not within containing MEMs"
+rm -rf r.vg r.xg r.gcsa* mem/r.fa.fai
+
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg sim -s 1337 -n 100 -x x.xg >x.reads
@@ -106,3 +112,4 @@ echo 14 >>get.nodes
 echo 15 >>get.nodes
 is $(vg find -x tiny.xg -N get.nodes | vg view - | grep ^S | wc -l) 4 "find gets nodes provided in a node file list"
 rm -rf tiny.xg tiny.vg get.nodes
+

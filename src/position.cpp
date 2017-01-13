@@ -107,10 +107,8 @@ size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_
 }
 
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
-    //cerr << "Looking for position " << pos << endl;
     pair<Node, bool> cached = node_cache.retrieve(id(pos));
     if(!cached.second) {
-        //cerr << "Not in the cache" << endl;
         // If it's not in the cache, put it in
         cached.first = xgidx->node(id(pos));
         node_cache.put(id(pos), cached.first);
