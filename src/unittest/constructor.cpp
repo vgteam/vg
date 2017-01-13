@@ -1199,8 +1199,7 @@ ref	11	.	TAG	T	29	PASS	.	GT
 
 }
 
-#define debug
-TEST_CASE( "A VCF and FASTA on two contigs make a graph with a consistent ID space", "[constructor][broken]" ) {
+TEST_CASE( "A VCF and FASTA on two contigs make a graph with a consistent ID space", "[constructor]" ) {
 
     auto vcf_data = R"(##fileformat=VCFv4.0
 ##fileDate=20090805

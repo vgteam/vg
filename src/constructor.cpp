@@ -1038,10 +1038,6 @@ namespace vg {
         // previous chunk.
         set<id_t> exposed_nodes;
 
-        // We'll also need to bump chunk IDs out of the way. What's the max ID used
-        // in previous chunks?
-        id_t max_id = 0;
-
         // And we need to do the same for ranks on the reference path? What's the
         // max rank used?
         size_t max_ref_rank = 0;
@@ -1489,6 +1485,8 @@ namespace vg {
 
         // All the chunks have been wired and emitted. Now emit the very last node, if any
         emit_reference_node(last_node_buffer);
+        // Update the max ID with that last node, so the next call starts at the next ID
+        max_id = max(max_id, (id_t) last_node_buffer.id());
 
         destroy_progress();
 
