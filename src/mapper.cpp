@@ -2425,19 +2425,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                 mems.push_back(match);
             }
             
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                cerr << "found mem: " << match.sequence() << endl;
-                cerr << "from sequence: ";
-                for (auto iter = seq_begin; iter != seq_end; iter++) {
-                    cerr << *iter;
-                }
-                cerr << endl;
-            }
-#endif
-            
-            
             match.end = cursor;
             match.range = full_range;
             --cursor;
@@ -2564,6 +2551,18 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
     if (mem_length >= min_mem_length) {
         mems.push_back(match);
         
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            cerr << "found mem: " << match.sequence() << endl;
+            cerr << "from sequence: ";
+            for (auto iter = seq_begin; iter != seq_end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+        }
+#endif
+        
         // are we reseeding?
         if (reseed_length && mem_length >= reseed_length) {
             find_sub_mems(mems,
@@ -2596,15 +2595,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
             }
         }
         
-        // we need the XG index to walk the parent MEM forward in order to avoid returning duplicate
-        // hits, so we can't fill sub-MEM nodes unless we also have an XG index
-        // TODO: use LF queries to walk the match foward using only GCSA
-        if (xindex) {
-            // get the hits to the sub MEMs that are not inside a parent MEM
-            fill_nonredundant_sub_mem_nodes(mems, sub_mems);
-            
-        }
-        
         // remove sub-MEMs with no independent hits or too many
         // TODO: it shouldn't be necessary to remove 0's, but they sometimes occur in the overlap between SMEMs
         // because the algorithm doesn't properly account for the occurrences of the match that occur inside
@@ -2614,6 +2604,15 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                                                  return sub_mem_record.first.match_count == 0 ||
                                                  (sub_mem_record.first.match_count > this->hit_max && this->hit_max);
                                              });
+        
+        // we need the XG index to walk the parent MEM forward in order to avoid returning duplicate
+        // hits, so we can't fill sub-MEM nodes unless we also have an XG index
+        // TODO: use LF queries to walk the match foward using only GCSA
+        if (xindex) {
+            // get the hits to the sub MEMs that are not inside a parent MEM
+            fill_nonredundant_sub_mem_nodes(mems, sub_mems.begin(), keep_range_end);
+            
+        }
 
         // combine the MEM and sub-MEM lists
         for (auto iter = sub_mems.begin(); iter != keep_range_end; iter++) {
@@ -2757,13 +2756,16 @@ void Mapper::first_hit_positions_by_index(MaximalExactMatch& mem,
 }
 
 void Mapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
-                                             vector<pair<MaximalExactMatch, vector<size_t> > >& sub_mems) {
+                                             vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
+                                             vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end) {
 
     
     // for each MEM, a vector of the positions that it touches at each index along the MEM
     vector<vector<set<pos_t>>> positions_by_index(parent_mems.size());
     
-    for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
+    for (auto iter = sub_mem_records_begin; iter != sub_mem_records_end; iter++) {
+        
+        pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents = *iter;
         
         MaximalExactMatch& sub_mem = sub_mem_and_parents.first;
         vector<size_t>& parent_idxs = sub_mem_and_parents.second;

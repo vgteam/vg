@@ -164,7 +164,8 @@ private:
     // finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
     // with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
     void fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
-                                         vector<pair<MaximalExactMatch, vector<size_t> > >& sub_mems);
+                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
+                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end);
     
     // fills a vector where each element contains the set of positions in the graph that the
     // MEM touches at that index for the first MEM hit in the GCSA array
