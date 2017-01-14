@@ -172,9 +172,6 @@ DEPS += $(OBJ_DIR)/sha1.o
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
 endif
-DEPS := x
-x:
-	touch x
 
 .PHONY: clean get-deps test set-path static docs .pre-build
 
