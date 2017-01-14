@@ -2585,16 +2585,39 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
         }
     }
     
-    // we need the XG index to walk the parent MEM forward in order to avoid returning duplicate
-    // hits, so we can't fill sub-MEM nodes unless we also have an XG index
-    // TODO: use LF queries to walk the match foward using only GCSA
-    if (reseed_length && xindex) {
-        // get the hits to the sub MEMs that are not inside a parent MEM
-        fill_nonredundant_sub_mem_nodes(mems, sub_mems);
+    if (reseed_length) {
+        // determine counts of matches
+        for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_and_parents : sub_mems) {
+            // count in entire range, including parents
+            sub_mem_and_parents.first.match_count = gcsa->count(sub_mem_and_parents.first.range);
+            // remove parents from count
+            for (size_t parent_idx : sub_mem_and_parents.second) {
+                sub_mem_and_parents.first.match_count -= mems[parent_idx].match_count;
+            }
+        }
+        
+        // we need the XG index to walk the parent MEM forward in order to avoid returning duplicate
+        // hits, so we can't fill sub-MEM nodes unless we also have an XG index
+        // TODO: use LF queries to walk the match foward using only GCSA
+        if (xindex) {
+            // get the hits to the sub MEMs that are not inside a parent MEM
+            fill_nonredundant_sub_mem_nodes(mems, sub_mems);
+            
+        }
+        
+        // remove sub-MEMs with no independent hits or too many
+        // TODO: it shouldn't be necessary to remove 0's, but they sometimes occur in the overlap between SMEMs
+        // because the algorithm doesn't properly account for the occurrences of the match that occur inside
+        // earlier SMEMs when it's deciding whether a sub-match has a non-redundant MEM somewhere
+        auto keep_range_end = std::remove_if(sub_mems.begin(), sub_mems.end(),
+                                             [=](const pair<MaximalExactMatch, vector<size_t> >& sub_mem_record) {
+                                                 return sub_mem_record.first.match_count == 0 ||
+                                                 (sub_mem_record.first.match_count > this->hit_max && this->hit_max);
+                                             });
 
         // combine the MEM and sub-MEM lists
-         for (pair<MaximalExactMatch, vector<size_t> >& sub_mem_record : sub_mems) {
-            mems.push_back(std::move(sub_mem_record.first));
+        for (auto iter = sub_mems.begin(); iter != keep_range_end; iter++) {
+            mems.push_back(std::move((*iter).first));
         }
         
     }
@@ -2744,18 +2767,6 @@ void Mapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_m
         
         MaximalExactMatch& sub_mem = sub_mem_and_parents.first;
         vector<size_t>& parent_idxs = sub_mem_and_parents.second;
-        
-        // count in entire range, including parents
-        sub_mem.match_count = gcsa->count(sub_mem.range);
-        // remove parents from count
-        for (size_t parent_idx : parent_idxs) {
-            sub_mem.match_count -= parent_mems[parent_idx].match_count;
-        }
-        
-        // don't fill the MEM if it has too many hits
-        if (hit_max && sub_mem.match_count > hit_max) {
-            continue;
-        }
         
         // how many total hits does each parent MEM have?
         vector<size_t> num_parent_hits;
