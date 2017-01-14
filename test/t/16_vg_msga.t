@@ -8,9 +8,9 @@ PATH=../bin:$PATH # for vg
 
 plan tests 15
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "MSGA produces the expected graph for GRCh38 HLA-V"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 2ab075dd73c31ea9939726d72c12655f "MSGA produces the expected graph for GRCh38 HLA-V"
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 2ab075dd73c31ea9939726d72c12655f "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 --no-mem-threader| vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 5456c2fb7c9a9c80f6a4cfd4dcc8d4ec "MSGA produces the expected graph for GRCh38 HLA-V with the MEM threader off"
 

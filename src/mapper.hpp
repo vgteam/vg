@@ -21,7 +21,7 @@
 namespace vg {
 
 // uncomment to enable vg map --debug
-//#define debug_mapper
+#define debug_mapper
 
 using namespace std;
     
@@ -75,7 +75,8 @@ class MEMMarkovModelVertex {
 public:
     MaximalExactMatch mem;
     vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
-    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for traceback
+    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for backward
+    vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
     MEMMarkovModelVertex* prev;
@@ -98,7 +99,7 @@ public:
         int band_width = 10);
     void score(const set<MEMMarkovModelVertex*>& exclude);
     MEMMarkovModelVertex* max_vertex(void);
-    vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool debug);
+    vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);
     void clear_scores(void);
 };
@@ -405,6 +406,7 @@ public:
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
+    bool smooth_alignments; // smooth alignments after patching
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths

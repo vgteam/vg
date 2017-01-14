@@ -1188,7 +1188,9 @@ Mapping simplify(const Mapping& m) {
     //cerr << "pre simplify " << pb2json(m) << endl;
     // get the position
     if (!m.has_position() || m.position().node_id()==0) {
-        // do nothing
+        // Throw, because we can't simplify mappings with no positions, because
+        // we have to update their offsets when removing deletions.
+        throw runtime_error("Cannot simplify Mapping with no position; must update position when removing leading deletions");
     } else {
         // take the old position
         *n.mutable_position() = m.position();
@@ -1237,6 +1239,47 @@ Mapping simplify(const Mapping& m) {
     }
     //cerr << "post simplify " << pb2json(n) << endl;
     return n;
+}
+
+Mapping merge_adjacent_edits(const Mapping& m) {
+
+    Mapping n;
+    if (m.rank()) n.set_rank(m.rank());
+    // get the position
+    if (m.has_position()) {
+        // take the old position
+        *n.mutable_position() = m.position();
+    }
+
+    // This tracks what edit we're merging into
+    size_t j = 0;
+    // Go through the edits and see if we can merge them
+    if (j < m.edit_size()) {
+        Edit e = m.edit(j++);
+        for ( ; j < m.edit_size(); ++j) {
+            auto& f = m.edit(j);
+            // if the edit types are the same, merge them
+            if ((edit_is_match(e) && edit_is_match(f))
+                || (edit_is_sub(e) && edit_is_sub(f))
+                || (edit_is_deletion(e) && edit_is_deletion(f))
+                || (edit_is_insertion(e) && edit_is_insertion(f))) {
+                // will be 0 for insertions, and + for the rest
+                e.set_from_length(e.from_length()+f.from_length());
+                // will be 0 for deletions, and + for the rest
+                e.set_to_length(e.to_length()+f.to_length());
+                // will be empty for both or have sequence for both
+                e.set_sequence(e.sequence() + f.sequence());
+            } else {
+                // mismatched types are just put on
+                *n.add_edit() = e;
+                e = f;
+            }
+        }
+        // Keep the last edit
+        *n.add_edit() = e;
+    }
+    return n;
+
 }
 
 Path trim_hanging_ends(const Path& p) {
