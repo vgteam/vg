@@ -5657,6 +5657,7 @@ void VG::to_dot(ostream& out,
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
         alnid++;
+        // make a node with some info about the alignment
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
 
@@ -5690,6 +5691,21 @@ void VG::to_dot(ostream& out,
                 color = "/rdylgn11/" + convert(round((1-divergence(m))*10)+1);
             }
 
+            if (i == 0) {
+                out << "    "
+                    << alnid++ << " [label=\""
+                    << aln.name()
+                    << setprecision(5)
+                    << "\n(" << aln.score() << " " << aln.mapping_quality() << " " << aln.identity() << ")"
+                    << "\",fontcolor=\"black\",fontsize=10];" << endl;
+                out << "    "
+                    << alnid-1 << " -> "
+                    << alnid << "[dir=none,color=\"gray\",style=\"dashed\",constraint=false];" << endl;
+                out << "    "
+                    << alnid-1 << " -> " << m.position().node_id()
+                    << "[dir=none,style=invis];" << endl;
+                out << "    { rank = same; " << alnid-1 << "; " << m.position().node_id() << "; };" << endl;
+            }
             if (simple_mode) {
                 out << "    "
                     << alnid << " [label=\""
