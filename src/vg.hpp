@@ -406,8 +406,9 @@ public:
     /// Given a path on nodes that may or may not exist, and a map from node ID
     /// in the path's node ID space to a table of offset and actual node, add in
     /// all the new sequence and edges required by the path. The given path must
-    /// not contain adjacent perfect match edits in the same mapping (the removal
-    /// of which can be accomplished with the Path::simplify() function).
+    /// not contain adjacent perfect match edits in the same mapping, or any
+    /// deletions on the start or end of mappings (the removal of which can be
+    /// accomplished with the Path::simplify() function).
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, Node*>& added_seqs,

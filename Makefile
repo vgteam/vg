@@ -107,6 +107,8 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/flow_sort_test.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/srpe_filter.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phase_duplicator.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
 
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
@@ -297,7 +299,7 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
 
 # Auto-versioning
-$(INC_DIR)/vg_git_version.hpp: #.git
+$(INC_DIR)/vg_git_version.hpp: .git
 	echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
 
 # Not important if .git isn't real
@@ -374,7 +376,7 @@ $(OBJ_DIR)/deconstructor.o: $(SRC_DIR)/deconstructor.cpp $(SRC_DIR)/deconstructo
 
 $(OBJ_DIR)/vectorizer.o: $(SRC_DIR)/vectorizer.cpp $(SRC_DIR)/vectorizer.hpp $(DEPS)
 
-$(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(DEPS)
+$(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(SRC_DIR)/path.hpp $(DEPS)
 
 $(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(DEPS)
 
@@ -442,6 +444,10 @@ $(UNITTEST_OBJ_DIR)/flow_sort_test.o: $(UNITTEST_SRC_DIR)/flow_sort_test.cpp $(U
 $(UNITTEST_OBJ_DIR)/phase_duplicator.o: $(UNITTEST_SRC_DIR)/phase_duplicator.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phase_duplicator.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/feature_set.o: $(UNITTEST_SRC_DIR)/feature_set.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/feature_set.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/mapping.o: $(UNITTEST_SRC_DIR)/mapping.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
 
 ###################################
 ## VG subcommand compilation begins here

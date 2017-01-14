@@ -5016,7 +5016,6 @@ void VG::add_nodes_and_edges(const Path& path,
                 if (right_node != nullptr) dangling = NodeSide(right_node->id(), !m.position().is_reverse());
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
-                // Also, simplify() simplifies them out.
 #ifdef debug_edit
                 cerr << "Skipping other edit relative to " << node_id << endl;
 #endif
