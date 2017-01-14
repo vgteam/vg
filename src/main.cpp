@@ -5283,7 +5283,7 @@ void help_map(char** argv) {
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
+         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 0/off)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --smoothly           smooth alignments after patching" << endl
          << "kmer-based mapper:" << endl
@@ -5342,7 +5342,7 @@ int main_map(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = 0;
     float random_match_chance = 0.05;
-    int mem_reseed_length = 64;
+    int mem_reseed_length = 0;
     bool mem_threading = true;
     int max_target_factor = 100;
     int buffer_size = 100;

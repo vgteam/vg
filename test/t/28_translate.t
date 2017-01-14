@@ -36,3 +36,5 @@ vg mod -i flatback.gam flat.vg >flat2back.vg
 is $(vg view flat2back.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 3ce4390abe667b24eb5148e216a2f5ec "translation overlay works and produces a sane result"
 
 rm -f flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat.sim flat.gam flat1.vg flat1.trans flat1.sim flat1.xg flat1.gcsa.lcp flat1.gcsa flat1.gam flat2.vg flat2.trans flatover.trans flat2.paths.gam flatback.gam flat2back.vg
+
+rm -rf tiny.vg tiny.vg.xg tiny.vg.gcsa tiny.vg.gcsa.lcp tiny.vg reads.gam tiny.gam tiny.gam.index tiny.loci loci.sorted out.loci
