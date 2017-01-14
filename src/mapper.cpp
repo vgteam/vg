@@ -1355,7 +1355,7 @@ Mapper::average_node_length(void) {
 // uses the exact matches to generate as much of each alignment as possible
 // then local dynamic programming to fill in the gaps
 vector<Alignment>
-Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
+Mapper::mems_thread_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
 
     auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + additional_multimaps;
@@ -1492,6 +1492,14 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 #endif
+    // sort alignments by score
+    // then by complexity (measured as number of edit operations)
+    std::sort(alns.begin(), alns.end(),
+              [&](const Alignment& a1, const Alignment& a2) {
+                  return a1.score() > a2.score()
+                      || a1.score() == a2.score()
+                      && edit_count(a1) > edit_count(a2);
+              });
     return alns;
 }
 
@@ -3508,7 +3516,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     if (mem_threading) {
-        return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps, cluster_mq);
+        return mems_thread_clusters_to_alignments(alignment, mems, additional_multimaps, cluster_mq);
     } else {
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
     }
