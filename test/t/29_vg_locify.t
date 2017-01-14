@@ -25,7 +25,7 @@ vg construct -r tiny/tiny.fa -v tiny/multi.vcf.gz >tiny.vg
 vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
 vg sim -a -s 1337 -n 500 -x tiny.vg.xg -l 30 > reads.gam
 vg map -G reads.gam -x tiny.vg.xg -g tiny.vg.gcsa > tiny.gam
-vg index -d tiny.gam.index -N tiny.gam
+vg index -d tiny.gam.index -C -N tiny.gam
 vg genotype tiny.vg tiny.gam.index >tiny.loci
 is $(vg locify -g tiny.gam.index -b 2 -x tiny.vg.xg -l tiny.loci -f -n -s loci.sorted | vg view -a - | jq . | grep -A 3 '15+3_20+0' | grep name | grep -v '15+3_20+0' | sort | uniq -c | wc -l) 2 "limitation to 2-best works"
 is $(vg locify -g tiny.gam.index -b 3 -x tiny.vg.xg -l tiny.loci -f -n -s loci.sorted | vg view -a - | jq . | grep -A 3 '15+3_20+0' | grep name | grep -v '15+3_20+0' | sort | uniq -c | wc -l) 3 "limitation to 3-best works"
