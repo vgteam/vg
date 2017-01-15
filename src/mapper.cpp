@@ -35,7 +35,7 @@ Mapper::Mapper(Index* idex,
     , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
-    , extra_multimaps(1)
+    , extra_multimaps(16)
     , always_rescue(false)
     , fragment_size(0)
     , fragment_max(1e5)
@@ -51,7 +51,7 @@ Mapper::Mapper(Index* idex,
     , full_length_alignment_bonus(5)
     , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
-    , mem_reseed_length(0)
+    , mem_reseed_length(64)
     , use_cluster_mq(false)
     , smooth_alignments(false)
 {
