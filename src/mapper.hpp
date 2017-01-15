@@ -343,10 +343,10 @@ public:
     // MEM-based mapping
     // find maximal exact matches
     // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
-    // Designating reseed_length minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
-    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside
-    // of the SMEM. They will often be included twice in the return vector in order to avoid
-    // including the occurrences of the sub-MEM that are contained inside the SMEM in their GCSA2 ranges.
+    // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
+    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
+    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
+    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
     vector<MaximalExactMatch> find_mems(string::const_iterator seq_begin,
                                         string::const_iterator seq_end,
                                         int max_mem_length = 0,
