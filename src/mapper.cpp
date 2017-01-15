@@ -402,7 +402,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int max_mem_length,
     int band_width,
     int pair_window,
-    bool only_top_scoring_pair) {
+    bool only_top_scoring_pair,
+    bool retrying) {
 
     // use mem threading if requested and we have not need to band (not implemented)
     if (mem_threading && read1.sequence().size() < band_width) {
@@ -410,7 +411,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                         read2,
                                         queued_resolve_later,
                                         max_mem_length,
-                                        only_top_scoring_pair);
+                                        only_top_scoring_pair,
+                                        retrying);
     } else {
         return align_paired_multi_sep(read1,
                                       read2,
@@ -420,7 +422,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                       max_mem_length,
                                       band_width,
                                       pair_window,
-                                      only_top_scoring_pair);
+                                      only_top_scoring_pair,
+                                      retrying);
     }
 }
 
@@ -433,7 +436,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     int max_mem_length,
     int band_width,
     int pair_window,
-    bool only_top_scoring_pair) {
+    bool only_top_scoring_pair,
+    bool retrying) {
     // We have some logic around align_mate_in_window to handle orientation
     // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
     auto align_mate = [&](const Alignment& read, Alignment& mate) {
@@ -848,6 +852,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     // we then set the fragment_size cutoff using the moments of the estimated distribution
     bool imperfect_pair = false;
     for (int i = 0; i < min(results.first.size(), results.second.size()); ++i) {
+        if (retrying) break;
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
         auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
@@ -875,7 +880,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
         }
     }
 
-    if (imperfect_pair && fragment_max) {
+    if (!retrying && imperfect_pair && fragment_max) {
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
@@ -924,7 +929,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     const Alignment& read2,
     bool& queued_resolve_later,
     int max_mem_length,
-    bool only_top_scoring_pair) {
+    bool only_top_scoring_pair,
+    bool retrying) {
 
     double avg_node_len = average_node_length();
     auto aligner = (read1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
@@ -932,7 +938,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     double cluster_mq = 0;
 
     if(debug) {
-        cerr << "align_paired_multi_sep " << endl
+        cerr << "align_paired_multi_simul " << endl
             //<< "read 1 " << read1.sequence() << endl
             //<< "read 2 " << read2.sequence() << endl
              << "read 1 " << pb2json(read1) << endl
@@ -1228,6 +1234,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     // we then set the fragment_size cutoff using the moments of the estimated distribution
     bool imperfect_pair = false;
     for (int i = 0; i < min(results.first.size(), results.second.size()); ++i) {
+        if (retrying) break;
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
         auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
@@ -1255,7 +1262,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         }
     }
 
-    if (imperfect_pair && fragment_max) {
+    if (!retrying && imperfect_pair && fragment_max) {
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();

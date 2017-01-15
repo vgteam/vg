@@ -289,7 +289,8 @@ public:
                            int max_mem_length = 0,
                            int band_width = 1000,
                            int pair_window = 64,
-                           bool only_top_scoring_pair = false);
+                           bool only_top_scoring_pair = false,
+                           bool retrying = false);
 
     // align each fragment separately, then find consistent results using various heuristics
     pair<vector<Alignment>, vector<Alignment>> 
@@ -301,7 +302,8 @@ public:
                                int max_mem_length = 0,
                                int band_width = 1000,
                                int pair_window = 64,
-                               bool only_top_scoring_pair = false);
+                               bool only_top_scoring_pair = false,
+                               bool retrying = false);
 
     // align the pair as a single component using MEM threading and patching on the pair simultaneously
     pair<vector<Alignment>, vector<Alignment>> 
@@ -309,7 +311,8 @@ public:
                                  const Alignment& read2,
                                  bool& queued_resolve_later,
                                  int max_mem_length = 0,
-                                 bool only_top_scoring_pair = false);
+                                 bool only_top_scoring_pair = false,
+                                 bool retrying = false);
 
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
