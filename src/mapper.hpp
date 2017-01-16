@@ -343,6 +343,10 @@ public:
     void resolve_softclips(Alignment& aln, VG& graph);
     // walks the graph one base at a time from pos1 until we find pos2
     int graph_distance(pos_t pos1, pos_t pos2, int maximum = 1e3);
+    // use the offset in the sequence array to give an approximate distance
+    int approx_distance(pos_t pos1, pos_t pos2);
+    // use the offset in the sequence array to get an approximate position
+    int approx_position(pos_t pos);
     // use the xg index to get a character at a particular position (rc or foward)
     char pos_char(pos_t pos);
     // the next positions and their characters following the same strand of the graph

@@ -992,7 +992,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             gcsa::Node::offset(node2));
 
         // approximate distance by node lengths
-        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len;
+        int approx_dist = approx_distance(m1_pos, m2_pos);
 
         // are the two mems in the same fragment?
         // we handle the distance metric differently in these cases
@@ -1000,10 +1000,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             //int unique_coverage = m1.length() + m2.length();
             //int max_length = min(fragment_max, (fragment_size ? fragment_size : fragment_max));
             int max_length = fragment_max;
-            int dist = approx_distance;
+            int dist = approx_dist;
             // improve on our approximate metric if we have paths to use
 #ifdef debug_mapper
-            if (debug) cerr << "between fragment approx distance " << approx_distance << endl;
+            if (debug) cerr << "between fragment approx distance " << approx_dist << endl;
 #endif
             if (dist >= max_length) {
                 return -std::numeric_limits<double>::max();
@@ -1032,9 +1032,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
             int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
 #ifdef debug_mapper
-            if (debug) cerr << "in fragment approx distance " << approx_distance << endl;
+            if (debug) cerr << "in fragment approx distance " << approx_dist << endl;
 #endif
-            if (approx_distance > max_length) {
+            if (approx_dist > max_length) {
                 // too far
                 return -std::numeric_limits<double>::max();
             } else {
@@ -1399,11 +1399,14 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         //int max_length = 2 * (m1.length() + m2.length());
         int max_length = aln.sequence().size()*2;
         //int max_length = 10 * abs(m2.begin - m1.begin);
-        double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
+        //double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
+        //double approx_distance = (double)abs(xindex->node_start(id(m1_pos))+offset(m1_pos) -
+        int approx_dist = approx_distance(m1_pos, m2_pos);
+        
 #ifdef debug_mapper
-        if (debug) cerr << "approx distance " << approx_distance << endl;
+        if (debug) cerr << "approx distance " << approx_dist << endl;
 #endif
-        if (approx_distance > max_length) {
+        if (approx_dist > max_length) {
             // too far
             return -std::numeric_limits<double>::max();
         } else {
@@ -2269,6 +2272,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     // compute mapping quality before removing extra alignments
     if (compute_unpaired_quality) {
         compute_mapping_qualities(alignments, cluster_mq);
+#ifdef debug_mapper
+        if (debug) cerr << "mapping quality " << alignments.front().mapping_quality() << " " << cluster_mq << endl;
+#endif
         filter_and_process_multimaps(alignments, 0);
     } else {
         filter_and_process_multimaps(alignments, additional_multimaps);
@@ -2659,6 +2665,18 @@ map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
 
 int Mapper::graph_distance(pos_t pos1, pos_t pos2, int maximum) {
     return xg_cached_distance(pos1, pos2, xindex, get_node_cache(), maximum);
+}
+
+int Mapper::approx_position(pos_t pos) {
+    // get nodes on the forward strand
+    if (is_rev(pos)) {
+        pos = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
+    }
+    return xindex->node_start(id(pos)) + offset(pos);
+}
+
+int Mapper::approx_distance(pos_t pos1, pos_t pos2) {
+    return abs(approx_position(pos1) - approx_position(pos2));
 }
 
 set<pos_t> Mapper::positions_bp_from(pos_t pos, int distance, bool rev) {
