@@ -29,7 +29,7 @@ rm -f _chunk_test*
 #check that gam chunker runs through without crashing
 vg index -N x.gam -d x.gam.index
 printf "x\t2\t200\nx\t500\t600\n" > _chunk_test_bed.bed
-vg chunk -x x.xg -a x.gam.index -b _chunk_test -r _chunk_test_bed.bed -R _chunk_test_out.bed
+vg chunk -x x.xg -a x.gam.index -g -b _chunk_test -r _chunk_test_bed.bed -R _chunk_test_out.bed
 is $(ls -l _chunk_test*.vg | wc -l) 2 "gam chunker produces correct number of graphs"
 is $(ls -l _chunk_test*.gam | wc -l) 2 "gam chunker produces correct number of gams"
 is $(grep x _chunk_test_out.bed | wc -l) 2 "gam chunker prodcues bed with correct number of chunks"
