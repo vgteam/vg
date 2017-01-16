@@ -1182,6 +1182,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     }
 #endif
 
+    // TODO
+    // remove duplicates
+    // from both alns and clusters
+    
     // calculate cluster mapping quality
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
@@ -1362,7 +1366,7 @@ Mapper::average_node_length(void) {
 // uses the exact matches to generate as much of each alignment as possible
 // then local dynamic programming to fill in the gaps
 vector<Alignment>
-Mapper::mems_thread_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
+Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
 
     auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + additional_multimaps;
@@ -1393,7 +1397,7 @@ Mapper::mems_thread_clusters_to_alignments(const Alignment& aln, vector<MaximalE
         }
         // approximate distance by node lengths
         //int max_length = 2 * (m1.length() + m2.length());
-        int max_length = aln.sequence().size();
+        int max_length = aln.sequence().size()*2;
         //int max_length = 10 * abs(m2.begin - m1.begin);
         double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
 #ifdef debug_mapper
@@ -1467,7 +1471,12 @@ Mapper::mems_thread_clusters_to_alignments(const Alignment& aln, vector<MaximalE
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
     }
-
+#ifdef debug_mapper
+    if (debug) {
+        cerr << "cluster mapping quality " << cluster_mq << endl;
+    }
+#endif
+    
     // for up to our required number of multimaps
     // make the perfect-match alignment for the SMEM cluster
     // then fix it up with DP on the little bits between the alignments
@@ -1507,6 +1516,19 @@ Mapper::mems_thread_clusters_to_alignments(const Alignment& aln, vector<MaximalE
                       || a1.score() == a2.score()
                       && edit_count(a1) > edit_count(a2);
               });
+    // remove likely perfect duplicates
+    alns.erase(
+        std::unique(
+            alns.begin(), alns.end(),
+            [&](const Alignment& aln1,
+                const Alignment& aln2) {
+                return
+                    aln1.score() == aln2.score()
+                    && (aln1.score() == 0
+                        || make_pos_t(aln1.path().mapping(0).position())
+                        == make_pos_t(aln2.path().mapping(0).position()));
+            }),
+        alns.end());
     return alns;
 }
 
@@ -3523,7 +3545,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     if (mem_threading) {
-        return mems_thread_clusters_to_alignments(alignment, mems, additional_multimaps, cluster_mq);
+        return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps, cluster_mq);
     } else {
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
     }

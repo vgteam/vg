@@ -227,7 +227,7 @@ public:
     vector<Alignment> mems_id_clusters_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
 
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
-    vector<Alignment> mems_thread_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq);
+    vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq);
     // helper for computing the number of bases in the query covered by a cluster
     int cluster_coverage(const vector<MaximalExactMatch>& cluster);
 
