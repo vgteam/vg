@@ -3368,13 +3368,14 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
             }
         }
         bool banded_global = false;
-        id_t pinned_id = 0;
+        bool pinned_alignment = false;
         bool pinned_reverse = false;
         smoothed = align_to_graph(smoothed,
                                   graph,
                                   max_query_graph_ratio,
-                                  pinned_id,
+                                  pinned_alignment,
                                   pinned_reverse,
+                                  full_length_alignment_bonus,
                                   banded_global);
         if (flip) {
             smoothed = reverse_complement_alignment(smoothed,
