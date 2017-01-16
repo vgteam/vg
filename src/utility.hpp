@@ -209,7 +209,11 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     return pulled_out + prob_to_logprob(total);
 }
 
+/// Create a temporary file starting with the given base name
 string tmpfilename(const string& base);
+
+/// Create a temporary file in the appropriate system temporary directory
+string tmpfilename();
 
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
 // one.

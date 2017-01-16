@@ -434,7 +434,7 @@ $(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNI
 
 $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/constructor.o: $(UNITTEST_SRC_DIR)/constructor.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/constructor.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/constructor.o: $(UNITTEST_SRC_DIR)/constructor.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/flow_sort_test.o: $(UNITTEST_SRC_DIR)/flow_sort_test.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 
