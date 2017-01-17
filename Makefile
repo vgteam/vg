@@ -30,12 +30,13 @@ endif
 ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
 	LD_LIB_FLAGS += -L/usr/local/lib
 endif
-ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
-# TODO: configure RPATH-equivalent on OS X for finding libraries without environment variables at runtime
 else
 	# We can also have a normal Unix rpath
 	LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
 endif
+
+ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
+# TODO: configure RPATH-equivalent on OS X for finding libraries without environment variables at runtime
 
 # RocksDB's dependecies depend on whether certain compression libraries
 # happen to be installed on the build system. Define a lazy macro to
