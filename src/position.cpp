@@ -214,19 +214,25 @@ set<pos_t> xg_cached_next_pos(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& no
 }
 
 int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum) {
+    //cerr << "distance from " << pos1 << " to " << pos2 << endl;
     if (pos1 == pos2) return 0;
+    int adj = (offset(pos1) == xg_cached_node_length(id(pos1), xgidx, node_cache) ? 0 : 1);
     set<pos_t> seen;
     set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
     int distance = 0;
     while (!nexts.empty()) {
         set<pos_t> todo;
         for (auto& next : nexts) {
+            //cerr << "looking at " << next << endl;
             if (!seen.count(next)) {
+                //cerr << "not seen" << endl;
                 seen.insert(next);
-                //set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
                 if (next == pos2) {
-                    todo.clear();
-                    return distance+1;
+                    return distance+adj;
+                }
+                // handle the edge case that we are looking for the position after the end of this node
+                if (make_pos_t(id(next), is_rev(next), offset(next)+1) == pos2) {
+                    return distance+adj+1;
                 }
                 for (auto& x : xg_cached_next_pos(next, xgidx, node_cache)) {
                     todo.insert(x);
@@ -234,11 +240,13 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Nod
             }
         }
         if (distance == maximum) {
+            //cerr << "distance is max!" << endl;
             // reached maximum and didn't find the second position
             break;
         }
         nexts = todo;
         ++distance;
+        //cerr << "distance " << distance << endl;
     }
 
     return maximum;

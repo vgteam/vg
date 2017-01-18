@@ -159,17 +159,22 @@ public:
     
 class CactusUltrabubbleFinder : public SnarlFinder {
     
-    // Holds the vg graph we are looking for sites in.
+    /// Holds the vg graph we are looking for sites in.
     VG& graph;
     
-    // Use this path name as a rooting hint, if present.
+    /// Use this path name as a rooting hint, if present.
     string hint_path_name;
+    
+    /// Indicates whether bubbles that consist of a single edge should be filtered
+    bool filter_trivial_bubbles;
     
 public:
     /**
      * Make a new CactusSiteFinder to find sites in the given graph.
      */
-    CactusUltrabubbleFinder(VG& graph, const string& hint_path_name);
+    CactusUltrabubbleFinder(VG& graph,
+                            const string& hint_path_name = "",
+                            bool filter_trivial_bubbles = false);
     
     /**
      * Find all the sites in parallel with Cactus, make the site tree, and call

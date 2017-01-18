@@ -5,7 +5,10 @@ namespace vg {
 using namespace std;
 
     
-CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph, const string& hint_path_name): graph(graph), hint_path_name(hint_path_name) {
+CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
+                                                 const string& hint_path_name,
+                                                 bool filter_trivial_bubbles) :
+    graph(graph), hint_path_name(hint_path_name), filter_trivial_bubbles(filter_trivial_bubbles) {
     // Make sure the graph is sorted.
     // cactus needs the nodes to be sorted in order to find a source and sink.
     graph.sort();
@@ -25,6 +28,22 @@ SnarlManager CactusUltrabubbleFinder::find_snarls() {
         Bubble& bubble = node->v;
         if (node != bubble_tree->root) {
             // If we aren't the root node of the tree, we need to be a Snarl
+            
+            if (filter_trivial_bubbles) {
+                
+                // Check whether the bubble consists of a single edge
+                
+                set<NodeSide> start_connections = graph.sides_of(bubble.start);
+                set<NodeSide> end_connections = graph.sides_of(bubble.end);
+                
+                if (start_connections.size() == 1
+                    && start_connections.count(bubble.end)
+                    && end_connections.size() == 1
+                    && end_connections.count(bubble.start)) {
+                    // This is a single edge bubble, skip it
+                    return;
+                }
+            }
             
             // We're going to fill in this Snarl.
             Snarl snarl;

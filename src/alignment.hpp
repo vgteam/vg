@@ -32,7 +32,6 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda);
 size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda);
-void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
@@ -111,7 +110,9 @@ void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, cons
 // listed. It needs a callback to ask the length of any given node.
 void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
-// simplifies the path in the alignment
+/// Simplifies the Path in the Alignment. Note that this removes deletions at
+/// the start and end of Mappings, so code that handles simplified Alignments
+/// needs to handle offsets on internal Mappings.
 Alignment simplify(const Alignment& a);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 

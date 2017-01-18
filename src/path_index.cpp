@@ -1,4 +1,4 @@
-#include "pathindex.hpp"
+#include "path_index.hpp"
 
 namespace vg {
 
@@ -42,7 +42,7 @@ PathIndex::PathIndex(const Path& path) {
     
 }
 
-PathIndex::PathIndex(const Path& path, VG& vg) {
+PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
     // Trace the given path in the given VG graph, collecting sequence
     
     // We're going to build the sequence string
@@ -54,8 +54,7 @@ PathIndex::PathIndex(const Path& path, VG& vg) {
     // What was the last rank? Ranks must always go up.
     int64_t last_rank = -1;
     
-    for (size_t i = 0; i < path.mapping_size(); i++) {
-        auto& mapping = path.mapping(i);
+    for (auto& mapping : mappings) {
     
         if (!by_id.count(mapping.position().node_id())) {
             // This is the first time we have visited this node in the path.
@@ -79,6 +78,8 @@ PathIndex::PathIndex(const Path& path, VG& vg) {
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
     
+        // Say this Mapping happens at this base along the path
+        mapping_positions[&mapping] = path_base;
     
         // Find the node's sequence
         std::string node_sequence = vg.get_node(mapping.position().node_id())->sequence();
@@ -119,9 +120,9 @@ PathIndex::PathIndex(const Path& path, VG& vg) {
     }
     
     // Record the length of the last mapping's node, since there's no next mapping to work it out from
-    last_node_length = path.mapping_size() > 0 ? 
-        vg.get_node(path.mapping(path.mapping_size() - 1).position().node_id())->sequence().size() :
-        0;
+    last_node_length = mappings.empty() ?
+        0 : 
+        vg.get_node(mappings.back().position().node_id())->sequence().size();
     
     // Create the actual reference sequence we will use
     sequence = seq_stream.str();
@@ -136,6 +137,8 @@ PathIndex::PathIndex(const Path& path, VG& vg) {
         std::cerr << "Sequence: " << sequence << std::endl;
     }
 #endif
+
+    // Follow the path (again) and place all its Mappings
     
 }
 
@@ -242,9 +245,10 @@ PathIndex::PathIndex(VG& vg, const string& path_name, bool extract_sequence) {
     
     if (extract_sequence) {
         // Constructor dispatch hack
-        *this = PathIndex(vg.paths.path(path_name), vg);
+        *this = PathIndex(vg.paths.get_path(path_name), vg);
     } else {
         *this = PathIndex(vg.paths.path(path_name));
+        update_mapping_positions(vg, path_name);
     }
 }
 
@@ -257,6 +261,28 @@ PathIndex::PathIndex(const xg::XG& index, const string& path_name, bool extract_
         *this = PathIndex(index.path(path_name), index);
     } else {
         *this = PathIndex(index.path(path_name));
+    }
+}
+
+void PathIndex::update_mapping_positions(VG& vg, const string& path_name) {
+    // Brute force recalculate mapping positions.
+    // Ignores bad characters...
+    
+    // TODO: Don't make this brute force. Integrate into Paths or keep our own
+    // original-rank-based index or something.
+    
+    mapping_positions.clear();
+    
+    // Where are we in the path?
+    size_t path_base = 0;
+    
+    for (auto& mapping : vg.paths.get_path(path_name)) {
+        // For each mapping currently in the path, remember its start position
+        // along the path.
+        mapping_positions[&mapping] = path_base;
+        
+        // Go right by its length
+        path_base += mapping_to_length(mapping);
     }
 }
 

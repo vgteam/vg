@@ -15,6 +15,14 @@ namespace vg {
         return parent[key_form(snarl)];
     }
     
+    bool SnarlManager::is_leaf(const Snarl* snarl) {
+        return children[key_form(snarl)].size() == 0;
+    }
+    
+    bool SnarlManager::is_root(const Snarl* snarl) {
+        return !parent.count(key_form(snarl));
+    }
+    
     const vector<const Snarl*>& SnarlManager::top_level_snarls() {
         return roots;
     }

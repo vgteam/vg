@@ -44,6 +44,12 @@ namespace vg {
         /// Returns a pointer to the parent of a Snarl or nullptr if there is none
         const Snarl* parent_of(const Snarl* snarl);
         
+        /// Returns true if snarl has no children and false otherwise
+        bool is_leaf(const Snarl* snarl);
+        
+        /// Returns true if snarl has no parent and false otherwise
+        bool is_root(const Snarl* snarl);
+        
         /// Returns a reference to a vector with the roots of the Snarl trees
         const vector<const Snarl*>& top_level_snarls();
         

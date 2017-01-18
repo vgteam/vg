@@ -237,5 +237,8 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
     
 }
 
+double phi(double x1, double x2) {
+    return (std::erf(x2/std::sqrt(2)) - std::erf(x1/std::sqrt(2)))/2;
+}
 
 }
