@@ -98,6 +98,7 @@ Alignment reverse_complement_alignment(const Alignment& aln, const function<int6
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);
+int edit_count(const Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);

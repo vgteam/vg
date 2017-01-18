@@ -289,7 +289,8 @@ public:
                            int max_mem_length = 0,
                            int band_width = 1000,
                            int pair_window = 64,
-                           bool only_top_scoring_pair = false);
+                           bool only_top_scoring_pair = false,
+                           bool retrying = false);
 
     // align each fragment separately, then find consistent results using various heuristics
     pair<vector<Alignment>, vector<Alignment>> 
@@ -301,7 +302,8 @@ public:
                                int max_mem_length = 0,
                                int band_width = 1000,
                                int pair_window = 64,
-                               bool only_top_scoring_pair = false);
+                               bool only_top_scoring_pair = false,
+                               bool retrying = false);
 
     // align the pair as a single component using MEM threading and patching on the pair simultaneously
     pair<vector<Alignment>, vector<Alignment>> 
@@ -309,7 +311,8 @@ public:
                                  const Alignment& read2,
                                  bool& queued_resolve_later,
                                  int max_mem_length = 0,
-                                 bool only_top_scoring_pair = false);
+                                 bool only_top_scoring_pair = false,
+                                 bool retrying = false);
 
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
@@ -340,6 +343,10 @@ public:
     void resolve_softclips(Alignment& aln, VG& graph);
     // walks the graph one base at a time from pos1 until we find pos2
     int graph_distance(pos_t pos1, pos_t pos2, int maximum = 1e3);
+    // use the offset in the sequence array to give an approximate distance
+    int approx_distance(pos_t pos1, pos_t pos2);
+    // use the offset in the sequence array to get an approximate position
+    int approx_position(pos_t pos);
     // use the xg index to get a character at a particular position (rc or foward)
     char pos_char(pos_t pos);
     // the next positions and their characters following the same strand of the graph
@@ -405,6 +412,7 @@ public:
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
+    int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
     bool smooth_alignments; // smooth alignments after patching
 
