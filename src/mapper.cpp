@@ -3416,10 +3416,13 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 }
             } else if (edit_is_deletion(edit)) {
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
-            } else if (edit_is_insertion(edit)
+            } else if (edit_is_insertion(edit)) {
+                /*
+                 // enable if we want to not count soft clips against our alignment score
                        && !((i == 0 && j == 0)
                             || (i == path.mapping_size()-1
                                 && j == mapping.edit_size()-1))) {
+                */
                 // todo how do we score this qual adjusted?
                 score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
             }
