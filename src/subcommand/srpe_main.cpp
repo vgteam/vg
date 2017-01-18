@@ -144,17 +144,55 @@ int main_srpe(int argc, char** argv){
     // Open a variant call file,
     // hash each variant to an hash ID
     // have in if in the loop below.
-    if (!spec_vcf.empty()){
-        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
-        variant_file->open(spec_vcf);
-    }
-
-
     map<string, Locus> name_to_loc;
+    // Makes a pathindex, which allows us to query length and push out a VCF with a position
     map<string, PathIndex*> pindexes;
     regex is_alt ("_alt_.*");
 
-    if (do_all){
+    if (!spec_vcf.empty()){
+        
+        for (auto r_path : (graph->paths)._paths){
+            if (!regex_match(r_path.first, is_alt)){
+                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
+            }
+        }
+
+        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+        variant_file->open(spec_vcf);
+
+
+        // Hash a variant from the VCF
+        vcflib::Variant var;
+        while (variant_file->getNextVariant(var)){
+            string alt_id = make_variant_id(var) + "_0_";
+            // make both alt and ref alt_paths
+            if ( (graph->paths)._paths.count(alt_id) != 0){
+                list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
+                vector<Alignment> alns;
+                vector<int64_t> var_node_ids;
+                int32_t support = 0;
+                for (Mapping x_m : x_path){
+                    var_node_ids.push_back(x_m.position().node_id()); 
+                }
+               
+                std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+                    ++support;
+                };
+                gamind.for_alignment_to_nodes(var_node_ids, incr);
+                cout << support << " reads support " << alt_id << endl;
+
+            }
+            else {
+                cerr << "Variant not found: " << var << endl;
+            }
+
+        }
+        // look it up in the <name, list<Mapping> > index
+        // Count supporting reads using GAM index
+        // Any reads on ref / alt? Tally that business up and grab a position
+        // push allllll that info into vcf
+    }
+    else if (do_all){
         vector<Support> supports;
 
         for (auto r_path : (graph->paths)._paths){
