@@ -280,6 +280,14 @@ protected:
     /// Remembers which unusable symbolic alleles we've already emitted a warning
     /// about during construction.
     set<string> symbolic_allele_warnings;
+    
+    /// All chunks are generated with IDs starting at 1, but graphs emitted from
+    /// construct_graph need to have the IDs rewritten so they don't overlap.
+    /// Moreover, multiple calls to construct_graph need to not have conflicting
+    /// IDs, because some construct_graph implementations call other ones. What
+    /// we do for now is globally track the max ID already used, so all calls to
+    /// construct_graph follow a single ID ordering.
+    id_t max_id = 0;
 
 private:
 
