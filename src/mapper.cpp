@@ -53,7 +53,7 @@ Mapper::Mapper(Index* idex,
     , max_cluster_mapping_quality(1024)
     , mem_reseed_length(64)
     , use_cluster_mq(false)
-    , smooth_alignments(false)
+    , smooth_alignments(true)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -1397,7 +1397,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
         // approximate distance by node lengths
         //int max_length = 2 * (m1.length() + m2.length());
-        int max_length = aln.sequence().size()*2;
+        int max_length = aln.sequence().size();
         //int max_length = 10 * abs(m2.begin - m1.begin);
         //double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
         //double approx_distance = (double)abs(xindex->node_start(id(m1_pos))+offset(m1_pos) -
@@ -1415,7 +1415,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             if (debug) cerr << "actual distance " << distance << endl;
 #endif
             if (distance == max_length) {
-                return -std::numeric_limits<double>::max();
+                // couldn't find distance
+                distance = approx_dist;
+                //return -std::numeric_limits<double>::max();
             }
             double jump = (m2.begin - m1.begin) - distance;
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
@@ -3414,7 +3416,10 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 }
             } else if (edit_is_deletion(edit)) {
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
-            } else if (edit_is_insertion(edit)) {
+            } else if (edit_is_insertion(edit)
+                       && !((i == 0 && j == 0)
+                            || (i == path.mapping_size()-1
+                                && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
                 score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
             }
@@ -3433,27 +3438,9 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist == aln.sequence().size()) {
 #ifdef debug_mapper
-                if (debug) cerr << "could not find distance to next target" << endl;
+                if (debug) cerr << "could not find distance to next target, using approximation" << endl;
 #endif
-                if (xindex->path_count) {
-                    // use the embedded paths
-                    dist = abs(xindex->min_distance_in_paths(
-                                   last_pos.node_id(), last_pos.is_reverse(), last_pos.offset(),
-                                   next_pos.node_id(), next_pos.is_reverse(), next_pos.offset()));
-#ifdef debug_mapper
-                    if (debug) cerr << "found distance using embedded paths" << endl;
-#endif
-                } else {
-                    // we failed to find a distance
-                    if (i+2 < path.mapping_size()) {
-                        next_pos = path.mapping(i+2).position();
-                        dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
-                        dist -= mapping_from_length(path.mapping(i+1));
-                    }
-#ifdef debug_mapper
-                    if (debug) cerr << "found distance using next mapping" << endl;
-#endif
-                }
+                dist = approx_distance(make_pos_t(last_pos), make_pos_t(next_pos));
             }
 #ifdef debug_mapper
             if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;

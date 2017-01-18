@@ -5285,7 +5285,7 @@ void help_map(char** argv) {
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 64)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
-         << "    -5, --smoothly           smooth alignments after patching" << endl
+         << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used  when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -5363,7 +5363,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool use_cluster_mq = true;
     float chance_match = 0.05;
-    bool smooth_alignments = false;
+    bool smooth_alignments = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5428,7 +5428,7 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'T'},
                 {"no-cluster-mq", no_argument, 0, '4'},
                 {"chance-match", required_argument, 0, 'F'},
-                {"smoothly", no_argument, 0, '5'},
+                {"unsmoothly", no_argument, 0, '5'},
                 {0, 0, 0, 0}
             };
 
@@ -5649,7 +5649,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '5':
-            smooth_alignments = true;
+            smooth_alignments = false;
             break;
 
         case 'v':
