@@ -6,6 +6,7 @@
 #include <sstream>
 #include <regex>
 #include <set>
+#include <unordered_set>
 #include <utility>
 #include <algorithm>
 #include <getopt.h>
@@ -14,6 +15,9 @@
 #include "index.hpp"
 #include "Variant.h"
 #include "genotypekit.hpp"
+#include "snarls.hpp"
+
+//#define debug
 
 namespace glenn2vcf {
 
@@ -1333,18 +1337,20 @@ int call2vcf(
         // Do the new thing where we support multiple alleles
     
         // Find all the top-level sites
-        std::list<NestedSite> site_queue;
+        std::list<const Snarl*> site_queue;
         
-        CactusSiteFinder finder(vg, refPathName);
-        finder.for_each_site_parallel([&](NestedSite site) {
-            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.end.node->id())) {
+        CactusUltrabubbleFinder finder(vg, refPathName);
+        SnarlManager site_manager = finder.find_snarls();
+        
+        site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
+            if(!index.byId.count(site->start().node_id()) || !index.byId.count(site->end().node_id())) {
                 // Skip top-level sites that aren't on the reference path at both ends.
                 return;
             }
         
             // Stick all the sites in this vector.
             #pragma omp critical (sites)
-            site_queue.emplace_back(std::move(site));
+            site_queue.emplace_back(site);
         });
         
         // We're going to run through all the top-level sites and break up the
@@ -1352,21 +1358,17 @@ int call2vcf(
         // manageably-sized sites on the ref path. We won't be able to genotype
         // huge translocations or deletions, but we can save those for the
         // proper nested-site-aware genotyper.
-        std::vector<NestedSite> sites;
+        std::vector<const Snarl*> sites;
         
         while(!site_queue.empty()) {
             // Grab the first site
-            NestedSite site = std::move(site_queue.front());
+            const Snarl* site = std::move(site_queue.front());
             site_queue.pop_front();
             
-            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.end.node->id())) {
-                // Skip sites that aren't on the reference path at both ends.
-                continue;
-            }
-            
             // Where does the variable region start and end on the reference?
-            size_t ref_start = index.byId.at(site.start.node->id()).first + site.start.node->sequence().size();
-            size_t ref_end = index.byId.at(site.end.node->id()).first;
+            size_t ref_start = index.byId.at(site->start().node_id()).first
+                                + vg.get_node(site->start().node_id())->sequence().size();
+            size_t ref_end = index.byId.at(site->end().node_id()).first;
             
             if(ref_start > ref_end) {
                 // Make sure it's the right way around (it will get set straight
@@ -1374,18 +1376,18 @@ int call2vcf(
                 std::swap(ref_start, ref_end);
             }
             
-            if(!site.children.empty() && ref_end > ref_start + max_ref_length) {
+            if(!site_manager.children_of(site).empty() && ref_end > ref_start + max_ref_length) {
                 // Site is too big and has children. Split it up and do the
                 // children.
-                for(auto& child : site.children) {
+                for(const Snarl* child : site_manager.children_of(site)) {
                     // Dump all the children into the queue for separate
                     // processing.
-                    site_queue.emplace_back(std::move(child));
+                    site_queue.emplace_back(child);
                 }
 
                 if (verbose) {
                     std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                              << site.children.size() << " children" << std::endl;
+                              << site_manager.children_of(site).size() << " children" << std::endl;
                 }
                 
             } else {
@@ -1400,12 +1402,18 @@ int call2vcf(
                     // This site is big but we left it anyway.
                     if (verbose) {
                         std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                                  << site.children.size() << " children" << std::endl;
+                                  << site_manager.children_of(site).size() << " children" << std::endl;
                     }
                 }
                 
+                // Make sure start and end are front-ways relative to the ref path.
+                if(index.byId.at(site->start().node_id()).first > index.byId.at(site->end().node_id()).first) {
+                    // The site's end happens before its start, flip it around
+                    site_manager.flip(site);
+                }
+                
                 // Throw it in the final vector of sites we're going to process.
-                sites.emplace_back(std::move(site));
+                sites.push_back(site);
             }                
         }
 
@@ -1413,63 +1421,31 @@ int call2vcf(
             std::cerr << "Found " << sites.size() << " sites" << std::endl;
         }
         
-        // Bubble up nested site nodes and edges
-        std::function<void(NestedSite&, NestedSite&)> bubble_up = [&](NestedSite& child, NestedSite& root) {
-            for(auto& next_child : child.children) {
-                // Recurse on all the children
-                bubble_up(next_child, root);
-            }
-            
-            for(Node* content : child.nodes) {
-                // Dump all the node pointers into the root site.
-                root.nodes.insert(content);
-            }
-            
-            for(Edge* content : child.edges) {
-                // Dump all the edges into the root site
-                root.edges.insert(content);
-            }
-            
-        };
-        
-        for(auto& site : sites) {
-            // Actually bubble up for all the sites
-            for(auto& child : site.children) {
-                bubble_up(child, site);
-            }
-            
-             // Make sure start and end are front-ways relative to the ref path.
-             if(index.byId.at(site.start.node->id()).first > index.byId.at(site.end.node->id()).first) {
-                 // The site's end happens before its start
-                 site.start = flip(site.start);
-                 site.end = flip(site.end);
-                 std::swap(site.start, site.end);
-             }
-
-        }
-        
-        for(auto& site : sites) {
+        for(const Snarl* site : sites) {
             // For every site, we're going to make a variant
             
+            // Get its nodes and edges (including all child sites)
+            pair<unordered_set<Node*>, unordered_set<Edge*>> contents = site_manager.deep_contents(site, vg, true);
+            
             // Copy its node set
-            std::set<Node*> nodes_left(site.nodes);
+            std::unordered_set<Node*> nodes_left(contents.first);
             
             // Trace the ref path through the site
             std::vector<NodeTraversal> ref_path_for_site;
 #ifdef debug
-            std::cerr << "Site starts with " << site.start << " at " << index.byId.at(site.start.node->id()).first
-                << " and ends with " << site.end << " at " << index.byId.at(site.end.node->id()).first << std::endl;
+            std::cerr << "Site starts with " << to_node_traversal(site->start(), vg) << " at " << index.byId.at(site->start().node_id()).first
+                << " and ends with " << to_node_traversal(site->end(), vg) << " at " << index.byId.at(site->end().node_id()).first << std::endl;
 #endif
             
-            int64_t ref_node_start = index.byId.at(site.start.node->id()).first;
-            while(ref_node_start <= index.byId.at(site.end.node->id()).first) {
+            int64_t ref_node_start = index.byId.at(site->start().node_id()).first;
+            while(ref_node_start <= index.byId.at(site->end().node_id()).first) {
             
                 // Find the reference node starting here or later.
                 auto found = index.byStart.lower_bound(ref_node_start);
                 if(found == index.byStart.end()) {
                     throw runtime_error("No ref node found when tracing through site!");
                 }
-                if((*found).first > index.byId.at(site.end.node->id()).first) {
+                if((*found).first > index.byId.at(site->end().node_id()).first) {
                     // The next reference node we can find is out of the space
                     // being replaced. We're done.
                     if (verbose) {
@@ -1482,7 +1458,7 @@ int call2vcf(
                 ref_path_for_site.push_back((*found).second);
                 
                 // Make sure this node is actually in the site
-                assert(site.nodes.count((*found).second.node));
+                assert(contents.first.count((*found).second.node));
                 
                 // Drop it from the set of nodes in the site we haven't visited.
                 nodes_left.erase((*found).second.node);
@@ -1495,20 +1471,20 @@ int call2vcf(
                 // Make sure none of the nodes in the site that we didn't visit
                 // while tracing along the ref path are on the ref path.
                 if(index.byId.count(node->id())) {
-                    std::cerr << "Node " << node->id() << " is on ref path but not traced in site " << site.start << " to " << site.end << std::endl;
+                    std::cerr << "Node " << node->id() << " is on ref path but not traced in site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << std::endl;
                     throw runtime_error("Extra ref node found");
                 }
             }
             
 #ifdef debug
             // Make sure we didn't screw it up
-            std::cerr << "Site " << site.start << " to " << site.end << ":" << std::endl;
+            std::cerr << "Site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << ":" << std::endl;
             for(auto& item : ref_path_for_site) {
                 std::cerr << "\t" << item << std::endl;
             }
 #endif
-            assert(ref_path_for_site.front() == site.start);
-            assert(ref_path_for_site.back() == site.end);
+            assert( ref_path_for_site.front() == to_node_traversal(site->start(), vg) );
+            assert( ref_path_for_site.back() == to_node_traversal(site->end(), vg) );
 
             // check if a path is mostly reference for deciding if we add XREF tag
             auto is_path_known = [&](std::vector<NodeTraversal> path) {
@@ -1548,7 +1524,7 @@ int call2vcf(
             // it before the extension is done. 
             std::map<std::vector<NodeTraversal>, bool> site_traversal_set;
             
-            // We have this function to extand a partial traversal into a full
+            // We have this function to extend a partial traversal into a full
             // traversal and add it as a path. The path must already be rooted on
             // the reference in the correct order and orientation.
             auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
@@ -1561,7 +1537,7 @@ int call2vcf(
                 
                 for(auto& traversal : path) {
                     // Make sure the site actually has the nodes we're visiting.
-                    assert(site.nodes.count(traversal.node));
+                    assert(contents.first.count(traversal.node));
 #ifdef debug
                     if(index.byId.count(traversal.node->id())) {
                         std::cerr << "Path member " << traversal << " lives on ref at "
@@ -1601,7 +1577,7 @@ int call2vcf(
                     if(ref_path_index == ref_path_for_site.size()) {
                         // Still couldn't find it!
                         std::stringstream err;
-                        err << "Couldn't find " << path.back() << " in ref path of site " << site.start << " to " << site.end;
+                        err << "Couldn't find " << path.back() << " in ref path of site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << endl;
                         throw std::runtime_error(err.str());
                     }
                 }
@@ -1617,7 +1593,7 @@ int call2vcf(
             
             };
 
-            for(Node* node : site.nodes) {
+            for(Node* node : contents.first) {
                 // Find the bubble for each node
                 
                 if(total(nodeReadSupport.at(node)) == 0) {
@@ -1652,7 +1628,7 @@ int call2vcf(
                 
             }
             
-            for(Edge* edge : site.edges) {
+            for(Edge* edge : contents.second) {
                 // Go through all the edges
                 
                 if(!index.byId.count(edge->from()) || !index.byId.count(edge->to())) {
@@ -1792,18 +1768,14 @@ int call2vcf(
                     // And the likelihood on the edge
                     min_likelihood = edgeLikelihood.at(edge);
                     
-                } 
-                
-#ifdef debug
-                std::cerr << "Sequence \"" << sequence_stream.str() << "\" has " << known_bases << " known bases" << std::endl;
-#endif
+                }
                 
                 // Fill in the vectors
                 sequences.push_back(sequence_stream.str());
                 id_lists.push_back(id_stream.str());
                 min_supports.push_back(min_support);
                 // The support needs to get divided by bases, unless we're just a
-                // single edge empty allele, in which case we're sepcial.
+                // single edge empty allele, in which case we're special.
                 average_supports.push_back(sequences.back().size() > 0 ? total_support / sequences.back().size() : total_support);
                 min_likelihoods.push_back(min_likelihood);
                 is_known.push_back(path_is_known);
@@ -1838,7 +1810,8 @@ int call2vcf(
             }
             
             // Since the variable part of the site is after the first anchoring node, where does it start?
-            size_t variation_start = index.byId.at(site.start.node->id()).first + site.start.node->sequence().size();
+            size_t variation_start = index.byId.at(site->start().node_id()).first
+                                     + vg.get_node(site->start().node_id())->sequence().size();
             
             // Make a Variant
             vcflib::Variant variant;

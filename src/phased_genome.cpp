@@ -140,7 +140,7 @@ namespace vg {
         site_ends[snarl->end().node_id()] = snarl;
         
         // recurse through child sites
-        for (const Snarl* subsnarl : snarl_manager.children_of(*snarl)) {
+        for (const Snarl* subsnarl : snarl_manager.children_of(snarl)) {
             build_site_indices_internal(subsnarl);
         }
     }
@@ -182,7 +182,7 @@ namespace vg {
         }
         
         // update index for child sites
-        for (const Snarl* child_site : snarl_manager.children_of(site)) {
+        for (const Snarl* child_site : snarl_manager.children_of(&site)) {
             swap_label(*child_site, haplotype_1, haplotype_2);
         }
     }
@@ -250,7 +250,7 @@ namespace vg {
 #endif
         
         // update index for child sites
-        for (const Snarl* child_site : snarl_manager.children_of(site)) {
+        for (const Snarl* child_site : snarl_manager.children_of(&site)) {
             swap_label(*child_site, haplo_1, haplo_2);
         }
     }
