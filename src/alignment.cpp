@@ -901,6 +901,15 @@ int softclip_end(const Alignment& alignment) {
     return 0;
 }
 
+int edit_count(const Alignment& alignment) {
+    int i = 0;
+    auto& path = alignment.path();
+    for (int j = path.mapping_size(); j < path.mapping_size(); ++j) {
+        i += path.mapping(j).edit_size();
+    }
+    return i;
+}
+
 size_t to_length_after_pos(const Alignment& aln, const Position& pos) {
     return path_to_length(cut_path(aln.path(), pos).second);
 }

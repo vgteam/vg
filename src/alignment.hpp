@@ -98,6 +98,7 @@ Alignment reverse_complement_alignment(const Alignment& aln, const function<int6
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);
+int edit_count(const Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
@@ -110,7 +111,9 @@ void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, cons
 // listed. It needs a callback to ask the length of any given node.
 void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
-// simplifies the path in the alignment
+/// Simplifies the Path in the Alignment. Note that this removes deletions at
+/// the start and end of Mappings, so code that handles simplified Alignments
+/// needs to handle offsets on internal Mappings.
 Alignment simplify(const Alignment& a);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 

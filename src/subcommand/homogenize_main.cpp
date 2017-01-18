@@ -22,7 +22,6 @@
 #include "filter.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
-#include "vg_git_version.hpp"
 #include "IntervalTree.h"
 #include "genotyper.hpp"
 #include "bubbles.hpp"

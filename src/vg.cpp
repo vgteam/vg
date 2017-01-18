@@ -5016,7 +5016,6 @@ void VG::add_nodes_and_edges(const Path& path,
                 if (right_node != nullptr) dangling = NodeSide(right_node->id(), !m.position().is_reverse());
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
-                // Also, simplify() simplifies them out.
 #ifdef debug_edit
                 cerr << "Skipping other edit relative to " << node_id << endl;
 #endif
@@ -5658,6 +5657,7 @@ void VG::to_dot(ostream& out,
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
         alnid++;
+        // make a node with some info about the alignment
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
 
@@ -5691,6 +5691,21 @@ void VG::to_dot(ostream& out,
                 color = "/rdylgn11/" + convert(round((1-divergence(m))*10)+1);
             }
 
+            if (i == 0) {
+                out << "    "
+                    << alnid++ << " [label=\""
+                    << aln.name()
+                    << setprecision(5)
+                    << "\n(" << aln.score() << " " << aln.mapping_quality() << " " << aln.identity() << ")"
+                    << "\",fontcolor=\"black\",fontsize=10];" << endl;
+                out << "    "
+                    << alnid-1 << " -> "
+                    << alnid << "[dir=none,color=\"gray\",style=\"dashed\",constraint=false];" << endl;
+                out << "    "
+                    << alnid-1 << " -> " << m.position().node_id()
+                    << "[dir=none,style=invis];" << endl;
+                out << "    { rank = same; " << alnid-1 << "; " << m.position().node_id() << "; };" << endl;
+            }
             if (simple_mode) {
                 out << "    "
                     << alnid << " [label=\""

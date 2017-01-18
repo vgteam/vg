@@ -145,6 +145,25 @@ string tmpfilename(const string& base) {
     return tmpname;
 }
 
+string tmpfilename() {
+    // We need to find the system temp directory.
+    const char* system_temp_dir = nullptr;
+    
+    for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
+        // Try all these env vars in order
+        if (system_temp_dir == nullptr) {
+            system_temp_dir = getenv(var_name);
+        }
+    }
+    if (system_temp_dir == nullptr) {
+        // Then if none were set default to /tmp
+        system_temp_dir = "/tmp";
+    }
+    
+    // Make a temp file in there.
+    return tmpfilename(string(system_temp_dir) + "/vg");
+}
+
 string get_or_make_variant_id(const vcflib::Variant& variant) {
 
      if(!variant.id.empty() && variant.id != ".") {

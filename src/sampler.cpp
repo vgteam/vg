@@ -1,4 +1,5 @@
 #include "sampler.hpp"
+#include "path.hpp"
 
 namespace vg {
 
@@ -48,56 +49,157 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
     size_t to_length = edit.to_length();
     // we will keep track of the current base using this
     pos_t curr_pos = position;
-    /// TODO we should punt if we aren't a pure edit
-    // as in, we are something with mixed to and from lengths; like a block sub with an indel
+    
+    // We punt if we aren't a well-defined kind of edit; from and to lengths
+    // must be equal, or from length must be 0.
     if (edit_is_match(edit) || edit_is_sub(edit)
         || edit_is_insertion(edit)) {
-        // distribute mutations across this length
-        for (size_t k = 0; k < to_length; ++k) {
-            char c = 'N'; // in the case that we are in an insertion
-            if (!edit_is_insertion(edit)) {
+        
+#ifdef debug
+        cerr << "Handle edit " << pb2json(edit) << endl;
+#endif
+        
+        // distribute mutations across the to_length
+        for (size_t k = 0; k < to_length;) {
+            // Until we've consumed all the characters produced by the original edit
+        
+            // Get the character that the original edit has here
+            char c;
+            if (edit_is_match(edit)) {
+                // It's not stored in the edit, so find it in the reference
                 c = pos_char(curr_pos);
-                ++get_offset(curr_pos);
+            } else {
+                // It must be stored in the edit itself
+                c = edit.sequence().at(k);
             }
+            
+#ifdef debug
+            cerr << "At to_length position " << k << " of " << edit.to_length() << endl;
+#endif
+            
+            // This is the edit we're going to create, to deside the fate of
+            // this character from the old edit.
+            Edit* e = nullptr;
+            
             if (rprob(rng) <= base_error) {
+                // We should do a substitution relative to the old edit.
+                
                 // pick another base than what c is
                 char n;
                 do {
                     n = bases[rbase(rng)];
                 } while (n == c);
                 // make the edit for the sub
-                Edit* e = new_mapping.add_edit();
+                e = new_mapping.add_edit();
                 string s(1, n);
                 e->set_sequence(s);
-                e->set_from_length(1);
+                if (!edit_is_insertion(edit)) {
+                    // We should stay aligned against whatever we were aligned
+                    // against before.
+                    e->set_from_length(1);
+                }
                 e->set_to_length(1);
-            // if we've got a indel
-            // note that we're using a simple geometric indel dsitribution here
+                
+#ifdef debug
+                cerr << "Produced relative substitution " << pb2json(*e) << endl;
+#endif
             } else if (rprob(rng) <= indel_error) {
+                // We have an indel.
+                // Note that we're using a simple geometric indel dsitribution here
                 if (rprob(rng) < 0.5) {
+                    // This should be an insertion relative to the original edit.
                     char n = bases[rbase(rng)];
-                    Edit* e = new_mapping.add_edit();
+                    e = new_mapping.add_edit();
                     string s(1, c);
                     e->set_sequence(s);
                     e->set_to_length(1);
+                    
+#ifdef debug
+                    cerr << "Produced relative insertion " << pb2json(*e) << endl;
+#endif
+                    
+                    // None of the graph sequence is consumed. But we are
+                    // inserting relative to the old edit, so we want to give
+                    // the base we just inserted before another shot. We'll
+                    // continue now, before advancing our position in the edit
+                    // we're modifying.
+                    continue;
                 } else {
-                    Edit* e = new_mapping.add_edit();
-                    e->set_from_length(1);
+                    // This should be a deletion relative to the edit we're
+                    // modifying.
+                    
+                    // The old edit base isn't going to come out, but we need to
+                    // consume it anyway.
+                    k++;
+                    
+                    if (edit_is_insertion(edit)) {
+                        // We just need to consume this base of the old edit and
+                        // not emit any new edit.
+#ifdef debug
+                        cerr << "Skipped base for relative deletion" << endl;
+#endif
+                        continue;
+                    } else {
+                        // We have to delete the base that was substituted or
+                        // matched against.
+                        e = new_mapping.add_edit();
+                        e->set_from_length(1);
+#ifdef debug
+                        cerr << "Produced relative deletion " << pb2json(*e) << endl;
+#endif
+                    }
                 }
             } else {
-                // make the edit for the 1bp match
-                Edit* e = new_mapping.add_edit();
-                e->set_from_length(1);
+                // make the edit for the 1bp match relative to the old edit
+                // (which may actually be an insertion edit or a substitution
+                // edit relative to the graph)
+                e = new_mapping.add_edit();
+                if (!edit_is_match(edit)) {
+                    // We're not a match, so we need the sequence set.
+                    string s(1, c);
+                    e->set_sequence(s);
+                }
+                if (!edit_is_insertion(edit)) {
+                    // We should stay aligned against whatever we were aligned
+                    // against before.
+                    e->set_from_length(1);
+                }
                 e->set_to_length(1);
+                
+#ifdef debug
+                cerr << "Produced relative match " << pb2json(*e) << endl;
+#endif
             }
+            
+            // Now advance in the old edit by the number of old edit bases used
+            // in this new edit.
+            k += e->to_length();
+            // And in the graph by the number of graph bases consumed
+            get_offset(curr_pos) += e->from_length();
 
         }
     } else if (edit_is_deletion(edit)) {
         // special case: 0 (deletion)
-        // maybe we do nothing; as there is no length in the read
+        // Just copy over the deletion edit
+        *(new_mapping.add_edit()) = edit;
     }
-    // simplify the mapping
-    new_mapping = simplify(new_mapping);
+    
+#ifdef debug
+    cerr << "Before merging adjacent edits: " << pb2json(new_mapping) << endl;
+#endif
+
+    // Merge adjacent edits, but don't get rid of leading or trailing deletions
+    // (as with simplify), because we want a path that reflects the real
+    // simulated history and because we don't output any modifications to the
+    // position out of this function.
+    new_mapping = merge_adjacent_edits(new_mapping);
+    
+#ifdef debug
+    cerr << "Replacing " << pb2json(edit) << " with " << pb2json(new_mapping) << endl;
+#endif
+    
+    assert(mapping_from_length(new_mapping) == edit.from_length());
+    
     // copy the new edits
     vector<Edit> new_edits;
     for (size_t i = 0; i < new_mapping.edit_size(); ++i) {
@@ -133,8 +235,11 @@ Alignment Sampler::mutate(const Alignment& aln,
             }
         }
     }
-    // re-derive the alignment's sequence
-    mutaln = simplify(mutaln);
+    
+    // Don't simplify the alignment, because it's nice to see the deletions as
+    // originally generated. Also, simplified alignments won't validate.
+    
+    // re-derive the alignment's sequence.
     mutaln.set_sequence(alignment_seq(mutaln));
     mutaln.set_name(aln.name());
     return mutaln;
@@ -221,7 +326,9 @@ Alignment Sampler::alignment(size_t length) {
     } while (seq.size() < length);
     // save our sequence in the alignment
     aln.set_sequence(seq);
-    aln = simplify(aln);
+    // Simplify the alignment to merge redundant mappings. There are no deletions to get removed.
+    aln = simplify(aln); 
+    
     { // name the alignment
         string data;
         aln.SerializeToString(&data);
@@ -232,7 +339,7 @@ Alignment Sampler::alignment(size_t length) {
         const string hash = sha1head(data, 16);
         aln.set_name(hash);
     }
-    // and simplify it
+    // And set its identity
     aln.set_identity(identity(aln.path()));
     return aln;
 }
@@ -270,6 +377,10 @@ Alignment Sampler::alignment_with_error(size_t length,
              << "Graph may be too small, or indel rate too high." << endl;
     }
     aln.set_identity(identity(aln.path()));
+    
+    // Check the alignment to make sure we didn't mess it up
+    assert(is_valid(aln));
+    
     return aln;
 }
 
@@ -283,6 +394,35 @@ char Sampler::pos_char(pos_t pos) {
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
     return xg_cached_next_pos_chars(pos, xgidx, node_cache);
+}
+
+bool Sampler::is_valid(const Alignment& aln) {
+    for (auto i = 0; i + 1 < aln.path().mapping_size(); i++) {
+        // For each mapping except the very last (which might not use its whole
+        // node)
+        auto& mapping = aln.path().mapping(i);
+        
+        // What's the number of bases it consumes?
+        auto observed_from = mapping_from_length(mapping);
+        
+        // How many bases are accounted for?
+        auto accounted_bases = observed_from + mapping.position().offset();
+        
+        // How many bases need to be accounted for?
+        auto expected_bases = xgidx->node_length(mapping.position().node_id());
+        
+        if (accounted_bases != expected_bases) {
+            cerr << "[vg::Sampler] Warning: alignment mapping " << i << " accounts for "
+                << accounted_bases << " bases of graph sequence, but needs to account for "
+                << expected_bases << endl;
+            cerr << pb2json(aln) << endl;
+            return false;
+        }
+    }
+    
+    // For now, we just say an alignment is valid if it accounts for all the
+    // bases on its source nodes.
+    return true;
 }
 
 }
