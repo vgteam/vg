@@ -150,8 +150,8 @@ int main_simplify(int argc, char** argv) {
         }
         
     }
-        
-        delete graph;
+    
+    delete graph;
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:

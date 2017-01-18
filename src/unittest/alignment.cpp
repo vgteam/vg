@@ -39,9 +39,7 @@ TEST_CASE("Alignment simplification removes deletions on the edges of Mappings",
     
     Alignment a;
     json2pb(a, alignment_string.c_str(), alignment_string.size());
-    
-    cerr << pb2json(a) << endl;
-    
+        
     auto simple = simplify(a);
     REQUIRE(simple.path().mapping_size() == 2);
     REQUIRE(simple.path().mapping(0).edit_size() == 1);
