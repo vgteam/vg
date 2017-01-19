@@ -2590,14 +2590,14 @@ Mapper::find_mems(string::const_iterator seq_begin,
                     reseeded.push_back(mem);
                     continue;
                 }
-                int reseed_to = mem.length()/2;
+                // reseed at midway between here and the min mem length and at the min mem length
+                int reseed_to = mem.length() / 2;
                 int reseeds = 0;
                 while (reseeds == 0 && reseed_to >= min_mem_length) {
 #ifdef debug_mapper
                     if (debug) cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
                     vector<MaximalExactMatch> remems = find_mems(mem.begin, mem.end, reseed_to, 0);
-                    //reseed_to = max(reseed_to/2, reseed_to-min_mem_length);
                     reseed_to /= 2;
                     for (auto& rmem : remems) {
                         rmem.fill_match_count(gcsa);
