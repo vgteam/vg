@@ -1351,9 +1351,14 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
     }
     // return the ratio between best and second best as quality
     std::sort(weights.begin(), weights.end(), std::greater<double>());
+    // find how many maxes we have
+    double max_weight = weights.front();
+    int max_count = 0;
+    while (max_weight == weights[max_count]) ++max_count;
+    double best_chance = max_count > 1 ? prob_to_phred(1.0-(1.0/max_count)) : 0;
     if (weights[0] == 0) return 0;
     return min((double)max_cluster_mapping_quality,
-               prob_to_phred(weights[1]/weights[0]));
+               max(best_chance, prob_to_phred(weights[1]/weights[0])));
 }
 
 double
