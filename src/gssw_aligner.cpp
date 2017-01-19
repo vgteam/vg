@@ -203,6 +203,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             Mapping* mapping = alignment.mutable_path()->add_mapping();
             mapping->set_rank(1);
             
+
             // locate at a beginning of an arbitrary source node or end of an arbitrary sink node as appropriate
             Position* position = mapping->mutable_position();
             if (pin_left) {
@@ -350,8 +351,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
         //cerr << alignment.DebugString() << endl;
     }
-    
-    
    
     int graph_cigar_length = gc->length;
     int graph_cigar_start = 0;
@@ -367,7 +366,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         else {
             graph_cigar_length--;
         }
-        
         // need to detect insertions or deletions that have been recorded on the dummy node and move them onto real nodes
         if (pin_left) {
             gssw_cigar* dummy_node_cigar = ncs[0].cigar;
@@ -531,7 +529,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
     int from_pos = gm->position;
     
     for (int i = graph_cigar_start; i < graph_cigar_length; ++i) {
-        
         // check that the current alignment has a non-zero length
         gssw_cigar* c = ncs[i].cigar;
         int l = c->length;
@@ -625,7 +622,7 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
             }
         }
     }
-    
+
     // compute and set identity
     alignment.set_identity(identity(alignment.path()));
 }
@@ -874,7 +871,6 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     *max_idx_out = max_idx;
 
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
-
 }
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments,

@@ -1330,10 +1330,9 @@ int main_genotype(int argc, char** argv) {
 
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
-    
+
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
-
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)

@@ -89,6 +89,7 @@ OBJ += $(OBJ_DIR)/flow_sort.o
 OBJ += $(OBJ_DIR)/homogenizer.o
 OBJ += $(OBJ_DIR)/path_index.o
 OBJ += $(OBJ_DIR)/phase_duplicator.o
+OBJ += $(OBJ_DIR)/snarls.o
 OBJ += $(OBJ_DIR)/feature_set.o
 OBJ += $(OBJ_DIR)/simplifier.o
 OBJ += $(OBJ_DIR)/chunker.o
@@ -108,6 +109,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/flow_sort_test.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/srpe_filter.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phase_duplicator.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/snarls.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
@@ -403,6 +405,9 @@ $(OBJ_DIR)/phased_genome.o: $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/phased_genom
 
 $(OBJ_DIR)/multipath_alignment.o: $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/multipath_alignment.hpp $(DEPS)
 
+$(OBJ_DIR)/snarls.o: $(SRC_DIR)/snarls.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
 $(OBJ_DIR)/flow_sort.o: $(SRC_DIR)/flow_sort.cpp $(SRC_DIR)/flow_sort.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 $(OBJ_DIR)/srpe.o: $(SRC_DIR)/srpe.cpp $(SRC_DIR)/srpe.hpp $(OBJ_DIR)/filter.o $(DEPS)
@@ -451,6 +456,9 @@ $(UNITTEST_OBJ_DIR)/feature_set.o: $(UNITTEST_SRC_DIR)/feature_set.cpp $(UNITTES
 $(UNITTEST_OBJ_DIR)/mapping.o: $(UNITTEST_SRC_DIR)/mapping.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
 ## VG subcommand compilation begins here

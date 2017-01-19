@@ -4,9 +4,11 @@ namespace vg {
 
 using namespace std;
 
-Simplifier::Simplifier(VG& graph) : Progressive(),
-    graph(graph), site_finder(graph, ""), traversal_finder(graph) {
-    // Nothing to do
+Simplifier::Simplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
+    
+    // create a SnarlManager using Cactus
+    CactusUltrabubbleFinder site_finder(graph, "", true);
+    site_manager = site_finder.find_snarls();
 }
 
 pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
@@ -23,72 +25,30 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
     }
 
     // Make a list of leaf sites
-    list<NestedSite> leaves;
+    list<const Snarl*> leaves;
     
     if (show_progress) {
         cerr << "Iteration " << iteration << ": Scanning " << graph.node_count() << " nodes and "
             << graph.edge_count() << " edges for sites..." << endl;
     }
     
-    site_finder.for_each_site_parallel([&](NestedSite root) {
-        // For every tree of sites
+    for (const Snarl* top_level_site : site_manager.top_level_snarls()) {
+        list<const Snarl*> queue {top_level_site};
         
-        // We keep a queue of sites to process.
-        list<NestedSite*> to_check{&root};
-        
-#ifdef debug
-        #pragma omp critical (cerr)
-        cerr << "Found root site with " << root.children.size() << " children" << endl;
-#endif
-
-        while (!to_check.empty()) {
-            // Until we have seen all the sites, check one
-            NestedSite& check = *(to_check.front());
-            to_check.pop_front();
+        while (queue.size()) {
+            const Snarl* site = queue.front();
+            queue.pop_front();
             
-            // Drop any children that have no contents, and subsume them
-            // into their parent.
-            vector<NestedSite> nonempty_children;
-            
-            for (auto& child : check.children) {
-                if (child.nodes.size() == 2) {
-                    // The child hs only a start and an end node, with no
-                    // content nodes. It's not legit.
-                    
-                    for (Node* node : child.nodes) {
-                        // Copy up all the nodes
-                        check.nodes.insert(node);
-                    }
-                    
-                    for (Edge* edge : child.edges) {
-                        // Copy up all the edges
-                        check.edges.insert(edge);
-                    }
-                    
-                    // Don't preserve the child
-                    
-                } else {
-                    // The child is legit. Keep it.
-                    nonempty_children.emplace_back(std::move(child));
-                }
+            if (site_manager.is_leaf(site)) {
+                leaves.push_back(site);
             }
-
-            // Swap the old child list with the new nonempty child list
-            swap(check.children, nonempty_children);
-            
-            if (check.children.empty()) {
-                // This is a legitimate leaf. Move it into the leaves queue.
-                #pragma omp critical (leaves)
-                leaves.emplace_back(std::move(check));
-            } else {
-                for (auto& child : check.children) {
-                    // Check all the children, depth-first.
-                    to_check.push_front(&child);
+            else {
+                for (const Snarl* child_site : site_manager.children_of(site)) {
+                    queue.push_back(child_site);
                 }
             }
         }
-        
-    });
+    }
     
     if (show_progress) {
         cerr << "Found " << leaves.size() << " leaves" << endl;
@@ -104,18 +64,18 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
     // Now we have a list of all the leaf sites.
     create_progress("simplifying leaves", leaves.size());
     
-    for (auto& leaf : leaves) {
+    for (const Snarl* leaf : leaves) {
         // Look at all the leaves
+        
+        // Get the contents of the bubble, excluding the boundary nodes
+        auto contents = site_manager.deep_contents(leaf, graph, false);
+        unordered_set<Node*>& nodes = contents.first;
+        unordered_set<Edge*>& edges = contents.second;
         
         // For each leaf, calculate its total size.
         size_t total_size = 0;
-        for (auto* node : leaf.nodes) {
-            // For each node
-            if (node == leaf.start.node || node == leaf.end.node) {
-                // That isn't a start or end
-                continue;
-            }
-            // Include it in the size figure
+        for (Node* node : nodes) {
+            // For each node include it in the size figure
             total_size += node->sequence().size();
         }
         
@@ -132,7 +92,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
 #ifdef debug
         cerr << "Found " << total_size << " bp leaf" << endl;
-        for (auto* node : leaf.nodes) {
+        for (auto* node : nodes) {
             cerr << "\t" << node->id() << ": " << node->sequence() << endl;
         }
 #endif
@@ -140,25 +100,24 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         // Otherwise we want to simplify this site away
         
         // Identify the replacement traversal for the bubble
-        auto traversals = traversal_finder.find_traversals(leaf);
+        vector<SnarlTraversal> traversals = traversal_finder.find_traversals(*leaf);
         
         if (traversals.empty()) {
             // We couldn't find any paths through the site.
             continue;
         }
         
-        // Get the collection of visits in the traversal we want to keep.
-        // Copy them into a vector for random access.
-        vector<SiteTraversal::Visit> visits{traversals.front().visits.begin(), traversals.front().visits.end()};
+        // Get the traversal out of the vector
+        SnarlTraversal& traversal = traversals.front();
         
         // Determine the length of the new traversal
         size_t new_site_length = 0;
-        for (size_t i = 1; i + 1 < visits.size(); i++) {
+        for (size_t i = 0; i < traversal.visits_size(); i++) {
             // For every non-anchoring node
-            auto& visit = visits[i];
+            const Visit& visit = traversal.visits(i);
             // Total up the lengths of all the nodes that are newly visited.
-            assert(visit.node != nullptr);
-            new_site_length += visit.node->sequence().size();
+            assert(visit.node_id());
+            new_site_length += graph.get_node(visit.node_id())->sequence().size();
         }
 
 #ifdef debug
@@ -173,11 +132,11 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // We start at the start node. Copy out all the mapping pointers on that
         // node, so we can go through them while tampering with them.
-        map<string, set<Mapping*> > mappings_by_path = graph.paths.get_node_mapping(leaf.start.node);
+        map<string, set<Mapping*> > mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->start().node_id()));
         
         // It's possible a path can enter the site through the end node and
         // never hit the start. So we're going to trim those back before we delete nodes and edges.
-        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(leaf.end.node);
+        map<string, set<Mapping*> > end_mappings_by_path = graph.paths.get_node_mapping(graph.get_node(leaf->end().node_id()));
         
         if (!drop_hairpin_paths) {
             // We shouldn't drop paths if they hairpin and can't be represented
@@ -212,19 +171,20 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     
                     while (here) {
                         // Until we hit the start/end of the path or the mapping we want
-                        if (here->position().node_id() == leaf.end.node->id() &&
-                            here->position().is_reverse() == (leaf.end.backward != backward)) {
+                        if (here->position().node_id() == leaf->end().node_id() &&
+                            here->position().is_reverse() == (leaf->end().backward() != backward)) {
                             // We made it out.
                             // Stop scanning!
                             break;
                         }
                         
-                        if (here->position().node_id() == leaf.start.node->id() &&
-                            here->position().is_reverse() != (leaf.start.backward != backward)) {
+                        if (here->position().node_id() == leaf->start().node_id() &&
+                            here->position().is_reverse() != (leaf->start().backward() != backward)) {
                             // We have encountered the start node with an incorrect orientation.
                             cerr << "warning:[vg simplify] Path " << path_name
                                 << " doubles back through start of site "
-                                << leaf.start << " - " << leaf.end << "; skipping site!" << endl;
+                                << to_node_traversal(leaf->start(), graph) << " - "
+                                << to_node_traversal(leaf->end(), graph) << "; skipping site!" << endl;
                                 
                             found_hairpin = true;
                             break;
@@ -262,19 +222,20 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     
                     while (here) {
                         
-                        if (here->position().node_id() == leaf.start.node->id() &&
-                            here->position().is_reverse() == (leaf.start.backward != backward)) {
+                        if (here->position().node_id() == leaf->start().node_id() &&
+                            here->position().is_reverse() == (leaf->start().backward() != backward)) {
                             // We made it out.
                             // Stop scanning!
                             break;
                         }
                         
-                        if (here->position().node_id() == leaf.end.node->id() &&
-                            here->position().is_reverse() != (leaf.end.backward != backward)) {
+                        if (here->position().node_id() == leaf->end().node_id() &&
+                            here->position().is_reverse() != (leaf->end().backward() != backward)) {
                             // We have encountered the end node with an incorrect orientation.
                             cerr << "warning:[vg simplify] Path " << path_name
                                 << " doubles back through end of site "
-                                << leaf.start << " - " << leaf.end << "; dropping site!" << endl;
+                                << to_node_traversal(leaf->start(), graph) << " - "
+                                << to_node_traversal(leaf->end(), graph) << "; dropping site!" << endl;
                             
                             found_hairpin = true;
                             break;
@@ -291,7 +252,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             
             if (found_hairpin) {
                 // We found a hairpin, so we want to skip the site.
-                cerr << "warning:[vg simplify] Site " << leaf.start << " - " << leaf.end << " skipped due to hairpin path." << endl;
+                cerr << "warning:[vg simplify] Site " << to_node_traversal(leaf->start(), graph) << " - " << to_node_traversal(leaf->end(), graph) << " skipped due to hairpin path." << endl;
                 continue;
             }
             
@@ -335,7 +296,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 
 #ifdef debug
                 cerr << "Scanning " << path_name << " from " << pb2json(*here)
-                    << " for " << leaf.end << " orientation " << backward << endl;
+                    << " for " << to_node_traversal(leaf->end(), graph) << " orientation " << backward << endl;
 #endif
                 
                 while (here) {
@@ -345,8 +306,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     cerr << "\tat " << pb2json(*here) << endl;
 #endif
                     
-                    if (here->position().node_id() == leaf.end.node->id() &&
-                        here->position().is_reverse() == (leaf.end.backward != backward)) {
+                    if (here->position().node_id() == leaf->end().node_id() &&
+                        here->position().is_reverse() == (leaf->end().backward() != backward)) {
                         // We have encountered the end of the site in the
                         // orientation we expect, given the orientation we saw
                         // for the start.
@@ -363,22 +324,24 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         break;
                     }
                     
-                    if (here->position().node_id() == leaf.start.node->id() &&
-                        here->position().is_reverse() != (leaf.start.backward != backward)) {
+                    if (here->position().node_id() == leaf->start().node_id() &&
+                        here->position().is_reverse() != (leaf->start().backward() != backward)) {
                         // We have encountered the start node with an incorrect orientation.
                         cerr << "warning:[vg simplify] Path " << path_name
                             << " doubles back through start of site "
-                            << leaf.start << " - " << leaf.end << "; dropping!" << endl;
+                            << to_node_traversal(leaf->start(), graph) << " - "
+                            << to_node_traversal(leaf->end(), graph) << "; dropping!" << endl;
                             
                         assert(drop_hairpin_paths);
                         kill_path = true;
                         break;
                     }
                     
-                    if (!leaf.nodes.count(graph.get_node(here->position().node_id()))) {
+                    if (!nodes.count(graph.get_node(here->position().node_id()))) {
                         // We really should stay inside the site!
                         cerr << "error:[vg simplify] Path " << path_name
-                            << " somehow escapes site " << leaf.start << " - " << leaf.end << endl;
+                            << " somehow escapes site " << to_node_traversal(leaf->start(), graph)
+                            << " - " << to_node_traversal(leaf->end(), graph) << endl;
                             
                         exit(1);
                     }
@@ -507,37 +470,36 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 
                 // Make sure we're going to insert starting from the correct end of the site.
                 if (backward) {
-                    assert(insert_position->position().node_id() == leaf.start.node->id());
+                    assert(insert_position->position().node_id() == leaf->start().node_id());
                 } else {
-                    assert(insert_position->position().node_id() == leaf.end.node->id());
+                    assert(insert_position->position().node_id() == leaf->end().node_id());
                 }
-                
-                // Make sure we have a place for internal visits
-                assert(visits.size() >= 2);
                 
                 // Loop through the internal visits in the canonical
                 // traversal backwards along the path we are splicing. If
                 // it's a forward path this is just right to left, but if
                 // it's a reverse path it has to be left to right.
-                for (size_t i = 0; i < visits.size() - 2; i++) {
+                for (size_t i = 0; i < traversal.visits_size(); i++) {
                     // Find the visit we need next, as a function of which
                     // way we need to insert this run of visits. Normally we
                     // go through the visits right to left, but when we have
                     // a backward path we go left to right.
-                    auto& visit = backward ? visits[i + 1] : visits[visits.size() - 2 - i];
+                    const Visit& visit = backward ? traversal.visits(i)
+                                                  : traversal.visits(traversal.visits_size() - i - 1);
                     
                     // Make a Mapping to represent it
                     Mapping new_mapping;
-                    new_mapping.mutable_position()->set_node_id(visit.node->id());
+                    new_mapping.mutable_position()->set_node_id(visit.node_id());
                     // We hit this node backward if it's backward along the
                     // traversal, xor if we are traversing the traversal
                     // backward
-                    new_mapping.mutable_position()->set_is_reverse(visit.backward != backward);
+                    new_mapping.mutable_position()->set_is_reverse(visit.backward() != backward);
                     
                     // Add an edit
                     Edit* edit = new_mapping.add_edit();
-                    edit->set_from_length(visit.node->sequence().size());
-                    edit->set_to_length(visit.node->sequence().size());
+                    size_t node_seq_length = graph.get_node(visit.node_id())->sequence().size();
+                    edit->set_from_length(node_seq_length);
+                    edit->set_to_length(node_seq_length);
                     
 #ifdef debug
                     cerr << path_name << ": Add mapping " << pb2json(new_mapping) << endl;
@@ -592,12 +554,13 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 
                 while (here) {
                     
-                    if (here->position().node_id() == leaf.end.node->id() &&
-                        here->position().is_reverse() != (leaf.end.backward != backward)) {
+                    if (here->position().node_id() == leaf->end().node_id() &&
+                        here->position().is_reverse() != (leaf->end().backward() != backward)) {
                         // We have encountered the end node with an incorrect orientation.
                         cerr << "warning:[vg simplify] Path " << path_name
                             << " doubles back through end of site "
-                            << leaf.start << " - " << leaf.end << "; dropping!" << endl;
+                            << to_node_traversal(leaf->start(), graph) << " - "
+                            << to_node_traversal(leaf->end(), graph) << "; dropping!" << endl;
                             
                         assert(drop_hairpin_paths);
                         kill_path = true;
@@ -637,16 +600,15 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         // Now delete all edges that aren't connecting adjacent nodes on the
         // blessed traversal (before we delete their nodes).
         set<Edge*> blessed_edges;
-        for (auto i = visits.begin(); i != --visits.end(); ++i) {
+        for (int i = 0; i < traversal.visits_size() - 1; ++i) {
             // For each node and the next node (which won't be the end)
-            auto next = i;
-            next++;
             
-            assert(next != visits.end());
+            const Visit visit = traversal.visits(i);
+            const Visit next = traversal.visits(i);
             
             // Find the edge between them
-            NodeTraversal here(i->node, i->backward);
-            NodeTraversal next_traversal(next->node, next->backward);
+            NodeTraversal here(graph.get_node(visit.node_id()), visit.backward());
+            NodeTraversal next_traversal(graph.get_node(next.node_id()), next.backward());
             Edge* edge = graph.get_edge(here, next_traversal);
             assert(edge != nullptr);
             
@@ -654,11 +616,27 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             blessed_edges.insert(edge);
         }
         
-        for (auto* edge : leaf.edges) {
+        // Also get the edges from the boundary nodes into the traversal
+        if (traversal.visits_size() > 0) {
+            NodeTraversal first_visit = to_node_traversal(traversal.visits(0), graph);
+            NodeTraversal last_visit = to_node_traversal(traversal.visits(traversal.visits_size() - 1),
+                                                         graph);
+            blessed_edges.insert(graph.get_edge(to_node_traversal(leaf->start(), graph), first_visit));
+            blessed_edges.insert(graph.get_edge(last_visit, to_node_traversal(leaf->end(), graph)));
+        }
+        else {
+            // This is a deletion traversal, so get the edge from the start to end of the site
+            blessed_edges.insert(graph.get_edge(to_node_traversal(leaf->start(), graph),
+                                                to_node_traversal(leaf->end(), graph)));
+        }
+        
+        for (auto* edge : edges) {
             if (!blessed_edges.count(edge)) {
                 // Get rid of all the edges not needed for the one true traversal
 #ifdef debug
-                cerr << leaf.start << " - " << leaf.end << ": Delete edge: " << pb2json(*edge) << endl;
+                cerr << to_node_traversal(leaf->start(), graph) << " - "
+                     << to_node_traversal(leaf->end(), graph) << ": Delete edge: "
+                     << pb2json(*edge) << endl;
 #endif
                 graph.destroy_edge(edge);
                 deleted_edges++;
@@ -670,16 +648,19 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // What nodes are on it?
         set<Node*> blessed_nodes;
-        for (auto& visit : visits) {
-            blessed_nodes.insert(visit.node);
+        for (int i = 0; i < traversal.visits_size(); i++) {
+            const Visit& visit = traversal.visits(i);
+            blessed_nodes.insert(graph.get_node(visit.node_id()));
         }
         
-        for (auto* node : leaf.nodes) {
+        for (auto* node : nodes) {
             // For every node in the site
             if (!blessed_nodes.count(node)) {
                 // If we don't need it for the chosen path, destroy it
 #ifdef debug
-                cerr << leaf.start << " - " << leaf.end << ": Delete node: " << pb2json(*node) << endl;
+                cerr << to_node_traversal(leaf->start(), graph) << " - "
+                     << to_node_traversal(leaf->end(), graph) << ": Delete node: "
+                     << pb2json(*node) << endl;
 #endif
                 // There may be paths still touching this node, if they
                 // managed to get into the site without touching the start
