@@ -51,7 +51,7 @@ Mapper::Mapper(Index* idex,
     , full_length_alignment_bonus(5)
     , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
-    , mem_reseed_length(64)
+    , mem_reseed_length(32)
     , use_cluster_mq(false)
     , smooth_alignments(true)
 {
