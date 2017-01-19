@@ -17,9 +17,9 @@ is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -J - | jq '.path.map
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -J | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "global alignment traverses the correct path"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "alignment score is as expected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "scoring parameters are respected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
 
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa >/dev/null
 is $? 0 "vg map takes -d as input without a variant graph"

@@ -60,8 +60,8 @@ protected:
     /// Holds a reference to the graph we're simplifying
     VG& graph;
 
-    /// This is used to find sites in the graph to simplify
-    CactusSiteFinder site_finder;
+    /// This keeps track of the sites to simplify
+    SnarlManager site_manager;
     
     /// This is used to find traversals of those sites
     TrivialTraversalFinder traversal_finder;

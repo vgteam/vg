@@ -1330,10 +1330,9 @@ int main_genotype(int argc, char** argv) {
 
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
-    
+
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
-
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
     // What should the heterozygous genotype prior be? (1/this)
@@ -5258,7 +5257,7 @@ void help_map(char** argv) {
          << "    -W, --fragment max:μ:σ    fragment length distribution specification to use in paired mapping (default: 1e4:0:0)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 1)" << endl
+         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 16)" << endl
          << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -5283,9 +5282,9 @@ void help_map(char** argv) {
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 0/off)" << endl
+         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 32)" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
-         << "    -5, --smoothly           smooth alignments after patching" << endl
+         << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used  when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -5342,7 +5341,7 @@ int main_map(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = 0;
     float random_match_chance = 0.05;
-    int mem_reseed_length = 0;
+    int mem_reseed_length = 32;
     bool mem_threading = true;
     int max_target_factor = 100;
     int buffer_size = 100;
@@ -5352,7 +5351,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 1;
+    int extra_multimaps = 16;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -5363,7 +5362,7 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool use_cluster_mq = true;
     float chance_match = 0.05;
-    bool smooth_alignments = false;
+    bool smooth_alignments = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5411,7 +5410,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
-                {"mem-reseed-length", required_argument, 0, 'V'},
+                {"mem-reseed", required_argument, 0, 'V'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
@@ -5428,7 +5427,7 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'T'},
                 {"no-cluster-mq", no_argument, 0, '4'},
                 {"chance-match", required_argument, 0, 'F'},
-                {"smoothly", no_argument, 0, '5'},
+                {"unsmoothly", no_argument, 0, '5'},
                 {0, 0, 0, 0}
             };
 
@@ -5649,7 +5648,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '5':
-            smooth_alignments = true;
+            smooth_alignments = false;
             break;
 
         case 'v':
@@ -5996,7 +5995,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6008,7 +6007,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window,
-                                                                       top_pairs_only);
+                                                                       top_pairs_only, true);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6027,7 +6026,7 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
                                                                band_width, pair_window,
-                                                               top_pairs_only);
+                                                               top_pairs_only, true);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -6079,7 +6078,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6091,7 +6090,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window,
-                                                                       top_pairs_only);
+                                                                       top_pairs_only, true);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6109,7 +6108,7 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
                                                                band_width, pair_window,
-                                                               top_pairs_only);
+                                                               top_pairs_only, true);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -6157,7 +6156,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -6169,7 +6168,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window,
-                                                                       top_pairs_only);
+                                                                       top_pairs_only, true);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -6187,7 +6186,7 @@ int main_map(int argc, char** argv) {
                                                                queued_resolve_later, kmer_size,
                                                                kmer_stride, max_mem_length,
                                                                band_width, pair_window,
-                                                               top_pairs_only);
+                                                               top_pairs_only, true);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
