@@ -3419,6 +3419,8 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 } else {
                     score += edit.from_length()*aligner->match;
                 }
+            } else if (edit_is_sub(edit)) {
+                score -= aligner->mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
             } else if (edit_is_insertion(edit)
