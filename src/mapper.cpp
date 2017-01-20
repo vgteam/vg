@@ -117,8 +117,8 @@ double Mapper::estimate_gc_content(void) {
     uint64_t at = 0, gc = 0;
     
     if (gcsa) {
-        at = gcsa::Range::length(gcsa->find(string("A"))) + gcsa::Range::length(gcsa->find(string("T")));
-        gc = gcsa::Range::length(gcsa->find(string("G"))) + gcsa::Range::length(gcsa->find(string("C")));
+        at = gcsa->count(gcsa->find(string("A"))) + gcsa->count(gcsa->find(string("T")));
+        gc = gcsa->count(gcsa->find(string("G"))) + gcsa->count(gcsa->find(string("C")));
     }
     else if (index) {
         at = index->approx_size_of_kmer_matches("A") + index->approx_size_of_kmer_matches("T");
@@ -538,7 +538,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     if(rescue && best_score1 == 0 && best_score2 != 0) {
         // Must rescue 1 off of 2
 #ifdef debug_mapper
-        if (debug) cerr << "Rescue read 1 off of read 2" << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "Rescue read 1 off of read 2" << endl;
+        }
 #endif
         alignments1.clear();
 
@@ -571,7 +574,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     } else if(rescue && best_score1 != 0 && best_score2 == 0) {
         // Must rescue 2 off of 1
 #ifdef debug_mapper
-        if (debug) cerr << "Rescue read 2 off of read 1" << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "Rescue read 2 off of read 1" << endl;
+        }
 #endif
         alignments2.clear();
 
@@ -681,7 +687,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
         });
 
 #ifdef debug_mapper
-    if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
+    }
 #endif
 
     pair<vector<Alignment>, vector<Alignment>> results;
@@ -970,7 +979,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                                                 min_mem_length,
                                                 mem_reseed_length);
 #ifdef debug_mapper
-    if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
+    }
 #endif
     vector<MaximalExactMatch> mems2 = find_mems(read2.sequence().begin(),
                                                 read2.sequence().end(),
@@ -978,7 +990,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                                                 min_mem_length,
                                                 mem_reseed_length);
 #ifdef debug_mapper
-    if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << "mems for read 2 " << mems_to_json(mems2) << endl;
+    }
 #endif
 
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
@@ -1001,7 +1016,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             int dist = approx_dist;
             // improve on our approximate metric if we have paths to use
 #ifdef debug_mapper
-            if (debug) cerr << "between fragment approx distance " << approx_dist << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "between fragment approx distance " << approx_dist << endl;
+            }
 #endif
             if (dist >= max_length) {
                 return -std::numeric_limits<double>::max();
@@ -1010,7 +1028,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     dist = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
                 }
 #ifdef debug_mapper
-                if (debug) cerr << "---> true distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
+#pragma omp critical
+                {
+                    if (debug) cerr << "---> true distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
+                }
 #endif
                 if (dist >= max_length) {
                     return -std::numeric_limits<double>::max();
@@ -1030,7 +1051,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
             int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
 #ifdef debug_mapper
-            if (debug) cerr << "in fragment approx distance " << approx_dist << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "in fragment approx distance " << approx_dist << endl;
+            }
 #endif
             if (approx_dist > max_length) {
                 // too far
@@ -1038,7 +1062,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             } else {
                 int distance = graph_distance(m1_pos, m2_pos, max_length);
 #ifdef debug_mapper
-                if (debug) cerr << "---> true distance " << distance << endl;
+#pragma omp critical
+                {
+                    if (debug) cerr << "---> true distance " << distance << endl;
+                }
 #endif
                 if (distance == max_length) {
                     return -std::numeric_limits<double>::max();
@@ -1088,9 +1115,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     };
 
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "### clusters:" << endl;
-        show_clusters();
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "### clusters:" << endl;
+            show_clusters();
+        }
     }
 #endif
 
@@ -1136,7 +1166,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         ++multimaps;
         
 #ifdef debug_mapper
-    if (debug) { cerr << "patch identities " << p.first.identity() << ", " << p.second.identity() << endl; }
+#pragma omp critical
+        {
+            if (debug) { cerr << "patch identities " << p.first.identity() << ", " << p.second.identity() << endl; }
+        }
 #endif
         /*
         if (patch.identity() > min_identity) {
@@ -1172,19 +1205,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         alns.end());
     
 #ifdef debug_mapper
-    if (debug) {
-        for (auto& p : alns) {
-            auto& aln1 = p.first;
-            cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
-            if (!check_alignment(aln1)) {
-                cerr << "alignment failure " << pb2json(aln1) << endl;
-                assert(false);
-            }
-            auto& aln2 = p.second;
-            cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
-            if (!check_alignment(aln2)) {
-                cerr << "alignment failure " << pb2json(aln2) << endl;
-                assert(false);
+#pragma omp critical
+    {
+        if (debug) {
+            for (auto& p : alns) {
+                auto& aln1 = p.first;
+                cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
+                if (!check_alignment(aln1)) {
+                    cerr << "alignment failure " << pb2json(aln1) << endl;
+                    assert(false);
+                }
+                auto& aln2 = p.second;
+                cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
+                if (!check_alignment(aln2)) {
+                    cerr << "alignment failure " << pb2json(aln2) << endl;
+                    assert(false);
+                }
             }
         }
     }
@@ -1198,7 +1234,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
 #ifdef debug_mapper
-        if (debug) cerr << "cluster mq == " << cluster_mq << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "cluster mq == " << cluster_mq << endl;
+        }
 #endif
     }
 
@@ -1400,7 +1439,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         int approx_dist = approx_distance(m1_pos, m2_pos);
         
 #ifdef debug_mapper
-        if (debug) cerr << "approx distance " << approx_dist << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "approx distance " << approx_dist << endl;
+        }
 #endif
         if (approx_dist > max_length) {
             // too far
@@ -1408,7 +1450,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         } else {
             int distance = graph_distance(m1_pos, m2_pos, max_length);
 #ifdef debug_mapper
-            if (debug) cerr << "actual distance " << distance << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "actual distance " << distance << endl;
+            }
 #endif
             if (distance == max_length) {
                 // couldn't find distance
@@ -1463,9 +1508,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "### clusters:" << endl;
-        show_clusters();
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "### clusters:" << endl;
+            show_clusters();
+        }
     }
 #endif
 
@@ -1473,8 +1521,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
     }
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "cluster mapping quality " << cluster_mq << endl;
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "cluster mapping quality " << cluster_mq << endl;
+        }
     }
 #endif
     
@@ -1488,7 +1539,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         Alignment partial_alignment = mems_to_alignment(aln, cluster);
         auto patch = patch_alignment(partial_alignment);
 #ifdef debug_mapper
-        if (debug) { cerr << "patch identity " << patch.identity() << endl; }
+#pragma omp critical
+        {
+            if (debug) { cerr << "patch identity " << patch.identity() << endl; }
+        }
 #endif
         if (patch.identity() > min_identity) {
             alns.emplace_back(patch);
@@ -1497,14 +1551,17 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 #ifdef debug_mapper
-    if (debug) {
-        for (auto& aln : alns) {
-            cerr << "cluster aln ------- " << pb2json(aln) << endl;
-        }
-        for (auto& aln : alns) {
-            if (!check_alignment(aln)) {
-                cerr << "alignment failure " << pb2json(aln) << endl;
-                assert(false);
+#pragma omp critical
+    {
+        if (debug) {
+            for (auto& aln : alns) {
+                cerr << "cluster aln ------- " << pb2json(aln) << endl;
+            }
+            for (auto& aln : alns) {
+                if (!check_alignment(aln)) {
+                    cerr << "alignment failure " << pb2json(aln) << endl;
+                    assert(false);
+                }
             }
         }
     }
@@ -1654,8 +1711,11 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
                 if (curr - prev <= fragment_size) {
                     // in cluster
 #ifdef debug_mapper
-                    if (debug) {
-                        cerr << "in cluster" << endl;
+#pragma omp critical
+                    {
+                        if (debug) {
+                            cerr << "in cluster" << endl;
+                        }
                     }
 #endif
                 } else {
@@ -1760,8 +1820,11 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     // force used bandwidth to be divisible by 4
     // round up so we have > band_width
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "trying band width " << band_width << endl;
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "trying band width " << band_width << endl;
+        }
     }
 #endif
     if (band_width % 4) {
@@ -1870,8 +1933,11 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             }
             
 #ifdef debug_mapper
-            if (debug) {
-                cerr << "Unstripped alignment: " << pb2json(aln) << endl;
+#pragma omp critical
+            {
+                if (debug) {
+                    cerr << "Unstripped alignment: " << pb2json(aln) << endl;
+                }
             }
 #endif
             
@@ -1905,9 +1971,12 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
 
     // check that the alignments are valid
 #ifdef debug_mapper
-    if (debug) {
-        for (auto& aln : alns) {
-            check_alignment(aln);
+#pragma omp critical
+    {
+        if (debug) {
+            for (auto& aln : alns) {
+                check_alignment(aln);
+            }
         }
     }
 #endif
@@ -1954,15 +2023,18 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
     scores.resize(multi_alns.size());
     // start with the scores for the first alignments
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "resolving banded multi over:" << endl;
-        for (auto& alns : multi_alns) {
-            for (auto& aln : alns) {
-                if (aln.has_path()) {
-                    cerr << aln.score() << "@ " << make_pos_t(aln.path().mapping(0).position()) <<", ";
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "resolving banded multi over:" << endl;
+            for (auto& alns : multi_alns) {
+                for (auto& aln : alns) {
+                    if (aln.has_path()) {
+                        cerr << aln.score() << "@ " << make_pos_t(aln.path().mapping(0).position()) <<", ";
+                    }
                 }
+                cerr << endl;
             }
-            cerr << endl;
         }
     }
 #endif
@@ -2271,7 +2343,10 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     if (compute_unpaired_quality) {
         compute_mapping_qualities(alignments, cluster_mq);
 #ifdef debug_mapper
-        if (debug) cerr << "mapping quality " << alignments.front().mapping_quality() << " " << cluster_mq << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "mapping quality " << alignments.front().mapping_quality() << " " << cluster_mq << endl;
+        }
 #endif
         filter_and_process_multimaps(alignments, 0);
     } else {
@@ -2285,7 +2360,10 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
 #ifdef debug_mapper
-    if (debug) start_both = std::chrono::system_clock::now();
+#pragma omp critical
+    {
+        if (debug) start_both = std::chrono::system_clock::now();
+    }
 #endif
     const string& sequence = aln.sequence();
     
@@ -2304,7 +2382,10 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     int kept_kmer_count = 0;
 
 #ifdef debug_mapper
-    if (debug) cerr << "aligning " << aln.sequence() << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << "aligning " << aln.sequence() << endl;
+    }
 #endif
 
     // This will hold the best forward alignment (or an alignment with no path and 0 score if no alignment is found).
@@ -2329,7 +2410,10 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
         kmer_size -= kmer_sensitivity_step;
         stride = sequence.size() / ceil( (double)sequence.size() / kmer_size);
 #ifdef debug_mapper
-        if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
+        }
 #endif
     };
 
@@ -2344,15 +2428,21 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
 #ifdef debug_mapper
-            if (debug) start = std::chrono::system_clock::now();
+#pragma omp critical
+            {
+                if (debug) start = std::chrono::system_clock::now();
+            }
 #endif
             // Go get all the forward alignments, putting the best one in best_f.
             alignments_f = align_threaded(best_f, kmer_count_f, kmer_size, stride, attempt);
 #ifdef debug_mapper
-            if (debug) {
-                end = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds = end-start;
-                cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << best_f.sequence() << endl;
+#pragma omp critical
+            {
+                if (debug) {
+                    end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
+                    cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << best_f.sequence() << endl;
+                }
             }
 #endif
         }
@@ -2362,16 +2452,22 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
             // If we need to look on the reverse strand, do that too.
             std::chrono::time_point<std::chrono::system_clock> start, end;
 #ifdef debug_mapper
-            if (debug) start = std::chrono::system_clock::now();
+#pragma omp critical
+            {
+                if (debug) start = std::chrono::system_clock::now();
+            }
 #endif
             auto alns =  align_threaded(best_r, kmer_count_r, kmer_size, stride, attempt);
             alignments_r = reverse_complement_alignments(alns,
                                                          (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
 #ifdef debug_mapper
-            if (debug) {
-                end = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds = end-start;
-                cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << best_r.sequence() << endl;
+#pragma omp critical
+            {
+                if (debug) {
+                    end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
+                    cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << best_r.sequence() << endl;
+                }
             }
 #endif
         }
@@ -2390,10 +2486,13 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     }
 
 #ifdef debug_mapper
-    if (debug) {
-        end_both = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end_both-start_both;
-        cerr << elapsed_seconds.count() << "\t" << "b" << "\t" << sequence << endl;
+#pragma omp critical
+    {
+        if (debug) {
+            end_both = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed_seconds = end_both-start_both;
+            cerr << elapsed_seconds.count() << "\t" << "b" << "\t" << sequence << endl;
+        }
     }
 #endif
     
@@ -2506,10 +2605,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
     // range of the last iteration
     gcsa::range_type last_range = full_range;
     
-    // range and position of the last sub-mem that was more frequent than current one
-    string::const_iterator more_frequent_suffix_begin = seq_end;
-    gcsa::range_type more_frequent_suffix_range = full_range;
-    
     // the temporary MEM we'll build up in this process
     MaximalExactMatch match(cursor, seq_end, full_range);
     
@@ -2527,6 +2622,19 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
             
             if (mem_length >= min_mem_length) {
                 mems.push_back(match);
+                
+#ifdef debug_mapper
+#pragma omp critical
+                {
+                    vector<gcsa::node_type> locations;
+                    gcsa->locate(match.range, locations);
+                    cerr << "adding MEM " << match.sequence() << " at positions ";
+                    for (auto nt : locations) {
+                        cerr << make_pos_t(nt) << " ";
+                    }
+                    cerr << endl;
+                }
+#endif
             }
             
             match.end = cursor;
@@ -2537,14 +2645,9 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
             if (reseed_length && mem_length >= reseed_length) {
                 find_sub_mems(mems,
                               match.end,
-                              more_frequent_suffix_begin,
-                              more_frequent_suffix_range,
                               min_mem_length,
                               sub_mems);
             }
-            
-            more_frequent_suffix_range = full_range;
-            more_frequent_suffix_begin = match.end;
             
             prev_iter_jumped_lcp = false;
             
@@ -2594,19 +2697,20 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                 // for the end of the next MEM
                 if (mem_length >= min_mem_length && !prev_iter_jumped_lcp) {
                     mems.push_back(match);
-                }
-                
+                    
 #ifdef debug_mapper
 #pragma omp critical
-                {
-                    cerr << "found mem: " << match.sequence() << endl;
-                    cerr << "from sequence: ";
-                    for (auto iter = seq_begin; iter != seq_end; iter++) {
-                        cerr << *iter;
+                    {
+                        vector<gcsa::node_type> locations;
+                        gcsa->locate(match.range, locations);
+                        cerr << "adding MEM " << match.sequence() << " at positions ";
+                        for (auto nt : locations) {
+                            cerr << make_pos_t(nt) << " ";
+                        }
+                        cerr << endl;
                     }
-                    cerr << endl;
-                }
 #endif
+                }
                 
                 // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
                 gcsa::STNode parent = lcp->parent(last_range);
@@ -2619,8 +2723,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                 if (reseed_length && mem_length >= reseed_length && !prev_iter_jumped_lcp) {
                     find_sub_mems(mems,
                                   match.end,
-                                  more_frequent_suffix_begin - 1,
-                                  more_frequent_suffix_range,
                                   min_mem_length,
                                   sub_mems);
                 }
@@ -2628,17 +2730,8 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                 
                 prev_iter_jumped_lcp = true;
             }
-            
-            more_frequent_suffix_range = full_range;
-            more_frequent_suffix_begin = match.end;
         }
         else {
-            // record the closest suffix to the MEM that has more occurrences
-            if (gcsa::Range::length(match.range) < gcsa::Range::length(last_range)) {
-                more_frequent_suffix_begin = cursor + 1;
-                more_frequent_suffix_range = last_range;
-            }
-            
             prev_iter_jumped_lcp = false;
             
             // just step to the next position
@@ -2658,10 +2751,11 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
 #ifdef debug_mapper
 #pragma omp critical
         {
-            cerr << "found mem: " << match.sequence() << endl;
-            cerr << "from sequence: ";
-            for (auto iter = seq_begin; iter != seq_end; iter++) {
-                cerr << *iter;
+            vector<gcsa::node_type> locations;
+            gcsa->locate(match.range, locations);
+            cerr << "adding MEM " << match.sequence() << " at positions ";
+            for (auto nt : locations) {
+                cerr << make_pos_t(nt) << " ";
             }
             cerr << endl;
         }
@@ -2671,8 +2765,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
         if (reseed_length && mem_length >= reseed_length) {
             find_sub_mems(mems,
                           match.begin,
-                          more_frequent_suffix_begin - 1,
-                          more_frequent_suffix_range,
                           min_mem_length,
                           sub_mems);
         }
@@ -2743,8 +2835,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
     
 void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
                            string::const_iterator next_mem_end,
-                           string::const_iterator search_start,
-                           gcsa::range_type starting_range,
                            int min_mem_length,
                            vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
     
@@ -2763,16 +2853,16 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
 #endif
     
     // how many times does the parent MEM occur in the index?
-    size_t parent_count = gcsa::Range::length(mem.range);
+    size_t parent_count = gcsa->count(mem.range);
     
     // next position where we will look for a match
-    string::const_iterator cursor = search_start;//mem.end - 1;//
+    string::const_iterator cursor = mem.end - 1;
     
     // the righthand end of the sub-MEM we are building
     string::const_iterator sub_mem_end = mem.end;
     
     // the range that matches search_start:sub_mem_end
-    gcsa::range_type range = starting_range;//gcsa::range_type(0, gcsa->size() - 1);//
+    gcsa::range_type range = gcsa::range_type(0, gcsa->size() - 1);
     
     // did we move the cursor or the end of the match last iteration?
     bool prev_iter_jumped_lcp = false;
@@ -2788,7 +2878,7 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
         // execute one step of LF mapping
         range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
 
-        if (gcsa::Range::length(range) <= parent_count) {
+        if (gcsa->count(range) <= parent_count) {
             // there are no more hits outside of parent MEM hits, record the previous
             // interval as a sub MEM
             string::const_iterator sub_mem_begin = cursor + 1;
@@ -2796,7 +2886,23 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
             if (sub_mem_end - sub_mem_begin >= min_mem_length && !prev_iter_jumped_lcp) {
                 sub_mems_out.push_back(make_pair(MaximalExactMatch(sub_mem_begin, sub_mem_end, last_range),
                                                  vector<size_t>{mems.size() - 1}));
-                
+#ifdef debug_mapper
+#pragma omp critical
+                {
+                    vector<gcsa::node_type> locations;
+                    gcsa->locate(last_range, locations);
+                    cerr << "adding sub-MEM ";
+                    for (auto iter = sub_mem_begin; iter != sub_mem_end; iter++) {
+                        cerr << *iter;
+                    }
+                    cerr << " at positions ";
+                    for (auto nt : locations) {
+                        cerr << make_pos_t(nt) << " ";
+                    }
+                    cerr << endl;
+                    
+                }
+#endif
                 // identify all previous MEMs that also contain this sub-MEM
                 for (int64_t i = ((int64_t) mems.size()) - 2; i >= 0; i--) {
                     if (sub_mem_begin >= mems[i].begin) {
@@ -2809,6 +2915,18 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
                     }
                 }
             }
+#ifdef debug_mapper
+            else {
+#pragma omp critical
+                {
+                    cerr << "minimally more frequent MEM is too short ";
+                    for (auto iter = sub_mem_begin; iter != sub_mem_end; iter++) {
+                        cerr << *iter;
+                    }
+                    cerr << endl;
+                }
+            }
+#endif
             
             // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
             gcsa::STNode parent = lcp->parent(last_range);
@@ -2829,10 +2947,37 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
     if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length) {
         sub_mems_out.push_back(make_pair(MaximalExactMatch(mem.begin, sub_mem_end, range),
                                          vector<size_t>{mems.size() - 1}));
-        
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            vector<gcsa::node_type> locations;
+            gcsa->locate(range, locations);
+            cerr << "adding sub-MEM ";
+            for (auto iter = mem.begin; iter != sub_mem_end; iter++) {
+                cerr << *iter;
+            }
+            cerr << " at positions ";
+            for (auto nt : locations) {
+                cerr << make_pos_t(nt) << " ";
+            }
+            cerr << endl;
+        }
+#endif
         // note: this sub MEM is at the far left side of the parent MEM, so we don't need to
         // check whether earlier MEMs contain it as well
     }
+#ifdef debug_mapper
+    else {
+#pragma omp critical
+        {
+            cerr << "minimally more frequent MEM is too short ";
+            for (auto iter = mem.begin; iter != sub_mem_end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+        }
+    }
+#endif
 }
     
 void Mapper::first_hit_positions_by_index(MaximalExactMatch& mem,
@@ -2882,7 +3027,7 @@ void Mapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_m
         for (size_t parent_idx : parent_idxs) {
             // get the parent MEM
             MaximalExactMatch& parent_mem = parent_mems[parent_idx];
-            num_parent_hits.push_back(gcsa::Range::length(parent_mem.range));
+            num_parent_hits.push_back(gcsa->count(parent_mem.range));
             
             if (positions_by_index[parent_idx].empty()) {
                 // the parent MEM's positions by index haven't been calculated yet, so do it
@@ -3036,8 +3181,7 @@ void Mapper::mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
                 
                 // fill the layer with the next positions
                 vector<pos_t>& nexts = pos_stack.back().second;
-                for (const pos_t& next_graph_pos : xg_cached_positions_bp_from(graph_pos, 1, false,
-                                                                         xindex, get_node_cache())) {
+                for (const pos_t& next_graph_pos : positions_bp_from(graph_pos, 1, false)) {
                     nexts.push_back(next_graph_pos);
                 }
             }
@@ -3163,6 +3307,10 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
     Path& path = *aln.mutable_path();
     Mapping* mapping = path.add_mapping();
     *mapping->mutable_position() = make_position(pos);
+#ifdef debug_mapper
+#pragma omp critical
+    cerr << "walking match for seq " << seq << " at position " << pb2json(*mapping) << endl;
+#endif
     // get the first node we match
     int total = 0;
     size_t match_len = 0;
@@ -3178,8 +3326,10 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
                 // we can't step, so we break
                 //cerr << "Checking if " << pos_char(npos) << " != " << seq[i+1] << endl;
                 if (pos_char(npos) != seq[i+1]) {
-                    //cerr << "broke" << endl;
-                    //cerr << "returning ..." << alns.size() << endl;
+#ifdef debug_mapper
+#pragma omp critical
+                    cerr << "MEM does not match position, returning without creating alignment" << endl;
+#endif
                     return alns;
                 }
             }
@@ -3241,6 +3391,15 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
         edit->set_to_length(match_len);
     }
     alns.push_back(aln);
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        cerr << "walked alignment(s):" << endl;
+        for (auto& aln : alns) {
+            cerr << pb2json(aln) << endl;
+        }
+    }
+#endif
     //cerr << "returning " << alns.size() << endl;
     return alns;
 }
@@ -3258,11 +3417,14 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 
 Alignment Mapper::patch_alignment(const Alignment& aln) {
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "patching " << pb2json(aln) << endl;
-        if (!check_alignment(aln)) {
-            cerr << "aln is invalid!" << endl;
-            exit(1);
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "patching " << pb2json(aln) << endl;
+            if (!check_alignment(aln)) {
+                cerr << "aln is invalid!" << endl;
+                exit(1);
+            }
         }
     }
 #endif
@@ -3276,7 +3438,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
 #ifdef debug_mapper
-        if (debug) cerr << "looking at mapping " << pb2json(mapping) << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "looking at mapping " << pb2json(mapping) << endl;
+        }
 #endif
         pos_t ref_pos = make_pos_t(mapping.position());
         Mapping* new_mapping = patched.mutable_path()->add_mapping();
@@ -3284,7 +3449,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
         for (int j = 0; j < mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
 #ifdef debug_mapper
-            if (debug) cerr << "looking at edit " << pb2json(edit) << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "looking at edit " << pb2json(edit) << endl;
+            }
 #endif
             if (edit_is_match(edit)) {
                 // matches behave as expected
@@ -3403,7 +3571,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                            id2);  // our target node
                     graph.rebuild_indexes();
 #ifdef debug_mapper
-                    if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+#pragma omp critical
+                    {
+                        if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    }
 #endif
                     //graph.serialize_to_file("raw-" + hash_alignment(aln) + ".vg");
                 }
@@ -3417,7 +3588,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
 #ifdef debug_mapper
-                    if (debug) cerr << "graph does not contain both cut points!" << endl;
+#pragma omp critical
+                    {
+                        if (debug) cerr << "graph does not contain both cut points!" << endl;
+                    }
 #endif
                 } else {
 
@@ -3586,9 +3760,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // reselect the target subgraph
                 VG target;
                 for (auto& id : target_nodes) {
-#ifdef debug_mapper
-                    //if (debug) cerr << "target node " << id << endl;
-#endif
                     if (graph.has_node(id)) {
                         target.add_node(*graph.get_node(id));
                     }
@@ -3598,9 +3769,12 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // now do the alignment
                 if (graph.empty()) {
 #ifdef debug_mapper
-                    if (debug) {
-                        cerr << "no target for alignment of " << edit.sequence()
-                             << ", graph is empty" << endl;
+#pragma omp critical
+                    {
+                        if (debug) {
+                            cerr << "no target for alignment of " << edit.sequence()
+                                 << ", graph is empty" << endl;
+                        }
                     }
 #endif
                     score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
@@ -3608,7 +3782,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 } else {
                     // we've set the graph to the trimmed target
 #ifdef debug_mapper
-                    if (debug) cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+#pragma omp critical
+                    {
+                        if (debug) cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    }
 #endif
                     //time to try an alignment
                     Alignment patch;
@@ -3672,7 +3849,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // append the chunk to patched
 
 #ifdef debug_mapper
-                    if (debug) cerr << "patch: " << pb2json(patch) << endl;
+#pragma omp critical
+                    {
+                        if (debug) cerr << "patch: " << pb2json(patch) << endl;
+                    }
 #endif
                     patch.clear_sequence(); // we set the whole sequence later
                     if (min_identity && patch.identity() < min_identity) {
@@ -3755,7 +3935,10 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
     }
     if (should_smooth) {
 #ifdef debug_mapper
-        if (debug) cerr << "smoothing" << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "smoothing" << endl;
+        }
 #endif
         // get the subgraph overlapping the alignment
         VG graph;
@@ -3855,17 +4038,26 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
             Position next_pos = path.mapping(i+1).position();
 #ifdef debug_mapper
-            if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
+            }
 #endif
             int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist == aln.sequence().size()) {
 #ifdef debug_mapper
-                if (debug) cerr << "could not find distance to next target, using approximation" << endl;
+#pragma omp critical
+                {
+                    if (debug) cerr << "could not find distance to next target, using approximation" << endl;
+                }
 #endif
                 dist = approx_distance(make_pos_t(last_pos), make_pos_t(next_pos));
             }
 #ifdef debug_mapper
-            if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;
+            }
 #endif
             if (dist > 0) {
                 score -= aligner->gap_open + dist * aligner->gap_extension;
@@ -3879,7 +4071,10 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
         score += full_length_alignment_bonus;
     }
 #ifdef debug_mapper
-    if (debug) cerr << "score from score_alignment " << score << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << "score from score_alignment " << score << endl;
+    }
 #endif
     return max(0, score);
 }
@@ -3922,10 +4117,12 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
         last_end = mem.end;
     }
     // handle unaligned portion at end of read
-    alns.emplace_back();
     int start = last_end - seq_begin;
     int length = seq_end - (seq_begin + start);
+    
+    alns.emplace_back();
     alns.back().set_sequence(aln.sequence().substr(start, length));
+
     auto alnm = merge_alignments(alns);
     *alnm.mutable_quality() = aln.quality();
     return alnm;
@@ -3945,7 +4142,10 @@ Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
 vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, int additional_multimaps) {
 
 #ifdef debug_mapper
-    if (debug) cerr << "aligning " << pb2json(alignment) << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << "aligning " << pb2json(alignment) << endl;
+    }
 #endif
     if (!gcsa || !xindex) {
         cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
@@ -4059,13 +4259,16 @@ Mapper::mems_id_clusters_to_alignments(const Alignment& alignment, vector<Maxima
 
     // generate an alignment for each subgraph/orientation combination for which we have hits
 #ifdef debug_mapper
-    if (debug) cerr << "aligning to " << clusters.size() << " clusters" << endl;
-    if (debug) {
-        for (auto cptr : ranked_clusters) {
-            auto& c = *cptr;
-            cerr << cluster_query_coverage[cptr] << ":"
-                 << c.size() << " "
-                 << c.front() << "-" << c.back() << endl;
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "aligning to " << clusters.size() << " clusters" << endl;
+            for (auto cptr : ranked_clusters) {
+                auto& c = *cptr;
+                cerr << cluster_query_coverage[cptr] << ":"
+                     << c.size() << " "
+                     << c.front() << "-" << c.back() << endl;
+            }
         }
     }
 #endif
@@ -4091,9 +4294,12 @@ Mapper::mems_id_clusters_to_alignments(const Alignment& alignment, vector<Maxima
         // bail out if we've passed our maximum number of attempts
         if (attempts > max(max_attempts, total_multimaps)) break;
 #ifdef debug_mapper
-        if (debug) {
-            cerr << "attempt " << attempts
-                 << " on cluster " << cluster.front() << "-" << cluster.back() << endl;
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "attempt " << attempts
+                     << " on cluster " << cluster.front() << "-" << cluster.back() << endl;
+            }
         }
 #endif
         VG sub; // the subgraph we'll align against
@@ -4109,9 +4315,12 @@ Mapper::mems_id_clusters_to_alignments(const Alignment& alignment, vector<Maxima
         // if the graph is now too big to attempt, bail out
         if (max_target_factor && sub.length() > max_target_length) continue;
 #ifdef debug_mapper
-        if (debug) {
-            cerr << "attempt " << attempts
-                 << " on subgraph " << sub.min_node_id() << "-" << sub.max_node_id() << endl;
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "attempt " << attempts
+                     << " on subgraph " << sub.min_node_id() << "-" << sub.max_node_id() << endl;
+            }
         }
 #endif
         // determine the likely orientation
@@ -4125,7 +4334,10 @@ Mapper::mems_id_clusters_to_alignments(const Alignment& alignment, vector<Maxima
                 }
             });
 #ifdef debug_mapper
-        if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
+        }
 #endif
         if (fw_mems) {
             Alignment aln = align_to_graph(aln_fw, sub, max_query_graph_ratio);
@@ -4176,14 +4388,20 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
            && (sc_start > softclip_threshold
                || sc_end > softclip_threshold)) {
 #ifdef debug_mapper
-        if (debug) {
-            cerr << "Softclip before expansion: " << sc_start << " " << sc_end
-                << " (" << aln.score() << " points)" << endl;
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "Softclip before expansion: " << sc_start << " " << sc_end
+                    << " (" << aln.score() << " points)" << endl;
+            }
         }
 #endif
         double avg_node_size = graph.length() / (double)graph.size();
 #ifdef debug_mapper
-        if (debug) cerr << "average node size " << avg_node_size << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "average node size " << avg_node_size << endl;
+        }
 #endif
         // step towards the side where there were soft clips
         Graph flanks;
@@ -4207,9 +4425,12 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
 #ifdef debug_mapper
-        if (debug) {
-            cerr << "Softclip after expansion: " << sc_start << " " << sc_end
-                << " (" << aln.score() << " points)" << endl;
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "Softclip after expansion: " << sc_start << " " << sc_end
+                    << " (" << aln.score() << " points)" << endl;
+            }
         }
 #endif
         // we are not improving, so increasing the window is unlikely to help
@@ -4269,7 +4490,10 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
         // Report the approximate match byte size
 #ifdef debug_mapper
-        if (debug) cerr << k << "\t~" << approx_matches << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << k << "\t~" << approx_matches << endl;
+        }
 #endif
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
         // we can do multiple mapping by rnelaxing this
@@ -4310,14 +4534,20 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
         // Report the actual match count for the kmer
 #ifdef debug_mapper
-        if (debug) cerr << "\t=" << kmer_positions.size() << endl;
+#pragma omp critical
+        {
+            if (debug) cerr << "\t=" << kmer_positions.size() << endl;
+        }
 #endif
         kmer_count += kmer_positions.size();
         ++i;
     }
 
 #ifdef debug_mapper
-    if (debug) cerr << "kept kmer hits " << kmer_count << endl;
+#pragma omp critical
+    {
+        if (debug) cerr << "kept kmer hits " << kmer_count << endl;
+    }
 #endif
 
     // make threads
@@ -4439,20 +4669,23 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
     // now sort the threads and re-cluster them
 
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "initial threads" << endl;
-        for (auto& t : threads_by_length) {
-            auto& length = t.first;
-            auto& threads = t.second;
-            cerr << length << ":" << endl;
-            for (auto& thread : threads) {
-                cerr << "\t";
-                for (auto& id : thread) {
-                    cerr << id << " ";
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "initial threads" << endl;
+            for (auto& t : threads_by_length) {
+                auto& length = t.first;
+                auto& threads = t.second;
+                cerr << length << ":" << endl;
+                for (auto& thread : threads) {
+                    cerr << "\t";
+                    for (auto& id : thread) {
+                        cerr << id << " ";
+                    }
+                    cerr << endl;
                 }
                 cerr << endl;
             }
-            cerr << endl;
         }
     }
 #endif
@@ -4532,20 +4765,23 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
     }
 
 #ifdef debug_mapper
-    if (debug) {
-        cerr << "threads ready for alignment" << endl;
-        for (auto& t : threads_by_length) {
-            auto& length = t.first;
-            auto& threads = t.second;
-            cerr << length << ":" << endl;
-            for (auto& thread : threads) {
-                cerr << "\t";
-                for (auto& id : thread) {
-                    cerr << id << " ";
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "threads ready for alignment" << endl;
+            for (auto& t : threads_by_length) {
+                auto& length = t.first;
+                auto& threads = t.second;
+                cerr << length << ":" << endl;
+                for (auto& thread : threads) {
+                    cerr << "\t";
+                    for (auto& id : thread) {
+                        cerr << id << " ";
+                    }
+                    cerr << endl;
                 }
                 cerr << endl;
             }
-            cerr << endl;
         }
     }
 #endif
@@ -4576,7 +4812,10 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             int64_t last = *thread.rbegin() + thread_ex;
             // so we can pick it up efficiently from the index by pulling the range from first to last
 #ifdef debug_mapper
-            if (debug) cerr << "getting node range " << first << "-" << last << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "getting node range " << first << "-" << last << endl;
+            }
 #endif
             VG* graph = new VG;
 
@@ -4603,8 +4842,11 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             graph->remove_orphan_edges();
 
 #ifdef debug_mapper
-            if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, "
-                            << graph->edge_count() << " edges" << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, "
+                                << graph->edge_count() << " edges" << endl;
+            }
 #endif
             //serialize_to_file("init-" + alignment.sequence() + "-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg");
 
@@ -4642,20 +4884,27 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                         && d_to_head >= 0 && d_to_head < sc_start)
                        || (sc_end > softclip_threshold
                            && d_to_tail >=0 && d_to_tail < sc_end))) {
+                           
 #ifdef debug_mapper
-                if (debug) {
-                    cerr << "softclip before " << sc_start << " " << sc_end << endl;
-                    cerr << "distance to head "
-                         << graph->distance_to_head(NodeTraversal(graph->get_node(idf), false), sc_start*3)
-                         << endl;
-                    cerr << "distance to tail "
-                         << graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3)
-                         << endl;
+#pragma omp critical
+                {
+                    if (debug) {
+                        cerr << "softclip before " << sc_start << " " << sc_end << endl;
+                        cerr << "distance to head "
+                             << graph->distance_to_head(NodeTraversal(graph->get_node(idf), false), sc_start*3)
+                             << endl;
+                        cerr << "distance to tail "
+                             << graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3)
+                             << endl;
+                    }
                 }
 #endif
                 double avg_node_size = graph->length() / (double)graph->size();
 #ifdef debug_mapper
-                if (debug) cerr << "average node size " << avg_node_size << endl;
+#pragma omp critical
+                {
+                    if (debug) cerr << "average node size " << avg_node_size << endl;
+                }
 #endif
                 // step towards the side where there were soft clips
                 if (sc_start) {
@@ -4697,7 +4946,10 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
 #ifdef debug_mapper
-                if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
+#pragma omp critical
+                {
+                    if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
+                }
 #endif
                 // we are not improving, so increasing the window is unlikely to help
                 if (last_score == ta.score()) break;
@@ -4713,11 +4965,17 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             delete graph;
 
 #ifdef debug_mapper
-            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
+            }
 #endif
             if (greedy_accept && ta.identity() >= accept_identity) {
 #ifdef debug_mapper
-                if (debug) cerr << "greedy accept" << endl;
+#pragma omp critical
+                {
+                    if (debug) cerr << "greedy accept" << endl;
+                }
 #endif
                 accepted = true;
                 break;
@@ -5034,9 +5292,12 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
         clear_scores();
         score(exclude);
 #ifdef debug_mapper
-        if (debug) {
-            cerr << "MEMMarkovModel::traceback " << i << endl;
-            display(cerr);
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "MEMMarkovModel::traceback " << i << endl;
+                display(cerr);
+            }
         }
 #endif
         vector<MEMMarkovModelVertex*> vertex_trace;
@@ -5046,7 +5307,10 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
             // check if we've exhausted our MEMs
             if (vertex == nullptr || vertex->score == 0) break;
 #ifdef debug_mapper
-            if (debug) cerr << "maximum score " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
+#pragma omp critical
+            {
+                if (debug) cerr << "maximum score " << vertex->mem.sequence() << " " << vertex << ":" << vertex->score << endl;
+            }
 #endif
             // make trace
             while (vertex != nullptr) {

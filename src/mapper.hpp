@@ -157,8 +157,6 @@ private:
     // that contain it
     void find_sub_mems(vector<MaximalExactMatch>& mems,
                        string::const_iterator next_mem_end,
-                       string::const_iterator search_start,
-                       gcsa::range_type starting_range,
                        int min_mem_length,
                        vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
