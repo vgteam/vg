@@ -53,7 +53,7 @@ Mapper::Mapper(Index* idex,
     , full_length_alignment_bonus(5)
     , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
-    , mem_reseed_length(64)
+    , mem_reseed_length(32)
     , use_cluster_mq(false)
     , smooth_alignments(true)
 {
@@ -1398,9 +1398,14 @@ double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactM
     }
     // return the ratio between best and second best as quality
     std::sort(weights.begin(), weights.end(), std::greater<double>());
+    // find how many maxes we have
+    double max_weight = weights.front();
+    int max_count = 0;
+    while (max_weight == weights[max_count]) ++max_count;
+    double best_chance = max_count > 1 ? prob_to_phred(1.0-(1.0/max_count)) : 0;
     if (weights[0] == 0) return 0;
     return min((double)max_cluster_mapping_quality,
-               prob_to_phred(weights[1]/weights[0]));
+               max(best_chance, prob_to_phred(weights[1]/weights[0])));
 }
 
 double
@@ -4019,6 +4024,8 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 } else {
                     score += edit.from_length()*aligner->match;
                 }
+            } else if (edit_is_sub(edit)) {
+                score -= aligner->mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
             } else if (edit_is_insertion(edit)
@@ -4063,12 +4070,6 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 score -= aligner->gap_open + dist * aligner->gap_extension;
             }
         }
-    }
-    if (!softclip_start(aln)) {
-        score += full_length_alignment_bonus;
-    }
-    if (!softclip_end(aln)) {
-        score += full_length_alignment_bonus;
     }
 #ifdef debug_mapper
 #pragma omp critical

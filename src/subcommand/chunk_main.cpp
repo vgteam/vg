@@ -304,7 +304,7 @@ int main_chunk(int argc, char** argv) {
         VG subgraph;
         output_regions[i].seq = regions[i].seq;
         output_regions[i].start = 1 + chunker.extract_subgraph(region, context_steps, subgraph);
-        output_regions[i].end = output_regions[i].start;
+        output_regions[i].end = output_regions[i].start - 1;
         // Is there a better way to get path length? 
         Path output_path = subgraph.paths.path(region.seq);
         for (int j = 0; j < output_path.mapping_size(); ++j) {
