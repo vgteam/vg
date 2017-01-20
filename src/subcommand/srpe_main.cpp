@@ -28,6 +28,8 @@ void help_srpe(char** argv){
         
         << "   -S / --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
         << "   -R / --recall            recall (i.e. type) all variants with paths stored in the graph." << endl
+        << "   -r / --reference         reference genome to pull structural variants from." << endl
+        << "   -I / --insertions        fasta file containing insertion sequences." << endl
        << endl;
         //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
         
@@ -189,8 +191,9 @@ int main_srpe(int argc, char** argv){
         // Hash a variant from the VCF
         vcflib::Variant var;
         while (variant_file->getNextVariant(var)){
+            var.position -= 1;
             var.canonicalize_sv(*linear_ref, insertions, -1);
-            string alt_id = make_variant_id(var) + "_0";
+            string alt_id = "_alt_" + make_variant_id(var) + "_0";
             // make both alt and ref alt_paths
             if ( (graph->paths)._paths.count(alt_id) != 0){
                 list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
@@ -210,6 +213,10 @@ int main_srpe(int argc, char** argv){
             }
             else {
                 cerr << "Variant not found: " << var << endl;
+                cerr << alt_id << endl;
+                for (auto xx : (graph->paths)._paths){
+                    cerr << "\t" << xx.first << endl;
+                }
             }
 
         }
