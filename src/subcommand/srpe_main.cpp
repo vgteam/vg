@@ -16,6 +16,7 @@
 #include "filter.hpp"
 #include "utility.hpp"
 #include "Variant.h"
+#include "Fasta.h"
 
 using namespace std;
 using namespace vg;
@@ -45,6 +46,8 @@ int main_srpe(int argc, char** argv){
     string lcp_name = "";
 
     string spec_vcf = "";
+    string ref_fasta = "";
+    string ins_fasta = "";
 
     int max_iter = 2;
     int max_frag_len = 10000;
@@ -71,11 +74,13 @@ int main_srpe(int argc, char** argv){
             {"gcsa-index", required_argument, 0, 'g'},
             {"specific", required_argument, 0, 'S'},
             {"recall", no_argument, 0, 'R'},
+            {"insertions", required_argument, 0, 'I'},
+            {"reference", required_argument, 0, 'r'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:S:R",
+        c = getopt_long (argc, argv, "hx:g:m:S:R:I:r:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -99,6 +104,12 @@ int main_srpe(int argc, char** argv){
                 break;
             case 'S':
                 spec_vcf = optarg;
+                break;
+            case 'r':
+                ref_fasta = optarg;
+                break;
+            case 'I':
+                ins_fasta = optarg;
                 break;
             case 'h':
             case '?':
@@ -149,7 +160,21 @@ int main_srpe(int argc, char** argv){
     map<string, PathIndex*> pindexes;
     regex is_alt ("_alt_.*");
 
-    if (!spec_vcf.empty()){
+    vector<FastaReference*> insertions;
+    if (!ins_fasta.empty()){
+        FastaReference* ins = new FastaReference();
+        insertions.emplace_back(ins);
+        ins->open(ins_fasta);
+    
+    }
+
+    if (!spec_vcf.empty() && ref_fasta.empty()){
+        cerr << "Error: option -S requires a fasta reference using the -r <reference> flag" << endl;
+    }
+    else if (!spec_vcf.empty()){
+        
+        FastaReference* linear_ref = new FastaReference();
+        linear_ref->open(ref_fasta);
         
         for (auto r_path : (graph->paths)._paths){
             if (!regex_match(r_path.first, is_alt)){
@@ -164,7 +189,8 @@ int main_srpe(int argc, char** argv){
         // Hash a variant from the VCF
         vcflib::Variant var;
         while (variant_file->getNextVariant(var)){
-            string alt_id = make_variant_id(var) + "_0_";
+            var.canonicalize_sv(*linear_ref, insertions, -1);
+            string alt_id = make_variant_id(var) + "_0";
             // make both alt and ref alt_paths
             if ( (graph->paths)._paths.count(alt_id) != 0){
                 list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
