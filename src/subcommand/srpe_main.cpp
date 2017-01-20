@@ -193,23 +193,26 @@ int main_srpe(int argc, char** argv){
         while (variant_file->getNextVariant(var)){
             var.position -= 1;
             var.canonicalize_sv(*linear_ref, insertions, -1);
-            string alt_id = "_alt_" + make_variant_id(var) + "_0";
+            string var_id = make_variant_id(var);
+            string alt_id = "_alt_" + var_id + "_0";
             // make both alt and ref alt_paths
             if ( (graph->paths)._paths.count(alt_id) != 0){
-                list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
-                vector<Alignment> alns;
-                vector<int64_t> var_node_ids;
-                int32_t support = 0;
-                for (Mapping x_m : x_path){
-                    var_node_ids.push_back(x_m.position().node_id()); 
-                }
+                for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
+                    alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+                    list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
+                    vector<Alignment> alns;
+                    vector<int64_t> var_node_ids;
+                    int32_t support = 0;
+                    for (Mapping x_m : x_path){
+                        var_node_ids.push_back(x_m.position().node_id()); 
+                    }
                
-                std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-                    ++support;
-                };
-                gamind.for_alignment_to_nodes(var_node_ids, incr);
-                cout << support << " reads support " << alt_id << endl;
-
+                    std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+                        ++support;
+                    };
+                        gamind.for_alignment_to_nodes(var_node_ids, incr);
+                        cout << support << " reads support " << alt_id << endl;
+                    }
             }
             else {
                 cerr << "Variant not found: " << var << endl;
