@@ -693,7 +693,8 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_mems(a.sequence().begin(), a.sequence().end(), max_mem_length);
+            auto mems = mapper.find_mems(a.sequence().begin(), a.sequence().end(),
+                                         max_mem_length, mapper.min_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -705,7 +706,6 @@ int main_vectorize(int argc, char** argv){
             if (mem_positions) {
                 cout << " |positions";
                 for (auto& mem : mems) {
-                    mapper.get_mem_hits_if_under_max(mem);
                     for (auto& node : mem.nodes) {
                         cout << " " << gcsa::Node::id(node);
                         if (gcsa::Node::rc(node)) {
@@ -4364,7 +4364,9 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
+         << "    -R, --reseed-length N  reseed super-maximal exact matches of length at least --reseed-length" << endl
          << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
+         << "    -Z, --min-mem N        the minimum length of the MEM (default: 1)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -4399,6 +4401,7 @@ int main_find(int argc, char** argv) {
     string gcsa_in;
     string xg_name;
     bool get_mems = false;
+    int mem_reseed_length = 0;
     bool get_alignments = false;
     bool get_mappings = false;
     string node_id_range;
@@ -4409,6 +4412,7 @@ int main_find(int argc, char** argv) {
     string haplotype_alignments;
     string gam_file;
     int max_mem_length = 0;
+    int min_mem_length = 1;
     string to_graph_file;
 
     int c;
@@ -4428,6 +4432,7 @@ int main_find(int argc, char** argv) {
                 {"table", no_argument, 0, 'T'},
                 {"sequence", required_argument, 0, 'S'},
                 {"mems", required_argument, 0, 'M'},
+                {"reseed-length", required_argument, 0, 'R'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"context", required_argument, 0, 'c'},
@@ -4445,11 +4450,12 @@ int main_find(int argc, char** argv) {
                 {"gam", required_argument, 0, 'G'},
                 {"to-graph", required_argument, 0, 'A'},
                 {"max-mem", required_argument, 0, 'Y'},
+                {"min-mem", required_argument, 0, 'Z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:N:A:Y:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:i:DH:G:N:A:Y:Z:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4482,11 +4488,19 @@ int main_find(int argc, char** argv) {
             sequence = optarg;
             get_mems = true;
             break;
+            
+        case 'R':
+            mem_reseed_length = atoi(optarg);
+            break;
 
         case 'Y':
             max_mem_length = atoi(optarg);
             break;
-
+            
+        case 'Z':
+            min_mem_length = atoi(optarg);
+            break;
+            
         case 'j':
             kmer_stride = atoi(optarg);
             break;
@@ -4987,10 +5001,9 @@ int main_find(int argc, char** argv) {
                 Mapper mapper;
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
+                mapper.xindex = &xindex;
                 // get the mems
-                auto mems = mapper.find_mems(sequence.begin(), sequence.end(), max_mem_length);
-                // then fill the nodes that they match
-                for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
+                auto mems = mapper.find_mems(sequence.begin(), sequence.end(), max_mem_length, min_mem_length, mem_reseed_length);
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
 
@@ -5299,7 +5312,7 @@ int main_map(int argc, char** argv) {
         help_map(argv);
         return 1;
     }
-
+    
     string seq;
     string qual;
     string seq_name;

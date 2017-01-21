@@ -115,7 +115,6 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
 
-
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
 SUBCOMMAND_OBJ =
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/subcommand.o
