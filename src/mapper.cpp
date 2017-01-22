@@ -35,6 +35,7 @@ Mapper::Mapper(Index* idex,
     , alignment_threads(1)
     , min_mem_length(0)
     , mem_threading(false)
+    , fast_reseed(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(16)
@@ -2648,10 +2649,18 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
             
             // are we reseeding?
             if (reseed_length && mem_length >= reseed_length) {
-                find_sub_mems(mems,
-                              match.end,
-                              min_mem_length,
-                              sub_mems);
+                if (fast_reseed) {
+                    find_sub_mems_fast(mems,
+                                       match.end,
+                                       max(min_mem_length, (int) mem_length / 2),
+                                       sub_mems);
+                }
+                else {
+                    find_sub_mems(mems,
+                                  match.end,
+                                  min_mem_length,
+                                  sub_mems);
+                }
             }
             
             prev_iter_jumped_lcp = false;
@@ -2726,10 +2735,18 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                 
                 // are we reseeding?
                 if (reseed_length && mem_length >= reseed_length && !prev_iter_jumped_lcp) {
-                    find_sub_mems(mems,
-                                  match.end,
-                                  min_mem_length,
-                                  sub_mems);
+                    if (fast_reseed) {
+                        find_sub_mems_fast(mems,
+                                           match.end,
+                                           max(min_mem_length, (int) mem_length / 2),
+                                           sub_mems);
+                    }
+                    else {
+                        find_sub_mems(mems,
+                                      match.end,
+                                      min_mem_length,
+                                      sub_mems);
+                    }
                 }
                 
                 
@@ -2768,10 +2785,18 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
         
         // are we reseeding?
         if (reseed_length && mem_length >= reseed_length) {
-            find_sub_mems(mems,
-                          match.begin,
-                          min_mem_length,
-                          sub_mems);
+            if (fast_reseed) {
+                find_sub_mems_fast(mems,
+                                   match.begin,
+                                   max(min_mem_length, (int) mem_length / 2),
+                                   sub_mems);
+            }
+            else {
+                find_sub_mems(mems,
+                              match.begin,
+                              min_mem_length,
+                              sub_mems);
+            }
         }
     }
     
@@ -2949,21 +2974,15 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
     }
     
     // add a final sub MEM if there is one and it is not contained in the next parent MEM
-    if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length) {
+    if (sub_mem_end > next_mem_end && sub_mem_end - mem.begin >= min_mem_length && !prev_iter_jumped_lcp) {
         sub_mems_out.push_back(make_pair(MaximalExactMatch(mem.begin, sub_mem_end, range),
                                          vector<size_t>{mems.size() - 1}));
 #ifdef debug_mapper
 #pragma omp critical
         {
-            vector<gcsa::node_type> locations;
-            gcsa->locate(range, locations);
             cerr << "adding sub-MEM ";
             for (auto iter = mem.begin; iter != sub_mem_end; iter++) {
                 cerr << *iter;
-            }
-            cerr << " at positions ";
-            for (auto nt : locations) {
-                cerr << make_pos_t(nt) << " ";
             }
             cerr << endl;
         }
@@ -2983,6 +3002,191 @@ void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
         }
     }
 #endif
+}
+    
+void Mapper::find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+                                string::const_iterator next_mem_end,
+                                int min_sub_mem_length,
+                                vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out) {
+    
+    
+#ifdef debug_mapper
+#pragma omp critical
+    cerr << "find_sub_mems_fast: mem ";
+    for (auto iter = mems.back().begin; iter != mems.back().end; iter++) {
+        cerr << *iter;
+    }
+    cerr << ", min_sub_mem_length " << min_sub_mem_length << endl;
+#endif
+    
+    // get the most recently added MEM
+    MaximalExactMatch& mem = mems.back();
+    
+    // how many times does the parent MEM occur in the index?
+    size_t parent_count = gcsa->count(mem.range);
+    
+    // the end of the leftmost substring that is at least the minimum length and not contained
+    // in the next SMEM
+    string::const_iterator probe_string_end = mem.begin + min_sub_mem_length;
+    if (probe_string_end <= next_mem_end) {
+        probe_string_end = next_mem_end + 1;
+    }
+    
+    while (probe_string_end <= mem.end) {
+        
+        // locate the probe substring of length equal to the minimum length for a sub-MEM
+        // that we are going to test to see if it's inside any sub-MEM
+        string::const_iterator probe_string_begin = probe_string_end - min_sub_mem_length;
+        
+#ifdef debug_mapper
+#pragma omp critical
+        cerr << "probe string is mem[" << probe_string_begin - mem.begin << ":" << probe_string_end - mem.begin << "] ";
+        for (auto iter = probe_string_begin; iter != probe_string_end; iter++) {
+            cerr << *iter;
+        }
+        cerr << endl;
+#endif
+        
+        // set up LF searching
+        string::const_iterator cursor = probe_string_end - 1;
+        gcsa::range_type range = gcsa::range_type(0, gcsa->size() - 1);
+        
+        // check if the probe substring is more frequent than the SMEM its contained in
+        bool probe_string_more_frequent = true;
+        while (cursor >= probe_string_begin) {
+            
+            range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+            
+            if (gcsa->count(range) <= parent_count) {
+                probe_string_more_frequent = false;
+                break;
+            }
+            
+            cursor--;
+        }
+        
+        if (probe_string_more_frequent) {
+            // this is the prefix of a sub-MEM of length >= the minimum, now we need to
+            // find its end using binary search
+            
+            if (probe_string_end == next_mem_end + 1) {
+                // edge case: we arbitrarily moved the probe string to the right to avoid finding
+                // sub-MEMs that are contained in the next SMEM, so we don't have the normal guarantee
+                // that this match cannot be extended to the left
+                // to re-establish this guarantee, we need to walk it out as far as possible before
+                // looking for the right end of the sub-MEM
+                
+                // extend match until beginning of SMEM or until the end of the independent hit
+                while (cursor >= mem.begin) {
+                    gcsa::range_type last_range = range;
+                    range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                    
+                    if (gcsa->count(range) <= parent_count) {
+                        range = last_range;
+                        break;
+                    }
+                    
+                    cursor--;
+                }
+                
+                // mark this position as the beginning of the probe substring
+                probe_string_begin = cursor + 1;
+            }
+            
+            // inclusive interval that contains the past-the-last index of the sub-MEM
+            string::const_iterator left_search_bound = probe_string_end;
+            string::const_iterator right_search_bound = mem.end;
+            
+            // the match range of the longest prefix of the sub-MEM we've found so far (if we initialize
+            // it here, the binary search is guaranteed to LF along the full sub-MEM in some iteration)
+            gcsa::range_type sub_mem_range = range;
+            
+            // iterate until inteveral contains only one index
+            while (right_search_bound > left_search_bound) {
+                
+                string::const_iterator middle = left_search_bound + (right_search_bound - left_search_bound + 1) / 2;
+                
+#ifdef debug_mapper
+#pragma omp critical
+                cerr << "checking extension mem[" << probe_string_begin - mem.begin << ":" << middle - mem.begin << "] ";
+                for (auto iter = probe_string_begin; iter != middle; iter++) {
+                    cerr << *iter;
+                }
+                cerr << endl;
+#endif
+                
+                // set up LF searching
+                cursor = middle - 1;
+                range = gcsa::range_type(0, gcsa->size() - 1);
+                
+                // check if there is an independent occurrence of this substring outside of the SMEM
+                // TODO: potential optimization: if the range of matches at some index is equal to the
+                // range of matches in an already confirmed independent match at the same index, then
+                // it will still be so for the rest of the LF queries, so we can bail out of the loop
+                // early as a match
+                bool contained_in_independent_match = true;
+                while (cursor >= probe_string_begin) {
+                    
+                    range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+                    
+                    if (gcsa->count(range) <= parent_count) {
+                        contained_in_independent_match = false;
+                        break;
+                    }
+                    
+                    cursor--;
+                }
+                
+                if (contained_in_independent_match) {
+                    // the end of the sub-MEM must be here or to the right
+                    left_search_bound = middle;
+                    // update the range of matches (this is the longest match we've verified so far)
+                    sub_mem_range = range;
+                }
+                else {
+                    // the end of the sub-MEM must be to the left
+                    right_search_bound = middle - 1;
+                }
+            }
+            
+#ifdef debug_mapper
+#pragma omp critical
+            cerr << "final sub-MEM is mem[" << probe_string_begin - mem.begin << ":" << right_search_bound - mem.begin << "] ";
+            for (auto iter = probe_string_begin; iter != right_search_bound; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+#endif
+            
+            // record the sub-MEM
+            sub_mems_out.push_back(make_pair(MaximalExactMatch(probe_string_begin, right_search_bound, sub_mem_range),
+                                             vector<size_t>{mems.size() - 1}));
+
+            // identify all previous MEMs that also contain this sub-MEM
+            for (int64_t i = ((int64_t) mems.size()) - 2; i >= 0; i--) {
+                if (probe_string_begin >= mems[i].begin) {
+                    // contined in next MEM, add its index to sub MEM's list of parents
+                    sub_mems_out.back().second.push_back(i);
+                }
+                else {
+                    // not contained in the next MEM, cannot be contained in earlier ones
+                    break;
+                }
+            }
+            
+            // the closest possible independent probe string will now occur one position
+            // to the right of this sub-MEM
+            probe_string_end = right_search_bound + 1;
+            
+        }
+        else {
+            // we've found a suffix of the probe substring that is only contained inside the
+            // parent SMEM, so we can move far enough to the right that the next probe substring
+            // will not contain it
+            
+            probe_string_end = cursor + min_sub_mem_length + 1;
+        }
+    }
 }
     
 void Mapper::first_hit_positions_by_index(MaximalExactMatch& mem,
