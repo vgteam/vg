@@ -187,6 +187,11 @@ int main_srpe(int argc, char** argv){
         vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
         variant_file->open(spec_vcf);
 
+        string descrip = "";
+        descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
+        variant_file->addHeaderLine(descrip);
+        
+        cout << variant_file->header << endl;
 
         // Hash a variant from the VCF
         vcflib::Variant var;
@@ -195,14 +200,20 @@ int main_srpe(int argc, char** argv){
             var.canonicalize_sv(*linear_ref, insertions, -1);
             string var_id = make_variant_id(var);
             string alt_id = "_alt_" + var_id + "_0";
+
+            vector<int64_t> var_node_ids;
+            var_node_ids.reserve(10000);
+            vector<Alignment> alns;
+            alns.reserve(1000);
             // make both alt and ref alt_paths
             if ( (graph->paths)._paths.count(alt_id) != 0){
                 for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
                     alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
                     list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
-                    vector<Alignment> alns;
+                    //vector<Alignment> alns;
                     vector<int64_t> var_node_ids;
                     int32_t support = 0;
+
                     for (Mapping x_m : x_path){
                         var_node_ids.push_back(x_m.position().node_id()); 
                     }
@@ -210,9 +221,12 @@ int main_srpe(int argc, char** argv){
                     std::function<void(const Alignment&)> incr = [&](const Alignment& a){
                         ++support;
                     };
-                        gamind.for_alignment_to_nodes(var_node_ids, incr);
-                        cout << support << " reads support " << alt_id << endl;
+                    gamind.for_alignment_to_nodes(var_node_ids, incr);
+                    cerr << support << " reads support " << alt_id << endl;
+                    
+                    var.info["AD"].push_back( std::to_string(support) );
                     }
+                cout << var << endl;
             }
             else {
                 cerr << "Variant not found: " << var << endl;
