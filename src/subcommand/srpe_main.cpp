@@ -60,6 +60,8 @@ int main_srpe(int argc, char** argv){
     vector<string> search_types;
     search_types.push_back("DEL");
 
+    int threads = 1;
+
     if (argc <= 2) {
         help_srpe(argv);
         return 1;
@@ -78,11 +80,12 @@ int main_srpe(int argc, char** argv){
             {"recall", no_argument, 0, 'R'},
             {"insertions", required_argument, 0, 'I'},
             {"reference", required_argument, 0, 'r'},
+            {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:S:R:I:r:",
+        c = getopt_long (argc, argv, "hx:g:m:S:RI:r:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -93,6 +96,10 @@ int main_srpe(int argc, char** argv){
         {
             case 'm':
                 max_iter = atoi(optarg);
+                break;
+
+            case 't':
+                threads = atoi(optarg);
                 break;
 
             case 'R':
@@ -121,6 +128,8 @@ int main_srpe(int argc, char** argv){
         }
 
     }
+
+    omp_set_num_threads(threads);
 
 
     SRPE srpe;
@@ -162,6 +171,7 @@ int main_srpe(int argc, char** argv){
     map<string, PathIndex*> pindexes;
     regex is_alt ("_alt_.*");
 
+    cerr << "Here" << endl;
     vector<FastaReference*> insertions;
     if (!ins_fasta.empty()){
         FastaReference* ins = new FastaReference();
@@ -193,6 +203,9 @@ int main_srpe(int argc, char** argv){
         
         cout << variant_file->header << endl;
 
+        unordered_map<string, list<Mapping> > graphpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end() );
+
+
         // Hash a variant from the VCF
         vcflib::Variant var;
         while (variant_file->getNextVariant(var)){
@@ -201,17 +214,13 @@ int main_srpe(int argc, char** argv){
             string var_id = make_variant_id(var);
             string alt_id = "_alt_" + var_id + "_0";
 
-            vector<int64_t> var_node_ids;
-            var_node_ids.reserve(10000);
-            vector<Alignment> alns;
-            alns.reserve(1000);
             // make both alt and ref alt_paths
-            if ( (graph->paths)._paths.count(alt_id) != 0){
+            if ( graphpaths.count(alt_id) != 0){
                 for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
                     alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
-                    list<Mapping> x_path = (graph->paths)._paths[ alt_id ];
-                    //vector<Alignment> alns;
+                    list<Mapping> x_path = graphpaths[ alt_id ];
                     vector<int64_t> var_node_ids;
+                    vector<Alignment> alns;
                     int32_t support = 0;
 
                     for (Mapping x_m : x_path){
@@ -221,11 +230,15 @@ int main_srpe(int argc, char** argv){
                     std::function<void(const Alignment&)> incr = [&](const Alignment& a){
                         ++support;
                     };
+
                     gamind.for_alignment_to_nodes(var_node_ids, incr);
+#ifdef DEBUG
                     cerr << support << " reads support " << alt_id << endl;
+#endif
                     
                     var.info["AD"].push_back( std::to_string(support) );
                     }
+                #pragma omp critical
                 cout << var << endl;
             }
             else {
@@ -242,7 +255,7 @@ int main_srpe(int argc, char** argv){
         // Any reads on ref / alt? Tally that business up and grab a position
         // push allllll that info into vcf
     }
-    else if (do_all){
+    else if (!spec_vcf.empty() do_all){
         vector<Support> supports;
 
         for (auto r_path : (graph->paths)._paths){
