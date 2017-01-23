@@ -9,7 +9,11 @@ pos_t make_pos_t(const Position& pos) {
 pos_t make_pos_t(id_t id, bool is_rev, off_t off) {
     return make_tuple(id, is_rev, off);
 }
-
+    
+pos_t make_pos_t(gcsa::node_type node) {
+    return make_tuple(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));
+}
+    
 Position make_position(const pos_t& pos) {
     Position p;
     p.set_node_id(id(pos));
@@ -23,6 +27,14 @@ Position make_position(id_t id, bool is_rev, off_t off) {
     p.set_node_id(id);
     p.set_is_reverse(is_rev);
     p.set_offset(off);
+    return p;
+}
+    
+Position make_position(gcsa::node_type node) {
+    Position p;
+    p.set_node_id(gcsa::Node::id(node));
+    p.set_is_reverse(gcsa::Node::rc(node));
+    p.set_offset(gcsa::Node::offset(node));
     return p;
 }
 
@@ -95,10 +107,8 @@ size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_
 }
 
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
-    //cerr << "Looking for position " << pos << endl;
     pair<Node, bool> cached = node_cache.retrieve(id(pos));
     if(!cached.second) {
-        //cerr << "Not in the cache" << endl;
         // If it's not in the cache, put it in
         cached.first = xgidx->node(id(pos));
         node_cache.put(id(pos), cached.first);

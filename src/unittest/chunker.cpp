@@ -143,7 +143,6 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         VG subgraph;
 
         int64_t start_pos = chunker.extract_subgraph(region, 1, subgraph);
-        cerr << "sp " << start_pos << endl;
 
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);

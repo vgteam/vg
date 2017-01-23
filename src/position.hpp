@@ -7,6 +7,7 @@
 #include "lru_cache.h"
 #include "utility.hpp"
 #include "json2pb.h"
+#include "gcsa.h"
 #include <iostream>
 
 /** \file 
@@ -41,10 +42,14 @@ ostream& operator<<(ostream& out, const pos_t& pos);
 pos_t make_pos_t(const Position& pos);
 /// Create a pos_t from a Node ID, an orientation flag, and an offset.
 pos_t make_pos_t(id_t id, bool is_rev, off_t off);
+/// Create a pos_t from a gcsa node
+pos_t make_pos_t(gcsa::node_type node);
 /// Convert a pos_t to a Position.
 Position make_position(const pos_t& pos);
 /// Create a Position from a Node ID, an orientation flag, and an offset.
 Position make_position(id_t id, bool is_rev, off_t off);
+/// Make a Position from a gcsa node
+Position make_position(gcsa::node_type node);
 
 // xg/position traversal helpers with caching
 // used by the Sampler and by the Mapper
