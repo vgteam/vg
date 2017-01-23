@@ -957,6 +957,14 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
+    double max_weight = scaled_scores[max_idx];
+    int max_count = 0;
+    for (auto& score : scaled_scores) if (score == max_weight) ++max_count;
+    if (max_count > 1) {
+        double best_chance = prob_to_phred(1.0-(1.0/max_count));
+        mapping_quality = max(best_chance, mapping_quality);
+    }
+
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
