@@ -4343,13 +4343,13 @@ void help_find(char** argv) {
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
          << "graph features:" << endl
-         << "    -n, --node ID          find node, return 1-hop context as graph" << endl
+         << "    -n, --node ID          find node(s), return 1-hop context as graph" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
-         << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
+         << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
@@ -4396,7 +4396,7 @@ int main_find(int argc, char** argv) {
     bool use_length = false;
     bool count_kmers = false;
     bool kmer_table = false;
-    string target;
+    vector<string> targets;
     string path_name;
     string range;
     string gcsa_in;
@@ -4521,7 +4521,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'p':
-            target = optarg;
+            targets.push_back(optarg);
             break;
 
         case 'P':
@@ -4751,6 +4751,11 @@ int main_find(int argc, char** argv) {
                 result_graph.extend(graph);
             }
             result_graph.remove_orphan_edges();
+            
+            // Order the mappings by rank. TODO: how do we handle breaks between
+            // different sections of a path with a single name?
+            result_graph.paths.sort_by_mapping_rank();
+            
             // return it
             result_graph.serialize_to_ostream(cout);
         } else if (end_id != 0) {
@@ -4786,21 +4791,29 @@ int main_find(int argc, char** argv) {
             }
             return 0;
         }
-        if (!target.empty()) {
-            string name;
-            int64_t start, end;
+        if (!targets.empty()) {
             Graph graph;
-            parse_region(target, name, start, end);
-            if(xindex.path_rank(name) == 0) {
-                // Passing a nonexistent path to get_path_range produces Undefined Behavior
-                cerr << "[vg find] error, path " << name << " not found in index" << endl;
-                exit(1);
+            for (auto& target : targets) {
+                // Grab each target region
+                string name;
+                int64_t start, end;
+                parse_region(target, name, start, end);
+                if(xindex.path_rank(name) == 0) {
+                    // Passing a nonexistent path to get_path_range produces Undefined Behavior
+                    cerr << "[vg find] error, path " << name << " not found in index" << endl;
+                    exit(1);
+                }
+                xindex.get_path_range(name, start, end, graph);
             }
-            xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
                 xindex.expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
+            
+            // Order the mappings by rank. TODO: how do we handle breaks between
+            // different sections of a path with a single name?
+            vgg.paths.sort_by_mapping_rank();
+            
             vgg.serialize_to_ostream(cout);
         }
         if (!range.empty()) {
@@ -4934,12 +4947,14 @@ int main_find(int argc, char** argv) {
                 }
             }
         }
-        if (!target.empty()) {
-            string name;
-            int64_t start, end;
+        if (!targets.empty()) {
             VG graph;
-            parse_region(target, name, start, end);
-            vindex->get_path(graph, name, start, end);
+            for (auto& target : targets) {
+                string name;
+                int64_t start, end;
+                parse_region(target, name, start, end);
+                vindex->get_path(graph, name, start, end);
+            }
             if (context_size > 0) {
                 vindex->expand_context(graph, context_size);
             }
