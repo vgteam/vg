@@ -4364,7 +4364,8 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
-         << "    -R, --reseed-length N  reseed super-maximal exact matches of length at least --reseed-length" << endl
+         << "    -R, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl
+         << "    -f, --fast-reseed      use fast SMEM reseeding algorithm" << endl
          << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
          << "    -Z, --min-mem N        the minimum length of the MEM (default: 1)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
@@ -4402,6 +4403,7 @@ int main_find(int argc, char** argv) {
     string xg_name;
     bool get_mems = false;
     int mem_reseed_length = 0;
+    bool use_fast_reseed = false;
     bool get_alignments = false;
     bool get_mappings = false;
     string node_id_range;
@@ -4433,6 +4435,7 @@ int main_find(int argc, char** argv) {
                 {"sequence", required_argument, 0, 'S'},
                 {"mems", required_argument, 0, 'M'},
                 {"reseed-length", required_argument, 0, 'R'},
+                {"fast-reseed", no_argument, 0, 'f'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"context", required_argument, 0, 'c'},
@@ -4455,7 +4458,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:i:DH:G:N:A:Y:Z:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:fi:DH:G:N:A:Y:Z:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4491,6 +4494,10 @@ int main_find(int argc, char** argv) {
             
         case 'R':
             mem_reseed_length = atoi(optarg);
+            break;
+            
+        case 'f':
+            use_fast_reseed = true;
             break;
 
         case 'Y':
@@ -4608,6 +4615,15 @@ int main_find(int argc, char** argv) {
     if (context_size > 0 && use_length == true && xg_name.empty()) {
         cerr << "[vg find] error, -L not supported without -x" << endl;
         exit(1);
+    }
+    
+    if (xg_name.empty() && mem_reseed_length) {
+        cerr << "error:[vg find] SMEM reseeding requires an XG index. Provide XG index with -x." << endl;
+        exit(1);
+    }
+    
+    if (use_fast_reseed && !mem_reseed_length) {
+        cerr << "[vg find] WARNING: Fast MEM reseed option is ignored when reseeding is turned off. Use -R to turn on reseeding." << endl;
     }
 
     // process input node list
@@ -5002,6 +5018,7 @@ int main_find(int argc, char** argv) {
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 mapper.xindex = &xindex;
+                mapper.fast_reseed = use_fast_reseed;
                 // get the mems
                 auto mems = mapper.find_mems(sequence.begin(), sequence.end(), max_mem_length, min_mem_length, mem_reseed_length);
                 // dump them to stdout
@@ -5295,7 +5312,8 @@ void help_map(char** argv) {
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 32)" << endl
+         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them (default: 32)" << endl
+         << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
          << "kmer-based mapper:" << endl
@@ -5376,6 +5394,7 @@ int main_map(int argc, char** argv) {
     bool use_cluster_mq = true;
     float chance_match = 0.05;
     bool smooth_alignments = true;
+    bool use_fast_reseed = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5424,6 +5443,7 @@ int main_map(int argc, char** argv) {
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"mem-reseed", required_argument, 0, 'V'},
+                {"fast-reseed", no_argument, 0, '6'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
@@ -5445,7 +5465,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:45",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:456",
                          long_options, &option_index);
 
 
@@ -5619,6 +5639,10 @@ int main_map(int argc, char** argv) {
         case 'V':
             mem_reseed_length = atoi(optarg);
             break;
+            
+        case '6':
+            use_fast_reseed = true;
+            break;
 
         case 'a':
             mem_threading = false;
@@ -5707,12 +5731,12 @@ int main_map(int argc, char** argv) {
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty()) {
-        cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
+        cerr << "error:[vg map] A sequence or read file is required when mapping." << endl;
         return 1;
     }
 
     if (!qual.empty() && (seq.length() != qual.length())) {
-        cerr << "error:[vg map] sequence and base quality string must be the same length" << endl;
+        cerr << "error:[vg map] Sequence and base quality string must be the same length." << endl;
         return 1;
     }
 
@@ -5720,11 +5744,15 @@ int main_map(int argc, char** argv) {
                                    || (!seq.empty() && qual.empty())                    // can't provide sequence without quality
                                    || !read_file.empty()))                              // can't provide sequence list without qualities
     {
-        cerr << "error:[vg map] quality adjusted alignments require base quality scores for all sequences" << endl;
+        cerr << "error:[vg map] Quality adjusted alignments require base quality scores for all sequences." << endl;
         return 1;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
+    if (use_fast_reseed && !mem_reseed_length) {
+        cerr << "warning:[vg map] Fast MEM reseed option is ignored when reseeding is turned off. Use --mem-reseed to turn on reseeding." << endl;
+    }
+    
     MappingQualityMethod mapping_quality_method;
     if (method_code == 0) {
         mapping_quality_method = None;
@@ -5869,6 +5897,7 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = mem_reseed_length;
+        m->fast_reseed = use_fast_reseed;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
