@@ -3518,7 +3518,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
                 if (pos_char(npos) != seq[i+1]) {
 #ifdef debug_mapper
 #pragma omp critical
-                    cerr << "MEM does not match position, returning without creating alignment" << endl;
+                    if (debug) cerr << "MEM does not match position, returning without creating alignment" << endl;
 #endif
                     return alns;
                 }
