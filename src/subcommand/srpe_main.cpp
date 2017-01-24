@@ -204,7 +204,11 @@ int main_srpe(int argc, char** argv){
         cout << variant_file->header << endl;
 
         unordered_map<string, list<Mapping> > graphpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end() );
-
+        map<string, vcflib::Variant*> hash_to_var;
+        unordered_map<string, vector<int64_t> > varname_to_nodeid;
+        unordered_map<int64_t, int32_t> node_to_depth;
+        vector<int64_t> variant_nodes;
+        variant_nodes.reserve(10000);
 
         // Hash a variant from the VCF
         vcflib::Variant var;
@@ -212,50 +216,78 @@ int main_srpe(int argc, char** argv){
             var.position -= 1;
             var.canonicalize_sv(*linear_ref, insertions, -1);
             string var_id = make_variant_id(var);
-            string alt_id = "_alt_" + var_id + "_0";
-
-            // make both alt and ref alt_paths
-            if ( graphpaths.count(alt_id) != 0){
-                for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
-                    alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
-                    list<Mapping> x_path = graphpaths[ alt_id ];
-                    vector<int64_t> var_node_ids;
-                    vector<Alignment> alns;
-                    int32_t support = 0;
-
-                    for (Mapping x_m : x_path){
-                        var_node_ids.push_back(x_m.position().node_id()); 
-                    }
-               
-                    std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-                        ++support;
-                    };
-
-                    gamind.for_alignment_to_nodes(var_node_ids, incr);
-#ifdef DEBUG
-                    cerr << support << " reads support " << alt_id << endl;
-#endif
-                    
-                    var.info["AD"].push_back( std::to_string(support) );
-                    }
-                #pragma omp critical
-                cout << var << endl;
-            }
-            else {
-                cerr << "Variant not found: " << var << endl;
-                cerr << alt_id << endl;
-                for (auto xx : (graph->paths)._paths){
-                    cerr << "\t" << xx.first << endl;
+            hash_to_var[ var_id ] = &var;
+            for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
+                string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+                list<Mapping> x_path = graphpaths[ alt_id ];
+                for (Mapping x_m : x_path){
+                        variant_nodes.push_back(x_m.position().node_id());
+                        varname_to_nodeid[ alt_id ].push_back(x_m.position().node_id());
                 }
             }
-
+            
         }
-        // look it up in the <name, list<Mapping> > index
-        // Count supporting reads using GAM index
-        // Any reads on ref / alt? Tally that business up and grab a position
-        // push allllll that info into vcf
+
+        std::function<void(const Alignment& a)> incr = [&](const Alignment& a){
+            for (int i = 0; i < a.path().mapping_size(); i++){
+                node_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+            }
+        };
+
+        gamind.for_alignment_to_nodes(variant_nodes, incr);
+
+        for (auto it : hash_to_var){
+            for (int i = 0; i < it->second.alt.size(); i++){
+                int32_t sum_reads = 0;
+                string alt_id = "_alt_" + it->first + "_" + std::to_string(alt_ind);
+                for (int i = 0; i < varname_to_nodeid[it->first].size(); i++){
+                sum_reads += node_to_depth[varname_to_nodeid[it->first][i]]
+            }
+            it->second.info["AD"].push_back(std::to_string(support));
+            }
+            cout << it->second << endl;
+        }
+
     }
-    else if (!spec_vcf.empty() && do_all){
+            // make both alt and ref alt_paths
+//             if ( graphpaths.count(alt_id) != 0){
+//                 for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
+//                     alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+//                     list<Mapping> x_path = graphpaths[ alt_id ];
+//                     vector<int64_t> var_node_ids;
+//                     vector<Alignment> alns;
+//                     int32_t support = 0;
+
+//                     for (Mapping x_m : x_path){
+//                         var_node_ids.push_back(x_m.position().node_id()); 
+//                     }
+               
+//                     std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+//                         ++support;
+//                     };
+
+//                     gamind.for_alignment_to_nodes(var_node_ids, incr);
+// #ifdef DEBUG
+//                     cerr << support << " reads support " << alt_id << endl;
+// #endif
+                    
+//                     var.info["AD"].push_back( std::to_string(support) );
+//                     }
+//                 #pragma omp critical
+//                 cout << var << endl;
+//             }
+//             else {
+//                 cerr << "Variant not found: " << var << endl;
+//                 cerr << alt_id << endl;
+//                 for (auto xx : (graph->paths)._paths){
+//                     cerr << "\t" << xx.first << endl;
+//                 }
+//             }
+
+//         }
+        
+    
+    else if (do_all){
         vector<Support> supports;
 
         for (auto r_path : (graph->paths)._paths){

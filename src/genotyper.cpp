@@ -18,10 +18,14 @@ using namespace std;
 
 
 /**
-* void Genotype::variant_recall(){
+* run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa 
+* void Genotyper::variant_recall(Graph graph,
+                                vector<vcflib::Variant> vars,
+                                FastaReference ref_genome,
+                                vector<FastaReference*> insertions){
     map<string, vcflib::Variant>
     map<string, vector<int64_t> > varname_to_node_id;
-    map<int64_t, int32_t> node_id_to_depth;
+    unordered_map<int64_t, int32_t> node_id_to_depth;
     vector<int64_t> variant_nodes;
     unordered_map<string, list<Mapping> > gpaths
     // For each variant in VCF:
@@ -37,15 +41,42 @@ using namespace std;
     // modify VCF variant and spit it back out.
 }
 
-*void Genotyper::call_sv_signatures(){
-// Call SV signatures based on reads
+struct SV_Config{
+    int frag_len = -1;
+    int frag_len_sd = -1;
+    int min_mapq = -1;
+    int64_t max_bp_range = -1;
+};
 
-// Take in a bunch of reads
+*void Genotyper::call_sv_signatures(vector<string> sigtypes,
+                                    SV_Config conf,
+                                    string discord_gam,
+                                    string split_gam,
+                                    int max_refinement_iterations,
+                                    int max_parallelism){
+// Call SV signatures based on split and discordant reads
+
+// COLLECT Take in a bunch of reads
 // Collect those supporting a specific type of SV
+// Give each pair of reads an interval, which may be
+// fully nested within but not one-end-overlapping another interval
+// NORMALIZE normalize signatures within an interval (i.e. collate reads that
+represent a single signature as a single data structure.)
+// insert the signature into the graph as a Path though the graph.
+// REFINE remap the reads within the signatures interval to a 
+subgraph that spans the interval containing the local signature.
+// repeat this max_refinement_iterations times.
+// Take the best refinement and place it into the initial graph.
+// Continue on with the next signature/variant.
+
+// We should process variants from largest to smallest to minimize having to deal
+// with nested variation.
 
 }
 
 */
+
+
 void Genotyper::run(VG& graph,
                     vector<Alignment>& alignments,
                     ostream& out,
