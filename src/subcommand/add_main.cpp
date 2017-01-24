@@ -14,7 +14,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../constructor.hpp"
+#include "../vcf_buffer.hpp"
 #include "../path_index.hpp"
 
 

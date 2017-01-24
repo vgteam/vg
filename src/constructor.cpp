@@ -1,4 +1,5 @@
-/*
+/**
+ * \file
  * constructor.cpp: contains implementations for vg construction functions.
  */
 
