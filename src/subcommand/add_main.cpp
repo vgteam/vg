@@ -165,28 +165,45 @@ int main_add(int argc, char** argv) {
                 string left_context = index.sequence.substr(variant_path_offset - left_context_length, left_context_length);
                 string right_context = index.sequence.substr(variant_path_offset + variant_ref_length, right_context_length);
                 
+                // Find the node that the variant falls on
+                NodeSide center = index.at_position(variant_path_offset);
+                
                 // Extract its graph context for realignment
+                VG context;
+                graph->nonoverlapping_node_context_without_paths(graph->get_node(center.node), context);
+                // TODO: how many nodes should this be?
+                // TODO: write/copy the search from xg so we can do this by node length.
+                graph->expand_context(context, 10, false);
                 
-                // For each non-ref alt
+                for (auto& alt : variant->alt) {
+                    // For each non-ref alt
                 
-                // Paste it in with the left and right context
+                    // Paste it in with the left and right context
+                    stringstream alt_stream;
+                    alt_stream << left_context << alt << right_context;
+                    
+                    // Align it to the subgraph
+                    Alignment aln = context.align(alt_stream.str());
+                    
+                    // Add the path to our collection of paths to add
+                    edits_to_make.push_back(aln.path());
+                }
                 
-                // Align it to the subgraph
-                
-                // Add the path to our collection of paths to add
-                
-                // Then at the end of the variant, edit the graph
-            
                 // Move on to the next variant
                 buffer.handle_buffer();
                 buffer.fill_buffer();
                 variant = buffer.get();
             }
             
+            // Then at the end of the VCF, edit the graph
+            graph->edit(edits_to_make);
             
         }
     
     }
+    
+    // Output the modified graph
+    graph->serialize_to_ostream(std::cout);
     
     delete graph;
 
