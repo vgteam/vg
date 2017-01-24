@@ -160,6 +160,14 @@ private:
                        int min_mem_length,
                        vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
+    // Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
+    // min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
+    // the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
+    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+                            string::const_iterator next_mem_end,
+                            int min_sub_mem_length,
+                            vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
+    
     // finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
     // with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
     void fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
@@ -421,6 +429,7 @@ public:
     int min_mem_length; // a mem must be >= this length
     bool mem_threading; // whether to use the mem threading mapper or not
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
+    bool fast_reseed; // use the fast reseed algorithm
 
     // general parameters, applying to both types of mapping
     //

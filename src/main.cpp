@@ -4343,13 +4343,13 @@ void help_find(char** argv) {
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
          << "graph features:" << endl
-         << "    -n, --node ID          find node, return 1-hop context as graph" << endl
+         << "    -n, --node ID          find node(s), return 1-hop context as graph" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
-         << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
+         << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
@@ -4364,7 +4364,8 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
-         << "    -R, --reseed-length N  reseed super-maximal exact matches of length at least --reseed-length" << endl
+         << "    -R, --reseed-length N  find non-super-maximal MEMs inside SMEMs of length at least N" << endl
+         << "    -f, --fast-reseed      use fast SMEM reseeding algorithm" << endl
          << "    -Y, --max-mem N        the maximum length of the MEM (default: GCSA2 order)" << endl
          << "    -Z, --min-mem N        the minimum length of the MEM (default: 1)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
@@ -4395,13 +4396,14 @@ int main_find(int argc, char** argv) {
     bool use_length = false;
     bool count_kmers = false;
     bool kmer_table = false;
-    string target;
+    vector<string> targets;
     string path_name;
     string range;
     string gcsa_in;
     string xg_name;
     bool get_mems = false;
     int mem_reseed_length = 0;
+    bool use_fast_reseed = false;
     bool get_alignments = false;
     bool get_mappings = false;
     string node_id_range;
@@ -4433,6 +4435,7 @@ int main_find(int argc, char** argv) {
                 {"sequence", required_argument, 0, 'S'},
                 {"mems", required_argument, 0, 'M'},
                 {"reseed-length", required_argument, 0, 'R'},
+                {"fast-reseed", no_argument, 0, 'f'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"context", required_argument, 0, 'c'},
@@ -4455,7 +4458,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:i:DH:G:N:A:Y:Z:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:fi:DH:G:N:A:Y:Z:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4492,6 +4495,10 @@ int main_find(int argc, char** argv) {
         case 'R':
             mem_reseed_length = atoi(optarg);
             break;
+            
+        case 'f':
+            use_fast_reseed = true;
+            break;
 
         case 'Y':
             max_mem_length = atoi(optarg);
@@ -4514,7 +4521,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'p':
-            target = optarg;
+            targets.push_back(optarg);
             break;
 
         case 'P':
@@ -4608,6 +4615,15 @@ int main_find(int argc, char** argv) {
     if (context_size > 0 && use_length == true && xg_name.empty()) {
         cerr << "[vg find] error, -L not supported without -x" << endl;
         exit(1);
+    }
+    
+    if (xg_name.empty() && mem_reseed_length) {
+        cerr << "error:[vg find] SMEM reseeding requires an XG index. Provide XG index with -x." << endl;
+        exit(1);
+    }
+    
+    if (use_fast_reseed && !mem_reseed_length) {
+        cerr << "[vg find] WARNING: Fast MEM reseed option is ignored when reseeding is turned off. Use -R to turn on reseeding." << endl;
     }
 
     // process input node list
@@ -4735,6 +4751,11 @@ int main_find(int argc, char** argv) {
                 result_graph.extend(graph);
             }
             result_graph.remove_orphan_edges();
+            
+            // Order the mappings by rank. TODO: how do we handle breaks between
+            // different sections of a path with a single name?
+            result_graph.paths.sort_by_mapping_rank();
+            
             // return it
             result_graph.serialize_to_ostream(cout);
         } else if (end_id != 0) {
@@ -4770,21 +4791,29 @@ int main_find(int argc, char** argv) {
             }
             return 0;
         }
-        if (!target.empty()) {
-            string name;
-            int64_t start, end;
+        if (!targets.empty()) {
             Graph graph;
-            parse_region(target, name, start, end);
-            if(xindex.path_rank(name) == 0) {
-                // Passing a nonexistent path to get_path_range produces Undefined Behavior
-                cerr << "[vg find] error, path " << name << " not found in index" << endl;
-                exit(1);
+            for (auto& target : targets) {
+                // Grab each target region
+                string name;
+                int64_t start, end;
+                parse_region(target, name, start, end);
+                if(xindex.path_rank(name) == 0) {
+                    // Passing a nonexistent path to get_path_range produces Undefined Behavior
+                    cerr << "[vg find] error, path " << name << " not found in index" << endl;
+                    exit(1);
+                }
+                xindex.get_path_range(name, start, end, graph);
             }
-            xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
                 xindex.expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
+            
+            // Order the mappings by rank. TODO: how do we handle breaks between
+            // different sections of a path with a single name?
+            vgg.paths.sort_by_mapping_rank();
+            
             vgg.serialize_to_ostream(cout);
         }
         if (!range.empty()) {
@@ -4918,12 +4947,14 @@ int main_find(int argc, char** argv) {
                 }
             }
         }
-        if (!target.empty()) {
-            string name;
-            int64_t start, end;
+        if (!targets.empty()) {
             VG graph;
-            parse_region(target, name, start, end);
-            vindex->get_path(graph, name, start, end);
+            for (auto& target : targets) {
+                string name;
+                int64_t start, end;
+                parse_region(target, name, start, end);
+                vindex->get_path(graph, name, start, end);
+            }
             if (context_size > 0) {
                 vindex->expand_context(graph, context_size);
             }
@@ -5002,6 +5033,7 @@ int main_find(int argc, char** argv) {
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 mapper.xindex = &xindex;
+                mapper.fast_reseed = use_fast_reseed;
                 // get the mems
                 auto mems = mapper.find_mems_simple(sequence.begin(), sequence.end(), max_mem_length, min_mem_length, mem_reseed_length);
                 // dump them to stdout
@@ -5295,7 +5327,8 @@ void help_map(char** argv) {
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed MEMs longer than this length (default: 32)" << endl
+         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them (default: 32)" << endl
+         << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
          << "kmer-based mapper:" << endl
@@ -5376,6 +5409,7 @@ int main_map(int argc, char** argv) {
     bool use_cluster_mq = true;
     float chance_match = 0.05;
     bool smooth_alignments = true;
+    bool use_fast_reseed = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5424,6 +5458,7 @@ int main_map(int argc, char** argv) {
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"mem-reseed", required_argument, 0, 'V'},
+                {"fast-reseed", no_argument, 0, '6'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
@@ -5445,7 +5480,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:45",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:456",
                          long_options, &option_index);
 
 
@@ -5619,6 +5654,10 @@ int main_map(int argc, char** argv) {
         case 'V':
             mem_reseed_length = atoi(optarg);
             break;
+            
+        case '6':
+            use_fast_reseed = true;
+            break;
 
         case 'a':
             mem_threading = false;
@@ -5707,12 +5746,12 @@ int main_map(int argc, char** argv) {
     }
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty()) {
-        cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
+        cerr << "error:[vg map] A sequence or read file is required when mapping." << endl;
         return 1;
     }
 
     if (!qual.empty() && (seq.length() != qual.length())) {
-        cerr << "error:[vg map] sequence and base quality string must be the same length" << endl;
+        cerr << "error:[vg map] Sequence and base quality string must be the same length." << endl;
         return 1;
     }
 
@@ -5720,11 +5759,15 @@ int main_map(int argc, char** argv) {
                                    || (!seq.empty() && qual.empty())                    // can't provide sequence without quality
                                    || !read_file.empty()))                              // can't provide sequence list without qualities
     {
-        cerr << "error:[vg map] quality adjusted alignments require base quality scores for all sequences" << endl;
+        cerr << "error:[vg map] Quality adjusted alignments require base quality scores for all sequences." << endl;
         return 1;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
+    if (use_fast_reseed && !mem_reseed_length) {
+        cerr << "warning:[vg map] Fast MEM reseed option is ignored when reseeding is turned off. Use --mem-reseed to turn on reseeding." << endl;
+    }
+    
     MappingQualityMethod mapping_quality_method;
     if (method_code == 0) {
         mapping_quality_method = None;
@@ -5869,6 +5912,7 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = mem_reseed_length;
+        m->fast_reseed = use_fast_reseed;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
