@@ -183,8 +183,14 @@ int main_add(int argc, char** argv) {
                     stringstream alt_stream;
                     alt_stream << left_context << alt << right_context;
                     
-                    // Align it to the subgraph
-                    Alignment aln = context.align(alt_stream.str());
+                    // Align it to the subgraph.
+                    
+                    // TODO: we want to give a full-length bonus to keep the
+                    // ends attached when a variant is near the end of the
+                    // reference. But we can't without turning on pinned mode,
+                    // which is incorrect because we don't have a read that we
+                    // know runs up to the end of the graph.
+                    Alignment aln = context.align(alt_stream.str(), 0, false, false, 30);
                     
                     // Add the path to our collection of paths to add
                     edits_to_make.push_back(aln.path());
