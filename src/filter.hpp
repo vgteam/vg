@@ -19,6 +19,24 @@
  *
  */
 namespace vg{
+
+struct INSERTION_TYPE_EVIDENCE{
+
+};
+
+struct DELETION_TYPE_EVIDENCE{
+
+};
+
+struct INVERSION_TYPE_EVIDENCE{
+
+};
+
+struct DUPLICATION_TYPE_EVIDENCE{
+
+};
+
+
 class Filter{
     public:
         Filter();

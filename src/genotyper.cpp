@@ -16,6 +16,36 @@ using namespace std;
 // - Compute diploid genotypes for each site
 // - Output as vcf or as native format
 
+
+/**
+* void Genotype::variant_recall(){
+    map<string, vcflib::Variant>
+    map<string, vector<int64_t> > varname_to_node_id;
+    map<int64_t, int32_t> node_id_to_depth;
+    vector<int64_t> variant_nodes;
+    unordered_map<string, list<Mapping> > gpaths
+    // For each variant in VCF:
+    // hash its name and add to varname_to_node_id
+    // iterate mappings of gpaths[var_id] to get node ids
+    // add those to map and to vector of nodes
+
+    // pop open rocksdb
+    // get the number of Alignments at each node.
+    
+    // go back though varname_to_node_id
+    // sum up node_id coverage for variant
+    // modify VCF variant and spit it back out.
+}
+
+*void Genotyper::call_sv_signatures(){
+// Call SV signatures based on reads
+
+// Take in a bunch of reads
+// Collect those supporting a specific type of SV
+
+}
+
+*/
 void Genotyper::run(VG& graph,
                     vector<Alignment>& alignments,
                     ostream& out,
