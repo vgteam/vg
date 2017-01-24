@@ -67,6 +67,7 @@ int main_add(int argc, char** argv) {
 
         case 'v':
             vcf_filenames.push_back(optarg);
+            break;
 
         case 'p':
             show_progress = true;
@@ -126,8 +127,8 @@ int main_add(int argc, char** argv) {
             // Open it
             vcflib::VariantCallFile vcf;
             vcf.open(vcf_filename);
-            if (vcf.is_open()) {
-                cerr << "error:[vg add] could not open" << vcf_filename << endl;
+            if (!vcf.is_open()) {
+                cerr << "error:[vg add] could not open " << vcf_filename << endl;
                 return 1;
             }
             
