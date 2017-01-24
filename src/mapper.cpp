@@ -117,8 +117,8 @@ double Mapper::estimate_gc_content(void) {
     uint64_t at = 0, gc = 0;
     
     if (gcsa) {
-        at = gcsa->count(gcsa->find(string("A"))) + gcsa->count(gcsa->find(string("T")));
-        gc = gcsa->count(gcsa->find(string("G"))) + gcsa->count(gcsa->find(string("C")));
+        at = gcsa::Range::length(gcsa->find(string("A"))) + gcsa::Range::length(gcsa->find(string("T")));
+        gc = gcsa::Range::length(gcsa->find(string("G"))) + gcsa::Range::length(gcsa->find(string("C")));
     }
     else if (index) {
         at = index->approx_size_of_kmer_matches("A") + index->approx_size_of_kmer_matches("T");
