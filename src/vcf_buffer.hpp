@@ -136,7 +136,8 @@ public:
     tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> get();
     
     /**
-     * Like get(), but elides variants in the context that overlap the current variant.
+     * Like get(), but elides variants in the context that overlap the current
+     * variant, or each other.
      */
     tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> get_nonoverlapping();
     

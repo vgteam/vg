@@ -179,19 +179,30 @@ tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> Wind
     vector<vcflib::Variant*> before;
     vector<vcflib::Variant*> after;
     
+    // What's the last base used by a variant? We need this to strip out
+    // variants that overlap each other.
+    int64_t last_position_used = 0;
+    
     for (auto& v : variants_before) {
         // For every variant before the current one
-        if (v.position + v.ref.size() <= current.position) {
+        if (v.position > last_position_used && v.position + v.ref.size() <= current.position) {
             // The end of this variant is before the start of our current variant, so use it.
             before.push_back(&v);
+            // Remember it uses its start base, plus 1 base per ref allele base
+            last_position_used = v.position + v.ref.size() - 1;
         }
     }
     
+    // Now mark used through the end of the current variant
+    last_position_used = current.position + current.ref.size() - 1;
+    
     for (auto& v : variants_after) {
         // For every variant after the current one
-        if (current.position + current.ref.size() <= v.position) {
-            // The end of the current variant is before the start of this one, so use it.
+        if (v.position > last_position_used) {
+            // The end of the last variant is before the start of this one, so use it.
             after.push_back(&v);
+            // Remember it uses its start base, plus 1 base per ref allele base
+            last_position_used = v.position + v.ref.size() - 1;
         }
     }
     
