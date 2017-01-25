@@ -1,5 +1,4 @@
 #include "variant_adder.hpp"
-#include "path_index.hpp"
 
 namespace vg {
 
@@ -9,24 +8,23 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph) {
     // Nothing to do!
 }
 
+
+    
+// We need a function to grab the index for a path
+PathIndex& VariantAdder::get_path_index(const string& path_name) {
+    if (!indexes.count(path_name)) {
+        // Not already made. Generate it.
+        indexes.emplace(piecewise_construct,
+            forward_as_tuple(path_name), // Make the key
+            forward_as_tuple(graph, path_name, true)); // Make the PathIndex
+    }
+    return indexes.at(path_name);
+}
+
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     // We collect all the edits we need to make, and then make them all at
     // once.
     vector<Path> edits_to_make;
-    
-    // We need indexes of all the paths that variants happen on.
-    map<string, PathIndex> indexes;
-    
-    // We need a function to grab the index for a path
-    auto get_path_index = [&](const string& path_name) -> PathIndex& {
-        if (!indexes.count(path_name)) {
-            // Not already made. Generate it.
-            indexes.emplace(piecewise_construct,
-                forward_as_tuple(path_name), // Make the key
-                forward_as_tuple(graph, path_name, true)); // Make the PathIndex
-        }
-        return indexes.at(path_name);
-    };
     
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
@@ -98,7 +96,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     graph.edit(edits_to_make);
 }
 
-set<vector<int>> VariantAdder::get_unique_haplotypes(vector<vcflib::Variant*>& variants) {
+set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants) const {
     set<vector<int>> haplotypes;
     
     if (variants.empty()) {
@@ -147,6 +145,42 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(vector<vcflib::Variant*>& v
     // After processing all the samples, return the unique haplotypes
     return haplotypes;
     
+}
+
+string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vector<vcflib::Variant*>& variants) {
+    // We'll fill this in with variants and separating sequences.
+    stringstream result;
+    
+    // These lists need to be in 1 to 1 correspondence
+    assert(haplotype.size() == variants.size());
+    
+    if (variants.empty()) {
+        // No variants means no string representation.
+        return "";
+    }
+    
+    // Do the first variant
+    result << variants.front()->alleles.at(haplotype.at(0));
+    
+    for (size_t i = 1; i < variants.size(); i++) {
+        // For each subsequent variant
+        auto* variant = variants.at(i);
+        auto* last_variant = variants.at(i - 1);
+        
+        // Do the intervening sequence.
+        // Where does that sequence start?
+        size_t sep_start = last_variant->position + last_variant->ref.size();
+        // And how long does it run?
+        size_t sep_length = variant->position - sep_start;
+        
+        // Pull out the separator sequence and tack it on.
+        result << get_path_index(variant->sequenceName).sequence.substr(sep_start, sep_length);
+
+        // Then put the appropriate allele of this variant
+        result << variant->alleles.at(haplotype.at(i));
+    }
+    
+    return result.str();
 }
 
 }
