@@ -25,14 +25,14 @@ using namespace vg::subcommand;
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
         << "Options: " << endl
-        
+
         << "   -S / --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
         << "   -R / --recall            recall (i.e. type) all variants with paths stored in the graph." << endl
         << "   -r / --reference         reference genome to pull structural variants from." << endl
         << "   -I / --insertions        fasta file containing insertion sequences." << endl
-       << endl;
-        //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
-        
+        << endl;
+    //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
+
 
 
 }
@@ -171,23 +171,22 @@ int main_srpe(int argc, char** argv){
     map<string, PathIndex*> pindexes;
     regex is_alt ("_alt_.*");
 
-    cerr << "Here" << endl;
     vector<FastaReference*> insertions;
     if (!ins_fasta.empty()){
         FastaReference* ins = new FastaReference();
         insertions.emplace_back(ins);
         ins->open(ins_fasta);
-    
+
     }
 
     if (!spec_vcf.empty() && ref_fasta.empty()){
         cerr << "Error: option -S requires a fasta reference using the -r <reference> flag" << endl;
     }
     else if (!spec_vcf.empty()){
-        
+
         FastaReference* linear_ref = new FastaReference();
         linear_ref->open(ref_fasta);
-        
+
         for (auto r_path : (graph->paths)._paths){
             if (!regex_match(r_path.first, is_alt)){
                 pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
@@ -200,11 +199,11 @@ int main_srpe(int argc, char** argv){
         string descrip = "";
         descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
         variant_file->addHeaderLine(descrip);
-        
+
         cout << variant_file->header << endl;
 
         unordered_map<string, list<Mapping> > graphpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end() );
-        map<string, vcflib::Variant*> hash_to_var;
+        map<string, vcflib::Variant> hash_to_var;
         unordered_map<string, vector<int64_t> > varname_to_nodeid;
         unordered_map<int64_t, int32_t> node_to_depth;
         vector<int64_t> variant_nodes;
@@ -216,16 +215,16 @@ int main_srpe(int argc, char** argv){
             var.position -= 1;
             var.canonicalize_sv(*linear_ref, insertions, -1);
             string var_id = make_variant_id(var);
-            hash_to_var[ var_id ] = &var;
+            hash_to_var[ var_id ] = var;
             for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
                 string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
                 list<Mapping> x_path = graphpaths[ alt_id ];
                 for (Mapping x_m : x_path){
-                        variant_nodes.push_back(x_m.position().node_id());
-                        varname_to_nodeid[ alt_id ].push_back(x_m.position().node_id());
+                    variant_nodes.push_back(x_m.position().node_id());
+                    varname_to_nodeid[ alt_id ].push_back(x_m.position().node_id());
                 }
             }
-            
+
         }
 
         std::function<void(const Alignment& a)> incr = [&](const Alignment& a){
@@ -236,159 +235,162 @@ int main_srpe(int argc, char** argv){
 
         gamind.for_alignment_to_nodes(variant_nodes, incr);
 
+        cerr << node_to_depth.size () << " reads in count map" << endl;
+
         for (auto it : hash_to_var){
-            for (int i = 0; i < it->second.alt.size(); i++){
+            for (int i = 0; i <= it.second.alt.size(); i++){
                 int32_t sum_reads = 0;
-                string alt_id = "_alt_" + it->first + "_" + std::to_string(alt_ind);
+                string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
                 for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
-                sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]]
-            }
-            it->second.info["AD"].push_back(std::to_string(support));
-            }
-            cout << it->second << endl;
-        }
+                    sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
 
-    }
-            // make both alt and ref alt_paths
-//             if ( graphpaths.count(alt_id) != 0){
-//                 for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
-//                     alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
-//                     list<Mapping> x_path = graphpaths[ alt_id ];
-//                     vector<int64_t> var_node_ids;
-//                     vector<Alignment> alns;
-//                     int32_t support = 0;
-
-//                     for (Mapping x_m : x_path){
-//                         var_node_ids.push_back(x_m.position().node_id()); 
-//                     }
-               
-//                     std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-//                         ++support;
-//                     };
-
-//                     gamind.for_alignment_to_nodes(var_node_ids, incr);
-// #ifdef DEBUG
-//                     cerr << support << " reads support " << alt_id << endl;
-// #endif
-                    
-//                     var.info["AD"].push_back( std::to_string(support) );
-//                     }
-//                 #pragma omp critical
-//                 cout << var << endl;
-//             }
-//             else {
-//                 cerr << "Variant not found: " << var << endl;
-//                 cerr << alt_id << endl;
-//                 for (auto xx : (graph->paths)._paths){
-//                     cerr << "\t" << xx.first << endl;
-//                 }
-//             }
-
-//         }
-        
-    
-    else if (do_all){
-        vector<Support> supports;
-
-        for (auto r_path : (graph->paths)._paths){
-            if (!regex_match(r_path.first, is_alt)){
-                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
-            }
-        }
-        for (auto x_path : (graph->paths)._paths){
-            cerr << x_path.first << endl;
-            int32_t support = 0;
-            if (regex_match(x_path.first, is_alt)){
-                vector<Alignment> alns;
-                vector<int64_t> var_node_ids;
-                for (Mapping x_m : x_path.second){
-                    var_node_ids.push_back(x_m.position().node_id()); 
                 }
-               
-                std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-                    ++support;
-                };
-                gamind.for_alignment_to_nodes(var_node_ids, incr);
-                cout << support << " reads support " << x_path.first << endl;
+                it.second.info["AD"].push_back(std::to_string(sum_reads));
             }
+            cout << it.second << endl;
+        }
+
+    }
+    // make both alt and ref alt_paths
+    //             if ( graphpaths.count(alt_id) != 0){
+    //                 for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
+    //                     alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+    //                     list<Mapping> x_path = graphpaths[ alt_id ];
+    //                     vector<int64_t> var_node_ids;
+    //                     vector<Alignment> alns;
+    //                     int32_t support = 0;
+
+    //                     for (Mapping x_m : x_path){
+    //                         var_node_ids.push_back(x_m.position().node_id()); 
+    //                     }
+
+    //                     std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+    //                         ++support;
+    //                     };
+
+    //                     gamind.for_alignment_to_nodes(var_node_ids, incr);
+    // #ifdef DEBUG
+    //                     cerr << support << " reads support " << alt_id << endl;
+    // #endif
+
+    //                     var.info["AD"].push_back( std::to_string(support) );
+    //                     }
+    //                 #pragma omp critical
+    //                 cout << var << endl;
+    //             }
+    //             else {
+    //                 cerr << "Variant not found: " << var << endl;
+    //                 cerr << alt_id << endl;
+    //                 for (auto xx : (graph->paths)._paths){
+    //                     cerr << "\t" << xx.first << endl;
+    //                 }
+    //             }
+
+    //         }
+
+
+else if (do_all){
+    vector<Support> supports;
+
+    for (auto r_path : (graph->paths)._paths){
+        if (!regex_match(r_path.first, is_alt)){
+            pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
         }
     }
+    for (auto x_path : (graph->paths)._paths){
+        cerr << x_path.first << endl;
+        int32_t support = 0;
+        if (regex_match(x_path.first, is_alt)){
+            vector<Alignment> alns;
+            vector<int64_t> var_node_ids;
+            for (Mapping x_m : x_path.second){
+                var_node_ids.push_back(x_m.position().node_id()); 
+            }
+
+            std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+                ++support;
+            };
+            gamind.for_alignment_to_nodes(var_node_ids, incr);
+            cout << support << " reads support " << x_path.first << endl;
+        }
+    }
+}
 
 
 
-    /***
-     * First we need to find discordant Aligments
-     * so that we can generate signatures for each SVTYPE.
-     * We assume that our GAM contains these.
+/***
+ * First we need to find discordant Aligments
+ * so that we can generate signatures for each SVTYPE.
+ * We assume that our GAM contains these.
+ */
+vector<pair<Alignment, Alignment> > discords;
+vector<pair<Alignment, Alignment> > fraggles;
+vector<pair<Alignment, Alignment> > clippies;
+std::function<void(Alignment&, Alignment&)> lambda = [&](Alignment& aln_one, Alignment& aln_two){
+
+    /* For each alignment in the gam:
+     * Find the node the alignment maps to
+     * find its mate read, if it has one
+     * Check if alignment/mate fail any filters
+     * if they do:
+     *  find all the alignments that map to that node
+     *  Look for matching signatures on other reads at the node
+     *  Check the depth at the Locus, and update it as well
+     *
      */
-    vector<pair<Alignment, Alignment> > discords;
-    vector<pair<Alignment, Alignment> > fraggles;
-    vector<pair<Alignment, Alignment> > clippies;
-    std::function<void(Alignment&, Alignment&)> lambda = [&](Alignment& aln_one, Alignment& aln_two){
-
-        /* For each alignment in the gam:
-         * Find the node the alignment maps to
-         * find its mate read, if it has one
-         * Check if alignment/mate fail any filters
-         * if they do:
-         *  find all the alignments that map to that node
-         *  Look for matching signatures on other reads at the node
-         *  Check the depth at the Locus, and update it as well
-         *
-         */
-        srpe.ff.set_inverse(false);
-        pair<Alignment, Alignment> intermeds = srpe.ff.deletion_filter(aln_one, aln_two);
-        if (intermeds.first.name() != ""){
+    srpe.ff.set_inverse(false);
+    pair<Alignment, Alignment> intermeds = srpe.ff.deletion_filter(aln_one, aln_two);
+    if (intermeds.first.name() != ""){
 #pragma omp critical
-            discords.push_back(intermeds);
-        }
+        discords.push_back(intermeds);
+    }
 
-        srpe.ff.set_soft_clip_limit(min_soft_clip);
-        intermeds = srpe.ff.soft_clip_filter(aln_one, aln_two);
-        if (intermeds.first.name() != ""){
+    srpe.ff.set_soft_clip_limit(min_soft_clip);
+    intermeds = srpe.ff.soft_clip_filter(aln_one, aln_two);
+    if (intermeds.first.name() != ""){
 #pragma omp critical
-            clippies.push_back(intermeds);
-        }
+        clippies.push_back(intermeds);
+    }
 
-        //TODO set path_length limit
-        srpe.ff.max_path_length = 500;
-        intermeds = srpe.ff.path_length_filter(aln_one, aln_two);
-        if (intermeds.first.name() != ""){
+    //TODO set path_length limit
+    srpe.ff.max_path_length = 500;
+    intermeds = srpe.ff.path_length_filter(aln_one, aln_two);
+    if (intermeds.first.name() != ""){
 #pragma omp critical
-            fraggles.push_back(intermeds);
-        }
+        fraggles.push_back(intermeds);
+    }
 
-        srpe.ff.set_inverse(false);
-
-        
-    };
+    srpe.ff.set_inverse(false);
 
 
+};
 
-    // Read in GAM and filter for Sigs
-    
-    // Convert sigs to edges and nodes
 
-    // Find newly incorporated nodes / edges within X nodes or Y bp of each other
-    // and remap reads to refine them.
-    // Refinement: for N variant edges/nodes within X bp/nodes of one another, calculate the
-    // sig quality ~ (reads mapped, mapping qual of reads, soft clipping, fragment length consistency,
-    // )
-    // Take the X highest-scoring edges / nodes and remap reads to just these.
-    // Repeat this process until convergence, or after max-iter iterations
 
-    // Can now emit refined variant calls.
+// Read in GAM and filter for Sigs
 
-    for (int i = 0; i < clippies.size(); i++){
-        Alignment a = clippies[i].first;
-        int64_t clipped_id = 0;
-        if (a.path().mapping_size() > 0){
-            Path path = a.path();
-            Edit left_edit = path.mapping(0).edit(0);
-            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
-            int left_overhang = left_edit.to_length() - left_edit.from_length();
-            int right_overhang = right_edit.to_length() - right_edit.from_length();
-            clipped_id = (left_overhang >= right_overhang) ? path.mapping(0).position().node_id() : path.mapping(path.mapping_size() - 1).position().node_id();
+// Convert sigs to edges and nodes
+
+// Find newly incorporated nodes / edges within X nodes or Y bp of each other
+// and remap reads to refine them.
+// Refinement: for N variant edges/nodes within X bp/nodes of one another, calculate the
+// sig quality ~ (reads mapped, mapping qual of reads, soft clipping, fragment length consistency,
+// )
+// Take the X highest-scoring edges / nodes and remap reads to just these.
+// Repeat this process until convergence, or after max-iter iterations
+
+// Can now emit refined variant calls.
+
+for (int i = 0; i < clippies.size(); i++){
+    Alignment a = clippies[i].first;
+    int64_t clipped_id = 0;
+    if (a.path().mapping_size() > 0){
+        Path path = a.path();
+        Edit left_edit = path.mapping(0).edit(0);
+        Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+        int left_overhang = left_edit.to_length() - left_edit.from_length();
+        int right_overhang = right_edit.to_length() - right_edit.from_length();
+        clipped_id = (left_overhang >= right_overhang) ? path.mapping(0).position().node_id() : path.mapping(path.mapping_size() - 1).position().node_id();
     };
 
     auto se_score_func = [&](vector<Alignment> locals, Mapper* mp){
@@ -539,7 +541,7 @@ int main_srpe(int argc, char** argv){
                 Mapping clip_mapping = clip_aln.path().mapping(m_i);
                 *mm = clip_mapping;
             }
-            
+
 
 
             cerr << a.name() <<"\t" <<  a.sequence() << "\t" << a.score() << endl;
@@ -636,8 +638,8 @@ int main_srpe(int argc, char** argv){
         //
         // 
     }
-    }
-    return 0;
+}
+return 0;
 }
 
 static Subcommand vg_srpe ("srpe", "graph-external SV detection", main_srpe);
