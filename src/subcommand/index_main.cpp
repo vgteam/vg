@@ -52,6 +52,7 @@ void help_index(char** argv) {
          << "    -p, --progress         show progress" << endl
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options (ignored with -g):" << endl
+         << "    -d, --db-name  <X>     store the database in <X>" << endl
          << "    -s, --store-graph      store graph as xg" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
