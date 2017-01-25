@@ -5,10 +5,14 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 1
+plan tests 2
 
 vg construct -r add/ref.fa > ref.vg
 vg add -v add/benedict.vcf ref.vg > benedict.vg
 is "$?" "0" "vg add can create a graph"
 
-rm -rf ref.vg benedict.vg
+vg construct -r small/x.fa > x-ref.vg
+vg add -v small/x.vcf.gz x-ref.vg > x.vg
+is "$?" "0" "vg add can create a slightly larger graph"
+
+rm -rf ref.vg benedict.vg x-ref.vg x.vg
