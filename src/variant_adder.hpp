@@ -40,6 +40,15 @@ public:
 protected:
     /// The graph we are modifying
     VG& graph;
+    
+    /**
+     * Get all the unique combinations of variant alts represented by actual
+     * haplotypes. Arbitrarily phases unphased variants.
+     *
+     * Returns a set of vectors or one number per variant, giving the alt number
+     * (starting with 0 for reference) that appears on the haplotype.
+     */
+    set<vector<int>> get_unique_haplotypes(vector<vcflib::Variant*>& variants);
 
 };
 

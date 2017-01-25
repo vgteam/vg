@@ -98,4 +98,76 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     graph.edit(edits_to_make);
 }
 
+set<vector<int>> VariantAdder::get_unique_haplotypes(vector<vcflib::Variant*>& variants) {
+    set<vector<int>> haplotypes;
+    
+    if (variants.empty()) {
+        // Nothing's there
+        return haplotypes;
+    }
+    
+    for (auto& sample_name : variants.front()->sampleNames) {
+        // For every sample
+        
+        // Make its haplotype(s) on the region. We have a map from haplotype
+        // number to actual vector. We'll tack stuff on the ends when they are
+        // used, then throw out any that aren't full-length.
+        map<size_t, vector<int>> sample_haplotypes;
+        
+        
+        for (auto* variant : variants) {
+            // Get the genotype for each sample
+            auto genotype = variant->getGenotype(sample_name);
+            
+            // Fake it being phased
+            replace(genotype.begin(), genotype.end(), '/', '|');
+            
+            auto alts = vcflib::decomposePhasedGenotype(genotype);
+            
+            for (size_t phase = 0; phase < alts.size(); phase++) {
+                // Stick each allele number at the end of its appropriate phase
+                sample_haplotypes[phase].push_back(alts[phase]);
+            }
+        }
+        
+        for (auto& kv : sample_haplotypes) {
+            auto& haplotype = kv.second;
+            // For every haplotype in this sample
+            if (haplotype.size() != variants.size()) {
+                // If it's not the full length, it means some variants don't
+                // have it. Skip.
+                continue;
+            }
+            
+            // Otherwise, add it to the set of observed haplotypes
+            haplotypes.insert(haplotype);
+        }
+    }
+    
+    // After processing all the samples, return the unique haplotypes
+    return haplotypes;
+    
 }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
