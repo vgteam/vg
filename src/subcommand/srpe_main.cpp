@@ -255,7 +255,7 @@ int main_srpe(int argc, char** argv){
         // Any reads on ref / alt? Tally that business up and grab a position
         // push allllll that info into vcf
     }
-    else if (!spec_vcf.empty() do_all){
+    else if (!spec_vcf.empty() && do_all){
         vector<Support> supports;
 
         for (auto r_path : (graph->paths)._paths){
