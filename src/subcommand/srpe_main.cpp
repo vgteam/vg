@@ -240,8 +240,8 @@ int main_srpe(int argc, char** argv){
             for (int i = 0; i < it->second.alt.size(); i++){
                 int32_t sum_reads = 0;
                 string alt_id = "_alt_" + it->first + "_" + std::to_string(alt_ind);
-                for (int i = 0; i < varname_to_nodeid[it->first].size(); i++){
-                sum_reads += node_to_depth[varname_to_nodeid[it->first][i]]
+                for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
+                sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]]
             }
             it->second.info["AD"].push_back(std::to_string(support));
             }
