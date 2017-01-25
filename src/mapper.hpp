@@ -21,7 +21,7 @@
 namespace vg {
 
 // uncomment to enable vg map --debug
-#define debug_mapper
+//#define debug_mapper
 
 using namespace std;
     
