@@ -34,6 +34,9 @@ public:
      */
     void add_variants(vcflib::VariantCallFile* vcf);
     
+    /// How wide of a range in bases should we look for nearby variants in?
+    size_t variant_range = 100;
+    
 protected:
     /// The graph we are modifying
     VG& graph;

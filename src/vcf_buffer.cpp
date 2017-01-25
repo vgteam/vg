@@ -115,8 +115,8 @@ bool WindowedVcfBuffer::next() {
             // Couldn't find anything
             return false;
         } else {
-            // Take what we found
-            current = std::move(*(reader.get()));
+            // Copy what we found
+            current = *(reader.get());
             reader.handle_buffer();
             has_current = true;
         }
@@ -145,8 +145,8 @@ bool WindowedVcfBuffer::next() {
         reader.get()->position - current.position <= window_size) {
         
         // As long as we have a next variant on this contig that's in range,
-        // grab it.
-        variants_after.emplace_back(std::move(*(reader.get())));
+        // grab a copy.
+        variants_after.push_back(*(reader.get()));
         reader.handle_buffer();
         reader.fill_buffer();
     }

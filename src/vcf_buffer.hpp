@@ -32,6 +32,9 @@ public:
      * Return a pointer to the buffered variant, or null if no variant is
      * buffered. Pointer is invalidated when the buffer is handled. The variant
      * will have a 0-based start coordinate.
+     *
+     * Although the variant is not const, it may not be moved out of or modified
+     * in ways that confuse vcflib.
      */
     vcflib::Variant* get();
     

@@ -29,13 +29,14 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     };
     
     // Make a buffer
-    VcfBuffer buffer(vcf);
-    buffer.fill_buffer();
+    WindowedVcfBuffer buffer(vcf, variant_range);
     
-    // Grab a variant
-    auto* variant = buffer.get();
-    while(variant != nullptr) {
-        // For each variant
+    while(buffer.next()) {
+        // For each variant in its context of nonoverlapping variants
+        vcflib::Variant* variant;
+        vector<vcflib::Variant*> before;
+        vector<vcflib::Variant*> after;
+        tie(before, variant, after) = buffer.get_nonoverlapping();
     
         // Where is it?
         auto& variant_path_name = variant->sequenceName;
@@ -91,11 +92,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Add the path to our collection of paths to add
             edits_to_make.push_back(aln.path());
         }
-        
-        // Move on to the next variant
-        buffer.handle_buffer();
-        buffer.fill_buffer();
-        variant = buffer.get();
     }
     
     // Then at the end of the VCF, edit the graph
