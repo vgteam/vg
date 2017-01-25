@@ -9,9 +9,14 @@
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
+#include "genotyper.hpp"
+#include "path_index.hpp"
 #include "vg.hpp"
 #include "srpe.hpp"
 #include "filter.hpp"
+#include "utility.hpp"
+#include "Variant.h"
+#include "Fasta.h"
 
 using namespace std;
 using namespace vg;
@@ -21,7 +26,10 @@ void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
         << "Options: " << endl
         
-        << "   -S/ --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
+        << "   -S / --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
+        << "   -R / --recall            recall (i.e. type) all variants with paths stored in the graph." << endl
+        << "   -r / --reference         reference genome to pull structural variants from." << endl
+        << "   -I / --insertions        fasta file containing insertion sequences." << endl
        << endl;
         //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
         
@@ -40,6 +48,8 @@ int main_srpe(int argc, char** argv){
     string lcp_name = "";
 
     string spec_vcf = "";
+    string ref_fasta = "";
+    string ins_fasta = "";
 
     int max_iter = 2;
     int max_frag_len = 10000;
@@ -49,6 +59,8 @@ int main_srpe(int argc, char** argv){
 
     vector<string> search_types;
     search_types.push_back("DEL");
+
+    int threads = 1;
 
     if (argc <= 2) {
         help_srpe(argv);
@@ -65,12 +77,15 @@ int main_srpe(int argc, char** argv){
             {"help", no_argument, 0, 'h'},
             {"gcsa-index", required_argument, 0, 'g'},
             {"specific", required_argument, 0, 'S'},
-            {"all", no_argument, 0, 'A'},
+            {"recall", no_argument, 0, 'R'},
+            {"insertions", required_argument, 0, 'I'},
+            {"reference", required_argument, 0, 'r'},
+            {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:S:A",
+        c = getopt_long (argc, argv, "hx:g:m:S:RI:r:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -83,7 +98,11 @@ int main_srpe(int argc, char** argv){
                 max_iter = atoi(optarg);
                 break;
 
-            case 'A':
+            case 't':
+                threads = atoi(optarg);
+                break;
+
+            case 'R':
                 do_all = true;
                 break;
             case 'x':
@@ -94,7 +113,12 @@ int main_srpe(int argc, char** argv){
                 break;
             case 'S':
                 spec_vcf = optarg;
-                optind++;
+                break;
+            case 'r':
+                ref_fasta = optarg;
+                break;
+            case 'I':
+                ins_fasta = optarg;
                 break;
             case 'h':
             case '?':
@@ -104,6 +128,8 @@ int main_srpe(int argc, char** argv){
         }
 
     }
+
+    omp_set_num_threads(threads);
 
 
     SRPE srpe;
@@ -137,20 +163,109 @@ int main_srpe(int argc, char** argv){
 
     }
 
-    auto var_t_from_path = [](){
-
-    };
-
-    auto get_nodes_from_path = [](list<Mapping> x){
-        
-    };
-
+    // Open a variant call file,
+    // hash each variant to an hash ID
+    // have in if in the loop below.
+    map<string, Locus> name_to_loc;
+    // Makes a pathindex, which allows us to query length and push out a VCF with a position
+    map<string, PathIndex*> pindexes;
     regex is_alt ("_alt_.*");
 
-    if (do_all){
+    cerr << "Here" << endl;
+    vector<FastaReference*> insertions;
+    if (!ins_fasta.empty()){
+        FastaReference* ins = new FastaReference();
+        insertions.emplace_back(ins);
+        ins->open(ins_fasta);
+    
+    }
+
+    if (!spec_vcf.empty() && ref_fasta.empty()){
+        cerr << "Error: option -S requires a fasta reference using the -r <reference> flag" << endl;
+    }
+    else if (!spec_vcf.empty()){
+        
+        FastaReference* linear_ref = new FastaReference();
+        linear_ref->open(ref_fasta);
+        
+        for (auto r_path : (graph->paths)._paths){
+            if (!regex_match(r_path.first, is_alt)){
+                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
+            }
+        }
+
+        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
+        variant_file->open(spec_vcf);
+
+        string descrip = "";
+        descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
+        variant_file->addHeaderLine(descrip);
+        
+        cout << variant_file->header << endl;
+
+        unordered_map<string, list<Mapping> > graphpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end() );
+
+
+        // Hash a variant from the VCF
+        vcflib::Variant var;
+        while (variant_file->getNextVariant(var)){
+            var.position -= 1;
+            var.canonicalize_sv(*linear_ref, insertions, -1);
+            string var_id = make_variant_id(var);
+            string alt_id = "_alt_" + var_id + "_0";
+
+            // make both alt and ref alt_paths
+            if ( graphpaths.count(alt_id) != 0){
+                for (int alt_ind = 0; alt_ind <= var.alt.size(); ++alt_ind){
+                    alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+                    list<Mapping> x_path = graphpaths[ alt_id ];
+                    vector<int64_t> var_node_ids;
+                    vector<Alignment> alns;
+                    int32_t support = 0;
+
+                    for (Mapping x_m : x_path){
+                        var_node_ids.push_back(x_m.position().node_id()); 
+                    }
+               
+                    std::function<void(const Alignment&)> incr = [&](const Alignment& a){
+                        ++support;
+                    };
+
+                    gamind.for_alignment_to_nodes(var_node_ids, incr);
+#ifdef DEBUG
+                    cerr << support << " reads support " << alt_id << endl;
+#endif
+                    
+                    var.info["AD"].push_back( std::to_string(support) );
+                    }
+                #pragma omp critical
+                cout << var << endl;
+            }
+            else {
+                cerr << "Variant not found: " << var << endl;
+                cerr << alt_id << endl;
+                for (auto xx : (graph->paths)._paths){
+                    cerr << "\t" << xx.first << endl;
+                }
+            }
+
+        }
+        // look it up in the <name, list<Mapping> > index
+        // Count supporting reads using GAM index
+        // Any reads on ref / alt? Tally that business up and grab a position
+        // push allllll that info into vcf
+    }
+    else if (!spec_vcf.empty() && do_all){
         vector<Support> supports;
+
+        for (auto r_path : (graph->paths)._paths){
+            if (!regex_match(r_path.first, is_alt)){
+                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
+            }
+        }
         for (auto x_path : (graph->paths)._paths){
             cerr << x_path.first << endl;
+            int32_t support = 0;
             if (regex_match(x_path.first, is_alt)){
                 vector<Alignment> alns;
                 vector<int64_t> var_node_ids;
@@ -159,11 +274,11 @@ int main_srpe(int argc, char** argv){
                 }
                
                 std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-                    cerr << a.name() << endl;
+                    ++support;
                 };
                 gamind.for_alignment_to_nodes(var_node_ids, incr);
+                cout << support << " reads support " << x_path.first << endl;
             }
-
         }
     }
 
