@@ -77,7 +77,7 @@ namespace vg {
         
         // store optimal local alignment against a graph in the Alignment object
         // assumes that graph is topologically sorted by node index
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false, int8_t full_length_bonus = 0);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node

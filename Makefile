@@ -115,6 +115,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/snarls.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/aligner.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vcf_buffer.o
 
@@ -328,7 +329,7 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 
 # For most of the .o files we just specify dependencies and use the pattern rule.
 
-$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
+$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
 $(OBJ_DIR)/banded_global_aligner.o: $(SRC_DIR)/banded_global_aligner.cpp $(SRC_DIR)/banded_global_aligner.hpp $(DEPS)
 
@@ -352,7 +353,6 @@ $(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(CPP_DIR)/vg.pb.h $(
 
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(DEPS)
 
-#$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/alignment.hpp $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a  $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp $(LIB_DIR)/libxg.a
 $(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/alignment.hpp $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp $(INC_DIR)/stream.hpp $(DEPS)
 
 $(OBJ_DIR)/json2pb.o: $(SRC_DIR)/json2pb.cpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/bin2ascii.h $(DEPS)
@@ -463,6 +463,8 @@ $(UNITTEST_OBJ_DIR)/feature_set.o: $(UNITTEST_SRC_DIR)/feature_set.cpp $(UNITTES
 $(UNITTEST_OBJ_DIR)/mapping.o: $(UNITTEST_SRC_DIR)/mapping.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/aligner.o: $(UNITTEST_SRC_DIR)/aligner.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
