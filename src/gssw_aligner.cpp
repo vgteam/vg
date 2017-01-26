@@ -285,7 +285,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     gssw_graph_destroy(graph);
 }
 
-void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices, int8_t full_length_bonus) {
+void Aligner::align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices) {
     
     align_internal(alignment, nullptr, g, false, false, 1, full_length_bonus, print_score_matrices);
 }
@@ -1211,9 +1211,9 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, 0, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, full_length_bonus, print_score_matrices);
 }
 
 void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus) {

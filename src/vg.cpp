@@ -6346,9 +6346,9 @@ Alignment VG::align(const Alignment& alignment,
             }
         } else {
             if (aligner && !qual_adj_aligner) {
-                aligner->align(aln, g, print_score_matrices);
+                aligner->align(aln, g, full_length_bonus, print_score_matrices);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align(aln, g, print_score_matrices);
+                qual_adj_aligner->align(aln, g, full_length_bonus, print_score_matrices);
             }
         }
     };

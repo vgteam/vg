@@ -78,7 +78,7 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         /// Assumes that graph is topologically sorted by node index.
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false, int8_t full_length_bonus = 0);
+        void align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -165,7 +165,7 @@ namespace vg {
         ~QualAdjAligner(void);
 
         // base quality adjusted counterparts to functions of same name from Aligner
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, int8_t full_length_bonus = 0, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);

@@ -121,6 +121,10 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // which is incorrect because we don't have a read that we
             // know runs up to the end of the graph.
             Alignment aln = context.align(to_align.str(), 0, false, false, 30);
+
+#ifdef debug            
+            cerr << "Alignment: " << pb2json(aln) << endl;
+#endif
             
             // Queue it up to edit the graph
             edits_to_make.push_back(aln.path());

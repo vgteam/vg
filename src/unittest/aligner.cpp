@@ -36,8 +36,8 @@ TEST_CASE("Aligner respects the full length bonus at both ends", "[aligner][alig
     aln1.set_sequence(read);
     aln2.set_sequence(read);
     
-    aligner.align(aln1, graph.graph, false, 0);
-    aligner.align(aln2, graph.graph, false, 10);
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
     
     SECTION("bonus is collected at both ends") {
         REQUIRE(aln2.score() == aln1.score() + 20);
@@ -56,8 +56,8 @@ TEST_CASE("Full-length bonus can hold down the left end", "[aligner][alignment][
     aln1.set_sequence(read);
     aln2.set_sequence(read);
     
-    aligner.align(aln1, graph.graph, false, 0);
-    aligner.align(aln2, graph.graph, false, 10);
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
     
     SECTION("left end is detatched without bonus") {
         REQUIRE(aln1.path().mapping_size() == 1);
@@ -90,8 +90,8 @@ TEST_CASE("Full-length bonus can hold down the right end", "[aligner][alignment]
     aln1.set_sequence(read);
     aln2.set_sequence(read);
     
-    aligner.align(aln1, graph.graph, false, 0);
-    aligner.align(aln2, graph.graph, false, 10);
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
     
     SECTION("right end is detatched without bonus") {
         REQUIRE(aln1.path().mapping_size() == 1);
