@@ -67,7 +67,7 @@ struct PathIndex {
     
     /// Rebuild the mapping positions map by tracing all the paths in the given
     /// graph. TODO: We ought to move this functionality to the Paths object and
-    // make it use a good datastructure instead of brute force.
+    /// make it use a good datastructure instead of brute force.
     void update_mapping_positions(VG& vg, const string& path_name);
     
     /// Find what node and orientation covers a position. The position must not

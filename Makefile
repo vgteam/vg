@@ -93,6 +93,8 @@ OBJ += $(OBJ_DIR)/snarls.o
 OBJ += $(OBJ_DIR)/feature_set.o
 OBJ += $(OBJ_DIR)/simplifier.o
 OBJ += $(OBJ_DIR)/chunker.o
+OBJ += $(OBJ_DIR)/vcf_buffer.o
+OBJ += $(OBJ_DIR)/variant_adder.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -114,11 +116,13 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vcf_buffer.o
 
-# These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
+# These aren't put into libvg, but they provide subcommand implementations for the vg bianry
 SUBCOMMAND_OBJ =
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/subcommand.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/construct_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/add_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/simplify_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/index_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/mod_main.o
@@ -391,9 +395,13 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(DEPS)
 
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(DEPS)
 
-$(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+$(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 $(OBJ_DIR)/chunker.o: $(SRC_DIR)/chunker.cpp $(SRC_DIR)/chunker.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
+$(OBJ_DIR)/vcf_buffer.o: $(SRC_DIR)/vcf_buffer.cpp $(SRC_DIR)/vcf_buffer.hpp $(DEPS)
+
+$(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
@@ -461,6 +469,8 @@ $(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)
 
 $(UNITTEST_OBJ_DIR)/chunker.o: $(UNITTEST_SRC_DIR)/chunker.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/chunker.hpp $(DEPS)
 
+$(UNITTEST_OBJ_DIR)/vcf_buffer.o: $(UNITTEST_SRC_DIR)/vcf_buffer.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vcf_buffer.hpp $(DEPS)
+
 ###################################
 ## VG subcommand compilation begins here
 ####################################
@@ -484,6 +494,8 @@ $(SUBCOMMAND_OBJ_DIR)/mod_main.o: $(SUBCOMMAND_SRC_DIR)/mod_main.cpp $(SUBCOMMAN
 $(SUBCOMMAND_OBJ_DIR)/annotate_main.o: $(SUBCOMMAND_SRC_DIR)/annotate_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/chunk_main.o: $(SUBCOMMAND_SRC_DIR)/chunk_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/add_main.o: $(SUBCOMMAND_SRC_DIR)/add_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 
 ########################

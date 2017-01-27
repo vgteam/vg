@@ -693,8 +693,8 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_mems(a.sequence().begin(), a.sequence().end(),
-                                         max_mem_length, mapper.min_mem_length);
+            auto mems = mapper.find_mems_simple(a.sequence().begin(), a.sequence().end(),
+                                                max_mem_length, mapper.min_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -5035,7 +5035,7 @@ int main_find(int argc, char** argv) {
                 mapper.xindex = &xindex;
                 mapper.fast_reseed = use_fast_reseed;
                 // get the mems
-                auto mems = mapper.find_mems(sequence.begin(), sequence.end(), max_mem_length, min_mem_length, mem_reseed_length);
+                auto mems = mapper.find_mems_simple(sequence.begin(), sequence.end(), max_mem_length, min_mem_length, mem_reseed_length);
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
 

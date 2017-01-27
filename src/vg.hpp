@@ -789,8 +789,8 @@ public:
 
     
     /// Align without base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     Aligner* aligner,
@@ -801,8 +801,8 @@ public:
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
@@ -814,8 +814,8 @@ public:
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
@@ -825,8 +825,8 @@ public:
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
@@ -837,8 +837,8 @@ public:
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
@@ -849,8 +849,8 @@ public:
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
