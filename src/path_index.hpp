@@ -35,10 +35,6 @@ struct PathIndex {
     /// reverse orientation.
     map<size_t, NodeSide> by_start;
     
-    /// This, combined with by_start, gets us the length of every node on the
-    /// indexed path.
-    size_t last_node_length;
-    
     /// The actual sequence of the path, if desired.
     std::string sequence;
     
@@ -89,6 +85,19 @@ struct PathIndex {
     /// Get the length of the node occurrence on the path represented by this
     /// iterator.
     size_t node_length(const iterator& here) const;
+    
+    /// Update the index to reflect the changes described by a Translation.
+    /// References to nodes along the "from" path are changed to references to
+    /// nodes along the "to" path. The translation must contain two paths of
+    /// equal length, containing only matches.
+    void apply_translation(const Translation& translation);
+    
+protected:
+
+    /// This, combined with by_start, gets us the length of every node on the
+    /// indexed path.
+    size_t last_node_length;
+    
 };
 
 }

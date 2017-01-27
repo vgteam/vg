@@ -1,0 +1,172 @@
+/// \file path_index.cpp
+///  
+/// Unit tests for the PathIndex class, which indexes paths for random access.
+///
+
+#include <iostream>
+#include <string>
+#include "../json2pb.h"
+#include "../vg.pb.h"
+#include "../path_index.hpp"
+#include "catch.hpp"
+
+namespace vg {
+namespace unittest {
+using namespace std;
+
+// Build a toy graph
+const string path_index_graph_1 = R"(
+    {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "T"},
+            {"id": 6, "sequence": "A"},
+            {"id": 7, "sequence": "C"},
+            {"id": 8, "sequence": "A"},
+            {"id": 9, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 6},
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4, "to": 5},
+            {"from": 5, "to": 6},
+            {"from": 6, "to": 7},
+            {"from": 6, "to": 8},
+            {"from": 7, "to": 9},
+            {"from": 8, "to": 9}
+            
+        ],
+        "path": [
+            {"name": "cool", "mapping": [
+                {"position": {"node_id": 1}},
+                {"position": {"node_id": 2}},
+                {"position": {"node_id": 4}},
+                {"position": {"node_id": 5}},
+                {"position": {"node_id": 6}},
+                {"position": {"node_id": 8}},
+                {"position": {"node_id": 9}}
+            ]}
+        ]
+    }
+    )";
+
+
+TEST_CASE("PathIndex can be created", "[pathindex]") {
+    
+    // Load the graph
+    Graph graph;
+    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
+    
+    // Make it into a VG
+    VG to_index;
+    to_index.extend(graph);
+    
+    // Make a PathIndex
+    PathIndex index(to_index, "cool", true);
+    
+    SECTION("PathIndex has the right string") {
+        REQUIRE(index.sequence == "GAGGGTAAA");
+    }
+}
+
+TEST_CASE("PathIndex translation can change a node ID", "[pathindex]") {
+
+    // Load the graph
+    Graph graph;
+    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
+    
+    // Make it into a VG
+    VG to_index;
+    to_index.extend(graph);
+    
+    // Make a PathIndex
+    PathIndex index(to_index, "cool", true);
+    
+    SECTION("Before translation, node 6 is at position 6") {
+        REQUIRE(index.at_position(6).node == 6);
+    }
+    
+    // Make a Translation to change node 6 to node 99
+    Translation t;
+    auto* from_mapping = t.mutable_from()->add_mapping();
+    from_mapping->mutable_position()->set_node_id(6);
+    auto* from_edit = from_mapping->add_edit();
+    from_edit->set_from_length(1);
+    from_edit->set_to_length(1);
+    auto* to_mapping = t.mutable_to()->add_mapping();
+    to_mapping->mutable_position()->set_node_id(99);
+    auto* to_edit = to_mapping->add_edit();
+    to_edit->set_from_length(1);
+    to_edit->set_to_length(1);
+    
+    // Apply it
+    index.apply_translation(t);
+    
+    SECTION("After translation, node 99 is at position 6") {
+        REQUIRE(index.at_position(6).node == 99);
+    }
+    
+}
+
+TEST_CASE("PathIndex translation can divide a node", "[pathindex]") {
+    
+    // Load the graph
+    Graph graph;
+    json2pb(graph, path_index_graph_1.c_str(), path_index_graph_1.size());
+    
+    // Make it into a VG
+    VG to_index;
+    to_index.extend(graph);
+    
+    // Make a PathIndex
+    PathIndex index(to_index, "cool", true);
+    
+    SECTION("Before translation, node 4 is at positions 2-4") {
+        REQUIRE(index.at_position(2).node == 4);
+        REQUIRE(index.at_position(3).node == 4);
+        REQUIRE(index.at_position(4).node == 4);
+    }
+    
+    // Make a Translation to change node 4 (GGG) to nodes 1337 (G) and 1338 (GG)
+    Translation t;
+    auto* from_mapping = t.mutable_from()->add_mapping();
+    from_mapping->mutable_position()->set_node_id(4);
+    auto* from_edit = from_mapping->add_edit();
+    from_edit->set_from_length(3);
+    from_edit->set_to_length(3);
+    
+    auto* to_mapping_1 = t.mutable_to()->add_mapping();
+    to_mapping_1->mutable_position()->set_node_id(1337);
+    auto* to_edit_1 = to_mapping_1->add_edit();
+    to_edit_1->set_from_length(1);
+    to_edit_1->set_to_length(1);
+    
+    auto* to_mapping_2 = t.mutable_to()->add_mapping();
+    to_mapping_2->mutable_position()->set_node_id(1338);
+    auto* to_edit_2 = to_mapping_2->add_edit();
+    to_edit_2->set_from_length(2);
+    to_edit_2->set_to_length(2);
+    
+    // Apply it
+    index.apply_translation(t);
+    
+    SECTION("After translation, node 1337 is at position 2") {
+        REQUIRE(index.at_position(2).node == 1337);
+    }
+    
+    SECTION("After translation, node 1338 is at positions 3-4") {
+        REQUIRE(index.at_position(3).node == 1338);
+        REQUIRE(index.at_position(4).node == 1338);
+    }
+    
+}
+   
+}
+}
+        

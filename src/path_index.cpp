@@ -335,6 +335,10 @@ size_t PathIndex::node_length(const iterator& here) const {
     }
 }
 
+void PathIndex::apply_translation(const Translation& translation) {
+    // TODO: Implement
+}
+
 }
 
 
