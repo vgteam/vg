@@ -335,17 +335,14 @@ size_t PathIndex::node_length(const iterator& here) const {
     }
 }
 
-void PathIndex::apply_translation(const Translation& translation) {
-    
+map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& translation) {
+
     // We take as a precondition that the translation is replacing a set of old
     // nodes each with a nonempty set of new nodes. So we won't have to combine
     // nodes or parts of nodes.
     
     // We'll populate this with the mappings that partition each old node.
     map<id_t, vector<Mapping>> old_node_to_new_nodes;
-    
-
-    
     
     // We know the new Mappings are conceptually nested in the old Mappings, so
     // we can use nested loops.
@@ -386,6 +383,16 @@ void PathIndex::apply_translation(const Translation& translation) {
         }
 #endif
     }
+    
+    return old_node_to_new_nodes;
+
+}
+
+void PathIndex::apply_translation(const Translation& translation) {
+    
+    // Parse the translation, to get a map form old node ID to vector of
+    // replacement mappings.
+    auto old_node_to_new_nodes = parse_translation(translation);
     
     
     // TODO: we would like to update mapping_positions efficiently, but we

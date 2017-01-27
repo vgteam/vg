@@ -102,6 +102,10 @@ protected:
     /// indexed path.
     size_t last_node_length;
     
+    /// Convert a Translation that partitions old nodes into a map from old node
+    /// ID to the Mappings that replace it in its forward orientation.
+    map<id_t, vector<Mapping>> parse_translation(const Translation& translation);
+    
 };
 
 }
