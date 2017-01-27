@@ -510,6 +510,10 @@ namespace vg {
         return strm.str();
     }
     
+    inline char SuffixTree::get_char(size_t i) {
+        return i == end - begin ? '\0' : *(begin + i);
+    }
+    
     string SuffixTree::partial_tree_to_string(int64_t phase) {
         
         stringstream strm;

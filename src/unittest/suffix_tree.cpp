@@ -128,7 +128,7 @@ namespace vg {
             
             string str = "GNANNNCGGATGCANNNCAGTGTCTTN";
             SuffixTree suffix_tree(str.begin(), str.end());
-            //cerr << "FINAL:" << endl << suffix_tree.to_string();
+            
         }
         
         TEST_CASE("Suffix tree correctly finds longest overlap in hand-selected cases", "[suffix]") {
@@ -177,7 +177,6 @@ namespace vg {
                 
                 REQUIRE(suffix_tree.longest_overlap("") == 0);
             }
-
         }
         
         TEST_CASE("Suffix tree correctly finds longest overlaps in 1000 random sequences", "[suffix]") {
@@ -362,5 +361,54 @@ namespace vg {
             }
         }
         
+        TEST_CASE("Suffix tree correctly finds substring locations in 1000 randomly generated low-entropy cases", "[suffix]") {
+            
+            int num_suffix_trees = 100;
+            int num_substrings_per_tree = 10;
+            int chunk_bank_size = 3;
+            int min_num_chunks = 3;
+            int max_num_chunks = 10;
+            int min_chunk_length = 5;
+            int max_chunk_length = 50;
+            int max_substring_length = 40;
+            double chunk_mismatch_rate = .05;
+            double substring_mismatch_rate = .02;
+            
+            string alphabet = "ACGTN";
+            
+            random_device rd;
+            default_random_engine gen(rd());
+            uniform_int_distribution<int> num_chunks_distr(min_num_chunks, max_num_chunks);
+            uniform_int_distribution<int> chunk_len_distr(min_chunk_length, max_chunk_length);
+            uniform_int_distribution<int> substr_len_distr(0, max_substring_length);
+            
+            for (int i = 0; i < num_suffix_trees; i++) {
+                
+                vector<string> chunks;
+                for (int j = 0; j < chunk_bank_size; j++) {
+                    chunks.push_back(random_string(alphabet, chunk_len_distr(gen)));
+                }
+                
+                string str = random_repetive_string(chunks, num_chunks_distr(gen), alphabet, chunk_mismatch_rate);
+                
+                SuffixTree suffix_tree(str.begin(), str.end());
+                
+                for (int j = 0; j < num_substrings_per_tree; j++) {
+                    
+                    string substr = random_substring(str, substr_len_distr(gen), alphabet, substring_mismatch_rate);
+                    
+                    vector<size_t> st_locations = suffix_tree.substring_locations(substr);
+                    sort(st_locations.begin(), st_locations.end());
+                    vector<size_t> direct_locations = substring_locations(str, substr);
+                    
+                    if (st_locations != direct_locations) {
+                        // print out the failures since their random and we might have a hard time finding them again
+                        cerr << "FAILURE: wrong substring lcoations on " << str << " " << substr << endl;
+                    }
+                    
+                    REQUIRE(st_locations == direct_locations);
+                }
+            }
+        }
     }
 }
