@@ -39,7 +39,8 @@ struct PathIndex {
     std::string sequence;
     
     /// Index from Mapping pointers in a VG Paths object to their actual
-    /// positions along their paths.
+    /// positions along their paths. Pointers may dangle if the vg graph
+    /// changes the path.
     map<const Mapping*, size_t> mapping_positions;
     
     /// Index just a path
@@ -89,7 +90,10 @@ struct PathIndex {
     /// Update the index to reflect the changes described by a Translation.
     /// References to nodes along the "from" path are changed to references to
     /// nodes along the "to" path. The translation must contain two paths of
-    /// equal length, containing only matches.
+    /// equal length, containing only matches. The translation must only divide
+    /// nodes; it may not join nodes together. The translation must fully
+    /// account for each old node that it touches (it can't translate only part
+    /// of a node). All the Mappings in the Translation must have Edits.
     void apply_translation(const Translation& translation);
     
 protected:

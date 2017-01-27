@@ -336,7 +336,80 @@ size_t PathIndex::node_length(const iterator& here) const {
 }
 
 void PathIndex::apply_translation(const Translation& translation) {
-    // TODO: Implement
+    
+    // We take as a precondition that the translation is replacing a set of old
+    // nodes each with a nonempty set of new nodes. So we won't have to combine
+    // nodes or parts of nodes.
+    
+    // We'll populate this with the mappings that partition each old node.
+    map<id_t, list<Mapping>> old_node_to_new_nodes;
+    
+
+    
+    
+    // We know the new Mappings are conceptually nested in the old Mappings, so
+    // we can use nested loops.
+
+    // How many bases in the old and new paths are accounted for?
+    size_t old_bases = 0;
+    size_t new_bases = 0;
+
+    // This represents our index in the new path
+    size_t j = 0;    
+    
+    for(size_t i = 0; i < translation.from().mapping_size(); i++) {
+        // For every old mapping
+        auto& from_mapping = translation.from().mapping(i);
+        
+        // Count up its bases
+        old_bases += mapping_from_length(from_mapping);
+        
+        // We know the old mapping must have at least one new mapping in it
+        do {
+            // For each mapping in the new path
+            auto& to_mapping = translation.to().mapping(j);
+            
+            // Account for its bases
+            new_bases += mapping_from_length(to_mapping);
+            
+            // Copy it into the list for just this from node
+            old_node_to_new_nodes[from_mapping.position().node_id()].push_back(to_mapping);
+            
+            // Look at the next to mapping
+            j++;
+        } while (j < translation.to().mapping_size() && new_bases < old_bases);
+        
+#ifdef debug
+        cerr << "Old node " << from_mapping.position().node_id() << " becomes: " << endl;
+        for(auto& m : old_node_to_new_nodes[from_mapping.position().node_id()]) {
+            cerr << "\t" << pb2json(m) << endl;
+        }
+#endif
+    }
+    
+    
+    // TODO: we would like to update mapping_positions efficiently, but we
+    // can't, because it's full of potentially invalidated pointers.
+    mapping_positions.clear();
+    
+    // We really need to update by_start (and maybe last_node_length)
+    
+    // TODO: We need another index from node ID to all its start positions to pull it off efficiently.
+    
+    // For now just do a dumb loop.
+    
+    for(auto here = by_start.begin(); here != by_start.end(); ++here) {
+        // For every by_start entry
+        
+        // Grab it's start
+        
+        // Delete it
+        
+        // Insert new entries for all the start positions of the replacement node copies
+    }
+    
+    // And we should also update by_id
+    
 }
 
 }
