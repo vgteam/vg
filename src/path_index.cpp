@@ -27,6 +27,9 @@ PathIndex::PathIndex(const Path& path) {
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
         
+        // Remember that occurrence by node ID.
+        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
+        
         // Just advance and don't grab sequence.
         path_base += mapping_from_length(mapping);
     }
@@ -77,6 +80,9 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
         // Say that this node appears here along the reference in this
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
+    
+        // Remember that occurrence by node ID.
+        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
     
         // Say this Mapping happens at this base along the path
         mapping_positions[&mapping] = path_base;
@@ -179,6 +185,8 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
     
+        // Remember that occurrence by node ID.
+        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
     
         // Find the node's sequence
         std::string node_sequence = index.node_sequence(mapping.position().node_id());
@@ -413,30 +421,21 @@ void PathIndex::apply_translation(const Translation& translation) {
     // can't, because it's full of potentially invalidated pointers.
     mapping_positions.clear();
     
-    // We really need to update by_start (and maybe last_node_length)
-    
-    // TODO: We need another index from node ID to all its start positions to pull it off efficiently.
-    
-    // For now just do a dumb loop.
-    
-    for(iterator here = by_start.begin(); here != by_start.end(); ++here) {
-        // For every by_start entry
+    for (auto kv : old_node_to_new_nodes) {
+        // For every node that needs to be replaced with other nodes
+        auto& old_id = kv.first;
+        auto& replacements = kv.second;
         
-        // Grab the node ID
-        auto node_id = here->second.node;
+        // Pull out all the occurrences of the old node.
+        vector<iterator> occurrences{std::move(node_occurrences[old_id])};
+        node_occurrences.erase(old_id);
         
-        if (!old_node_to_new_nodes.count(node_id)) {
-            // No replacement to be done. Try the next node occurrence.
-            continue;
+        for (auto& occurrence : occurrences) {
+            // Each time the old node appeared, replace it (and log occurrences
+            // of the new nodes that partition it, one of which may re-use the
+            // ID)
+            replace_occurrence(occurrence, replacements);
         }
-        
-        // Grab the Mappings describing the replacements
-        auto replacements = old_node_to_new_nodes.at(node_id);
-        
-        // Replace this occurrence of this mapping with these partitioning
-        // replacements.
-        replace_occurrence(here, replacements);
-        
     }
 }
 
@@ -477,6 +476,9 @@ void PathIndex::replace_occurrence(iterator to_replace, const vector<Mapping>& r
         
         // Stick the replacements in the map
         by_start[start] = NodeSide(new_id, new_orientation);
+        
+        // Remember that occurrence by node ID.
+        node_occurrences[new_id].push_back(by_start.find(start));
         
         if (!by_id.count(new_id) || by_id.at(new_id).first > start) {
             // We've created a new first mapping to this new node.

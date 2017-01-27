@@ -93,7 +93,9 @@ struct PathIndex {
     /// equal length, containing only matches. The translation must only divide
     /// nodes; it may not join nodes together. The translation must fully
     /// account for each old node that it touches (it can't translate only part
-    /// of a node). All the Mappings in the Translation must have Edits.
+    /// of a node). The translation may not re-use the ID from one original node
+    /// for a piece of a different original node. All the Mappings in the
+    /// Translation must have Edits.
     void apply_translation(const Translation& translation);
     
 protected:
@@ -101,6 +103,10 @@ protected:
     /// This, combined with by_start, gets us the length of every node on the
     /// indexed path.
     size_t last_node_length;
+    
+    /// This holds all the places that a particular node occurs, in order.
+    /// TODO: use this to replace by_id
+    map<id_t, vector<iterator>> node_occurrences;
     
     /// Convert a Translation that partitions old nodes into a map from old node
     /// ID to the Mappings that replace it in its forward orientation.
@@ -110,6 +116,8 @@ protected:
     /// there with occurrences of the nodes given in the vector of mappings,
     /// which partition the forward strand of the node being replaced.
     void replace_occurrence(iterator to_replace, const vector<Mapping>& replacements);
+    
+    
     
 };
 
