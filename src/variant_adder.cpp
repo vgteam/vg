@@ -82,7 +82,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
 
         // On the left we want either flank_range bases or all the bases before the first base in the group.
-        size_t left_context_length = max(min((int64_t)flank_range, (int64_t) group_start - (int64_t) 1), (int64_t) 0);
+        size_t left_context_length = max(min((int64_t)flank_range, (int64_t) group_start), (int64_t) 0);
         // On the right we want either flank_range bases or all the bases after the last base in the group.
         size_t right_context_length = min(index.sequence.size() - group_end, (size_t) flank_range);
     
