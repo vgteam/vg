@@ -45,6 +45,66 @@ TEST_CASE("Aligner respects the full length bonus at both ends", "[aligner][alig
     
 }
 
+TEST_CASE("Aligner respects the full length bonus for a single base read", "[aligner][alignment][mapping]") {
+    
+    VG graph;
+    
+    Aligner aligner;
+    
+    Node* n0 = graph.create_node("AGTG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("G");
+    Alignment aln1, aln2;
+    aln1.set_sequence(read);
+    aln2.set_sequence(read);
+    
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
+    
+    SECTION("bonus is collected twice even though both ends are one match") {
+        REQUIRE(aln2.score() == aln1.score() + 20);
+    }
+}
+
+TEST_CASE("Aligner works when end bonus is granted to a match at the start of a node", "[aligner][alignment][mapping]") {
+    
+    VG graph;
+    
+    Aligner aligner;
+    
+    Node* n0 = graph.create_node("AGTG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("AGTGCT");
+    Alignment aln1, aln2;
+    aln1.set_sequence(read);
+    aln2.set_sequence(read);
+    
+    // Make sure aligner runs
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
+    
+    SECTION("bonus is collected twice") {
+        REQUIRE(aln2.score() == aln1.score() + 20);
+    }
+    
+}
+
 TEST_CASE("Full-length bonus can hold down the left end", "[aligner][alignment][mapping]") {
     VG graph;
     Aligner aligner;
