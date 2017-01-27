@@ -342,7 +342,7 @@ void PathIndex::apply_translation(const Translation& translation) {
     // nodes or parts of nodes.
     
     // We'll populate this with the mappings that partition each old node.
-    map<id_t, list<Mapping>> old_node_to_new_nodes;
+    map<id_t, vector<Mapping>> old_node_to_new_nodes;
     
 
     
@@ -398,18 +398,64 @@ void PathIndex::apply_translation(const Translation& translation) {
     
     // For now just do a dumb loop.
     
-    for(auto here = by_start.begin(); here != by_start.end(); ++here) {
+    for(auto here = by_start.begin(); here != by_start.end();) {
         // For every by_start entry
         
+        // Grab the node ID
+        auto node_id = here->second.node;
+        
+        if (!old_node_to_new_nodes.count(node_id)) {
+            // No replacement to be done. Try the next node occurrence.
+            ++here;
+            continue;
+        }
+        
+        // Grab the Mappings describing the replacements
+        auto replacements = old_node_to_new_nodes.at(node_id);
+        
         // Grab it's start
+        auto start = here->first;
         
-        // Delete it
+        // Determine if we want to insert replacement nodes forward or backward
+        bool reverse = here->second.is_end;
         
-        // Insert new entries for all the start positions of the replacement node copies
+        // Skip over to the next node now, so we don't try to process all the
+        // new replacement nodes we insert.
+        ++here;
+        
+        if (by_id.count(node_id) && by_id.at(node_id).first == start) {
+            // We're removing the first occurrence of this node, so we need to
+            // clean up by_id. But since we're removing all occurreences of this
+            // node we don't have to point it at the second occurrence.
+            by_id.erase(node_id);
+        }
+        
+        for (int64_t i = reverse ? (replacements.size() - 1) : 0;
+            i != (reverse ? -1 : replacements.size());
+            i += (reverse ? -1 : 1)) {
+            
+            // For each replacement mapping in the appropriate order
+            auto& mapping = replacements.at(i);
+            
+            // What ID do we put?
+            auto new_id = mapping.position().node_id();
+            
+            // What orientation doies it go in?
+            auto new_orientation = mapping.position().is_reverse() != reverse;
+            
+            // Stick the replacements in the map
+            by_start[start] = NodeSide(new_id, new_orientation);
+            
+            if (!by_id.count(new_id) || by_id.at(new_id).first > start) {
+                // We've created a new first mapping to this new node.
+                // Record it.
+                by_id[new_id] = make_pair(start, new_orientation);
+            }
+            
+            // Budge start up so the next mapping gets inserted after this one.
+            start += mapping_from_length(mapping);
+        }
     }
-    
-    // And we should also update by_id
-    
 }
 
 }
