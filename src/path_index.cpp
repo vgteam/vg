@@ -361,23 +361,37 @@ map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& trans
         // Count up its bases
         old_bases += mapping_from_length(from_mapping);
         
+        // Grab a reference to the list of replacement mappings
+        auto& replacements = old_node_to_new_nodes[from_mapping.position().node_id()];
+        
         // We know the old mapping must have at least one new mapping in it
         do {
-            // For each mapping in the new path
-            auto& to_mapping = translation.to().mapping(j);
+            // For each mapping in the new path, copy it
+            auto to_mapping = translation.to().mapping(j);
+            
+            if (from_mapping.position().is_reverse()) {
+                // Flip its strand if the mapping we're partitioning is backward
+                to_mapping.mutable_position()->set_is_reverse(!to_mapping.position().is_reverse());
+            }
             
             // Account for its bases
             new_bases += mapping_from_length(to_mapping);
             
             // Copy it into the list for just this from node
-            old_node_to_new_nodes[from_mapping.position().node_id()].push_back(to_mapping);
+            replacements.push_back(to_mapping);
             
             // Look at the next to mapping
             j++;
         } while (j < translation.to().mapping_size() && new_bases < old_bases);
         
+        if (from_mapping.position().is_reverse()) {
+            // Flip the order of the replacement mappings around
+            reverse(replacements.begin(), replacements.end());
+        }
+        
 #ifdef debug
-        cerr << "Old node " << from_mapping.position().node_id() << " becomes: " << endl;
+        cerr << "Old node " << from_mapping.position().node_id() << " "
+            << from_mapping.position().is_reverse() << " becomes: " << endl;
         for(auto& m : old_node_to_new_nodes[from_mapping.position().node_id()]) {
             cerr << "\t" << pb2json(m) << endl;
         }
