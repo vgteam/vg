@@ -106,6 +106,11 @@ protected:
     /// ID to the Mappings that replace it in its forward orientation.
     map<id_t, vector<Mapping>> parse_translation(const Translation& translation);
     
+    /// Given an iterator into by_start, replace the occurrence of the node
+    /// there with occurrences of the nodes given in the vector of mappings,
+    /// which partition the forward strand of the node being replaced.
+    void replace_occurrence(iterator to_replace, const vector<Mapping>& replacements);
+    
 };
 
 }
