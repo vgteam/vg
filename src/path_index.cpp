@@ -475,6 +475,13 @@ void PathIndex::apply_translation(const Translation& translation) {
             
             // Budge start up so the next mapping gets inserted after this one.
             start += mapping_from_length(mapping);
+            
+            if (here == by_start.end() && i == (reverse ? 0 : replacements.size() - 1)) {
+                // We just added the last mapping replacing what the old last
+                // mapping was. So update the length of the last node to reflect
+                // this new last node.
+                last_node_length = mapping_from_length(mapping);
+            }
         }
     }
 }
