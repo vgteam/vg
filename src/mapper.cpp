@@ -985,6 +985,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     }
 #endif
+    
     vector<MaximalExactMatch> mems2 = find_mems(read2.sequence().begin(),
                                                 read2.sequence().end(),
                                                 max_mem_length,
@@ -2580,15 +2581,11 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
         cerr << "error:[vg::Mapper] minimimum reseed length for MEMs cannot be less than minimum MEM length" << endl;
         exit(1);
     }
+    
     vector<MaximalExactMatch> mems;
     vector<pair<MaximalExactMatch, vector<size_t> > > sub_mems;
 
     gcsa::range_type full_range = gcsa::range_type(0, gcsa->size() - 1);
-    
-    // an empty sequence matches the entire bwt
-    if (seq_begin == seq_end) {
-        mems.push_back(MaximalExactMatch(seq_begin, seq_end, full_range));
-    }
     
     // find SMEMs using GCSA+LCP array
     // algorithm sketch:
@@ -2749,7 +2746,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
                     }
                 }
                 
-                
                 prev_iter_jumped_lcp = true;
             }
         }
@@ -2760,9 +2756,6 @@ vector<MaximalExactMatch> Mapper::find_mems(string::const_iterator seq_begin,
             --cursor;
         }
     }
-    // TODO: is this where the bug with the duplicated MEMs is occurring? (when the prefix of a read
-    // contains multiple non SMEM hits so that the iteration will loop through the LCP routine multiple
-    // times before escaping out of the loop?
     
     // if we have a MEM at the beginning of the read, record it
     match.begin = seq_begin;
