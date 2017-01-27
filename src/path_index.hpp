@@ -87,16 +87,28 @@ struct PathIndex {
     /// iterator.
     size_t node_length(const iterator& here) const;
     
-    /// Update the index to reflect the changes described by a Translation.
-    /// References to nodes along the "from" path are changed to references to
-    /// nodes along the "to" path. The translation must contain two paths of
-    /// equal length, containing only matches. The translation must only divide
-    /// nodes; it may not join nodes together. The translation must fully
-    /// account for each old node that it touches (it can't translate only part
-    /// of a node). The translation may not re-use the ID from one original node
-    /// for a piece of a different original node. All the Mappings in the
-    /// Translation must have Edits.
+    /**
+     * Update the index to reflect the changes described by a Translation.
+     * References to nodes along the "from" path are changed to references to
+     * nodes along the "to" path. The translation must contain two paths of
+     * equal length, containing only matches. The translation must only divide
+     * nodes; it may not join nodes together. The translation must fully account
+     * for each old node that it touches (it can't translate only part of a
+     * node). The translation may not re-use the ID from one original node for a
+     * piece of a different original node. All the Mappings in the Translation
+     * must have Edits.
+     */
     void apply_translation(const Translation& translation);
+    
+    /**
+     * Update the index to reflect the changes described by the given collection
+     * of Translations. These translations are expected to be in the format
+     * produced by VG::edit() which is one to Mapping per translation. The
+     * vector may include both forward and reverse versions of each to node, and
+     * may also include translations mapping nodes that did not change to
+     * themselves.
+     */
+    void apply_translations(const vector<Translation>& translations);
     
 protected:
 

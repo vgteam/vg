@@ -21,6 +21,16 @@ PathIndex& VariantAdder::get_path_index(const string& path_name) {
     return indexes.at(path_name);
 }
 
+void VariantAdder::update_path_indexes(const vector<Translation>& translations) {
+    for (auto& kv : indexes) {
+        // We need to touch every index (IN PLACE!)
+        
+        // Feed each index all the translations, which it will parse into node-
+        // partitioning translations and then apply.
+        kv.second.apply_translations(translations);
+    }
+}
+
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     // We collect all the edits we need to make, and then make them all at
     // once.
@@ -47,18 +57,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             throw runtime_error("Missing path " + variant_path_name);
         }
         
-        // Grab the path index
+        // Grab the path index.
+        // It's a reference so it can be updated when we apply translations to all indexes.
         auto& index = get_path_index(variant_path_name);
-        
-        // Find the node that the variant falls on
-        NodeSide center = index.at_position(variant_path_offset);
-        
-        // Extract its graph context for realignment
-        VG context;
-        graph.nonoverlapping_node_context_without_paths(graph.get_node(center.node), context);
-        // TODO: how many nodes should this be?
-        // TODO: write/copy the search from xg so we can do this by node length.
-        graph.expand_context(context, 10, false);
         
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants{before};
@@ -114,25 +115,45 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             cerr << "Align " << to_align.str() << endl;
 #endif
             
-            // Align it
-            // TODO: we want to give a full-length bonus to keep the
-            // ends attached when a variant is near the end of the
-            // reference. But we can't without turning on pinned mode,
-            // which is incorrect because we don't have a read that we
-            // know runs up to the end of the graph.
+            // Find the node that the variant falls on right now
+            NodeSide center = index.at_position(variant_path_offset);
+            
+#ifdef debug
+            cerr << "Center node: " << center << endl;
+#endif
+            
+            // Extract its graph context for realignment
+            VG context;
+            graph.nonoverlapping_node_context_without_paths(graph.get_node(center.node), context);
+            // TODO: how many nodes should this be?
+            // TODO: write/copy the search from xg so we can do this by node length.
+            graph.expand_context(context, 10, false);
+            
+            // Do the alignment
             Alignment aln = context.align(to_align.str(), 0, false, false, 30);
 
 #ifdef debug            
             cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
             
-            // Queue it up to edit the graph
-            edits_to_make.push_back(aln.path());
+            // Make this path's edits to the original graph and get the
+            // translations.
+            auto translations = graph.edit(vector<Path>{aln.path()});
+            
+#ifdef debug
+            cerr << "Translations: " << endl;
+            for (auto& t : translations) {
+                cerr << "\t" << pb2json(t) << endl;
+            }
+#endif
+            
+            // Apply each translation to all the path indexes that might touch
+            // the nodes it changed.
+            update_path_indexes(translations);
         }
     }
     
-    // Then at the end of the VCF, edit the graph
-    graph.edit(edits_to_make);
+    
 }
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants) const {

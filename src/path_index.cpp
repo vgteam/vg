@@ -349,6 +349,10 @@ map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& trans
     // nodes each with a nonempty set of new nodes. So we won't have to combine
     // nodes or parts of nodes.
     
+#ifdef debug
+    cerr << "Partitioning translation: " << pb2json(translation) << endl;
+#endif
+    
     // We'll populate this with the mappings that partition each old node.
     map<id_t, vector<Mapping>> old_node_to_new_nodes;
     
@@ -436,6 +440,74 @@ void PathIndex::apply_translation(const Translation& translation) {
             // ID)
             replace_occurrence(occurrence, replacements);
         }
+        
+#ifdef debug
+        cerr << "by_start is now: " << endl;
+        for (auto kv2 : by_start) {
+            cerr << "\t" << kv2.first << ": " << kv2.second << endl;
+        }
+#endif
+    }
+}
+
+void PathIndex::apply_translations(const vector<Translation>& translations) {
+    // Convert from normal to partitioning translations
+    
+    // For each original node ID, we keep a vector of pairs of from mapping and
+    // to mapping. We only keep pairs where the from mapping isn't empty.
+    map<id_t, vector<pair<Mapping, Mapping>>> collated;
+    
+    for (auto& t : translations) {
+        if (t.from().mapping_size() < 1 || t.to().mapping_size() != 1) {
+            // Ensure the translations are the format we expect. They always have
+            // at least one from mapping (but maybe an insert too) and exactly 1
+            // to mapping.
+            cerr << "error:[vg::PathIndex] Bad translation: " << pb2json(t) << endl;
+            throw runtime_error("Translation not in VG::edit() format");
+        }
+        
+        if (mapping_from_length(t.from().mapping(0)) == 0) {
+            // This is a novel node and can't be on our path
+            continue;
+        }
+        
+        if (t.from().mapping(0).position().is_reverse()) {
+            // Wait for the forward-orientation version
+            continue;
+        }
+        
+        // Stick the from and to mappings in the list for the from node
+        collated[t.from().mapping(0).position().node_id()].push_back(make_pair(t.from().mapping(0), t.to().mapping(0)));
+    }
+    
+    for (auto& kv : collated) {
+        // For every original node and its replacement nodes
+        
+        // Sort the replacement mappings
+        std::sort(kv.second.begin(), kv.second.end(), [](const pair<Mapping, Mapping>& a, const pair<Mapping, Mapping>& b) {
+            // Return true if the a pair belongs before the b pair along the path through the original node
+            return a.first.position().offset() <= b.first.position().offset();
+        });
+        
+        // Make a new translation to cover the original node
+        Translation covering;
+        
+        for (auto mapping_pair : kv.second) {
+            // Split across these parts of new nodes
+            *(covering.mutable_to()->add_mapping()) = mapping_pair.second;
+        }
+        
+        // Just assume we take up the whole original node
+        auto* from_mapping = covering.mutable_from()->add_mapping();
+        from_mapping->mutable_position()->set_node_id(kv.first);
+        // Give it a full length perfect match
+        auto* from_edit = from_mapping->add_edit();
+        from_edit->set_from_length(path_from_length(covering.to()));
+        from_edit->set_to_length(from_edit->from_length());
+        
+        // Apply this (single node) translation.
+        // TODO: batch up a bit?
+        apply_translation(covering);
     }
 }
 

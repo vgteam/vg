@@ -57,6 +57,11 @@ protected:
     PathIndex& get_path_index(const string& path_name);
     
     /**
+     * Update all the path indexes according to the given translations.
+     */
+    void update_path_indexes(const vector<Translation>& translations);
+    
+    /**
      * Get all the unique combinations of variant alts represented by actual
      * haplotypes. Arbitrarily phases unphased variants.
      *
