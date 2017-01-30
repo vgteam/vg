@@ -47,7 +47,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         tie(before, variant, after) = buffer.get_nonoverlapping();
     
         // Where is it?
-        auto& variant_path_name = variant->sequenceName;
+        auto variant_path_name = vcf_to_fasta(variant->sequenceName);
         auto& variant_path_offset = variant->position; // Already made 0-based by the buffer
         
         if (!graph.paths.has_path(variant_path_name)) {
@@ -69,7 +69,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 #ifdef debug
         cerr << "Local variants: ";
         for (auto* v : local_variants) {
-            cerr << v->sequenceName << ":" << v->position << " ";
+            cerr << vcf_to_fasta(v->sequenceName) << ":" << v->position << " ";
         }
         cerr << endl;
 #endif
@@ -234,7 +234,7 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         size_t sep_length = variant->position - sep_start;
         
         // Pull out the separator sequence and tack it on.
-        result << get_path_index(variant->sequenceName).sequence.substr(sep_start, sep_length);
+        result << get_path_index(vcf_to_fasta(variant->sequenceName)).sequence.substr(sep_start, sep_length);
 
         // Then put the appropriate allele of this variant
         result << variant->alleles.at(haplotype.at(i));

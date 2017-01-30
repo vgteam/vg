@@ -25,7 +25,8 @@ using namespace vg::subcommand;
 void help_add(char** argv) {
     cerr << "usage: " << argv[0] << " add [options] old.vg >new.vg" << endl
          << "options:" << endl
-         << "    -v, --vcf FILE         add in variants from the given VCF file" << endl
+         << "    -v, --vcf FILE         add in variants from the given VCF file (may repeat)" << endl
+         << "    -n, --rename V=G       rename contig V in the VCFs to contig G in the graph (may repeat)" << endl
          << "    -p, --progress         show progress" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
@@ -40,6 +41,8 @@ int main_add(int argc, char** argv) {
     
     // We can have one or more VCFs
     vector<string> vcf_filenames;
+    // And one or more renames
+    vector<pair<string, string>> renames;
     bool show_progress = false;
 
     int c;
@@ -48,6 +51,7 @@ int main_add(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"vcf", required_argument, 0, 'v'},
+                {"rename", required_argument, 0, 'n'},
                 {"progress",  no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
@@ -55,7 +59,7 @@ int main_add(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:pt:h?",
+        c = getopt_long (argc, argv, "v:n:pt:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -67,6 +71,23 @@ int main_add(int argc, char** argv) {
 
         case 'v':
             vcf_filenames.push_back(optarg);
+            break;
+            
+        case 'n':
+            {
+                // Parse the rename old=new
+                string key_value(optarg);
+                auto found = key_value.find('=');
+                if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
+                    cerr << "error:[vg add] could not parse rename " << key_value << endl;
+                    exit(1);
+                }
+                // Parse out the two parts
+                string vcf_contig = key_value.substr(0, found);
+                string graph_contig = key_value.substr(found + 1);
+                // Add the name mapping
+                renames.emplace_back(vcf_contig, graph_contig);
+            }
             break;
 
         case 'p':
@@ -105,6 +126,10 @@ int main_add(int argc, char** argv) {
         // Make a VariantAdder for the graph
         VariantAdder adder(*graph);
         
+        for (auto& rename : renames) {
+            // Set up all the VCF contig renames from the command line
+            adder.add_name_mapping(rename.first, rename.second);
+        }
             
         for (auto vcf_filename : vcf_filenames) {
             // For each VCF

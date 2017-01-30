@@ -9,15 +9,17 @@
 #include "vcf_buffer.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
+#include "name_mapper.hpp"
 
 namespace vg {
 
 using namespace std;
 
 /**
- * A tool class for adding variants to a VG graph.
+ * A tool class for adding variants to a VG graph. Integrated NameMapper
+ * provides name translation for the VCF contigs.
  */
-class VariantAdder {
+class VariantAdder : public NameMapper {
 
 public:
     
