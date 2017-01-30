@@ -5299,7 +5299,8 @@ void help_map(char** argv) {
          << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment max:μ:σ    fragment length distribution specification to use in paired mapping (default: 1e4:0:0)" << endl
+         << "    -W, --fragment m:μ:σ:o:d  fragment length distribution specification to use in paired mapping (default: 1e4:0:0:0:1)" << endl
+         << "                              max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 16)" << endl
@@ -5406,6 +5407,8 @@ int main_map(int argc, char** argv) {
     double fragment_mean = 0;
     double fragment_stdev = 0;
     double fragment_sigma = 10;
+    bool fragment_orientation = false;
+    bool fragment_direction = true;
     bool use_cluster_mq = true;
     float chance_match = 0.05;
     bool smooth_alignments = true;
@@ -5717,12 +5720,14 @@ int main_map(int argc, char** argv) {
             vector<string> parts = split_delims(string(optarg), ":");
             if (parts.size() == 1) {
                 convert(parts[0], fragment_max);
-            } else if (parts.size() == 3) {
+            } else if (parts.size() == 5) {
                 convert(parts[0], fragment_max);
                 convert(parts[1], fragment_mean);
                 convert(parts[2], fragment_stdev);
+                convert(parts[3], fragment_orientation);
+                convert(parts[4], fragment_direction);
             } else {
-                cerr << "error [vg map] expected three :-delimited numbers to --fragment" << endl;
+                cerr << "error [vg map] expected five :-delimited numbers to --fragment" << endl;
                 return 1;
             }
         }
@@ -5926,6 +5931,8 @@ int main_map(int argc, char** argv) {
             m->fragment_size = fragment_max;
             m->cached_fragment_length_mean = fragment_mean;
             m->cached_fragment_length_stdev = fragment_stdev;
+            m->cached_fragment_orientation = fragment_orientation;
+            m->cached_fragment_direction = fragment_direction;
         }
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
