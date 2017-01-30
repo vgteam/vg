@@ -53,7 +53,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         if (!graph.paths.has_path(variant_path_name)) {
             // Explode if the path is not in the vg
             
-            cerr << "error:[vg add] could not find path" << variant_path_name << " in graph" << endl;
+            cerr << "error:[vg::VariantAdder] could not find path " << variant_path_name << " in graph" << endl;
             throw runtime_error("Missing path " + variant_path_name);
         }
         
