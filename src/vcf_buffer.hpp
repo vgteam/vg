@@ -107,6 +107,9 @@ private:
 /**
  * Provides a look-around buffer for VCFs where you can look at each variant in
  * the context of nearby variants.
+ *
+ * Also caches parsings of genotypes, so you can iterate over genotypes
+ * efficiently without parsing them out over and over again.
  */
 class WindowedVcfBuffer {
 
@@ -145,6 +148,16 @@ public:
     tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> get_nonoverlapping();
     
     /**
+     * Given a pointer to a cached variant owned by this WindowedVcfBuffer (such
+     * as might be obtained from get()), return the cached parsed-out genotypes
+     * for all the samples, in the order the samples appear in the VCF file.
+     *
+     * Returns a reference which is valid until the variant passed in is
+     * scrolled out of the buffer.
+     */
+    const vector<vector<int>>& get_parsed_genotypes(vcflib::Variant* variant);
+    
+    /**
      * This returns true if we have a tabix index, and false otherwise. If this
      * is false, set_region may be called, but will do nothing and return false.
      */
@@ -178,18 +191,19 @@ protected:
     size_t window_size;
     
     // This holds all the variants within the window before the current variant
-    list<vcflib::Variant> variants_before;
+    list<unique_ptr<vcflib::Variant>> variants_before;
     // This holds all the variants within the window after the current variant
-    list<vcflib::Variant> variants_after;
+    list<unique_ptr<vcflib::Variant>> variants_after;
     
     // The variant we are currently "on", which we are notionally in the process
     // of moving from the after list to the before list.
-    vcflib::Variant current;
+    unique_ptr<vcflib::Variant> current;
     
-    // This records whether we have a current variant loaded
-    bool has_current = false;
+    // Keep a cache of parsed genotypes for variants that are currently in one
+    // of our lists. Genotypes are vectors of allele numbers, one per sample,
+    // and occur in the order that the samples occur in the file.
+    map<vcflib::Variant*, vector<vector<int>>> cached_genotypes;
     
-
 private:
     // Don't copy or assign because we contain VcfBuffers
     WindowedVcfBuffer(const WindowedVcfBuffer& other) = delete;

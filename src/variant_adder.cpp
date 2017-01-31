@@ -90,7 +90,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         string right_context = index.sequence.substr(group_end, right_context_length);
         
         // Get the unique haplotypes
-        auto haplotypes = get_unique_haplotypes(local_variants);
+        auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
         
 #ifdef debug
         cerr << "Have " << haplotypes.size() << " haplotypes for variant " << *variant << endl;
@@ -156,7 +156,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
 }
 
-set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants) const {
+set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;
     
     if (variants.empty()) {
@@ -164,8 +164,9 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
         return haplotypes;
     }
     
-    for (auto& sample_name : variants.front()->sampleNames) {
+    for (size_t sample_index = 0; sample_index < variants.front()->sampleNames.size(); sample_index++) {
         // For every sample
+        auto& sample_name = variants.front()->sampleNames[sample_index];
         
         // Make its haplotype(s) on the region. We have a map from haplotype
         // number to actual vector. We'll tack stuff on the ends when they are
@@ -175,16 +176,32 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
         
         for (auto* variant : variants) {
             // Get the genotype for each sample
-            auto genotype = variant->getGenotype(sample_name);
+            vector<int> genotype;
             
-            // Fake it being phased
-            replace(genotype.begin(), genotype.end(), '/', '|');
+            if (cache != nullptr) {
+                // Use the cache provided by the buffer
+                genotype = cache->get_parsed_genotypes(variant).at(sample_index);
+            } else {
+                // Parse from the variant ourselves
+                auto genotype_string = variant->getGenotype(sample_name);
             
-            auto alts = vcflib::decomposePhasedGenotype(genotype);
+                // Fake it being phased
+                replace(genotype_string.begin(), genotype_string.end(), '/', '|');
+                
+                genotype = vcflib::decomposePhasedGenotype(genotype_string); 
+            }
             
-            for (size_t phase = 0; phase < alts.size(); phase++) {
+#ifdef debug
+            cerr << "Genotype of " << sample_name << " at " << variant->position << ": ";
+            for (auto& alt : genotype) {
+                cerr << alt << " ";
+            }
+            cerr << endl;
+#endif
+            
+            for (size_t phase = 0; phase < genotype.size(); phase++) {
                 // Stick each allele number at the end of its appropriate phase
-                sample_haplotypes[phase].push_back(alts[phase]);
+                sample_haplotypes[phase].push_back(genotype[phase]);
             }
         }
         

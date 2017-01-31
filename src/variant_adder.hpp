@@ -67,10 +67,16 @@ protected:
      * Get all the unique combinations of variant alts represented by actual
      * haplotypes. Arbitrarily phases unphased variants.
      *
+     * Can (and should) take a WindowedVcfBuffer that owns the variants, and
+     * from which cached pre-parsed genotypes can be extracted.
+     *
      * Returns a set of vectors or one number per variant, giving the alt number
      * (starting with 0 for reference) that appears on the haplotype.
+     *
+     * TODO: ought to just take a collection of pre-barsed genotypes, but in an
+     * efficient way (a vector of pointers to vectors of sample genotypes?)
      */
-    set<vector<int>> get_unique_haplotypes(const vector<vcflib::Variant*>& variants) const;
+    set<vector<int>> get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache = nullptr) const;
     
     /**
      * Convert a haplotype on a list of variants into a string. The string will
