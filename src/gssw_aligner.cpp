@@ -973,6 +973,10 @@ int32_t Aligner::score_exact_match(const string& sequence) {
     return match * sequence.length();
 }
 
+int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) {
+    return match * (seq_end - seq_begin);
+}
+
 double Aligner::score_to_unnormalized_likelihood_ln(double score) {
     // Log base needs to be set, or this can't work. It's set by default in
     // QualAdjAligner but needs to be set up manually in the normal Aligner.
@@ -1244,6 +1248,18 @@ int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& 
         // index 5 x 5 score matrices (ACGTN)
         // always have match so that row and column index are same and can combine algebraically
         score += adjusted_score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
+}
+
+
+int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                          string::const_iterator base_qual_begin) {
+    int32_t score = 0;
+    for (int32_t i = 0, seq_len = seq_end - seq_begin; i < seq_len; i++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += adjusted_score_matrix[25 * (*(base_qual_begin + i)) + 6 * nt_table[*(seq_begin + i)]];
     }
     return score;
 }

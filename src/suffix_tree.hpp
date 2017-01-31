@@ -37,12 +37,14 @@ namespace vg {
         ///
         /// Note: string cannot have null characters, but this is not checked.
         size_t longest_overlap(const string& str);
+        size_t longest_overlap(string::const_iterator begin, string::const_iterator end);
         
         /// Retuns a vector of all of the indices where a string occurs as a substring
         /// of the string used to construct the suffix tree. Indices are ordered arbitrarily.
         ///
         /// Note: string cannot have null characters, but this is not checked.
         vector<size_t> substring_locations(const string& str);
+        vector<size_t> substring_locations(string::const_iterator begin, string::const_iterator end);
         
         /// String representation for debugging.
         string to_string();

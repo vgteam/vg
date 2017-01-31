@@ -257,6 +257,48 @@ struct Tree {
 
 };
 
+struct IncrementIter {
+public:
+    IncrementIter(size_t number) : current(number) {
+        
+    }
+    
+    inline IncrementIter& operator=(const IncrementIter& other) {
+        current = other.current;
+        return *this;
+    }
+    
+    inline bool operator==(const RangeIncrementIterIter& other) const {
+        return current == other.current;
+    }
+    
+    inline bool operator!=(const IncrementIter& other) const {
+        return current != other.current;
+    }
+    
+    inline IncrementIter operator++() {
+        current++;
+        return *this;
+    }
+    
+    inline IncrementIter operator++( int ) {
+        IncrementIter temp = *this;
+        current++;
+        return temp;
+    }
+    
+    inline size_t operator*(){
+        return current;
+    }
+    
+private:
+    size_t current;
+};
+    
+pair<IncrementIter, IncrementIter> range(size_t begin, size_t end) {
+    return make_pair(IncrementIter(begin), IncrementIter(end));
+}
+
 // Get a callback with an istream& to an open file if a file name argument is
 // present after the parsed options, or print an error message and exit if one
 // is not. Handles "-" as a filename as indicating standard input. The reference

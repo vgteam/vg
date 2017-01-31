@@ -1,9 +1,5 @@
 //
 //  suffix_tree.cpp
-//  
-//
-//  Created by Jordan Eizenga on 1/22/17.
-//
 //
 
 #include "suffix_tree.hpp"
@@ -308,23 +304,28 @@ namespace vg {
     }
     
     size_t SuffixTree::longest_overlap(const string& str) {
-        
+        return longest_overlap(str.begin(), str.end());
+    }
+    
+    size_t SuffixTree::longest_overlap(string::const_iterator begin, string::const_iterator end) {
+    
         size_t overlap = 0;
         
         STNode* node = nullptr;
         unordered_map<char, STNode*>* branch_point = &root;
         
         size_t node_idx = 0;
+        size_t str_idx = 0;
         
-        for (size_t str_idx = 0; str_idx <= str.size(); str_idx++) {
+        for (auto iter = begin; iter <= end; iter++, str_idx++) {
             if (branch_point) {
                 // check if the prefix thus far is a suffix
                 if (branch_point->count('\0')) {
                     overlap = str_idx;
                 }
                 // check for match on the first position on a node using the edges
-                if (branch_point->count(str[str_idx])) {
-                    node = branch_point->at(str[str_idx]);
+                if (branch_point->count(*iter)) {
+                    node = branch_point->at(*iter);
                     branch_point = nullptr;
                     node_idx = 1;
                 }
@@ -334,7 +335,7 @@ namespace vg {
             }
             else {
                 // check for match along a node sequence
-                if (str_idx == str.size()) {
+                if (iter == end) {
                     // we've run out of string to find matches for but this could be
                     // an overlap if we're at the end of of the suffix tree string too
                     if (get_char(node->first + node_idx) == '\0') {
@@ -342,7 +343,7 @@ namespace vg {
                     }
                 }
                 else {
-                    if (str[str_idx] == get_char(node->first + node_idx)) {
+                    if (*iter == get_char(node->first + node_idx)) {
                         // we match here
                         node_idx++;
                     }
@@ -368,12 +369,20 @@ namespace vg {
     }
     
     vector<size_t> SuffixTree::substring_locations(const string& str) {
-        
+        return substring_locations(str.begin(), str.end());
+    }
+    
+    vector<size_t> SuffixTree::substring_locations(string::const_iterator begin, string::const_iterator end) {
+    
         vector<size_t> locations;
+        
+        
+        size_t str_len = this->end - this->begin;
+        size_t substr_len = end - begin;
         
         // ensure that we will never have an index beyond end of the suffix tree string
         // or try to match empty string (else it matches everywhere)
-        if (str.size() > end - begin || str.empty()) {
+        if (substr_len > str_len || end <= begin) {
             return locations;
         }
         
@@ -383,14 +392,12 @@ namespace vg {
         
         bool found_match = true;
         
-        //cerr << to_string();
-        
         // look for a match of the entirety of the query string
-        for (int64_t str_idx = 0; str_idx < str.size(); str_idx++) {
+        for (auto iter = begin; iter != end; iter++) {
             if (branch_point) {
                 // check for match on the first position on a node using the edges
-                if (branch_point->count(str[str_idx])) {
-                    node = branch_point->at(str[str_idx]);
+                if (branch_point->count(*iter)) {
+                    node = branch_point->at(*iter);
                     branch_point = nullptr;
                     node_idx = 1;
                 }
@@ -401,7 +408,7 @@ namespace vg {
             }
             else {
                 // check for match on the current position along a node
-                if (str[str_idx] == get_char(node->first + node_idx)) {
+                if (*iter == get_char(node->first + node_idx)) {
                     node_idx++;
                 }
                 else {
@@ -413,28 +420,21 @@ namespace vg {
             // mark if we need to use edges next iteration
             if (node_idx > node->last - node->first) {
                 branch_point = &(node->children);
-                //cerr << "reached branch point " << label_string(branch_point) << endl;
             }
         }
         
         if (found_match) {
             // we matched the entire query string, now traverse down the tree to find locations
             
-            size_t str_len = end - begin;
-            
-            //cerr << "completed match in node " << node_string(node, 0) << " [" << node->first << "," << node->last << "] at index " << node_idx << endl;
             
             // edge case: there is only one location, so we are already on a leaf node
             if (node->last == str_len) {
-                //cerr << "we are already at a leaf" << endl;
-                locations.push_back(node->first + node_idx - str.size());
+                locations.push_back(node->first + node_idx - substr_len);
                 return locations;
             }
             
             // mark the distance to the past-the-last index of this node
             int64_t depth_to_node_end = node->last - node->first - node_idx;
-            
-            //cerr << "initialized depths with distance to node end " << depth_to_node_end << endl;
             
             // initialize a stack with the next nodes down
             list<pair<STNode*, int64_t>> stack;
@@ -454,9 +454,7 @@ namespace vg {
                     STNode* head_node = path_head.first;
                     int64_t depth = path_head.second;
                     
-                    //cerr << "found leaf " << node_string(head_node, 0) << " [" << head_node->first << "," << head_node->last << "] at depth " << depth << endl;
-                    
-                    locations.push_back(str_len - (head_node->last - head_node->first + 1 + depth + str.size()));
+                    locations.push_back(str_len - (head_node->last - head_node->first + 1 + depth + substr_len));
                 }
                 else {
                     // we are at an internal node, update the depth and continue
@@ -464,7 +462,6 @@ namespace vg {
                     STNode* head_node = path_head.first;
                     int64_t next_depth = path_head.second + head_node->last - head_node->first + 1;
                     
-                    //cerr << "traversing through " << node_string(head_node, 0) << " [" << head_node->first << "," << head_node->last << "] at depth " << path_head.second << endl;
                     for (const pair<char, STNode*>& edge : path_head.first->children) {
                         stack.push_back(pair<STNode*, int64_t>(edge.second, next_depth));
                     }

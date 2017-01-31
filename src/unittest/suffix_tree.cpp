@@ -353,7 +353,7 @@ namespace vg {
                     
                     if (st_locations != direct_locations) {
                         // print out the failures since their random and we might have a hard time finding them again
-                        cerr << "FAILURE: wrong substring lcoations on " << str << " " << substr << endl;
+                        cerr << "FAILURE: wrong substring locations on " << str << " " << substr << endl;
                     }
                     
                     REQUIRE(st_locations == direct_locations);
@@ -403,7 +403,7 @@ namespace vg {
                     
                     if (st_locations != direct_locations) {
                         // print out the failures since their random and we might have a hard time finding them again
-                        cerr << "FAILURE: wrong substring lcoations on " << str << " " << substr << endl;
+                        cerr << "FAILURE: wrong substring locations on " << str << " " << substr << endl;
                     }
                     
                     REQUIRE(st_locations == direct_locations);

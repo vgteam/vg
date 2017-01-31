@@ -137,6 +137,7 @@ namespace vg {
         double score_to_unnormalized_likelihood_ln(double score);
         
         int32_t score_exact_match(const string& sequence);
+        int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end);
         
         // members
         int8_t* nt_table;
@@ -181,6 +182,8 @@ namespace vg {
         
         
         int32_t score_exact_match(const string& sequence, const string& base_quality);
+        int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                  string::const_iterator base_qual_begin);
         
     protected:
         void init_quality_adjusted_scores(int8_t _max_scaled_score,
