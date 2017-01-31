@@ -111,13 +111,13 @@ ref	18	rs1342	A	G	29	PASS	.	GT
                 REQUIRE(buffer.next()); // 4th
                 REQUIRE(buffer.next()); // 5th
                 
-                tie(before, current, after) = buffer.get();
+                tie(before, current, after) = buffer.get_nonoverlapping();
                 
                 REQUIRE(current != nullptr);
                 REQUIRE(current->id == "rs1341");
                 
-                SECTION("there are 3 variants before it in range that don't overlap it") {
-                    REQUIRE(before.size() == 3);
+                SECTION("there are 2 variants before it in range that don't overlap it or each other") {
+                    REQUIRE(before.size() == 2);
                 }
                 
                 SECTION("there is 1 variant after it") {
