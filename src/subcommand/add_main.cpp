@@ -123,6 +123,9 @@ int main_add(int argc, char** argv) {
     }
     
     {
+        // Clear existing path ranks (since we invalidate them)
+        graph->paths.clear_mapping_ranks();
+    
         // Make a VariantAdder for the graph
         VariantAdder adder(*graph);
         

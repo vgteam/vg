@@ -4472,9 +4472,6 @@ vector<Translation> VG::edit_fast(const Path& path) {
         orig_node_sizes[kv.first] = get_node(kv.first)->sequence().size();
     }
 
-    // Clear existing path ranks (sicne we invalidate them)
-    paths.clear_mapping_ranks();
-    
     // Break any nodes that need to be broken. Save the map we need to translate
     // from start positions on old nodes to new nodes.
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
