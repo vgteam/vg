@@ -35,15 +35,12 @@ struct PathIndex {
     /// reverse orientation.
     map<size_t, NodeSide> by_start;
     
-    /// This, combined with by_start, gets us the length of every node on the
-    /// indexed path.
-    size_t last_node_length;
-    
     /// The actual sequence of the path, if desired.
     std::string sequence;
     
     /// Index from Mapping pointers in a VG Paths object to their actual
-    /// positions along their paths.
+    /// positions along their paths. Pointers may dangle if the vg graph
+    /// changes the path.
     map<const Mapping*, size_t> mapping_positions;
     
     /// Index just a path
@@ -67,7 +64,7 @@ struct PathIndex {
     
     /// Rebuild the mapping positions map by tracing all the paths in the given
     /// graph. TODO: We ought to move this functionality to the Paths object and
-    // make it use a good datastructure instead of brute force.
+    /// make it use a good datastructure instead of brute force.
     void update_mapping_positions(VG& vg, const string& path_name);
     
     /// Find what node and orientation covers a position. The position must not
@@ -89,6 +86,51 @@ struct PathIndex {
     /// Get the length of the node occurrence on the path represented by this
     /// iterator.
     size_t node_length(const iterator& here) const;
+    
+    /**
+     * Update the index to reflect the changes described by a Translation.
+     * References to nodes along the "from" path are changed to references to
+     * nodes along the "to" path. The translation must contain two paths of
+     * equal length, containing only matches. The translation must only divide
+     * nodes; it may not join nodes together. The translation must fully account
+     * for each old node that it touches (it can't translate only part of a
+     * node). The translation may not re-use the ID from one original node for a
+     * piece of a different original node. All the Mappings in the Translation
+     * must have Edits.
+     */
+    void apply_translation(const Translation& translation);
+    
+    /**
+     * Update the index to reflect the changes described by the given collection
+     * of Translations. These translations are expected to be in the format
+     * produced by VG::edit() which is one to Mapping per translation. The
+     * vector may include both forward and reverse versions of each to node, and
+     * may also include translations mapping nodes that did not change to
+     * themselves.
+     */
+    void apply_translations(const vector<Translation>& translations);
+    
+protected:
+
+    /// This, combined with by_start, gets us the length of every node on the
+    /// indexed path.
+    size_t last_node_length;
+    
+    /// This holds all the places that a particular node occurs, in order.
+    /// TODO: use this to replace by_id
+    map<id_t, vector<iterator>> node_occurrences;
+    
+    /// Convert a Translation that partitions old nodes into a map from old node
+    /// ID to the Mappings that replace it in its forward orientation.
+    map<id_t, vector<Mapping>> parse_translation(const Translation& translation);
+    
+    /// Given an iterator into by_start, replace the occurrence of the node
+    /// there with occurrences of the nodes given in the vector of mappings,
+    /// which partition the forward strand of the node being replaced.
+    void replace_occurrence(iterator to_replace, const vector<Mapping>& replacements);
+    
+    
+    
 };
 
 }

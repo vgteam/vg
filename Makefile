@@ -94,6 +94,9 @@ OBJ += $(OBJ_DIR)/feature_set.o
 OBJ += $(OBJ_DIR)/simplifier.o
 OBJ += $(OBJ_DIR)/suffix_tree.o
 OBJ += $(OBJ_DIR)/chunker.o
+OBJ += $(OBJ_DIR)/vcf_buffer.o
+OBJ += $(OBJ_DIR)/variant_adder.o
+OBJ += $(OBJ_DIR)/name_mapper.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -115,12 +118,16 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/suffix_tree.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/aligner.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vcf_buffer.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/path_index.o
 
-# These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
+# These aren't put into libvg, but they provide subcommand implementations for the vg bianry
 SUBCOMMAND_OBJ =
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/subcommand.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/construct_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/add_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/simplify_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/index_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/mod_main.o
@@ -326,7 +333,7 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 
 # For most of the .o files we just specify dependencies and use the pattern rule.
 
-$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
+$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
 $(OBJ_DIR)/banded_global_aligner.o: $(SRC_DIR)/banded_global_aligner.cpp $(SRC_DIR)/banded_global_aligner.hpp $(DEPS)
 
@@ -350,7 +357,6 @@ $(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(CPP_DIR)/vg.pb.h $(
 
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(DEPS)
 
-#$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/alignment.hpp $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a  $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp $(LIB_DIR)/libxg.a
 $(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/alignment.hpp $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp $(INC_DIR)/stream.hpp $(DEPS)
 
 $(OBJ_DIR)/json2pb.o: $(SRC_DIR)/json2pb.cpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/bin2ascii.h $(DEPS)
@@ -393,9 +399,15 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(DEPS)
 
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(DEPS)
 
-$(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+$(OBJ_DIR)/constructor.o: $(SRC_DIR)/constructor.cpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/name_mapper.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 $(OBJ_DIR)/chunker.o: $(SRC_DIR)/chunker.cpp $(SRC_DIR)/chunker.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
+$(OBJ_DIR)/vcf_buffer.o: $(SRC_DIR)/vcf_buffer.cpp $(SRC_DIR)/vcf_buffer.hpp $(DEPS)
+
+$(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/name_mapper.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(OBJ_DIR)/name_mapper.o: $(SRC_DIR)/name_mapper.cpp $(DEPS)
 
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
@@ -448,7 +460,7 @@ $(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNI
 
 $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/constructor.o: $(UNITTEST_SRC_DIR)/constructor.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/constructor.o: $(UNITTEST_SRC_DIR)/constructor.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/name_mapper.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/flow_sort_test.o: $(UNITTEST_SRC_DIR)/flow_sort_test.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 
@@ -462,10 +474,16 @@ $(UNITTEST_OBJ_DIR)/mapping.o: $(UNITTEST_SRC_DIR)/mapping.cpp $(UNITTEST_SRC_DI
 
 $(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
 
+$(UNITTEST_OBJ_DIR)/aligner.o: $(UNITTEST_SRC_DIR)/aligner.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
+
 $(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(UNITTEST_OBJ_DIR)/chunker.o: $(UNITTEST_SRC_DIR)/chunker.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/chunker.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/vcf_buffer.o: $(UNITTEST_SRC_DIR)/vcf_buffer.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vcf_buffer.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/path_index.o: $(UNITTEST_SRC_DIR)/path_index.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
 ###################################
 ## VG subcommand compilation begins here
@@ -473,7 +491,7 @@ $(UNITTEST_OBJ_DIR)/chunker.o: $(UNITTEST_SRC_DIR)/chunker.cpp $(UNITTEST_SRC_DI
 
 $(SUBCOMMAND_OBJ_DIR)/subcommand.o: $(SUBCOMMAND_SRC_DIR)/subcommand.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/construct_main.o: $(SUBCOMMAND_SRC_DIR)/construct_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/constructor.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/construct_main.o: $(SUBCOMMAND_SRC_DIR)/construct_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/constructor.hpp $(SRC_DIR)/name_mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/simplify_main.o: $(SUBCOMMAND_SRC_DIR)/simplify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
@@ -490,6 +508,8 @@ $(SUBCOMMAND_OBJ_DIR)/mod_main.o: $(SUBCOMMAND_SRC_DIR)/mod_main.cpp $(SUBCOMMAN
 $(SUBCOMMAND_OBJ_DIR)/annotate_main.o: $(SUBCOMMAND_SRC_DIR)/annotate_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/chunk_main.o: $(SUBCOMMAND_SRC_DIR)/chunk_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/add_main.o: $(SUBCOMMAND_SRC_DIR)/add_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/name_mapper.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
 
 ########################

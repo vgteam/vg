@@ -1,4 +1,5 @@
-/*
+/**
+ * \file
  * constructor.cpp: contains implementations for vg construction functions.
  */
 
@@ -6,75 +7,17 @@
 #include "vg.hpp"
 #include "constructor.hpp"
 
+#include <cstdlib>
 #include <set>
 #include <tuple>
 #include <list>
 #include <algorithm>
 #include <memory>
 
+
 namespace vg {
 
     using namespace std;
-
-    vcflib::Variant* VcfBuffer::get() {
-        if(has_buffer) {
-            // We have a variant
-            return &buffer;
-        } else {
-            // No next variant loaded.
-            return nullptr;
-        }
-    }
-
-    void VcfBuffer::handle_buffer() {
-        // The variant in the buffer has been dealt with
-        assert(has_buffer);
-        has_buffer = false;
-    }
-
-    void VcfBuffer::fill_buffer() {
-        if(file != nullptr && file->is_open() && !has_buffer && safe_to_get) {
-            // Put a new variant in the buffer if we have a file and the buffer was empty.
-            has_buffer = safe_to_get = file->getNextVariant(buffer);
-            if(has_buffer) {
-                // Convert to 0-based positions.
-                // TODO: refactor to use vcflib zeroBasedPosition()...
-                buffer.position -= 1;
-            }
-#ifdef debug
-            cerr << "Variant in buffer: " << buffer << endl;
-#endif
-        }
-    }
-
-    bool VcfBuffer::has_tabix() {
-        return file && file->usingTabix;
-    }
-
-    bool VcfBuffer::set_region(const string& contig, int64_t start, int64_t end) {
-        if(!has_tabix()) {
-            // Nothing to seek in (or no file)
-            return false;
-        }
-
-        if(start != -1 && end != -1) {
-            // We have a start and end
-            return file->setRegion(contig, start, end);
-        } else {
-            // Just seek to the whole chromosome
-            return file->setRegion(contig);
-        }
-    }
-
-    VcfBuffer::VcfBuffer(vcflib::VariantCallFile* file) : file(file) {
-        // Our buffer needs to know about the VCF file it is reading from, because
-        // it cares about the sample names. If it's not associated properely, we
-        // can't getNextVariant into it.
-        if (file) {
-            // But only do it if we actually have a real file
-            buffer.setVariantCallFile(file);
-        }
-    }
 
     void Constructor::trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles) {
 
@@ -964,24 +907,6 @@ namespace vg {
         return to_return;
     }
 
-    void Constructor::add_name_mapping(const string& vcf_name, const string& fasta_name) {
-        // Fill in both one-way maps.
-        // TODO: C++ doesn't have a 2-way map right?
-        vcf_to_fasta_renames[vcf_name] = fasta_name;
-        fasta_to_vcf_renames[fasta_name] = vcf_name;
-#ifdef debug
-        cerr << "Added rename of " << vcf_name << " to " << fasta_name << endl;
-#endif
-    }
-
-    string Constructor::vcf_to_fasta(const string& vcf_name) const {
-        return vcf_to_fasta_renames.count(vcf_name) ? vcf_to_fasta_renames.at(vcf_name) : vcf_name;
-    }
-
-    string Constructor::fasta_to_vcf(const string& fasta_name) const {
-        return fasta_to_vcf_renames.count(fasta_name) ? fasta_to_vcf_renames.at(fasta_name) : fasta_name;
-    }
-
     void Constructor::construct_graph(string vcf_contig, FastaReference& reference, VcfBuffer& variant_source,
         const vector<FastaReference*>& insertions, function<void(Graph&)> callback) {
 
@@ -1261,111 +1186,10 @@ namespace vg {
             bool variant_acceptable = true;
 
 
-            size_t sv_len = 0;
-            bool var_is_sv = false;
             auto vvar = variant_source.get();
 
             if (do_svs) {
-                if (vvar->info.find("SVTYPE") != vvar->info.end() &&
-                        !(vvar->info["SVTYPE"].empty())){
-
-
-
-                    cerr << "Processing SV at position " << vvar->position << endl;
-                    var_is_sv = true;
-
-                    for (int alt_pos = 0; alt_pos < variant_source.get()->alt.size(); ++alt_pos) {
-                        string a = vvar->alt[alt_pos];
-                            // These should be normalized-ish
-                            // Ref field might be "N"
-                            // Alt field could be <INS>, but it *should* be the inserted sequence,
-                            // but that might be tucked away in an info field
-                            //
-                            //
-                            // From the VCF4.2 Specs:
-                            // END is POS + LEN(REF) - 1
-                            // SVLEN is the difference in length between REF and ALT alleles.
-
-
-                            if (!(vvar->info["SVTYPE"][alt_pos] == "INV" ||
-                                        vvar->info["SVTYPE"][alt_pos] == "DEL" ||
-                                        vvar->info["SVTYPE"][alt_pos] == "INS") || vvar->alt.size() > 1){
-                                variant_acceptable = false;
-                                break;                                                                                                                                  
-                            }
-
-                        if (vvar->info.find("SVLEN") != vvar->info.end()){
-
-                            sv_len = (size_t) (uint32_t) stol(vvar->info["SVLEN"][alt_pos]);
-                        }
-                        else if (vvar->info.find("END") != vvar->info.end()){
-
-                            sv_len = (size_t) stol(vvar->info["END"][alt_pos]) - (size_t) (vvar->position);
-                        }
-                        else{
-                            // If we have neither, we'll ignore it.
-                            variant_acceptable = false;
-                            break;
-                        }
-
-                        if (a == "<INS>" || vvar->info["SVTYPE"][alt_pos] == "INS"){
-                            vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, 1));
-                            if (vvar->alt[alt_pos] == "<INS>"){
-                                variant_acceptable = false;
-                            }
-                            else if (do_external_insertions){
-                                regex arrows("<|>");
-                                string var_name = regex_replace(vvar->alt[alt_pos], arrows, "");
-                                if (insertion_fasta->index->find(var_name) != insertion_fasta->index->end()){
-                                    cerr << "Replacing insertion with sequence of " << var_name << endl;
-                                    vvar->alt[alt_pos] = insertion_fasta->getSequence(var_name);
-                                    vvar->updateAlleleIndexes();
-                                }
-                            }
-                            else if (allATGC(a)){
-                                // we don't have to do anything - our INS is already in the correct format!
-                            }
-                            else{
-
-                            }
-                        }
-                        else if (a == "<DEL>" || vvar->info["SVTYPE"][alt_pos] == "DEL"){
-
-
-                            vvar->ref.assign(reference.getSubSequence(reference_contig, vvar->position, sv_len ));
-
-                            vvar->alt[alt_pos].assign(reference.getSubSequence(reference_contig, vvar->position, 1));
-
-                            if (vvar->ref.size() != sv_len){
-                                cerr << "Variant made is incorrect size" << endl;
-                                cerr << vvar->ref.size() - 1 << "\t" << sv_len << endl;
-                                cerr <<vvar->ref[vvar->ref.size() - 1] << "\t" << endl;
-                                //  exit(1);
-                            }
-                            vvar->updateAlleleIndexes();
-
-                        }
-                        else if (a == "<INV>" || vvar->info["SVTYPE"][alt_pos] == "INV"){
-                            vvar->ref = reference.getSubSequence(reference_contig, vvar->position, sv_len);
-                            string alt_str(reference.getSubSequence(reference_contig, vvar->position, sv_len));
-                            reverse(alt_str.begin(), alt_str.end());
-                            vvar->alt[alt_pos] = alt_str;
-
-                            // add 3 bases padding to right side 
-                            //vvar->ref.insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
-                            //vvar->alt[alt_pos].insert(0, reference.getSubSequence(reference_contig, vvar->position - 3, 3));
-                            //vvar->position = vvar->position - 3;
-                            vvar->updateAlleleIndexes();
-
-                            //variant_acceptable = false;
-
-                        }
-                        else{
-                            variant_acceptable = false;
-                        }
-                    }
-
-                }
+                variant_acceptable = vvar->canonicalize_sv(reference, insertions, -1);
             }
 
             for (string& alt : vvar->alt) {

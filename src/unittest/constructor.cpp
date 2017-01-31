@@ -1,4 +1,5 @@
 /**
+ * \file 
  * unittest/constructor.cpp: test cases for the vg graph constructor tool
  */
 

@@ -359,11 +359,21 @@ public:
     // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
     // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
     // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
-    vector<MaximalExactMatch> find_mems(string::const_iterator seq_begin,
-                                        string::const_iterator seq_end,
-                                        int max_mem_length = 0,
-                                        int min_mem_length = 1,
-                                        int reseed_length = 0);
+    
+    vector<MaximalExactMatch>
+    find_mems_deep(string::const_iterator seq_begin,
+                   string::const_iterator seq_end,
+                   int max_mem_length = 0,
+                   int min_mem_length = 1,
+                   int reseed_length = 0);
+
+    // Use the GCSA2 index to find super-maximal exact matches.
+    vector<MaximalExactMatch>
+    find_mems_simple(string::const_iterator seq_begin,
+                     string::const_iterator seq_end,
+                     int max_mem_length = 0,
+                     int min_mem_length = 1,
+                     int reseed_length = 0);
     
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);

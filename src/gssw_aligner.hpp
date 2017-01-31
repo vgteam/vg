@@ -75,9 +75,10 @@ namespace vg {
                 int32_t _gap_extension = default_gap_extension);
         ~Aligner(void);
         
-        // store optimal local alignment against a graph in the Alignment object
-        // assumes that graph is topologically sorted by node index
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        /// Store optimal local alignment against a graph in the Alignment object.
+        /// Gives the full length bonus separately on each end of the alignment.
+        /// Assumes that graph is topologically sorted by node index.
+        void align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -85,6 +86,8 @@ namespace vg {
         // pinning left means that that the alignment starts with the first base of the read sequence and
         // the first base of a source node sequence, pinning right means that the alignment starts with
         // the final base of the read sequence and the final base of a sink node sequence
+        //
+        // Gives the full length bonus only on the non-pinned end of the alignment.
         //
         // assumes that graph is topologically sorted by node index
         void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
@@ -163,7 +166,7 @@ namespace vg {
         ~QualAdjAligner(void);
 
         // base quality adjusted counterparts to functions of same name from Aligner
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, int8_t full_length_bonus = 0, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);

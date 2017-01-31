@@ -385,8 +385,20 @@ public:
     void include(const Path& path);
 
     /// %Edit the graph to include all the sequence and edges added by the given
-    /// paths. Can handle paths that visit nodes in any orientation.
+    /// paths. Can handle paths that visit nodes in any orientation. Returns a
+    /// vector of Translations, one per node existing after the edit, describing
+    /// how each new or conserved node is embedded in the old graph. Note that
+    /// this method sorts the graph and rebuilds the path index, so it should
+    /// not be called in a loop.
     vector<Translation> edit(const vector<Path>& paths);
+    
+    /// %Edit the graph to include all the sequences and edges added by the
+    /// given path. Returns a vector of Translations, one per original-node
+    /// fragment. Completely novel nodes are not mentioned, and nodes with no
+    /// Translations are assumed to be carried through unchanged. Invalidates
+    /// the rank-based Paths index. Does not sort the graph. Suitable for
+    /// calling in a loop.
+    vector<Translation> edit_fast(const Path& path);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need
@@ -394,21 +406,31 @@ public:
     void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
     /// Take a map from node ID to a set of offsets at which new nodes should
     /// start (which may include 0 and 1-past-the-end, which should be ignored),
-    /// break the specified nodes at those positions. Returns a map from old node
-    /// ID to a map from old node start position to new node pointer in the
-    /// graph. Note that the caller will have to crear and rebuild path rank
-    /// data.
+    /// break the specified nodes at those positions. Returns a map from old
+    /// node start position to new node pointer in the graph. Note that the
+    /// caller will have to crear and rebuild path rank data.
+    ///
+    /// Returns a map from old node start position to new node. This map
+    /// contains some entries pointing to null, for positions past the ends of
+    /// original nodes. It also maps from positions on either strand of the old
+    /// node to the same new node pointer; the new node's forward strand is
+    /// always the same as the old node's forward strand.
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     /// Flips the breakpoints onto the forward strand.
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
-    /// Given a path on nodes that may or may not exist, and a map from node ID
-    /// in the path's node ID space to a table of offset and actual node, add in
-    /// all the new sequence and edges required by the path. The given path must
-    /// not contain adjacent perfect match edits in the same mapping, or any
+    /// Given a path on nodes that may or may not exist, and a map from start
+    /// position in the old graph to a node in the current graph, add all the
+    /// new sequence and edges required by the path. The given path must not
+    /// contain adjacent perfect match edits in the same mapping, or any
     /// deletions on the start or end of mappings (the removal of which can be
     /// accomplished with the Path::simplify() function).
+    ///
+    /// Outputs (and caches for subsequent calls) novel nodes in added_seqs, and
+    /// Paths describing where novel nodes translate back to in the original
+    /// graph in added_nodes. Also needs a map of the original sizes of nodes
+    /// deleted from the original graph, for reverse complementing.
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, Node*>& added_seqs,
@@ -789,8 +811,8 @@ public:
 
     
     /// Align without base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     Aligner* aligner,
@@ -801,8 +823,8 @@ public:
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
@@ -814,8 +836,8 @@ public:
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
@@ -825,8 +847,8 @@ public:
                     bool banded_global = false,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
@@ -837,8 +859,8 @@ public:
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
@@ -849,8 +871,8 @@ public:
                                   bool banded_global = false,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
-    /// Align to the graph. The graph must be acyclic and contain only end-to-start edges.
-    /// Will modify the graph by re-ordering the nodes.
+    /// Align to the graph.
+    /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
