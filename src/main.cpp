@@ -6358,7 +6358,11 @@ void help_view(char** argv) {
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
-         << "    -l, --pileup-in      input VG Pileup format" << endl;
+         << "    -l, --pileup-in      input VG Pileup format" << endl
+
+         << "    -R, --snarl-in       input VG Snarl format" << endl
+         << "    -E, --snarl-traversal-in input VG SnarlTraversal format" << endl;
+    
     // TODO: Can we regularize the option names for input and output types?
 
 }
@@ -6447,11 +6451,13 @@ int main_view(int argc, char** argv) {
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
+                {"snarls", no_argument, 0, 'R'},
+                {"snarltraversals", no_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRE",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6627,6 +6633,22 @@ int main_view(int argc, char** argv) {
 
         case 'Q':
             loci_file = optarg;
+            break;
+
+        case 'R':
+            input_type = "snarls";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'E':
+            input_type = "snarltraversals";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'h':
@@ -6887,6 +6909,32 @@ int main_view(int argc, char** argv) {
             }
         }
         cout.flush();
+        return 0;
+    } else if (input_type == "snarls") {
+        if (output_type == "json") {
+            function<void(Snarl&)> lambda = [](Snarl& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) Snarls can only be converted to JSON" << endl;
+            return 1;
+        }
+        return 0;
+    } else if (input_type == "snarltraversals") {
+        if (output_type == "json") {
+            function<void(SnarlTraversal&)> lambda = [](SnarlTraversal& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) SnarlTraversals can only be converted to JSON" << endl;
+            return 1;
+        }
         return 0;
     }
 

@@ -58,8 +58,8 @@ SnarlManager CactusUltrabubbleFinder::find_snarls() {
             snarl.mutable_end()->set_node_id(bubble.end.node);
             snarl.mutable_end()->set_backward(bubble.end.is_end);
             
-            // Mark snarl as an ultrabubble
-            snarl.set_type(ULTRABUBBLE);
+            // Mark snarl as an ultrabubble if it's acyclic
+            snarl.set_type(bubble.acyclic ? ULTRABUBBLE : UNCLASSIFIED);
             
             // If not a top level site, add parent info
             if (node->parent != bubble_tree->root) {

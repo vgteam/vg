@@ -184,7 +184,7 @@ public:
     
 };
     
-class ExhaustiveTraversalFinder : TraversalFinder {
+class ExhaustiveTraversalFinder : public TraversalFinder {
     
     VG& graph;
     SnarlManager& snarl_manager;
