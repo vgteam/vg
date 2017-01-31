@@ -39,6 +39,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
     
+    // Count how many variants we have done
+    size_t variants_processed = 0;
+    
     while(buffer.next()) {
         // For each variant in its context of nonoverlapping variants
         vcflib::Variant* variant;
@@ -92,6 +95,12 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // Get the unique haplotypes
         auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
         
+        // Track the total bp of haplotypes
+        size_t total_haplotype_bases = 0;
+        
+        // Track the total graph size for the alignments
+        size_t total_graph_bases = 0;
+        
 #ifdef debug
         cerr << "Have " << haplotypes.size() << " haplotypes for variant " << *variant << endl;
 #endif
@@ -114,6 +123,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 #ifdef debug
             cerr << "Align " << to_align.str() << endl;
 #endif
+
+            // Count all the bases
+            total_haplotype_bases += to_align.str().size();
             
             // Find the node that the variant falls on right now
             NodeSide center = index.at_position(variant_path_offset);
@@ -128,6 +140,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // TODO: how many nodes should this be?
             // TODO: write/copy the search from xg so we can do this by node length.
             graph.expand_context(context, 10, false);
+            
+            // Record the size of graph we're aligning to in bases
+            total_graph_bases += context.length();
             
             // Do the alignment
             Alignment aln = context.align(to_align.str(), 0, false, false, 30);
@@ -150,6 +165,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Apply each translation to all the path indexes that might touch
             // the nodes it changed.
             update_path_indexes(translations);
+        }
+        
+        if (variants_processed++ % 1000 == 0 || true) {
+            cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
+                << variant->sequenceName << ":" << variant->position << ": "
+                << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
+                << (total_graph_bases / haplotypes.size()) << " bp haplotypes vs. graphs average" << endl;
         }
     }
     
@@ -190,6 +212,11 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
                 
                 genotype = vcflib::decomposePhasedGenotype(genotype_string); 
             }
+            
+            // Make missing data look just like reference, since we can't do
+            // anything with it.
+            // TODO: maybe erase these instead so their haplotype goes away?
+            replace(genotype.begin(), genotype.end(), vcflib::NULL_ALLELE, 0);
       
 #ifdef debug
             cerr << "Genotype of " << sample_name << " at " << variant->position << ": ";
