@@ -146,6 +146,11 @@ int main_add(int argc, char** argv) {
             adder.add_variants(&vcf);           
         
         }
+        
+        // TODO: should we sort the graph?
+        
+        // Rebuild all the path ranks and stuff
+        graph->paths.compact_ranks();
     }
         
     // Output the modified graph

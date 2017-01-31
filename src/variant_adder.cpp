@@ -137,8 +137,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 #endif
             
             // Make this path's edits to the original graph and get the
-            // translations.
-            auto translations = graph.edit(vector<Path>{aln.path()});
+            // translations. Invalidates any mapping ranks.
+            auto translations = graph.edit_fast(aln.path());
             
 #ifdef debug
             cerr << "Translations: " << endl;

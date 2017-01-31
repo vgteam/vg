@@ -4448,6 +4448,88 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     return make_translation(node_translation, added_nodes, orig_node_sizes);
 }
 
+// The not quite as correct but actually efficient way to edit the graph.
+vector<Translation> VG::edit_fast(const Path& path) {
+    // Collect the breakpoints
+    map<id_t, set<pos_t>> breakpoints;
+
+    // Every path we add needs to be simplified to merge adjacent match edits
+    // and prevent spurious breakpoints.
+    Path simplified = simplify(path);
+
+    // Find the breakpoints this path needs
+    find_breakpoints(path, breakpoints);
+
+    // Invert the breakpoints that are on the reverse strand
+    breakpoints = forwardize_breakpoints(breakpoints);
+    
+    // Get the node sizes of nodes that are getting destroyed, for use when
+    // making the translations and when reverse complementing old-graph paths.
+    map<id_t, size_t> orig_node_sizes;
+    for (auto& kv : breakpoints) {
+        // Just get the size of every node with a breakpoint on it.
+        // There might be extra, but it's way smaller than the whole graph.
+        orig_node_sizes[kv.first] = get_node(kv.first)->sequence().size();
+    }
+
+    // Clear existing path ranks (sicne we invalidate them)
+    paths.clear_mapping_ranks();
+    
+    // Break any nodes that need to be broken. Save the map we need to translate
+    // from start positions on old nodes to new nodes.
+    map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
+    
+    // we remember the sequences of nodes we've added at particular positions on the forward strand
+    map<pair<pos_t, string>, Node*> added_seqs;
+    // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
+    map<Node*, Path> added_nodes;
+    // create new nodes/wire things up.
+    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+
+    // Make the translations (in about the same format as VG::edit(), but without
+    // every single node)
+    vector<Translation> translations;
+    
+    for (auto& kv : node_translation) {
+        // For every translation from an old position to a new node (which may be null)
+        if (kv.second == nullptr) {
+            // Ignore the past-the-end entries
+            continue;
+        }
+        // There are reverse and forward entries and we make Translations for both.
+                
+        // Get the length of sequence involved
+        auto seq_length = kv.second->sequence().size();
+                
+        // Make a translation
+        Translation trans;
+        // The translation is "to" the new fragmentary node
+        auto* to_path = trans.mutable_to();
+        auto* to_mapping = to_path->add_mapping();
+        // Make sure the to mapping is in the same orientation as the
+        // from mapping, since we're going to be making translations on
+        // both strands and the new node is the same local orientation
+        // as the old node.
+        *(to_mapping->mutable_position()) = make_position(kv.second->id(), is_rev(kv.first), 0);
+        auto* to_edit = to_mapping->add_edit();
+        to_edit->set_from_length(seq_length);
+        to_edit->set_to_length(seq_length );
+        // And it is "from" the original position
+        Path* from_path = trans.mutable_from();
+        auto* from_mapping = from_path->add_mapping();
+        *(from_mapping->mutable_position()) = make_position(kv.first);
+        auto* from_edit = from_mapping->add_edit();
+        from_edit->set_from_length(seq_length);
+        from_edit->set_to_length(seq_length);
+        
+        translations.push_back(trans);
+    }
+    
+    // TODO: maybe we should also add translations to anchor completely novel nodes?
+
+    return translations;
+}
+
 vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translation,
                                          const map<Node*, Path>& added_nodes,
                                          const map<id_t, size_t>& orig_node_sizes) {
@@ -4470,6 +4552,10 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
                 auto pos = f->second;
                 auto from_mapping = trans.mutable_from()->add_mapping();
                 auto to_mapping = trans.mutable_to()->add_mapping();
+                // Make sure the to mapping is in the same orientation as the
+                // from mapping, since we're going to be making translations on
+                // both strands and the new node is the same local orientation
+                // as the old node.
                 *to_mapping->mutable_position() = make_position(node->id(), is_rev(pos), 0);
                 *from_mapping->mutable_position() = make_position(pos);
                 auto match_length = node->sequence().size();
@@ -4528,8 +4614,8 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
     auto get_orig_node_length = [&](id_t id) {
         auto f = orig_node_sizes.find(id);
         if (f == orig_node_sizes.end()) {
-            cerr << "ERROR: could not find node " << id << " in original length table" << endl;
-            exit(1);
+            // The node has no entry, so it must not have been broken
+            return get_node(id)->sequence().size();
         }
         return f->second;
     };
@@ -4775,17 +4861,20 @@ void VG::add_nodes_and_edges(const Path& path,
     // paths are articulated, and new node ID space, where the edges are being
     // made.
 
-    // We use this function to get the node that contains a position on an
-    // original node.
+    // We need orig_node_sizes so we can remember the sizes of nodes that we
+    // modified, so we can interpret the paths. It only holds sizes for modified
+    // nodes.
 
     if(!path.name().empty()) {
         // If the path has a name, we're going to add it to our collection of
         // paths, as we make all the new nodes and edges it requires. But, we
-        // can't already have any mappings under that path name, or we won;t be
+        // can't already have any mappings under that path name, or we won't be
         // able to just append in all the new mappings.
         assert(!paths.has_path(path.name()));
     }
 
+    // We use this function to get the node that contains a position on an
+    // original node.
     auto find_new_node = [&](pos_t old_pos) {
         if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
             // The node is unchanged
@@ -4910,8 +4999,8 @@ void VG::add_nodes_and_edges(const Path& path,
                         reverse_complement_path(from_path, [&](int64_t id) {
                                 auto l = orig_node_sizes.find(id);
                                 if (l == orig_node_sizes.end()) {
-                                    cerr << "could not find node " << id << " in orig_node_sizes table" << endl;
-                                    exit(1);
+                                    // The node has no entry, so it must not have been broken
+                                    return get_node(id)->sequence().size();
                                 } else {
                                     return l->second;
                                 }
