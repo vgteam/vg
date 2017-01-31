@@ -204,6 +204,11 @@ protected:
     // and occur in the order that the samples occur in the file.
     map<vcflib::Variant*, vector<vector<int>>> cached_genotypes;
     
+    // Keep a key from sample name index in map key order to sample index in the
+    // VCF. We use this to build our cache efficiently without any lample name
+    // lookups.
+    vector<size_t> map_order_to_original;
+    
 private:
     // Don't copy or assign because we contain VcfBuffers
     WindowedVcfBuffer(const WindowedVcfBuffer& other) = delete;

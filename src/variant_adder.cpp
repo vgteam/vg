@@ -190,7 +190,7 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
                 
                 genotype = vcflib::decomposePhasedGenotype(genotype_string); 
             }
-            
+      
 #ifdef debug
             cerr << "Genotype of " << sample_name << " at " << variant->position << ": ";
             for (auto& alt : genotype) {

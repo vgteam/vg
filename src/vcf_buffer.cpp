@@ -219,6 +219,30 @@ const vector<vector<int>>& WindowedVcfBuffer::get_parsed_genotypes(vcflib::Varia
 
     if (!cached_genotypes.count(variant)) {
         // We need to parse the genotypes for this variant
+        
+        if (map_order_to_original.empty()) {
+            // First we need to build our table converting from sample index in
+            // map iteration order to sample index in the original order.
+            
+            
+            // But to do that we need to be able to look up original index by
+            // sample name.
+            map<string, size_t> original_index_by_name;
+            for (size_t i = 0; i < variant->sampleNames.size(); i++) {
+                // Basically invert the vector's mapping
+                original_index_by_name[variant->sampleNames[i]] = i;
+            }
+            
+            for (auto& kv : variant->samples) {
+                // Now we go through the samples (where all the format field
+                // data is kept) in map iteration order, and put the actual
+                // sample number for each.
+                map_order_to_original.push_back(original_index_by_name.at(kv.first));
+            }
+            
+            // We're going to have to account for all the samples in the file.
+            assert(map_order_to_original.size() == variant->sampleNames.size());
+        }
 
         // Make a vector to fill in, with one entry per sample
         auto result = cached_genotypes.emplace(piecewise_construct,
@@ -227,20 +251,28 @@ const vector<vector<int>>& WindowedVcfBuffer::get_parsed_genotypes(vcflib::Varia
         assert(result.second);
         auto& genotypes = result.first->second;
         
-        for (size_t i = 0; i < genotypes.size(); i++) {
-            // For each sample, parse its genotype
-            auto& sample_name = variant->sampleNames[i];
+        // Track what entry we're on in the map from sample to FORMAT values
+        size_t map_index = 0;
+        for (auto& kv : variant->samples) {
+            // Go through all the parsed FORMAT fields for each sample
             
-            // Copy the genotype string for the sample
-            auto genotype = variant->getGenotype(sample_name);
+            // Figure out where in the vector by original sample index our
+            // result goes.
+            size_t original_index = map_order_to_original.at(map_index);
+            
+            // Pull out the GT value. Explode if there isn't one (though
+            // something like "." is acceptable)
+            auto gt_string = kv.second.at("GT").at(0);
             
             // Fake it being phased
-            replace(genotype.begin(), genotype.end(), '/', '|');
+            replace(gt_string.begin(), gt_string.end(), '/', '|');
             
             // Decompose it and fill in the genotype slot for this sample.
-            genotypes[i] = vcflib::decomposePhasedGenotype(genotype);
+            genotypes[original_index] = vcflib::decomposePhasedGenotype(gt_string);
+            
+            // Next we'll look at the next sample in map order.
+            map_index++;
         }
-        
     }
     return cached_genotypes.at(variant);
 
