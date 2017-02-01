@@ -27,6 +27,9 @@ PathIndex::PathIndex(const Path& path) {
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
         
+        // Remember that occurrence by node ID.
+        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
+        
         // Just advance and don't grab sequence.
         path_base += mapping_from_length(mapping);
     }
@@ -77,6 +80,9 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
         // Say that this node appears here along the reference in this
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
+    
+        // Remember that occurrence by node ID.
+        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
     
         // Say this Mapping happens at this base along the path
         mapping_positions[&mapping] = path_base;
@@ -179,6 +185,8 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
         // orientation.
         by_start[path_base] = NodeSide(mapping.position().node_id(), mapping.position().is_reverse());
     
+        // Remember that occurrence by node ID.
+        node_occurrences[mapping.position().node_id()].push_back(by_start.find(path_base));
     
         // Find the node's sequence
         std::string node_sequence = index.node_sequence(mapping.position().node_id());
@@ -332,6 +340,233 @@ size_t PathIndex::node_length(const iterator& here) const {
         // We have a next node visit, so from our start to its start is our
         // length
         return next->first - here->first;
+    }
+}
+
+map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& translation) {
+
+    // We take as a precondition that the translation is replacing a set of old
+    // nodes each with a nonempty set of new nodes. So we won't have to combine
+    // nodes or parts of nodes.
+    
+#ifdef debug
+    cerr << "Partitioning translation: " << pb2json(translation) << endl;
+#endif
+    
+    // We'll populate this with the mappings that partition each old node.
+    map<id_t, vector<Mapping>> old_node_to_new_nodes;
+    
+    // We know the new Mappings are conceptually nested in the old Mappings, so
+    // we can use nested loops.
+
+    // How many bases in the old and new paths are accounted for?
+    size_t old_bases = 0;
+    size_t new_bases = 0;
+
+    // This represents our index in the new path
+    size_t j = 0;    
+    
+    for(size_t i = 0; i < translation.from().mapping_size(); i++) {
+        // For every old mapping
+        auto& from_mapping = translation.from().mapping(i);
+        
+        // Count up its bases
+        old_bases += mapping_from_length(from_mapping);
+        
+        // Grab a reference to the list of replacement mappings
+        auto& replacements = old_node_to_new_nodes[from_mapping.position().node_id()];
+        
+        // We know the old mapping must have at least one new mapping in it
+        do {
+            // For each mapping in the new path, copy it
+            auto to_mapping = translation.to().mapping(j);
+            
+            if (from_mapping.position().is_reverse()) {
+                // Flip its strand if the mapping we're partitioning is backward
+                to_mapping.mutable_position()->set_is_reverse(!to_mapping.position().is_reverse());
+            }
+            
+            // Account for its bases
+            new_bases += mapping_from_length(to_mapping);
+            
+            // Copy it into the list for just this from node
+            replacements.push_back(to_mapping);
+            
+            // Look at the next to mapping
+            j++;
+        } while (j < translation.to().mapping_size() && new_bases < old_bases);
+        
+        if (from_mapping.position().is_reverse()) {
+            // Flip the order of the replacement mappings around
+            reverse(replacements.begin(), replacements.end());
+        }
+        
+#ifdef debug
+        cerr << "Old node " << from_mapping.position().node_id() << " "
+            << from_mapping.position().is_reverse() << " becomes: " << endl;
+        for(auto& m : old_node_to_new_nodes[from_mapping.position().node_id()]) {
+            cerr << "\t" << pb2json(m) << endl;
+        }
+#endif
+    }
+    
+    return old_node_to_new_nodes;
+
+}
+
+void PathIndex::apply_translation(const Translation& translation) {
+    
+    // Parse the translation, to get a map form old node ID to vector of
+    // replacement mappings.
+    auto old_node_to_new_nodes = parse_translation(translation);
+    
+    
+    // TODO: we would like to update mapping_positions efficiently, but we
+    // can't, because it's full of potentially invalidated pointers.
+    mapping_positions.clear();
+    
+    for (auto kv : old_node_to_new_nodes) {
+        // For every node that needs to be replaced with other nodes
+        auto& old_id = kv.first;
+        auto& replacements = kv.second;
+        
+        // Pull out all the occurrences of the old node.
+        vector<iterator> occurrences{std::move(node_occurrences[old_id])};
+        node_occurrences.erase(old_id);
+        
+        for (auto& occurrence : occurrences) {
+            // Each time the old node appeared, replace it (and log occurrences
+            // of the new nodes that partition it, one of which may re-use the
+            // ID)
+            replace_occurrence(occurrence, replacements);
+        }
+        
+#ifdef debug
+        cerr << "by_start is now: " << endl;
+        for (auto kv2 : by_start) {
+            cerr << "\t" << kv2.first << ": " << kv2.second << endl;
+        }
+#endif
+    }
+}
+
+void PathIndex::apply_translations(const vector<Translation>& translations) {
+    // Convert from normal to partitioning translations
+    
+    // For each original node ID, we keep a vector of pairs of from mapping and
+    // to mapping. We only keep pairs where the from mapping isn't empty.
+    map<id_t, vector<pair<Mapping, Mapping>>> collated;
+    
+    for (auto& t : translations) {
+        if (t.from().mapping_size() < 1 || t.to().mapping_size() != 1) {
+            // Ensure the translations are the format we expect. They always have
+            // at least one from mapping (but maybe an insert too) and exactly 1
+            // to mapping.
+            cerr << "error:[vg::PathIndex] Bad translation: " << pb2json(t) << endl;
+            throw runtime_error("Translation not in VG::edit() format");
+        }
+        
+        if (mapping_from_length(t.from().mapping(0)) == 0) {
+            // This is a novel node and can't be on our path
+            continue;
+        }
+        
+        if (t.from().mapping(0).position().is_reverse()) {
+            // Wait for the forward-orientation version
+            continue;
+        }
+        
+        // Stick the from and to mappings in the list for the from node
+        collated[t.from().mapping(0).position().node_id()].push_back(make_pair(t.from().mapping(0), t.to().mapping(0)));
+    }
+    
+    for (auto& kv : collated) {
+        // For every original node and its replacement nodes
+        
+        // Sort the replacement mappings
+        std::sort(kv.second.begin(), kv.second.end(), [](const pair<Mapping, Mapping>& a, const pair<Mapping, Mapping>& b) {
+            // Return true if the a pair belongs before the b pair along the path through the original node
+            return a.first.position().offset() <= b.first.position().offset();
+        });
+        
+        // Make a new translation to cover the original node
+        Translation covering;
+        
+        for (auto mapping_pair : kv.second) {
+            // Split across these parts of new nodes
+            *(covering.mutable_to()->add_mapping()) = mapping_pair.second;
+        }
+        
+        // Just assume we take up the whole original node
+        auto* from_mapping = covering.mutable_from()->add_mapping();
+        from_mapping->mutable_position()->set_node_id(kv.first);
+        // Give it a full length perfect match
+        auto* from_edit = from_mapping->add_edit();
+        from_edit->set_from_length(path_from_length(covering.to()));
+        from_edit->set_to_length(from_edit->from_length());
+        
+        // Apply this (single node) translation.
+        // TODO: batch up a bit?
+        apply_translation(covering);
+    }
+}
+
+void PathIndex::replace_occurrence(iterator to_replace, const vector<Mapping>& replacements) {
+    // Grab the node ID
+    auto node_id = to_replace->second.node;
+    
+    // Grab it's start
+    auto start = to_replace->first;
+    
+    // Determine if we want to insert replacement nodes forward or backward
+    bool reverse = to_replace->second.is_end;
+    
+    // Peek ahead at whatever's next (so we know if we're replacing the last
+    // node in the path).
+    auto comes_next = to_replace;
+    comes_next++;
+    
+    if (by_id.count(node_id) && by_id.at(node_id).first == start) {
+        // We're removing the first occurrence of this node, so we need to
+        // clean up by_id. But since we're removing all occurreences of this
+        // node we don't have to point it at the second occurrence.
+        by_id.erase(node_id);
+    }
+    
+    for (int64_t i = reverse ? (replacements.size() - 1) : 0;
+        i != (reverse ? -1 : replacements.size());
+        i += (reverse ? -1 : 1)) {
+        
+        // For each replacement mapping in the appropriate order
+        auto& mapping = replacements.at(i);
+        
+        // What ID do we put?
+        auto new_id = mapping.position().node_id();
+        
+        // What orientation doies it go in?
+        auto new_orientation = mapping.position().is_reverse() != reverse;
+        
+        // Stick the replacements in the map
+        by_start[start] = NodeSide(new_id, new_orientation);
+        
+        // Remember that occurrence by node ID.
+        node_occurrences[new_id].push_back(by_start.find(start));
+        
+        if (!by_id.count(new_id) || by_id.at(new_id).first > start) {
+            // We've created a new first mapping to this new node.
+            // Record it.
+            by_id[new_id] = make_pair(start, new_orientation);
+        }
+        
+        // Budge start up so the next mapping gets inserted after this one.
+        start += mapping_from_length(mapping);
+        
+        if (comes_next == by_start.end() && i == (reverse ? 0 : replacements.size() - 1)) {
+            // We just added the last mapping replacing what the old last
+            // mapping was. So update the length of the last node to reflect
+            // this new last node.
+            last_node_length = mapping_from_length(mapping);
+        }
     }
 }
 
