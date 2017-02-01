@@ -1009,9 +1009,18 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
     paths.compact_ranks();
 }
 
+void VG::expand_context(VG& g, size_t distance, bool add_paths, bool use_steps) {
+    // Dispatch the appropriate implementation
+    if (use_steps) {
+        expand_context_by_steps(g, distance, add_paths);
+    } else {
+        expand_context_by_length(g, distance, add_paths);
+    }
+}
+
 // expand the context of the subgraph g by this many steps
 // it's like a neighborhood function
-void VG::expand_context(VG& g, size_t steps, bool add_paths) {
+void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     set<id_t> to_visit;
     // start with the nodes in the subgraph
     g.for_each_node([&](Node* n) { to_visit.insert(n->id()); });
@@ -1057,6 +1066,145 @@ void VG::expand_context(VG& g, size_t steps, bool add_paths) {
             });
         g.sync_paths();
     }
+}
+
+void VG::expand_context_by_length(VG& g, size_t length, bool add_paths) {
+    
+    // We have a set of newly added nodes.
+    set<id_t> new_nodes;
+    
+    // We have an operation to take a node
+    auto take_node = [&](id_t id) {
+        if (!g.has_node(id)) {
+            g.create_node(get_node(id)->sequence(), id);\
+            new_nodes.insert(id);
+        }
+    };
+    
+    // This holds how many bases of budget are remaining when about to leave
+    // from this NodeSide?
+    map<NodeSide, int64_t> budget_remaining;
+    
+    // This is the set of NodeSides we still have to look out from.
+    set<NodeSide> active;
+    
+    // start with the nodes in the subgraph
+    g.for_each_node([&](Node* n) {
+        // Say every node has a budget of the whole length out from its ends.
+        NodeSide left(n->id(), false);
+        budget_remaining[left] = length;
+        active.insert(left);
+#ifdef debug
+        cerr << "Start with budget " << length << " at " << left << endl;
+#endif
+        NodeSide right(n->id(), true);
+        budget_remaining[right] = length;
+        active.insert(right);
+#ifdef debug
+        cerr << "Start with budget " << length << " at " << right << endl;
+#endif
+    });
+    
+    while (!active.empty()) {
+        // While there are still active NodeSides to extend, find one
+        NodeSide here = *active.begin();
+        
+#ifdef debug
+        cerr << "Consider " << here;
+#endif
+
+        // We know this node is already in the graph, so no need to add it.
+        
+        // Get its budget
+        auto budget = budget_remaining.at(here);
+        
+#ifdef debug
+        cerr << "\tBudget: " << budget << endl;
+#endif
+        
+        for (auto connected : sides_of(here)) {
+            // Go through all the NodeSides we can reach from here
+        
+            // Add each of them to the graph if not there already
+            take_node(connected.node);
+            
+#ifdef debug
+            cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+#endif
+            
+            // For each one, reflect it to the other side of its node
+            auto reflection = connected.flip();
+            
+            // Deduct the length of the reached node from the budget of this NodeSide
+            int64_t new_budget = budget - get_node(connected.node)->sequence().size();
+
+            if (new_budget > 0 && new_budget > budget_remaining[reflection]) {            
+                // If it's greater than the old budget (default budget is 0)
+                
+                // Replace the old budget and activate the other NodeSide
+                budget_remaining[reflection] = new_budget;
+                active.insert(reflection);
+                
+#ifdef debug
+                cerr << "\tUp budget on " << reflection << " to " << new_budget << endl;
+#endif
+            }
+        }
+            
+        // Deactivate the NodeSide we just did
+        active.erase(here);
+    }
+    
+    // Now take all the edges among the nodes we added
+    for (id_t new_id : new_nodes) {
+        // For each newly added node, create edges involving any nodes that are
+        // in the graph. TODO: this will add edges twice, but they'll be
+        // deduplicated.
+        
+#ifdef debug
+        cerr << "For new node " << new_id << endl;
+#endif
+        
+        for (auto* edge : edges_from(get_node(new_id))) {
+            // For every edge from here
+            if (g.has_node(edge->to())) {
+                // If it goes to a node in the graph, add it.
+                g.add_edge(*edge);
+#ifdef debug
+                cerr << "\tTake from edge " << pb2json(*edge) << endl;
+#endif
+            }
+        }
+        
+        for (auto* edge : edges_to(get_node(new_id))) {
+            // For every edge to here
+            if (g.has_node(edge->from())) {
+                // If it goes from a node in the graph, add it.
+                g.add_edge(*edge);
+#ifdef debug
+                cerr << "\tTake to edge " << pb2json(*edge) << endl;
+#endif
+            }
+        }
+        
+    }
+    
+    // and add paths
+    // TODO: deduplicate this code with the node count based version
+    if (add_paths) {
+        g.for_each_node([&](Node* n) {
+                for (auto& path : paths.get_node_mapping(n)) {
+                    for (auto& m : path.second) {
+                        g.paths.append_mapping(path.first, *m);
+                    }
+                }
+            });
+        g.sync_paths();
+    }
+    
+#ifdef dubug
+    cerr << pb2json(g.graph) << endl;
+#endif
 }
 
 bool VG::adjacent(const Position& pos1, const Position& pos2) {

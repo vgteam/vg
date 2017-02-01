@@ -137,9 +137,11 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Extract its graph context for realignment
             VG context;
             graph.nonoverlapping_node_context_without_paths(graph.get_node(center.node), context);
-            // TODO: how many nodes should this be?
-            // TODO: write/copy the search from xg so we can do this by node length.
-            graph.expand_context(context, 10, false);
+            graph.expand_context_by_length(context, (variant_range + flank_range * 2), false);
+            
+#ifdef debug
+            cerr << "Got " << context.length() << " bp in " << context.size() << " nodes" << endl;
+#endif
             
             // Record the size of graph we're aligning to in bases
             total_graph_bases += context.length();
@@ -167,7 +169,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             update_path_indexes(translations);
         }
         
-        if (variants_processed++ % 1000 == 0 || true) {
+        if (variants_processed++ % 1000 == 0) {
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "

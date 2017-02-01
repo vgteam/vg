@@ -38,12 +38,12 @@ public:
     void add_variants(vcflib::VariantCallFile* vcf);
     
     /// How wide of a range in bases should we look for nearby variants in?
-    size_t variant_range = 100;
+    size_t variant_range = 50;
     
     /// How much additional context should we try and add outside the variants
     /// we grab? This sin't added to variant_range; it's counted from the outer
     /// ends of variants actually found.
-    size_t flank_range = 100;
+    size_t flank_range = 20;
     
 protected:
     /// The graph we are modifying
