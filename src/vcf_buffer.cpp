@@ -262,13 +262,10 @@ const vector<vector<int>>& WindowedVcfBuffer::get_parsed_genotypes(vcflib::Varia
             
             // Pull out the GT value. Explode if there isn't one (though
             // something like "." is acceptable)
-            auto gt_string = kv.second.at("GT").at(0);
-            
-            // Fake it being phased
-            replace(gt_string.begin(), gt_string.end(), '/', '|');
+            auto& gt_string = kv.second.at("GT").at(0);
             
             // Decompose it and fill in the genotype slot for this sample.
-            genotypes[original_index] = vcflib::decomposePhasedGenotype(gt_string);
+            genotypes[original_index] = decompose_genotype_fast(gt_string);
             
             // Next we'll look at the next sample in map order.
             map_index++;
@@ -276,6 +273,56 @@ const vector<vector<int>>& WindowedVcfBuffer::get_parsed_genotypes(vcflib::Varia
     }
     return cached_genotypes.at(variant);
 
+}
+
+vector<int> WindowedVcfBuffer::decompose_genotype_fast(const string& genotype) {
+    // Rather than doing lots of splits, we just squash atoi in with a single
+    // pass over the characters in place.
+    
+    // We'll fill this in
+    vector<int> to_return;
+    
+    // Guess at size
+    to_return.reserve(2);
+    
+    // We use this for our itoa
+    int number = 0;
+    for (size_t i = 0; i < genotype.size(); i++) {
+        switch(genotype[i]) {
+        case '.':
+            // We have a missing allele.
+            number = vcflib::NULL_ALLELE;
+            break;
+        case '|':
+        case '/':
+            // We've terminated a field
+            to_return.push_back(number);
+            number = 0;
+            break;
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            // We have a digit, so add it to the growing number
+            number *= 10;
+            number += (genotype[i] - '0');
+            break;
+        default:
+            throw std::runtime_error("Invalid genotype character in " + genotype);
+            break;            
+        }
+    }
+    if(!genotype.empty()) {
+        // Finish the last field
+        to_return.push_back(number);
+    }
+    return to_return;
 }
 
 }

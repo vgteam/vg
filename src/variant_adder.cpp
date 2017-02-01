@@ -12,6 +12,7 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph) {
     
 // We need a function to grab the index for a path
 PathIndex& VariantAdder::get_path_index(const string& path_name) {
+
     if (!indexes.count(path_name)) {
         // Not already made. Generate it.
         indexes.emplace(piecewise_construct,
@@ -32,9 +33,6 @@ void VariantAdder::update_path_indexes(const vector<Translation>& translations) 
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
-    // We collect all the edits we need to make, and then make them all at
-    // once.
-    vector<Path> edits_to_make;
     
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
@@ -53,16 +51,15 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         auto variant_path_name = vcf_to_fasta(variant->sequenceName);
         auto& variant_path_offset = variant->position; // Already made 0-based by the buffer
         
-        if (!graph.paths.has_path(variant_path_name)) {
-            // Explode if the path is not in the vg
-            
-            cerr << "error:[vg::VariantAdder] could not find path " << variant_path_name << " in graph" << endl;
-            throw runtime_error("Missing path " + variant_path_name);
+        #pragma omp critical (variant_adder_indexes_and_graph)
+        {
+            if (!graph.paths.has_path(variant_path_name)) {
+                // Explode if the path is not in the vg
+                
+                cerr << "error:[vg::VariantAdder] could not find path " << variant_path_name << " in graph" << endl;
+                throw runtime_error("Missing path " + variant_path_name);
+            }
         }
-        
-        // Grab the path index.
-        // It's a reference so it can be updated when we apply translations to all indexes.
-        auto& index = get_path_index(variant_path_name);
         
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants{before};
@@ -81,6 +78,23 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t group_start = local_variants.front()->position;
         // And where does it end (exclusive)?
         size_t group_end = local_variants.back()->position + local_variants.back()->ref.size();
+        
+        
+        // Grab the path index pointer so it can be updated when we
+        // apply translations to all indexes.
+        PathIndex* index_ptr = nullptr;
+        
+        
+        // We synchronize on the inexes and the graph because we want to keep
+        // the indexes in sync with the graph, and this call can generate an
+        // index from the graph. Also so we don't try to access and update the
+        // index map at the same time.
+        #pragma omp critical (variant_adder_indexes_and_graph)
+        {
+            index_ptr = &get_path_index(variant_path_name);
+        }
+        // Turn pointer into a reference
+        auto& index = *index_ptr;
         
         // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
 
@@ -127,46 +141,50 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Count all the bases
             total_haplotype_bases += to_align.str().size();
             
-            // Find the node that the variant falls on right now
-            NodeSide center = index.at_position(variant_path_offset);
+            #pragma omp critical (variant_adder_indexes_and_graph)
+            {
             
+                // Find the node that the variant falls on right now
+                NodeSide center = index.at_position(variant_path_offset);
+                
 #ifdef debug
-            cerr << "Center node: " << center << endl;
+                cerr << "Center node: " << center << endl;
 #endif
-            
-            // Extract its graph context for realignment
-            VG context;
-            graph.nonoverlapping_node_context_without_paths(graph.get_node(center.node), context);
-            graph.expand_context_by_length(context, (variant_range + flank_range * 2), false);
-            
+                
+                // Extract its graph context for realignment
+                VG context;
+                graph.nonoverlapping_node_context_without_paths(graph.get_node(center.node), context);
+                graph.expand_context_by_length(context, (variant_range + flank_range * 2), false);
+                
 #ifdef debug
-            cerr << "Got " << context.length() << " bp in " << context.size() << " nodes" << endl;
+                cerr << "Got " << context.length() << " bp in " << context.size() << " nodes" << endl;
 #endif
-            
-            // Record the size of graph we're aligning to in bases
-            total_graph_bases += context.length();
-            
-            // Do the alignment
-            Alignment aln = context.align(to_align.str(), 0, false, false, 30);
+                
+                // Record the size of graph we're aligning to in bases
+                total_graph_bases += context.length();
+                
+                // Do the alignment
+                Alignment aln = context.align(to_align.str(), 0, false, false, 30);
 
 #ifdef debug            
-            cerr << "Alignment: " << pb2json(aln) << endl;
+                cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
-            
-            // Make this path's edits to the original graph and get the
-            // translations. Invalidates any mapping ranks.
-            auto translations = graph.edit_fast(aln.path());
-            
+                
+                // Make this path's edits to the original graph and get the
+                // translations. Invalidates any mapping ranks.
+                auto translations = graph.edit_fast(aln.path());
+                
 #ifdef debug
-            cerr << "Translations: " << endl;
-            for (auto& t : translations) {
-                cerr << "\t" << pb2json(t) << endl;
-            }
+                cerr << "Translations: " << endl;
+                for (auto& t : translations) {
+                    cerr << "\t" << pb2json(t) << endl;
+                }
 #endif
-            
-            // Apply each translation to all the path indexes that might touch
-            // the nodes it changed.
-            update_path_indexes(translations);
+                
+                // Apply each translation to all the path indexes that might touch
+                // the nodes it changed.
+                update_path_indexes(translations);
+            }
         }
         
         if (variants_processed++ % 1000 == 0) {
@@ -200,11 +218,11 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
         
         for (auto* variant : variants) {
             // Get the genotype for each sample
-            vector<int> genotype;
+            const vector<int>* genotype;
             
             if (cache != nullptr) {
                 // Use the cache provided by the buffer
-                genotype = cache->get_parsed_genotypes(variant).at(sample_index);
+                genotype = &cache->get_parsed_genotypes(variant).at(sample_index);
             } else {
                 // Parse from the variant ourselves
                 auto genotype_string = variant->getGenotype(sample_name);
@@ -212,25 +230,25 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
                 // Fake it being phased
                 replace(genotype_string.begin(), genotype_string.end(), '/', '|');
                 
-                genotype = vcflib::decomposePhasedGenotype(genotype_string); 
+                genotype = new vector<int>(vcflib::decomposePhasedGenotype(genotype_string));
             }
             
-            // Make missing data look just like reference, since we can't do
-            // anything with it.
-            // TODO: maybe erase these instead so their haplotype goes away?
-            replace(genotype.begin(), genotype.end(), vcflib::NULL_ALLELE, 0);
-      
 #ifdef debug
             cerr << "Genotype of " << sample_name << " at " << variant->position << ": ";
-            for (auto& alt : genotype) {
+            for (auto& alt : *genotype) {
                 cerr << alt << " ";
             }
             cerr << endl;
 #endif
             
-            for (size_t phase = 0; phase < genotype.size(); phase++) {
+            for (size_t phase = 0; phase < genotype->size(); phase++) {
                 // Stick each allele number at the end of its appropriate phase
-                sample_haplotypes[phase].push_back(genotype[phase]);
+                sample_haplotypes[phase].push_back((*genotype)[phase]);
+            }
+            
+            if (cache == nullptr) {
+                // We're responsible for this vector
+                delete genotype;
             }
         }
         
@@ -282,8 +300,9 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         // Pull out the separator sequence and tack it on.
         result << get_path_index(vcf_to_fasta(variant->sequenceName)).sequence.substr(sep_start, sep_length);
 
-        // Then put the appropriate allele of this variant
-        result << variant->alleles.at(haplotype.at(i));
+        // Then put the appropriate allele of this variant. Don't let negative
+        // missing allele values through; treat them as ref.
+        result << variant->alleles.at(max(0, haplotype.at(i)));
     }
     
     return result.str();

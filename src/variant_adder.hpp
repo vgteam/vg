@@ -33,7 +33,8 @@ public:
      * Add in the variants from the given non-null VCF file. The file must be
      * freshly opened. The variants in the file must be sorted.
      *
-     * Each file of variants is added as a batch.
+     * May be called from multiple threads. Synchronizes internally on the
+     * graph.
      */
     void add_variants(vcflib::VariantCallFile* vcf);
     
@@ -85,7 +86,6 @@ protected:
      */
     string haplotype_to_string(const vector<int>& haplotype, const vector<vcflib::Variant*>& variants);
  
-
 };
 
 }

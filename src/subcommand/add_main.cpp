@@ -111,6 +111,22 @@ int main_add(int argc, char** argv) {
         }
     }
     
+    // Open all the VCFs into a list
+    vector<unique_ptr<vcflib::VariantCallFile>> vcfs;
+    
+    for (auto vcf_filename : vcf_filenames) {
+        // For each VCF filename
+        
+        // Open it
+        vcfs.emplace_back(new vcflib::VariantCallFile());
+        auto& vcf = *vcfs.back();
+        vcf.open(vcf_filename);
+        if (!vcf.is_open()) {
+            cerr << "error:[vg add] could not open " << vcf_filename << endl;
+            return 1;
+        }
+    }
+    
     // Load the graph
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
@@ -133,21 +149,15 @@ int main_add(int argc, char** argv) {
             // Set up all the VCF contig renames from the command line
             adder.add_name_mapping(rename.first, rename.second);
         }
-            
-        for (auto vcf_filename : vcf_filenames) {
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < vcfs.size(); i++) {
             // For each VCF
+            auto& vcf = *vcfs[i];
             
-            // Open it
-            vcflib::VariantCallFile vcf;
-            vcf.open(vcf_filename);
-            if (!vcf.is_open()) {
-                cerr << "error:[vg add] could not open " << vcf_filename << endl;
-                return 1;
-            }
-        
-            // Add the variants from the VCF to the graph
-            adder.add_variants(&vcf);           
-        
+            // Add the variants from the VCF to the graph, at the same
+            // time as other VCFs.
+            adder.add_variants(&vcf);        
         }
         
         // TODO: should we sort the graph?

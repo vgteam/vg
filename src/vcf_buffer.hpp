@@ -183,6 +183,11 @@ public:
     
 protected:
     
+    /**
+     * Quickly decompose a genotype without any string copies.
+     */
+    static vector<int> decompose_genotype_fast(const string& genotype);
+    
     // This lets us read from our VCF
     VcfBuffer reader;
     
