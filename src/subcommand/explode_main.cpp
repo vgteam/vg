@@ -95,6 +95,10 @@ int main_explode(int argc, char** argv) {
         if (!used.count(start)) {
             // It's a new connected component!
             VG component;
+            
+            // We want to track the path names in each component
+            set<string> path_names;
+            
             graph->for_each_connected_node(start, [&](Node* n) {
                 // Mark this connected node as used in a component.
                 used.insert(n);
@@ -109,8 +113,15 @@ int main_explode(int argc, char** argv) {
                 
                 // Copy paths over
                 for (auto& path : graph->paths.get_node_mapping(n)) {
+                    // Some paths might not actually touch this node at all.
+                    bool nonempty = false;
                     for (auto& m : path.second) {
                         component.paths.append_mapping(path.first, *m);
+                        nonempty = true;
+                    }
+                    if (nonempty) {
+                        // This path had mappings, so it qualifies for the component
+                        path_names.insert(path.first);
                     }
                 }
             });
@@ -120,6 +131,13 @@ int main_explode(int argc, char** argv) {
             // Save the component
             string filename = output_dir + "/component" + to_string(component_index) + ".vg";
             component.serialize_to_file(filename);
+            
+            // Now report what paths went into the component in parseable TSV
+            cerr << filename;
+            for (auto& path_name : path_names) {
+                cerr << "\t" << path_name;
+            }
+            cerr << endl;
             
             component_index++;
         }
