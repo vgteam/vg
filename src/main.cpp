@@ -4164,8 +4164,9 @@ int main_stats(int argc, char** argv) {
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
         << "options:" << endl
-        << "  obtain paths in GAM:" << endl
-        << "    -x, --extract         return (as alignments) the stored paths in the graph" << endl
+        << "  inspection:" << endl
+        << "    -x, --extract         return (as GAM alignments) the stored paths in the graph" << endl
+        << "    -L, --list            return (as a list of names, one per line) the path names" << endl
         << "  generation:" << endl
         << "    -n, --node ID         starting at node with ID" << endl
         << "    -l, --max-length N    generate paths of at most length N" << endl
@@ -4186,6 +4187,7 @@ int main_paths(int argc, char** argv) {
     int64_t node_id = 0;
     bool as_seqs = false;
     bool extract = false;
+    bool list_paths = false;
     bool path_only = false;
 
     int c;
@@ -4195,6 +4197,7 @@ int main_paths(int argc, char** argv) {
 
         {
             {"extract", no_argument, 0, 'x'},
+            {"list", no_argument, 0, 'L'},
             {"node", required_argument, 0, 'n'},
             {"max-length", required_argument, 0, 'l'},
             {"edge-max", required_argument, 0, 'e'},
@@ -4204,7 +4207,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:xp",
+        c = getopt_long (argc, argv, "n:l:hse:xLp",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4216,6 +4219,10 @@ int main_paths(int argc, char** argv) {
 
             case 'x':
                 extract = true;
+                break;
+                
+            case 'L':
+                list_paths = true;
                 break;
 
             case 'n':
@@ -4259,6 +4266,14 @@ int main_paths(int argc, char** argv) {
     if (extract) {
         vector<Alignment> alns = graph->paths_as_alignments();
         write_alignments(cout, alns);
+        delete graph;
+        return 0;
+    }
+    
+    if (list_paths) {
+        graph->paths.for_each_name([&](const string& name) {
+            cout << name << endl;
+        });
         delete graph;
         return 0;
     }
