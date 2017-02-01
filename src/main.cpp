@@ -3532,8 +3532,6 @@ void help_stats(char** argv) {
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
-         << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -3561,8 +3559,6 @@ int main_stats(int argc, char** argv) {
     bool distance_to_tail = false;
     bool node_count = false;
     bool edge_count = false;
-    bool superbubbles = false;
-    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -3588,8 +3584,6 @@ int main_stats(int argc, char** argv) {
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
-            {"superbubbles", no_argument, 0, 'b'},
-            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -3652,14 +3646,6 @@ int main_stats(int argc, char** argv) {
 
         case 'n':
             ids.insert(atoi(optarg));
-            break;
-
-        case 'b':
-            superbubbles = true;
-            break;
-
-        case 'u':
-            ultrabubbles = true;
             break;
 
         case 'A':
@@ -3740,21 +3726,6 @@ int main_stats(int argc, char** argv) {
                 cout << (h==heads.begin()?"":",") << (*h)->id();
             }
             cout << "\t" << length << endl;
-        }
-    }
-
-    if (superbubbles || ultrabubbles) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
-        for (auto& i : bubbles) {
-            auto b = i.first;
-            auto v = i.second;
-            // sort output for now, to help do diffs in testing
-            sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
         }
     }
 

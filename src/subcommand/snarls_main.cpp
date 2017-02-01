@@ -19,13 +19,16 @@ using namespace vg::subcommand;
 
 void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
+         << "       By default, a list of protobug Snarls is written" << endl
          << "options:" << endl
+         << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
+         << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
          << "traversals:" << endl
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
          << "    -i, --include-ends    include snarl endpoints as first and last nodes in traversal" << endl
-         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl;    
+         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -42,12 +45,16 @@ int main_snarl(int argc, char** argv) {
     bool top_level_only = false;
     bool include_endpoints = false;
     int max_nodes = 100;
+    bool legacy_superbubbles = false;
+    bool legacy_ultrabubbles = false;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
+                {"superbubbles", no_argument, 0, 'b'},
+                {"ultrabubbles", no_argument, 0, 'u'},
                 {"traversals", required_argument, 0, 'r'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
@@ -57,7 +64,7 @@ int main_snarl(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "r:loim:h?",
+        c = getopt_long (argc, argv, "bur:loim:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -66,6 +73,14 @@ int main_snarl(int argc, char** argv) {
 
         switch (c)
         {
+            
+        case 'b':
+            legacy_superbubbles = true;
+            break;
+
+        case 'u':
+            legacy_ultrabubbles = true;
+            break;
 
         case 'r':
             traversal_file = optarg;
@@ -100,6 +115,14 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
+    if (legacy_ultrabubbles || legacy_superbubbles) {
+        if (!traversal_file.empty() ||
+            legacy_ultrabubbles == legacy_superbubbles) {
+            cerr << "error:[vg snarl]: -u and -s options must be used alone" << endl;
+            return 1;
+        }
+    }
+
     // Prepare traversal output stream
     ofstream trav_stream;
     if (!traversal_file.empty()) {
@@ -107,6 +130,7 @@ int main_snarl(int argc, char** argv) {
         if (!trav_stream) {
             cerr << "error:[vg snarl]: Could not open \"" << traversal_file
                  << "\" for writing" << endl;
+            return 1;
         }
     }
 
@@ -119,6 +143,23 @@ int main_snarl(int argc, char** argv) {
     if (graph == nullptr) {
         cerr << "error:[vg snarl]: Could not load graph" << endl;
         exit(1);
+    }
+
+    // old code from vg stats
+    if (legacy_superbubbles || legacy_ultrabubbles) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
+        for (auto& i : bubbles) {
+            auto b = i.first;
+            auto v = i.second;
+            // sort output for now, to help do diffs in testing
+            sort(v.begin(), v.end());
+            cout << b.first << "\t" << b.second << "\t";
+            for (auto& n : v) {
+                cout << n << ",";
+            }
+            cout << endl;
+        }
+        return 0;
     }
     
     // The only implemnted snarl finder:
