@@ -4570,7 +4570,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
 #endif
                     patch.clear_sequence(); // we set the whole sequence later
-                    if (min_identity && patch.identity() < min_identity) {
+                    if (!patch.path().mapping_size() || min_identity && patch.identity() < min_identity) {
                         //cerr << "doing that other thing" << endl;
                         score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                         *new_mapping->add_edit() = edit;
