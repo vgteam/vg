@@ -300,9 +300,15 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         // Pull out the separator sequence and tack it on.
         result << get_path_index(vcf_to_fasta(variant->sequenceName)).sequence.substr(sep_start, sep_length);
 
+        // Get the allele to use, ignoring missing data
+        int allele_index = haplotype.at(i);
+        if (allele_index == vcflib::NULL_ALLELE) {
+            allele_index = 0;
+        }
+
         // Then put the appropriate allele of this variant. Don't let negative
         // missing allele values through; treat them as ref.
-        result << variant->alleles.at(max(0, haplotype.at(i)));
+        result << variant->alleles.at(allele_index);
     }
     
     return result.str();
