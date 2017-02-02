@@ -77,10 +77,10 @@ int main_explode(int argc, char** argv) {
     });
 
     // Grab the directory name to put stuff in
-    string output_dir = get_input_file_name(optind, argc, argv);
+    string output_dir = get_output_file_name(optind, argc, argv);
     
     // Make sure it exists if it's not a directory already
-    mkdir(output_dir.c_str(), 0644);
+    mkdir(output_dir.c_str(), 0755);
     // Ignore failure
     
     // Now we explode the VG
@@ -130,14 +130,17 @@ int main_explode(int argc, char** argv) {
             
             // Save the component
             string filename = output_dir + "/component" + to_string(component_index) + ".vg";
-            component.serialize_to_file(filename);
             
             // Now report what paths went into the component in parseable TSV
-            cerr << filename;
+            cout << filename;
             for (auto& path_name : path_names) {
-                cerr << "\t" << path_name;
+                cout << "\t" << path_name;
             }
-            cerr << endl;
+            cout << endl;
+            
+            component.serialize_to_file(filename);
+            
+            
             
             component_index++;
         }

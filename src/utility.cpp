@@ -237,6 +237,25 @@ string get_input_file_name(int& optind, int argc, char** argv) {
     
 }
 
+string get_output_file_name(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Complain that the user didn't specify a filename
+        cerr << "error:[get_output_file_name] specify output filename" << endl;
+        exit(1);
+    }
+    
+    string file_name(argv[optind++]);
+    
+    if (file_name.empty()) {
+        cerr << "error:[get_output_file_name] specify a non-empty output filename" << endl;
+        exit(1);
+    }
+    
+    return file_name;
+    
+}
+
 void get_input_file(const string& file_name, function<void(istream&)> callback) {
 
     if (file_name == "-") {

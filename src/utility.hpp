@@ -268,6 +268,10 @@ void get_input_file(int& optind, int argc, char** argv, function<void(istream&)>
 // throw an error. File name must be nonempty, but may be "-" or may not exist.
 string get_input_file_name(int& optind, int argc, char** argv);
 
+// Parse out the name of an output file (i.e. the next positional argument), or
+// throw an error. File name must be nonempty.
+string get_output_file_name(int& optind, int argc, char** argv);
+
 // Get a callback with an istream& to an open file. Handles "-" as a filename as
 // indicating standard input. The reference passed is guaranteed to be valid
 // only until the callback returns.
