@@ -145,7 +145,7 @@ string tmpfilename(const string& base) {
     return tmpname;
 }
 
-string tmpfilename() {
+string find_temp_dir() {
     // We need to find the system temp directory.
     const char* system_temp_dir = nullptr;
     
@@ -160,8 +160,12 @@ string tmpfilename() {
         system_temp_dir = "/tmp";
     }
     
-    // Make a temp file in there.
-    return tmpfilename(string(system_temp_dir) + "/vg");
+    return std::string(system_temp_dir);
+}
+
+string tmpfilename() {
+    // Make a temp file in the system temp directory.
+    return tmpfilename(find_temp_dir() + "/vg");
 }
 
 string get_or_make_variant_id(const vcflib::Variant& variant) {

@@ -635,6 +635,9 @@ int main_vectorize(int argc, char** argv){
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Configure its temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
 
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;
@@ -2135,6 +2138,9 @@ int main_msga(int argc, char** argv) {
     gcsa::LCPArray* lcpidx = nullptr;
     xg::XG* xgidx = nullptr;
     size_t iter = 0;
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
 
     auto rebuild = [&](VG* graph) {
         if (mapper) delete mapper;
@@ -2155,6 +2161,9 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        
+        // Configure its temp directory to the system temp directory
+        gcsa::TempFile::setDirectory(find_temp_dir());
 
         if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
@@ -4990,6 +4999,9 @@ int main_find(int argc, char** argv) {
 
             // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+            
+            // Configure its temp directory to the system temp directory
+            gcsa::TempFile::setDirectory(find_temp_dir());
 
             // Open it
             ifstream in_gcsa(gcsa_in.c_str());
@@ -5794,6 +5806,9 @@ int main_map(int argc, char** argv) {
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Configure its temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
 
     // Load up our indexes.
     xg::XG* xindex = nullptr;
