@@ -242,8 +242,16 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
 #endif
             
             for (size_t phase = 0; phase < genotype->size(); phase++) {
+                // For each phase in the genotype
+                
+                // Get the allele number and ignore missing data
+                int allele_index = (*genotype)[phase];
+                if (allele_index == vcflib::NULL_ALLELE) {
+                    allele_index = 0;
+                }
+                
                 // Stick each allele number at the end of its appropriate phase
-                sample_haplotypes[phase].push_back((*genotype)[phase]);
+                sample_haplotypes[phase].push_back(allele_index);
             }
             
             if (cache == nullptr) {
@@ -283,17 +291,8 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         return "";
     }
     
-    // Get actual allele indexes, replacing null alleles with ref
-    auto get_allele_number = [&](size_t variant_index) {
-        int allele_index = haplotype.at(variant_index);
-        if (allele_index == vcflib::NULL_ALLELE) {
-            allele_index = 0;
-        }
-        return allele_index;
-    };
-    
     // Do the first variant
-    result << variants.front()->alleles.at(get_allele_number(0));
+    result << variants.front()->alleles.at(haplotype.at(0));
     
     for (size_t i = 1; i < variants.size(); i++) {
         // For each subsequent variant
@@ -310,7 +309,7 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         result << get_path_index(vcf_to_fasta(variant->sequenceName)).sequence.substr(sep_start, sep_length);
 
         // Then put the appropriate allele of this variant.
-        result << variant->alleles.at(get_allele_number(i));
+        result << variant->alleles.at(haplotype.at(i));
     }
     
     return result.str();
