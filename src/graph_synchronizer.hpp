@@ -6,8 +6,8 @@
  * concurrent access and updates to a VG graph.
  */
 
-#include <vg.hpp>
-#include <path_index.hpp>
+#include "vg.hpp"
+#include "path_index.hpp"
 
 #include <thread>
 #include <mutex>

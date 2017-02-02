@@ -10,6 +10,7 @@
 #include "path_index.hpp"
 #include "vg.hpp"
 #include "name_mapper.hpp"
+#include "graph_synchronizer.hpp"
 
 namespace vg {
 
@@ -50,19 +51,9 @@ protected:
     /// The graph we are modifying
     VG& graph;
     
-    /// We need indexes of all the paths that variants happen on. This holds a
-    /// PathIndex for each path we touch by path name.
-    map<string, PathIndex> indexes;
-    
-    /**
-     * Get the index for the given path name.
-     */
-    PathIndex& get_path_index(const string& path_name);
-    
-    /**
-     * Update all the path indexes according to the given translations.
-     */
-    void update_path_indexes(const vector<Translation>& translations);
+    /// We keep a GraphSynchronizer so we can have multiple threads working on
+    /// different parts of the same graph.
+    GraphSynchronizer sync;
     
     /**
      * Get all the unique combinations of variant alts represented by actual
