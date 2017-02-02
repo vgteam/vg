@@ -3532,8 +3532,6 @@ void help_stats(char** argv) {
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
-         << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -3561,8 +3559,6 @@ int main_stats(int argc, char** argv) {
     bool distance_to_tail = false;
     bool node_count = false;
     bool edge_count = false;
-    bool superbubbles = false;
-    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -3588,8 +3584,6 @@ int main_stats(int argc, char** argv) {
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
-            {"superbubbles", no_argument, 0, 'b'},
-            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -3652,14 +3646,6 @@ int main_stats(int argc, char** argv) {
 
         case 'n':
             ids.insert(atoi(optarg));
-            break;
-
-        case 'b':
-            superbubbles = true;
-            break;
-
-        case 'u':
-            ultrabubbles = true;
             break;
 
         case 'A':
@@ -3740,21 +3726,6 @@ int main_stats(int argc, char** argv) {
                 cout << (h==heads.begin()?"":",") << (*h)->id();
             }
             cout << "\t" << length << endl;
-        }
-    }
-
-    if (superbubbles || ultrabubbles) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
-        for (auto& i : bubbles) {
-            auto b = i.first;
-            auto v = i.second;
-            // sort output for now, to help do diffs in testing
-            sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
         }
     }
 
@@ -6365,7 +6336,11 @@ void help_view(char** argv) {
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
-         << "    -l, --pileup-in      input VG Pileup format" << endl;
+         << "    -l, --pileup-in      input VG Pileup format" << endl
+
+         << "    -R, --snarl-in       input VG Snarl format" << endl
+         << "    -E, --snarl-traversal-in input VG SnarlTraversal format" << endl;
+    
     // TODO: Can we regularize the option names for input and output types?
 
 }
@@ -6454,11 +6429,13 @@ int main_view(int argc, char** argv) {
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
+                {"snarls", no_argument, 0, 'R'},
+                {"snarltraversals", no_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRE",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6634,6 +6611,22 @@ int main_view(int argc, char** argv) {
 
         case 'Q':
             loci_file = optarg;
+            break;
+
+        case 'R':
+            input_type = "snarls";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'E':
+            input_type = "snarltraversals";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'h':
@@ -6894,6 +6887,32 @@ int main_view(int argc, char** argv) {
             }
         }
         cout.flush();
+        return 0;
+    } else if (input_type == "snarls") {
+        if (output_type == "json") {
+            function<void(Snarl&)> lambda = [](Snarl& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) Snarls can only be converted to JSON" << endl;
+            return 1;
+        }
+        return 0;
+    } else if (input_type == "snarltraversals") {
+        if (output_type == "json") {
+            function<void(SnarlTraversal&)> lambda = [](SnarlTraversal& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) SnarlTraversals can only be converted to JSON" << endl;
+            return 1;
+        }
         return 0;
     }
 

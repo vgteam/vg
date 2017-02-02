@@ -58,8 +58,8 @@ SnarlManager CactusUltrabubbleFinder::find_snarls() {
             snarl.mutable_end()->set_node_id(bubble.end.node);
             snarl.mutable_end()->set_backward(bubble.end.is_end);
             
-            // Mark snarl as an ultrabubble
-            snarl.set_type(ULTRABUBBLE);
+            // Mark snarl as an ultrabubble if it's acyclic
+            snarl.set_type(bubble.acyclic ? ULTRABUBBLE : UNCLASSIFIED);
             
             // If not a top level site, add parent info
             if (node->parent != bubble_tree->root) {
@@ -226,7 +226,11 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
             stack.push_back(to_rev_node_traversal(child_site->start(), graph));
         }
         else {
-            // add all of the node traversals we can reach through valid walks
+            // make a visit out of the node traversal
+            visit.set_node_id(node_traversal.node->id());
+            visit.set_backward(node_traversal.backward);
+            
+            // add all of the node traversals we can reach through valid walks to stack
             stack_up_valid_walks(node_traversal, stack);
         }
         
