@@ -150,7 +150,7 @@ int main_add(int argc, char** argv) {
             adder.add_name_mapping(rename.first, rename.second);
         }
 
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (size_t i = 0; i < vcfs.size(); i++) {
             // For each VCF
             auto& vcf = *vcfs[i];

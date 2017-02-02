@@ -283,8 +283,17 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         return "";
     }
     
+    // Get actual allele indexes, replacing null alleles with ref
+    auto get_allele_number = [&](size_t variant_index) {
+        int allele_index = haplotype.at(variant_index);
+        if (allele_index == vcflib::NULL_ALLELE) {
+            allele_index = 0;
+        }
+        return allele_index;
+    };
+    
     // Do the first variant
-    result << variants.front()->alleles.at(haplotype.at(0));
+    result << variants.front()->alleles.at(get_allele_number(0));
     
     for (size_t i = 1; i < variants.size(); i++) {
         // For each subsequent variant
@@ -300,15 +309,8 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         // Pull out the separator sequence and tack it on.
         result << get_path_index(vcf_to_fasta(variant->sequenceName)).sequence.substr(sep_start, sep_length);
 
-        // Get the allele to use, ignoring missing data
-        int allele_index = haplotype.at(i);
-        if (allele_index == vcflib::NULL_ALLELE) {
-            allele_index = 0;
-        }
-
-        // Then put the appropriate allele of this variant. Don't let negative
-        // missing allele values through; treat them as ref.
-        result << variant->alleles.at(allele_index);
+        // Then put the appropriate allele of this variant.
+        result << variant->alleles.at(get_allele_number(i));
     }
     
     return result.str();
