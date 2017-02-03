@@ -54,8 +54,6 @@ const string duplicator_graph_1 = R"(
 
 TEST_CASE("PhaseDuplicator can emit a single traversal", "[phaseduplicator][indexing]") {
         
-    // Make a graph
-    
     // Make an actual graph
     Graph graph;
     json2pb(graph, duplicator_graph_1.c_str(), duplicator_graph_1.size());

@@ -3532,8 +3532,6 @@ void help_stats(char** argv) {
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
-         << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -3561,8 +3559,6 @@ int main_stats(int argc, char** argv) {
     bool distance_to_tail = false;
     bool node_count = false;
     bool edge_count = false;
-    bool superbubbles = false;
-    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -3588,8 +3584,6 @@ int main_stats(int argc, char** argv) {
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
-            {"superbubbles", no_argument, 0, 'b'},
-            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -3652,14 +3646,6 @@ int main_stats(int argc, char** argv) {
 
         case 'n':
             ids.insert(atoi(optarg));
-            break;
-
-        case 'b':
-            superbubbles = true;
-            break;
-
-        case 'u':
-            ultrabubbles = true;
             break;
 
         case 'A':
@@ -3740,21 +3726,6 @@ int main_stats(int argc, char** argv) {
                 cout << (h==heads.begin()?"":",") << (*h)->id();
             }
             cout << "\t" << length << endl;
-        }
-    }
-
-    if (superbubbles || ultrabubbles) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
-        for (auto& i : bubbles) {
-            auto b = i.first;
-            auto v = i.second;
-            // sort output for now, to help do diffs in testing
-            sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
         }
     }
 
@@ -5299,7 +5270,8 @@ void help_map(char** argv) {
          << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment max:μ:σ    fragment length distribution specification to use in paired mapping (default: 1e4:0:0)" << endl
+         << "    -W, --fragment m:μ:σ:o:d  fragment length distribution specification to use in paired mapping (default: 1e4:0:0:0:1)" << endl
+         << "                              max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 16)" << endl
@@ -5406,6 +5378,8 @@ int main_map(int argc, char** argv) {
     double fragment_mean = 0;
     double fragment_stdev = 0;
     double fragment_sigma = 10;
+    bool fragment_orientation = false;
+    bool fragment_direction = true;
     bool use_cluster_mq = true;
     float chance_match = 0.05;
     bool smooth_alignments = true;
@@ -5717,12 +5691,14 @@ int main_map(int argc, char** argv) {
             vector<string> parts = split_delims(string(optarg), ":");
             if (parts.size() == 1) {
                 convert(parts[0], fragment_max);
-            } else if (parts.size() == 3) {
+            } else if (parts.size() == 5) {
                 convert(parts[0], fragment_max);
                 convert(parts[1], fragment_mean);
                 convert(parts[2], fragment_stdev);
+                convert(parts[3], fragment_orientation);
+                convert(parts[4], fragment_direction);
             } else {
-                cerr << "error [vg map] expected three :-delimited numbers to --fragment" << endl;
+                cerr << "error [vg map] expected five :-delimited numbers to --fragment" << endl;
                 return 1;
             }
         }
@@ -5926,6 +5902,8 @@ int main_map(int argc, char** argv) {
             m->fragment_size = fragment_max;
             m->cached_fragment_length_mean = fragment_mean;
             m->cached_fragment_length_stdev = fragment_stdev;
+            m->cached_fragment_orientation = fragment_orientation;
+            m->cached_fragment_direction = fragment_direction;
         }
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
@@ -6358,7 +6336,11 @@ void help_view(char** argv) {
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
-         << "    -l, --pileup-in      input VG Pileup format" << endl;
+         << "    -l, --pileup-in      input VG Pileup format" << endl
+
+         << "    -R, --snarl-in       input VG Snarl format" << endl
+         << "    -E, --snarl-traversal-in input VG SnarlTraversal format" << endl;
+    
     // TODO: Can we regularize the option names for input and output types?
 
 }
@@ -6447,11 +6429,13 @@ int main_view(int argc, char** argv) {
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
+                {"snarls", no_argument, 0, 'R'},
+                {"snarltraversals", no_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRE",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6627,6 +6611,22 @@ int main_view(int argc, char** argv) {
 
         case 'Q':
             loci_file = optarg;
+            break;
+
+        case 'R':
+            input_type = "snarls";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'E':
+            input_type = "snarltraversals";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'h':
@@ -6887,6 +6887,32 @@ int main_view(int argc, char** argv) {
             }
         }
         cout.flush();
+        return 0;
+    } else if (input_type == "snarls") {
+        if (output_type == "json") {
+            function<void(Snarl&)> lambda = [](Snarl& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) Snarls can only be converted to JSON" << endl;
+            return 1;
+        }
+        return 0;
+    } else if (input_type == "snarltraversals") {
+        if (output_type == "json") {
+            function<void(SnarlTraversal&)> lambda = [](SnarlTraversal& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) SnarlTraversals can only be converted to JSON" << endl;
+            return 1;
+        }
         return 0;
     }
 
