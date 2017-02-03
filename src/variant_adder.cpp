@@ -142,7 +142,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             total_haplotype_bases += to_align.str().size();
             
             // Make a request to lock the subgraph
-            GraphSynchronizer::Lock lock(sync, variant_path_name, variant_path_offset, (variant_range + flank_range * 2));
+            GraphSynchronizer::Lock lock(sync, variant_path_name, variant_path_offset, (variant_range + flank_range * 2), true);
             
 #ifdef debug
             cerr << "Waiting for lock on " << variant_path_name << ":" << variant_path_offset << endl;

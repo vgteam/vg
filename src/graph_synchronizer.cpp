@@ -41,9 +41,9 @@ void GraphSynchronizer::update_path_indexes(const vector<Translation>& translati
 }
 
 GraphSynchronizer::Lock::Lock(GraphSynchronizer& synchronizer,
-    const string& path_name, size_t path_offset, size_t context_bases) : 
+    const string& path_name, size_t path_offset, size_t context_bases, bool reflect) : 
     synchronizer(synchronizer), path_name(path_name), path_offset(path_offset), 
-    context_bases(context_bases) {
+    context_bases(context_bases), reflect(reflect) {
     
     // Nothing to do. We've saved all the details on the request.
 }
@@ -72,7 +72,7 @@ void GraphSynchronizer::Lock::lock() {
         // Extract the context around that node
         VG context;
         synchronizer.graph.nonoverlapping_node_context_without_paths(synchronizer.graph.get_node(center.node), context);
-        synchronizer.graph.expand_context_by_length(context, context_bases, false);
+        synchronizer.graph.expand_context_by_length(context, context_bases, false, reflect);
         
         // Also remember all the nodes connected to but not in the context,
         // which also need to be locked.

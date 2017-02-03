@@ -1068,7 +1068,7 @@ void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     }
 }
 
-void VG::expand_context_by_length(VG& g, size_t length, bool add_paths) {
+void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect) {
     
     // We have a set of newly added nodes.
     set<id_t> new_nodes;
@@ -1076,7 +1076,7 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths) {
     // We have an operation to take a node
     auto take_node = [&](id_t id) {
         if (!g.has_node(id)) {
-            g.create_node(get_node(id)->sequence(), id);\
+            g.create_node(get_node(id)->sequence(), id);
             new_nodes.insert(id);
         }
     };
@@ -1131,22 +1131,35 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths) {
 #ifdef debug
             cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
 #endif
+
+            if (reflect) {
+                // Bounce right off this NodeSide
+                if (budget > budget_remaining[connected]) {
+                    // We actually would make it go further
+                    budget_remaining[connected] = budget;
+                    active.insert(connected);
+                
+#ifdef debug
+                    cerr << "\tUp budget on " << connected << " to " << budget << endl;
+#endif
+                }
+            }
             
-            // For each one, reflect it to the other side of its node
-            auto reflection = connected.flip();
+            // For each one, flip it to the other side of its node
+            auto flipped = connected.flip();
             
             // Deduct the length of the reached node from the budget of this NodeSide
             int64_t new_budget = budget - get_node(connected.node)->sequence().size();
 
-            if (new_budget > 0 && new_budget > budget_remaining[reflection]) {            
+            if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
                 // If it's greater than the old budget (default budget is 0)
                 
                 // Replace the old budget and activate the other NodeSide
-                budget_remaining[reflection] = new_budget;
-                active.insert(reflection);
+                budget_remaining[flipped] = new_budget;
+                active.insert(flipped);
                 
 #ifdef debug
-                cerr << "\tUp budget on " << reflection << " to " << new_budget << endl;
+                cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
 #endif
             }
         }

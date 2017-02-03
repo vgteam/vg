@@ -551,7 +551,8 @@ public:
     /// Expand the context of the given graph by the given number of steps. 
     void expand_context_by_steps(VG& g, size_t steps, bool add_paths = true);
     /// Expand the context of the given graph by the given number of bases.
-    void expand_context_by_length(VG& g, size_t length, bool add_paths = true);
+    /// If reflect is true, bounce off the ends of nodes to get siblings of nodes you came from.
+    void expand_context_by_length(VG& g, size_t length, bool add_paths = true, bool reflect = false);
     /// Destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     /// Destroy the node with the given ID.

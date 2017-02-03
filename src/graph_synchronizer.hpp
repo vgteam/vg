@@ -55,7 +55,7 @@ public:
          * along a certain path in the graph controlled by the given
          * synchronizer.
          */
-        Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t path_offset, size_t context_bases);
+        Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t path_offset, size_t context_bases, bool reflect);
         
         /**
          * Block until a lock is obtained.
@@ -95,6 +95,7 @@ public:
         string path_name;
         size_t path_offset;
         size_t context_bases;
+        bool reflect; // Should we bounce off node ends?
         
         /// This is the subgraph that got extracted during the locking procedure.
         VG subgraph;
