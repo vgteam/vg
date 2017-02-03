@@ -9,6 +9,7 @@
 #include "vcf_buffer.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
+#include "progressive.hpp"
 #include "name_mapper.hpp"
 #include "graph_synchronizer.hpp"
 
@@ -20,7 +21,7 @@ using namespace std;
  * A tool class for adding variants to a VG graph. Integrated NameMapper
  * provides name translation for the VCF contigs.
  */
-class VariantAdder : public NameMapper {
+class VariantAdder : public NameMapper, public Progressive {
 
 public:
     

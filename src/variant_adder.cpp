@@ -10,6 +10,9 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
         // graph to check them.
         path_names.insert(name);
     });
+    
+    // Show progress if the graph does.
+    show_progress = graph.show_progress;
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
@@ -19,6 +22,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
     // Count how many variants we have done
     size_t variants_processed = 0;
+    
+    // Keep track of the previous contig name, so we know when to change our
+    // progress bar.
+    string prev_path_name;
+    
+    // We report when we skip contigs, but only once.
+    set<string> skipped_contigs;
     
     while(buffer.next()) {
         // For each variant in its context of nonoverlapping variants
@@ -35,12 +45,35 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // This variant isn't on a path we have.
             if (ignore_missing_contigs) {
                 // That's OK. Just skip it.
+                
+                if (!skipped_contigs.count(variant_path_name)) {
+                    // Warn first
+                    
+                    // Don't clobber an existing progress bar (which must be over since we must be on a new contig)
+                    destroy_progress();
+                    cerr << "warning:[vg::VariantAdder] skipping missing contig " << variant_path_name << endl;
+                    skipped_contigs.insert(variant_path_name);
+                }
+                
                 continue;
             } else {
                 // Explode!
                 throw runtime_error("Contig " + variant_path_name + " mentioned in VCF but not found in graph");
             }
         }
+        
+        // Grab the sequence of the path, which won't change
+        const string& path_sequence = sync.get_path_sequence(variant_path_name);
+    
+        // Interlude: do the progress bar
+        // TODO: not really thread safe
+        if (variant_path_name != prev_path_name) {
+            // Moved to a new contig
+            prev_path_name = variant_path_name;
+            destroy_progress();
+            create_progress("contig " + variant_path_name, path_sequence.size());
+        }
+        update_progress(variant_path_offset);
         
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants{before};
@@ -59,10 +92,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t group_start = local_variants.front()->position;
         // And where does it end (exclusive)?
         size_t group_end = local_variants.back()->position + local_variants.back()->ref.size();
-        
-        
-        // Grab the sequence of the path, which won't change
-        const string& path_sequence = sync.get_path_sequence(variant_path_name);
         
         // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
 
@@ -153,14 +182,18 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 
         }
         
+#ifdef debug
         if (variants_processed++ % 1000 == 0) {
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
                 << (total_graph_bases / haplotypes.size()) << " bp haplotypes vs. graphs average" << endl;
         }
+#endif
     }
-    
+
+    // Clean up after the last contig.
+    destroy_progress();
     
 }
 
