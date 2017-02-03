@@ -27,6 +27,7 @@ void help_add(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE         add in variants from the given VCF file (may repeat)" << endl
          << "    -n, --rename V=G       rename contig V in the VCFs to contig G in the graph (may repeat)" << endl
+         << "    -i, --ignore-missing   ignore contigs in the VCF not found in the graph" << endl
          << "    -p, --progress         show progress" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
@@ -44,6 +45,7 @@ int main_add(int argc, char** argv) {
     // And one or more renames
     vector<pair<string, string>> renames;
     bool show_progress = false;
+    bool ignore_missing = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -52,6 +54,7 @@ int main_add(int argc, char** argv) {
             {
                 {"vcf", required_argument, 0, 'v'},
                 {"rename", required_argument, 0, 'n'},
+                {"ignore-missing", no_argument, 0, 'i'},
                 {"progress",  no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
@@ -59,7 +62,7 @@ int main_add(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:n:pt:h?",
+        c = getopt_long (argc, argv, "v:n:ipt:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -88,6 +91,10 @@ int main_add(int argc, char** argv) {
                 // Add the name mapping
                 renames.emplace_back(vcf_contig, graph_contig);
             }
+            break;
+
+        case 'i':
+            ignore_missing = true;
             break;
 
         case 'p':
@@ -144,6 +151,9 @@ int main_add(int argc, char** argv) {
     
         // Make a VariantAdder for the graph
         VariantAdder adder(*graph);
+        
+        // Set up parameters
+        adder.ignore_missing_contigs = ignore_missing;
         
         for (auto& rename : renames) {
             // Set up all the VCF contig renames from the command line

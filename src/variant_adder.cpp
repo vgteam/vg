@@ -5,7 +5,11 @@ namespace vg {
 using namespace std;
 
 VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
-    // Nothing to do!
+    graph.paths.for_each_name([&](const string& name) {
+        // Save the names of all the graph paths, so we don't need to lock the
+        // graph to check them.
+        path_names.insert(name);
+    });
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
@@ -26,6 +30,17 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // Where is it?
         auto variant_path_name = vcf_to_fasta(variant->sequenceName);
         auto& variant_path_offset = variant->position; // Already made 0-based by the buffer
+        
+        if (!path_names.count(variant_path_name)) {
+            // This variant isn't on a path we have.
+            if (ignore_missing_contigs) {
+                // That's OK. Just skip it.
+                continue;
+            } else {
+                // Explode!
+                throw runtime_error("Contig " + variant_path_name + " mentioned in VCF but not found in graph");
+            }
+        }
         
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants{before};

@@ -47,6 +47,9 @@ public:
     /// ends of variants actually found.
     size_t flank_range = 20;
     
+    /// Should we accept and ignore VCF contigs that we can't find in the graph?
+    bool ignore_missing_contigs = false;
+    
 protected:
     /// The graph we are modifying
     VG& graph;
@@ -54,6 +57,10 @@ protected:
     /// We keep a GraphSynchronizer so we can have multiple threads working on
     /// different parts of the same graph.
     GraphSynchronizer sync;
+    
+    /// We cache the set of valid path names, so we can detect/skip missing ones
+    /// without locking the graph.
+    set<string> path_names;
     
     /**
      * Get all the unique combinations of variant alts represented by actual
