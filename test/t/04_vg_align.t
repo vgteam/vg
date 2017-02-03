@@ -5,15 +5,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 16
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j - | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "alignment traverses the correct path"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "full length bonus works"
-
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 500 -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 1048 "large full length bonus works"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
 
