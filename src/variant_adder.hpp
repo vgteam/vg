@@ -43,9 +43,8 @@ public:
     /// How wide of a range in bases should we look for nearby variants in?
     size_t variant_range = 50;
     
-    /// How much additional context should we try and add outside the variants
-    /// we grab? This sin't added to variant_range; it's counted from the outer
-    /// ends of variants actually found.
+    /// How much additional context should we try and add outside the radius of
+    /// our group of variants we actually find?
     size_t flank_range = 20;
     
     /// Should we accept and ignore VCF contigs that we can't find in the graph?
@@ -84,7 +83,26 @@ protected:
      * variant.
      */
     string haplotype_to_string(const vector<int>& haplotype, const vector<vcflib::Variant*>& variants);
- 
+    
+    /**
+     * Get the radius of the variant around its center: the amount of sequence
+     * that needs to be pulled out to make sure you have the ref and all the
+     * alts, if they exist. This is just going to be twice the longest of the
+     * ref and the alts.
+     */
+    static size_t get_radius(const vcflib::Variant& variant);
+    
+    /**
+     * Get the center position of the given variant.
+     */
+    static size_t get_center(const vcflib::Variant& variant);
+    
+    /**
+     * Get the center and radius around that center needed to extract everything
+     * that might be involved in a group of variants.
+     */
+    static pair<size_t, size_t> get_center_and_radius(const vector<vcflib::Variant*>& variants);
+     
 };
 
 }

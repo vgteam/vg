@@ -75,6 +75,12 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         }
         update_progress(variant_path_offset);
         
+        // Figure out what the actual bounds of this variant are. For big
+        // deletions, the variant itself may be bigger than the window we're
+        // using when looking for other local variants. For big insertions, we
+        // might need to get a big subgraph to ensure we have all the existing
+        // alts if they exist.
+        
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants{before};
         local_variants.push_back(variant);
@@ -88,20 +94,26 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         cerr << endl;
 #endif
         
-        // Where does the group start?
+        // Where does the group of nearby variants start?
         size_t group_start = local_variants.front()->position;
-        // And where does it end (exclusive)?
+        // And where does it end (exclusive)? This is the latest ending point of any variant in the group...
         size_t group_end = local_variants.back()->position + local_variants.back()->ref.size();
         
         // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
 
         // On the left we want either flank_range bases or all the bases before the first base in the group.
-        size_t left_context_length = max(min((int64_t)flank_range, (int64_t) group_start), (int64_t) 0);
+        size_t left_context_length = max(min((int64_t) flank_range, (int64_t) group_start), (int64_t) 0);
         // On the right we want either flank_range bases or all the bases after the last base in the group.
+        // We know nothing will overlap the end of the last variant, because we grabbed nonoverlapping variants.
         size_t right_context_length = min(path_sequence.size() - group_end, (size_t) flank_range);
     
         string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
         string right_context = path_sequence.substr(group_end, right_context_length);
+        
+        // Find the center and radius of the group of variants, so we know what graph part to grab.
+        size_t overall_center;
+        size_t overall_radius;
+        tie(overall_center, overall_radius) = get_center_and_radius(local_variants);
         
         // Get the unique haplotypes
         auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
@@ -141,18 +153,20 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Count all the bases
             total_haplotype_bases += to_align.str().size();
             
-            // Make a request to lock the subgraph
-            GraphSynchronizer::Lock lock(sync, variant_path_name, variant_path_offset, (variant_range + flank_range * 2), true);
+            // Make a request to lock the subgraph. We really need to search
+            // twice the radius, because when you reflect off the end of one
+            // allele, you might need to traverse all of the other allele.
+            GraphSynchronizer::Lock lock(sync, variant_path_name, overall_center, overall_radius * 2 + flank_range, true);
             
 #ifdef debug
-            cerr << "Waiting for lock on " << variant_path_name << ":" << variant_path_offset << endl;
+            cerr << "Waiting for lock on " << variant_path_name << ":" << overall_center << endl;
 #endif
             
             // Block until we get it
             lock_guard<GraphSynchronizer::Lock> guard(lock);
             
 #ifdef debug
-            cerr << "Got lock on " << variant_path_name << ":" << variant_path_offset << endl;
+            cerr << "Got lock on " << variant_path_name << ":" << overall_center << endl;
 #endif            
                 
 #ifdef debug
@@ -182,14 +196,12 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 
         }
         
-#ifdef debug
-        if (variants_processed++ % 1000 == 0) {
+        if (variants_processed++ % 1000 == 0 || true) {
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
                 << (total_graph_bases / haplotypes.size()) << " bp haplotypes vs. graphs average" << endl;
         }
-#endif
     }
 
     // Clean up after the last contig.
@@ -313,6 +325,58 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
     
     return result.str();
 }
+
+size_t VariantAdder::get_radius(const vcflib::Variant& variant) {
+    // How long is the longest alt?
+    size_t longest_alt_length = variant.ref.size();
+    for (auto& alt : variant.alt) {
+        // Take the length of the longest alt you find
+        longest_alt_length = max(longest_alt_length, alt.size());
+    }
+    
+    // Report half its length, and don't round down.
+    return (longest_alt_length + 1) / 2;
+}
+
+
+size_t VariantAdder::get_center(const vcflib::Variant& variant) {
+    // Where is the end of the variant in the reference?
+    size_t path_last = variant.position + variant.ref.size() - 1;
+    
+    // Where is the center of the variant in the reference?
+    return (variant.position + path_last) / 2;
+}
+
+
+pair<size_t, size_t> VariantAdder::get_center_and_radius(const vector<vcflib::Variant*>& variants) {
+
+    // We keep track of the leftmost and rightmost positions we would need to
+    // cover, which may be negative on the left.
+    int64_t leftmost = numeric_limits<int64_t>::max();
+    int64_t rightmost = 0;
+
+    for (auto* v : variants) {
+        // For every variant
+        auto& variant = *v;
+        
+        // Work out its center (guaranteed positive)
+        int64_t center = get_center(variant);
+        // And its radius
+        int64_t radius = get_radius(variant);
+        
+        // Expand the range of the block if needed
+        leftmost = min(leftmost, center - radius);
+        rightmost = max(rightmost, center + radius);
+    }
+    
+    // Calculate the center between the two ends, and the radius needed to hit
+    // both ends.
+    size_t overall_center = (leftmost + rightmost) / 2;
+    size_t overall_radius = (rightmost - leftmost + 1) / 2;
+    
+    return make_pair(overall_center, overall_radius);
+
+}    
 
 }
 
