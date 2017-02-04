@@ -45,7 +45,7 @@ public:
     
     /// How much additional context should we try and add outside the radius of
     /// our group of variants we actually find?
-    size_t flank_range = 20;
+    size_t flank_range = 100;
     
     /// Should we accept and ignore VCF contigs that we can't find in the graph?
     bool ignore_missing_contigs = false;
