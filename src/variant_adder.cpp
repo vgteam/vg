@@ -99,21 +99,32 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // And where does it end (exclusive)? This is the latest ending point of any variant in the group...
         size_t group_end = local_variants.back()->position + local_variants.back()->ref.size();
         
-        // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
-
-        // On the left we want either flank_range bases or all the bases before the first base in the group.
-        size_t left_context_length = max(min((int64_t) flank_range, (int64_t) group_start), (int64_t) 0);
-        // On the right we want either flank_range bases or all the bases after the last base in the group.
-        // We know nothing will overlap the end of the last variant, because we grabbed nonoverlapping variants.
-        size_t right_context_length = min(path_sequence.size() - group_end, (size_t) flank_range);
-    
-        string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
-        string right_context = path_sequence.substr(group_end, right_context_length);
+        // We need to make sure we also grab this much extra graph context,
+        // since we count 2 radiuses + flank out from the ends of the group.
+        size_t group_width = group_end - group_start;
         
         // Find the center and radius of the group of variants, so we know what graph part to grab.
         size_t overall_center;
         size_t overall_radius;
         tie(overall_center, overall_radius) = get_center_and_radius(local_variants);
+        
+        // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
+
+        // On the left we want either flank_range bases after twice the radius,
+        // or all the bases before the first base in the group. We need twice
+        // the radius so we're guaranteed to have enough bases to pin down a
+        // radius-sized gap.
+        size_t left_context_length = max(min((int64_t) (flank_range + 2 * overall_radius), (int64_t) group_start), (int64_t) 0);
+        // On the right we want either flank_range bases after the radius, or
+        // all the bases after the last base in the group. We know nothing will
+        // overlap the end of the last variant, because we grabbed
+        // nonoverlapping variants.
+        size_t right_context_length = min(path_sequence.size() - group_end, (size_t) (flank_range + 2 * overall_radius));
+    
+        string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
+        string right_context = path_sequence.substr(group_end, right_context_length);
+        
+        
         
         // Get the unique haplotypes
         auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
@@ -125,7 +136,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t total_graph_bases = 0;
         
 #ifdef debug
-        cerr << "Have " << haplotypes.size() << " haplotypes for variant " << *variant << endl;
+        cerr << "Have " << haplotypes.size() << " haplotypes for variant "
+            << variant->sequenceName << ":" << variant->position << endl;
 #endif
         
         for (auto& haplotype : haplotypes) {
@@ -155,8 +167,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             
             // Make a request to lock the subgraph. We really need to search
             // twice the radius, because when you reflect off the end of one
-            // allele, you might need to traverse all of the other allele.
-            GraphSynchronizer::Lock lock(sync, variant_path_name, overall_center, overall_radius * 2 + flank_range, true);
+            // allele, you might need to traverse all of the other allele. We
+            // also need to add the group width so we don't not have enough
+            // graph for the ref sequence we pulled out. And then add another 1
+            // so I don't have to come back and fix an off-by-1 where ti was too
+            // small.
+            GraphSynchronizer::Lock lock(sync, variant_path_name, overall_center,
+                overall_radius * 2 + group_width + flank_range + 1, true);
             
 #ifdef debug
             cerr << "Waiting for lock on " << variant_path_name << ":" << overall_center << endl;
@@ -178,6 +195,23 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             
             // Do the alignment
             Alignment aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 30);
+            
+            if (aln.identity() < 0.50) {
+                // Maybe we're actually aligning in the wrong direction. The
+                // flanks we have should always make us have more identity than
+                // this.
+                
+                // Try aligning in the other orientation.
+                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 30);
+                
+                if (aln2.score() > aln.score()) {
+                    // This is the better alignment
+                    swap(aln, aln2);
+                }
+                
+                // TODO: do this better somehow, by detecting the orientation
+                // that the vcf path will have in the dagified graph.
+            }
 
 #ifdef debug            
             cerr << "Alignment: " << pb2json(aln) << endl;
@@ -186,7 +220,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Make this path's edits to the original graph and get the
             // translations.
             auto translations = lock.apply_edit(aln.path());
-                
+
 #ifdef debug
             cerr << "Translations: " << endl;
             for (auto& t : translations) {
@@ -208,6 +242,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     destroy_progress();
     
 }
+
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;
