@@ -114,7 +114,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // or all the bases before the first base in the group. We need twice
         // the radius so we're guaranteed to have enough bases to pin down a
         // radius-sized gap.
-        size_t left_context_length = max(min((int64_t) (flank_range + 2 * overall_radius), (int64_t) group_start), (int64_t) 0);
+        // Then we add some more in case the gap looks like its surroundings.
+        size_t left_context_length = max(min((int64_t) (flank_range + 2 * overall_radius + overall_radius), (int64_t) group_start), (int64_t) 0);
         // On the right we want either flank_range bases after the radius, or
         // all the bases after the last base in the group. We know nothing will
         // overlap the end of the last variant, because we grabbed
@@ -188,9 +189,10 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // also need to add the group width so we don't not have enough
             // graph for the ref sequence we pulled out. And then add another 1
             // so I don't have to come back and fix an off-by-1 where ti was too
-            // small.
+            // small. And we add the radius in again to make it bigger in case
+            // inserts look like their surroundings.
             GraphSynchronizer::Lock lock(sync, variant_path_name, overall_center,
-                overall_radius * 2 + group_width + flank_range + 1, true);
+                overall_radius * 2 + overall_radius + group_width + flank_range + 1, true);
             
 #ifdef debug
             cerr << "Waiting for lock on " << variant_path_name << ":" << overall_center << endl;
@@ -246,7 +248,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 
         }
         
-        if (variants_processed++ % 1000 == 0 || true) {
+        if (variants_processed++ % 1000 == 0) {
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
