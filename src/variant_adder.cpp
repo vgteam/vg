@@ -146,6 +146,23 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // TODO: since we lock repeatedly, neighboring variants will come in
             // in undefined order and our result is nondeterministic.
             
+            // Only look at haplotypes that aren't pure reference.
+            bool has_nonreference = false;
+            for (auto& allele : haplotype) {
+                if (allele != 0) {
+                    has_nonreference = true;
+                    break;
+                }
+            }
+            if (!has_nonreference) {
+                // Don't bother aligning all-ref haplotypes to the graph.
+                // They're there already.
+#ifdef debug
+                cerr << "Skip all-reference haplotype.";
+#endif
+                continue;
+            }
+            
 #ifdef debug
             cerr << "Haplotype ";
             for (auto& allele_number : haplotype) {
@@ -193,24 +210,23 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Record the size of graph we're aligning to in bases
             total_graph_bases += lock.get_subgraph().length();
             
-            // Do the alignment
-            Alignment aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 30);
+            // Do the alignment in both orientations
+            Alignment aln;
+            Alignment aln2;
             
-            if (aln.identity() < 0.50) {
-                // Maybe we're actually aligning in the wrong direction. The
-                // flanks we have should always make us have more identity than
-                // this.
+            // Align in the forward orientation
+            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 30);
+            // Align in the reverse orientation.
+            // TODO: figure out which way our reference path goes through our subgraph and do half the work
+            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 30);
+            
+#ifdef debug
+            cerr << aln.score() << ", " << aln.identity() << " vs. " << aln2.score() << ", " << aln2.identity() << endl;
+#endif
                 
-                // Try aligning in the other orientation.
-                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 30);
-                
-                if (aln2.score() > aln.score()) {
-                    // This is the better alignment
-                    swap(aln, aln2);
-                }
-                
-                // TODO: do this better somehow, by detecting the orientation
-                // that the vcf path will have in the dagified graph.
+            if (aln2.score() > aln.score()) {
+                // This is the better alignment
+                swap(aln, aln2);
             }
 
 #ifdef debug            
