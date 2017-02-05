@@ -981,11 +981,11 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     alignment_pairs.second[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
 }
 
-int32_t Aligner::score_exact_match(const string& sequence) {
+int32_t Aligner::score_exact_match(const string& sequence) const {
     return match * sequence.length();
 }
 
-int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) {
+int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const {
     return match * (seq_end - seq_begin);
 }
 
@@ -1259,7 +1259,7 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     
 }
 
-int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {
+int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) const {
     int32_t score = 0;
     for (int32_t i = 0; i < sequence.length(); i++) {
         // index 5 x 5 score matrices (ACGTN)
@@ -1271,7 +1271,7 @@ int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& 
 
 
 int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
-                                          string::const_iterator base_qual_begin) {
+                                          string::const_iterator base_qual_begin) const {
     int32_t score = 0;
     for (int32_t i = 0, seq_len = seq_end - seq_begin; i < seq_len; i++) {
         // index 5 x 5 score matrices (ACGTN)

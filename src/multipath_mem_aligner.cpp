@@ -6,12 +6,43 @@
 
 namespace vg {
     
+    vector<size_t> range_vector(size_t begin, size_t end) {
+        size_t len = end - begin;
+        vector<size_t> range(len, begin);
+        for (size_t i = 1; i < len; i++) {
+            range[i] = begin + i;
+        }
+        return range;
+    }
+    
     MultipathMEMAligner::MultipathMEMAligner(const Alignment& alignment,
                                              const vector<MaximalExactMatch>& mems,
                                              const QualAdjAligner& aligner,
-                                             const function<int64_t(pos_t&,pos_t&)>& distance,
-                                             int8_t full_length_bonus) {
+                                             xg::XG& xgindex,
+                                             LRUCache<id_t, Node>& node_cache,
+                                             int8_t full_length_bonus,
+                                             size_t num_pruning_tracebacks) {
         
+        init_first_pass_graph(alignment, mems, aligner, xgindex, full_length_bonus);
+        perform_dp();
+        prune_to_nodes_on_tracebacks(num_pruning_tracebacks);
+        query_node_matches(alignment, xgindex, node_cache);
+        // TODO: add logic to prune out Snarls
+    }
+    
+    void MultipathMEMAligner::init_first_pass_graph(const Alignment& alignment,
+                                                    const vector<MaximalExactMatch>& mems,
+                                                    const QualAdjAligner& aligner,
+                                                    const xg::XG& xgindex,
+                                                    int8_t full_length_bonus){
+    
+        // TODO: handle inversions -- do I just need extra paths?
+        // for now just not checking for orientation consistency and hoping it works out (but this
+        // is only likely when inversion is small so that distance is not overestimated too much)
+        auto distance = [&](pos_t& pos_1, pos_t& pos_2) {
+            return xgindex.min_approx_path_distance(vector<string>(), id(pos_1), id(pos_2))
+                   + (int64_t) offset(pos_1) - (int64_t) offset(pos_2);
+        };
         
         // the maximum graph distances to the right and left sides detectable from each node
         vector<pair<size_t, size_t>> maximum_detectable_gaps;
@@ -48,7 +79,7 @@ namespace vg {
                                                                  aligner,
                                                                  full_length_bonus));
             
-            for (gcsa::node_type mem_hit : mems.nodes) {
+            for (gcsa::node_type mem_hit : mem.nodes) {
                 nodes.emplace_back(mem.begin, mem.end, make_pos_t(mem_hit), 0, mem_score);
                 maximum_detectable_gaps.push_back(max_gaps);
             }
@@ -70,30 +101,30 @@ namespace vg {
                 }
                 
                 if (node_1.begin <= node_2.begin) {
-                    int64_t dist = distance(node_1.start_pos, node_2.start_pos);
-                    
+                    int64_t dist = distance(node_1.start_pos, node_2.start_pos) - (node_1.end - node_1.begin);
+                    // note: if the start of node_2 is contained inside the node_1 match, this will
+                    // usually create a negative distance, which will pass the filter
                     
                     // the minimum of the max detectable gap is the max gap here
-                    size_t max_gap_length = min(maximum_detectable_gaps[i].first,
-                                                maximum_detectable_gaps[j].second);
+                    int64_t max_gap_length = (int64_t) min(maximum_detectable_gaps[i].first,
+                                                           maximum_detectable_gaps[j].second);
                     
                     // record all pairs that are under the minimum
-                    if (node_2.begin - node_1.end < max_gap_length
-                        && dist - (node_1.end - node_1.begin) < max_gap_length) {
+                    if (node_2.begin - node_1.end < max_gap_length && dist < max_gap_length) {
                         pair_distances[make_pair(i, j)] = dist;
                     }
                 }
                 else {
-                    int64_t dist = distance(node_2.start_pos, node_1.start_pos);
-                    
+                    int64_t dist = distance(node_2.start_pos, node_1.start_pos) - (node_2.end - node_2.begin);
+                    // note: if the start of node_1 is contained inside the node_2 match, this will
+                    // usually create a negative distance, which will pass the filter
                     
                     // the minimum of the max detectable gap is the max gap here
-                    size_t max_gap_length = min(maximum_detectable_gaps[j].first,
-                                                maximum_detectable_gaps[i].second);
+                    int64_t max_gap_length = (int64_t) min(maximum_detectable_gaps[j].first,
+                                                           maximum_detectable_gaps[i].second);
                     
                     // record all pairs that are under the minimum
-                    if (node_1.begin - node_2.end < max_gap_length
-                        && dist - (node_2.end - node_2.begin) < max_gap_length) {
+                    if (node_1.begin - node_2.end < max_gap_length && dist < max_gap_length) {
                         pair_distances[make_pair(j, i)] = dist;
                     }
                 }
@@ -102,7 +133,7 @@ namespace vg {
         
         vector<pair<pair<int64_t, int64_t>, int64_t>> overlaps;
         
-        for (const <pair<int64_t, int64_t>, size_t>* pair_distance : pair_distances) {
+        for (const pair<pair<int64_t, int64_t>, size_t>& pair_distance : pair_distances) {
             
             MultipathMEMNode& node_1 = nodes[pair_distance.first.first];
             MultipathMEMNode& node_2 = nodes[pair_distance.first.second];
@@ -127,12 +158,12 @@ namespace vg {
                 else if (between_length < absolute_dist) {
                     // need a deletion to account for gap
                     int64_t remaining = absolute_dist - between_length;
-                    weight = between_length * match_score - aligner.scaled_gap_open - (remaining - 1) * alginer.scaled_gap_extension;
+                    weight = between_length * match_score - aligner.scaled_gap_open - (remaining - 1) * aligner.scaled_gap_extension;
                 }
                 else {
                     // need an insertion to account for gap
                     int64_t extra = between_length - absolute_dist;
-                    weight = absolute_dist * match_score - aligner.scaled_gap_open - (extra - 1) * alginer.scaled_gap_extension;
+                    weight = absolute_dist * match_score - aligner.scaled_gap_open - (extra - 1) * aligner.scaled_gap_extension;
                 }
                 node_1.edges_from.emplace_back(pair_distance.first.second, weight);
             }
@@ -154,8 +185,6 @@ namespace vg {
                                                   pair<pair<int64_t, int64_t>, size_t> overlap_2) {
             return overlap_1.second > overlap_2.second;
         });
-        
-        size_t num_original_nodes = nodes.size();
         
         for (const pair<pair<int64_t, int64_t>, size_t>& pair_overlap : overlaps) {
             
@@ -191,7 +220,7 @@ namespace vg {
             // must at least contain any part of the read where they overlap
             int64_t between_length = new_node.begin - from_node.end;
             
-            int64_t absolute_dist = abs(pair_distance[pair_overlap.first] - pair_overlap.second);
+            int64_t absolute_dist = abs(pair_distances[pair_overlap.first] - pair_overlap.second);
             
             // find the maximum possible score (goal is sensitivity at this stage)
             int32_t weight;
@@ -202,12 +231,12 @@ namespace vg {
             else if (between_length < absolute_dist) {
                 // need a deletion to account for gap
                 int64_t remaining = absolute_dist - between_length;
-                weight = between_length * match_score - aligner.scaled_gap_open - (remaining - 1) * alginer.scaled_gap_extension;
+                weight = between_length * match_score - aligner.scaled_gap_open - (remaining - 1) * aligner.scaled_gap_extension;
             }
             else {
                 // need an insertion to account for gap
                 int64_t extra = between_length - absolute_dist;
-                weight = absolute_dist * match_score - aligner.scaled_gap_open - (extra - 1) * alginer.scaled_gap_extension;
+                weight = absolute_dist * match_score - aligner.scaled_gap_open - (extra - 1) * aligner.scaled_gap_extension;
             }
             
             // add an edge into the overlap
@@ -239,12 +268,10 @@ namespace vg {
         size_t other_side_remaining = gap_to_right ? alignment.sequence().end() - mem.end
                                                    : mem.begin - alignment.sequence().begin();
         
-        int8_t max_match_score = aligner.adjusted_score_matrix[25 * aligner.max_qual_score];
-        
         // algebraic solution for when score is > 0 assuming perfect match other than gap
-        return min((same_side_remaining * max_match_score + mem_score + full_length_bonus
+        return min((same_side_remaining * match_score + mem_score + full_length_bonus
                     - aligner.scaled_gap_open) / aligner.scaled_gap_extension,
-                   (other_side_remaining * max_match_score + full_length_bonus
+                   (other_side_remaining * match_score + full_length_bonus
                     - aligner.scaled_gap_open) / aligner.scaled_gap_extension) + 1;
         
     }
@@ -258,7 +285,7 @@ namespace vg {
         
         // initialize iteration structures
         vector<bool> enqueued = vector<bool>(nodes.size());
-        vector<int> edge_index = vector<int>(nodes.size());
+        vector<size_t> edge_index = vector<size_t>(nodes.size());
         vector<size_t> stack;
         
         // iterate through starting nodes
@@ -316,7 +343,7 @@ namespace vg {
         }
     }
     
-    void MultipathMEMAligner::fill_dp() {
+    void MultipathMEMAligner::perform_dp() {
         
         // as in local alignment, minimum score is the score of node itself
         for (size_t i = 0; i < nodes.size(); i++) {
@@ -326,8 +353,7 @@ namespace vg {
         vector<size_t> order;
         topological_order(order);
         
-        for (size_t i : topological_order) {
-            
+        for (size_t i : order) {
             MultipathMEMNode& node = nodes[i];
             
             // for each edge out of this node
@@ -343,54 +369,72 @@ namespace vg {
         }
     }
     
-    unordered_set<size_t> MultipathMEMAligner::find_nodes_on_tracebacks(size_t num_tracebacks) {
+    void MultipathMEMAligner::prune_to_nodes_on_tracebacks(size_t num_tracebacks) {
         
+        // initialize list of edges that are on tracebacks
+        unordered_set<pair<size_t, size_t>> edge_idxs;
+        
+        // initialize traceback manager
         TracebackManager traceback_manager(nodes, num_tracebacks);
         
-        // locate the optimum traceback
-        
-        traceback_manager.find_local_traceback_end();
-        
+        // traceback manager will find the top scoring tracebacks in the course of
+        // tracing back and keep track of them
         for (; traceback_manager.has_next(); traceback_manager.next()) {
-            size_t traceback_idx = traceback_manager.get_traceback_start();
+            // where does the traceback start?
+            size_t traceback_idx = traceback_manager.get_traceback_start()
             traceback_manager.mark_traced(traceback_idx);
             MultipathMEMNode& node = nodes[traceback_idx];
+            
+            // what is the traceback's score?
             int32_t traceback_score = traceback_manager.curr_traceback_score();
             
+            // search backwards until reaching a node that has its initial score
             while (node.dp_score != node.score) {
+                size_t prev_idx = traceback_idx;
                 
+                // does the traceback we are on deflect from the optimal traceback here?
                 if (traceback_manager.at_next_deflection(traceback_idx)) {
+                    // take the deflection
                     traceback_idx = traceback_manager.deflect();
                 }
                 else {
+                    // take the optimal traceback
                     int32_t backward_score = node.dp_score - node.score;
-                    bool found_trace = false;
-                    MultipathMEMEdge& trace_edge;
+                    MultipathMEMEdge* trace_edge = nullptr;
                     for (MultipathMEMEdge& edge : nodes[traceback_idx].edges_to) {
                         int32_t score_diff = backward_score - (nodes[edge.to_idx].dp_score + edge.weight);
-                        if (score_diff == 0 && !found_trace) {
-                            found_trace = true;
-                            trace_edge = edge;
+                        if (score_diff == 0 && !trace_edge) {
+                            // this is an optimal traceback
+                            trace_edge = &edge;
                         }
                         else {
+                            // this traceback is non optimal, but it might be part of a high scoring
+                            // sub-optimal traceback
+                            // TODO: detect whether this is an overlap edge and add it to the edge list
+                            // without actually included a basically identical traceback?
                             traceback_manager.propose_deflection(traceback_idx, edge.to_idx,
                                                                  traceback_score - score_diff);
                         }
                     }
-                    if (!found_trace) {
+                    if (!trace_edge) {
                         cerr << "error:[MultipathMEMAligner] traceback error in MEM aligner" << endl;
                         exit(1);
                     }
                     
-                    traceback_idx = trace_edge.to_idx;
+                    // follow the edge backwards
+                    traceback_idx = trace_edge->to_idx;
                 }
                 
+                // mark the edge as being involved in a traceback
+                edge_idxs.insert(make_pair(prev_idx, traceback_idx));
+                // get the next node
                 traceback_manager.mark_traced(traceback_idx);
                 node = nodes[traceback_idx];
             }
         }
         
-        return std::move(traceback_manager.traced_node_idxs);
+        // prune back to the nodes and edges from these tracebacks
+        prune_graph(traceback_manager.traced_node_idxs, edge_idxs);
     }
     
     void MultipathMEMAligner::connected_components(vector<vector<size_t>>& components_out) {
@@ -433,67 +477,150 @@ namespace vg {
         }
     }
     
+    void MultipathMEMAligner::prune_graph(const unordered_set<size_t>& node_idxs,
+                                          const unordered_set<pair<size_t, size_t>>& edge_idxs) {
+        
+        // the number of nodes removed before this index
+        vector<size_t> removed_before;
+        removed_before.reserve(nodes.size());
+        
+        size_t nodes_removed_so_far = 0;
+        
+        for (size_t i = 0; i < nodes.size(); i++) {
+            // keep track of how many nodes have been removed up to this point
+            removed_before.push_back(nodes_removed_so_far);
+            
+            if (node_idxs.count(i)) {
+                // keep this node
+                
+                vector<MultipathMEMEdge>& edges_from = nodes[i].edges_from;
+                vector<MultipathMEMEdge>& edges_to = nodes[i].edges_to;
+                
+                // filter the edges out of this node
+                size_t edges_removed_so_far = 0;
+                for (size_t j = 0; j < edges_from.size(); j++) {
+                    if (edge_idxs.count(make_pair(i, edges_from[j].to_idx))) {
+                        swap(edges_from[j], edges_from[j - edges_removed_so_far]);
+                    }
+                    else {
+                        edges_removed_so_far++;
+                    }
+                }
+                edges_from.resize(edges_from.size() - edges_removed_so_far);
+                
+                // filter the edges into this node
+                edges_removed_so_far = 0;
+                for (size_t j = 0; j < edges_to.size(); j++) {
+                    if (edge_idxs.count(make_pair(edges_to[j].to_idx, i))) {
+                        swap(edges_from[j], edges_from[j - edges_removed_so_far]);
+                    }
+                    else {
+                        edges_removed_so_far++;
+                    }
+                }
+                edges_to.resize(edges_to.size() - edges_removed_so_far);
+                
+                // move the nodes we're going to keep into the front of the vector
+                swap(nodes[i], nodes[i - nodes_removed_so_far]);
+                
+            }
+            else {
+                // skip this node and increase the count of the nodes we've removed
+                nodes_removed_so_far++;
+            }
+        }
+        
+        // remove the nodes beyond those we kept
+        nodes.resize(nodes.size() - nodes_removed_so_far);
+        
+        // renumber the indices in the edges
+        for (MultipathMEMNode& node : nodes) {
+            for (MultipathMEMEdge& edge : node.edges_from) {
+                edge.to_idx -= removed_before[edge.to_idx];
+            }
+            for (MultipathMEMEdge& edge : node.edges_to) {
+                edge.to_idx -= removed_before[edge.to_idx];
+            }
+        }
+        
+        // TODO: introduce logic for re-merging split overlap nodes?
+    }
+    
+    void MultipathMEMAligner::query_node_matches(const Alignment& alignment, xg::XG& xgindex,
+                                                 LRUCache<id_t, Node>& node_cache) {
+        
+        // group the nodes based on the MEM they originally came from
+
+        string::const_iterator read_begin = alignment.sequence().begin();
+        
+        unordered_map<pair<pos_t, int64_t>, vector<MultipathMEMNode*>> match_records;
+        for (MultipathMEMNode& node : nodes) {
+            /// make a record for this hit position, or get it if it already exists
+            int64_t read_idx = (node.begin - read_begin) - node.offset;
+            match_records[make_pair(node.start_pos, read_idx)].push_back(&node);
+        }
+        
+        vector<pair<pair<pos_t, int64_t>, pair<string::const_iterator, string::const_iterator>>> matches;
+        for (auto& match_record : match_records) {
+            // put the nodes in order along the MEM
+            list<MultipathMEMNode*>& match_nodes = match_record.second;
+            sort(match_nodes.begin(), match_nodes.end(),
+                 [](const MultipathMEMNode* n1, const MultipathMEMNode* n1) {
+                     return n1->offset < n2->offset;
+                 });
+            
+            // combine the nodes into a single record of the match to query
+            matches.emplace_back(match_record.first,
+                                 make_pair(match_nodes.front().begin - match_nodes.front().offset,
+                                           match_nodes.back().end));
+        }
+        
+        // sort the matches in descending order by length so that if there's a redundant
+        // sub-MEM we always find the containing MEM(s) first
+        sort(matches.begin(), matches.end(),
+             [](const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m1,
+                const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m2) {
+                 return m1.second.second - m1.second.first > m2.second.second - m2.second.first;
+             });
+        
+        // map of node ids to the indices in the matches that contain them
+        unordered_map<int64_t, vector<size_t>> node_matches;
+        
+        for (size_t i = 0; i < matches.size(); i++) {
+            
+        }
+        
+    }
+    
     MultipathMEMAligner::TracebackManager::TracebackManager(const vector<MultipathMEMNode>& nodes,
-                                                              size_t max_num_tracebacks) :
-        max_num_tracebacks(max_num_tracebacks), nodes(nodes)
+                                                            size_t max_num_tracebacks) :
+        max_num_tracebacks(max_num_tracebacks), nodes(nodes),
+        traceback_end_candidates(priority_queue<size_t,
+                                                vector<size_t>,
+                                                DPScoreComparator>(DPScoreComparator(nodes),
+                                                                   range_vector(0, nodes.size())))
     {
-        DPScoreComparator comp = DPScoreComparator(nodes);
-        pair<IncrementIter, IncrementIter> node_idxs = range(0, nodes.size());
-        
-        traceback_end_candidates = priority_queue<size_t,
-                                                  vector<size_t>,
-                                                  DPScoreComparator>(node_idxs.first
-                                                                     node_idxs.second,
-                                                                     comp);
-        
-        
+        init_alt_traceback_stack();
+    }
+    
+    inline void MultipathMEMAligner::TracebackManager::init_alt_traceback_stack() {
+        size_t node_idx = traceback_end_candidates.top();
+        traceback_end_candidates.pop();
+        alt_tracebacks.push_back(make_pair(vector<Deflection>(), nodes[node_idx].dp_score));
+        alt_tracebacks.back().first.push_back(Deflection(node_idx, node_idx));
     }
     
     inline void MultipathMEMAligner::TracebackManager::next() {
         if (curr_deflxn != (*curr_traceback).first.end()) {
-            cerr << "warning:[MultipathMEMAligner] moving on to next alternate alignment without taking all deflections" << endl;
+            cerr << "warning:[MultipathMEMAligner] moving on to next alternate traceback without taking all deflections" << endl;
         }
         
-        // look for tracebacks that don't branch out of previous tracebacks
+        // advance to the next
+        curr_traceback++;
+        
+        // find any non-redundant, non-branching alternate tracebacks
         find_local_traceback_end();
         
-        curr_traceback++;
-    }
-    
-    inline void MultipathMEMAligner::TracebackManager::find_local_traceback_end() {
-        
-        // try to find a new end of a traceback if we haven't found any tracebacks yet or there
-        // are potential traceback ends that are better the alternates we've already found
-        bool attempt_to_find = true;
-        if (!alt_tracebacks.empty()) {
-            attempt_to_find = (nodes[traceback_end_candidates.top()].dp_score > alt_tracebacks.back().second);
-        }
-        
-        if (attempt_to_find) {
-            while (!traceback_end_candidates.empty()) {
-                // get the next highest scoring unchecked node
-                size_t candidate = traceback_end_candidates.top();
-                traceback_end_candidates.pop();
-                
-                // if we've already found better alternates we can stop
-                int32_t candidate_score = nodes[candidate].dp_score;
-                if (candidate_score <= alt_tracebacks.back().second) {
-                    break;
-                }
-                
-                // we are not interested in shorter versions of alignments we've already traced,
-                // so we don't consider a new traceback end if we've already seen the node inside
-                // another traceback
-                if (!traced_node_idxs.count(candidate)) {
-                    continue;
-                }
-                
-                // let the insert logic decide where this
-                vector<Deflection> dummy_prefix;
-                insert_traceback(dummy_prefix, candidate, candidate, candidate_score);
-                break;
-            }
-        }
     }
     
     inline bool MultipathMEMAligner::TracebackManager::has_next() {
@@ -519,30 +646,87 @@ namespace vg {
         return (*curr_traceback).second;
     }
     
+    inline void MultipathMEMAligner::TracebackManager::find_local_traceback_end() {
+        
+        if (traceback_end_candidates.empty() ||
+            (curr_traceback == alt_tracebacks.end() && alt_tracebacks.size() == max_num_tracebacks)) {
+            // there are no more potential candidate local traceback starts or we are at the end
+            // of a finished stack
+            return;
+        }
+        else if (curr_traceback == alt_tracebacks.end() ? false :
+                 nodes[traceback_end_candidates.top()].dp_score <= (*curr_traceback).second) {
+            // our current traceback is higher scoring than any of the potential candidates
+            return;
+        }
+        
+        // search the nodes in reverse score order to find traceback starts that are not
+        // just shorter versions of previously traversed tracebacks
+        while (!traceback_end_candidates.empty()) {
+            // get the next highest scoring unchecked node
+            size_t candidate = traceback_end_candidates.top();
+            int32_t candidate_score = nodes[candidate].dp_score;
+            
+            // we can stop looking if our current tracebook is already higher scoring than this one
+            if (curr_traceback == alt_tracebacks.end() ? false : candidate_score <= (*curr_traceback).second) {
+                break;
+            }
+            
+            // this node is either going to be added to the stack or skipped because we've already
+            // traced on it, so we can remove it from the list
+            traceback_end_candidates.pop();
+            
+            // we've already seen the node inside another traceback, so it can only contribute a
+            // shorter version of an already observed traceback
+            if (!traced_node_idxs.count(candidate)) {
+                continue;
+            }
+            
+            // add a new traceback beginning here into the current position in the stack
+            curr_traceback = alt_tracebacks.insert(curr_traceback,
+                                                   make_pair(vector<Deflection>(), candidate_score));
+            // set its starting point
+            (*curr_traceback).first.push_back(Deflection(candidate, candidate));
+            // remove any extra tracebacks if necessary
+            trim_traceback_stack();
+            // hold off searching the rest of the candidates until later so that all nodes from
+            // this traceback will be marked as traced
+            break;
+        }
+    }
+    
     inline void MultipathMEMAligner::TracebackManager::propose_deflection(const size_t from,
-                                                                           const size_t to,
-                                                                           const int32_t score) {
+                                                                          const size_t to,
+                                                                          const int32_t score) {
         // only propose deflections if we're going through a new untraversed section of the traceback
         if (curr_deflxn != (*curr_traceback).first.end()) {
             return;
         }
         
         // is the score good enough to be put on the stack?
-        if (score <= alt_tracebacks.back().second && alt_tracebacks.size() >= max_multi_alns) {
+        if (score <= alt_tracebacks.back().second
+            && alt_tracebacks.size() >= max_num_tracebacks) {
             return;
         }
         
         insert_traceback((*curr_traceback).first, from, to, score);
     }
     
-    inline size_t MultipathMEMAligner::deflect() {
+    inline size_t MultipathMEMAligner::TracebackManager::deflect() {
         size_t to_idx = (*curr_deflxn).to_idx;
         curr_deflxn++;
         return to_idx;
     }
     
-    inline void MultipathMEMAligner::insert_traceback(const vector<Deflection>& traceback_prefix,
-                                                      const size_t from, const size_t to, const int32_t score) {
+    inline void MultipathMEMAligner::TracebackManager::trim_traceback_stack() {
+        if (alt_tracebacks.size() > max_num_tracebacks) {
+            alt_tracebacks.pop_back();
+        }
+    }
+    
+    inline void MultipathMEMAligner::TracebackManager::insert_traceback(const vector<Deflection>& traceback_prefix,
+                                                                        const size_t from, const size_t to,
+                                                                        const int32_t score) {
         // find position in stack where this should go
         auto insert_after = alt_tracebacks.rbegin();
         while (score > (*insert_after).second) {
@@ -553,33 +737,19 @@ namespace vg {
         }
         
         // insert if score is high enough or stack is not full yet
-        if (insert_after != alt_tracebacks.rbegin() || alt_tracebacks.size() < max_multi_alns) {
+        if (insert_after != alt_tracebacks.rbegin()
+            || alt_tracebacks.size() < max_num_tracebacks) {
             
             // create a new traceback here
-            auto new_traceback = alt_tracebacks.emplace(insert_after.base(), vector<Deflection>(), score);
-            
-            // add the deflections from the prefix
-            (*new_traceback).first = traceback_prefix;
+            auto new_traceback = alt_tracebacks.emplace(insert_after.base(),
+                                                        vector<Deflection>(traceback_prefix),
+                                                        score);
             
             // add the final deflection
-            deflections.emplace_back(from, to);
+            (*new_traceback).first.emplace_back(from, to);
         }
         
-        // remove lowest scoring traceback if stack is over capacity
-        if (alt_tracebacks.size() > max_multi_alns) {
-            alt_tracebacks.pop_back();
-        }
+        // remove lowest scoring tracebacks if stack is over capacity
+        trim_traceback_stack();
     }
-    
-    MultipathMEMAligner::MultipathMEMNode::MultipathMEMNode(string::const_iterator begin,
-                                                            string::const_iterator end,
-                                                            pos_t start_pos,
-                                                            size_t offset,
-                                                            int32_t score) :
-        begin(begin), end(end), start_pos(start_pos), offset(offset), score(score)
-    {
-        // nothing to do
-    }
-
-    
 }

@@ -268,7 +268,7 @@ public:
         return *this;
     }
     
-    inline bool operator==(const RangeIncrementIterIter& other) const {
+    inline bool operator==(const IncrementIter& other) const {
         return current == other.current;
     }
     
@@ -294,10 +294,6 @@ public:
 private:
     size_t current;
 };
-    
-pair<IncrementIter, IncrementIter> range(size_t begin, size_t end) {
-    return make_pair(IncrementIter(begin), IncrementIter(end));
-}
 
 // Get a callback with an istream& to an open file if a file name argument is
 // present after the parsed options, or print an error message and exit if one

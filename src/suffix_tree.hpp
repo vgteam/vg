@@ -46,10 +46,6 @@ namespace vg {
         vector<size_t> substring_locations(const string& str);
         vector<size_t> substring_locations(string::const_iterator begin, string::const_iterator end);
         
-        /// String representation for debugging.
-        string to_string();
-        
-        
         /// Beginning of string used to make tree
         const string::const_iterator begin;
         /// End of string used to make tree
@@ -68,7 +64,7 @@ namespace vg {
         inline char get_char(size_t i);
         
         // debugging functions for constructor
-        
+        string to_string();
         string partial_tree_to_string(int64_t phase);
         string label_string(unordered_map<char, STNode*>* branch_point);
         string node_string(STNode* node, int64_t phase);
@@ -78,33 +74,6 @@ namespace vg {
                                    int64_t phase);
         string suffix_links_string(unordered_map<unordered_map<char, STNode*>*,
                                                  unordered_map<char, STNode*>*>& suffix_links);
-    };
-    /**
-     * A node of a suffix tree corresponding a substring of the string
-     *
-     */
-    struct SuffixTree::STNode {
-        /// Constructor
-        STNode(int64_t first, int64_t last);
-        ~STNode() = default;
-        
-        /// Edges down the tree
-        unordered_map<char, STNode*> children;
-        
-        /// First index of string on this node
-        int64_t first;
-        /// Last index of string on this node, inclusive (-1 indicates end sentinel during consruction)
-        int64_t last;
-        
-        /// The length of the the node during a phase of construction
-        inline int64_t length(int64_t phase) {
-            return last >= 0 ? last - first + 1 : phase - first + 1;
-        }
-        
-        /// The last index contained on the this node during a phase of construction
-        inline int64_t final_index(int64_t phase) {
-            return last >= 0 ? last - first : phase - first;
-        }
     };
     
 }
