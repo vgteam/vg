@@ -20,7 +20,7 @@ namespace vg {
     }
     
     bool SnarlManager::is_root(const Snarl* snarl) {
-        return !parent.count(key_form(snarl));
+        return parent[key_form(snarl)] == nullptr;
     }
     
     const vector<const Snarl*>& SnarlManager::top_level_snarls() {
@@ -73,8 +73,7 @@ namespace vg {
         parent.erase(old_key);
         
         // update children index
-        // TODO: is there a way to do this without deep-copying the vector?
-        children[key_form(snarl)] = children[old_key];
+        children[key_form(snarl)] = std::move(children[old_key]);
         children.erase(old_key);
     }
     
@@ -112,19 +111,10 @@ namespace vg {
     void SnarlManager::build_trees() {
         
         for (Snarl& snarl : snarls) {
-            
-            // ensures that all snarls are in the children map
-            if (!children.count(key_form(&snarl))) {
-                children.insert(make_pair(key_form(&snarl), vector<const Snarl*>()));
-            }
-            
             // is this a top-level snarl?
             if (snarl.has_parent()) {
-                // add parent to child-to-parent index
-                parent.insert(make_pair(key_form(&snarl), &snarl));
-                
                 // add this snarl to the parent-to-children index
-                if ( !children.count(key_form(&(snarl.parent()))) ) {
+                if (!children.count(key_form(&(snarl.parent()))) ) {
                     children.insert(make_pair(key_form(&snarl.parent()), vector<const Snarl*>(1, &snarl)));
                 }
                 else {
@@ -132,11 +122,22 @@ namespace vg {
                 }
             }
             else {
-                // add null parent to index
-                parent.insert(make_pair(key_form(&snarl), nullptr));
-                
                 // record top level status
                 roots.push_back(&snarl);
+                parent[key_form(&snarl)] = nullptr;
+            }
+        }
+        
+        for (Snarl& snarl : snarls) {
+            if (children.count(key_form(&snarl))) {
+                // mark this snarl as the parent in child-to-parent map
+                for (const Snarl* child : children[key_form(&snarl)]) {
+                    parent[key_form(child)] = &snarl;
+                }
+            }
+            else {
+                // ensure that all snarls are in the parent-to-children map
+                children.insert(make_pair(key_form(&snarl), vector<const Snarl*>()));
             }
         }
     }
