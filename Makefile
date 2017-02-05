@@ -82,6 +82,7 @@ OBJ += $(OBJ_DIR)/translator.o
 OBJ += $(OBJ_DIR)/version.o
 OBJ += $(OBJ_DIR)/banded_global_aligner.o
 OBJ += $(OBJ_DIR)/multipath_alignment.o
+OBJ += $(OBJ_DIR)/multipath_mem_aligner.o
 OBJ += $(OBJ_DIR)/phased_genome.o
 OBJ += $(OBJ_DIR)/constructor.o
 OBJ += $(OBJ_DIR)/progressive.o
@@ -417,6 +418,8 @@ $(OBJ_DIR)/xg-main.o: $(XG_DIR)/src/main.cpp $(XG_DIR)/src/xg.hpp $(DEPS)
 $(OBJ_DIR)/phased_genome.o: $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/phased_genome.hpp $(DEPS)
 
 $(OBJ_DIR)/multipath_alignment.o: $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/multipath_alignment.hpp $(DEPS)
+
+$(OBJ_DIR)/multipath_mem_aligner.o: $(SRC_DIR)/multipath_mem_aligner.cpp $(SRC_DIR)/multipath_mem_aligner.hpp $(DEPS)
 
 $(OBJ_DIR)/snarls.o: $(SRC_DIR)/snarls.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
