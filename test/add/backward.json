@@ -1,0 +1,14 @@
+{
+    "node": [
+        {"id": 1, "sequence": "CTTAAAATGATCGGGACTTTTCAAATCTTATTT"}
+    ],
+    "edge": [
+    ],
+    "path": [
+        {"name": "ref", "mapping": [
+            {"rank": 1, "edit": [
+                {"from_length": 33, "to_length": 33}
+            ], "position": {"node_id": 1, "offset": 0, "is_reverse": true}}
+        ]}
+    ]
+}

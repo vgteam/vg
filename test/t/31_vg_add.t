@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 5
+plan tests 6
 
 vg construct -r add/ref.fa > ref.vg
 vg add -v add/benedict.vcf ref.vg > benedict.vg
@@ -22,5 +22,7 @@ vg add -v small/x.vcf.gz x-ref.vg > x.vg
 is "$?" "0" "vg add can create a slightly larger graph"
 
 is "$(vg view -c x.vg | jq -c '.path[].mapping[] | select(.rank | not)' | wc -l)" "0" "ranks are calculated for emitted paths"
+
+is "$(vg view -Jv add/backward.json | vg add -v add/benedict.vcf - | vg stats -N -)" "5" "graphs with backward nodes can be added to"
 
 rm -rf ref.vg benedict.vg benedict.vg x-ref.vg x.vg
