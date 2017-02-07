@@ -43,6 +43,13 @@ public:
     const string& get_path_sequence(const string& path_name);
     
     /**
+     * We can actually let users run whatever function they want with an
+     * exclusive handle on a PathIndex, with the guarantee that the graph won't
+     * change while they're working.
+     */
+    void with_path_index(const string& path_name, const function<void(const PathIndex&)>& to_run);
+    
+    /**
      * This represents a request to lock a particular context on a particular
      * GraphSynchronizer. It fulfils the BasicLockable concept requirements, so
      * you can wait on it with std::unique_lock.

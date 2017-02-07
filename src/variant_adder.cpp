@@ -123,14 +123,22 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t right_context_length = min(path_sequence.size() - group_end, (size_t) (flank_range + 2 * overall_radius));
     
         // Turn those into desired substring bounds.
+        // TODO: this is sort of just undoing some math we already did
+        size_t left_context_start = group_start - left_context_length;
+        size_t right_context_past_end = group_end + right_context_length;
         
         // Round bounds to node start and endpoints.
+        sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
+            tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start, right_context_past_end);
+        });
         
+        // Recalculate context lengths
+        left_context_length = group_start - left_context_start;
+        right_context_length = right_context_past_end - group_end;
         
+        // Get actual context strings
         string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
         string right_context = path_sequence.substr(group_end, right_context_length);
-        
-        
         
         // Get the unique haplotypes
         auto haplotypes = get_unique_haplotypes(local_variants, &buffer);

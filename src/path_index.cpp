@@ -345,6 +345,28 @@ size_t PathIndex::node_length(const iterator& here) const {
     }
 }
 
+pair<size_t, size_t> PathIndex::round_outward(size_t start, size_t past_end) const {
+    // Find the node occurrence the start position is on
+    auto start_occurrence = find_position(start);
+    // Seek to the start of that occurrence
+    size_t start_rounded = start_occurrence->first;
+    
+    // Now try and round the end
+    size_t past_end_rounded;
+    if (past_end == 0) {
+        // Range must have been empty anyway, so keep it ending before the first
+        // node.
+        past_end_rounded = 0;
+    } else {
+        // Look for the node holding the last included base
+        auto end_occurrence = find_position(past_end - 1);
+        // Then go out past its end.
+        past_end_rounded = end_occurrence->first + node_length(end_occurrence);
+    }
+    
+    return make_pair(start_rounded, past_end_rounded);
+}
+
 map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& translation) {
 
     // We take as a precondition that the translation is replacing a set of old

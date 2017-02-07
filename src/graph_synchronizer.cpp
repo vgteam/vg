@@ -8,6 +8,12 @@ GraphSynchronizer::GraphSynchronizer(VG& graph) : graph(graph) {
     // Nothing to do!
 }
 
+void GraphSynchronizer::with_path_index(const string& path_name, const function<void(const PathIndex&)>& to_run) {
+    // Get a reader lock on the graph
+    std::lock_guard<std::mutex> guard(whole_graph_lock);
+    to_run(get_path_index(path_name));
+}
+
 const string& GraphSynchronizer::get_path_sequence(const string& path_name) {
     // Lock the whole graph
     std::lock_guard<std::mutex> guard(whole_graph_lock);
