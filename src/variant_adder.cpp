@@ -127,14 +127,21 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t left_context_start = group_start - left_context_length;
         size_t right_context_past_end = group_end + right_context_length;
         
+        cerr << "Original context bounds: " << left_context_start << " - " << right_context_past_end << endl;
+        
         // Round bounds to node start and endpoints.
         sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
             tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start, right_context_past_end);
         });
         
+        cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
+        
         // Recalculate context lengths
         left_context_length = group_start - left_context_start;
         right_context_length = right_context_past_end - group_end;
+        
+        // Make sure we pull out out to the ends of the contexts
+        overall_radius = max(overall_radius, max(overall_center - left_context_start, right_context_past_end - overall_center));
         
         // Get actual context strings
         string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
@@ -271,7 +278,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 
         }
         
-        if (variants_processed++ % 1000 == 0) {
+        if (variants_processed++ % 1000 == 0 || true) {
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "

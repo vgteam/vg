@@ -54,6 +54,12 @@ GraphSynchronizer::Lock::Lock(GraphSynchronizer& synchronizer,
     // Nothing to do. We've saved all the details on the request.
 }
 
+GraphSynchronizer::Lock::Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t start, size_t past_end) :
+    synchronizer(synchronizer), path_name(path_name), start(start), past_end(past_end) {
+
+    // Nothing to do. We've saved all the details on the request.
+}
+
 void GraphSynchronizer::Lock::lock() {
     // Now we have to block until a lock is obtained.
     
@@ -77,8 +83,14 @@ void GraphSynchronizer::Lock::lock() {
         
         // Extract the context around that node
         VG context;
-        synchronizer.graph.nonoverlapping_node_context_without_paths(synchronizer.graph.get_node(center.node), context);
-        synchronizer.graph.expand_context_by_length(context, context_bases, false, reflect);
+        
+        if (start != 0 || past_end != 0) {
+            // We want to extract a range
+        } else {
+            // We want to extract a radius
+            synchronizer.graph.nonoverlapping_node_context_without_paths(synchronizer.graph.get_node(center.node), context);
+            synchronizer.graph.expand_context_by_length(context, context_bases, false, reflect);
+        }
         
         // Also remember all the nodes connected to but not in the context,
         // which also need to be locked.

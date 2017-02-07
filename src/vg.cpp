@@ -1068,7 +1068,7 @@ void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     }
 }
 
-void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect) {
+void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect, const set<NodeSide>& barriers) {
     
     // We have a set of newly added nodes.
     set<id_t> new_nodes;
@@ -1115,53 +1115,58 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
 
         // We know this node is already in the graph, so no need to add it.
         
-        // Get its budget
-        auto budget = budget_remaining.at(here);
+        if (!barriers.count(here)) {
+            // We're allowed to expand out from this NodeSide
         
-#ifdef debug
-        cerr << "\tBudget: " << budget << endl;
-#endif
-        
-        for (auto connected : sides_of(here)) {
-            // Go through all the NodeSides we can reach from here
-        
-            // Add each of them to the graph if not there already
-            take_node(connected.node);
+            // Get its budget
+            auto budget = budget_remaining.at(here);
             
 #ifdef debug
-            cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+            cerr << "\tBudget: " << budget << endl;
 #endif
-
-            if (reflect) {
-                // Bounce right off this NodeSide
-                if (budget > budget_remaining[connected]) {
-                    // We actually would make it go further
-                    budget_remaining[connected] = budget;
-                    active.insert(connected);
+            
+            for (auto connected : sides_of(here)) {
+                // Go through all the NodeSides we can reach from here
+            
+                // Add each of them to the graph if not there already
+                take_node(connected.node);
                 
 #ifdef debug
-                    cerr << "\tUp budget on " << connected << " to " << budget << endl;
+                cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+#endif
+
+                if (reflect) {
+                    // Bounce right off this NodeSide
+                    if (budget > budget_remaining[connected]) {
+                        // We actually would make it go further
+                        budget_remaining[connected] = budget;
+                        active.insert(connected);
+                    
+#ifdef debug
+                        cerr << "\tUp budget on " << connected << " to " << budget << endl;
+#endif
+                    }
+                }
+                
+                // For each one, flip it to the other side of its node
+                auto flipped = connected.flip();
+                
+                // Deduct the length of the reached node from the budget of this NodeSide
+                int64_t new_budget = budget - get_node(connected.node)->sequence().size();
+
+                if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
+                    // If it's greater than the old budget (default budget is 0)
+                    
+                    // Replace the old budget and activate the other NodeSide
+                    budget_remaining[flipped] = new_budget;
+                    active.insert(flipped);
+                    
+#ifdef debug
+                    cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
 #endif
                 }
             }
             
-            // For each one, flip it to the other side of its node
-            auto flipped = connected.flip();
-            
-            // Deduct the length of the reached node from the budget of this NodeSide
-            int64_t new_budget = budget - get_node(connected.node)->sequence().size();
-
-            if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
-                // If it's greater than the old budget (default budget is 0)
-                
-                // Replace the old budget and activate the other NodeSide
-                budget_remaining[flipped] = new_budget;
-                active.insert(flipped);
-                
-#ifdef debug
-                cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
-#endif
-            }
         }
             
         // Deactivate the NodeSide we just did
@@ -1182,6 +1187,7 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
             // For every edge from here
             if (g.has_node(edge->to())) {
                 // If it goes to a node in the graph, add it.
+                // TODO: don't add edges into barrier sides!
                 g.add_edge(*edge);
 #ifdef debug
                 cerr << "\tTake from edge " << pb2json(*edge) << endl;
@@ -1193,6 +1199,7 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
             // For every edge to here
             if (g.has_node(edge->from())) {
                 // If it goes from a node in the graph, add it.
+                // TODO: don't add edges into barrier sides!
                 g.add_edge(*edge);
 #ifdef debug
                 cerr << "\tTake to edge " << pb2json(*edge) << endl;

@@ -65,6 +65,13 @@ public:
         Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t path_offset, size_t context_bases, bool reflect);
         
         /**
+         * Create a request to lock a certain range of a certain path, from start to end.
+         * Also locks attached things that can be reached by paths of the same length or shorter.
+         * Note that the range must be nonempty.
+         */
+        Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t start, size_t past_end);
+        
+        /**
          * Block until a lock is obtained.
          */
         void lock();
@@ -100,9 +107,15 @@ public:
         
         // These hold the actual lock request we represent
         string path_name;
+        
+        // These can be set
         size_t path_offset;
         size_t context_bases;
         bool reflect; // Should we bounce off node ends?
+        
+        // Or these can be set
+        size_t start;
+        size_t past_end;
         
         /// This is the subgraph that got extracted during the locking procedure.
         VG subgraph;
