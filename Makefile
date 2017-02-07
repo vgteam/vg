@@ -2,6 +2,7 @@ DEP_DIR:=./deps
 SRC_DIR:=src
 UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
+ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
 BIN_DIR:=bin
 OBJ_DIR:=obj
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
@@ -98,6 +99,7 @@ OBJ += $(OBJ_DIR)/chunker.o
 OBJ += $(OBJ_DIR)/vcf_buffer.o
 OBJ += $(OBJ_DIR)/variant_adder.o
 OBJ += $(OBJ_DIR)/name_mapper.o
+OBJ += $(OBJ_DIR)/vg_algorithms.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -437,6 +439,9 @@ $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp 
 $(OBJ_DIR)/suffix_tree.o: $(SRC_DIR)/suffix_tree.cpp $(SRC_DIR)/suffix_tree.hpp $(DEPS)
 
 $(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
+
+$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
 ## VG unit test compilation begins here

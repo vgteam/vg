@@ -65,14 +65,14 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
 
 }
 
-namespace std {
-/// hash function for pos_t
-template<>
-struct hash<const vg::pos_t> {
-    inline size_t operator()(const vg::pos_t& pos) const {
-        return hash<pair<pair<id_t, bool>, off_t > >()(make_pair(make_pair(id(pos), rev(pos)), offset(pos)));
-    }
-};
-}
+//namespace std {
+///// hash function for pos_t
+//template<>
+//struct hash<const vg::pos_t> {
+//    inline size_t operator()(const vg::pos_t& pos) const {
+//        return hash<pair<pair<vg::id_t, bool>, vg::off_t > >()(make_pair(make_pair(vg::id(pos), vg::is_rev(pos)), vg::offset(pos)));
+//    }
+//};
+//}
 
 #endif

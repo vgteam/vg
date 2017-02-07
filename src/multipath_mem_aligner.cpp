@@ -381,7 +381,7 @@ namespace vg {
         // tracing back and keep track of them
         for (; traceback_manager.has_next(); traceback_manager.next()) {
             // where does the traceback start?
-            size_t traceback_idx = traceback_manager.get_traceback_start()
+            size_t traceback_idx = traceback_manager.get_traceback_start();
             traceback_manager.mark_traced(traceback_idx);
             MultipathMEMNode& node = nodes[traceback_idx];
             
@@ -563,32 +563,32 @@ namespace vg {
         vector<pair<pair<pos_t, int64_t>, pair<string::const_iterator, string::const_iterator>>> matches;
         for (auto& match_record : match_records) {
             // put the nodes in order along the MEM
-            list<MultipathMEMNode*>& match_nodes = match_record.second;
+            vector<MultipathMEMNode*>& match_nodes = match_record.second;
             sort(match_nodes.begin(), match_nodes.end(),
-                 [](const MultipathMEMNode* n1, const MultipathMEMNode* n1) {
+                 [](const MultipathMEMNode* n1, const MultipathMEMNode* n2) {
                      return n1->offset < n2->offset;
                  });
             
             // combine the nodes into a single record of the match to query
             matches.emplace_back(match_record.first,
-                                 make_pair(match_nodes.front().begin - match_nodes.front().offset,
-                                           match_nodes.back().end));
+                                 make_pair(match_nodes.front()->begin - match_nodes.front()->offset,
+                                           match_nodes.back()->end));
         }
         
-        // sort the matches in descending order by length so that if there's a redundant
-        // sub-MEM we always find the containing MEM(s) first
-        sort(matches.begin(), matches.end(),
-             [](const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m1,
-                const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m2) {
-                 return m1.second.second - m1.second.first > m2.second.second - m2.second.first;
-             });
-        
-        // map of node ids to the indices in the matches that contain them
-        unordered_map<int64_t, vector<size_t>> node_matches;
-        
-        for (size_t i = 0; i < matches.size(); i++) {
-            
-        }
+//        // sort the matches in descending order by length so that if there's a redundant
+//        // sub-MEM we always find the containing MEM(s) first
+//        sort(matches.begin(), matches.end(),
+//             [](const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m1,
+//                const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m2) {
+//                 return m1.second.second - m1.second.first > m2.second.second - m2.second.first;
+//             });
+//        
+//        // map of node ids to the indices in the matches that contain them
+//        unordered_map<int64_t, vector<size_t>> node_matches;
+//        
+//        for (size_t i = 0; i < matches.size(); i++) {
+//            
+//        }
         
     }
     
