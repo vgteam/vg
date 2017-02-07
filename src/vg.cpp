@@ -1009,9 +1009,18 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
     paths.compact_ranks();
 }
 
+void VG::expand_context(VG& g, size_t distance, bool add_paths, bool use_steps) {
+    // Dispatch the appropriate implementation
+    if (use_steps) {
+        expand_context_by_steps(g, distance, add_paths);
+    } else {
+        expand_context_by_length(g, distance, add_paths);
+    }
+}
+
 // expand the context of the subgraph g by this many steps
 // it's like a neighborhood function
-void VG::expand_context(VG& g, size_t steps, bool add_paths) {
+void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     set<id_t> to_visit;
     // start with the nodes in the subgraph
     g.for_each_node([&](Node* n) { to_visit.insert(n->id()); });
@@ -1057,6 +1066,158 @@ void VG::expand_context(VG& g, size_t steps, bool add_paths) {
             });
         g.sync_paths();
     }
+}
+
+void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect) {
+    
+    // We have a set of newly added nodes.
+    set<id_t> new_nodes;
+    
+    // We have an operation to take a node
+    auto take_node = [&](id_t id) {
+        if (!g.has_node(id)) {
+            g.create_node(get_node(id)->sequence(), id);
+            new_nodes.insert(id);
+        }
+    };
+    
+    // This holds how many bases of budget are remaining when about to leave
+    // from this NodeSide?
+    map<NodeSide, int64_t> budget_remaining;
+    
+    // This is the set of NodeSides we still have to look out from.
+    set<NodeSide> active;
+    
+    // start with the nodes in the subgraph
+    g.for_each_node([&](Node* n) {
+        // Say every node has a budget of the whole length out from its ends.
+        NodeSide left(n->id(), false);
+        budget_remaining[left] = length;
+        active.insert(left);
+#ifdef debug
+        cerr << "Start with budget " << length << " at " << left << endl;
+#endif
+        NodeSide right(n->id(), true);
+        budget_remaining[right] = length;
+        active.insert(right);
+#ifdef debug
+        cerr << "Start with budget " << length << " at " << right << endl;
+#endif
+    });
+    
+    while (!active.empty()) {
+        // While there are still active NodeSides to extend, find one
+        NodeSide here = *active.begin();
+        
+#ifdef debug
+        cerr << "Consider " << here;
+#endif
+
+        // We know this node is already in the graph, so no need to add it.
+        
+        // Get its budget
+        auto budget = budget_remaining.at(here);
+        
+#ifdef debug
+        cerr << "\tBudget: " << budget << endl;
+#endif
+        
+        for (auto connected : sides_of(here)) {
+            // Go through all the NodeSides we can reach from here
+        
+            // Add each of them to the graph if not there already
+            take_node(connected.node);
+            
+#ifdef debug
+            cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+#endif
+
+            if (reflect) {
+                // Bounce right off this NodeSide
+                if (budget > budget_remaining[connected]) {
+                    // We actually would make it go further
+                    budget_remaining[connected] = budget;
+                    active.insert(connected);
+                
+#ifdef debug
+                    cerr << "\tUp budget on " << connected << " to " << budget << endl;
+#endif
+                }
+            }
+            
+            // For each one, flip it to the other side of its node
+            auto flipped = connected.flip();
+            
+            // Deduct the length of the reached node from the budget of this NodeSide
+            int64_t new_budget = budget - get_node(connected.node)->sequence().size();
+
+            if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
+                // If it's greater than the old budget (default budget is 0)
+                
+                // Replace the old budget and activate the other NodeSide
+                budget_remaining[flipped] = new_budget;
+                active.insert(flipped);
+                
+#ifdef debug
+                cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
+#endif
+            }
+        }
+            
+        // Deactivate the NodeSide we just did
+        active.erase(here);
+    }
+    
+    // Now take all the edges among the nodes we added
+    for (id_t new_id : new_nodes) {
+        // For each newly added node, create edges involving any nodes that are
+        // in the graph. TODO: this will add edges twice, but they'll be
+        // deduplicated.
+        
+#ifdef debug
+        cerr << "For new node " << new_id << endl;
+#endif
+        
+        for (auto* edge : edges_from(get_node(new_id))) {
+            // For every edge from here
+            if (g.has_node(edge->to())) {
+                // If it goes to a node in the graph, add it.
+                g.add_edge(*edge);
+#ifdef debug
+                cerr << "\tTake from edge " << pb2json(*edge) << endl;
+#endif
+            }
+        }
+        
+        for (auto* edge : edges_to(get_node(new_id))) {
+            // For every edge to here
+            if (g.has_node(edge->from())) {
+                // If it goes from a node in the graph, add it.
+                g.add_edge(*edge);
+#ifdef debug
+                cerr << "\tTake to edge " << pb2json(*edge) << endl;
+#endif
+            }
+        }
+        
+    }
+    
+    // and add paths
+    // TODO: deduplicate this code with the node count based version
+    if (add_paths) {
+        g.for_each_node([&](Node* n) {
+                for (auto& path : paths.get_node_mapping(n)) {
+                    for (auto& m : path.second) {
+                        g.paths.append_mapping(path.first, *m);
+                    }
+                }
+            });
+        g.sync_paths();
+    }
+    
+#ifdef dubug
+    cerr << pb2json(g.graph) << endl;
+#endif
 }
 
 bool VG::adjacent(const Position& pos1, const Position& pos2) {
@@ -3833,9 +3994,6 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
                     // Mapping offsets are the same as offsets from the start of the node.
                     halves = cut_mapping(remainder, pos - local_offset);
                 }
-                // TODO: since there are no edits to move, none of that is
-                // strictly necessary, because both mapping halves will be
-                // identical.
 
                 // This is the one we have produced
                 Mapping& chunk = halves.first;
@@ -4448,7 +4606,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     return make_translation(node_translation, added_nodes, orig_node_sizes);
 }
 
-// The not quite as correct but actually efficient way to edit the graph.
+// The not quite as robust but actually efficient way to edit the graph.
 vector<Translation> VG::edit_fast(const Path& path) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
@@ -4472,9 +4630,6 @@ vector<Translation> VG::edit_fast(const Path& path) {
         orig_node_sizes[kv.first] = get_node(kv.first)->sequence().size();
     }
 
-    // Clear existing path ranks (sicne we invalidate them)
-    paths.clear_mapping_ranks();
-    
     // Break any nodes that need to be broken. Save the map we need to translate
     // from start positions on old nodes to new nodes.
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
@@ -4486,8 +4641,9 @@ vector<Translation> VG::edit_fast(const Path& path) {
     // create new nodes/wire things up.
     add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
 
-    // Make the translations (in about the same format as VG::edit(), but without
-    // every single node)
+    // Make the translations (in about the same format as VG::edit(), but
+    // without a translation for every single node and with just the nodes we
+    // touched)
     vector<Translation> translations;
     
     for (auto& kv : node_translation) {
@@ -4758,7 +4914,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
         // Go through all the nodes we need to break up
         auto original_node_id = kv.first;
 
-        // Save the original node length. We don;t want to break here (or later)
+        // Save the original node length. We don't want to break here (or later)
         // because that would be off the end.
         id_t original_node_length = get_node(original_node_id)->sequence().size();
 
@@ -8376,40 +8532,59 @@ VG VG::unfold(uint32_t max_length,
     VG unfolded = *this;
     unfolded.flip_doubly_reversed_edges();
     if (!unfolded.has_inverting_edges()) return unfolded;
-    // maps from entry id to the set of nodes
-    // map from component root id to a translation
-    // that maps the unrolled id to the original node and whether we've inverted or not
-    // TODO
-    // we need to first collect the components so we can ask quickly if a certain node is in one
-    // then we need to
+    
+    // This is the set of oriented nodes that we want to include in a reverse orientation.
     set<NodeTraversal> travs_to_flip;
-    //set<Edge*> edges_to_flip;
+    // These are the edges we need to fix up
     set<pair<NodeTraversal, NodeTraversal> > edges_to_flip;
-    //set<Edge*> edges_to_forward;
+    // These are edges from the reverse world to the forward world
     set<pair<NodeTraversal, NodeTraversal> > edges_to_forward;
-    //set<Edge*> edges_from_forward;
+    // And these are edges from the forward world to the reverse worls
     set<pair<NodeTraversal, NodeTraversal> > edges_from_forward;
 
     // collect the set to invert
     // and we'll copy them over
     // then link back in according to how the inbound links work
     // so as to eliminate the reversing edges
+    
+    // This stores how much length we had left when we visited each node in the
+    // original graph in each orientation.
     map<NodeTraversal, int32_t> seen;
     function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
                                                      int32_t length) {
 
+#ifdef debug
+        cerr << "Visit " << curr << " with " << length << " bases remaining" << endl;
+#endif
+        
+        set<NodeTraversal> next;
+        travs_to_flip.insert(curr);
+
         // check if we've passed our length limit
         // or if we've seen this node before at an earlier step
         // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
-        set<NodeTraversal> next;
-        travs_to_flip.insert(curr);
-        if (length <= 0 || (seen.find(curr) != seen.end() && seen[curr] < length)) {
+        if (length <= 0 || (seen.find(curr) != seen.end() && seen[curr] >= length)) {
+#ifdef debug
+            cerr << "\tDon't explore further" << endl;
+            if (seen.find(curr) != seen.end()) {
+                cerr << "\t\tBecause we already saw " << curr << " with " << seen[curr] << " remaining" << endl;
+            } else {
+                cerr << "\t\tBecuase " << length << " <= 0" << endl;
+            }
+#endif
             return;
         }
+        
+        // We can reach this node with this much length left.
         seen[curr] = length;
         for (auto& trav : travs_from(curr)) {
+            // Look at all the oriented nodes we can go to next
             if (trav.backward) {
+                // We can get to this node backward from a node that's already
+                // backward, so remember to make a reverse-world version of the
+                // edge.
                 edges_to_flip.insert(make_pair(curr, trav));
+                // Flip and continue from that node with the remaining length
                 walk(trav, length-trav.node->sequence().size());
             } else {
                 // we would not continue, but we should retain this edge because it brings
@@ -8418,8 +8593,13 @@ VG VG::unfold(uint32_t max_length,
             }
         }
         for (auto& trav : travs_to(curr)) {
+            // Look at all the oriented nodes we could have come from
             if (trav.backward) {
+                // We can get to this node backward from a node that's already
+                // backward, so remember to make a reverse-world version of the
+                // edge.
                 edges_to_flip.insert(make_pair(trav, curr));
+                // Keep looking off of that node.
                 walk(trav, length-trav.node->sequence().size());
             } else {
                 // we would not continue, but we should retain this edge because it brings
@@ -8431,26 +8611,40 @@ VG VG::unfold(uint32_t max_length,
 
     // run over the inverting edges
     for_each_node([&](Node* node) {
+            // For each node
             for (auto& trav : travs_of(NodeTraversal(node, false))) {
+                // For everything connecte dto this node in the forward orientation
                 if (trav.backward) {
+                    // If it's in the reverse orientation, look outwards from it
+#ifdef debug
+                    cerr << "Start walk out from " << trav << " which is reverse and attached to "
+                        << node->id() << " forward" << endl;
+#endif
                     walk(trav,  max_length);
                 }
             }
         });
     // now build out the component of the graph that's reversed
 
-    // our friend is map<id_t, pair<id_t, bool> >& node_translation;
+    // This map is sort of the reverse of map<id_t, pair<id_t, bool> >& node_translation
+    // It maps from original NodeTranslation to the new node ID that represents it on the forward strand.
     map<NodeTraversal, id_t> inv_translation;
 
     // first adding nodes that we've flipped
     for (auto t : travs_to_flip) {
         // make a new node, add it to the flattened version
         // record it in the translation
-        //string seq = reverse_complement(t.node->sequence()) + ":" + convert(t.node->id());
         string seq = reverse_complement(t.node->sequence());
         id_t i = unfolded.create_node(seq)->id();
+        // Remember the old node ID and orientation as where this new node came from
         node_translation[i] = make_pair(t.node->id(), t.backward);
+        // Remember the new ID for the forward version of this NodeTraversal.
         inv_translation[t] = i;
+        
+#ifdef debug
+        cerr << "Transform " << t << " into new node " << i << endl;
+#endif
+        
     }
 
     // then edges that we should translate into the reversed component
@@ -8467,7 +8661,7 @@ VG VG::unfold(uint32_t max_length,
     // finally the edges that take us from the reversed component back to the original graph
     for (auto e : edges_to_forward) {
         Edge f;
-        f.set_from(inv_translation[e.first]);//NodeTraversal(get_node(e->from()), true)]);
+        f.set_from(inv_translation[e.first]);
         f.set_to(e.second.node->id());
         unfolded.add_edge(f);
     }

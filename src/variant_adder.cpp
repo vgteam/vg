@@ -4,40 +4,31 @@ namespace vg {
 
 using namespace std;
 
-VariantAdder::VariantAdder(VG& graph) : graph(graph) {
-    // Nothing to do!
-}
-
-
+VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
+    graph.paths.for_each_name([&](const string& name) {
+        // Save the names of all the graph paths, so we don't need to lock the
+        // graph to check them.
+        path_names.insert(name);
+    });
     
-// We need a function to grab the index for a path
-PathIndex& VariantAdder::get_path_index(const string& path_name) {
-    if (!indexes.count(path_name)) {
-        // Not already made. Generate it.
-        indexes.emplace(piecewise_construct,
-            forward_as_tuple(path_name), // Make the key
-            forward_as_tuple(graph, path_name, true)); // Make the PathIndex
-    }
-    return indexes.at(path_name);
-}
-
-void VariantAdder::update_path_indexes(const vector<Translation>& translations) {
-    for (auto& kv : indexes) {
-        // We need to touch every index (IN PLACE!)
-        
-        // Feed each index all the translations, which it will parse into node-
-        // partitioning translations and then apply.
-        kv.second.apply_translations(translations);
-    }
+    // Show progress if the graph does.
+    show_progress = graph.show_progress;
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
-    // We collect all the edits we need to make, and then make them all at
-    // once.
-    vector<Path> edits_to_make;
     
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
+    
+    // Count how many variants we have done
+    size_t variants_processed = 0;
+    
+    // Keep track of the previous contig name, so we know when to change our
+    // progress bar.
+    string prev_path_name;
+    
+    // We report when we skip contigs, but only once.
+    set<string> skipped_contigs;
     
     while(buffer.next()) {
         // For each variant in its context of nonoverlapping variants
@@ -50,16 +41,45 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         auto variant_path_name = vcf_to_fasta(variant->sequenceName);
         auto& variant_path_offset = variant->position; // Already made 0-based by the buffer
         
-        if (!graph.paths.has_path(variant_path_name)) {
-            // Explode if the path is not in the vg
-            
-            cerr << "error:[vg::VariantAdder] could not find path " << variant_path_name << " in graph" << endl;
-            throw runtime_error("Missing path " + variant_path_name);
+        if (!path_names.count(variant_path_name)) {
+            // This variant isn't on a path we have.
+            if (ignore_missing_contigs) {
+                // That's OK. Just skip it.
+                
+                if (!skipped_contigs.count(variant_path_name)) {
+                    // Warn first
+                    
+                    // Don't clobber an existing progress bar (which must be over since we must be on a new contig)
+                    destroy_progress();
+                    cerr << "warning:[vg::VariantAdder] skipping missing contig " << variant_path_name << endl;
+                    skipped_contigs.insert(variant_path_name);
+                }
+                
+                continue;
+            } else {
+                // Explode!
+                throw runtime_error("Contig " + variant_path_name + " mentioned in VCF but not found in graph");
+            }
         }
         
-        // Grab the path index.
-        // It's a reference so it can be updated when we apply translations to all indexes.
-        auto& index = get_path_index(variant_path_name);
+        // Grab the sequence of the path, which won't change
+        const string& path_sequence = sync.get_path_sequence(variant_path_name);
+    
+        // Interlude: do the progress bar
+        // TODO: not really thread safe
+        if (variant_path_name != prev_path_name) {
+            // Moved to a new contig
+            prev_path_name = variant_path_name;
+            destroy_progress();
+            create_progress("contig " + variant_path_name, path_sequence.size());
+        }
+        update_progress(variant_path_offset);
+        
+        // Figure out what the actual bounds of this variant are. For big
+        // deletions, the variant itself may be bigger than the window we're
+        // using when looking for other local variants. For big insertions, we
+        // might need to get a big subgraph to ensure we have all the existing
+        // alts if they exist.
         
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants{before};
@@ -74,30 +94,75 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         cerr << endl;
 #endif
         
-        // Where does the group start?
+        // Where does the group of nearby variants start?
         size_t group_start = local_variants.front()->position;
-        // And where does it end (exclusive)?
+        // And where does it end (exclusive)? This is the latest ending point of any variant in the group...
         size_t group_end = local_variants.back()->position + local_variants.back()->ref.size();
+        
+        // We need to make sure we also grab this much extra graph context,
+        // since we count 2 radiuses + flank out from the ends of the group.
+        size_t group_width = group_end - group_start;
+        
+        // Find the center and radius of the group of variants, so we know what graph part to grab.
+        size_t overall_center;
+        size_t overall_radius;
+        tie(overall_center, overall_radius) = get_center_and_radius(local_variants);
         
         // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
 
-        // On the left we want either flank_range bases or all the bases before the first base in the group.
-        size_t left_context_length = max(min((int64_t)flank_range, (int64_t) group_start), (int64_t) 0);
-        // On the right we want either flank_range bases or all the bases after the last base in the group.
-        size_t right_context_length = min(index.sequence.size() - group_end, (size_t) flank_range);
+        // On the left we want either flank_range bases after twice the radius,
+        // or all the bases before the first base in the group. We need twice
+        // the radius so we're guaranteed to have enough bases to pin down a
+        // radius-sized gap.
+        // Then we add some more in case the gap looks like its surroundings.
+        size_t left_context_length = max(min((int64_t) (flank_range + 2 * overall_radius + overall_radius), (int64_t) group_start), (int64_t) 0);
+        // On the right we want either flank_range bases after the radius, or
+        // all the bases after the last base in the group. We know nothing will
+        // overlap the end of the last variant, because we grabbed
+        // nonoverlapping variants.
+        size_t right_context_length = min(path_sequence.size() - group_end, (size_t) (flank_range + 2 * overall_radius));
     
-        string left_context = index.sequence.substr(group_start - left_context_length, left_context_length);
-        string right_context = index.sequence.substr(group_end, right_context_length);
+        string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
+        string right_context = path_sequence.substr(group_end, right_context_length);
+        
+        
         
         // Get the unique haplotypes
-        auto haplotypes = get_unique_haplotypes(local_variants);
+        auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
+        
+        // Track the total bp of haplotypes
+        size_t total_haplotype_bases = 0;
+        
+        // Track the total graph size for the alignments
+        size_t total_graph_bases = 0;
         
 #ifdef debug
-        cerr << "Have " << haplotypes.size() << " haplotypes for variant " << *variant << endl;
+        cerr << "Have " << haplotypes.size() << " haplotypes for variant "
+            << variant->sequenceName << ":" << variant->position << endl;
 #endif
         
         for (auto& haplotype : haplotypes) {
             // For each haplotype
+            
+            // TODO: since we lock repeatedly, neighboring variants will come in
+            // in undefined order and our result is nondeterministic.
+            
+            // Only look at haplotypes that aren't pure reference.
+            bool has_nonreference = false;
+            for (auto& allele : haplotype) {
+                if (allele != 0) {
+                    has_nonreference = true;
+                    break;
+                }
+            }
+            if (!has_nonreference) {
+                // Don't bother aligning all-ref haplotypes to the graph.
+                // They're there already.
+#ifdef debug
+                cerr << "Skip all-reference haplotype.";
+#endif
+                continue;
+            }
             
 #ifdef debug
             cerr << "Haplotype ";
@@ -114,49 +179,101 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 #ifdef debug
             cerr << "Align " << to_align.str() << endl;
 #endif
+
+            // Count all the bases
+            total_haplotype_bases += to_align.str().size();
             
-            // Find the node that the variant falls on right now
-            NodeSide center = index.at_position(variant_path_offset);
+            // Make a request to lock the subgraph. We really need to search
+            // twice the radius, because when you reflect off the end of one
+            // allele, you might need to traverse all of the other allele. We
+            // also need to add the group width so we don't not have enough
+            // graph for the ref sequence we pulled out. And then add another 1
+            // so I don't have to come back and fix an off-by-1 where ti was too
+            // small. And we add the radius in again to make it bigger in case
+            // inserts look like their surroundings.
+            GraphSynchronizer::Lock lock(sync, variant_path_name, overall_center,
+                overall_radius * 2 + overall_radius + group_width + flank_range + 1, true);
             
 #ifdef debug
-            cerr << "Center node: " << center << endl;
+            cerr << "Waiting for lock on " << variant_path_name << ":" << overall_center << endl;
 #endif
             
-            // Extract its graph context for realignment
-            VG context;
-            graph.nonoverlapping_node_context_without_paths(graph.get_node(center.node), context);
-            // TODO: how many nodes should this be?
-            // TODO: write/copy the search from xg so we can do this by node length.
-            graph.expand_context(context, 10, false);
+            // Block until we get it
+            lock_guard<GraphSynchronizer::Lock> guard(lock);
             
-            // Do the alignment
-            Alignment aln = context.align(to_align.str(), 0, false, false, 30);
+#ifdef debug
+            cerr << "Got lock on " << variant_path_name << ":" << overall_center << endl;
+#endif            
+                
+#ifdef debug
+            cerr << "Got " << lock.get_subgraph().length() << " bp in " << lock.get_subgraph().size() << " nodes" << endl;
+#endif
+                
+            // Record the size of graph we're aligning to in bases
+            total_graph_bases += lock.get_subgraph().length();
+            
+            // Do the alignment in both orientations
+            Alignment aln;
+            Alignment aln2;
+            
+            // Align in the forward orientation
+            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 30);
+            // Align in the reverse orientation.
+            // TODO: figure out which way our reference path goes through our subgraph and do half the work
+            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 30);
+            
+#ifdef debug
+            cerr << aln.score() << ", " << aln.identity() << " vs. " << aln2.score() << ", " << aln2.identity() << endl;
+#endif
+                
+            if (aln2.score() > aln.score()) {
+                // This is the better alignment
+                swap(aln, aln2);
+            }
 
 #ifdef debug            
             cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
             
-            // Make this path's edits to the original graph and get the
-            // translations. Invalidates any mapping ranks.
-            auto translations = graph.edit_fast(aln.path());
+#ifdef debug
+            // Make sure we have no dangling ends
+            auto& first_mapping = aln.path().mapping(0);
+            auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
+            auto& first_edit = first_mapping.edit(0);
+            auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
+            assert(edit_is_match(first_edit));
+            assert(edit_is_match(last_edit));
+#endif
             
+            // Make this path's edits to the original graph and get the
+            // translations.
+            auto translations = lock.apply_edit(aln.path());
+
 #ifdef debug
             cerr << "Translations: " << endl;
             for (auto& t : translations) {
                 cerr << "\t" << pb2json(t) << endl;
             }
 #endif
-            
-            // Apply each translation to all the path indexes that might touch
-            // the nodes it changed.
-            update_path_indexes(translations);
+                
         }
+        
+        if (variants_processed++ % 1000 == 0) {
+            cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
+                << variant->sequenceName << ":" << variant->position << ": "
+                << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
+                << (total_graph_bases / haplotypes.size()) << " bp haplotypes vs. graphs average" << endl;
+        }
+        
     }
-    
+
+    // Clean up after the last contig.
+    destroy_progress();
     
 }
 
-set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants) const {
+
+set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;
     
     if (variants.empty()) {
@@ -164,8 +281,9 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
         return haplotypes;
     }
     
-    for (auto& sample_name : variants.front()->sampleNames) {
+    for (size_t sample_index = 0; sample_index < variants.front()->sampleNames.size(); sample_index++) {
         // For every sample
+        auto& sample_name = variants.front()->sampleNames[sample_index];
         
         // Make its haplotype(s) on the region. We have a map from haplotype
         // number to actual vector. We'll tack stuff on the ends when they are
@@ -175,16 +293,45 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
         
         for (auto* variant : variants) {
             // Get the genotype for each sample
-            auto genotype = variant->getGenotype(sample_name);
+            const vector<int>* genotype;
             
-            // Fake it being phased
-            replace(genotype.begin(), genotype.end(), '/', '|');
+            if (cache != nullptr) {
+                // Use the cache provided by the buffer
+                genotype = &cache->get_parsed_genotypes(variant).at(sample_index);
+            } else {
+                // Parse from the variant ourselves
+                auto genotype_string = variant->getGenotype(sample_name);
             
-            auto alts = vcflib::decomposePhasedGenotype(genotype);
+                // Fake it being phased
+                replace(genotype_string.begin(), genotype_string.end(), '/', '|');
+                
+                genotype = new vector<int>(vcflib::decomposePhasedGenotype(genotype_string));
+            }
             
-            for (size_t phase = 0; phase < alts.size(); phase++) {
+#ifdef debug
+            cerr << "Genotype of " << sample_name << " at " << variant->position << ": ";
+            for (auto& alt : *genotype) {
+                cerr << alt << " ";
+            }
+            cerr << endl;
+#endif
+            
+            for (size_t phase = 0; phase < genotype->size(); phase++) {
+                // For each phase in the genotype
+                
+                // Get the allele number and ignore missing data
+                int allele_index = (*genotype)[phase];
+                if (allele_index == vcflib::NULL_ALLELE) {
+                    allele_index = 0;
+                }
+                
                 // Stick each allele number at the end of its appropriate phase
-                sample_haplotypes[phase].push_back(alts[phase]);
+                sample_haplotypes[phase].push_back(allele_index);
+            }
+            
+            if (cache == nullptr) {
+                // We're responsible for this vector
+                delete genotype;
             }
         }
         
@@ -234,14 +381,66 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         size_t sep_length = variant->position - sep_start;
         
         // Pull out the separator sequence and tack it on.
-        result << get_path_index(vcf_to_fasta(variant->sequenceName)).sequence.substr(sep_start, sep_length);
+        result << sync.get_path_sequence(vcf_to_fasta(variant->sequenceName)).substr(sep_start, sep_length);
 
-        // Then put the appropriate allele of this variant
+        // Then put the appropriate allele of this variant.
         result << variant->alleles.at(haplotype.at(i));
     }
     
     return result.str();
 }
+
+size_t VariantAdder::get_radius(const vcflib::Variant& variant) {
+    // How long is the longest alt?
+    size_t longest_alt_length = variant.ref.size();
+    for (auto& alt : variant.alt) {
+        // Take the length of the longest alt you find
+        longest_alt_length = max(longest_alt_length, alt.size());
+    }
+    
+    // Report half its length, and don't round down.
+    return (longest_alt_length + 1) / 2;
+}
+
+
+size_t VariantAdder::get_center(const vcflib::Variant& variant) {
+    // Where is the end of the variant in the reference?
+    size_t path_last = variant.position + variant.ref.size() - 1;
+    
+    // Where is the center of the variant in the reference?
+    return (variant.position + path_last) / 2;
+}
+
+
+pair<size_t, size_t> VariantAdder::get_center_and_radius(const vector<vcflib::Variant*>& variants) {
+
+    // We keep track of the leftmost and rightmost positions we would need to
+    // cover, which may be negative on the left.
+    int64_t leftmost = numeric_limits<int64_t>::max();
+    int64_t rightmost = 0;
+
+    for (auto* v : variants) {
+        // For every variant
+        auto& variant = *v;
+        
+        // Work out its center (guaranteed positive)
+        int64_t center = get_center(variant);
+        // And its radius
+        int64_t radius = get_radius(variant);
+        
+        // Expand the range of the block if needed
+        leftmost = min(leftmost, center - radius);
+        rightmost = max(rightmost, center + radius);
+    }
+    
+    // Calculate the center between the two ends, and the radius needed to hit
+    // both ends.
+    size_t overall_center = (leftmost + rightmost) / 2;
+    size_t overall_radius = (rightmost - leftmost + 1) / 2;
+    
+    return make_pair(overall_center, overall_radius);
+
+}    
 
 }
 

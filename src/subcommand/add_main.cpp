@@ -27,6 +27,7 @@ void help_add(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE         add in variants from the given VCF file (may repeat)" << endl
          << "    -n, --rename V=G       rename contig V in the VCFs to contig G in the graph (may repeat)" << endl
+         << "    -i, --ignore-missing   ignore contigs in the VCF not found in the graph" << endl
          << "    -p, --progress         show progress" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
@@ -44,6 +45,7 @@ int main_add(int argc, char** argv) {
     // And one or more renames
     vector<pair<string, string>> renames;
     bool show_progress = false;
+    bool ignore_missing = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -52,6 +54,7 @@ int main_add(int argc, char** argv) {
             {
                 {"vcf", required_argument, 0, 'v'},
                 {"rename", required_argument, 0, 'n'},
+                {"ignore-missing", no_argument, 0, 'i'},
                 {"progress",  no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
@@ -59,7 +62,7 @@ int main_add(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:n:pt:h?",
+        c = getopt_long (argc, argv, "v:n:ipt:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -90,6 +93,10 @@ int main_add(int argc, char** argv) {
             }
             break;
 
+        case 'i':
+            ignore_missing = true;
+            break;
+
         case 'p':
             show_progress = true;
             break;
@@ -111,6 +118,22 @@ int main_add(int argc, char** argv) {
         }
     }
     
+    // Open all the VCFs into a list
+    vector<unique_ptr<vcflib::VariantCallFile>> vcfs;
+    
+    for (auto vcf_filename : vcf_filenames) {
+        // For each VCF filename
+        
+        // Open it
+        vcfs.emplace_back(new vcflib::VariantCallFile());
+        auto& vcf = *vcfs.back();
+        vcf.open(vcf_filename);
+        if (!vcf.is_open()) {
+            cerr << "error:[vg add] could not open " << vcf_filename << endl;
+            return 1;
+        }
+    }
+    
     // Load the graph
     VG* graph;
     get_input_file(optind, argc, argv, [&](istream& in) {
@@ -123,34 +146,34 @@ int main_add(int argc, char** argv) {
     }
     
     {
+        // Clear existing path ranks (since we invalidate them)
+        graph->paths.clear_mapping_ranks();
+    
         // Make a VariantAdder for the graph
         VariantAdder adder(*graph);
+        
+        // Set up parameters
+        adder.ignore_missing_contigs = ignore_missing;
         
         for (auto& rename : renames) {
             // Set up all the VCF contig renames from the command line
             adder.add_name_mapping(rename.first, rename.second);
         }
-            
-        for (auto vcf_filename : vcf_filenames) {
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < vcfs.size(); i++) {
             // For each VCF
+            auto& vcf = *vcfs[i];
             
-            // Open it
-            vcflib::VariantCallFile vcf;
-            vcf.open(vcf_filename);
-            if (!vcf.is_open()) {
-                cerr << "error:[vg add] could not open " << vcf_filename << endl;
-                return 1;
-            }
-        
-            // Add the variants from the VCF to the graph
-            adder.add_variants(&vcf);           
-        
+            // Add the variants from the VCF to the graph, at the same
+            // time as other VCFs.
+            adder.add_variants(&vcf);        
         }
         
         // TODO: should we sort the graph?
         
         // Rebuild all the path ranks and stuff
-        graph->paths.compact_ranks();
+        graph->paths.rebuild_mapping_aux();
     }
         
     // Output the modified graph
