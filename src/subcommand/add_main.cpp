@@ -173,7 +173,7 @@ int main_add(int argc, char** argv) {
         // TODO: should we sort the graph?
         
         // Rebuild all the path ranks and stuff
-        graph->paths.compact_ranks();
+        graph->paths.rebuild_mapping_aux();
     }
         
     // Output the modified graph

@@ -235,6 +235,16 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
             
+#ifdef debug
+            // Make sure we have no dangling ends
+            auto& first_mapping = aln.path().mapping(0);
+            auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
+            auto& first_edit = first_mapping.edit(0);
+            auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
+            assert(edit_is_match(first_edit));
+            assert(edit_is_match(last_edit));
+#endif
+            
             // Make this path's edits to the original graph and get the
             // translations.
             auto translations = lock.apply_edit(aln.path());
@@ -254,6 +264,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
                 << (total_graph_bases / haplotypes.size()) << " bp haplotypes vs. graphs average" << endl;
         }
+        
     }
 
     // Clean up after the last contig.
