@@ -122,6 +122,11 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // nonoverlapping variants.
         size_t right_context_length = min(path_sequence.size() - group_end, (size_t) (flank_range + 2 * overall_radius));
     
+        // Turn those into desired substring bounds.
+        
+        // Round bounds to node start and endpoints.
+        
+        
         string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
         string right_context = path_sequence.substr(group_end, right_context_length);
         
