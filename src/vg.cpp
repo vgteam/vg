@@ -6652,6 +6652,8 @@ Alignment VG::align(const Alignment& alignment,
         VG dag = unfold(max_length, unfold_trans)
             .dagify(max_length, dagify_trans, max_length, component_length_max);
 
+        cerr << "DAG: " << pb2json(dag.graph) << endl;
+
         // overlay the translations
         auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 

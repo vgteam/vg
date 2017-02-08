@@ -218,17 +218,40 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
     VG graph;
     graph.extend(proto_graph);
     
-    // Make a VariantAdder
-    VariantAdder adder(graph);
-    // Add the variants to the graph
-    adder.add_variants(&vcf);
+    SECTION ("should work when the graph is as given") {
+    
+        // Make a VariantAdder
+        VariantAdder adder(graph);
+        // Add the variants to the graph
+        adder.add_variants(&vcf);
 
-    SECTION("the graph should have 4 nodes") {
-        REQUIRE(graph.size() == 4);
+        SECTION("the graph should have 4 nodes") {
+            REQUIRE(graph.size() == 4);
+        }
+        
+        SECTION("the graph should have 4 edges") {
+            REQUIRE(graph.edge_count() == 4);
+        }
+        
     }
     
-    SECTION("the graph should have 4 edges") {
-        REQUIRE(graph.edge_count() == 4);
+    SECTION ("should work when the graph is atomized") {
+    
+        graph.dice_nodes(1);
+    
+        // Make a VariantAdder
+        VariantAdder adder(graph);
+        // Add the variants to the graph
+        adder.add_variants(&vcf);
+
+        SECTION("the graph should have 29 nodes") {
+            REQUIRE(graph.size() == 29);
+        }
+        
+        SECTION("the graph should have 30 edges") {
+            REQUIRE(graph.edge_count() == 30);
+        }
+        
     }
 
 }
