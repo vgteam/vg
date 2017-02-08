@@ -90,9 +90,16 @@ void GraphSynchronizer::Lock::lock() {
             NodeSide start_left = synchronizer.get_path_index(path_name).at_position(start);
             NodeSide end_right = synchronizer.get_path_index(path_name).at_position(past_end == 0 ? 0 : past_end - 1).flip();
             
-            // Copy over only the bounding nodes
+            // Copy over only the bounding nodes, and the edge between them on
+            // the non-barrier side, if any.
             context.add_node(*synchronizer.graph.get_node(start_left.node));
             context.add_node(*synchronizer.graph.get_node(end_right.node));
+            if (synchronizer.graph.has_edge(start_left.flip(), end_right.flip())) {
+                // The seed nodes are connected on the non-barrier side. Copy
+                // that edge, because context expansion only adds edges between
+                // newly found nodes.
+                context.add_edge(*synchronizer.graph.get_edge(start_left.flip(), end_right.flip()));
+            }
             
             // Go do a normal context expansion, but not going through those sides.
             synchronizer.graph.expand_context_by_length(context, (past_end - start) * 2, false, true, {start_left, end_right});

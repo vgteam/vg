@@ -248,6 +248,8 @@ TEST_CASE("expand_context_by_length() should respect barriers", "[vg][context]")
         VG context;
         context.add_node(*graph.get_node(3));
         context.add_node(*graph.get_node(4));
+        // Note that we wouldn't get any edges between 3 and 4, if there were
+        // any, because context expansion sees no edges between seed nodes.
         graph.expand_context_by_length(context, 1000, false, true, {NodeSide(3, false), NodeSide(3, true)});
         
         SECTION("node 4 should have both attached edges") {

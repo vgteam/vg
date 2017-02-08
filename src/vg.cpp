@@ -1110,7 +1110,7 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
         NodeSide here = *active.begin();
         
 #ifdef debug
-        cerr << "Consider " << here;
+        cerr << "Consider " << here << endl;
 #endif
 
         // We know this node is already in the graph, so no need to add it.
@@ -1167,15 +1167,22 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
                 }
             }
             
+        } else {
+#ifdef debug
+            cerr << "\tIt's a barrier. Stop." << endl;
+#endif
         }
             
         // Deactivate the NodeSide we just did
         active.erase(here);
     }
     
-    // Now take all the edges among the nodes we added
+    // Now take all the edges among the nodes we added. Note that we only do NEW
+    // nodes! If you wanted edges between your seed nodes, you should have used
+    // nonoverlapping_node_context_without_paths. But that function doesn't
+    // respect barriers.
     for (id_t new_id : new_nodes) {
-        // For each newly added node, create edges involving any nodes that are
+        // For each node, create edges involving any nodes that are
         // in the graph. TODO: this will add edges twice, but they'll be
         // deduplicated.
         
@@ -1197,6 +1204,10 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
 #ifdef debug
                     cerr << "\tTake from edge " << pb2json(*edge) << endl;
 #endif
+                } else {
+#ifdef debug
+                    cerr << "\tSkip from edge " << pb2json(*edge) << endl;
+#endif
                 }
 
             }
@@ -1216,11 +1227,18 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
 #ifdef debug
                     cerr << "\tTake to edge " << pb2json(*edge) << endl;
 #endif
+                } else {
+#ifdef debug
+                    cerr << "\tTake skip edge " << pb2json(*edge) << endl;
+#endif
                 }
             }
         }
         
     }
+    
+    // then remove orphans
+    g.remove_orphan_edges();
     
     // and add paths
     // TODO: deduplicate this code with the node count based version

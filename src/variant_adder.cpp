@@ -257,7 +257,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 swap(aln, aln2);
             }
 
-#ifdef debug            
+#ifdef debug
+            cerr << "Subgraph: " << pb2json(lock.get_subgraph().graph) << endl;            
             cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
             
