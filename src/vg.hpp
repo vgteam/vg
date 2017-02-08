@@ -545,7 +545,14 @@ public:
     /// Get the subgraph of a node and all the edges it is responsible for
     /// (where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
-    void expand_context(VG& g, size_t steps, bool add_paths = true);
+    /// Expand the context of what's already in the given graph by the given
+    /// distance, either in nodes or in bases. Pulls material from this graph.
+    void expand_context(VG& g, size_t distance, bool add_paths = true, bool use_steps = true);
+    /// Expand the context of the given graph by the given number of steps. 
+    void expand_context_by_steps(VG& g, size_t steps, bool add_paths = true);
+    /// Expand the context of the given graph by the given number of bases.
+    /// If reflect is true, bounce off the ends of nodes to get siblings of nodes you came from.
+    void expand_context_by_length(VG& g, size_t length, bool add_paths = true, bool reflect = false);
     /// Destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     /// Destroy the node with the given ID.
