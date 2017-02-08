@@ -37,7 +37,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         vector<vcflib::Variant*> before;
         vector<vcflib::Variant*> after;
         tie(before, variant, after) = buffer.get_nonoverlapping();
-    
+        
         // Where is it?
         auto variant_path_name = vcf_to_fasta(variant->sequenceName);
         auto& variant_path_offset = variant->position; // Already made 0-based by the buffer
@@ -61,6 +61,14 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 // Explode!
                 throw runtime_error("Contig " + variant_path_name + " mentioned in VCF but not found in graph");
             }
+        }
+        
+        if (variant->samples.empty()) {
+            // Complain if the variant has no samples. If there are no samples
+            // in the VCF, we can't generate any haplotypes to use to add the
+            // variants.
+            throw runtime_error("No samples in variant at " + variant_path_name +
+                ":" + to_string(variant_path_offset) +"; can't make haplotypes");
         }
         
         // Grab the sequence of the path, which won't change
