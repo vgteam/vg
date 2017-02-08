@@ -1186,24 +1186,37 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
         for (auto* edge : edges_from(get_node(new_id))) {
             // For every edge from here
             if (g.has_node(edge->to())) {
-                // If it goes to a node in the graph, add it.
-                // TODO: don't add edges into barrier sides!
-                g.add_edge(*edge);
+                // If it goes to a node in the graph
+
+                // Break the edge up
+                auto sides = NodeSide::pair_from_edge(edge);
+                if (!barriers.count(sides.first) && !barriers.count(sides.second)) {
+                    // The edge doesn't attach to any barriers, so take it
+                
+                    g.add_edge(*edge);
 #ifdef debug
-                cerr << "\tTake from edge " << pb2json(*edge) << endl;
+                    cerr << "\tTake from edge " << pb2json(*edge) << endl;
 #endif
+                }
+
             }
         }
         
         for (auto* edge : edges_to(get_node(new_id))) {
             // For every edge to here
             if (g.has_node(edge->from())) {
-                // If it goes from a node in the graph, add it.
-                // TODO: don't add edges into barrier sides!
-                g.add_edge(*edge);
+                // If it goes from a node in the graph
+                
+                // Break the edge up
+                auto sides = NodeSide::pair_from_edge(edge);
+                if (!barriers.count(sides.first) && !barriers.count(sides.second)) {
+                    // The edge doesn't attach to any barriers, so take it
+                
+                    g.add_edge(*edge);
 #ifdef debug
-                cerr << "\tTake to edge " << pb2json(*edge) << endl;
+                    cerr << "\tTake to edge " << pb2json(*edge) << endl;
 #endif
+                }
             }
         }
         
