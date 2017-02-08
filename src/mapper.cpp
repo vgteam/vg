@@ -46,6 +46,8 @@ Mapper::Mapper(Index* idex,
     , fragment_length_cache_size(1000)
     , cached_fragment_length_mean(0)
     , cached_fragment_length_stdev(0)
+    , cached_fragment_orientation(0)
+    , cached_fragment_direction(1)
     , since_last_fragment_length_estimate(0)
     , fragment_length_estimate_interval(10)
     , perfect_pair_identity_threshold(0.95)
@@ -1178,6 +1180,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     int total_multimaps = max_multimaps + extra_multimaps;
     double cluster_mq = 0;
 
+    /*
+#pragma omp critical
+    {
+        cerr << "aligning " << read1.name() << " + " << read2.name() << "\t"
+             << fragment_max << ":"
+             << fragment_size << ":"
+             << cached_fragment_length_mean << ":"
+             << cached_fragment_length_stdev << ":"
+             << cached_fragment_orientation << ":"
+             << cached_fragment_direction << endl;
+    }
+    */
+
     if(debug) {
         cerr << "align_paired_multi_simul " << endl
             //<< "read 1 " << read1.sequence() << endl
@@ -1887,7 +1902,7 @@ map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, cons
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
-            lengths[p.first] = abs(p.second - x->second);
+            lengths[p.first] = x->second - p.second;
         }
     }
     return lengths;
@@ -1962,13 +1977,13 @@ bool Mapper::fragment_orientation(void) {
 }
 
 bool Mapper::fragment_direction(void) {
-    int count_same = 0;
-    int count_diff = 0;
+    int count_fwd = 0;
+    int count_rev = 0;
     for (auto& go_forward : fragment_directions) {
-        if (go_forward) ++count_same;
-        else ++count_diff;
+        if (go_forward) ++count_fwd;
+        else ++count_rev;
     }
-    return count_same > count_diff;
+    return count_fwd > count_rev;
 }
 
 set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
