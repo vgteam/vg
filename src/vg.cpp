@@ -6653,13 +6653,9 @@ Alignment VG::align(const Alignment& alignment,
         size_t max_length = max(max_span, alignment.sequence().size());
         size_t component_length_max = 100*max_length; // hard coded to be 100x
 
-        cerr << "Unfold/Dagify out to " << max_length << endl;
-
         // dagify the graph by unfolding inversions and then applying dagify forward unroll
         VG dag = unfold(max_length, unfold_trans)
             .dagify(max_length, dagify_trans, max_length, component_length_max);
-
-        cerr << "DAG: " << pb2json(dag.graph) << endl;
 
         // overlay the translations
         auto trans = overlay_node_translations(dagify_trans, unfold_trans);

@@ -15,7 +15,6 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     show_progress = graph.show_progress;
 }
 
-#define debug
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
     // Make a buffer
@@ -136,14 +135,18 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t left_context_start = group_start - left_context_length;
         size_t right_context_past_end = group_end + right_context_length;
         
+#ifdef debug
         cerr << "Original context bounds: " << left_context_start << " - " << right_context_past_end << endl;
+#endif
         
         // Round bounds to node start and endpoints.
         sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
             tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start, right_context_past_end);
         });
         
+#ifdef debug
         cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
+#endif
         
         // Recalculate context lengths
         left_context_length = group_start - left_context_start;
@@ -295,7 +298,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     destroy_progress();
     
 }
-#undef debug
 
 
 
