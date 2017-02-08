@@ -224,6 +224,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool pin_left,
                                  int8_t full_length_bonus,
                                  bool banded_global) {
+    //cerr << "aligning " << pb2json(aln) << endl << pb2json(vg.graph) << endl;
     // check if we have a cached aligner for this thread
     if (aln.quality().empty()) {
         auto aligner = get_regular_aligner();
@@ -434,8 +435,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
     auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
-    double hang_threshold = 0.9;
-    double retry_threshold = 0.9;
+    double hang_threshold = 0.5;
+    double retry_threshold = 0.5;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
@@ -445,7 +446,9 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     bool rescue_off_first = false;
     bool rescue_off_second = false;
     pos_t mate_pos;
-    if (mate1.identity() > hang_threshold && mate2.identity() < retry_threshold) {
+    if (mate1.identity() > mate2.identity()
+        && mate1.identity() > hang_threshold
+        && mate2.identity() < retry_threshold) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -456,7 +459,9 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
-    } else if (mate1.identity() < retry_threshold && mate2.identity() > hang_threshold) {
+    } else if (mate2.identity() > mate1.identity()
+               && mate2.identity() > hang_threshold
+               && mate1.identity() < retry_threshold) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
@@ -512,10 +517,17 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
                 aln2.set_quality(mate2.quality());
             }
         }
+        bool banded_global = false;
+        bool pinned_alignment = false;
+        bool pinned_reverse = false;
         aln2 = align_to_graph(aln2,
                               graph,
-                              max_query_graph_ratio);
-        score_alignment(aln2);
+                              max_query_graph_ratio,
+                              pinned_alignment,
+                              pinned_reverse,
+                              full_length_alignment_bonus,
+                              banded_global);
+        aln2.set_score(score_alignment(aln2));
         if (flip) {
             aln2 = reverse_complement_alignment(
                 aln2,
@@ -551,10 +563,17 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
                 aln1.set_quality(mate1.quality());
             }
         }
+        bool banded_global = false;
+        bool pinned_alignment = false;
+        bool pinned_reverse = false;
         aln1 = align_to_graph(aln1,
                               graph,
-                              max_query_graph_ratio);
-        score_alignment(aln1);
+                              max_query_graph_ratio,
+                              pinned_alignment,
+                              pinned_reverse,
+                              full_length_alignment_bonus,
+                              banded_global);
+        aln1.set_score(score_alignment(aln1));
         if (flip) {
             aln1 = reverse_complement_alignment(
                 aln1,
@@ -1214,6 +1233,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         pos_t m1_pos = make_pos_t(node1);
         auto& node2 = m2.nodes.front();
         pos_t m2_pos = make_pos_t(node2);
+        double uniqueness = 2.0 / (m1.match_count + m2.match_count);
 
         // approximate distance by node lengths
         int approx_dist = approx_distance(m1_pos, m2_pos);
@@ -1226,7 +1246,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             //int max_length = min(fragment_max, (fragment_size ? fragment_size : fragment_max));
             int max_length = fragment_max;
             int dist = abs(approx_dist);
-            // improve on our approximate metric if we have paths to use
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1253,14 +1272,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     if (!cached_fragment_orientation
                         && is_rev(m1_pos) == is_rev(m2_pos)
                         || cached_fragment_orientation
-                        && is_rev(m1_pos) != is_rev(m2_pos)) {
+                        && is_rev(m1_pos) != is_rev(m2_pos)
+                        || dist > fragment_size) {
                         //|| relative_direction != cached_fragment_direction) {
                         return -std::numeric_limits<double>::max();
                     } else {
-                        return fragment_length_pdf(dist); // * unique_coverage;
+                        return fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean) * dist * uniqueness;
+                        //return dist;
+                        //return fragment_length_pdf(dist); // * unique_coverage;
                     }
                 } else {
-                    return 1.0/(abs(fragment_max - dist)+1); // * unique_coverage;
+                    return 1.0/(abs(fragment_max - dist)+1) * uniqueness; // * unique_coverage;
                 }
             }
         } else if (m1.fragment > m2.fragment) {
@@ -1301,9 +1323,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     // accepted transition
                     jump = abs(jump);
                     if (jump) {
-                        return (double) - (aligner->gap_open + jump * aligner->gap_extension + overlap);
+                        return (double) ((unique_coverage * aligner->match) - (aligner->gap_open + jump * aligner->gap_extension)) * uniqueness;
                     } else {
-                        return (double) - overlap;
+                        return (double) unique_coverage * aligner->match * uniqueness;
                     }
                 }
             }
@@ -1425,11 +1447,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                         same &= make_pos_t(pair1.second.path().mapping(0).position())
                             == make_pos_t(pair2.second.path().mapping(0).position());
                     }
+                    if (!(pair1.first.score() && pair2.first.score()
+                          || pair1.second.score() && pair2.second.score())) {
+                        same = false;
+                    }
                     return same;
                 }),
             alns.end());
     };
-    sort_and_dedup();
+
+    //sort_and_dedup();
     if (fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
@@ -1437,10 +1464,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             rescued |= pair_rescue(p.first, p.second);
         }
         // if we rescued, resort and remove dups
+        /*
         if (rescued) {
             sort_and_dedup();
         }
+        */
     }
+    sort_and_dedup();
     
 #ifdef debug_mapper
 #pragma omp critical
@@ -1680,7 +1710,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         //int max_length = 10 * abs(m2.begin - m1.begin);
         //double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
         //double approx_distance = (double)abs(xindex->node_start(id(m1_pos))+offset(m1_pos) -
-        int approx_dist = approx_distance(m1_pos, m2_pos);
+        int approx_dist = abs(approx_distance(m1_pos, m2_pos));
         
 #ifdef debug_mapper
 #pragma omp critical
@@ -5907,6 +5937,7 @@ MEMMarkovModel::MEMMarkovModel(
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
+                m.mem.match_count = mem.match_count;
                 //m.mem.fill_positions(mapper);
                 model.push_back(m);
             }
