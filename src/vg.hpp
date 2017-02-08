@@ -832,6 +832,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
@@ -844,6 +845,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -856,6 +858,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -867,6 +870,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
@@ -880,6 +884,7 @@ public:
                                   bool pin_left = false,
                                   int8_t full_length_bonus = 0,
                                   bool banded_global = false,
+                                  size_t max_span = 0,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -892,6 +897,7 @@ public:
                                   bool pin_left = false,
                                   int8_t full_length_bonus = 0,
                                   bool banded_global = false,
+                                  size_t max_span = 0,
                                   bool print_score_matrices = false);
     
     
@@ -1169,7 +1175,10 @@ private:
                         bool allow_negatives,
                         Node* node = nullptr);
     
-    /// Private method to funnel other align functions into.
+    /// Private method to funnel other align functions into. max_span specifies
+    /// the min distance to unfold the graph to, and is meant to be the longest
+    /// path that the specified sequence could cover, accounting for deletions.
+    /// If it's less than the sequence's length, the sequence's length is used.
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
@@ -1178,6 +1187,7 @@ private:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
 
 

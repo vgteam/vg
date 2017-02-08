@@ -236,15 +236,18 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Record the size of graph we're aligning to in bases
             total_graph_bases += lock.get_subgraph().length();
             
+            // Work out how far we would have to unroll the graph to account for a giant deletion
+            size_t max_span = right_context_past_end - left_context_start;
+            
             // Do the alignment in both orientations
             Alignment aln;
             Alignment aln2;
             
-            // Align in the forward orientation using banded global aligner
-            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true);
-            // Align in the reverse orientation using banded global aligner
+            // Align in the forward orientation using banded global aligner, unrolling for large deletions.
+            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true, max_span);
+            // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
             // TODO: figure out which way our reference path goes through our subgraph and do half the work
-            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true);
+            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true, max_span);
             
             // Note that the banded global aligner doesn't fill in identity.
             

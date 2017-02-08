@@ -248,8 +248,8 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
             REQUIRE(graph.size() == 29);
         }
         
-        SECTION("the graph should have 30 edges") {
-            REQUIRE(graph.edge_count() == 30);
+        SECTION("the graph should have 29 edges (nodes - 1 + deletion)") {
+            REQUIRE(graph.edge_count() == 29);
         }
         
     }
