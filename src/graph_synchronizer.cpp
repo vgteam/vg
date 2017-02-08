@@ -78,16 +78,31 @@ void GraphSynchronizer::Lock::lock() {
         // Now we have exclusive use of the graph and indexes, and we need to
         // see if anyone else is using any nodes we need.
         
-        // Find the center node, at the position we want to lock out from
-        NodeSide center = synchronizer.get_path_index(path_name).at_position(path_offset);
+        
         
         // Extract the context around that node
         VG context;
         
         if (start != 0 || past_end != 0) {
             // We want to extract a range
+            
+            // Find the outer ends of this range
+            NodeSide start_left = synchronizer.get_path_index(path_name).at_position(start);
+            NodeSide end_right = synchronizer.get_path_index(path_name).at_position(past_end == 0 ? 0 : past_end - 1).flip();
+            
+            // Copy over only the bounding nodes
+            context.add_node(*synchronizer.graph.get_node(start_left.node));
+            context.add_node(*synchronizer.graph.get_node(end_right.node));
+            
+            // Go do a normal context expansion, but not going through those sides.
+            synchronizer.graph.expand_context_by_length(context, (past_end - start) * 2, false, true, {start_left, end_right});
+            
         } else {
             // We want to extract a radius
+            
+            // Find the center node, at the position we want to lock out from
+            NodeSide center = synchronizer.get_path_index(path_name).at_position(path_offset);
+            
             synchronizer.graph.nonoverlapping_node_context_without_paths(synchronizer.graph.get_node(center.node), context);
             synchronizer.graph.expand_context_by_length(context, context_bases, false, reflect);
         }

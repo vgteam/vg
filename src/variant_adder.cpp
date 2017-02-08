@@ -15,6 +15,7 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     show_progress = graph.show_progress;
 }
 
+#define debug
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
     // Make a buffer
@@ -179,7 +180,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 // Don't bother aligning all-ref haplotypes to the graph.
                 // They're there already.
 #ifdef debug
-                cerr << "Skip all-reference haplotype.";
+                cerr << "Skip all-reference haplotype." << endl;
 #endif
                 continue;
             }
@@ -203,26 +204,21 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Count all the bases
             total_haplotype_bases += to_align.str().size();
             
-            // Make a request to lock the subgraph. We really need to search
-            // twice the radius, because when you reflect off the end of one
-            // allele, you might need to traverse all of the other allele. We
-            // also need to add the group width so we don't not have enough
-            // graph for the ref sequence we pulled out. And then add another 1
-            // so I don't have to come back and fix an off-by-1 where ti was too
-            // small. And we add the radius in again to make it bigger in case
-            // inserts look like their surroundings.
-            GraphSynchronizer::Lock lock(sync, variant_path_name, overall_center,
-                overall_radius * 2 + overall_radius + group_width + flank_range + 1, true);
+            // Make a request to lock the subgraph, leaving the nodes we rounded
+            // to (or the child nodes they got broken into) as heads/tails.
+            GraphSynchronizer::Lock lock(sync, variant_path_name, left_context_start, right_context_past_end);
             
 #ifdef debug
-            cerr << "Waiting for lock on " << variant_path_name << ":" << overall_center << endl;
+            cerr << "Waiting for lock on " << variant_path_name << ":"
+                << left_context_start << "-" << right_context_past_end << endl;
 #endif
             
             // Block until we get it
             lock_guard<GraphSynchronizer::Lock> guard(lock);
             
 #ifdef debug
-            cerr << "Got lock on " << variant_path_name << ":" << overall_center << endl;
+            cerr << "Got lock on " << variant_path_name << ":"
+                << left_context_start << "-" << right_context_past_end << endl;
 #endif            
                 
 #ifdef debug
@@ -236,14 +232,16 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             Alignment aln;
             Alignment aln2;
             
-            // Align in the forward orientation
-            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 30);
-            // Align in the reverse orientation.
+            // Align in the forward orientation using banded global aligner
+            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true);
+            // Align in the reverse orientation using banded global aligner
             // TODO: figure out which way our reference path goes through our subgraph and do half the work
-            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 30);
+            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true);
+            
+            // Note that the banded global aligner doesn't fill in identity.
             
 #ifdef debug
-            cerr << aln.score() << ", " << aln.identity() << " vs. " << aln2.score() << ", " << aln2.identity() << endl;
+            cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " ref" << endl;
 #endif
                 
             if (aln2.score() > aln.score()) {
@@ -255,27 +253,21 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
             
-#ifdef debug
             // Make sure we have no dangling ends
+            assert(aln.path().mapping_size() > 0);
             auto& first_mapping = aln.path().mapping(0);
             auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
+            assert(first_mapping.edit_size() > 0);
             auto& first_edit = first_mapping.edit(0);
+            assert(last_mapping.edit_size() > 0);
             auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
             assert(edit_is_match(first_edit));
             assert(edit_is_match(last_edit));
-#endif
             
-            // Make this path's edits to the original graph and get the
-            // translations.
-            auto translations = lock.apply_edit(aln.path());
+            // Make this path's edits to the original graph. We don't need to do
+            // anything with the translations.
+            lock.apply_edit(aln.path());
 
-#ifdef debug
-            cerr << "Translations: " << endl;
-            for (auto& t : translations) {
-                cerr << "\t" << pb2json(t) << endl;
-            }
-#endif
-                
         }
         
         if (variants_processed++ % 1000 == 0 || true) {
@@ -291,6 +283,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     destroy_progress();
     
 }
+#undef debug
+
 
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
