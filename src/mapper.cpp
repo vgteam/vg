@@ -226,7 +226,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool pin_left,
                                  int8_t full_length_bonus,
                                  bool banded_global) {
-    //cerr << "aligning " << pb2json(aln) << endl << pb2json(vg.graph) << endl;
+    //cerr << "align_to_graph " << pb2json(aln) << endl << pb2json(vg.graph) << endl;
     // check if we have a cached aligner for this thread
     if (aln.quality().empty()) {
         auto aligner = get_regular_aligner();
@@ -1293,11 +1293,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                         return -std::numeric_limits<double>::max();
                     } else {
                         return fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean) * dist * uniqueness;
-                        //return dist;
-                        //return fragment_length_pdf(dist); // * unique_coverage;
                     }
                 } else {
-                    return 1.0/(abs(fragment_max - dist)+1) * uniqueness; // * unique_coverage;
+                    return 1.0/(abs(fragment_max - dist)+1) * uniqueness;
                 }
             }
         } else if (m1.fragment > m2.fragment) {
@@ -1704,6 +1702,13 @@ Mapper::average_node_length(void) {
 vector<Alignment>
 Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
 
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
+    }
+#endif
+    
     auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     int total_multimaps = max_multimaps + additional_multimaps;
     
@@ -1718,6 +1723,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
+        double uniqueness = 2.0 / (m1.match_count + m2.match_count);
 
         // approximate distance by node lengths
         //int max_length = 2 * (m1.length() + m2.length());
@@ -1746,8 +1752,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
 #endif
             if (distance == max_length) {
                 // couldn't find distance
-                distance = approx_dist;
-                //return -std::numeric_limits<double>::max();
+                //distance = approx_dist;
+                return -std::numeric_limits<double>::max();
             }
             double jump = (m2.begin - m1.begin) - distance;
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
@@ -1757,9 +1763,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 // accepted transition
                 jump = abs(jump);
                 if (jump) {
-                    return (double) - (aligner->gap_open + jump * aligner->gap_extension + overlap);
+                    return (double) ((unique_coverage * aligner->match) - (aligner->gap_open + jump * aligner->gap_extension)) * uniqueness;
                 } else {
-                    return (double) - overlap;
+                    return (double) unique_coverage * aligner->match * uniqueness;
                 }
             }
         }
@@ -4697,29 +4703,17 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "smoothing" << endl;
+            if (debug) {
+                cerr << "smoothing " << pb2json(aln) << endl;
+            }
         }
 #endif
         // get the subgraph overlapping the alignment
         VG graph;
-        id_t id1 = aln.path().mapping(0).position().node_id();
-        id_t id2 = aln.path().mapping(aln.path().mapping_size()-1).position().node_id();
-        id_t id_from = id1;
-        id_t id_to = id2;
-        if (id1 > id2) {
-            id_from = id2;
-            id_to = id1;
+        for (int i = 0; i < aln.path().mapping_size(); ++i) {
+            graph.add_node(xindex->node(aln.path().mapping(i).position().node_id()));
         }
-        bool go_forward = true;
-        bool go_backward = false;
-        xindex->get_id_range(id_from, id_from, graph.graph);
-        xindex->expand_context(graph.graph,
-                               aln.sequence().size(),
-                               false, // don't use steps (use length)
-                               false, // don't add paths
-                               go_forward,
-                               go_backward,
-                               id_to);  // our target node
+        xindex->expand_context(graph.graph, 1);
         graph.rebuild_indexes();
         // re-do the alignment
         // against the graph
@@ -4750,6 +4744,14 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                                                             return (int64_t)get_node_length(id);
                                                         }));
         }
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "smoothed " << pb2json(smoothed) << endl;
+            }
+        }
+#endif
         return simplify(smoothed);
     } else {
         return aln;
