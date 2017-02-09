@@ -782,6 +782,7 @@ void VG::simplify_siblings(void) {
                 to_sibs.insert(tsibs);
             }
         });
+        
     // make the sibling sets transitive
     // by removing any that are intransitive
     // then simplify
@@ -2509,7 +2510,9 @@ void VG::bluntify(void) {
     map<Edge*, Node*> to_edge_from_overlap;
     for_each_edge([&](Edge* edge) {
             if (edge->overlap() > 0) {
-                //cerr << "claimed overlap " << edge->overlap() << endl;
+#ifdef debug
+                cerr << "claimed overlap " << edge->overlap() << endl;
+#endif
                 // derive and check the overlap seqs
                 auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
                 //string from_overlap =
@@ -2532,7 +2535,9 @@ void VG::bluntify(void) {
                         && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
                         // get the length of the first match
                         correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
-                        //cerr << "correct overlap is " << correct_overlap << endl;
+#ifdef debug
+                        cerr << "correct overlap is " << correct_overlap << endl;
+#endif
                         edge->set_overlap(correct_overlap);
                         // create the edges for the overlaps
                         auto overlap = create_node(to_seq.substr(0, correct_overlap));
@@ -2541,7 +2546,9 @@ void VG::bluntify(void) {
                         auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
                         from_edge_to_overlap[e1] = overlap;
                         to_edge_from_overlap[e2] = overlap;
-                        //cerr << "created overlap node " << overlap->id() << endl;
+#ifdef debug
+                        cerr << "created overlap node " << overlap->id() << endl;
+#endif
                     } else {
                         cerr << "[VG::bluntify] warning! overlaps of "
                              << pb2json(*edge)
@@ -2555,7 +2562,9 @@ void VG::bluntify(void) {
                     }
 
                 } else {
-                    //cerr << "overlap as expected" << endl;
+#ifdef debug
+                    cerr << "overlap as expected" << endl;
+#endif
                     //overlap_node[edge] = create_node(to_seq);
                     auto overlap = create_node(to_overlap);
                     overlap_nodes.insert(overlap);
@@ -2563,7 +2572,9 @@ void VG::bluntify(void) {
                     auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
                     from_edge_to_overlap[e1] = overlap;
                     to_edge_from_overlap[e2] = overlap;
-                    //cerr << "created overlap node " << overlap->id() << endl;
+#ifdef debug
+                    cerr << "created overlap node " << overlap->id() << endl;
+#endif
                 }
             }
         });
@@ -2623,7 +2634,9 @@ void VG::bluntify(void) {
                 }
                 cut_at.insert(offset(p));
             }
-            //cerr << "will cut " << cut_at.size() << " times" << endl;
+#ifdef debug
+            cerr << "will cut " << cut_at.size() << " times" << endl;
+#endif
             vector<int> cut_at_pos;
             for (auto i : cut_at) {
                 cut_at_pos.push_back(i);
@@ -2634,7 +2647,9 @@ void VG::bluntify(void) {
             divide_node(node, cut_at_pos, parts);
             for (auto p : parts) {
                 cut_nodes.insert(p);
-                //cerr << "cut " << orig_id << " into " << p->id() << endl;
+#ifdef debug
+                cerr << "cut " << orig_id << " into " << p->id() << endl;
+#endif
             }
             Node* head = parts.front();
             Node* tail = parts.back();
@@ -2695,7 +2710,9 @@ void VG::bluntify(void) {
                 tn.clear();
             }
         }
-        //cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
+#ifdef debug
+        cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
+#endif
         if (matched_next == node_seq.size()) {
             // remove the forward edge from the overlap node
             // and attach it to the next_trav
@@ -2726,7 +2743,9 @@ void VG::bluntify(void) {
                 tp.clear();
             }
         }
-        //cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
+#ifdef debug
+        cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
+#endif
         if (matched_prev == node_seq.size()) {
             // remove the forward edge from the overlap node
             // and attach it to the next_trav
