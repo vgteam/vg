@@ -118,17 +118,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         
         // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
 
-        // On the left we want either flank_range bases after twice the radius,
-        // or all the bases before the first base in the group. We need twice
-        // the radius so we're guaranteed to have enough bases to pin down a
-        // radius-sized gap.
-        // Then we add some more in case the gap looks like its surroundings.
-        size_t left_context_length = max(min((int64_t) (flank_range + 2 * overall_radius + overall_radius), (int64_t) group_start), (int64_t) 0);
-        // On the right we want either flank_range bases after the radius, or
-        // all the bases after the last base in the group. We know nothing will
-        // overlap the end of the last variant, because we grabbed
-        // nonoverlapping variants.
-        size_t right_context_length = min(path_sequence.size() - group_end, (size_t) (flank_range + 2 * overall_radius));
+        // On the left we want either flank_range bases, or all the bases before
+        // the first base in the group.
+        size_t left_context_length = min((int64_t) flank_range, (int64_t) group_start);
+        // On the right we want either flank_range bases, or all the bases after
+        // the last base in the group. We know nothing will overlap the end of
+        // the last variant, because we grabbed nonoverlapping variants.
+        size_t right_context_length = min(path_sequence.size() - group_end, (size_t) flank_range);
     
         // Turn those into desired substring bounds.
         // TODO: this is sort of just undoing some math we already did
@@ -239,8 +235,10 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Record the size of graph we're aligning to in bases
             total_graph_bases += lock.get_subgraph().length();
             
-            // Work out how far we would have to unroll the graph to account for a giant deletion
-            size_t max_span = right_context_past_end - left_context_start;
+            // Work out how far we would have to unroll the graph to account for
+            // a giant deletion. We also want to account for alts that may
+            // alrteady be in the graph and need unrolling for a long insert.
+            size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
             
             // Do the alignment in both orientations
             Alignment aln;
@@ -249,13 +247,14 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Align in the forward orientation using banded global aligner, unrolling for large deletions.
             aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true, max_span);
             // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
-            // TODO: figure out which way our reference path goes through our subgraph and do half the work
+            // TODO: figure out which way our reference path goes through our subgraph and do half the work.
+            // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
             aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true, max_span);
             
             // Note that the banded global aligner doesn't fill in identity.
             
 #ifdef debug
-            cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " ref" << endl;
+            cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
 #endif
                 
             if (aln2.score() > aln.score()) {
@@ -351,6 +350,14 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
                 int allele_index = (*genotype)[phase];
                 if (allele_index == vcflib::NULL_ALLELE) {
                     allele_index = 0;
+                }
+                
+                if (allele_index >= variant->alleles.size()) {
+                    // This VCF has out-of-range alleles
+                    cerr << "error:[vg::VariantAdder] variant " << variant->sequenceName << ":" << variant->position
+                        << " has invalid allele index " << allele_index
+                        << " but only " << variant->alt.size() << " alts" << endl;
+                    exit(1);
                 }
                 
                 // Stick each allele number at the end of its appropriate phase
