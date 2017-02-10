@@ -111,7 +111,7 @@ void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, ve
             else if (edge->to() == head_id && !edge->to_end()) {
                 // the edge is part of a valid walk in the opposite orientation
                 Node* next_node = graph.get_node(edge->from());
-                bool next_backward = edge->from_start();
+                bool next_backward = !edge->from_start();
                 // add the next traversal in the walk to the stack
                 stack.push_back(NodeTraversal(next_node, next_backward));
             }
@@ -132,7 +132,7 @@ void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, ve
             else if (edge->to() == head_id && edge->to_end()) {
                 // the edge is part of a valid walk in the opposite orientation
                 Node* next_node = graph.get_node(edge->from());
-                bool next_backward = edge->from_start();
+                bool next_backward = !edge->from_start();
                 // add the next traversal in the walk to the stack
                 stack.push_back(NodeTraversal(next_node, next_backward));
             }
