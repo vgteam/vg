@@ -44,7 +44,7 @@ int main_snarl(int argc, char** argv) {
     bool leaf_only = false;
     bool top_level_only = false;
     bool include_endpoints = false;
-    int max_nodes = 100;
+    int max_nodes = 10;
     bool legacy_superbubbles = false;
     bool legacy_ultrabubbles = false;
 
@@ -147,7 +147,7 @@ int main_snarl(int argc, char** argv) {
 
     // old code from vg stats
     if (legacy_superbubbles || legacy_ultrabubbles) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
+        auto bubbles = legacy_superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
         for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
