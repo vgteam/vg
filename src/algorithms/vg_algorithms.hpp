@@ -1,7 +1,7 @@
 //
 //  vg_algorithms.hpp
 //  
-// A collection of utility algorithms to manipulating graphs
+// A collection of utility algorithms to manipulating graphs that can be use by both VG and XG objects
 //
 
 #ifndef vg_algorithms_hpp

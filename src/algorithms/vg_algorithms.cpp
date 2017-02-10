@@ -35,6 +35,8 @@ namespace algorithms {
         };
         
         // a local struct that packages a node traversal with its distance from the first position
+        // note: we don't use NodeTraversals because we may be using an XG, in which case we don't
+        // have Node*'s
         struct Traversal {
             Traversal(id_t id, bool rev, int64_t dist) : id(id), rev(rev), dist(dist) {}
             int64_t dist; // distance from pos_1 to the right side of this node
@@ -81,7 +83,7 @@ namespace algorithms {
         id_t max_id = max(id(pos_1), id(pos_2));
         
         // the representation of the graph we're going to build up before storing in g (allows easier
-        // subsetting operations than Graph or VG objects)
+        // subsetting operations than Graph, XG, or VG objects)
         unordered_map<id_t, LocalNode> graph;
         graph[id(pos_1)] = LocalNode(node_sequence(id(pos_1)));
         graph[id(pos_2)] = LocalNode(node_sequence(id(pos_2)));
@@ -1081,6 +1083,7 @@ namespace algorithms {
 #ifdef debug_vg_algorithms
         cerr << "detected distances:" << endl;
         for (auto n : graph) {
+            cerr << n.first;
             if (forward_trav_dist.count(make_pair(n.first, true))) {
                 cerr << " f+:" << forward_trav_dist[make_pair(n.first, true)];
             }

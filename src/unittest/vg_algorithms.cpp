@@ -437,7 +437,7 @@ namespace vg {
                 REQUIRE(e.from_start() == e.to_end());
             }
             
-            SECTION( "Graph extraction can detect a loop onto the same node in the opposite orientation" ) {
+            SECTION( "Graph extraction can detect a self-loop onto the same node in the opposite orientation" ) {
                 
                 VG vg;
                 
