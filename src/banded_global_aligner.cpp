@@ -1750,20 +1750,26 @@ BandedGlobalAligner<IntType>::~BandedGlobalAligner() {
 // fills a vector with vectors ids that have edges to/from each node
 template <class IntType>
 void BandedGlobalAligner<IntType>::graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list) {
-    if (outgoing_edges) {
-        out_edge_list = vector<vector<int64_t>>(g.node_size());
-        for (int64_t i = 0; i < g.edge_size(); i++) {
-            Edge* edge = g.mutable_edge(i);
-            out_edge_list[node_id_to_idx.at(edge->from())].push_back(node_id_to_idx.at(edge->to()));
+    out_edge_list = vector<vector<int64_t>>(g.node_size());
+    for (int64_t i = 0; i < g.edge_size(); i++) {
+        // Find the connected nodes
+        const Edge& edge = g.edge(i);
+        id_t from = edge.from();
+        id_t to = edge.to();
+        // We know the edge can't be reversing (since we align to DAGs), but it might be doubly reversing.
+        if (edge.from_start() && edge.to_end()) {
+            swap(from, to);
+        }
+        
+        if (outgoing_edges) {
+            // We want to store destinations by sources
+            out_edge_list[node_id_to_idx.at(from)].push_back(node_id_to_idx.at(to));
+        } else {
+            // We want to store sources by destinations
+            out_edge_list[node_id_to_idx.at(to)].push_back(node_id_to_idx.at(from));
         }
     }
-    else {
-        out_edge_list = vector<vector<int64_t>>(g.node_size());
-        for (int64_t i = 0; i < g.edge_size(); i++) {
-            Edge* edge = g.mutable_edge(i);
-            out_edge_list[node_id_to_idx.at(edge->to())].push_back(node_id_to_idx.at(edge->from()));
-        }
-    }
+    
 }
 
 // standard DFS-based topological sort algorithm
