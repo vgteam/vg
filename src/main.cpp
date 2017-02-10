@@ -3600,7 +3600,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
