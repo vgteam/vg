@@ -30,7 +30,7 @@ void help_snarl(char** argv) {
          << "    -i, --include-ends    include snarl endpoints as first and last nodes in traversal" << endl
          << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl
          << "    -t, --filter-trivial  don't report snarls that consist of a single edge" << endl
-         << "    -a, --ascending-ids   always report snarls with the start ID lower than the end ID" << endl;
+         << "    -s, --sort-snarls     return snarls in sorted order by node ID (for topologically ordered graphs)" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -50,7 +50,7 @@ int main_snarl(int argc, char** argv) {
     bool legacy_superbubbles = false;
     bool legacy_ultrabubbles = false;
     bool filter_trivial_bubbles = false;
-    bool ascending_node_ids = false;
+    bool sort_snarls = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -64,13 +64,13 @@ int main_snarl(int argc, char** argv) {
                 {"top-level", no_argument, 0, 'o'},
                 {"include-endpoints", no_argument, 0, 'i'},
                 {"max-nodes", required_argument, 0, 'm'},
-                {"filter-trivial", required_argument, 0, 't'},
-                {"ascending-ids", required_argument, 0, 'a'},
+                {"filter-trivial", no_argument, 0, 't'},
+                {"sort-snarls", no_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "baur:ltoim:h?",
+        c = getopt_long (argc, argv, "bsur:ltoim:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -112,8 +112,8 @@ int main_snarl(int argc, char** argv) {
             filter_trivial_bubbles = true;
             break;
             
-        case 'a':
-            ascending_node_ids = true;
+        case 's':
+            sort_snarls = true;
             break;
             
         case 'h':
@@ -181,10 +181,11 @@ int main_snarl(int argc, char** argv) {
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
-    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+    vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     
-    // Sort the start and end nodes
-    if (ascending_node_ids) {
+    // Sort the top level Snarls
+    if (sort_snarls) {
+        // Ensure that all snarls are stored in sorted order
         list<const Snarl*> snarl_stack;
         for (const Snarl* root : snarl_roots) {
             snarl_stack.push_back(root);
@@ -199,6 +200,11 @@ int main_snarl(int argc, char** argv) {
                 }
             }
         }
+        
+        // Sort the snarls by node ID
+        std::sort(snarl_roots.begin(), snarl_roots.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
+            return snarl_1->start().node_id() < snarl_2->end().node_id();
+        });
     }
 
     // The only implemented traversal finder
@@ -250,8 +256,17 @@ int main_snarl(int argc, char** argv) {
                 stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
             }
             
-            for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
-                stack.push_back(child_snarl);
+            // Sort the child snarls by node ID?
+            if (sort_snarls) {
+                vector<const Snarl*> children = snarl_manager.children_of(snarl);
+                std::sort(children.begin(), children.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
+                    return snarl_1->start().node_id() < snarl_2->end().node_id();
+                });
+            }
+            else {
+                for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
+                    stack.push_back(child_snarl);
+                }
             }
         }
         
