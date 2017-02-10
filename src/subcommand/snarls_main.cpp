@@ -19,7 +19,7 @@ using namespace vg::subcommand;
 
 void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
-         << "       By default, a list of protobug Snarls is written" << endl
+         << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
          << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
          << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
@@ -28,7 +28,9 @@ void help_snarl(char** argv) {
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
          << "    -i, --include-ends    include snarl endpoints as first and last nodes in traversal" << endl
-         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl;
+         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl
+         << "    -t, --filter-trivial  don't report snarls that consist of a single edge" << endl
+         << "    -a, --ascending-ids   always report snarls with the start ID lower than the end ID" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -47,6 +49,8 @@ int main_snarl(int argc, char** argv) {
     int max_nodes = 100;
     bool legacy_superbubbles = false;
     bool legacy_ultrabubbles = false;
+    bool filter_trivial_bubbles = false;
+    bool ascending_node_ids = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -60,11 +64,13 @@ int main_snarl(int argc, char** argv) {
                 {"top-level", no_argument, 0, 'o'},
                 {"include-endpoints", no_argument, 0, 'i'},
                 {"max-nodes", required_argument, 0, 'm'},
+                {"filter-trivial", required_argument, 0, 't'},
+                {"ascending-ids", required_argument, 0, 'a'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "bur:loim:h?",
+        c = getopt_long (argc, argv, "baur:ltoim:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -100,7 +106,15 @@ int main_snarl(int argc, char** argv) {
 
         case 'm':
             max_nodes = atoi(optarg);
-            break;            
+            break;
+            
+        case 't':
+            filter_trivial_bubbles = true;
+            break;
+            
+        case 'a':
+            ascending_node_ids = true;
+            break;
             
         case 'h':
         case '?':
@@ -163,11 +177,29 @@ int main_snarl(int argc, char** argv) {
     }
     
     // The only implemnted snarl finder:
-    SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph);
+    SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", filter_trivial_bubbles);
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+    
+    // Sort the start and end nodes
+    if (ascending_node_ids) {
+        list<const Snarl*> snarl_stack;
+        for (const Snarl* root : snarl_roots) {
+            snarl_stack.push_back(root);
+            while (!snarl_stack.empty()) {
+                const Snarl* snarl = snarl_stack.back();
+                snarl_stack.pop_back();
+                if (snarl->start().node_id() > snarl->end().node_id()) {
+                    snarl_manager.flip(snarl);
+                }
+                for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
+                    snarl_stack.push_back(child_snarl);
+                }
+            }
+        }
+    }
 
     // The only implemented traversal finder
     TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
