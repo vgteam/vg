@@ -207,40 +207,55 @@ int main_snarl(int argc, char** argv) {
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;
     vector<SnarlTraversal> traversal_buffer;
+    
+    list<const Snarl*> stack;
 
-    for (const Snarl* snarl : snarl_roots) {
-
-        // Write our snarl tree
-        snarl_buffer.push_back(*snarl);
-        stream::write_buffered(cout, snarl_buffer, buffer_size);
-
-        // Optionally write our traversals
-        if (!traversal_file.empty() && snarl->type() == ULTRABUBBLE &&
-            (!leaf_only || snarl_manager.is_leaf(snarl)) &&
-            (!top_level_only || snarl_manager.is_root(snarl)) &&
-            (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
-
-            vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+    for (const Snarl* root : snarl_roots) {
+        
+        stack.push_back(root);
+        
+        while (!stack.empty()) {
+            const Snarl* snarl = stack.back();
+            stack.pop_back();
+            
+            // Write our snarl tree
+            snarl_buffer.push_back(*snarl);
+            stream::write_buffered(cout, snarl_buffer, buffer_size);
+            
+            // Optionally write our traversals
+            if (!traversal_file.empty() && snarl->type() == ULTRABUBBLE &&
+                (!leaf_only || snarl_manager.is_leaf(snarl)) &&
+                (!top_level_only || snarl_manager.is_root(snarl)) &&
+                (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
                 
-            // Optionally add endpoints into traversals
-            if (include_endpoints) {
-                for (auto& trav : travs) {
-                    SnarlTraversal new_trav;
-                    Visit* start_visit = new_trav.add_visits();
-                    *start_visit = snarl->start();
-                    for (int i = 0; i < trav.visits_size(); ++i) {
-                        Visit* visit = new_trav.add_visits();
-                        *visit = trav.visits(i);
+                vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+                
+                // Optionally add endpoints into traversals
+                if (include_endpoints) {
+                    for (auto& trav : travs) {
+                        SnarlTraversal new_trav;
+                        Visit* start_visit = new_trav.add_visits();
+                        *start_visit = snarl->start();
+                        for (int i = 0; i < trav.visits_size(); ++i) {
+                            Visit* visit = new_trav.add_visits();
+                            *visit = trav.visits(i);
+                        }
+                        Visit* end_visit = new_trav.add_visits();
+                        *end_visit = snarl->end();
+                        swap(trav, new_trav);
                     }
-                    Visit* end_visit = new_trav.add_visits();
-                    *end_visit = snarl->end();
-                    swap(trav, new_trav);
                 }
+                
+                traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
+                stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
             }
-
-            traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
-            stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
+            
+            for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
+                stack.push_back(child_snarl);
+            }
         }
+        
+        
     }
     // flush
     stream::write_buffered(cout, snarl_buffer, 0);

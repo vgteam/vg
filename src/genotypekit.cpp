@@ -194,6 +194,10 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
                 *to_return.back().add_visits() = *iter;
             }
             
+            // label which snarl this came from
+            *to_return.back().mutable_snarl()->mutable_start() = site.start();
+            *to_return.back().mutable_snarl()->mutable_end() = site.end();
+            
             // don't proceed to add more onto the DFS stack
             continue;
         }
@@ -499,6 +503,11 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
         for (Visit& visit : visits) {
             *to_return.back().add_visits() = visit;
         }
+        
+        // label which snarl this came from
+        *to_return.back().mutable_snarl()->mutable_start() = site.start();
+        *to_return.back().mutable_snarl()->mutable_end() = site.end();
+        
     }
     
     return to_return;
@@ -582,7 +591,11 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
                 *(to_return.back().add_visits()) = to_visit(node_traversal);
             }
             
-            // Stop eary after having found one path
+            // label which snarl this came from
+            *to_return.back().mutable_snarl()->mutable_start() = site.start();
+            *to_return.back().mutable_snarl()->mutable_end() = site.end();
+            
+            // Stop early after having found one path
             break;
         } else {
             // We haven't reached the end of the site
