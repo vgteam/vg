@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "genotypekit.hpp"
+#include "snarls.hpp"
 
 namespace Catch {
 
@@ -315,6 +316,49 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
     delete finder;
     
 
+}
+    
+TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverted node", "[genotype]") {
+    VG graph;
+    Node* n0 = graph.create_node("A");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("G");
+    Node* n3 = graph.create_node("T");
+    graph.create_edge(n0, n1, false, true);
+    graph.create_edge(n0, n2, false, false);
+    graph.create_edge(n3, n1, true, false);
+    graph.create_edge(n2, n3, false, false);
+    
+    Snarl site;
+    site.mutable_start()->set_node_id(n0->id());
+    site.mutable_end()->set_node_id(n3->id());
+    site.set_type(ULTRABUBBLE);
+    
+    list<Snarl> snarls{site};
+    
+    SnarlManager manager(snarls.begin(), snarls.end());
+    
+    ExhaustiveTraversalFinder finder(graph, manager);
+    
+    bool found_trav_1 = false;
+    bool found_trav_2 = false;
+    
+    for (auto snarl : manager.top_level_snarls()) {
+        auto travs = finder.find_traversals(*snarl);
+        for (SnarlTraversal trav : travs) {
+            if (trav.visits_size() == 1) {
+                if (trav.visits(0).node_id() == n1->id() && trav.visits(0).backward()) {
+                    found_trav_1 = true;
+                }
+                else if (trav.visits(0).node_id() == n2->id() && !trav.visits(0).backward()) {
+                    found_trav_2 = true;
+                }
+            }
+        }
+    }
+    
+    REQUIRE(found_trav_1);
+    REQUIRE(found_trav_2);
 }
 
 }
