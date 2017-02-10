@@ -1592,6 +1592,10 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g
                                                   max_multi_alns(max_multi_alns),
                                                   adjust_for_base_quality(adjust_for_base_quality)
 {
+    
+#ifdef debug_banded_aligner_objects
+    cerr << "[BandedGlobalAligner]: constructing BandedBlobalAligner with " << band_padding << " padding and " << permissive_banding << " permissive" << endl;
+#endif
     if (adjust_for_base_quality) {
         if (alignment.quality().empty()) {
             cerr << "error:[BandedGlobalAligner] alignment needs base quality to perform quality adjusted alignment" << endl;
@@ -1644,6 +1648,10 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g
     if (source_nodes.empty() || sink_nodes.empty()) {
         cerr << "error:[BandedGlobalAligner] alignment graph must be a DAG" << endl;
     }
+    
+#ifdef debug_banded_aligner_objects
+    cerr << "[BandedGlobalAligner]: " << source_nodes.size() << " sources and " << sink_nodes.size() << " sinks" << endl;
+#endif
     
 #ifdef debug_banded_aligner_objects
     cerr << "[BandedGlobalAligner]: computing node bands" << endl;
