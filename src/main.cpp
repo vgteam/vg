@@ -5240,7 +5240,8 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus, banded_global, 0, debug);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
+            banded_global, max(seq.size(), graph->length()), debug);
     }
 
     if (!seq_name.empty()) {

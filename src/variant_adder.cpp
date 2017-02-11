@@ -231,6 +231,53 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 #ifdef debug
             cerr << "Got " << lock.get_subgraph().length() << " bp in " << lock.get_subgraph().size() << " nodes" << endl;
 #endif
+
+#ifdef debug
+            ofstream seq_dump("seq_dump.txt");
+            seq_dump << to_align.str();
+            seq_dump.close();
+
+            sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
+                // Make sure we actually have the endpoints we wanted
+                auto found_left = index.find_position(left_context_start);
+                auto found_right = index.find_position(right_context_past_end - 1);
+                assert(left_context_start == found_left->first);
+                assert(right_context_past_end == found_right->first + index.node_length(found_right));
+                
+                cerr << "Group runs " << group_start << "-" << group_end << endl;
+                cerr << "Context runs " << left_context_start << "-" << right_context_past_end << ": "
+                    << right_context_past_end - left_context_start  << " bp" << endl;
+                cerr << "Sequence is " << to_align.str().size() << " bp" << endl;
+                cerr << "Leftmost node is " << found_left->second << endl;
+                cerr << "Leftmost Sequence: " << lock.get_subgraph().get_node(found_left->second.node)->sequence() << endl;
+                cerr << "Rightmost node is " << found_right->second << endl;
+                cerr << "Rightmost Sequence: " << lock.get_subgraph().get_node(found_right->second.node)->sequence() << endl;
+                cerr << "Left context: " << left_context << endl;
+                cerr << "Right context: " << right_context << endl;
+                
+                lock.get_subgraph().for_each_node([&](Node* node) {
+                    // Look at nodes
+                    if (index.by_id.count(node->id())) {
+                        cerr << "Node " << node->id() << " at " << index.by_id.at(node->id()).first
+                            << " orientation " << index.by_id.at(node->id()).second << endl;
+                    } else {
+                        cerr << "Node " << node->id() << " not on path" << endl;
+                    }
+                });
+                
+                if (lock.get_subgraph().is_acyclic()) {
+                    cerr << "Subgraph is acyclic" << endl;
+                } else {
+                    cerr << "Subgraph is cyclic" << endl;
+                }
+            });
+#endif
+            
+            // Calculate the expected min score, for a giant gap (i.e. this variant is an SV indel)
+            int64_t min_length = min(right_context_past_end - left_context_start, to_align.str().size());
+            int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
+            // TODO: assumes a gap open of 6 and match and gap extend values of 1
+            int64_t expected_score = min_length - 6 - (max_length - 1 - min_length);
                 
             // Record the size of graph we're aligning to in bases
             total_graph_bases += lock.get_subgraph().length();
@@ -266,21 +313,49 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             cerr << "Subgraph: " << pb2json(lock.get_subgraph().graph) << endl;            
             cerr << "Alignment: " << pb2json(aln) << endl;
 #endif
+
+            if (local_variants.size() == 1) {
+                // We only have one variant here, so we ought to have at least the expected giant gap score
+                assert(aln.score() >= expected_score);
+            }
             
-            // Make sure we have no dangling ends
+            // We shouldn't have dangling ends, really, but it's possible for
+            // inserts that have copies already in the graph to end up producing
+            // alignments just as good as the alignment we wanted that have
+            // their gaps pushed to one end or the other, and we need to
+            // tolerate them and make their insertions.
+            
+            // We know the aligner left-shifts the gaps for inserts, so make
+            // sure that we at least *end* with a match.
             assert(aln.path().mapping_size() > 0);
-            auto& first_mapping = aln.path().mapping(0);
             auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
-            assert(first_mapping.edit_size() > 0);
-            auto& first_edit = first_mapping.edit(0);
             assert(last_mapping.edit_size() > 0);
             auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
-            assert(edit_is_match(first_edit));
             assert(edit_is_match(last_edit));
             
+            // Find the first edit and get its oriented node
+            auto& first_mapping = aln.path().mapping(0);
+            assert(first_mapping.edit_size() > 0);
+            auto& first_edit = first_mapping.edit(0);
+            
+            // Construct the NodeSide on the left of the graph in the orientation the graph is aligned to.
+            NodeSide left_of_alignment(first_mapping.position().node_id(), first_mapping.position().is_reverse());
+            
+            // Get all the NodeSides connected to it in the periphery of the
+            // graph we extracted.
+            set<NodeSide> connected = lock.get_peripheral_attachments(left_of_alignment);
+            
+            cerr << "Alignment starts at " << left_of_alignment << " which connects to ";
+            for (auto& c : connected) {
+                cerr << c << ", ";
+            }
+            cerr << endl;
+            
             // Make this path's edits to the original graph. We don't need to do
-            // anything with the translations.
-            lock.apply_edit(aln.path());
+            // anything with the translations. Handle insertions on the very
+            // left by attaching them to whatever is attached to our leading
+            // node.
+            lock.apply_edit(aln.path(), connected);
 
         }
         
@@ -297,7 +372,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     destroy_progress();
     
 }
-
 
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
@@ -354,10 +428,12 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
                 
                 if (allele_index >= variant->alleles.size()) {
                     // This VCF has out-of-range alleles
-                    cerr << "error:[vg::VariantAdder] variant " << variant->sequenceName << ":" << variant->position
-                        << " has invalid allele index " << allele_index
-                        << " but only " << variant->alt.size() << " alts" << endl;
-                    exit(1);
+                    //cerr << "error:[vg::VariantAdder] variant " << variant->sequenceName << ":" << variant->position
+                    //    << " has invalid allele index " << allele_index
+                    //    << " but only " << variant->alt.size() << " alts" << endl;
+                    // TODO: right now we skip them as a hack
+                    allele_index = 0;
+                    //exit(1);
                 }
                 
                 // Stick each allele number at the end of its appropriate phase

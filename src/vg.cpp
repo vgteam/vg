@@ -4664,7 +4664,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
 }
 
 // The not quite as robust but actually efficient way to edit the graph.
-vector<Translation> VG::edit_fast(const Path& path) {
+vector<Translation> VG::edit_fast(const Path& path, set<NodeSide> dangling) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4696,7 +4696,7 @@ vector<Translation> VG::edit_fast(const Path& path) {
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
     map<Node*, Path> added_nodes;
     // create new nodes/wire things up.
-    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling);
 
     // Make the translations (in about the same format as VG::edit(), but
     // without a translation for every single node and with just the nodes we
@@ -5058,17 +5058,18 @@ void VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, Node*>& added_seqs,
                              map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes) {
+                             const map<id_t, size_t>& orig_node_sizes,
+                             set<NodeSide> dangling) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
-    // edit that creates new sequence, we check if it has been added before
-    // If it has, we use it. If not, we create that new sequence as a node,
-    // and attach it to the dangling NodeSide, and leave its end dangling. If we
-    // hit an edit that corresponds to a match, we know that there's a
-    // breakpoint on each end (since it's bordered by a non-perfect-match or the
-    // end of a node), so we can attach its start to the dangling NodeSide and
-    // leave its end dangling.
+    // edit that creates new sequence, we check if it has been added before If
+    // it has, we use it. If not, we create that new sequence as a node, and
+    // attach it to the dangling NodeSide(s), and leave its end dangling
+    // instead. If we hit an edit that corresponds to a match, we know that
+    // there's a breakpoint on each end (since it's bordered by a non-perfect-
+    // match or the end of a node), so we can attach its start to the dangling
+    // NodeSide(s) and leave its end dangling instead.
 
     // We need node_translation to translate between node ID space, where the
     // paths are articulated, and new node ID space, where the edges are being
@@ -5140,10 +5141,6 @@ void VG::add_nodes_and_edges(const Path& path,
         }
         return mappings;
     };
-
-    // What's dangling and waiting to be attached to? In current node ID space.
-    // We use the default constructed one (id 0) as a placeholder.
-    NodeSide dangling;
 
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
@@ -5254,18 +5251,19 @@ void VG::add_nodes_and_edges(const Path& path,
                     paths.append_mapping(path.name(), nm);
                 }
 
-                if(dangling.node) {
+                for (auto& dangler : dangling) {
                     // This actually referrs to a node.
 #ifdef debug_edit
-                    cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangling, NodeSide(new_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(new_node->id(), m.position().is_reverse())));
 
                 }
 
                 // Dangle the end of this new node
-                dangling = NodeSide(new_node->id(), !m.position().is_reverse());
+                dangling.clear();
+                dangling.insert(NodeSide(new_node->id(), !m.position().is_reverse()));
 
                 // save edit into translated path
 
@@ -5305,17 +5303,20 @@ void VG::add_nodes_and_edges(const Path& path,
                 cerr << "Handling match relative to " << node_id << endl;
 #endif
 
-                if(dangling.node) {
+                for (auto& dangler : dangling) {
 #ifdef debug_edit
-                    cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
 #endif
 
                     // Connect the left end of the left node we matched in the direction we matched it
-                    assert(create_edge(dangling, NodeSide(left_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(left_node->id(), m.position().is_reverse())));
                 }
 
                 // Dangle the right end of the right node in the direction we matched it.
-                if (right_node != nullptr) dangling = NodeSide(right_node->id(), !m.position().is_reverse());
+                if (right_node != nullptr) {
+                    dangling.clear();
+                    dangling.insert(NodeSide(right_node->id(), !m.position().is_reverse()));
+                }
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
 #ifdef debug_edit
@@ -6683,7 +6684,7 @@ Alignment VG::align(const Alignment& alignment,
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
         dag.sort();
-
+        
         // run the alignment
         do_align(dag.graph);
 

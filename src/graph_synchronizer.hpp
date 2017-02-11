@@ -88,6 +88,12 @@ public:
         VG& get_subgraph();
         
         /**
+         * Get the NodeSides for nodes not in the extracted subgraph but in its
+         * periphery that are attached to the given NodeSide in the subgraph.
+         */
+        set<NodeSide> get_peripheral_attachments(NodeSide graph_side);
+        
+        /**
          * May only be called when locked. Apply an edit against the base graph
          * and return the resulting translation. Note that this updates only the
          * underlying VG graph, not the copy of the locked subgraph stored in
@@ -97,8 +103,11 @@ public:
          * apply changes (other than dividing and connecting) to existing nodes.
          *
          * Any new nodes created are created already locked.
+         *
+         * Any new nodes created on the left of the alignment will be attached
+         * to the given "dangling" NodeSides.
          */
-        vector<Translation> apply_edit(const Path& path);
+        vector<Translation> apply_edit(const Path& path, set<NodeSide> dangling = set<NodeSide>());
         
     protected:
     
@@ -123,6 +132,10 @@ public:
         /// These are the nodes connected to the subgraph but not actually
         /// available for editing. We just need no one else to edit them.
         set<id_t> periphery;
+        
+        /// This connects internal NodeSides to NodeSides of nodes on the
+        /// periphery.
+        map<NodeSide, set<NodeSide>> peripheral_attachments;
         
         /// This is the set of nodes that this lock has currently locked.
         set<id_t> locked_nodes;

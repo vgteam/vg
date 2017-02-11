@@ -1,5 +1,7 @@
 #include "graph_synchronizer.hpp"
 
+#include <iterator>
+
 namespace vg {
 
 using namespace std;
@@ -104,6 +106,40 @@ void GraphSynchronizer::Lock::lock() {
             // Go do a normal context expansion, but not going through those sides.
             synchronizer.graph.expand_context_by_length(context, (past_end - start) * 2, false, true, {start_left, end_right});
             
+            // Now we have to address the problem where long inserts will take
+            // any longer path and match terribly, rather than fit on the
+            // shorter chromosome path, when there are other available tips in
+            // the graph.
+            
+            // TODO: Jordan's fancy extractor will do this.
+            
+            // For now, just prune back any tips that aren't the designated
+            // nodes.
+            
+            // Keep going until we don't find any nodes to kill
+            bool removed = true;
+            while (removed) {
+                // Find the heads and tails
+                auto head_nodes = context.head_nodes();
+                auto tail_nodes = context.tail_nodes();
+                
+                // Make a set of all nodes that are heads or tails
+                set<Node*> tip_nodes{head_nodes.begin(), head_nodes.end()};
+                copy(tail_nodes.begin(), tail_nodes.end(), inserter(tip_nodes, tip_nodes.end()));
+                
+                removed = false;
+                for (Node* tip : tip_nodes) {
+                    // Look at all of them
+                    if (tip->id() != start_left.node && tip->id() != end_right.node) {
+                        // If any of them aren't the nodes we are supposed to
+                        // havem drop them (and their edges)
+                        context.destroy_node(tip);
+                        removed = true;
+                    }
+                }
+            }
+            // TODO: this loop is like n^2 for dropping long sticks we don't want.
+            
         } else {
             // We want to extract a radius
             
@@ -117,6 +153,7 @@ void GraphSynchronizer::Lock::lock() {
         // Also remember all the nodes connected to but not in the context,
         // which also need to be locked.
         periphery.clear();
+        peripheral_attachments.clear();
         
         // We set this to false if a node we want is taken
         bool nodes_available = true;
@@ -142,7 +179,11 @@ void GraphSynchronizer::Lock::lock() {
                         return;
                     }
                     
+                    // The destination of the edge is in the periphery
                     periphery.insert(edge->to());
+                    // And you get to it from this side of this graph node.
+                    peripheral_attachments[NodeSide(edge->from(), !edge->from_start())].insert(
+                        NodeSide(edge->to(), edge->to_end()));
                 }
             }
             for (auto* edge : synchronizer.graph.edges_to(node)) {
@@ -156,7 +197,11 @@ void GraphSynchronizer::Lock::lock() {
                         return;
                     }
                     
+                    // The source of the edge is in the periphery
                     periphery.insert(edge->from());
+                    // And you get to it from this side of this graph node.
+                    peripheral_attachments[NodeSide(edge->to(), edge->to_end())].insert(
+                        NodeSide(edge->from(), !edge->from_start()));
                 }
             }
         });
@@ -216,7 +261,17 @@ VG& GraphSynchronizer::Lock::get_subgraph() {
     return subgraph;
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path) {
+set<NodeSide> GraphSynchronizer::Lock::get_peripheral_attachments(NodeSide graph_side) {
+    if (peripheral_attachments.count(graph_side)) {
+        // This side actually touches the periphery
+        return peripheral_attachments.at(graph_side);
+    } else {
+        // This side doesn't touch anything outside the graph.
+        return set<NodeSide>();
+    }
+}
+
+vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<NodeSide> dangling) {
     // Make sure we have exclusive ownership of the graph itself since we're
     // going to be modifying its data structures.
     std::lock_guard<std::mutex> guard(synchronizer.whole_graph_lock);
@@ -229,8 +284,8 @@ vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path) {
         }
     }
     
-    // Make all the edits
-    vector<Translation> translations = synchronizer.graph.edit_fast(path);
+    // Make all the edits, passing along the dangling node set.
+    vector<Translation> translations = synchronizer.graph.edit_fast(path, dangling);
     
     // Lock all the nodes that result from the translations. They're guaranteed
     // to either be nodes we already have or novel nodes with fresh IDs.
