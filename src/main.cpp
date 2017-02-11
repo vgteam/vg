@@ -1497,6 +1497,7 @@ int main_genotype(int argc, char** argv) {
         vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
         vars->open(recall_vcf);
         FastaReference* lin_ref = new FastaReference();
+        lin_ref->open(fasta);
 
         vector<FastaReference*> insertions;
         if (!insertions_file.empty()){

@@ -47,7 +47,9 @@ using namespace std;
         var.position -= 1;
         var.canonicalize_sv(*ref_genome, insertions, -1);
         string var_id = make_variant_id(var);
+
         hash_to_var[ var_id ] = var;
+
         for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
             string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
             list<Mapping> x_path = gpaths[ alt_id ];
@@ -70,6 +72,7 @@ using namespace std;
 
     #ifdef DEBUG
         cerr << node_id_to_depth.size() << " reads in node-to-depth map." << endl;
+        cerr << hash_to_var.size() << endl;
     #endif
 
     for (auto it : hash_to_var){
