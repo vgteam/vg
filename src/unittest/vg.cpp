@@ -20,7 +20,7 @@ VG string_to_graph(const string& json) {
     return graph;
 }
 
-TEST_CASE("is_acyclic should return whether the graph is acyclic", "[vg][cycles]") {
+TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycles]") {
     
     SECTION("a tiny DAG should be acyclic") {
         const string graph_json = R"(
@@ -142,6 +142,56 @@ TEST_CASE("is_acyclic should return whether the graph is acyclic", "[vg][cycles]
         
         REQUIRE(graph.is_acyclic() == true);
     }
+}
+
+TEST_CASE("unfold() should properly unfold a graph out to the requested length", "[vg][unfold]") {
+
+    SECTION("unfolding across a single reversing edge should double the entire graph") {
+
+        const string graph_json = R"(
+        {
+          "node": [
+            {"sequence": "CACACACACACTGAGATACCATCTCCCGTCGGTCAGAATGGCCATTTGTCCAAAGT","id": 1},
+            {"sequence": "CCAACATTTACATGCTGACAAGGCAGCGGAGGAAAGCAAACACTG","id": 2},
+            {"sequence": "C","id": 3},
+            {"sequence": "T","id": 4},
+            {"sequence": "TACACTCTTGGAGGGAA","id": 5},
+            {"sequence": "T","id": 6},
+            {"sequence": "C","id": 7},
+            {"sequence": "AAAAACTAG","id": 8},
+            {"sequence": "AGTTGCAT","id": 9},
+            {"sequence": "TTCTCTGATGATGAG","id": 10},
+            {"sequence": "TGATGTTGAGGGTTTTTTTTGTCT","id": 11},
+            {"sequence": "ATTGGTCACTTGTACATCTTATTTTTACAA","id": 12},
+            {"sequence":"GAACGTCTTCATGTCTTTTACCCATTGTTTGATTGGCTTATTTGTCTTTCTGCCTCTTGATTTTTTTAAGGTCACGTTAGAGTCTGGCTATTAGGTCTTGGTCAGAAGCATAGTTTGGGAACATTTTCTCCCATCCTGTAGGCTATGTTTTTACTGTGCTGGTGATTTATTTTGCTGTCTGGCAGTGTTTTAGTTTCTTAGGCCCAACTTGTCCATTTTGGTTTTTCTTGCCGTTGCTCTTAGGGACTAAGTTATTTAAATTCTTTACCAAAGCCCATGTTGAGAAAGGTATTTCCTAGTTTTTCTTGTAGGACTTGTATAGTTTGTAGTCTTCTGCTGAAATCTTTCATTCACCTTGAGTTAGTTTTTGCATCTTGTGAGAGGTAAGGCTGTAGTGCTGTTCATCTGCAAGTGGCTAGACACTATCCCAGTGCCATTCATTGCACAGTGAGCCCTTTCCACATCTGAATTTTGGTGTTTCAAAGGTCAGATGGTTGTGGGTATGTGGGGTTGCTTCTGGGTTTCCTATTCTGTCTAGGTGGAGGTGGGTCTGTAGCTTTTCTGTGAAATTTGAAATTGGAGAGTGTGGTCCATCTGACATCGTCTGAATCTCCCAGCCTGGCTTTGGAGTTTCAGAGCATTTTGTGGTCCCATGGGAATTTTAGCATTCATTGTTTCTTCACATTGCTTTCAAAAAACAAAATCGACCCCATCCTAAAGGTGTACAGGTAGGGGGTAGAGTGGAATATTTGGATCCATGC","id": 13}
+          ],
+          "edge": [
+            {"from": 1,"to": 9,"from_start": true},
+            {"from": 1,"to": 2},
+            {"from": 2,"to": 3},
+            {"from": 2,"to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4,"to": 5},
+            {"from": 5,"to": 6},
+            {"from": 5,"to": 7},
+            {"from": 6,"to": 8},
+            {"from": 7,"to": 8},
+            {"from": 9,"to": 10},
+            {"from": 10,"to": 11},
+            {"from": 11,"to": 12},
+            {"from": 12,"to": 13}
+          ]
+        }
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        
+        map<id_t, pair<id_t, bool> > node_translation;
+        VG completely_unfolded = graph.unfold(10000, node_translation);
+        
+        REQUIRE(completely_unfolded.size() == graph.size() * 2);
+    }
+
 }
 
 }

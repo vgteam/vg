@@ -209,6 +209,9 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     return pulled_out + prob_to_logprob(total);
 }
 
+/// Find the system temp directory using defaults and environment variables
+string find_temp_dir();
+
 /// Create a temporary file starting with the given base name
 string tmpfilename(const string& base);
 
@@ -267,6 +270,10 @@ void get_input_file(int& optind, int argc, char** argv, function<void(istream&)>
 // Parse out the name of an input file (i.e. the next positional argument), or
 // throw an error. File name must be nonempty, but may be "-" or may not exist.
 string get_input_file_name(int& optind, int argc, char** argv);
+
+// Parse out the name of an output file (i.e. the next positional argument), or
+// throw an error. File name must be nonempty.
+string get_output_file_name(int& optind, int argc, char** argv);
 
 // Get a callback with an istream& to an open file. Handles "-" as a filename as
 // indicating standard input. The reference passed is guaranteed to be valid

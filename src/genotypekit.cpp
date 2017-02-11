@@ -58,8 +58,8 @@ SnarlManager CactusUltrabubbleFinder::find_snarls() {
             snarl.mutable_end()->set_node_id(bubble.end.node);
             snarl.mutable_end()->set_backward(bubble.end.is_end);
             
-            // Mark snarl as an ultrabubble
-            snarl.set_type(ULTRABUBBLE);
+            // Mark snarl as an ultrabubble if it's acyclic
+            snarl.set_type(bubble.acyclic ? ULTRABUBBLE : UNCLASSIFIED);
             
             // If not a top level site, add parent info
             if (node->parent != bubble_tree->root) {
@@ -111,7 +111,7 @@ void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, ve
             else if (edge->to() == head_id && !edge->to_end()) {
                 // the edge is part of a valid walk in the opposite orientation
                 Node* next_node = graph.get_node(edge->from());
-                bool next_backward = edge->from_start();
+                bool next_backward = !edge->from_start();
                 // add the next traversal in the walk to the stack
                 stack.push_back(NodeTraversal(next_node, next_backward));
             }
@@ -132,7 +132,7 @@ void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, ve
             else if (edge->to() == head_id && edge->to_end()) {
                 // the edge is part of a valid walk in the opposite orientation
                 Node* next_node = graph.get_node(edge->from());
-                bool next_backward = edge->from_start();
+                bool next_backward = !edge->from_start();
                 // add the next traversal in the walk to the stack
                 stack.push_back(NodeTraversal(next_node, next_backward));
             }
@@ -226,7 +226,11 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
             stack.push_back(to_rev_node_traversal(child_site->start(), graph));
         }
         else {
-            // add all of the node traversals we can reach through valid walks
+            // make a visit out of the node traversal
+            visit.set_node_id(node_traversal.node->id());
+            visit.set_backward(node_traversal.backward);
+            
+            // add all of the node traversals we can reach through valid walks to stack
             stack_up_valid_walks(node_traversal, stack);
         }
         

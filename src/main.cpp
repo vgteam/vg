@@ -635,6 +635,9 @@ int main_vectorize(int argc, char** argv){
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Configure its temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
 
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;
@@ -2135,6 +2138,9 @@ int main_msga(int argc, char** argv) {
     gcsa::LCPArray* lcpidx = nullptr;
     xg::XG* xgidx = nullptr;
     size_t iter = 0;
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
 
     auto rebuild = [&](VG* graph) {
         if (mapper) delete mapper;
@@ -2155,6 +2161,9 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        
+        // Configure its temp directory to the system temp directory
+        gcsa::TempFile::setDirectory(find_temp_dir());
 
         if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
@@ -3532,8 +3541,6 @@ void help_stats(char** argv) {
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
-         << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -3561,8 +3568,6 @@ int main_stats(int argc, char** argv) {
     bool distance_to_tail = false;
     bool node_count = false;
     bool edge_count = false;
-    bool superbubbles = false;
-    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -3588,8 +3593,6 @@ int main_stats(int argc, char** argv) {
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
-            {"superbubbles", no_argument, 0, 'b'},
-            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -3597,7 +3600,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -3652,14 +3655,6 @@ int main_stats(int argc, char** argv) {
 
         case 'n':
             ids.insert(atoi(optarg));
-            break;
-
-        case 'b':
-            superbubbles = true;
-            break;
-
-        case 'u':
-            ultrabubbles = true;
             break;
 
         case 'A':
@@ -3740,21 +3735,6 @@ int main_stats(int argc, char** argv) {
                 cout << (h==heads.begin()?"":",") << (*h)->id();
             }
             cout << "\t" << length << endl;
-        }
-    }
-
-    if (superbubbles || ultrabubbles) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
-        for (auto& i : bubbles) {
-            auto b = i.first;
-            auto v = i.second;
-            // sort output for now, to help do diffs in testing
-            sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
         }
     }
 
@@ -4193,8 +4173,9 @@ int main_stats(int argc, char** argv) {
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
         << "options:" << endl
-        << "  obtain paths in GAM:" << endl
-        << "    -x, --extract         return (as alignments) the stored paths in the graph" << endl
+        << "  inspection:" << endl
+        << "    -x, --extract         return (as GAM alignments) the stored paths in the graph" << endl
+        << "    -L, --list            return (as a list of names, one per line) the path names" << endl
         << "  generation:" << endl
         << "    -n, --node ID         starting at node with ID" << endl
         << "    -l, --max-length N    generate paths of at most length N" << endl
@@ -4215,6 +4196,7 @@ int main_paths(int argc, char** argv) {
     int64_t node_id = 0;
     bool as_seqs = false;
     bool extract = false;
+    bool list_paths = false;
     bool path_only = false;
 
     int c;
@@ -4224,6 +4206,7 @@ int main_paths(int argc, char** argv) {
 
         {
             {"extract", no_argument, 0, 'x'},
+            {"list", no_argument, 0, 'L'},
             {"node", required_argument, 0, 'n'},
             {"max-length", required_argument, 0, 'l'},
             {"edge-max", required_argument, 0, 'e'},
@@ -4233,7 +4216,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:xp",
+        c = getopt_long (argc, argv, "n:l:hse:xLp",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4245,6 +4228,10 @@ int main_paths(int argc, char** argv) {
 
             case 'x':
                 extract = true;
+                break;
+                
+            case 'L':
+                list_paths = true;
                 break;
 
             case 'n':
@@ -4288,6 +4275,14 @@ int main_paths(int argc, char** argv) {
     if (extract) {
         vector<Alignment> alns = graph->paths_as_alignments();
         write_alignments(cout, alns);
+        delete graph;
+        return 0;
+    }
+    
+    if (list_paths) {
+        graph->paths.for_each_name([&](const string& name) {
+            cout << name << endl;
+        });
         delete graph;
         return 0;
     }
@@ -5004,6 +4999,9 @@ int main_find(int argc, char** argv) {
 
             // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+            
+            // Configure its temp directory to the system temp directory
+            gcsa::TempFile::setDirectory(find_temp_dir());
 
             // Open it
             ifstream in_gcsa(gcsa_in.c_str());
@@ -5808,6 +5806,9 @@ int main_map(int argc, char** argv) {
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Configure its temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
 
     // Load up our indexes.
     xg::XG* xindex = nullptr;
@@ -6365,7 +6366,11 @@ void help_view(char** argv) {
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
          << "    -L, --pileup         ouput VG Pileup format" << endl
-         << "    -l, --pileup-in      input VG Pileup format" << endl;
+         << "    -l, --pileup-in      input VG Pileup format" << endl
+
+         << "    -R, --snarl-in       input VG Snarl format" << endl
+         << "    -E, --snarl-traversal-in input VG SnarlTraversal format" << endl;
+    
     // TODO: Can we regularize the option names for input and output types?
 
 }
@@ -6454,11 +6459,13 @@ int main_view(int argc, char** argv) {
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
+                {"snarls", no_argument, 0, 'R'},
+                {"snarltraversals", no_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zX",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRE",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6634,6 +6641,22 @@ int main_view(int argc, char** argv) {
 
         case 'Q':
             loci_file = optarg;
+            break;
+
+        case 'R':
+            input_type = "snarls";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'E':
+            input_type = "snarltraversals";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'h':
@@ -6894,6 +6917,32 @@ int main_view(int argc, char** argv) {
             }
         }
         cout.flush();
+        return 0;
+    } else if (input_type == "snarls") {
+        if (output_type == "json") {
+            function<void(Snarl&)> lambda = [](Snarl& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) Snarls can only be converted to JSON" << endl;
+            return 1;
+        }
+        return 0;
+    } else if (input_type == "snarltraversals") {
+        if (output_type == "json") {
+            function<void(SnarlTraversal&)> lambda = [](SnarlTraversal& s) {
+                cout << pb2json(s) << "\n";
+            };
+            get_input_file(file_name, [&](istream& in) {
+                stream::for_each(in, lambda);
+            });
+        } else {
+            cerr << "[vg view] error: (binary) SnarlTraversals can only be converted to JSON" << endl;
+            return 1;
+        }
         return 0;
     }
 

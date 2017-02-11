@@ -72,8 +72,9 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
                 << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
 #endif
             
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > last_rank);
+            // Make sure ranks are monotonically increasing along the path, or
+            // unset.
+            assert(mapping.rank() > last_rank || (mapping.rank() == 0 && last_rank == 0));
             last_rank = mapping.rank();
         }
         
@@ -176,8 +177,9 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
                 << index.node_sequence(mapping.position().node_id()) << std::endl;
 #endif
             
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > last_rank);
+            // Make sure ranks are monotonically increasing along the path, or
+            // unset.
+            assert(mapping.rank() > last_rank || (mapping.rank() == 0 && last_rank == 0));
             last_rank = mapping.rank();
         }
         
