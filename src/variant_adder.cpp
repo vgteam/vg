@@ -345,11 +345,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // graph we extracted.
             set<NodeSide> connected = lock.get_peripheral_attachments(left_of_alignment);
             
+#ifdef debug
             cerr << "Alignment starts at " << left_of_alignment << " which connects to ";
             for (auto& c : connected) {
                 cerr << c << ", ";
             }
             cerr << endl;
+#endif
             
             // Make this path's edits to the original graph. We don't need to do
             // anything with the translations. Handle insertions on the very
@@ -360,6 +362,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         }
         
         if (variants_processed++ % 1000 == 0 || true) {
+            #pragma omp critical (cerr)
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
                 << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
