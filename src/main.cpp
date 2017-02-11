@@ -1383,7 +1383,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:V:I:G:F:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
