@@ -1505,6 +1505,7 @@ int main_genotype(int argc, char** argv) {
             ins->open(insertions_file);
         }
         gt.variant_recall(graph, vars, lin_ref, insertions, gam_file);
+        return 0;
 
     }
 
