@@ -1284,6 +1284,10 @@ void help_genotype(char** argv) {
          << "options:" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -v, --vcf               output in VCF" << endl
+         << "    -G, --gam   GAM         a GAM file to use with variant recall." << endl
+         << "    -V, --recall-vcf VCF    recall variants in a specific VCF file." << endl
+         << "    -F, --fasta  FASTA" << endl
+         << "    -I, --insertions INS" << endl
          << "    -r, --ref PATH          use the given path name as the reference path" << std::endl
          << "    -c, --contig NAME       use the given name as the VCF contig name" << std::endl
          << "    -s, --sample NAME       name the sample in the VCF with the given name" << std::endl
@@ -1326,6 +1330,13 @@ int main_genotype(int argc, char** argv) {
     // What length override should we use
     int64_t length_override = 0;
 
+    // Should we we just do a quick variant recall,
+    // based on this VCF and GAM, then exit?
+    string recall_vcf;
+    string gam_file;
+    string fasta;
+    string insertions_file;
+
     // Should we use mapping qualities?
     bool use_mapq = false;
     // Should we do indel realignment?
@@ -1364,6 +1375,10 @@ int main_genotype(int argc, char** argv) {
                 {"min_per_strand", required_argument, 0, 'P'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
+                {"recall-vcf", required_argument, 0, 'V'},
+                {"gam", required_argument, 0, 'G'},
+                {"fasta", required_argument, 0, 'F'},
+                {"insertions", required_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
@@ -1437,6 +1452,18 @@ int main_genotype(int argc, char** argv) {
         case 't':
             thread_count = atoi(optarg);
             break;
+        case 'V':
+            recall_vcf = optarg;
+            break;
+        case 'I':
+            insertions_file = optarg;
+            break;
+        case 'F':
+            fasta = optarg;
+            break;
+        case 'G':
+            gam_file = optarg;
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1464,6 +1491,22 @@ int main_genotype(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
+
+    if (!(gam_file.empty() || recall_vcf.empty() || fasta.empty() || insertions_file.empty())){
+        Genotyper gt;
+        vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
+        vars->open(recall_vcf);
+        FastaReference* lin_ref = new FastaReference();
+
+        vector<FastaReference*> insertions;
+        if (!insertions_file.empty()){
+            FastaReference* ins = new FastaReference();
+            insertions.emplace_back(ins);
+            ins->open(insertions_file);
+        }
+        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file);
+
+    }
 
     // setup reads index
     if (optind >= argc) {

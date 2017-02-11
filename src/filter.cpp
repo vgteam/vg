@@ -347,12 +347,20 @@ namespace vg{
 
     }
 
+    /**
+    * Filters insertion-characterizing reads based upon 
+    * discordant pairs (fragment length too short)
+    * one-end anchored / softclipped portions
+    * and read depth, one day
+    */
     pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second){
-
+        
     }
+
     pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
+
     pair<Locus, Locus> Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
 
     }

@@ -19,26 +19,70 @@ using namespace std;
 
 /**
 * run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa 
-* void Genotyper::variant_recall(Graph graph,
-                                vector<vcflib::Variant> vars,
-                                FastaReference ref_genome,
-                                vector<FastaReference*> insertions){
-    map<string, vcflib::Variant>
+*/
+ void Genotyper::variant_recall(VG* graph,
+                                vcflib::VariantCallFile* vars,
+                                FastaReference* ref_genome,
+                                vector<FastaReference*> insertions,
+                                string gamfile){
+    // Store variant->name index
+    map<string, vcflib::Variant> hash_to_var;
+    // Store a list of node IDs each variant covers
     map<string, vector<int64_t> > varname_to_node_id;
+    // A dumb depth map, for each node in the graph, of substantial size
     unordered_map<int64_t, int32_t> node_id_to_depth;
-    vector<int64_t> variant_nodes;
-    unordered_map<string, list<Mapping> > gpaths
-    // For each variant in VCF:
-    // hash its name and add to varname_to_node_id
-    // iterate mappings of gpaths[var_id] to get node ids
-    // add those to map and to vector of nodes
+    node_id_to_depth.reserve(10000);
+    //Cache graph paths
+    unordered_map<string, list<Mapping> > gpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end()  );
 
-    // pop open rocksdb
-    // get the number of Alignments at each node.
+    string descrip = "";
+    descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
+    vars->addHeaderLine(descrip);
+
+    cout << vars->header << endl;
+
+    // For each variant in VCF:
+    vcflib::Variant var;
+    while(vars->getNextVariant(var)){
+        var.position -= 1;
+        var.canonicalize_sv(*ref_genome, insertions, -1);
+        string var_id = make_variant_id(var);
+        hash_to_var[ var_id ] = var;
+        for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
+            string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+            list<Mapping> x_path = gpaths[ alt_id ];
+                for (Mapping x_m : x_path){
+                    varname_to_node_id[ alt_id ].push_back(x_m.position().node_id());
+                }
+        }
+    }
+
+    std::function<void(Alignment& a)> incr = [&](Alignment& a){
+            for (int i = 0; i < a.path().mapping_size(); i++){
+                node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+            }
+    };
     
-    // go back though varname_to_node_id
-    // sum up node_id coverage for variant
-    // modify VCF variant and spit it back out.
+
+    // open our gam, count our reads, close our gam.
+    ifstream gamstream(gamfile);
+    stream::for_each(gamstream, incr);
+
+    #ifdef DEBUG
+        cerr << node_id_to_depth.size() << " reads in node-to-depth map." << endl;
+    #endif
+
+    for (auto it : hash_to_var){
+        for (int i = 0; i <= it.second.alt.size(); ++i){
+            int32_t readsum = 0;
+            string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
+            for (int i = 0; i < varname_to_node_id[ alt_id ].size(); i++){
+                    readsum += node_id_to_depth[varname_to_node_id[ alt_id ][i]];
+                }
+                it.second.info["AD"].push_back(std::to_string(readsum));
+            }
+            cout << it.second << endl;
+        }
 }
 
 struct SV_Config{
@@ -48,7 +92,7 @@ struct SV_Config{
     int64_t max_bp_range = -1;
 };
 
-*void Genotyper::call_sv_signatures(vector<string> sigtypes,
+/**void Genotyper::call_sv_signatures(vector<string> sigtypes,
                                     SV_Config conf,
                                     string discord_gam,
                                     string split_gam,

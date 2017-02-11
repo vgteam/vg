@@ -20,22 +20,14 @@
  */
 namespace vg{
 
-struct INSERTION_TYPE_EVIDENCE{
+struct SV_EVIDENCE{
+    int INS_EV = 0;
+    int DEL_EV = 0;
+    int INV_EV = 0;
+    int DUP_EV = 0;
+    int COMPLEX_EV = 0;
 
 };
-
-struct DELETION_TYPE_EVIDENCE{
-
-};
-
-struct INVERSION_TYPE_EVIDENCE{
-
-};
-
-struct DUPLICATION_TYPE_EVIDENCE{
-
-};
-
 
 class Filter{
     public:
@@ -115,6 +107,10 @@ class Filter{
         // is there some way to just hash the mappings?
         unordered_map<string, unordered_map<string, int> > pos_to_edit_to_depth;
         unordered_map<int, int> pos_to_qual;
+
+        // Map position/interval to locus
+        // map Locus to SV evidence, so that we can augment
+        // it with each additional read
     public:
         // we really need a reservoir sampling method /
         // some way to effectively calculate less-biased moving averages.
@@ -134,6 +130,8 @@ class Filter{
         int max_path_length = 0;
 
         int my_max_distance = 1000;
+
+
         };
 }
 

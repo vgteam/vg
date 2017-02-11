@@ -9,6 +9,9 @@
 #include <cmath>
 #include <limits>
 #include <unordered_set>
+#include <unordered_map>
+#include <regex>
+#include <vector>
 #include <list>
 #include "vg.pb.h"
 #include "vg.hpp"
@@ -129,6 +132,12 @@ public:
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
 
+    // Genotype known variants from a VCF file.
+    void variant_recall(VG* graph,
+                                vcflib::VariantCallFile* vars,
+                                FastaReference* ref_genome,
+                                vector<FastaReference*> insertions,
+                                string gamfile);
     // Process and write output
     void run(VG& graph,
              vector<Alignment>& alignments,
