@@ -973,6 +973,9 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
+    // scale mapping quality by half to match bwa mem
+    mapping_quality /= 2;
+
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
     }

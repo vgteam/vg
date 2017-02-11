@@ -540,7 +540,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "aln2 score vs " << aln2.score() << " vs " << mate2.score() << endl;
+            if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
+                            << " vs " << mate2.score() << "/" << mate2.identity() << endl;
         }
 #endif
         if (aln2.score() > mate2.score()) {
@@ -575,7 +576,9 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
                               pinned_reverse,
                               full_length_alignment_bonus,
                               banded_global);
+        //cerr << "score was " << aln1.score() << endl;
         aln1.set_score(score_alignment(aln1));
+        //cerr << "score became " << aln1.score() << endl;
         if (flip) {
             aln1 = reverse_complement_alignment(
                 aln1,
@@ -586,7 +589,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "aln1 score vs " << aln1.score() << " vs " << mate1.score() << endl;
+            if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
+                            << " vs " << mate1.score() << "/" << mate1.identity() << endl;
         }
 #endif
         if (aln1.score() > mate1.score()) {
@@ -3028,8 +3032,11 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
         // iterate through MEMs
         vector<MaximalExactMatch> reseeded;
         for (auto& mem : mems) {
+            // reseed if we have a long singular match
             if (mem.length() >= reseed_length
-                && mem.match_count == 1) {
+                && mem.match_count == 1
+                // or if we only have one mem for the entire read (even if it may have many matches)
+                || mems.size() == 1) {
                 // reseed at midway between here and the min mem length and at the min mem length
                 int reseed_to = mem.length() / 2;
                 int reseeds = 0;
