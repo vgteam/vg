@@ -27,6 +27,7 @@ using namespace std;
                                 string gamfile){
     // Store variant->name index
     map<string, vcflib::Variant> hash_to_var;
+    unordered_set<int64_t> variant_nodes;
     // Store a list of node IDs each variant covers
     map<string, vector<int64_t> > varname_to_node_id;
     // A dumb depth map, for each node in the graph, of substantial size
@@ -59,9 +60,24 @@ using namespace std;
         }
     }
 
+    std::function<bool(const Mapping& m)> sufficient_matches = [&](const Mapping& m){
+        int matches = 0;
+        int tot_len = 0;
+        for (int i = 0; i < m.edit_size(); ++i){
+            Edit e = m.edit(i);
+            if (e.to_length() == e.from_length()){
+                matches += e.to_length();
+            }
+            tot_len += e.to_length();
+        }
+        return ( (double) matches / (double) tot_len) > 0.7;
+    };
+
     std::function<void(Alignment& a)> incr = [&](Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
-                node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+                if (sufficient_matches(a.path().mapping(i))){
+                    node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+            }
             }
     };
     
