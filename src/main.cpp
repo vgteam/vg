@@ -5287,7 +5287,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --compare         consider GAM input (-G) as thruth, table of name, overlap with truth, identity, score, mapqual" << endl
+         << "    -w, --compare         consider GAM input (-G) as truth, table of name, overlap with truth, identity, score, mapqual" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
