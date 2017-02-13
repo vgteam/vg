@@ -35,17 +35,29 @@ public:
     ~PathChunker();
 
     /** Extract subgraph corresponding to given path region into its 
-     * own vg graph, and send it to out_stream.  Returns the starting position
-     * of the returned chunk in the path (region.seq).  This can differ from
-     * region.start if the latter doesn't fall on the tip of a node. 
+     * own vg graph, and send it to out_stream.  The boundaries of the
+     * extracted graph (which can be different because we expand context and don't
+     * cut nodes) are written to out_region.
      *
      * NOTE: we follow convention of Region coordinates being 1-based 
-     * inclusive.  The returned coordinate is 0-based, however */
-    int64_t extract_subgraph(const Region& region, int context, VG& subgraph);
+     * inclusive. 
+     * */
+    void extract_subgraph(const Region& region, int context, VG& subgraph, Region& out_region);
+
+    /**
+     * Like above, but use (inclusive) id range instead of region on path.
+     */
+    void extract_id_range(vg::id_t start, vg::id_t end, int context, VG& subgraph, Region& out_region);
 
     /** Extract all alignments that touch a node in a subgraph and write them 
      * to an output stream using the rocksdb index (and this->gam_buffer_size) */
-    int64_t extract_gam_for_subgraph(VG& subgrpah, Index& index, ostream* out_stream);
+    int64_t extract_gam_for_subgraph(VG& subgraph, Index& index, ostream* out_stream);
+
+    /** Like above, but for (inclusive) node id range */
+    int64_t extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index, ostream* out_stream);
+
+    /** More general interface used by above two functions */
+    int64_t extract_gam_for_ids(const vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream);
 };
 
 

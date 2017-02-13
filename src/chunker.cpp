@@ -18,7 +18,8 @@ PathChunker::~PathChunker() {
 
 }
 
-int64_t PathChunker::extract_subgraph(const Region& region, int context, VG& subgraph) {
+void PathChunker::extract_subgraph(const Region& region, int context, VG& subgraph,
+                                   Region& out_region) {
 
     Graph g;
 
@@ -66,11 +67,40 @@ int64_t PathChunker::extract_subgraph(const Region& region, int context, VG& sub
         }
     }
     assert(chunk_start_pos >= 0);
-    
-    return chunk_start_pos;
+
+    out_region.seq = region.seq;
+    out_region.start = 1 + chunk_start_pos;
+    out_region.end = out_region.start - 1;
+    // Is there a better way to get path length? 
+    Path output_path = subgraph.paths.path(out_region.seq);
+    for (int j = 0; j < output_path.mapping_size(); ++j) {
+      int64_t op_node = output_path.mapping(j).position().node_id();
+      out_region.end += subgraph.get_node(op_node)->sequence().length();
+    }
 }
 
-int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index, ostream* out_stream) {
+void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
+                                   VG& subgraph, Region& out_region) {
+
+    Graph g;
+
+    for (vg::id_t i = start; i <= end; ++i) {
+        *g.add_node() = xg->node(i);
+    }
+    
+    // expand the context and get path information
+    xg->expand_context(g, context, true);
+        
+    // build the vg
+    subgraph.extend(g);
+    subgraph.remove_orphan_edges();
+
+    out_region.start = subgraph.min_node_id();
+    out_region.end = subgraph.max_node_id();
+}
+
+int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index,
+                                              ostream* out_stream) {
 
     // Build the set of all the node IDs to operate on
     vector<vg::id_t> graph_ids;
@@ -79,6 +109,23 @@ int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index, ostrea
         graph_ids.push_back(node->id());
     });
 
+    return extract_gam_for_ids(graph_ids, index, out_stream);
+}
+
+int64_t PathChunker::extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index,
+                                              ostream* out_stream) {
+    
+    vector<vg::id_t> graph_ids;
+    for (vg::id_t i = start; i <= end; ++i) {
+        graph_ids.push_back(i);
+    }
+    
+    return extract_gam_for_ids(graph_ids, index, out_stream);
+}
+
+int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
+                                         Index& index, ostream* out_stream) {
+    
     // Load all the reads matching the graph into memory
     vector<Alignment> gam_buffer;
     int64_t gam_count = 0;
@@ -109,8 +156,7 @@ int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index, ostrea
     }
     
     return gam_count;
+
 }
-                
-    
 
 }
