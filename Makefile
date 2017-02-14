@@ -436,6 +436,9 @@ $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp 
 
 $(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
+$(OBJ_DIR)/gamsorter.o: $(SRC_DIR)/gamsorter.cpp $(SRC_DIR)/gamsorter.hpp $(DEPS)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
 ###################################
 ## VG unit test compilation begins here
 ####################################
