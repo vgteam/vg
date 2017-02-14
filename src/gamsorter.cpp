@@ -1,4 +1,4 @@
-#include "GAMSorter.hpp"
+#include "gamsorter.hpp"
 /*
 *  GAMSorter: sort a gam by position and offset
 *  dumbly store unmapped reads at the end.

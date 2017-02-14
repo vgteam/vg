@@ -1,4 +1,4 @@
-#include "GAMSorter.hpp"
+#include "gamsorter.hpp"
 #include "stream.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
