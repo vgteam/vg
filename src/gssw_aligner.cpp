@@ -309,28 +309,114 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 void Aligner::align_global_banded(Alignment& alignment, Graph& g,
                                   int32_t band_padding, bool permissive_banding) {
     
-    BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
-                                                                           g,
-                                                                           band_padding,
-                                                                           permissive_banding,
-                                                                           false);
+    // We need to figure out what size ints we need to use.
+    // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
+    int64_t best_score = alignment.sequence().size() * match;
+    size_t total_bases = 0;
+    for(size_t i = 0; i < g.node_size(); i++) {
+        total_bases += g.node(i).sequence().size();
+    }
+    int64_t worst_score = max(alignment.sequence().size(), total_bases) * -max(max(mismatch, gap_open), gap_extension);
     
-    band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    // TODO: put this all into another template somehow?
+    
+    if (best_score <= numeric_limits<int8_t>::max() && worst_score >= numeric_limits<int8_t>::min()) {
+        // We'll fit in int8
+        BandedGlobalAligner<int8_t> band_graph(alignment,
+                                               g,
+                                               band_padding,
+                                               permissive_banding,
+                                               false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    } else if (best_score <= numeric_limits<int16_t>::max() && worst_score >= numeric_limits<int16_t>::min()) {
+        // We'll fit in int16
+        BandedGlobalAligner<int16_t> band_graph(alignment,
+                                                g,
+                                                band_padding,
+                                                permissive_banding,
+                                                false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    } else if (best_score <= numeric_limits<int32_t>::max() && worst_score >= numeric_limits<int32_t>::min()) {
+        // We'll fit in int32
+        BandedGlobalAligner<int32_t> band_graph(alignment,
+                                                g,
+                                                band_padding,
+                                                permissive_banding,
+                                                false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    } else {
+        // Fall back to int64
+        BandedGlobalAligner<int64_t> band_graph(alignment,
+                                                g,
+                                                band_padding,
+                                                permissive_banding,
+                                                false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    }
 
 }
 
 void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                         int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
+                                        
+    // We need to figure out what size ints we need to use.
+    // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
+    int64_t best_score = alignment.sequence().size() * match;
+    size_t total_bases = 0;
+    for(size_t i = 0; i < g.node_size(); i++) {
+        total_bases += g.node(i).sequence().size();
+    }
+    int64_t worst_score = max(alignment.sequence().size(), total_bases) * -max(max(mismatch, gap_open), gap_extension);
     
-    BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
-                                                                           g,
-                                                                           alt_alignments,
-                                                                           max_alt_alns,
-                                                                           band_padding,
-                                                                           permissive_banding,
-                                                                           false);
-    
-    band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    if (best_score <= numeric_limits<int8_t>::max() && worst_score >= numeric_limits<int8_t>::min()) {
+        // We'll fit in int8
+        BandedGlobalAligner<int8_t> band_graph(alignment,
+                                               g,
+                                               alt_alignments,
+                                               max_alt_alns,
+                                               band_padding,
+                                               permissive_banding,
+                                               false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    } else if (best_score <= numeric_limits<int16_t>::max() && worst_score >= numeric_limits<int16_t>::min()) {
+        // We'll fit in int16
+        BandedGlobalAligner<int16_t> band_graph(alignment,
+                                                g,
+                                                alt_alignments,
+                                                max_alt_alns,
+                                                band_padding,
+                                                permissive_banding,
+                                                false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    } else if (best_score <= numeric_limits<int32_t>::max() && worst_score >= numeric_limits<int32_t>::min()) {
+        // We'll fit in int32
+        BandedGlobalAligner<int32_t> band_graph(alignment,
+                                                g,
+                                                alt_alignments,
+                                                max_alt_alns,
+                                                band_padding,
+                                                permissive_banding,
+                                                false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    } else {
+        // Fall back to int64
+        BandedGlobalAligner<int64_t> band_graph(alignment,
+                                                g,
+                                                alt_alignments,
+                                                max_alt_alns,
+                                                band_padding,
+                                                permissive_banding,
+                                                false);
+        
+        band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+    }
 }
 
 void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
@@ -972,6 +1058,9 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    // scale mapping quality by half to match bwa mem
+    mapping_quality /= 2;
 
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;

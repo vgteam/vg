@@ -782,6 +782,7 @@ void VG::simplify_siblings(void) {
                 to_sibs.insert(tsibs);
             }
         });
+        
     // make the sibling sets transitive
     // by removing any that are intransitive
     // then simplify
@@ -1068,7 +1069,7 @@ void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     }
 }
 
-void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect) {
+void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect, const set<NodeSide>& barriers) {
     
     // We have a set of newly added nodes.
     set<id_t> new_nodes;
@@ -1110,67 +1111,79 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
         NodeSide here = *active.begin();
         
 #ifdef debug
-        cerr << "Consider " << here;
+        cerr << "Consider " << here << endl;
 #endif
 
         // We know this node is already in the graph, so no need to add it.
         
-        // Get its budget
-        auto budget = budget_remaining.at(here);
+        if (!barriers.count(here)) {
+            // We're allowed to expand out from this NodeSide
         
-#ifdef debug
-        cerr << "\tBudget: " << budget << endl;
-#endif
-        
-        for (auto connected : sides_of(here)) {
-            // Go through all the NodeSides we can reach from here
-        
-            // Add each of them to the graph if not there already
-            take_node(connected.node);
+            // Get its budget
+            auto budget = budget_remaining.at(here);
             
 #ifdef debug
-            cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+            cerr << "\tBudget: " << budget << endl;
 #endif
-
-            if (reflect) {
-                // Bounce right off this NodeSide
-                if (budget > budget_remaining[connected]) {
-                    // We actually would make it go further
-                    budget_remaining[connected] = budget;
-                    active.insert(connected);
+            
+            for (auto connected : sides_of(here)) {
+                // Go through all the NodeSides we can reach from here
+            
+                // Add each of them to the graph if not there already
+                take_node(connected.node);
                 
 #ifdef debug
-                    cerr << "\tUp budget on " << connected << " to " << budget << endl;
+                cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+#endif
+
+                if (reflect) {
+                    // Bounce right off this NodeSide
+                    if (budget > budget_remaining[connected]) {
+                        // We actually would make it go further
+                        budget_remaining[connected] = budget;
+                        active.insert(connected);
+                    
+#ifdef debug
+                        cerr << "\tUp budget on " << connected << " to " << budget << endl;
+#endif
+                    }
+                }
+                
+                // For each one, flip it to the other side of its node
+                auto flipped = connected.flip();
+                
+                // Deduct the length of the reached node from the budget of this NodeSide
+                int64_t new_budget = budget - get_node(connected.node)->sequence().size();
+
+                if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
+                    // If it's greater than the old budget (default budget is 0)
+                    
+                    // Replace the old budget and activate the other NodeSide
+                    budget_remaining[flipped] = new_budget;
+                    active.insert(flipped);
+                    
+#ifdef debug
+                    cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
 #endif
                 }
             }
             
-            // For each one, flip it to the other side of its node
-            auto flipped = connected.flip();
-            
-            // Deduct the length of the reached node from the budget of this NodeSide
-            int64_t new_budget = budget - get_node(connected.node)->sequence().size();
-
-            if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
-                // If it's greater than the old budget (default budget is 0)
-                
-                // Replace the old budget and activate the other NodeSide
-                budget_remaining[flipped] = new_budget;
-                active.insert(flipped);
-                
+        } else {
 #ifdef debug
-                cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
+            cerr << "\tIt's a barrier. Stop." << endl;
 #endif
-            }
         }
             
         // Deactivate the NodeSide we just did
         active.erase(here);
     }
     
-    // Now take all the edges among the nodes we added
+    // Now take all the edges among the nodes we added. Note that we only do NEW
+    // nodes! If you wanted edges between your seed nodes, you should have used
+    // nonoverlapping_node_context_without_paths. But that function doesn't
+    // respect barriers.
     for (id_t new_id : new_nodes) {
-        // For each newly added node, create edges involving any nodes that are
+        // For each node, create edges involving any nodes that are
         // in the graph. TODO: this will add edges twice, but they'll be
         // deduplicated.
         
@@ -1181,26 +1194,52 @@ void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool ref
         for (auto* edge : edges_from(get_node(new_id))) {
             // For every edge from here
             if (g.has_node(edge->to())) {
-                // If it goes to a node in the graph, add it.
-                g.add_edge(*edge);
+                // If it goes to a node in the graph
+
+                // Break the edge up
+                auto sides = NodeSide::pair_from_edge(edge);
+                if (!barriers.count(sides.first) && !barriers.count(sides.second)) {
+                    // The edge doesn't attach to any barriers, so take it
+                
+                    g.add_edge(*edge);
 #ifdef debug
-                cerr << "\tTake from edge " << pb2json(*edge) << endl;
+                    cerr << "\tTake from edge " << pb2json(*edge) << endl;
 #endif
+                } else {
+#ifdef debug
+                    cerr << "\tSkip from edge " << pb2json(*edge) << endl;
+#endif
+                }
+
             }
         }
         
         for (auto* edge : edges_to(get_node(new_id))) {
             // For every edge to here
             if (g.has_node(edge->from())) {
-                // If it goes from a node in the graph, add it.
-                g.add_edge(*edge);
+                // If it goes from a node in the graph
+                
+                // Break the edge up
+                auto sides = NodeSide::pair_from_edge(edge);
+                if (!barriers.count(sides.first) && !barriers.count(sides.second)) {
+                    // The edge doesn't attach to any barriers, so take it
+                
+                    g.add_edge(*edge);
 #ifdef debug
-                cerr << "\tTake to edge " << pb2json(*edge) << endl;
+                    cerr << "\tTake to edge " << pb2json(*edge) << endl;
 #endif
+                } else {
+#ifdef debug
+                    cerr << "\tTake skip edge " << pb2json(*edge) << endl;
+#endif
+                }
             }
         }
         
     }
+    
+    // then remove orphans
+    g.remove_orphan_edges();
     
     // and add paths
     // TODO: deduplicate this code with the node count based version
@@ -2471,7 +2510,9 @@ void VG::bluntify(void) {
     map<Edge*, Node*> to_edge_from_overlap;
     for_each_edge([&](Edge* edge) {
             if (edge->overlap() > 0) {
-                //cerr << "claimed overlap " << edge->overlap() << endl;
+#ifdef debug
+                cerr << "claimed overlap " << edge->overlap() << endl;
+#endif
                 // derive and check the overlap seqs
                 auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
                 //string from_overlap =
@@ -2494,7 +2535,9 @@ void VG::bluntify(void) {
                         && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
                         // get the length of the first match
                         correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
-                        //cerr << "correct overlap is " << correct_overlap << endl;
+#ifdef debug
+                        cerr << "correct overlap is " << correct_overlap << endl;
+#endif
                         edge->set_overlap(correct_overlap);
                         // create the edges for the overlaps
                         auto overlap = create_node(to_seq.substr(0, correct_overlap));
@@ -2503,7 +2546,9 @@ void VG::bluntify(void) {
                         auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
                         from_edge_to_overlap[e1] = overlap;
                         to_edge_from_overlap[e2] = overlap;
-                        //cerr << "created overlap node " << overlap->id() << endl;
+#ifdef debug
+                        cerr << "created overlap node " << overlap->id() << endl;
+#endif
                     } else {
                         cerr << "[VG::bluntify] warning! overlaps of "
                              << pb2json(*edge)
@@ -2517,7 +2562,9 @@ void VG::bluntify(void) {
                     }
 
                 } else {
-                    //cerr << "overlap as expected" << endl;
+#ifdef debug
+                    cerr << "overlap as expected" << endl;
+#endif
                     //overlap_node[edge] = create_node(to_seq);
                     auto overlap = create_node(to_overlap);
                     overlap_nodes.insert(overlap);
@@ -2525,7 +2572,9 @@ void VG::bluntify(void) {
                     auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
                     from_edge_to_overlap[e1] = overlap;
                     to_edge_from_overlap[e2] = overlap;
-                    //cerr << "created overlap node " << overlap->id() << endl;
+#ifdef debug
+                    cerr << "created overlap node " << overlap->id() << endl;
+#endif
                 }
             }
         });
@@ -2585,7 +2634,9 @@ void VG::bluntify(void) {
                 }
                 cut_at.insert(offset(p));
             }
-            //cerr << "will cut " << cut_at.size() << " times" << endl;
+#ifdef debug
+            cerr << "will cut " << cut_at.size() << " times" << endl;
+#endif
             vector<int> cut_at_pos;
             for (auto i : cut_at) {
                 cut_at_pos.push_back(i);
@@ -2596,7 +2647,9 @@ void VG::bluntify(void) {
             divide_node(node, cut_at_pos, parts);
             for (auto p : parts) {
                 cut_nodes.insert(p);
-                //cerr << "cut " << orig_id << " into " << p->id() << endl;
+#ifdef debug
+                cerr << "cut " << orig_id << " into " << p->id() << endl;
+#endif
             }
             Node* head = parts.front();
             Node* tail = parts.back();
@@ -2657,7 +2710,9 @@ void VG::bluntify(void) {
                 tn.clear();
             }
         }
-        //cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
+#ifdef debug
+        cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
+#endif
         if (matched_next == node_seq.size()) {
             // remove the forward edge from the overlap node
             // and attach it to the next_trav
@@ -2688,7 +2743,9 @@ void VG::bluntify(void) {
                 tp.clear();
             }
         }
-        //cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
+#ifdef debug
+        cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
+#endif
         if (matched_prev == node_seq.size()) {
             // remove the forward edge from the overlap node
             // and attach it to the next_trav
@@ -4607,7 +4664,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
 }
 
 // The not quite as robust but actually efficient way to edit the graph.
-vector<Translation> VG::edit_fast(const Path& path) {
+vector<Translation> VG::edit_fast(const Path& path, set<NodeSide> dangling) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4639,7 +4696,7 @@ vector<Translation> VG::edit_fast(const Path& path) {
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
     map<Node*, Path> added_nodes;
     // create new nodes/wire things up.
-    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling);
 
     // Make the translations (in about the same format as VG::edit(), but
     // without a translation for every single node and with just the nodes we
@@ -5001,17 +5058,18 @@ void VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
                              map<pair<pos_t, string>, Node*>& added_seqs,
                              map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes) {
+                             const map<id_t, size_t>& orig_node_sizes,
+                             set<NodeSide> dangling) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
-    // edit that creates new sequence, we check if it has been added before
-    // If it has, we use it. If not, we create that new sequence as a node,
-    // and attach it to the dangling NodeSide, and leave its end dangling. If we
-    // hit an edit that corresponds to a match, we know that there's a
-    // breakpoint on each end (since it's bordered by a non-perfect-match or the
-    // end of a node), so we can attach its start to the dangling NodeSide and
-    // leave its end dangling.
+    // edit that creates new sequence, we check if it has been added before If
+    // it has, we use it. If not, we create that new sequence as a node, and
+    // attach it to the dangling NodeSide(s), and leave its end dangling
+    // instead. If we hit an edit that corresponds to a match, we know that
+    // there's a breakpoint on each end (since it's bordered by a non-perfect-
+    // match or the end of a node), so we can attach its start to the dangling
+    // NodeSide(s) and leave its end dangling instead.
 
     // We need node_translation to translate between node ID space, where the
     // paths are articulated, and new node ID space, where the edges are being
@@ -5083,10 +5141,6 @@ void VG::add_nodes_and_edges(const Path& path,
         }
         return mappings;
     };
-
-    // What's dangling and waiting to be attached to? In current node ID space.
-    // We use the default constructed one (id 0) as a placeholder.
-    NodeSide dangling;
 
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
@@ -5197,18 +5251,19 @@ void VG::add_nodes_and_edges(const Path& path,
                     paths.append_mapping(path.name(), nm);
                 }
 
-                if(dangling.node) {
+                for (auto& dangler : dangling) {
                     // This actually referrs to a node.
 #ifdef debug_edit
-                    cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangling, NodeSide(new_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(new_node->id(), m.position().is_reverse())));
 
                 }
 
                 // Dangle the end of this new node
-                dangling = NodeSide(new_node->id(), !m.position().is_reverse());
+                dangling.clear();
+                dangling.insert(NodeSide(new_node->id(), !m.position().is_reverse()));
 
                 // save edit into translated path
 
@@ -5248,17 +5303,20 @@ void VG::add_nodes_and_edges(const Path& path,
                 cerr << "Handling match relative to " << node_id << endl;
 #endif
 
-                if(dangling.node) {
+                for (auto& dangler : dangling) {
 #ifdef debug_edit
-                    cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
 #endif
 
                     // Connect the left end of the left node we matched in the direction we matched it
-                    assert(create_edge(dangling, NodeSide(left_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(left_node->id(), m.position().is_reverse())));
                 }
 
                 // Dangle the right end of the right node in the direction we matched it.
-                if (right_node != nullptr) dangling = NodeSide(right_node->id(), !m.position().is_reverse());
+                if (right_node != nullptr) {
+                    dangling.clear();
+                    dangling.insert(NodeSide(right_node->id(), !m.position().is_reverse()));
+                }
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
 #ifdef debug_edit
@@ -6552,6 +6610,7 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t max_span,
                     bool print_score_matrices) {
 
     auto aln = alignment;
@@ -6607,7 +6666,11 @@ Alignment VG::align(const Alignment& alignment,
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;
         map<id_t, pair<id_t, bool> > dagify_trans;
-        size_t max_length = alignment.sequence().size();
+        // Work out how long we could possibly span with an alignment.
+        // TODO: we probably want to be able to span more than just the sequence
+        // length if we don't get a hint. Look at scores and guess the max span
+        // with those scores?
+        size_t max_length = max(max_span, alignment.sequence().size());
         size_t component_length_max = 100*max_length; // hard coded to be 100x
 
         // dagify the graph by unfolding inversions and then applying dagify forward unroll
@@ -6621,7 +6684,7 @@ Alignment VG::align(const Alignment& alignment,
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
         dag.sort();
-
+        
         // run the alignment
         do_align(dag.graph);
 
@@ -6667,10 +6730,11 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t max_span,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6680,12 +6744,13 @@ Alignment VG::align(const string& sequence,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t max_span,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6694,11 +6759,12 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t max_span,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6707,12 +6773,13 @@ Alignment VG::align(const string& sequence,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t max_span,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
@@ -6722,10 +6789,11 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   bool pin_left,
                                   int8_t full_length_bonus,
                                   bool banded_global,
+                                  size_t max_span,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
@@ -6735,12 +6803,13 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   bool pin_left,
                                   int8_t full_length_bonus,
                                   bool banded_global,
+                                  size_t max_span,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio,
                                pinned_alignment, pin_left, full_length_bonus,
-                               banded_global, print_score_matrices);
+                               banded_global, max_span, print_score_matrices);
 }
 
 const string VG::hash(void) {
