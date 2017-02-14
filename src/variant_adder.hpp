@@ -50,6 +50,16 @@ public:
     /// Should we accept and ignore VCF contigs that we can't find in the graph?
     bool ignore_missing_contigs = false;
     
+    /// What's the max radius on a variant we can have in order to use that
+    /// variant as context for another main variant?
+    size_t max_context_radius = 50;
+    
+    /// What's the cut-off for the graph's size or the alt's size in bp under
+    /// which we can just use permissive banding and large band padding? If
+    /// either is larger than this, we use the pinned-alignment-based do-each-
+    /// end-and-splice mode.
+    size_t whole_alignment_cutoff = 1000;
+    
 protected:
     /// The graph we are modifying
     VG& graph;
@@ -81,6 +91,9 @@ protected:
      * Convert a haplotype on a list of variants into a string. The string will
      * run from the start of the first variant through the end of the last
      * variant.
+     *
+     * Can't be const because it relies on non-const operations on the
+     * synchronizer.
      */
     string haplotype_to_string(const vector<int>& haplotype, const vector<vcflib::Variant*>& variants);
     
@@ -102,6 +115,13 @@ protected:
      * that might be involved in a group of variants.
      */
     static pair<size_t, size_t> get_center_and_radius(const vector<vcflib::Variant*>& variants);
+    
+    /**
+     * Glom all the given variants into one vector, throwing out variants from
+     * the before and after vectors that are too big to be in a context.
+     */
+    vector<vcflib::Variant*> filter_local_variants(const vector<vcflib::Variant*>& before,
+        vcflib::Variant* variant, const vector<vcflib::Variant*>& after) const;
      
 };
 

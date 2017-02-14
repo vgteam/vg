@@ -90,17 +90,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // alts if they exist.
         
         // Make the list of all the local variants in one vector
-        vector<vcflib::Variant*> local_variants{before};
-        local_variants.push_back(variant);
-        copy(after.begin(), after.end(), back_inserter(local_variants));
-        
-#ifdef debug
-        cerr << "Local variants: ";
-        for (auto* v : local_variants) {
-            cerr << vcf_to_fasta(v->sequenceName) << ":" << v->position << " ";
-        }
-        cerr << endl;
-#endif
+        vector<vcflib::Variant*> local_variants = filter_local_variants(before, variant, after);
         
         // Where does the group of nearby variants start?
         size_t group_start = local_variants.front()->position;
@@ -554,7 +544,36 @@ pair<size_t, size_t> VariantAdder::get_center_and_radius(const vector<vcflib::Va
     
     return make_pair(overall_center, overall_radius);
 
-}    
+}
+
+vector<vcflib::Variant*> VariantAdder::filter_local_variants(const vector<vcflib::Variant*>& before,
+    vcflib::Variant* variant, const vector<vcflib::Variant*>& after) const {
+
+    // This is the filter we apply
+    auto filter = [&](vcflib::Variant* v) {
+        // Keep a variant if it isn't too big
+        return get_radius(*v) <= max_context_radius;
+    };
+
+    // Make the list of all the local variants in one vector
+    vector<vcflib::Variant*> local_variants;
+    
+    // Keep the nearby variants if they pass the test
+    copy_if(before.begin(), before.end(), back_inserter(local_variants), filter);
+    // And the main variant always
+    local_variants.push_back(variant);
+    copy_if(after.begin(), after.end(), back_inserter(local_variants), filter);
+
+#ifdef debug
+        cerr << "Local variants: ";
+        for (auto* v : local_variants) {
+            cerr << vcf_to_fasta(v->sequenceName) << ":" << v->position << " ";
+        }
+        cerr << endl;
+#endif
+
+    return local_variants;
+}
 
 }
 
