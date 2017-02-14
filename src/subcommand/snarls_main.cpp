@@ -176,7 +176,7 @@ int main_snarl(int argc, char** argv) {
         return 0;
     }
     
-    // The only implemnted snarl finder:
+    // The only implemented snarl finder:
     SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", filter_trivial_bubbles);
     
     // Load up all the snarls
@@ -262,6 +262,10 @@ int main_snarl(int argc, char** argv) {
                 std::sort(children.begin(), children.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
                     return snarl_1->start().node_id() < snarl_2->end().node_id();
                 });
+                
+                for (const Snarl* child_snarl : children) {
+                    stack.push_back(child_snarl);
+                }
             }
             else {
                 for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
