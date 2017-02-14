@@ -2,6 +2,7 @@
 #include "stream.hpp"
 #include "gssw_aligner.hpp"
 #include <raptor2/raptor2.h>
+#include <stPinchGraphs.h>
 
 namespace vg {
 
@@ -2503,324 +2504,237 @@ void VG::bluntify(void) {
     // which is supported by the data format through the edge's overlap field,
     // into a blunt-end string graph which algorithms in VG assume
 
-    // in sketch: for each node, we chop the node at all overlap starts
-    // then, we retain a translation from edge to the new node traversal
-    set<Node*> overlap_nodes;
-    map<Edge*, Node*> from_edge_to_overlap;
-    map<Edge*, Node*> to_edge_from_overlap;
+    // We manage this by turning nodes with overlaps into threads in a pinch
+    // graph, and pinching together on the overlaps.
+    
+    // TODO: this does not preserve existing paths. If your assembler spits out
+    // paths you want to preserve, you'll need to write code to do that here.
+    paths.clear();
+    
+    // First we have to validate the overlaps claimed by the edges.
+
+    // We populate this with edges with incorrect overlaps that we want to delete.
+    set<Edge*> bad_edges;
     for_each_edge([&](Edge* edge) {
-            if (edge->overlap() > 0) {
+        if (edge->overlap() > 0) {
 #ifdef debug
-                cerr << "claimed overlap " << edge->overlap() << endl;
+            cerr << "claimed overlap " << edge->overlap() << endl;
 #endif
-                // derive and check the overlap seqs
-                auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
-                //string from_overlap =
-                //from_overlap = from_overlap.substr(from_overlap.size() - edge->overlap());
-                auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
+            // derive and check the overlap seqs
+            auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
+            auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
-                // for now, we assume they perfectly match, and walk back from the matching end for each
-                auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
-                auto to_overlap = to_seq.substr(0, edge->overlap());
+            // for now, we assume they perfectly match, and walk back from the matching end for each
+            auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
+            auto to_overlap = to_seq.substr(0, edge->overlap());
 
-                // an approximate overlap graph will violate this assumption
-                // so perhaps we should simply choose the first and throw a warning
-                if (from_overlap != to_overlap) {
-                    SSWAligner aligner;
-                    auto aln = aligner.align(from_overlap, to_overlap);
-                    // find the central match
-                    // the alignment from the first to second should match at the very beginning of the from_seq
-                    int correct_overlap = 0;
-                    if (aln.path().mapping(0).edit_size() <= 2
-                        && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
-                        // get the length of the first match
-                        correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
+            // an approximate overlap graph will violate this assumption
+            // so perhaps we should simply choose the first and throw a warning
+            if (from_overlap != to_overlap) {
+                SSWAligner aligner;
+                auto aln = aligner.align(from_overlap, to_overlap);
+                // find the central match
+                // the alignment from the first to second should match at the very beginning of the from_seq
+                int correct_overlap = 0;
+                if (aln.path().mapping(0).edit_size() <= 2
+                    && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
+                    // get the length of the first match
+                    correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
 #ifdef debug
-                        cerr << "correct overlap is " << correct_overlap << endl;
+                    cerr << "correct overlap is " << correct_overlap << endl;
 #endif
-                        edge->set_overlap(correct_overlap);
-                        // create the edges for the overlaps
-                        auto overlap = create_node(to_seq.substr(0, correct_overlap));
-                        overlap_nodes.insert(overlap);
-                        auto e1 = create_edge(edge->from(), overlap->id(), edge->from_start(), false);
-                        auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
-                        from_edge_to_overlap[e1] = overlap;
-                        to_edge_from_overlap[e2] = overlap;
-#ifdef debug
-                        cerr << "created overlap node " << overlap->id() << endl;
-#endif
-                    } else {
-                        cerr << "[VG::bluntify] warning! overlaps of "
-                             << pb2json(*edge)
-                             << " are not identical and could not be resolved by alignment" << endl;
-                        cerr << "o1:  " << from_overlap << endl
-                             << "o2:  " << to_overlap << endl
-                             << "aln: " << pb2json(aln) << endl;
-                        // the effect is that we don't resolve this overlap
-                        edge->set_overlap(0);
-                        // we should axe the edge so as to not generate spurious sequences in the graph
-                    }
-
-                } else {
-#ifdef debug
-                    cerr << "overlap as expected" << endl;
-#endif
-                    //overlap_node[edge] = create_node(to_seq);
-                    auto overlap = create_node(to_overlap);
-                    overlap_nodes.insert(overlap);
-                    auto e1 = create_edge(edge->from(), overlap->id(), edge->from_start(), false);
-                    auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
-                    from_edge_to_overlap[e1] = overlap;
-                    to_edge_from_overlap[e2] = overlap;
+                    edge->set_overlap(correct_overlap);
 #ifdef debug
                     cerr << "created overlap node " << overlap->id() << endl;
 #endif
-                }
-            }
-        });
-
-    // we need to record a translation from cut point to overlap+edge
-    set<Node*> cut_nodes;
-    vector<Node*> to_process;
-    for_each_node([&](Node* node) {
-            to_process.push_back(node);
-        });
-    for (auto node : to_process) {
-        // cut at every position where there is an overlap ending
-        // record a map from the new node ends to the original overlap edge
-        id_t orig_id = node->id();
-        string orig_seq = node->sequence();
-        size_t orig_len = orig_seq.size();
-        set<pos_t> cut_pos;
-        map<Edge*, pos_t> from_edge;
-        map<Edge*, pos_t> to_edge;
-        map<NodeSide, int> to_overlaps;
-        map<NodeSide, int> from_overlaps;
-        // as we handle the edges which have overlaps
-        // we will find the intermediate nodes which have the overlap seq on them
-
-        for (auto& edge : edges_of(node)) {
-            // if we have an overlap
-            if (edge->overlap() > 0) {
-                // if the edge has been handled
-                // don't do any re-jiggering of it
-
-                // check which of the four edge types this is
-                // and record that we should cut the node at the appropriate place
-                if (edge->from() == node->id()) {
-                    auto p = make_pos_t(node->id(),
-                                        edge->from_start(),
-                                        orig_len - edge->overlap());
-                    cut_pos.insert(p);
-                    from_edge[edge] = p;
-                    from_overlaps[NodeSide(edge->to(), edge->to_end())] = edge->overlap();
                 } else {
-                    auto p = make_pos_t(node->id(),
-                                        edge->to_end(),
-                                        edge->overlap());
-                    cut_pos.insert(p);
-                    to_edge[edge] = p;
-                    to_overlaps[NodeSide(edge->from(), edge->from_start())] = edge->overlap();
+                    cerr << "[VG::bluntify] warning! overlaps of "
+                         << pb2json(*edge)
+                         << " are not identical and could not be resolved by alignment" << endl;
+                    cerr << "o1:  " << from_overlap << endl
+                         << "o2:  " << to_overlap << endl
+                         << "aln: " << pb2json(aln) << endl;
+                    
+                    // Drop the edge
+                    bad_edges.insert(edge);
                 }
-                //destroy_edge(edge);
-            }
-        }
 
-        if (!overlap_nodes.count(node)) {
-            set<int> cut_at;
-            for (auto p : cut_pos) {
-                if (is_rev(p)) {
-                    p = reverse(p, orig_len);
-                }
-                cut_at.insert(offset(p));
-            }
-#ifdef debug
-            cerr << "will cut " << cut_at.size() << " times" << endl;
-#endif
-            vector<int> cut_at_pos;
-            for (auto i : cut_at) {
-                cut_at_pos.push_back(i);
-            }
-            // replace the node with a cut up node
-            vector<Node*> parts;
-            // copy the node
-            divide_node(node, cut_at_pos, parts);
-            for (auto p : parts) {
-                cut_nodes.insert(p);
-#ifdef debug
-                cerr << "cut " << orig_id << " into " << p->id() << endl;
-#endif
-            }
-            Node* head = parts.front();
-            Node* tail = parts.back();
-            //map<NodeSide, int> to_overlaps;
-            //map<NodeSide, int> from_overlaps;
-            // re-set the overlaps
-            for (auto& e : edges_of(head)) {
-                if (e->to() == head->id()) {
-                    e->set_overlap(to_overlaps[NodeSide(e->from(), e->from_start())]);
-                } else {
-                    e->set_overlap(from_overlaps[NodeSide(e->to(), e->to_end())]);
-                }
-            }
-            for (auto& e : edges_of(tail)) {
-                if (e->from() == tail->id()) {
-                    e->set_overlap(from_overlaps[NodeSide(e->to(), e->to_end())]);
-                } else {
-                    e->set_overlap(to_overlaps[NodeSide(e->from(), e->from_start())]);
-                }
-            }
-        }
-    }
-
-
-    // now, we've cut up everything
-    // we have these dangling nodes
-    // what to do
-    // we need to map from the old edge overlap nodes
-    // to the new translation
-    // link them in
-    set<NodeTraversal> overlap_from;
-    set<NodeTraversal> overlap_to;
-    set<pair<NodeSide, NodeSide> > edges_to_destroy;
-    set<pair<NodeTraversal, NodeTraversal> > edges_to_create;
-    for (auto node : overlap_nodes) {
-        // walk back until we reach a bifurcation
-        // or we are no longer matching sequence
-        auto node_trav = NodeTraversal(node, false);
-        auto node_seq = node->sequence();
-        int matched_next = 0;
-        // get the travs from, note that the ovrelap nodes are in the natural orientation
-        auto tn = travs_from(node_trav);
-        auto next_trav = *tn.begin();
-        if (tn.size() == 1) {
-            overlap_to.insert(*tn.begin());
-        }
-        while (tn.size() == 1) {
-            // check if we match the next node
-            // starting from our match point
-            // if we do, set the next nodes to travs_from
-            // otherwise clear
-            next_trav = *tn.begin();
-            auto next_seq = trav_sequence(next_trav);
-            if (node_seq.substr(matched_next, next_seq.size()) == next_seq) {
-                tn = travs_from(next_trav);
-                matched_next += next_seq.size();
             } else {
-                tn.clear();
-            }
-        }
 #ifdef debug
-        cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
+                cerr << "overlap as expected" << endl;
 #endif
-        if (matched_next == node_seq.size()) {
-            // remove the forward edge from the overlap node
-            // and attach it to the next_trav
-            tn = travs_from(node_trav);
-            assert(tn.size() == 1);
-            edges_to_destroy.insert(NodeSide::pair_from_edge(*get_edge(node_trav, *tn.begin())));
-            edges_to_create.insert(make_pair(node_trav, next_trav));
-        }
-        // the previous
-        int matched_prev = 0;
-        // get the travs from, note that the ovrelap nodes are in the natural orientation
-        auto tp = travs_to(node_trav);
-        auto prev_trav = *tp.begin();
-        if (tp.size() == 1) {
-            overlap_from.insert(*tp.begin());
-        }
-        while (tp.size() == 1) {
-            // check if we match the next node
-            // starting from our match point
-            // if we do, set the next nodes to travs_from
-            // otherwise clear
-            prev_trav = *tp.begin();
-            auto prev_seq = trav_sequence(prev_trav);
-            if (node_seq.substr(matched_prev, prev_seq.size()) == prev_seq) {
-                tp = travs_to(prev_trav);
-                matched_prev += prev_seq.size();
-            } else {
-                tp.clear();
             }
         }
-#ifdef debug
-        cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
-#endif
-        if (matched_prev == node_seq.size()) {
-            // remove the forward edge from the overlap node
-            // and attach it to the next_trav
-            tp = travs_to(node_trav);
-            assert(tp.size() == 1);
-            edges_to_destroy.insert(NodeSide::pair_from_edge(*get_edge(*tp.begin(), node_trav)));
-            edges_to_create.insert(make_pair(prev_trav, node_trav));
-        }
-
-        // if we matched
-        // walk forward until we reach a bifurcation
-        // or we are no longer matching sequence
-
-        // we reattach the overlap node to that point
-        // later, normalization will remove the superfluous parts
-    }
-
-    for (auto& p : edges_to_create) {
-        create_edge(p.first, p.second);
-    }
-    for (auto& e : edges_to_destroy) {
-        destroy_edge(e);
-    }
-
-    // TODO
-    // walk back from the overlap edges
-    // and remove the nodes until we meet a bifurcation
-    vector<Edge*> overlap_edges_to_destroy;
-    for_each_edge([&](Edge* edge) {
-            if (edge->overlap() > 0) {
-                overlap_edges_to_destroy.push_back(edge);
-            }
-        });
-    for (auto& edge : overlap_edges_to_destroy) {
+    });
+    
+    for (auto* edge : bad_edges) {
+        // Drop all the edges with incorrect overlaps
         destroy_edge(edge);
     }
-
-    // walk the graph starting with the dangling overlap neighbors
-    // until we reach a bifurcation, which by definition is where we've reconnected
-    set<id_t> nodes_to_destroy;
-    for (auto& trav : overlap_to) {
-        // walk forward until there's a bifurcation
-        // if we have no inbound nodes
-        if (travs_to(trav).size() > 0) continue;
-        nodes_to_destroy.insert(trav.node->id());
-        auto tn = travs_from(trav);
-        auto next_trav = *tn.begin();
-        while (tn.size() == 1) {
-            next_trav = *tn.begin();
-            if (travs_to(next_trav).size() > 0
-                || !cut_nodes.count(next_trav.node)) break;
-            nodes_to_destroy.insert(next_trav.node->id());
-            tn = travs_from(next_trav);
+    
+    // Create a pinch graph.
+    // Note that in pinch graphs, orientation 1 = forward, and 0 = reverse
+    auto* pinch_graph = stPinchThreadSet_construct();
+    
+    // Have a function to add a node to the pinch graph if it's not there
+    // already, or get it if it is.
+    auto obtain_thread = [&](Node* node) {
+        // IF it's there, grab it
+        auto* found = stPinchThreadSet_getThread(pinch_graph, node->id());
+        if (found == nullptr) {
+            // If not, make it
+            found = stPinchThreadSet_addThread(pinch_graph, node->id(), 0, node->sequence().size());
         }
-    }
-    for (auto& trav : overlap_from) {
-        // walk forward until there's a bifurcation
-        // if we have no inbound nodes
-        if (travs_from(trav).size() > 0) continue;
-        nodes_to_destroy.insert(trav.node->id());
-        auto tp = travs_to(trav);
-        auto prev_trav = *tp.begin();
-        while (tp.size() == 1) {
-            prev_trav = *tp.begin();
-            if (travs_from(prev_trav).size() > 0
-                || !cut_nodes.count(prev_trav.node)) break;
-            nodes_to_destroy.insert(prev_trav.node->id());
-            tp = travs_to(prev_trav);
+        return found;
+    }; 
+    
+    // We fill this with the nodes we're going to replace.
+    set<Node*> overlapped_nodes;
+    
+    for_each_edge([&](Edge* edge) {
+        // Now loop over only the real edges
+        if (edge->overlap() > 0) {
+            // and for each one with overlap
+        
+            // Make it a pair of NodeSides
+            NodeSide left;
+            NodeSide right;
+            tie(left, right) = NodeSide::pair_from_edge(*edge);
+            
+            // Grab the nodes
+            Node* left_node = get_node(left.node);
+            Node* right_node = get_node(right.node);
+        
+            // Grab both the nodes' threads from the pinch graph
+            auto* left_thread = obtain_thread(left_node);
+            auto* right_thread = obtain_thread(right_node);
+            // And the nodes' lengths
+            size_t left_length = left_node->sequence().size();
+            size_t right_length = right_node->sequence().size();
+            
+            // What should be the first base merged on the left node? If we're
+            // on the start of the node, we start at 0, but if we're on the end
+            // of the node, we start however far in we need to be to allow for
+            // the overlap.
+            size_t left_start = left.is_end ? (left_length - edge->overlap()) : 0;
+            // And on the right node?
+            size_t right_start = right.is_end ? (right_length - edge->overlap()) : 0;
+            
+            // Make the actual pinch. We have to do opposite strands if we're
+            // pinching the same ends of nodes together. Otherwise the remaining
+            // pieces of the node will wind up on the same side of the resulting
+            // merged block. Note that we need to send true for a forward
+            // relative orientation.
+            stPinchThread_pinch(left_thread, right_thread, left_start, right_start, edge->overlap(), !(left.is_end == right.is_end));
         }
+    });
+    
+    // Clean up any trivial boundaries that might be in the pinch graph.
+    stPinchThreadSet_joinTrivialBoundaries(pinch_graph);
+    
+    // This maps from pinch block to new node created for it.
+    map<stPinchBlock*, Node*> new_block_nodes;
+    // Some segments aren't in blocks but still need nodes.
+    map<stPinchSegment*, Node*> new_segment_nodes;
+    
+    // We have a function that will get the node for a segment's block or for
+    // the segment, and the relative orientation of the node to the segment
+    // (true for reverse). It will create the node if it's not found.
+    auto obtain_node = [&](stPinchSegment* segment) {
+        auto* block = stPinchSegment_getBlock(segment);
+        
+        if (block == nullptr) {
+            // No block, just do node by segment
+            if (!new_segment_nodes.count(segment)) {
+                // Need to make the node. So grab the sequence.
+                Node* source_node = get_node(stPinchSegment_getName(segment));
+                string segment_sequence = source_node->sequence().substr(stPinchSegment_getStart(segment), stPinchSegment_getLength(segment));
+                new_segment_nodes[segment] = create_node(segment_sequence);
+            }
+            // Send it back saying it's definitely in the right orientation.
+            return make_pair(new_segment_nodes[segment], false);
+        } else {
+            // The segment is in a block, so we look for the block's node.
+            if (!new_block_nodes.count(block)) {
+                // Need to make the node. So grab the sequence.
+                Node* source_node = get_node(stPinchSegment_getName(segment));
+                string segment_sequence = source_node->sequence().substr(stPinchSegment_getStart(segment), stPinchSegment_getLength(segment));
+                if (!stPinchSegment_getBlockOrientation(segment)) {
+                    // This block is really the reverse complement of this segment
+                    segment_sequence = reverse_complement(segment_sequence);
+                }
+                new_block_nodes[block] = create_node(segment_sequence);
+            }
+            
+            // Send the node back, along with its VG-style orientation relative to the segment.
+            return make_pair(new_block_nodes[block], !stPinchSegment_getBlockOrientation(segment));
+        }
+    };
+    
+    // Now we go through the pinch segments
+    auto iterator = stPinchThreadSet_getSegmentIt(pinch_graph);
+    auto* segment = stPinchThreadSetSegmentIt_getNext(&iterator);
+    
+    while (segment != nullptr) {
+        // For each segment, we have to have a new node. Find it and its
+        // orientation relative to the segment (true = opposite orientations).
+        Node* segment_node;
+        bool segment_is_reverse;
+        tie(segment_node, segment_is_reverse) = obtain_node(segment);
+        
+        // What node did we break up?
+        Node* old_node = get_node(stPinchSegment_getName(segment));
+        
+        // We look at all the connected blocks, and if they have associated nodes, we create edges to them
+        
+        auto* prev_segment = stPinchSegment_get5Prime(segment);
+        if (prev_segment != nullptr) {
+            // There's more of this original node left of here
+            Node* prev_node;
+            bool prev_is_reverse;
+            tie(prev_node, prev_is_reverse) = obtain_node(prev_segment);
+            
+            // Make the edge (which may exist already)
+            create_edge(prev_node, segment_node, prev_is_reverse, segment_is_reverse);
+            
+        } else {
+            // We're the start of our original node
+            NodeSide original_start(segment_node->id(), false);
+            for (auto& attached : sides_of(original_start)) {
+                // For everything attached to the start of the original node, attach it to the left of here
+                create_edge(attached, NodeSide(segment_node->id(), segment_is_reverse));
+            }
+        }
+        
+        auto* next_segment = stPinchSegment_get3Prime(segment);
+        if (next_segment != nullptr) {
+            // There's more of our original node right of here
+            Node* next_node;
+            bool next_is_reverse;
+            tie(next_node, next_is_reverse) = obtain_node(next_segment);
+            
+            // Make the edge (which may exist already)
+            create_edge(segment_node, next_node, segment_is_reverse, next_is_reverse);
+        } else {
+            // We're the end of our original node
+            NodeSide original_end(segment_node->id(), true);
+            for (auto& attached : sides_of(original_end)) {
+                // For everything attached to the end of the original node, attach it to the right of here
+                create_edge(attached, NodeSide(segment_node->id(), !segment_is_reverse));
+            }
+        }
+        
+        segment = stPinchThreadSetSegmentIt_getNext(&iterator);
     }
-
-    for (auto& id : nodes_to_destroy) {
-        destroy_node(id);
+    
+    // Now clean up the pinch thread set. This invalidates all the pointers we got from it.
+    stPinchThreadSet_destruct(pinch_graph);
+    
+    for (auto* node : overlapped_nodes) {
+        // Then finally we go through all the nodes that had overlaps and remove them and their edges.
+        destroy_node(node);
     }
-
+    
 }
 
 static
