@@ -65,6 +65,11 @@ int main_gamsort(int argc, char **argv)
         }
     }
 
+    if (argc <= 2){
+        help_gamsort(argv);
+        exit(11);
+    }
+
     gamfile = argv[optind];
 
     GAMSorter gs;
