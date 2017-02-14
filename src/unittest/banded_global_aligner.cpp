@@ -74,6 +74,60 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
             }
             
+            SECTION( "Banded global aligner produces correct alignment when read matches across a doubly-reversing edge") {
+                
+                VG graph;
+                
+                QualAdjAligner aligner = QualAdjAligner();
+                
+                Node* n0 = graph.create_node("AGTG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n1, n0, true, true);
+                graph.create_edge(n2, n0, true, true);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AGTGCTGAAGT");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_width = 1;
+                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
+                                                                                         graph.graph,
+                                                                                         band_width);
+                
+                
+                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
+                                     aligner.gap_extension);
+                
+                const Path& path = aln.path();
+                
+                // is a global alignment
+                REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 4);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 4);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 6);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 6);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+            }
+            
             SECTION( "Banded global aligner produces correct alignment when there is a mismatch" ) {
                 
                 VG graph;

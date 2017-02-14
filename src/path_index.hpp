@@ -87,6 +87,10 @@ struct PathIndex {
     /// iterator.
     size_t node_length(const iterator& here) const;
     
+    /// Given an end-exclusive range on the path, round outward to the nearest
+    /// node boundary positions.
+    pair<size_t, size_t> round_outward(size_t start, size_t past_end) const;
+    
     /**
      * Update the index to reflect the changes described by a Translation.
      * References to nodes along the "from" path are changed to references to

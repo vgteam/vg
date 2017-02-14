@@ -194,5 +194,78 @@ TEST_CASE("unfold() should properly unfold a graph out to the requested length",
 
 }
 
+TEST_CASE("expand_context_by_length() should respect barriers", "[vg][context]") {
+
+    const string graph_json = R"(
+    {
+      "node": [
+        {"sequence": "CCATTTGTCCAAAGT","id": 1},
+        {"sequence": "AAGCAAACACTG","id": 2},
+        {"sequence": "C","id": 3},
+        {"sequence": "T","id": 4},
+        {"sequence": "TACACTCTTGGAGGGAA","id": 5},
+        {"sequence": "T","id": 6},
+        {"sequence": "C","id": 7},
+        {"sequence": "AAAAACTAG","id": 8},
+        {"sequence": "AGTTGCAT","id": 9},
+        {"sequence": "TTCTCTGATGATGAG","id": 10},
+        {"sequence": "TGATGTTGAGGGTTTTTTTTGTCT","id": 11},
+        {"sequence": "ATTGGTCACTTGTACATCTTATTTTTACAA","id": 12},
+        {"sequence":"GAACGTTT", "id": 13}
+      ],
+      "edge": [
+        {"from": 1,"to": 9,"from_start": true},
+        {"from": 1,"to": 2},
+        {"from": 2,"to": 3},
+        {"from": 2,"to": 4},
+        {"from": 3, "to": 5},
+        {"from": 4,"to": 5},
+        {"from": 5,"to": 6},
+        {"from": 5,"to": 7},
+        {"from": 6,"to": 8},
+        {"from": 7,"to": 8},
+        {"from": 9,"to": 10},
+        {"from": 10,"to": 11},
+        {"from": 11,"to": 12},
+        {"from": 12,"to": 13}
+      ]
+    }
+    )";
+    
+    VG graph = string_to_graph(graph_json);
+
+    SECTION("barriers on either end of the seed node should stop anything being extracted") {
+
+        VG context;
+        context.add_node(*graph.get_node(3));
+        graph.expand_context_by_length(context, 1000, false, true, {NodeSide(3, false), NodeSide(3, true)});
+        
+        REQUIRE(context.size() == 1);
+    }
+    
+    SECTION("barriers should stop edges being formed") {
+
+        VG context;
+        context.add_node(*graph.get_node(3));
+        context.add_node(*graph.get_node(4));
+        // Note that we wouldn't get any edges between 3 and 4, if there were
+        // any, because context expansion sees no edges between seed nodes.
+        graph.expand_context_by_length(context, 1000, false, true, {NodeSide(3, false), NodeSide(3, true)});
+        
+        SECTION("node 4 should have both attached edges") {
+            REQUIRE(context.has_edge(NodeSide(4, false), NodeSide(2, true)) == true);
+            REQUIRE(context.has_edge(NodeSide(4, true), NodeSide(5, false)) == true);
+        }
+        
+        SECTION("node 3 should have no atatched edges") {
+            REQUIRE(context.has_edge(NodeSide(3, false), NodeSide(2, true)) == false);
+            REQUIRE(context.has_edge(NodeSide(3, true), NodeSide(5, false)) == false);
+        }
+        
+        
+    }
+
+}
+
 }
 }

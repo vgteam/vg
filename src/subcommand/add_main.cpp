@@ -28,6 +28,8 @@ void help_add(char** argv) {
          << "    -v, --vcf FILE         add in variants from the given VCF file (may repeat)" << endl
          << "    -n, --rename V=G       rename contig V in the VCFs to contig G in the graph (may repeat)" << endl
          << "    -i, --ignore-missing   ignore contigs in the VCF not found in the graph" << endl
+         << "    -r, --variant-range    range in which to look for nearby variants to make a haplotype" << endl
+         << "    -f, --flank-range      extra flanking sequence to use outside of found variants" << endl
          << "    -p, --progress         show progress" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
@@ -46,6 +48,11 @@ int main_add(int argc, char** argv) {
     vector<pair<string, string>> renames;
     bool show_progress = false;
     bool ignore_missing = false;
+    int variant_range = -1;
+    int flank_range = -1;
+    
+    // TODO: make variant_adder not hold on to its graph so tightly, so we can
+    // set its settings as we parse the options;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -55,6 +62,8 @@ int main_add(int argc, char** argv) {
                 {"vcf", required_argument, 0, 'v'},
                 {"rename", required_argument, 0, 'n'},
                 {"ignore-missing", no_argument, 0, 'i'},
+                {"variant-range", required_argument, 0, 'r'},
+                {"flank-range", required_argument, 0, 'f'},
                 {"progress",  no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"help", no_argument, 0, 'h'},
@@ -95,6 +104,14 @@ int main_add(int argc, char** argv) {
 
         case 'i':
             ignore_missing = true;
+            break;
+            
+        case 'r':
+            variant_range = atoi(optarg);
+            break;
+            
+        case 'f':
+            flank_range = atoi(optarg);
             break;
 
         case 'p':
@@ -154,6 +171,12 @@ int main_add(int argc, char** argv) {
         
         // Set up parameters
         adder.ignore_missing_contigs = ignore_missing;
+        if (variant_range != -1) {
+            adder.variant_range = variant_range;
+        }
+        if (flank_range != -1) {
+            adder.flank_range = flank_range;
+        }
         
         for (auto& rename : renames) {
             // Set up all the VCF contig renames from the command line

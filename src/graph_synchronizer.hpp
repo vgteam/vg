@@ -43,6 +43,13 @@ public:
     const string& get_path_sequence(const string& path_name);
     
     /**
+     * We can actually let users run whatever function they want with an
+     * exclusive handle on a PathIndex, with the guarantee that the graph won't
+     * change while they're working.
+     */
+    void with_path_index(const string& path_name, const function<void(const PathIndex&)>& to_run);
+    
+    /**
      * This represents a request to lock a particular context on a particular
      * GraphSynchronizer. It fulfils the BasicLockable concept requirements, so
      * you can wait on it with std::unique_lock.
@@ -56,6 +63,13 @@ public:
          * synchronizer.
          */
         Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t path_offset, size_t context_bases, bool reflect);
+        
+        /**
+         * Create a request to lock a certain range of a certain path, from start to end.
+         * Also locks attached things that can be reached by paths of the same length or shorter.
+         * Note that the range must be nonempty.
+         */
+        Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t start, size_t past_end);
         
         /**
          * Block until a lock is obtained.
@@ -74,6 +88,12 @@ public:
         VG& get_subgraph();
         
         /**
+         * Get the NodeSides for nodes not in the extracted subgraph but in its
+         * periphery that are attached to the given NodeSide in the subgraph.
+         */
+        set<NodeSide> get_peripheral_attachments(NodeSide graph_side);
+        
+        /**
          * May only be called when locked. Apply an edit against the base graph
          * and return the resulting translation. Note that this updates only the
          * underlying VG graph, not the copy of the locked subgraph stored in
@@ -83,8 +103,11 @@ public:
          * apply changes (other than dividing and connecting) to existing nodes.
          *
          * Any new nodes created are created already locked.
+         *
+         * Any new nodes created on the left of the alignment will be attached
+         * to the given "dangling" NodeSides.
          */
-        vector<Translation> apply_edit(const Path& path);
+        vector<Translation> apply_edit(const Path& path, set<NodeSide> dangling = set<NodeSide>());
         
     protected:
     
@@ -93,9 +116,15 @@ public:
         
         // These hold the actual lock request we represent
         string path_name;
+        
+        // These can be set
         size_t path_offset;
         size_t context_bases;
         bool reflect; // Should we bounce off node ends?
+        
+        // Or these can be set
+        size_t start;
+        size_t past_end;
         
         /// This is the subgraph that got extracted during the locking procedure.
         VG subgraph;
@@ -103,6 +132,10 @@ public:
         /// These are the nodes connected to the subgraph but not actually
         /// available for editing. We just need no one else to edit them.
         set<id_t> periphery;
+        
+        /// This connects internal NodeSides to NodeSides of nodes on the
+        /// periphery.
+        map<NodeSide, set<NodeSide>> peripheral_attachments;
         
         /// This is the set of nodes that this lock has currently locked.
         set<id_t> locked_nodes;

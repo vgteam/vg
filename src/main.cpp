@@ -3600,7 +3600,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -5240,7 +5240,8 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus, banded_global, debug);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
+            banded_global, max(seq.size(), graph->length()), debug);
     }
 
     if (!seq_name.empty()) {
