@@ -2544,9 +2544,6 @@ void VG::bluntify(void) {
                     cerr << "correct overlap is " << correct_overlap << endl;
 #endif
                     edge->set_overlap(correct_overlap);
-#ifdef debug
-                    cerr << "created overlap node " << overlap->id() << endl;
-#endif
                 } else {
                     cerr << "[VG::bluntify] warning! overlaps of "
                          << pb2json(*edge)
@@ -2591,11 +2588,15 @@ void VG::bluntify(void) {
     // We fill this with the nodes we're going to replace.
     set<Node*> overlapped_nodes;
     
+    // And this with the overlap edges which we remove from the graph (to be
+    // replaced by pinching parts of nodes).
+    vector<Edge*> overlap_edges; 
+    
     for_each_edge([&](Edge* edge) {
         // Now loop over only the real edges
         if (edge->overlap() > 0) {
             // and for each one with overlap
-        
+            
             // Make it a pair of NodeSides
             NodeSide left;
             NodeSide right;
@@ -2630,8 +2631,24 @@ void VG::bluntify(void) {
             // merged block. Note that we need to send true for a forward
             // relative orientation.
             stPinchThread_pinch(left_thread, right_thread, left_start, right_start, edge->overlap(), !(left.is_end == right.is_end));
+#ifdef debug
+            cerr << "pinched " << left_node->id() << ":" << left_start << " and "
+                << right_node->id() << ":" << right_start << " for "
+                << edge->overlap() << " bp in pinch orientation "
+                << !(left.is_end == right.is_end) << endl;
+#endif
+
+            // Remember to remove the edge from the graph
+            overlap_edges.push_back(edge);
+            
         }
     });
+    
+    // Remove all the overlap edges from the graph, since we represent them with
+    // stuff coming back from the pinch graph.
+    for (auto* edge : overlap_edges) {
+        destroy_edge(edge);
+    }
     
     // Clean up any trivial boundaries that might be in the pinch graph.
     stPinchThreadSet_joinTrivialBoundaries(pinch_graph);
@@ -2689,6 +2706,10 @@ void VG::bluntify(void) {
         // What node did we break up?
         Node* old_node = get_node(stPinchSegment_getName(segment));
         
+#ifdef debug
+        cerr << "Handle segment " << segment << " of node " << old_node->id() << " as new node " << segment_node->id() << endl;
+#endif
+        
         // We look at all the connected blocks, and if they have associated nodes, we create edges to them
         
         auto* prev_segment = stPinchSegment_get5Prime(segment);
@@ -2700,13 +2721,21 @@ void VG::bluntify(void) {
             
             // Make the edge (which may exist already)
             create_edge(prev_node, segment_node, prev_is_reverse, segment_is_reverse);
+
+#ifdef debug
+            cerr << "\tAttach to prev segment " << prev_segment << " as new node " << prev_node->id() << endl;
+#endif
             
         } else {
             // We're the start of our original node
-            NodeSide original_start(segment_node->id(), false);
+            NodeSide original_start(old_node->id(), false);
             for (auto& attached : sides_of(original_start)) {
                 // For everything attached to the start of the original node, attach it to the left of here
                 create_edge(attached, NodeSide(segment_node->id(), segment_is_reverse));
+                
+#ifdef debug
+                cerr << "\tAttach to old side " << attached << " on the left" << endl;
+#endif
             }
         }
         
@@ -2719,12 +2748,21 @@ void VG::bluntify(void) {
             
             // Make the edge (which may exist already)
             create_edge(segment_node, next_node, segment_is_reverse, next_is_reverse);
+            
+#ifdef debug
+            cerr << "\tAttach to next segment " << next_segment << " as new node " << next_node->id() << endl;
+#endif
+            
         } else {
             // We're the end of our original node
-            NodeSide original_end(segment_node->id(), true);
+            NodeSide original_end(old_node->id(), true);
             for (auto& attached : sides_of(original_end)) {
                 // For everything attached to the end of the original node, attach it to the right of here
                 create_edge(attached, NodeSide(segment_node->id(), !segment_is_reverse));
+                
+#ifdef debug
+                cerr << "\tAttach to old side " << attached << " on the right" << endl;
+#endif
             }
         }
         
