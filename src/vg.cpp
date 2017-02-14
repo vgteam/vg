@@ -2604,6 +2604,10 @@ void VG::bluntify(void) {
             // Grab the nodes
             Node* left_node = get_node(left.node);
             Node* right_node = get_node(right.node);
+            
+            // Mark them overlapped
+            overlapped_nodes.insert(left_node);
+            overlapped_nodes.insert(right_node);
         
             // Grab both the nodes' threads from the pinch graph
             auto* left_thread = obtain_thread(left_node);
