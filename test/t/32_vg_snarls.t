@@ -22,10 +22,11 @@ vg snarls z.vg -b > sb.txt
 vg snarls z.vg -u > cb.txt
 is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for 1mb1kgp"
 
-is $(vg snarls z.vg -r st.pb -m 100 | vg view -R - | wc -l) 27303 "vg snarls made right number of protobuf Snarls"
-is $(vg view -E st.pb | wc -l) 57570 "vg snarls made right number of protobug SnarlTraversals"
+vg view -J -v snarls/snarls.json > snarls.vg
+is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
+is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
 
-rm -f z.vg sb.txt cb.txt st.pb 
+rm -f snarls.vg sb.txt cb.txt st.pb 
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg mod -X 1 - > tiny.vg
 
