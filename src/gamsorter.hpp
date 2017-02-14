@@ -1,3 +1,6 @@
+#ifndef GAMSORT_H
+#define GAMSORT_H
+
 #include "vg.pb.h"
 #include "stream.hpp"
 #include <string>
@@ -16,56 +19,12 @@ using namespace std;
 namespace vg
 {
 
-   struct custom_pos_sort_key{
-      bool operator() (const Position lhs, const Position rhs){
-        if (lhs.node_id() == rhs.node_id()){
-          return lhs.offset() < rhs.offset();
-        }
-        else{
-          return lhs.node_id() < rhs.node_id();
-        }
-      }
-    } possortkey;
-
-    struct custom_aln_sort_key{
-      bool operator() (const Alignment a_one, const Alignment a_two){
-        Position x_front = a_one.path().mapping(0).position();
-        Position x_back = a_one.path().mapping( a_one.path().mapping_size() - 1 ).position();
-
-        Position lhs;
-        Position rhs;
-        if (x_front.node_id() < x_back.node_id()){
-          lhs = x_front;
-        }
-        else{
-          lhs = x_back;
-        }
-        Position y_front = a_two.path().mapping(0).position();
-        Position y_back = a_two.path().mapping( a_two.path().mapping_size() - 1 ).position();
-        if (y_front.node_id() < y_back.node_id()){
-          rhs = y_front;
-        }
-        else{
-          rhs = y_back;
-        }
-
-
-
-
-        if (lhs.node_id() == rhs.node_id()){
-          return lhs.offset() < rhs.offset();
-        }
-        else{
-          return lhs.node_id() < rhs.node_id();
-        }
-      }
-    } alnsortkey;
 
 
 class GAMSorter
 {
 
-
+  
   public:
     // vector<Alignment> merge(vector<vector<Alignment>> a);
 
@@ -83,7 +42,7 @@ class GAMSorter
 
     // vector<Alignment> split(vector<Alignment> a, int s);
 
-   // pair<Alignment, Alignment> min_aln_first(Alignment a, Alignment b);
+    bool min_aln_first(Alignment& a, Alignment& b);
 
     Position get_min_position(Alignment a);
 
@@ -115,3 +74,4 @@ class GAMSorter
    
 };
 }
+#endif

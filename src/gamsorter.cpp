@@ -6,14 +6,65 @@
 
 using namespace std;
 using namespace vg;
-// vector<Alignment> GAMSorter::merge(vector<vector<Alignment> > a){
-//     vector<Alignment> ret;
-//     return ret;
-// }
 
-// void GAMSorter::merge(map<int, vector<Alignment> > m, map<int, int> split_to_sz){
+/**
+vector<Alignment> GAMSorter::merge(vector<vector<Alignment> > a){
+    vector<Alignment> ret;
+    return ret;
+}
+
+void GAMSorter::merge(map<int, vector<Alignment> > m, map<int, int> split_to_sz){
     
-// }
+}
+
+void GAMSorter::merge(vector<string> sorted_tmp_filenames){
+
+}
+
+**/
+
+struct custom_pos_sort_key{
+      bool operator() (const Position lhs, const Position rhs){
+        if (lhs.node_id() == rhs.node_id()){
+          return lhs.offset() < rhs.offset();
+        }
+        else{
+          return lhs.node_id() < rhs.node_id();
+        }
+      }
+    } possortkey;
+
+    struct custom_aln_sort_key{
+      bool operator() (const Alignment a_one, const Alignment a_two){
+        Position x_front = a_one.path().mapping(0).position();
+        Position x_back = a_one.path().mapping( a_one.path().mapping_size() - 1 ).position();
+
+        Position lhs;
+        Position rhs;
+        if (x_front.node_id() < x_back.node_id()){
+          lhs = x_front;
+        }
+        else{
+          lhs = x_back;
+        }
+        Position y_front = a_two.path().mapping(0).position();
+        Position y_back = a_two.path().mapping( a_two.path().mapping_size() - 1 ).position();
+        if (y_front.node_id() < y_back.node_id()){
+          rhs = y_front;
+        }
+        else{
+          rhs = y_back;
+        }
+
+        if (lhs.node_id() == rhs.node_id()){
+          return lhs.offset() < rhs.offset();
+        }
+        else{
+          return lhs.node_id() < rhs.node_id();
+        }
+      }
+    } alnsortkey;
+
 
 void GAMSorter::sort(vector<Alignment>& alns){
     std::sort(alns.begin(), alns.end(), alnsortkey);
@@ -25,9 +76,23 @@ void GAMSorter::paired_sort(string gamfile){
     vector<Alignment> firsts;
     firsts.reserve(100000);
     std::function<void(Alignment&, Alignment&)> sort_the_gam = [&](Alignment& alpha, Alignment& beta){
-        // std::pair<Alignment, Alignment> x = min_aln_first(alpha, beta);
-        firsts.push_back(alpha);
-        pair_seconds[beta.name()] = beta;
+        bool first_min = min_aln_first(alpha, beta);
+        if (!alpha.fragment_next().name().empty()){
+            if (first_min){
+            firsts.push_back( alpha);
+            pair_seconds[ beta.name()] = beta;
+        }
+        else{
+            firsts.push_back( beta );
+            pair_seconds[ alpha.name()] = alpha;
+        }
+        }
+        else{
+            firsts.push_back(alpha);
+        }
+
+        
+        
     };
     
 
@@ -36,10 +101,13 @@ void GAMSorter::paired_sort(string gamfile){
     stream::for_each_interleaved_pair_parallel(gammy, sort_the_gam);
 
     sort(firsts);
+    vector<Alignment> ret;
     for (auto x : firsts){
         // write first read.
-
+        ret.push_back( x );
         // grab second read and write it.
+        if (!x.fragment_next().name().empty())
+        ret.push_back( pair_seconds[x.fragment_next().name()] );
     }
 }
 
@@ -164,15 +232,15 @@ void GAMSorter::write_index(string gamfile, string outfile, bool isSorted ){
 
 }
 
-// pair<Alignment, Alignment> GAMSorter::min_aln_first(Alignment a, Alignment b){
+bool GAMSorter::min_aln_first(Alignment& a, Alignment& b){
 
-//     if (less_than( get_min_position(a), get_min_position(b))){
-//         return std::make_pair<a,b>;
-//     }
-//     else{
-//         return std::make_pair<b,a>;
-//     }
-// }
+    if (less_than( get_min_position(a), get_min_position(b))){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
 
 Position GAMSorter::get_min_position(Alignment a){
     return get_min_position(a.path());

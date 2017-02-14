@@ -357,13 +357,30 @@ namespace vg{
         
     }
 
+    /**
+    * Find reads that support duplications
+    *
+    */
     pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
 
+    /**
+    * Find reads that support inversions
+    * split reads
+    * discordant insert size
+    * bad orientation
+    * instead of ---->    <-----
+    * we'll see  <----    <----- or ---->    ----->
+    */
     pair<Locus, Locus> Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
+
+    /**
+    * split reads or discordant reads/insert size may indicate a breakend but not a clean SV type
+    * we'd like to report all possible breakends, even if that don't match an SV type very well.
+    */
     pair<Locus, Locus> Filter::breakend_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
