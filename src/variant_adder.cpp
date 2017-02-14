@@ -263,50 +263,65 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             });
 #endif
             
-            // Calculate the expected min score, for a giant gap (i.e. this variant is an SV indel)
-            int64_t min_length = min(right_context_past_end - left_context_start, to_align.str().size());
-            int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
-            // TODO: assumes a gap open of 6 and match and gap extend values of 1
-            int64_t expected_score = min_length - 6 - (max_length - 1 - min_length);
-                
-            // Record the size of graph we're aligning to in bases
-            total_graph_bases += lock.get_subgraph().length();
-            
-            // Work out how far we would have to unroll the graph to account for
-            // a giant deletion. We also want to account for alts that may
-            // alrteady be in the graph and need unrolling for a long insert.
-            size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
-            
-            // Do the alignment in both orientations
+            // Decide what kind of alignment we need to do. Whatever we pick,
+            // we'll fill this in.
             Alignment aln;
-            Alignment aln2;
             
-            // Align in the forward orientation using banded global aligner, unrolling for large deletions.
-            aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true, max_span);
-            // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
-            // TODO: figure out which way our reference path goes through our subgraph and do half the work.
-            // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
-            aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true, max_span);
             
-            // Note that the banded global aligner doesn't fill in identity.
             
-#ifdef debug
-            cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
-#endif
+            if (true) {
+                // If the graph and the string are short, do a normal banded global
+                // aligner with permissive banding and the whole string length as
+                // band padding. We can be inefficient but we won;t bring down the
+                // system.
                 
-            if (aln2.score() > aln.score()) {
-                // This is the better alignment
-                swap(aln, aln2);
-            }
+                // TODO: factor into function
+            
+            
+                // Calculate the expected min score, for a giant gap (i.e. this variant is an SV indel)
+                int64_t min_length = min(right_context_past_end - left_context_start, to_align.str().size());
+                int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
+                // TODO: assumes a gap open of 6 and match and gap extend values of 1
+                int64_t expected_score = min_length - 6 - (max_length - 1 - min_length);
+                    
+                // Record the size of graph we're aligning to in bases
+                total_graph_bases += lock.get_subgraph().length();
+                
+                // Work out how far we would have to unroll the graph to account for
+                // a giant deletion. We also want to account for alts that may
+                // alrteady be in the graph and need unrolling for a long insert.
+                size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
+                
+                // Do the alignment in both orientations
+                
+                // Align in the forward orientation using banded global aligner, unrolling for large deletions.
+                aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true, max_span);
+                // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
+                // TODO: figure out which way our reference path goes through our subgraph and do half the work.
+                // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
+                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true, max_span);
+                
+                // Note that the banded global aligner doesn't fill in identity.
+                
+    #ifdef debug
+                cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
+    #endif
+                    
+                if (aln2.score() > aln.score()) {
+                    // This is the better alignment
+                    swap(aln, aln2);
+                }
 
-#ifdef debug
-            cerr << "Subgraph: " << pb2json(lock.get_subgraph().graph) << endl;            
-            cerr << "Alignment: " << pb2json(aln) << endl;
-#endif
+    #ifdef debug
+                cerr << "Subgraph: " << pb2json(lock.get_subgraph().graph) << endl;            
+                cerr << "Alignment: " << pb2json(aln) << endl;
+    #endif
 
-            if (local_variants.size() == 1) {
-                // We only have one variant here, so we ought to have at least the expected giant gap score
-                assert(aln.score() >= expected_score);
+                if (local_variants.size() == 1) {
+                    // We only have one variant here, so we ought to have at least the expected giant gap score
+                    assert(aln.score() >= expected_score);
+                }
+                
             }
             
             // We shouldn't have dangling ends, really, but it's possible for
