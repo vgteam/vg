@@ -92,6 +92,10 @@ void GraphSynchronizer::Lock::lock() {
             NodeSide start_left = synchronizer.get_path_index(path_name).at_position(start);
             NodeSide end_right = synchronizer.get_path_index(path_name).at_position(past_end == 0 ? 0 : past_end - 1).flip();
             
+            // Save the endpoints, so the user can know the ends of their
+            // subgraph that they got.
+            endpoints = make_pair(start_left, end_right);
+            
             // Copy over only the bounding nodes, and the edge between them on
             // the non-barrier side, if any.
             context.add_node(*synchronizer.graph.get_node(start_left.node));
@@ -260,6 +264,21 @@ VG& GraphSynchronizer::Lock::get_subgraph() {
     
     return subgraph;
 }
+
+pair<NodeSide, NodeSide> GraphSynchronizer::Lock::get_endpoints() const {
+    if (locked_nodes.empty()) {
+        // Make sure we're actually locked
+        throw runtime_error("No nodes are locked! Can't get endpoints!");
+    }
+    
+    if (start == 0 && past_end == 0) {
+        // Make sure we used the endpoint-based constructor
+        throw runtime_error("Graph was not locked with endpoints. Can't return andpoints!");
+    }
+    
+    return endpoints;
+}
+
 
 set<NodeSide> GraphSynchronizer::Lock::get_peripheral_attachments(NodeSide graph_side) {
     if (peripheral_attachments.count(graph_side)) {

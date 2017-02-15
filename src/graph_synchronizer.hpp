@@ -65,9 +65,11 @@ public:
         Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t path_offset, size_t context_bases, bool reflect);
         
         /**
-         * Create a request to lock a certain range of a certain path, from start to end.
-         * Also locks attached things that can be reached by paths of the same length or shorter.
-         * Note that the range must be nonempty.
+         * Create a request to lock a certain range of a certain path, from
+         * start to end. The start and end positions must line up with the
+         * boundaries of nodes in the graph. Also locks attached things that can
+         * be reached by paths of the same length or shorter. Note that the
+         * range must be nonempty.
          */
         Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t start, size_t past_end);
         
@@ -86,6 +88,15 @@ public:
          * when the lock was obtained. Does not contain any path information.
          */
         VG& get_subgraph();
+        
+        /**
+         * May only be called when locked. Returns the pair of NodeSides
+         * corresponding to the start and end positions used when the lock was
+         * created.
+         *
+         * May only be called on locks that lock a start to end range.
+         */
+        pair<NodeSide, NodeSide> get_endpoints() const;
         
         /**
          * Get the NodeSides for nodes not in the extracted subgraph but in its
@@ -128,6 +139,10 @@ public:
         
         /// This is the subgraph that got extracted during the locking procedure.
         VG subgraph;
+        
+        /// These are the endpoints that the subgraph was extracted between, if
+        /// applicable.
+        pair<NodeSide, NodeSide> endpoints;
         
         /// These are the nodes connected to the subgraph but not actually
         /// available for editing. We just need no one else to edit them.

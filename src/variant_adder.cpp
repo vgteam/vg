@@ -272,7 +272,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             total_graph_bases += lock.get_subgraph().length();
             
             // Do the alignment, dispatching cleverly on size
-            Alignment aln = smart_align(lock.get_subgraph(), to_align.str(), max_span);
+            Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
             
             if (local_variants.size() == 1) {
                 // We only have one variant here, so we ought to have at least the expected giant gap score
@@ -351,7 +351,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
 }
 
-Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_t max_span) {
+Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endpoints, const string& to_align, size_t max_span) {
 
     // Decide what kind of alignment we need to do. Whatever we pick,
     // we'll fill this in.
@@ -362,9 +362,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
         // aligner with permissive banding and the whole string length as
         // band padding. We can be inefficient but we won't bring down the
         // system.
+
+        cerr << "Attempt full-scale " << to_align.size() << " x " << graph.length() << " alignment" << endl;
         
-        // TODO: factor into function
-    
         // Do the alignment in both orientations
         
         // Align in the forward orientation using banded global aligner, unrolling for large deletions.
@@ -401,6 +401,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
         
         try {
         
+            cerr << "Attempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+        
             // Throw it into the aligner with very restrictive banding to see if it's already basically present
             aln = graph.align(to_align, &aligner,
                 0, false, false, 0, true, large_alignment_band_padding, max_span);
@@ -435,21 +437,37 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
             } else {
                 // Cut off the tails
                 left_tail = to_align.substr(0, pinned_tail_size);
-                right_tail = to_align.substr(pinned_tail_size);
+                right_tail = to_align.substr(to_align.size() - pinned_tail_size);
             }
             
+            // We don't want to try to align against truly massive graphs with
+            // gssw because we can overflow. We also know our alignments need to
+            // be near the ends of the extracted graph, so there's no point
+            // aligning to the middle.
             
+            // Extract one subgraph at each end of the big subgraph we're
+            // aligning to. Since we know where we extracted the original
+            // subgraph from, this is possible.
+            VG left_subgraph;
+            VG right_subgraph;
+            left_subgraph.add_node(*graph.get_node(endpoints.first.node));
+            right_subgraph.add_node(*graph.get_node(endpoints.second.node));
+            graph.expand_context_by_length(left_subgraph, left_tail.size() * 2);
+            graph.expand_context_by_length(right_subgraph, right_tail.size() * 2);
+            
+            cerr << "Attempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
+                << " and " << right_tail.size() << " x " << right_subgraph.length() << " alignments" << endl;
             
             // Do the two pinned tail alignments on the forward strand
-            Alignment aln_left = graph.align(left_tail, &aligner,
+            Alignment aln_left = left_subgraph.align(left_tail, &aligner,
                 0, true, true, 0, false, 0, max_span);
-            Alignment aln_right = graph.align(right_tail, &aligner,
+            Alignment aln_right = right_subgraph.align(right_tail, &aligner,
                 0, true, false, 0, false, 0, max_span);
             
             // Try the reverse strand too, pinning the opposite ends
-            Alignment aln_left_rev = graph.align(reverse_complement(left_tail), &aligner,
+            Alignment aln_left_rev = left_subgraph.align(reverse_complement(left_tail), &aligner,
                 0, true, false, 0, false, 0, max_span);
-            Alignment aln_right_rev = graph.align(reverse_complement(right_tail), &aligner,
+            Alignment aln_right_rev = right_subgraph.align(reverse_complement(right_tail), &aligner,
                 0, true, true, 0, false, 0, max_span);
                 
             if (aln_left_rev.score() + aln_right_rev.score() > aln_left.score() + aln_right.score()) {
@@ -511,6 +529,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
             
         }
     }
+    
+    // TODO: check if we got alignments that didn't respect our specified
+    // endpoints by one of the non-splicing-together alignment methods.
     
     return aln;
 

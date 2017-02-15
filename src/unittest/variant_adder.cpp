@@ -287,7 +287,8 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     }
     s << "AAAAAAAAAAGCGC";
     
-    Alignment aligned = adder.smart_align(graph, s.str(), 10000 + graph.length());
+    auto endpoints = make_pair(NodeSide(1, false), NodeSide(1, true));
+    Alignment aligned = adder.smart_align(graph, endpoints, s.str(), 10000 + graph.length());
     
     SECTION("the resulting alignment should have the input string") {
         REQUIRE(aligned.sequence() == s.str());
@@ -356,7 +357,8 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
-    Alignment aligned = adder.smart_align(graph, deleted, graph.length());
+    auto endpoints = make_pair(NodeSide(1, false), NodeSide(1, true));
+    Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
         REQUIRE(aligned.sequence() == deleted);
@@ -436,7 +438,8 @@ TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
-    Alignment aligned = adder.smart_align(graph, deleted, graph.length());
+    auto endpoints = make_pair(NodeSide(1, false), NodeSide(1, true));
+    Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
         REQUIRE(aligned.sequence() == deleted);
