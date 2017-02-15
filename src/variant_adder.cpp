@@ -353,6 +353,11 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
 
 Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endpoints, const string& to_align, size_t max_span) {
 
+    // We need this fro reverse compelmenting alignments
+    auto node_length_function = [&](id_t id) {
+        return graph.get_node(id)->sequence().size();
+    };
+
     // Decide what kind of alignment we need to do. Whatever we pick,
     // we'll fill this in.
     Alignment aln;
@@ -382,8 +387,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 #endif
             
         if (aln2.score() > aln.score()) {
-            // This is the better alignment
-            swap(aln, aln2);
+            // The reverse alignment is better. But spit it back in the
+            // forward orientation.
+            aln = reverse_complement_alignment(aln2, node_length_function);
         }
 
 #ifdef debug
@@ -409,7 +415,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
                 0, false, false, 0, true, large_alignment_band_padding, max_span);
             if (aln2.score() > aln.score()) {
-                swap(aln, aln2);
+                // The reverse alignment is better. But spit it back in the
+                // forward orientation.
+                aln = reverse_complement_alignment(aln2, node_length_function);
             }
             aligned_in_band = true;
         } catch(NoAlignmentInBandException ex) {
@@ -458,26 +466,66 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             cerr << "Attempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
                 << " and " << right_tail.size() << " x " << right_subgraph.length() << " alignments" << endl;
             
-            // Do the two pinned tail alignments on the forward strand
+            // Do the two pinned tail alignments on the forward strand, pinning
+            // opposite ends.
             Alignment aln_left = left_subgraph.align(left_tail, &aligner,
                 0, true, true, 0, false, 0, max_span);
             Alignment aln_right = right_subgraph.align(right_tail, &aligner,
                 0, true, false, 0, false, 0, max_span);
-            
-            // Try the reverse strand too, pinning the opposite ends
-            Alignment aln_left_rev = left_subgraph.align(reverse_complement(left_tail), &aligner,
-                0, true, false, 0, false, 0, max_span);
-            Alignment aln_right_rev = right_subgraph.align(reverse_complement(right_tail), &aligner,
-                0, true, true, 0, false, 0, max_span);
                 
-            if (aln_left_rev.score() + aln_right_rev.score() > aln_left.score() + aln_right.score()) {
-                // Move the reverse alignments onto the forward strand and use them.
-                auto node_length_function = [&](id_t id) {
-                    return graph.get_node(id)->sequence().size();
-                };
-                aln_left = reverse_complement_alignment(aln_left_rev, node_length_function);
-                aln_right = reverse_complement_alignment(aln_right_rev, node_length_function);
+            if (aln_left.path().mapping_size() < 1 ||
+                aln_left.path().mapping(0).position().node_id() != endpoints.first.node ||
+                aln_left.path().mapping(0).edit_size() < 1 || 
+                !edit_is_match(aln_left.path().mapping(0).edit(0))) {
+            
+                // The left alignment didn't start with a match to the correct
+                // endpoint node. Try aligning it in reverse complement, and
+                // pinning the other end.
+                
+                cerr << "Bad left alignment: " << pb2json(aln_left) << endl;
+                
+                // TODO: what if we have an exact palindrome over a reversing
+                // edge, and we keep getting the same alignment arbitrarily no
+                // matter how we flip the sequence to align?
+                aln_left = reverse_complement_alignment(left_subgraph.align(reverse_complement(left_tail), &aligner,
+                    0, true, false, 0, false, 0, max_span), node_length_function);
+                    
             }
+            
+            // It's harder to do the same checks on the right side because we
+            // can't just look at 0. Go find the rightmost mapping and edit, if
+            // any.
+            const Mapping* rightmost_mapping = nullptr;
+            const Edit* rightmost_edit = nullptr;
+            if (aln_right.path().mapping_size() > 0) {
+                rightmost_mapping = &aln_right.path().mapping(aln_right.path().mapping_size() - 1);
+            }
+            if (rightmost_mapping != nullptr && rightmost_mapping->edit_size() > 0) {
+                rightmost_edit = &rightmost_mapping->edit(rightmost_mapping->edit_size() - 1);
+            }
+            
+            if (rightmost_mapping == nullptr ||
+                rightmost_mapping->position().node_id() != endpoints.second.node ||
+                rightmost_edit == nullptr || 
+                !edit_is_match(*rightmost_edit)) {
+            
+                // The right alignment didn't end with a match to the correct
+                // endpoint node. Try aligning it in reverse complement and
+                // pinning the other end.
+                
+                cerr << "Bad right alignment: " << pb2json(aln_right) << endl;
+                
+                // TODO: what if we have an exact palindrome over a reversing
+                // edge, and we keep getting the same alignment arbitrarily no
+                // matter how we flip the sequence to align?
+                aln_right = reverse_complement_alignment(right_subgraph.align(reverse_complement(right_tail), &aligner,
+                    0, true, true, 0, false, 0, max_span), node_length_function);
+            }
+            
+            cerr << "Left: " << pb2json(aln_left) << endl;
+            cerr << "Left graph: " << pb2json(left_subgraph.graph) << endl;
+            cerr << "Right: " << pb2json(aln_right) << endl;
+            cerr << "Right graph: " << pb2json(right_subgraph.graph) << endl;
         
             // Splice them together with any remaining sequence we didn't have
             
