@@ -1750,7 +1750,9 @@ template <class IntType>
 BandedGlobalAligner<IntType>::~BandedGlobalAligner() {
     
     for (BAMatrix* banded_matrix : banded_matrices) {
-        delete banded_matrix;
+        if (banded_matrix != nullptr) {
+            delete banded_matrix;
+        }
     }
     
 }
@@ -2127,6 +2129,11 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
     
     // check tracebacks for alignments ending in all sink nodes
     for (BAMatrix* band_matrix : sink_node_matrices) {
+        if (band_matrix == nullptr) {
+            // This is a masked sink node. Skip it.
+            continue;
+        }
+    
         if (band_matrix->match == nullptr) {
             cerr << "error:[BandedGlobalAligner] must fill dynamic programming matrices before finding optimal score" << endl;
             assert(0);
