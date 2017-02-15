@@ -45,6 +45,7 @@ void help_chunk(char** argv) {
          << "                             <PATH>-<i>-<name>-<start>-<length>. <i> is the line# of the chunk in the\n"
          << "                             output bed. [default=./chunk]" << endl
          << "    -c, --context STEPS      expand the context of the chunk this many steps [10]" << endl
+         << "    -i, --id-range           treat positional path coordinates as inclusive node id ranges" << endl        
          << "general:" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
@@ -68,6 +69,7 @@ int main_chunk(int argc, char** argv) {
     string out_bed_file;
     string out_chunk_prefix = "./chunk";
     int context_steps = 10;
+    bool id_range = false;
     int threads = 1;
     
     int c;
@@ -87,12 +89,13 @@ int main_chunk(int argc, char** argv) {
             {"output-bed", required_argument, 0, 'R'},
             {"prefix", required_argument, 0, 'b'},
             {"context", required_argument, 0, 'c'},
+            {"id-range", no_argument, 0, 'i'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:r:R:b:c:t:",
+        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:r:R:b:c:it:",
                 long_options, &option_index);
 
 
@@ -145,6 +148,10 @@ int main_chunk(int argc, char** argv) {
 
         case'c':
             context_steps = atoi(optarg);
+            break;
+
+        case 'i':
+            id_range = true;
             break;
             
         case 't':
@@ -245,7 +252,7 @@ int main_chunk(int argc, char** argv) {
         if (region.start == 0 || region.end == -1) {
             region.start = 1;
             region.end = xindex.path_length(rank);
-        } else {
+        } else if (!id_range) {
             if (region.start < 0 || region.end >= xindex.path_length(rank)) {
                 cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
                      << " is out of bounds of path " << region.seq << " which has length "<< xindex.path_length(rank)
@@ -301,15 +308,20 @@ int main_chunk(int argc, char** argv) {
         int tid = omp_get_thread_num();
         Region& region = regions[i];
         PathChunker& chunker = chunkers[tid];
-        VG subgraph;
-        output_regions[i].seq = regions[i].seq;
-        output_regions[i].start = 1 + chunker.extract_subgraph(region, context_steps, subgraph);
-        output_regions[i].end = output_regions[i].start - 1;
-        // Is there a better way to get path length? 
-        Path output_path = subgraph.paths.path(region.seq);
-        for (int j = 0; j < output_path.mapping_size(); ++j) {
-            int64_t op_node = output_path.mapping(j).position().node_id();
-            output_regions[i].end += xindex.node_length(op_node);
+        VG* subgraph = NULL;
+        if (id_range == false) {
+            subgraph = new VG();
+            chunker.extract_subgraph(region, context_steps, *subgraph, output_regions[i]);
+        } else {
+            if (chunk_graph || context_steps > 0) {
+                subgraph = new VG();
+                output_regions[i].seq = region.seq;                
+                chunker.extract_id_range(region.start, region.end, context_steps, *subgraph, output_regions[i]);
+            } else {
+                // in this case, there's no need to actually build the subgraph, so we don't
+                // in order to save time.
+                output_regions[i] = region;
+            }
         }
 
         ofstream out_file;
@@ -329,7 +341,7 @@ int main_chunk(int argc, char** argv) {
                 out_stream = &out_file;
             }
             
-            subgraph.serialize_to_ostream(*out_stream);
+            subgraph->serialize_to_ostream(*out_stream);
         }
         
         // optional gam chunking
@@ -340,8 +352,15 @@ int main_chunk(int argc, char** argv) {
                 cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
                 exit(1);
             }
-            chunker.extract_gam_for_subgraph(subgraph, gam_index, &out_gam_file);
+            if (subgraph != NULL) {
+                chunker.extract_gam_for_subgraph(*subgraph, gam_index, &out_gam_file);
+            } else {
+                assert(id_range == true);
+                chunker.extract_gam_for_id_range(region.start, region.end, gam_index, &out_gam_file);
+            }
         }
+
+        delete subgraph;
     }
         
     // write a bed file if asked giving a more explicit linking of chunks to files
