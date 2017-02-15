@@ -1739,9 +1739,9 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g
             
         }
         if (sinks_masked) {
-            cerr << "error:[BandedGlobalAligner] cannot align to graph within band, consider permissive banding" << endl;
-            cerr << alignment.sequence() << endl;
-            assert(0);
+            // We couldn't find an alignment in this band. That's bad, but we
+            // don't necessarily want to kill the whole program.
+            throw NoAlignmentInBandException();
         }
     }
 }
@@ -2324,5 +2324,10 @@ BandedGlobalAligner<IntType>::AltTracebackStack::Deflection::~Deflection() {
     // nothing to do
 }
 
+const string NoAlignmentInBandException::message = "error:[BandedGlobalAligner] cannot align to graph within band, consider permissive banding";
+
+const char* NoAlignmentInBandException::what() const noexcept {
+    return message.c_str();
+}
 
 
