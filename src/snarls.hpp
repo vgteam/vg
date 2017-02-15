@@ -66,15 +66,19 @@ namespace vg {
         pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
                                                                         bool include_boundary_nodes);
         
-        // Returns a map from the boundaries of the child Snarls to the respective child Snarl. End NodeTraversals
-        // are reversed to point into the Snarl.
+        /// Returns a map from the boundaries of the child Snarls to the respective child Snarl. End NodeTraversals
+        /// are reversed to point into the Snarl.
         map<NodeTraversal, const Snarl*> child_boundary_index(const Snarl* snarl, VG& graph);
         
-        // Returns a map from the start boundary of the children to the respective child Snarl.
+        /// Returns a map from the start boundary of the children to the respective child Snarl.
         map<NodeTraversal, const Snarl*> child_start_index(const Snarl* snarl, VG& graph);
         
-        // Returns a map from the reversed end boundary of the children to the respective child Snarl.
+        /// Returns a map from the reversed end boundary of the children to the respective child Snarl.
         map<NodeTraversal, const Snarl*> child_end_index(const Snarl* snarl, VG& graph);
+        
+        /// Returns a map from all Snarl boundaries to the Snarl they point into. Note that this means that
+        /// end boundaries will be reversed.
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_boundary_index();
         
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
@@ -115,7 +119,7 @@ namespace vg {
     /// Converts a NodeTraversal to a Visit in the opposite orientation.
     inline Visit to_rev_visit(const NodeTraversal& node_traversal);
     
-    // Copies the boundary Visits from one Snarl into another
+    /// Copies the boundary Visits from one Snarl into another
     inline void transfer_boundary_info(const Snarl& from, Snarl& to);
     
     /****

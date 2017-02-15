@@ -71,7 +71,7 @@ public:
 
 /// Print the given NodeTraversal.
 inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
-    return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t)0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
+    return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t) 0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
 }
 
 }
@@ -79,11 +79,9 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
 namespace std {
     /// hash function for Snarls
     template<>
-    struct hash<const vg::Snarl> {
-        size_t operator()(const vg::Snarl& snarl) const {
-            auto hsh = hash<pair<pair<int64_t, bool>, pair<int64_t, bool> > >();
-            return hsh(make_pair(make_pair(snarl.start().node_id(), snarl.start().backward()),
-                                 make_pair(snarl.end().node_id(), snarl.end().backward())));
+    struct hash<const vg::NodeTraversal> {
+        inline size_t operator()(const vg::NodeTraversal& trav) const {
+            return hash<pair<void*, bool>>()(make_pair((void*)trav.node, trav.backward));
         }
     };
 }
