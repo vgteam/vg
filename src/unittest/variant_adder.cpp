@@ -256,5 +256,72 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
 
 }
 
+TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
+
+    string graph_json = R"({
+        "node": [{"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC"}],
+        "path": [
+            {"name": "ref", "mapping": [
+                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
+            ]}
+        ]
+    })";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Make a VariantAdder
+    VariantAdder adder(graph);
+    
+    // Make a really long insert
+    stringstream s;
+    s << "GCGCAAAAAAAAAAA";
+    for (size_t i = 0; i < 10000; i++) {
+        s << "C";
+    }
+    s << "AAAAAAAAAAGCGC";
+    
+    Alignment aligned = adder.smart_align(graph, s.str(), 10000 + graph.length());
+    
+    SECTION("the resulting alignment should have the input string") {
+        REQUIRE(aligned.sequence() == s.str());
+    }
+    
+    SECTION("the resulting alignment should have one mapping") {
+        REQUIRE(aligned.path().mapping_size() == 1);
+        
+        auto& m = aligned.path().mapping(0);
+        
+        SECTION("that mapping should have 3 edits") {
+            REQUIRE(m.edit_size() == 3);
+            
+            auto& match1 = m.edit(0);
+            auto& insert = m.edit(1);
+            auto& match2 = m.edit(2);
+            
+            SECTION("the first edit should be a match of the leading ref part") {
+                REQUIRE(edit_is_match(match1));
+                REQUIRE(match1.from_length() == strlen("GCGCAAAAAAAAAAA"));
+            }
+            
+            SECTION("the second edit should be an insert of the inserted sequence") {
+                REQUIRE(edit_is_insertion(insert));
+                REQUIRE(insert.to_length() == 10000);
+            }
+            
+            SECTION("the third edit should be a match of the trailing ref part") {
+                REQUIRE(edit_is_match(match2));
+                REQUIRE(match2.from_length() == strlen("AAAAAAAAAAGCGC"));
+            }
+        }
+    }
+
+}
+
 }
 }
