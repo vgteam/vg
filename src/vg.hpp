@@ -836,6 +836,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
                     size_t max_span = 0,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
@@ -849,6 +850,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
                     size_t max_span = 0,
                     bool print_score_matrices = false);
     
@@ -862,6 +864,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
                     size_t max_span = 0,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
@@ -874,6 +877,7 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
                     size_t max_span = 0,
                     bool print_score_matrices = false);
     
@@ -888,6 +892,7 @@ public:
                                   bool pin_left = false,
                                   int8_t full_length_bonus = 0,
                                   bool banded_global = false,
+                                  size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
@@ -901,6 +906,7 @@ public:
                                   bool pin_left = false,
                                   int8_t full_length_bonus = 0,
                                   bool banded_global = false,
+                                  size_t band_padding_override = 0,
                                   size_t max_span = 0,
                                   bool print_score_matrices = false);
     
@@ -1183,6 +1189,11 @@ private:
     /// the min distance to unfold the graph to, and is meant to be the longest
     /// path that the specified sequence could cover, accounting for deletions.
     /// If it's less than the sequence's length, the sequence's length is used.
+    /// band_padding_override gives the band padding to use for banded global
+    /// alignment. In banded global mode, if the band padding override is
+    /// nonzero, permissive banding is not used, and instead the given band
+    /// padding is provided. If the band padding override is not provided, the
+    /// max span is used as the band padding and permissive banding is enabled.
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
@@ -1191,6 +1202,7 @@ private:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
                     size_t max_span = 0,
                     bool print_score_matrices = false);
 

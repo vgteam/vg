@@ -60,6 +60,24 @@ public:
     /// end-and-splice mode.
     size_t whole_alignment_cutoff = 1000;
     
+    /// When we're above that cutoff, what amount of band padding can we use
+    /// looking for an existing version of our sequence?
+    size_t large_alignment_band_padding = 20;
+    
+    /// When we're doing a restricted band padding alignment, how good does it
+    /// have to be, as a fraction of the perfect match score for the whole
+    /// context, in order to use it?
+    double min_score_factor = 0.95;
+    
+    /// If the restricted band alignment doesn't find anything, we resort to
+    /// pinned alignments from the ends and cutting and pasting together. How
+    /// big should each pinned tail be?
+    size_t pinned_tail_size = 100;
+    
+    /// We use this Aligner to hold the scoring parameters. It may be accessed
+    /// by multiple threads at once.
+    Aligner aligner;
+    
 protected:
     /// The graph we are modifying
     VG& graph;

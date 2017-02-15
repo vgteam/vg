@@ -5241,7 +5241,7 @@ int main_align(int argc, char** argv) {
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
         alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
-            banded_global, max(seq.size(), graph->length()), debug);
+            banded_global, 0, max(seq.size(), graph->length()), debug);
     }
 
     if (!seq_name.empty()) {

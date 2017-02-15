@@ -263,65 +263,175 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             });
 #endif
             
+            // Work out how far we would have to unroll the graph to account for
+            // a giant deletion. We also want to account for alts that may
+            // already be in the graph and need unrolling for a long insert.
+            size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
+            
+            // Record the size of graph we're aligning to in bases
+            total_graph_bases += lock.get_subgraph().length();
+            
             // Decide what kind of alignment we need to do. Whatever we pick,
             // we'll fill this in.
             Alignment aln;
             
-            
-            
-            if (true) {
+            if (to_align.str().size() <= whole_alignment_cutoff && lock.get_subgraph().length() < whole_alignment_cutoff) {
                 // If the graph and the string are short, do a normal banded global
                 // aligner with permissive banding and the whole string length as
-                // band padding. We can be inefficient but we won;t bring down the
+                // band padding. We can be inefficient but we won't bring down the
                 // system.
                 
                 // TODO: factor into function
             
-            
-                // Calculate the expected min score, for a giant gap (i.e. this variant is an SV indel)
-                int64_t min_length = min(right_context_past_end - left_context_start, to_align.str().size());
-                int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
-                // TODO: assumes a gap open of 6 and match and gap extend values of 1
-                int64_t expected_score = min_length - 6 - (max_length - 1 - min_length);
-                    
-                // Record the size of graph we're aligning to in bases
-                total_graph_bases += lock.get_subgraph().length();
-                
-                // Work out how far we would have to unroll the graph to account for
-                // a giant deletion. We also want to account for alts that may
-                // alrteady be in the graph and need unrolling for a long insert.
-                size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
-                
                 // Do the alignment in both orientations
                 
                 // Align in the forward orientation using banded global aligner, unrolling for large deletions.
-                aln = lock.get_subgraph().align(to_align.str(), 0, false, false, 0, true, max_span);
+                aln = lock.get_subgraph().align(to_align.str(), &aligner, 0, false, false, 0, true, 0, max_span);
                 // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
                 // TODO: figure out which way our reference path goes through our subgraph and do half the work.
                 // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
-                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), 0, false, false, 0, true, max_span);
+                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), &aligner,
+                    0, false, false, 0, true, 0, max_span);
                 
                 // Note that the banded global aligner doesn't fill in identity.
                 
-    #ifdef debug
+#ifdef debug
                 cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
-    #endif
+#endif
                     
                 if (aln2.score() > aln.score()) {
                     // This is the better alignment
                     swap(aln, aln2);
                 }
 
-    #ifdef debug
+#ifdef debug
                 cerr << "Subgraph: " << pb2json(lock.get_subgraph().graph) << endl;            
                 cerr << "Alignment: " << pb2json(aln) << endl;
-    #endif
-
-                if (local_variants.size() == 1) {
-                    // We only have one variant here, so we ought to have at least the expected giant gap score
-                    assert(aln.score() >= expected_score);
+#endif
+                
+            } else {
+                // Either the graph or the sequence to align is too big to just
+                // throw in to the banded aligner with big bands.
+                
+                // Throw it into the aligner with very restrictive banding to see if it's already basically present
+                aln = lock.get_subgraph().align(to_align.str(), &aligner,
+                    0, false, false, 0, true, large_alignment_band_padding, max_span);
+                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), &aligner,
+                    0, false, false, 0, true, large_alignment_band_padding, max_span);
+                if (aln2.score() > aln.score()) {
+                    swap(aln, aln2);
                 }
                 
+                if (aln.score() > to_align.str().size() * aligner.match * min_score_factor) {
+                    // If we get a good score, use that alignment
+#ifdef debug
+                    cerr << "Found sufficiently good restricted banded alignment" << endl;
+#endif
+                } else {
+                    // Otherwise, create short anchoring sequences on the left and right and align them
+                    
+                    // We need to figure out what bits we'll align
+                    string left_tail; 
+                    string right_tail;
+                    
+                    if (to_align.str().size() <= pinned_tail_size) {
+                        // Each tail will just be the whole string
+                        left_tail = to_align.str();
+                        right_tail = to_align.str();
+                    } else {
+                        // Cut off the tails
+                        left_tail = to_align.str().substr(0, pinned_tail_size);
+                        right_tail = to_align.str().substr(pinned_tail_size);
+                    }
+                    
+                    
+                    
+                    // Do the two pinned tail alignments on the forward strand
+                    Alignment aln_left = lock.get_subgraph().align(left_tail, &aligner,
+                        0, true, true, 0, false, 0, max_span);
+                    Alignment aln_right = lock.get_subgraph().align(right_tail, &aligner,
+                        0, true, false, 0, false, 0, max_span);
+                    
+                    // Try the reverse strand too, pinning the opposite ends
+                    Alignment aln_left_rev = lock.get_subgraph().align(reverse_complement(left_tail), &aligner,
+                        0, true, false, 0, false, 0, max_span);
+                    Alignment aln_right_rev = lock.get_subgraph().align(reverse_complement(right_tail), &aligner,
+                        0, true, true, 0, false, 0, max_span);
+                        
+                    if (aln_left_rev.score() + aln_right_rev.score() > aln_left.score() + aln_right.score()) {
+                        // Move the reverse alignments onto the forward strand and use them.
+                        auto node_length_function = [&](id_t id) {
+                            return lock.get_subgraph().get_node(id)->sequence().size();
+                        };
+                        aln_left = reverse_complement_alignment(aln_left_rev, node_length_function);
+                        aln_right = reverse_complement_alignment(aln_right_rev, node_length_function);
+                    }
+                
+                    // Splice them together with any remaining sequence we didn't have
+                    
+                    // How much overlap is there between the two tails? May be negative.
+                    int64_t overlap = (int64_t) aln_left.sequence().size() +
+                        (int64_t) aln_right.sequence().size() - (int64_t) to_align.str().size();
+                    
+                    if (overlap >= 0) {
+                        // All of the string is accounted for in these two
+                        // alignments, and we can cut them and splice them.
+                        
+                        // Take half the overlap off each alignment and paste together
+                        aln = merge_alignments(strip_from_end(aln_left, overlap / 2),
+                            strip_from_start(aln_right, (overlap + 1) / 2));
+                            
+                        // TODO: produce a better score!
+                        aln.set_score(aln_left.score() + aln_right.score());
+                        
+#ifdef debug
+                        cerr << "Spliced overlapping end alignments" << endl;
+#endif
+                        
+                    } else {
+                        // Not all of the string is accounted for in these two
+                        // alingments, so we will splice them together with any
+                        // remaining input sequence.
+                        
+                        string middle_sequence = to_align.str().substr(aln_left.sequence().size(), -overlap);
+                        
+                        // Make a big bogus alignment with an unplaced pure insert mapping.
+                        Alignment aln_middle;
+                        aln_middle.set_sequence(middle_sequence);
+                        auto* middle_mapping = aln_middle.mutable_path()->add_mapping();
+                        auto* middle_edit = middle_mapping->add_edit();
+                        middle_edit->set_sequence(middle_sequence);
+                        middle_edit->set_to_length(middle_sequence.size());
+                        
+                        // Paste everything together
+                        aln = merge_alignments(merge_alignments(aln_left, aln_middle), aln_right);
+                        
+                        // TODO: produce a better score!
+                        aln.set_score(aln_left.score() + aln_right.score());
+                        
+#ifdef debug
+                        cerr << "Spliced disconnected end alignments" << endl;
+#endif
+                        
+                    }
+                    
+                }
+            }
+            
+            
+            if (local_variants.size() == 1) {
+                // We only have one variant here, so we ought to have at least the expected giant gap score
+                
+                // Calculate the expected min score, for a giant gap (i.e. this
+                // variant is an SV indel), assuming a perfect match context
+                // background.
+                int64_t min_length = min(right_context_past_end - left_context_start, to_align.str().size());
+                int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
+                int64_t expected_score = min_length * aligner.match -
+                    aligner.gap_open - 
+                    (max_length - 1 - min_length) * aligner.mismatch;
+                
+                assert(aln.score() >= expected_score);
             }
             
             // We shouldn't have dangling ends, really, but it's possible for
