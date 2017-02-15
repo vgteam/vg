@@ -40,6 +40,21 @@ public:
      */
     void add_variants(vcflib::VariantCallFile* vcf);
     
+    /**
+     * Align the given string to the given graph using the most appropriate
+     * alignment method, depending on the relative sizes involved and whether a
+     * good alignment exists. max_span gives the maximum length in the graph
+     * that we expect our string to possibly align over (for cases of large
+     * deletions, where we might want to follow a long path in the graph).
+     *
+     * TODO: now that we have a smart aligner that can synthesize deletions
+     * without finding them with the banded global aligner, do we need max_span
+     * anymore?
+     *
+     * Mostly exposed for testability.
+     */
+    Alignment smart_align(vg::VG& graph, const string& to_align, size_t max_span);
+    
     /// How wide of a range in bases should we look for nearby variants in?
     size_t variant_range = 50;
     

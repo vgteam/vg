@@ -6557,9 +6557,9 @@ Alignment VG::align(const Alignment& alignment,
         }
         if (banded_global) {
             // Figure out if we should use permissive banding, or a fixed band padding
-            bool permissive_banding = (band_padding_override != 0);
-            // What band padding do we want?
-            size_t band_padding = permissive_banding ? max_span : band_padding_override;
+            bool permissive_banding = (band_padding_override == 0);
+            // What band padding do we want? We used to hardcode it as 1, so it should always be at least 1.
+            size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
             if (aligner && !qual_adj_aligner) {
                 aligner->align_global_banded(aln, g, band_padding, permissive_banding);
             } else if (qual_adj_aligner && !aligner) {

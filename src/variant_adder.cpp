@@ -271,153 +271,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Record the size of graph we're aligning to in bases
             total_graph_bases += lock.get_subgraph().length();
             
-            // Decide what kind of alignment we need to do. Whatever we pick,
-            // we'll fill this in.
-            Alignment aln;
-            
-            if (to_align.str().size() <= whole_alignment_cutoff && lock.get_subgraph().length() < whole_alignment_cutoff) {
-                // If the graph and the string are short, do a normal banded global
-                // aligner with permissive banding and the whole string length as
-                // band padding. We can be inefficient but we won't bring down the
-                // system.
-                
-                // TODO: factor into function
-            
-                // Do the alignment in both orientations
-                
-                // Align in the forward orientation using banded global aligner, unrolling for large deletions.
-                aln = lock.get_subgraph().align(to_align.str(), &aligner, 0, false, false, 0, true, 0, max_span);
-                // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
-                // TODO: figure out which way our reference path goes through our subgraph and do half the work.
-                // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
-                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), &aligner,
-                    0, false, false, 0, true, 0, max_span);
-                
-                // Note that the banded global aligner doesn't fill in identity.
-                
-#ifdef debug
-                cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
-#endif
-                    
-                if (aln2.score() > aln.score()) {
-                    // This is the better alignment
-                    swap(aln, aln2);
-                }
-
-#ifdef debug
-                cerr << "Subgraph: " << pb2json(lock.get_subgraph().graph) << endl;            
-                cerr << "Alignment: " << pb2json(aln) << endl;
-#endif
-                
-            } else {
-                // Either the graph or the sequence to align is too big to just
-                // throw in to the banded aligner with big bands.
-                
-                // Throw it into the aligner with very restrictive banding to see if it's already basically present
-                aln = lock.get_subgraph().align(to_align.str(), &aligner,
-                    0, false, false, 0, true, large_alignment_band_padding, max_span);
-                Alignment aln2 = lock.get_subgraph().align(reverse_complement(to_align.str()), &aligner,
-                    0, false, false, 0, true, large_alignment_band_padding, max_span);
-                if (aln2.score() > aln.score()) {
-                    swap(aln, aln2);
-                }
-                
-                if (aln.score() > to_align.str().size() * aligner.match * min_score_factor) {
-                    // If we get a good score, use that alignment
-#ifdef debug
-                    cerr << "Found sufficiently good restricted banded alignment" << endl;
-#endif
-                } else {
-                    // Otherwise, create short anchoring sequences on the left and right and align them
-                    
-                    // We need to figure out what bits we'll align
-                    string left_tail; 
-                    string right_tail;
-                    
-                    if (to_align.str().size() <= pinned_tail_size) {
-                        // Each tail will just be the whole string
-                        left_tail = to_align.str();
-                        right_tail = to_align.str();
-                    } else {
-                        // Cut off the tails
-                        left_tail = to_align.str().substr(0, pinned_tail_size);
-                        right_tail = to_align.str().substr(pinned_tail_size);
-                    }
-                    
-                    
-                    
-                    // Do the two pinned tail alignments on the forward strand
-                    Alignment aln_left = lock.get_subgraph().align(left_tail, &aligner,
-                        0, true, true, 0, false, 0, max_span);
-                    Alignment aln_right = lock.get_subgraph().align(right_tail, &aligner,
-                        0, true, false, 0, false, 0, max_span);
-                    
-                    // Try the reverse strand too, pinning the opposite ends
-                    Alignment aln_left_rev = lock.get_subgraph().align(reverse_complement(left_tail), &aligner,
-                        0, true, false, 0, false, 0, max_span);
-                    Alignment aln_right_rev = lock.get_subgraph().align(reverse_complement(right_tail), &aligner,
-                        0, true, true, 0, false, 0, max_span);
-                        
-                    if (aln_left_rev.score() + aln_right_rev.score() > aln_left.score() + aln_right.score()) {
-                        // Move the reverse alignments onto the forward strand and use them.
-                        auto node_length_function = [&](id_t id) {
-                            return lock.get_subgraph().get_node(id)->sequence().size();
-                        };
-                        aln_left = reverse_complement_alignment(aln_left_rev, node_length_function);
-                        aln_right = reverse_complement_alignment(aln_right_rev, node_length_function);
-                    }
-                
-                    // Splice them together with any remaining sequence we didn't have
-                    
-                    // How much overlap is there between the two tails? May be negative.
-                    int64_t overlap = (int64_t) aln_left.sequence().size() +
-                        (int64_t) aln_right.sequence().size() - (int64_t) to_align.str().size();
-                    
-                    if (overlap >= 0) {
-                        // All of the string is accounted for in these two
-                        // alignments, and we can cut them and splice them.
-                        
-                        // Take half the overlap off each alignment and paste together
-                        aln = merge_alignments(strip_from_end(aln_left, overlap / 2),
-                            strip_from_start(aln_right, (overlap + 1) / 2));
-                            
-                        // TODO: produce a better score!
-                        aln.set_score(aln_left.score() + aln_right.score());
-                        
-#ifdef debug
-                        cerr << "Spliced overlapping end alignments" << endl;
-#endif
-                        
-                    } else {
-                        // Not all of the string is accounted for in these two
-                        // alingments, so we will splice them together with any
-                        // remaining input sequence.
-                        
-                        string middle_sequence = to_align.str().substr(aln_left.sequence().size(), -overlap);
-                        
-                        // Make a big bogus alignment with an unplaced pure insert mapping.
-                        Alignment aln_middle;
-                        aln_middle.set_sequence(middle_sequence);
-                        auto* middle_mapping = aln_middle.mutable_path()->add_mapping();
-                        auto* middle_edit = middle_mapping->add_edit();
-                        middle_edit->set_sequence(middle_sequence);
-                        middle_edit->set_to_length(middle_sequence.size());
-                        
-                        // Paste everything together
-                        aln = merge_alignments(merge_alignments(aln_left, aln_middle), aln_right);
-                        
-                        // TODO: produce a better score!
-                        aln.set_score(aln_left.score() + aln_right.score());
-                        
-#ifdef debug
-                        cerr << "Spliced disconnected end alignments" << endl;
-#endif
-                        
-                    }
-                    
-                }
-            }
-            
+            // Do the alignment, dispatching cleverly on size
+            Alignment aln = smart_align(lock.get_subgraph(), to_align.str(), max_span);
             
             if (local_variants.size() == 1) {
                 // We only have one variant here, so we ought to have at least the expected giant gap score
@@ -430,6 +285,11 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 int64_t expected_score = min_length * aligner.match -
                     aligner.gap_open - 
                     (max_length - 1 - min_length) * aligner.mismatch;
+                    
+                // But maybe we don't have a massive indel and really have just
+                // a SNP or something. We should accept any positive scoring
+                // alignment.
+                expected_score = min(expected_score, (int64_t) 0);
                 
                 assert(aln.score() >= expected_score);
             }
@@ -489,6 +349,159 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     // Clean up after the last contig.
     destroy_progress();
     
+}
+
+Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_t max_span) {
+
+    // Decide what kind of alignment we need to do. Whatever we pick,
+    // we'll fill this in.
+    Alignment aln;
+    
+    if (to_align.size() <= whole_alignment_cutoff && graph.length() < whole_alignment_cutoff) {
+        // If the graph and the string are short, do a normal banded global
+        // aligner with permissive banding and the whole string length as
+        // band padding. We can be inefficient but we won't bring down the
+        // system.
+        
+        // TODO: factor into function
+    
+        // Do the alignment in both orientations
+        
+        // Align in the forward orientation using banded global aligner, unrolling for large deletions.
+        aln = graph.align(to_align, &aligner, 0, false, false, 0, true, 0, max_span);
+        // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
+        // TODO: figure out which way our reference path goes through our subgraph and do half the work.
+        // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
+        Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
+            0, false, false, 0, true, 0, max_span);
+        
+        // Note that the banded global aligner doesn't fill in identity.
+        
+#ifdef debug
+        cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
+#endif
+            
+        if (aln2.score() > aln.score()) {
+            // This is the better alignment
+            swap(aln, aln2);
+        }
+
+#ifdef debug
+        cerr << "Subgraph: " << pb2json(graph.graph) << endl;            
+        cerr << "Alignment: " << pb2json(aln) << endl;
+#endif
+        
+    } else {
+        // Either the graph or the sequence to align is too big to just
+        // throw in to the banded aligner with big bands.
+        
+        // Throw it into the aligner with very restrictive banding to see if it's already basically present
+        aln = graph.align(to_align, &aligner,
+            0, false, false, 0, true, large_alignment_band_padding, max_span);
+        Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
+            0, false, false, 0, true, large_alignment_band_padding, max_span);
+        if (aln2.score() > aln.score()) {
+            swap(aln, aln2);
+        }
+        
+        if (aln.score() > to_align.size() * aligner.match * min_score_factor) {
+            // If we get a good score, use that alignment
+#ifdef debug
+            cerr << "Found sufficiently good restricted banded alignment" << endl;
+#endif
+        } else {
+            // Otherwise, create short anchoring sequences on the left and right and align them
+            
+            // We need to figure out what bits we'll align
+            string left_tail; 
+            string right_tail;
+            
+            if (to_align.size() <= pinned_tail_size) {
+                // Each tail will just be the whole string
+                left_tail = to_align;
+                right_tail = to_align;
+            } else {
+                // Cut off the tails
+                left_tail = to_align.substr(0, pinned_tail_size);
+                right_tail = to_align.substr(pinned_tail_size);
+            }
+            
+            
+            
+            // Do the two pinned tail alignments on the forward strand
+            Alignment aln_left = graph.align(left_tail, &aligner,
+                0, true, true, 0, false, 0, max_span);
+            Alignment aln_right = graph.align(right_tail, &aligner,
+                0, true, false, 0, false, 0, max_span);
+            
+            // Try the reverse strand too, pinning the opposite ends
+            Alignment aln_left_rev = graph.align(reverse_complement(left_tail), &aligner,
+                0, true, false, 0, false, 0, max_span);
+            Alignment aln_right_rev = graph.align(reverse_complement(right_tail), &aligner,
+                0, true, true, 0, false, 0, max_span);
+                
+            if (aln_left_rev.score() + aln_right_rev.score() > aln_left.score() + aln_right.score()) {
+                // Move the reverse alignments onto the forward strand and use them.
+                auto node_length_function = [&](id_t id) {
+                    return graph.get_node(id)->sequence().size();
+                };
+                aln_left = reverse_complement_alignment(aln_left_rev, node_length_function);
+                aln_right = reverse_complement_alignment(aln_right_rev, node_length_function);
+            }
+        
+            // Splice them together with any remaining sequence we didn't have
+            
+            // How much overlap is there between the two tails? May be negative.
+            int64_t overlap = (int64_t) aln_left.sequence().size() +
+                (int64_t) aln_right.sequence().size() - (int64_t) to_align.size();
+            
+            if (overlap >= 0) {
+                // All of the string is accounted for in these two
+                // alignments, and we can cut them and splice them.
+                
+                // Take half the overlap off each alignment and paste together
+                aln = merge_alignments(strip_from_end(aln_left, overlap / 2),
+                    strip_from_start(aln_right, (overlap + 1) / 2));
+                    
+                // TODO: produce a better score!
+                aln.set_score(aln_left.score() + aln_right.score());
+                
+#ifdef debug
+                cerr << "Spliced overlapping end alignments" << endl;
+#endif
+                
+            } else {
+                // Not all of the string is accounted for in these two
+                // alignments, so we will splice them together with any
+                // remaining input sequence.
+                
+                string middle_sequence = to_align.substr(aln_left.sequence().size(), -overlap);
+                
+                // Make a big bogus alignment with an unplaced pure insert mapping.
+                Alignment aln_middle;
+                aln_middle.set_sequence(middle_sequence);
+                auto* middle_mapping = aln_middle.mutable_path()->add_mapping();
+                auto* middle_edit = middle_mapping->add_edit();
+                middle_edit->set_sequence(middle_sequence);
+                middle_edit->set_to_length(middle_sequence.size());
+                
+                // Paste everything together
+                aln = merge_alignments(merge_alignments(aln_left, aln_middle), aln_right);
+                
+                // TODO: produce a better score!
+                aln.set_score(aln_left.score() + aln_right.score());
+                
+#ifdef debug
+                cerr << "Spliced disconnected end alignments" << endl;
+#endif
+                
+            }
+            
+        }
+    }
+    
+    return aln;
+
 }
 
 
