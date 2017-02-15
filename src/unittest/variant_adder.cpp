@@ -13,6 +13,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <regex>
 
 namespace vg {
 namespace unittest {
@@ -322,6 +323,158 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     }
 
 }
+
+TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[variantadder]" ) {
+
+    string graph_json = R"({
+        "node": [{"id": 1, "sequence": "GCGC<10kAs>GCGC"}],
+        "path": [
+            {"name": "ref", "mapping": [
+                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
+            ]}
+        ]
+    })";
+    
+    // Make the graph have lots of As
+    stringstream a_stream;
+    for(size_t i = 0; i < 10000; i++) {
+        a_stream << "A";
+    }
+    graph_json = regex_replace(graph_json, std::regex("<10kAs>"), a_stream.str());
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Make a VariantAdder
+    VariantAdder adder(graph);
+    
+    // Make a deleted version (only 21 As)
+    string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
+    
+    Alignment aligned = adder.smart_align(graph, deleted, graph.length());
+    
+    SECTION("the resulting alignment should have the input string") {
+        REQUIRE(aligned.sequence() == deleted);
+    }
+    
+    SECTION("the resulting alignment should have two mappings") {
+        REQUIRE(aligned.path().mapping_size() == 2);
+        
+        auto& m1 = aligned.path().mapping(0);
+        auto& m2 = aligned.path().mapping(1);
+        
+        SECTION("each mapping should be a single edit") {
+            REQUIRE(m1.edit_size() == 1);
+            REQUIRE(m2.edit_size() == 1);
+            
+            auto& match1 = m1.edit(0);
+            auto& match2 = m2.edit(0);
+        
+                
+            SECTION("the first edit should be a match") {
+                REQUIRE(edit_is_match(match1));
+            }
+            
+            SECTION("the second edit should be a match") {
+                REQUIRE(edit_is_match(match2));
+            }
+            
+            SECTION("the match lengths should sum to the length of the aligned string") {
+                REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
+            }
+            
+            SECTION("the first mapping should be at the start of the node") {
+                REQUIRE(m1.position().node_id() == 1);
+                REQUIRE(m1.position().offset() == 0);
+                REQUIRE(m1.position().is_reverse() == false);
+            }
+            
+            SECTION("the second mapping should be at the end of the node") {
+                REQUIRE(m2.position().node_id() == 1);
+                REQUIRE(m2.position().offset() == graph.get_node(1)->sequence().size() - match2.from_length());
+                REQUIRE(m2.position().is_reverse() == false);
+            }
+        }
+    }
+
+}
+
+TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[variantadder]" ) {
+
+    string graph_json = R"({
+        "node": [{"id": 1, "sequence": "GCGC<100As>GCGC"}],
+        "path": [
+            {"name": "ref", "mapping": [
+                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
+            ]}
+        ]
+    })";
+    
+    // Make the graph have lots of As
+    stringstream a_stream;
+    for(size_t i = 0; i < 100; i++) {
+        a_stream << "A";
+    }
+    graph_json = regex_replace(graph_json, std::regex("<100As>"), a_stream.str());
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Make a VariantAdder
+    VariantAdder adder(graph);
+    
+    // Make a deleted version (only 21 As)
+    string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
+    
+    Alignment aligned = adder.smart_align(graph, deleted, graph.length());
+    
+    SECTION("the resulting alignment should have the input string") {
+        REQUIRE(aligned.sequence() == deleted);
+    }
+    
+    SECTION("the resulting alignment should have one mapping") {
+        REQUIRE(aligned.path().mapping_size() == 1);
+        
+        auto& m = aligned.path().mapping(0);
+        
+        SECTION("that mapping should have 3 edits") {
+            REQUIRE(m.edit_size() == 3);
+            
+            auto& match1 = m.edit(0);
+            auto& del = m.edit(1);
+            auto& match2 = m.edit(2);
+            
+            SECTION("the first edit should be a match of the leading ref part") {
+                REQUIRE(edit_is_match(match1));
+            }
+            
+            SECTION("the second edit should be a deletion of the deleted sequence") {
+                REQUIRE(edit_is_deletion(del));
+                REQUIRE(del.from_length() == 100 - 21);
+            }
+            
+            SECTION("the third edit should be a match of the trailing ref part") {
+                REQUIRE(edit_is_match(match2));
+            }
+            
+            SECTION("the first and third edits together should add up to the aligned sequence's length") {
+                REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
+            }
+        }
+    }
+
+}
+
 
 }
 }
