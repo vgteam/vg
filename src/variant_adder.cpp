@@ -395,16 +395,28 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
         // Either the graph or the sequence to align is too big to just
         // throw in to the banded aligner with big bands.
         
-        // Throw it into the aligner with very restrictive banding to see if it's already basically present
-        aln = graph.align(to_align, &aligner,
-            0, false, false, 0, true, large_alignment_band_padding, max_span);
-        Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
-            0, false, false, 0, true, large_alignment_band_padding, max_span);
-        if (aln2.score() > aln.score()) {
-            swap(aln, aln2);
+        // We set this to true if we manage to find a valid alignment in the
+        // narrow band.
+        bool aligned_in_band;
+        
+        try {
+        
+            // Throw it into the aligner with very restrictive banding to see if it's already basically present
+            aln = graph.align(to_align, &aligner,
+                0, false, false, 0, true, large_alignment_band_padding, max_span);
+            Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
+                0, false, false, 0, true, large_alignment_band_padding, max_span);
+            if (aln2.score() > aln.score()) {
+                swap(aln, aln2);
+            }
+            aligned_in_band = true;
+        } catch(NoAlignmentInBandException ex) {
+            // If the aligner can't find any valid alignment in the restrictive
+            // band, we will need to knock together an alignment manually.
+            aligned_in_band = false;
         }
         
-        if (aln.score() > to_align.size() * aligner.match * min_score_factor) {
+        if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
             // If we get a good score, use that alignment
 #ifdef debug
             cerr << "Found sufficiently good restricted banded alignment" << endl;
@@ -460,8 +472,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
                 // alignments, and we can cut them and splice them.
                 
                 // Take half the overlap off each alignment and paste together
-                aln = merge_alignments(strip_from_end(aln_left, overlap / 2),
-                    strip_from_start(aln_right, (overlap + 1) / 2));
+                aln = simplify(merge_alignments(strip_from_end(aln_left, overlap / 2),
+                    strip_from_start(aln_right, (overlap + 1) / 2)));
                     
                 // TODO: produce a better score!
                 aln.set_score(aln_left.score() + aln_right.score());
@@ -486,7 +498,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, const string& to_align, size_
                 middle_edit->set_to_length(middle_sequence.size());
                 
                 // Paste everything together
-                aln = merge_alignments(merge_alignments(aln_left, aln_middle), aln_right);
+                aln = simplify(merge_alignments(merge_alignments(aln_left, aln_middle), aln_right));
                 
                 // TODO: produce a better score!
                 aln.set_score(aln_left.score() + aln_right.score());
