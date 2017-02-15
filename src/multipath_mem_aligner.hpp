@@ -77,7 +77,8 @@ namespace vg {
         void prune_to_nodes_on_tracebacks(size_t num_tracebacks);
         
         /// Subsets the graph to the nodes and edges with the indices given
-        void prune_graph(const unordered_set<size_t>& node_idxs, const unordered_set<pair<size_t, size_t>>& edge_idxs);
+        void prune_graph(const unordered_set<size_t>& node_idxs,
+                         const unordered_set<pair<size_t, size_t>>& edge_idxs);
         
         /// Adds Paths to nodes and prunes away any nodes that turn out to be redundant sub-MEMs
         void query_node_matches(const Alignment& alignment, xg::XG& xgindex, LRUCache<id_t, Node>& node_cache);

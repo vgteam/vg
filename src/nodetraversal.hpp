@@ -76,5 +76,17 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
 
 }
 
+namespace std {
+    /// hash function for Snarls
+    template<>
+    struct hash<const vg::Snarl> {
+        size_t operator()(const vg::Snarl& snarl) const {
+            auto hsh = hash<pair<pair<int64_t, bool>, pair<int64_t, bool> > >();
+            return hsh(make_pair(make_pair(snarl.start().node_id(), snarl.start().backward()),
+                                 make_pair(snarl.end().node_id(), snarl.end().backward())));
+        }
+    };
+}
+
 
 #endif

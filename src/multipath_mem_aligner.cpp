@@ -25,16 +25,23 @@ namespace vg {
         
         init_first_pass_graph(alignment, mems, aligner, xgindex, full_length_bonus);
         perform_dp();
+        // TODO: is this the right approach? I might want to limit more than to tracebacks
+        // overlap edges will almost always get chosen too because I'm assuming maximum score between them
+        // maybe I need multiple scoring strategies? also worried about backward facing dangling overlaps once
+        // I am doing tail alignment. Maybe would be best to keep track of overlap edges so I can treat them different
+        //  - if the non-overlapping edge ends up being reachable in the graph, we probably never want the
+        //    overlap edge because it's just going to get pulled into taking the same match
         prune_to_nodes_on_tracebacks(num_pruning_tracebacks);
         query_node_matches(alignment, xgindex, node_cache);
-        // TODO: add logic to prune out Snarls
+        //remove_snarls()
+        //query_edge_subgraphs()
     }
     
     void MultipathMEMAligner::init_first_pass_graph(const Alignment& alignment,
                                                     const vector<MaximalExactMatch>& mems,
                                                     const QualAdjAligner& aligner,
                                                     const xg::XG& xgindex,
-                                                    int8_t full_length_bonus){
+                                                    int8_t full_length_bonus) {
     
         // TODO: handle inversions -- do I just need extra paths?
         // for now just not checking for orientation consistency and hoping it works out (but this
@@ -426,7 +433,7 @@ namespace vg {
                 }
                 
                 // mark the edge as being involved in a traceback
-                edge_idxs.insert(make_pair(prev_idx, traceback_idx));
+                edge_idxs.insert(make_pair(traceback_idx, prev_idx));
                 // get the next node
                 traceback_manager.mark_traced(traceback_idx);
                 node = nodes[traceback_idx];
@@ -550,6 +557,7 @@ namespace vg {
                                                  LRUCache<id_t, Node>& node_cache) {
         
         // group the nodes based on the MEM they originally came from
+        // TODO: it would be better to just preserve this information somehow, rediscovering it is wasteful
 
         string::const_iterator read_begin = alignment.sequence().begin();
         
@@ -575,21 +583,223 @@ namespace vg {
                                            match_nodes.back()->end));
         }
         
-//        // sort the matches in descending order by length so that if there's a redundant
-//        // sub-MEM we always find the containing MEM(s) first
-//        sort(matches.begin(), matches.end(),
-//             [](const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m1,
-//                const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m2) {
-//                 return m1.second.second - m1.second.first > m2.second.second - m2.second.first;
-//             });
-//        
-//        // map of node ids to the indices in the matches that contain them
-//        unordered_map<int64_t, vector<size_t>> node_matches;
-//        
-//        for (size_t i = 0; i < matches.size(); i++) {
-//            
-//        }
+        // sort the matches in descending order by length so that if there's a redundant
+        // partial MEM we always find the containing MEM(s) first
+        sort(matches.begin(), matches.end(),
+             [](const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m1,
+                const pair<pos_t, pair<string::const_iterator, string::const_iterator>>& m2) {
+                 return m1.second.second - m1.second.first > m2.second.second - m2.second.first;
+             });
         
+        // map of node ids to the indices in the matches that contain them
+        unordered_map<int64_t, vector<size_t>> node_matches;
+        
+        unordered_set<size_t> nonredundant_node_idxs;
+        
+        for (size_t i = 0; i < matches.size(); i++) {
+            
+            // the part of the read we're going to match
+            string::const_iterator begin = matches[i].second.first;
+            string::const_iterator end = matches[i].second.second;
+            int64_t mem_length = end - begin;
+            // the start of the hit
+            pos_t hit_pos = matches[i].first.first;
+            
+            // check all MEMs that traversed this node to see if this is a sub-MEM
+            bool is_partial_mem = false;
+            for (size_t j : node_matches[id(hit_pos)]) {
+                for (MultipathMEMNode* match_node : match_records[matches[j].first]) {
+                    Path& path = match_node->path;
+                    
+                    int64_t relative_offset = begin - match_node->begin;
+                    if (relative_offset < 0 || relative_offset >= match_node->end - match_node->begin) {
+                        // the start of the hit does not fall on the same section of the read
+                        // the match
+                        continue;
+                    }
+                    
+                    int64_t prefix_length = 0;
+                    for (size_t k = 0; k < path.mapping_size(); k++) {
+                        const Mapping& mapping = path.mapping(k);
+                        // the length through this matpping
+                        int64_t prefix_through_length = prefix_length + mapping.from_length();
+                        if (relative_offset < prefix_length + mapping.from_length()) {
+                            // the end of this mapping is past where this match would occur inside it
+                            if (prefix_length <= relative_offset) {
+                                // the possible start of this match is on this mapping
+                                if (mapping.position().node_id() == id(hit_pos)
+                                    && mapping.position().is_reverse() == is_rev(hit_pos)) {
+                                    // we are on the node traversal we would expect if this is a false
+                                    // partial match. technically this can happen when this isn't a false
+                                    // partial match, but this will be extremely rare
+                                    is_partial_mem = true;
+                                    break;
+                                }
+                            }
+                            else {
+                                // we've gone past it
+                                break;
+                            }
+                        }
+                        prefix_length = prefix_through_length;
+                    }
+                    if (is_partial_mem) {
+                        break;
+                    }
+                }
+                if (is_partial_mem) {
+                    break;
+                }
+            }
+            
+            // don't walk the match of false partial hits
+            if (is_partial_mem) {
+                continue;
+            }
+            
+            // mark that this node passed the redundancy filter
+            nonredundant_node_idxs.insert(i);
+            
+            // TODO: the following code is duplicative with Mapper::mem_positions_by_index
+            
+            // each record indicates the next edge index to traverse, the number of edges that
+            // cannot reach a MEM end, and the positions along each edge out
+            vector<pair<size_t, vector<pos_t>>> stack{make_pair(0, vector<pos_t>{hit_pos})};
+            
+            // it is possible for the MEM to have multiple exact hits from the same start position
+            // but we will choose one greedily with DFS
+            while (!stack.empty()) {
+                
+                size_t mem_idx = pos_stack.size() - 1;
+                
+                // which edge are we going to search out of this node next?
+                size_t next_idx = pos_stack.back().first;
+                
+                // indicate which edge to check next
+                pos_stack.back().first++;
+                
+                if (next_idx >= pos_stack.back().second.size()) {
+                    // we have traversed all of the edges out of this position
+                    
+                    // backtrack to previous node
+                    pos_stack.pop_back();
+                    
+                    // skip the forward search on this iteration
+                    continue;
+                }
+                
+                // increment to the next edge
+                pos_stack.back().first.first++;
+                
+                pos_t graph_pos = pos_stack.back().second[next_idx];
+                
+                // does this graph position match the MEM?
+                if (*(begin + mem_idx) != xg_cached_pos_char(graph_pos, xgindex, node_cache)) {
+                    // increase the count of misses in this layer
+                    pos_stack.back().first.second++;
+                }
+                else if (mem_idx < mem_length - 1) {
+                    
+                    // add a layer onto the stack for all of the edges out
+                    pos_stack.push_back(make_pair(0, vector<pos_t>()));
+                    
+                    // fill the layer with the next positions
+                    vector<pos_t>& nexts = pos_stack.back().second;
+                    for (const pos_t& next_graph_pos : xg_cached_positions_bp_from(graph_pos, 1, false,
+                                                                                   xgindex, node_cache)) {
+                        nexts.push_back(next_graph_pos);
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+            
+            assert(stack.size() == mem_length);
+            
+            // add pointers to this path to the index for node IDs
+            int64_t node_id = 0;
+            for (size_t j = 0; j < mem_length; j++) {
+                int64_t id_here = id(stack[j].second[stack[j].first - 1]);
+                if (id_here != node_id) {
+                    node_matches[id_here].push_back(i);
+                    node_id = id_here;
+                }
+            }
+            
+            vector<MultipathMEMNode*>& match_nodes = match_records[matches[i].first];
+            for (MultipathMEMNode* match_node : match_nodes) {
+                // get the path from the node
+                Path& path = match_nodes->path;
+                
+                // initialize a the first mapping
+                int64_t rank = 1;
+                Mapping* mapping = path.add_mapping();
+                mapping->set_rank(rank);
+                Position* position = mapping->add_position();
+                
+                // get the first position of this match
+                pos_t first_pos = stack[match_node->offset].second[stack[match_node->offset].first - 1];
+                
+                // keep track of how long the match is to one node
+                int64_t node_match_len = 1;
+                
+                // transfer information to the Position
+                position->set_offset(offset(first_pos));
+                position->set_node_id(id(first_pos));
+                position->set_is_reverse(is_rev(first_pos));
+                
+                // check the rest of the positions
+                int64_t match_node_end = match_node->offset + (match_node->end - match_node->begin);
+                for (int64_t j = match_node->offset + 1; j < match_node_end; i++) {
+                    // get the next position
+                    pos_t next_pos = stack[j].second[stack[j].first - 1];
+                    
+                    if (is_rev(next_pos) != position->is_reverse() || id(next_pos) != position->node_id()) {
+                        // we've crossed an edge, finish the mapping
+                        mapping->set_from_length(node_match_len);
+                        mapping->set_to_length(node_match_len);
+                        
+                        // and start a new one
+                        rank++;
+                        mapping = path.add_mapping();
+                        mapping->set_rank(rank);
+                        position = mapping->add_position();
+                        
+                        // transfer the information to it
+                        position->set_offset(offset(next_pos));
+                        position->set_node_id(id(next_pos));
+                        position->set_is_reverse(is_rev(next_pos));
+                        
+                        node_match_len = 1;
+                    }
+                    else {
+                        // this is still matching the same node
+                        node_match_len++;
+                    }
+                }
+                // finish the last mapping
+                mapping->set_from_length(node_match_len);
+                mapping->set_to_length(node_match_len);
+            }
+        }
+        
+        // if walking out the matches uncovered any redundant sub-hits, prune
+        // them from the graph
+        if (nonredundant_node_idxs.size() < nodes.size()) {
+            
+            // gather all of the edges between
+            unordered_set<pair<size_t, size_t>> nonredundant_edge_idxs;
+            for (size_t i : nonredundant_node_idxs) {
+                for (MultipathMEMEdge& edge : nodes[i].edges_from) {
+                    if (nonredundant_node_idxs.count(edge.to_idx)) {
+                        nonredundant_edge_idxs.emplace(i, edge.to_idx);
+                    }
+                }
+            }
+            
+            prune_graph(nonredundant_node_idxs, nonredundant_edge_idxs);
+        }
     }
     
     MultipathMEMAligner::TracebackManager::TracebackManager(const vector<MultipathMEMNode>& nodes,
