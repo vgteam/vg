@@ -49,7 +49,7 @@ int main_gamsort(int argc, char **argv)
                 {"is-sorted", no_argument, 0, 's'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:dhraps",
+        c = getopt_long(argc, argv, "idhraps",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -94,12 +94,12 @@ int main_gamsort(int argc, char **argv)
 
     GAMSorter gs;
 
-    if (just_use_rocks)
+    if (just_use_rocks && !do_index)
     {
         // Do the sort the old way - write a big ol'
         // RocksDB index of alignments, then dump them
         // from that DB. Loses unmapped reads.
-        string dbname = gamfile + "grai";
+        string dbname = gamfile + ".grai";
         Index index;
 
         index.open_for_bulk_load(dbname);
@@ -136,6 +136,29 @@ int main_gamsort(int argc, char **argv)
 
     if (do_index && just_use_rocks)
     {
+        string dbname = gamfile + ".grai";
+        Index index;
+
+        index.open_for_bulk_load(dbname);
+        int64_t aln_idx = 0;
+        function<void(Alignment&)> lambda_reader = [&index](Alignment& aln) {
+                index.put_alignment(aln);
+        };
+        get_input_file(gamfile, [&](istream& in) {
+            stream::for_each_parallel(in, lambda_reader);
+        });
+
+        vector<Alignment> output_buf;
+        auto lambda_writer = [&output_buf](const Alignment& aln) {
+                output_buf.push_back(aln);
+                stream::write_buffered(cout, output_buf, 100);
+            };
+        index.for_each_alignment(lambda_writer);
+        ofstream outstream;
+        outstream.open(dbname);
+        //stream::write_buffered(outstream, output_buf, 0);
+        index.flush();
+       
     }
     
     else if (do_index){
