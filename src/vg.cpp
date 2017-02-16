@@ -5149,6 +5149,10 @@ void VG::add_nodes_and_edges(const Path& path,
                 } else {
                     // Make a new run of nodes of up to max_node_size each
                     
+                    // Make sure that we are trying to make a run of nodes of
+                    // the length we're supposed to be.
+                    assert(path_to_length(from_path) == fwd_seq.size());
+                    
                     size_t cursor = 0;
                     while (cursor < fwd_seq.size()) {
                         // Until we used up all the sequence, make nodes
@@ -5160,7 +5164,14 @@ void VG::add_nodes_and_edges(const Path& path,
                         // with this node. TODO: this is n^2 in number of nodes
                         // we add because we copy the whole path each time.
                         Path front_path;
-                        tie(front_path, from_path) = cut_path(from_path, new_node->sequence().size());
+                        
+                        if (path_to_length(from_path) > new_node->sequence().size()) {
+                            // There will still be path left, so we cut the path
+                            tie(front_path, from_path) = cut_path(from_path, new_node->sequence().size());
+                        } else {
+                            // We consume the rest of the path. Don't bother cutting it.
+                            swap(front_path, from_path);
+                        }
                         
                         // The front bit of the path belongs to this new node
                         added_nodes[new_node] = front_path;

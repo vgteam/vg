@@ -538,7 +538,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     return aln;
                 }
                 
-            } else {
+            } else if (false) {
             
                 cerr << "Attempt mapper-based " << to_align.size() << " x " << graph.length() << " alignment" << endl;
             
@@ -582,7 +582,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 delete lcp_index;
                 delete gcsa_index;
                 
-                cerr << "\tScore: " << aln.score() << endl;
+                cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor) << endl;
                 
                 if (aln.score() > to_align.size() * aligner.match * min_score_factor) {
                     // This alignment looks good.
@@ -601,6 +601,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // If we get here, we couldn't find a good banded alignment, or it looks like the ends aren't present already.
         cerr << "Splicing tail alignments" << endl;
+        cerr << pb2json(aln_left) << endl;
+        cerr << pb2json(aln_right) << endl;
         
         // Splice left and right tails together with any remaining sequence we didn't have
         
