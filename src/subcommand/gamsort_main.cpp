@@ -1,3 +1,5 @@
+#include "gamsorter.hpp"
+#include "stream.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
 #include "index.hpp"
@@ -88,6 +90,7 @@ int main_gamsort(int argc, char **argv)
         help_gamsort(argv);
         exit(11);
     }
+
     gamfile = argv[optind];
 
     GAMSorter gs;
