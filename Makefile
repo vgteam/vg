@@ -1,5 +1,6 @@
 DEP_DIR:=./deps
 SRC_DIR:=src
+ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
 UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
 BIN_DIR:=bin
@@ -97,6 +98,7 @@ OBJ += $(OBJ_DIR)/vcf_buffer.o
 OBJ += $(OBJ_DIR)/variant_adder.o
 OBJ += $(OBJ_DIR)/name_mapper.o
 OBJ += $(OBJ_DIR)/graph_synchronizer.o
+OBJ += $(OBJ_DIR)/vg_algorithms.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -121,6 +123,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/aligner.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vcf_buffer.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/path_index.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg_algorithms.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/variant_adder.o
 
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
@@ -436,6 +439,9 @@ $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp 
 
 $(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
+$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
 ###################################
 ## VG unit test compilation begins here
 ####################################
@@ -483,6 +489,8 @@ $(UNITTEST_OBJ_DIR)/chunker.o: $(UNITTEST_SRC_DIR)/chunker.cpp $(UNITTEST_SRC_DI
 $(UNITTEST_OBJ_DIR)/vcf_buffer.o: $(UNITTEST_SRC_DIR)/vcf_buffer.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vcf_buffer.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/path_index.o: $(UNITTEST_SRC_DIR)/path_index.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/vg_algorithms.o: $(UNITTEST_SRC_DIR)/vg_algorithms.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/variant_adder.o: $(UNITTEST_SRC_DIR)/variant_adder.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/name_mapper.hpp $(DEPS)
 
