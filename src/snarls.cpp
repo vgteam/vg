@@ -112,6 +112,22 @@ namespace vg {
         return index;
     }
     
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index() {
+        unordered_map<pair<int64_t, bool>, const Snarl*> index;
+        for (Snarl& snarl : snarls) {
+            index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
+        }
+        return index;
+    }
+    
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index() {
+        unordered_map<pair<int64_t, bool>, const Snarl*> index;
+        for (Snarl& snarl : snarls) {
+            index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
+        }
+        return index;
+    }
+    
     // can include definition of inline function apart from forward declaration b/c only used in this file
     inline pair<pair<int64_t, bool>, pair<int64_t, bool> > SnarlManager::key_form(const Snarl* snarl) {
         return make_pair(make_pair(snarl->start().node_id(), snarl->start().backward()),

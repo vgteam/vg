@@ -20,6 +20,7 @@ namespace vg {
                                              const QualAdjAligner& aligner,
                                              xg::XG& xgindex,
                                              LRUCache<id_t, Node>& node_cache,
+                                             SnarlManager& snarl_manager,
                                              int8_t full_length_bonus,
                                              size_t num_pruning_tracebacks) {
         
@@ -799,6 +800,41 @@ namespace vg {
             }
             
             prune_graph(nonredundant_node_idxs, nonredundant_edge_idxs);
+        }
+    }
+    
+    void MultipathMEMAligner::remove_snarls(SnarlManager& snarl_manager) {
+        // TODO: removing all Snarl interiors is going to be too aggressive, but I'm not sure what
+        // a better principled alternative would be
+        // for now I'm going to remove only the bottom level Snarl traversed by the path because that's
+        // easy
+        
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_start_index = snarl_manager.snarl_start_index();
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_end_index = snarl_manager.snarl_end_index();
+        
+        vector<pair<size_t, size_t>> cut_intervals;
+        for (MultipathMEMNode& node : nodes) {
+            Path& path = node.path;
+            
+            // indicate that we can cut from the beginning
+            size_t cut begin = 0;
+            
+            for (size_t i = 0; i < path.mapping_size(); i++) {
+                Position& position = path.mapping(i).position();
+                
+                //
+                if (snarl_end_index.count(make_pair(position.node_id(), !position.is_reverse()))
+                    snarl_start_index.count(make_pair(position.node_id(), !position.is_reverse()))) {
+                    // a cut ends here
+                }
+                
+                // we allow a nested site to reset the beginning of the cu
+                if (snarl_start_index.count(make_pair(position.node_id(), position.is_reverse()))
+                    snarl_end_index.count(make_pair(position.node_id(), position.is_reverse()))) {
+                    // a cut starts here
+                    cut_begin = i + 1;
+                }
+            }
         }
     }
     
