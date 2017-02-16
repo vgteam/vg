@@ -96,6 +96,17 @@ public:
     /// by multiple threads at once.
     Aligner aligner;
     
+    /// Sometimes, we have to make Mappers, for graphs too big to safely use our
+    /// global banded aligner on. If we do that, what max edge crossing limit
+    /// should we use for simplification?
+    size_t edge_max = 0;
+    /// What base kmer size should we use?
+    size_t kmer_size = 16;
+    /// What number of doubling steps should we use?
+    size_t doubling_steps = 3;
+    /// If nonzero, prune short subgraphs smaller than this before GCSA2-indexing
+    size_t subgraph_prune = 0;
+    
 protected:
     /// The graph we are modifying
     VG& graph;

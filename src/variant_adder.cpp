@@ -1,4 +1,5 @@
 #include "variant_adder.hpp"
+#include "mapper.hpp"
 
 namespace vg {
 
@@ -284,7 +285,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
                 int64_t expected_score = min_length * aligner.match -
                     aligner.gap_open - 
-                    (max_length - 1 - min_length) * aligner.mismatch;
+                    (max_length - 1 - min_length) * aligner.gap_extension;
                     
                 // But maybe we don't have a massive indel and really have just
                 // a SNP or something. We should accept any positive scoring
@@ -488,50 +489,114 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 0, true, true, 0, false, 0, max_span), node_length_function);
         }
         
-        cerr << "Scores: " << aln_left.score() << ", " << aln_right.score() << endl;
+        cerr << "\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.match * min_score_factor
+            << ", " << aln_right.score() << "/" << right_tail.size() * aligner.match * min_score_factor << endl;
         
         if (aln_left.score() > left_tail.size() * aligner.match * min_score_factor ||
             aln_right.score() > right_tail.size() * aligner.match * min_score_factor) {
         
             // Aligning the two tails suggests that the whole string might be in
             // the graph already.
+            
+            if (false) {
+                // It's safe to try the tight banded alignment
         
-            // We set this to true if we manage to find a valid alignment in the
-            // narrow band.
-            bool aligned_in_band;
-            
-            try {
-            
-                cerr << "Attempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
-            
-                // Throw it into the aligner with very restrictive banding to see if it's already basically present
-                aln = graph.align(to_align, &aligner,
-                    0, false, false, 0, true, large_alignment_band_padding, max_span);
-                Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
-                    0, false, false, 0, true, large_alignment_band_padding, max_span);
-                if (aln2.score() > aln.score()) {
-                    // The reverse alignment is better. But spit it back in the
-                    // forward orientation.
-                    aln = reverse_complement_alignment(aln2, node_length_function);
+                // We set this to true if we manage to find a valid alignment in the
+                // narrow band.
+                bool aligned_in_band;
+                
+                try {
+                
+                    cerr << "Attempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+                
+                    // Throw it into the aligner with very restrictive banding to see if it's already basically present
+                    aln = graph.align(to_align, &aligner,
+                        0, false, false, 0, true, large_alignment_band_padding, max_span);
+                    Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
+                        0, false, false, 0, true, large_alignment_band_padding, max_span);
+                    if (aln2.score() > aln.score()) {
+                        // The reverse alignment is better. But spit it back in the
+                        // forward orientation.
+                        aln = reverse_complement_alignment(aln2, node_length_function);
+                    }
+                    aligned_in_band = true;
+                } catch(NoAlignmentInBandException ex) {
+                    // If the aligner can't find any valid alignment in the restrictive
+                    // band, we will need to knock together an alignment manually.
+                    aligned_in_band = false;
                 }
-                aligned_in_band = true;
-            } catch(NoAlignmentInBandException ex) {
-                // If the aligner can't find any valid alignment in the restrictive
-                // band, we will need to knock together an alignment manually.
-                aligned_in_band = false;
-            }
-            
-            if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
-                // If we get a good score, use that alignment
+                
+                if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
+                    // If we get a good score, use that alignment
 #ifdef debug
-                cerr << "Found sufficiently good restricted banded alignment" << endl;
+                    cerr << "Found sufficiently good restricted banded alignment" << endl;
 #endif
-                return aln;
+                    return aln;
+                }
+                
+            } else {
+            
+                cerr << "Attempt mapper-based " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+            
+                // Otherwise, it's unsafe to try the tight banded alignment
+                // (because our bands might get too big). Try a Mapper-based
+                // fake-banded alignment, and trturn its alignment if it finds a
+                // good one.
+                
+                // Generate an XG index
+                xg::XG xg_index(graph.graph);
+
+                // Generate a GCSA2 index
+                gcsa::GCSA* gcsa_index = nullptr;
+                gcsa::LCPArray* lcp_index = nullptr;
+    
+                if (edge_max) {
+                    VG gcsa_graph = graph; // copy the graph
+                    // remove complex components
+                    gcsa_graph.prune_complex_with_head_tail(kmer_size, edge_max);
+                    if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
+                    // then index
+                    cerr << "\tGCSA index size: " << gcsa_graph.length() << " bp" << endl;
+                    gcsa_graph.build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, false, false, doubling_steps);
+                } else {
+                    // if no complexity reduction is requested, just build the index
+                    cerr << "\tGCSA index size: " << graph.length() << " bp" << endl;
+                    graph.build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, false, false, doubling_steps);
+                }
+                        
+                // Make the Mapper
+                Mapper mapper(&xg_index, gcsa_index, lcp_index);
+                // Copy over alignment scores
+                mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension);
+                
+                // Map. Will invoke the banded aligner if the read is long, and
+                // the normal index-based aligner otherwise.
+                // Note: reverse complement is handled by the mapper.
+                aln = mapper.align(to_align);
+                
+                // Clean up indexes
+                delete lcp_index;
+                delete gcsa_index;
+                
+                cerr << "\tScore: " << aln.score() << endl;
+                
+                if (aln.score() > to_align.size() * aligner.match * min_score_factor) {
+                    // This alignment looks good.
+                    
+                    // TODO: check for banded alignments that jump around and
+                    // have lots of matches but also lots of novel
+                    // edges/deletions
+                    
+                    return aln;
+                }
+                
+                
             }
         
         }
         
         // If we get here, we couldn't find a good banded alignment, or it looks like the ends aren't present already.
+        cerr << "Splicing tail alignments" << endl;
         
         // Splice left and right tails together with any remaining sequence we didn't have
         

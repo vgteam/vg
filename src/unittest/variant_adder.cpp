@@ -260,12 +260,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
 TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
 
     string graph_json = R"({
-        "node": [{"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC"}],
-        "path": [
-            {"name": "ref", "mapping": [
-                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
-            ]}
-        ]
+        "node": [{"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC"}]
     })";
     
     // Load the JSON
@@ -328,12 +323,7 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
 TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[variantadder]" ) {
 
     string graph_json = R"({
-        "node": [{"id": 1, "sequence": "GCGC<10kAs>GCGC"}],
-        "path": [
-            {"name": "ref", "mapping": [
-                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
-            ]}
-        ]
+        "node": [{"id": 1, "sequence": "GCGC<10kAs>GCGC"}]
     })";
     
     // Make the graph have lots of As
@@ -406,15 +396,95 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
 
 }
 
+TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadder]" ) {
+
+    string graph_json = R"({
+        "node": [
+            {"id": 1, "sequence": "GCGCAAAAAAAAAAA"},
+            {"id": 2, "sequence": "<10kAs>"},
+            {"id": 3, "sequence": "AAAAAAAAAAGCGC"}],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 3}
+        ]
+    })";
+    
+    // Make the graph have lots of As
+    stringstream a_stream;
+    for(size_t i = 0; i < 10000; i++) {
+        a_stream << "A";
+    }
+    graph_json = regex_replace(graph_json, std::regex("<10kAs>"), a_stream.str());
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Make a VariantAdder
+    VariantAdder adder(graph);
+    
+    // Make a deleted version (only 21 As)
+    string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
+    
+    // Align it between 1 and 3
+    auto endpoints = make_pair(NodeSide(1, false), NodeSide(3, true));
+    Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
+    
+    SECTION("the resulting alignment should have the input string") {
+        REQUIRE(aligned.sequence() == deleted);
+    }
+    
+    SECTION("the resulting alignment should have two mappings") {
+        REQUIRE(aligned.path().mapping_size() == 2);
+        
+        auto& m1 = aligned.path().mapping(0);
+        auto& m2 = aligned.path().mapping(1);
+        
+        SECTION("each mapping should be a single edit") {
+            REQUIRE(m1.edit_size() == 1);
+            REQUIRE(m2.edit_size() == 1);
+            
+            auto& match1 = m1.edit(0);
+            auto& match2 = m2.edit(0);
+        
+                
+            SECTION("the first edit should be a match") {
+                REQUIRE(edit_is_match(match1));
+            }
+            
+            SECTION("the second edit should be a match") {
+                REQUIRE(edit_is_match(match2));
+            }
+            
+            SECTION("the match lengths should sum to the length of the aligned string") {
+                REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
+            }
+            
+            SECTION("the first mapping should be at the start of node 1") {
+                REQUIRE(m1.position().node_id() == 1);
+                REQUIRE(m1.position().offset() == 0);
+                REQUIRE(m1.position().is_reverse() == false);
+            }
+            
+            SECTION("the second mapping should be at the end of node 3") {
+                REQUIRE(m2.position().node_id() == 3);
+                REQUIRE(m2.position().offset() == graph.get_node(3)->sequence().size() - match2.from_length());
+                REQUIRE(m2.position().is_reverse() == false);
+            }
+        }
+    }
+
+}
+
 TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[variantadder]" ) {
 
     string graph_json = R"({
-        "node": [{"id": 1, "sequence": "GCGC<100As>GCGC"}],
-        "path": [
-            {"name": "ref", "mapping": [
-                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
-            ]}
-        ]
+        "node": [{"id": 1, "sequence": "GCGC<100As>GCGC"}]
     })";
     
     // Make the graph have lots of As

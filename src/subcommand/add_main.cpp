@@ -135,6 +135,12 @@ int main_add(int argc, char** argv) {
         }
     }
     
+    // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Configure its temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());    
+    
     // Open all the VCFs into a list
     vector<unique_ptr<vcflib::VariantCallFile>> vcfs;
     
