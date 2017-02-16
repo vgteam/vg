@@ -3,7 +3,6 @@
 #include <getopt.h>
 #include "subcommand.hpp"
 #include "index.hpp"
-#include "GAMSorter.hpp"
 #include "stream.hpp"
 
 /**
