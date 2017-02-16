@@ -482,8 +482,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 // endpoint node. Try aligning it in reverse complement, and
                 // pinning the other end.
                 
-                cerr << "Bad left alignment: " << pb2json(aln_left) << endl;
-                
                 // TODO: what if we have an exact palindrome over a reversing
                 // edge, and we keep getting the same alignment arbitrarily no
                 // matter how we flip the sequence to align?
@@ -513,8 +511,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 // endpoint node. Try aligning it in reverse complement and
                 // pinning the other end.
                 
-                cerr << "Bad right alignment: " << pb2json(aln_right) << endl;
-                
                 // TODO: what if we have an exact palindrome over a reversing
                 // edge, and we keep getting the same alignment arbitrarily no
                 // matter how we flip the sequence to align?
@@ -522,11 +518,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     0, true, true, 0, false, 0, max_span), node_length_function);
             }
             
-            cerr << "Left: " << pb2json(aln_left) << endl;
-            cerr << "Left graph: " << pb2json(left_subgraph.graph) << endl;
-            cerr << "Right: " << pb2json(aln_right) << endl;
-            cerr << "Right graph: " << pb2json(right_subgraph.graph) << endl;
-        
             // Splice them together with any remaining sequence we didn't have
             
             // How much overlap is there between the two tails? May be negative.
