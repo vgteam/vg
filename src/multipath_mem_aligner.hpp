@@ -35,6 +35,7 @@ namespace vg {
                             const QualAdjAligner& aligner,
                             xg::XG& xgindex,
                             LRUCache<id_t, Node>& node_cache,
+                            SnarlManager& snarl_manager,
                             int8_t full_length_bonus,
                             size_t num_pruning_tracebacks = 5);
         
@@ -82,6 +83,9 @@ namespace vg {
         
         /// Adds Paths to nodes and prunes away any nodes that turn out to be redundant sub-MEMs
         void query_node_matches(const Alignment& alignment, xg::XG& xgindex, LRUCache<id_t, Node>& node_cache);
+        
+        /// Cut out any part of a match node in the interior of an ultrabubble
+        void remove_snarls(SnarlManager& snarl_manager);
         
         /// Master list of the nodes in the exact match graph
         vector<MultipathMEMNode> nodes;
