@@ -423,7 +423,11 @@ public:
     double average_node_length(void);
     
     bool debug;
-    int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
+    int alignment_threads; // how many threads will *this* mapper use when running banded alignments. Should not be set directly.
+
+    /// Set the alignment thread count, updating internal data structures that
+    /// are per thread. Note that this resets aligner scores to their default values!
+    void set_alignment_threads(int new_thread_count);
 
     // kmer/"threaded" mapper parameters
     //

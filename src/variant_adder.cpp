@@ -502,7 +502,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             // Aligning the two tails suggests that the whole string might be in
             // the graph already.
             
-            if (false) {
+            if (to_align.size() <= thin_alignment_cutoff && graph.length() < thin_alignment_cutoff) {
                 // It's safe to try the tight banded alignment
         
                 // We set this to true if we manage to find a valid alignment in the
@@ -538,7 +538,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     return aln;
                 }
                 
-            } else if (false) {
+            } else {
             
                 cerr << "Attempt mapper-based " << to_align.size() << " x " << graph.length() << " alignment" << endl;
             
@@ -570,6 +570,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                         
                 // Make the Mapper
                 Mapper mapper(&xg_index, gcsa_index, lcp_index);
+                // Set up the threads
+                mapper.set_alignment_threads(omp_get_num_threads());
                 // Copy over alignment scores
                 mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension);
                 
@@ -582,14 +584,51 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 delete lcp_index;
                 delete gcsa_index;
                 
-                cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor) << endl;
-                
-                if (aln.score() > to_align.size() * aligner.match * min_score_factor) {
-                    // This alignment looks good.
+                // Trace the path and complain somehow when it jumps.
+                size_t discontinuities = 0;
+                for (size_t i = 1; i < aln.path().mapping_size(); i++) {
+                    // For every mapping after the first, look at where we came
+                    // from
+                    auto& last_position = aln.path().mapping(i-1).position();
+                    // And how long we were
+                    size_t consumed = mapping_from_length(aln.path().mapping(i-1));
+                    // And where we are now
+                    auto& next_position = aln.path().mapping(i).position();
                     
-                    // TODO: check for banded alignments that jump around and
-                    // have lots of matches but also lots of novel
-                    // edges/deletions
+                    if (last_position.node_id() == next_position.node_id() &&
+                        last_position.is_reverse() == next_position.is_reverse() &&
+                        last_position.offset() + consumed == next_position.offset()) {
+                        // The two mappings are on the same node with no discontinuity.
+                        continue;
+                    }
+                    
+                    if (last_position.offset() + consumed != graph.get_node(last_position.node_id())->sequence().size()) {
+                        // We didn't use up all of the last node
+                        discontinuities++;
+                        continue;
+                    }
+                    
+                    if (next_position.offset() != 0) {
+                        // We aren't at the beginning of this node
+                        discontinuities++;
+                        continue;
+                    }
+                    
+                    // If we get here we need to check for an edge
+                    NodeSide last_side = NodeSide(last_position.node_id(), !last_position.is_reverse());
+                    NodeSide next_side = NodeSide(next_position.node_id(), next_position.is_reverse());
+                    
+                    if (!graph.has_edge(last_side, next_side)) {
+                        // There's no connecting edge between the nodes we hit
+                        discontinuities++;
+                    }
+                }
+                
+                cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)
+                    << " with " << discontinuities << " breaks" << endl;
+                
+                if (aln.score() > to_align.size() * aligner.match * min_score_factor && discontinuities == 0) {
+                    // This alignment looks good.
                     
                     return aln;
                 }
@@ -601,8 +640,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // If we get here, we couldn't find a good banded alignment, or it looks like the ends aren't present already.
         cerr << "Splicing tail alignments" << endl;
-        cerr << pb2json(aln_left) << endl;
-        cerr << pb2json(aln_right) << endl;
         
         // Splice left and right tails together with any remaining sequence we didn't have
         

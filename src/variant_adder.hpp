@@ -107,6 +107,10 @@ public:
     /// If nonzero, prune short subgraphs smaller than this before GCSA2-indexing
     size_t subgraph_prune = 0;
     
+    // What's the cut-off above which we don't try thin banded aligners and do a
+    // Mapper instead?
+    size_t thin_alignment_cutoff = 2000;
+    
 protected:
     /// The graph we are modifying
     VG& graph;
