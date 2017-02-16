@@ -14,6 +14,10 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     
     // Show progress if the graph does.
     show_progress = graph.show_progress;
+    
+    // Make sure to dice nodes to 1024 or smaller, the max size that GCSA2
+    // supports, in case we need to GCSA-index part of the graph.
+    graph.dice_nodes(1024);
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {

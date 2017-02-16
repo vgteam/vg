@@ -428,18 +428,19 @@ public:
     /// deletions on the start or end of mappings (the removal of which can be
     /// accomplished with the Path::simplify() function).
     ///
-    /// Outputs (and caches for subsequent calls) novel nodes in added_seqs, and
-    /// Paths describing where novel nodes translate back to in the original
+    /// Outputs (and caches for subsequent calls) novel node runs in added_seqs,
+    /// and Paths describing where novel nodes translate back to in the original
     /// graph in added_nodes. Also needs a map of the original sizes of nodes
     /// deleted from the original graph, for reverse complementing. If dangling
     /// is set to a non-default value, left edges of nodes created for initial
     /// inserts will connect to the specified sides.
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, Node*>& added_seqs,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
                              const map<id_t, size_t>& orig_node_sizes,
-                             set<NodeSide> dangling = set<NodeSide>());
+                             set<NodeSide> dangling = set<NodeSide>(),
+                             size_t max_node_size = 1024);
 
     /// Produce a graph Translation object from information about the editing process.
     vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,

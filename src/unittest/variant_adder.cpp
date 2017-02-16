@@ -323,7 +323,15 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
 TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[variantadder]" ) {
 
     string graph_json = R"({
-        "node": [{"id": 1, "sequence": "GCGC<10kAs>GCGC"}]
+        "node": [
+            {"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+            {"id": 2, "sequence": "<10kAs>"},
+            {"id": 3, "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGC"}],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 3}
+        ]
     })";
     
     // Make the graph have lots of As
@@ -347,7 +355,8 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(1, true));
+    // Align between 1 and 3
+    auto endpoints = make_pair(NodeSide(1, false), NodeSide(3, true));
     Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
@@ -380,15 +389,15 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
                 REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
             }
             
-            SECTION("the first mapping should be at the start of the node") {
+            SECTION("the first mapping should be at the start of the first node") {
                 REQUIRE(m1.position().node_id() == 1);
                 REQUIRE(m1.position().offset() == 0);
                 REQUIRE(m1.position().is_reverse() == false);
             }
             
-            SECTION("the second mapping should be at the end of the node") {
-                REQUIRE(m2.position().node_id() == 1);
-                REQUIRE(m2.position().offset() == graph.get_node(1)->sequence().size() - match2.from_length());
+            SECTION("the second mapping should be at the end of the last node") {
+                REQUIRE(m2.position().node_id() == 3);
+                REQUIRE(m2.position().offset() == graph.get_node(3)->sequence().size() - match2.from_length());
                 REQUIRE(m2.position().is_reverse() == false);
             }
         }
@@ -400,9 +409,9 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
 
     string graph_json = R"({
         "node": [
-            {"id": 1, "sequence": "GCGCAAAAAAAAAAA"},
+            {"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
             {"id": 2, "sequence": "<10kAs>"},
-            {"id": 3, "sequence": "AAAAAAAAAAGCGC"}],
+            {"id": 3, "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGC"}],
         "edge": [
             {"from": 1, "to": 2},
             {"from": 1, "to": 3},
