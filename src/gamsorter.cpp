@@ -130,13 +130,13 @@ void GAMSorter::paired_sort(string gamfile)
     }
 }
 
-void GAMSorter::write_temp(vector<Alignment> &alns)
+void GAMSorter::write_temp(vector<Alignment>& alns)
 {
-    string t_name = "tmp_sort_" + tmp_filenames.size();
+    string t_name = "tmp_sort_" + std::to_string(tmp_filenames.size());
     tmp_filenames.push_back(t_name);
     ofstream t_file;
     t_file.open(t_name);
-    stream::write_buffered(t_file, alns, 1000);
+    stream::write_buffered(t_file, alns, 0);
 }
 
 void GAMSorter::dumb_sort(string gamfile)
@@ -144,8 +144,7 @@ void GAMSorter::dumb_sort(string gamfile)
     std::vector<Alignment> buf;
     buf.reserve(1000000);
 
-    std::function<void(Alignment &)> presort = [&](Alignment &aln) {
-
+    std::function<void(Alignment&)> presort = [&](Alignment &aln) {
         buf.push_back(aln);
     };
     ifstream gammy;
@@ -163,72 +162,78 @@ void GAMSorter::dumb_sort(string gamfile)
     stream::write_buffered(outfi, buf, buf.size());
 }
 
-// void GAMSorter::stream_sort(string gamfile){
+void GAMSorter::stream_sort(string gamfile){
 
-//     std::vector<Alignment&> buffer;
-//     buffer.reserve(1000);
-//     std::function<void(Alignment&)> firstpass_bufsort = [&]{
-//         #pragma omp critical
-//         buffer.push_back(a);
-//         if (buffer.size() == max_buf_size){
-//                 sort(buffer);
-//                 write_temp(buffer);
-//                 buffer.clear();
-//         }
+    std::vector<Alignment> buffer;
+    buffer.reserve(1000);
+    std::function<void(Alignment&)> firstpass_bufsort = [&](Alignment& a){
+        #pragma omp critical
+        buffer.push_back(a);
+        if (buffer.size() == max_buf_size){
+                sort(buffer);
+                write_temp(buffer);
+                buffer.clear();
+        }
+    };
 
-//     };
+    
 
-//     ifstream gammy;
-//     gammy.open(gamfile);
-//     stream::for_each_interleaved_pair_parallel(gammy, firstpass_bufsort);
 
-//     vector<Alignment> file_tops(tmp_files.size());
-//     std::function<int(vector<Alignment>)> min_index = [&](vector<Alignment> alns){
-//         int min_ind = 0;
-//         for (int i = 0; i < alns.size(); ++i){
-//             if (alns[i] < alns[min_ind]){
-//                 min_ind = i;
-//             }
-//         }
-//         return i;
-//     };
+    ifstream gammy;
+    gammy.open(gamfile);
+    stream::for_each(gammy, firstpass_bufsort);
 
-//     std::function<void(int, vector<Alignment>&)> handle_lowest_tmpfile = [&](int min_ind,
-//                                                                             ofstream ofi,
-//                                                                             vector<Alignment> buf,
-//                                                                             vector<Alignment>& alns){
-//         //ofi.writeline(alns[i]);
-//         //alns[i] = tmp_files[min_ind].getline();
-//         if (tmp_files[min_ind].eof())){
-//             tmp_files.erase(tmp_files.begin() + min_ind);
-//             alns.erase(alns.begin() + min_ind);
-//         }
-//         if (buf.size() >= max_buf_size){
-//             stream::write_buffered(ofi, buf, 1000);
-//         }
-//         };
+    sort(buffer);
+    write_temp(buffer);
+    buffer.clear();
 
-//     /**
-//     * Open all our files and maintain a buffer of size N(tmp_files)
-//     * at each iteration, perform a merge and write to disk
-//     */
-//     for (auto tmpfi : tmp_file_names){
-//             // Open all our tmp_files and load 1 record into
-//             // our buffer
-//             tmp_files.emplace_back(ifstream(tmpfi));
+    // vector<Alignment> file_tops(tmp_files.size());
+    // std::function<int(vector<Alignment>)> min_index = [&](vector<Alignment> alns){
+    //     int min_ind = 0;
+    //     for (int i = 0; i < alns.size(); ++i){
+    //         if (alns[i] < alns[min_ind]){
+    //             min_ind = i;
+    //         }
+    //     }
+    //     return i;
+    // };
 
-//     }
+    // std::function<void(int, vector<Alignment>&)> handle_lowest_tmpfile = [&](int min_ind,
+    //                                                                         ofstream ofi,
+    //                                                                         vector<Alignment> buf,
+    //                                                                         vector<Alignment>& alns){
+    //     //ofi.writeline(alns[i]);
+    //     //alns[i] = tmp_files[min_ind].getline();
+    //     if (tmp_files[min_ind].eof())){
+    //         tmp_files.erase(tmp_files.begin() + min_ind);
+    //         alns.erase(alns.begin() + min_ind);
+    //     }
+    //     if (buf.size() >= max_buf_size){
+    //         stream::write_buffered(ofi, buf, 1000);
+    //     }
+    //     };
 
-//     ofstream outfi;
-//     outfi.open("x.txt");
-//     int min_ind = 0;
-//     vector<Alignment> obuf;
-//     while(file_tops.size() > 0){
-//         min_ind = min_index(file_tops);
-//         handle_lowest_tmpfile(min_ind, outfi, obuf, file_tops);
-//     }
+    // /**
+    // * Open all our files and maintain a buffer of size N(tmp_files)
+    // * at each iteration, perform a merge and write to disk
+    // */
+    // for (auto tmpfi : tmp_file_names){
+    //         // Open all our tmp_files and load 1 record into
+    //         // our buffer
+    //         tmp_files.emplace_back(ifstream(tmpfi));
 
-// }
+    // }
+
+    // ofstream outfi;
+    // outfi.open("x.txt");
+    // int min_ind = 0;
+    // vector<Alignment> obuf;
+    // while(file_tops.size() > 0){
+    //     min_ind = min_index(file_tops);
+    //     handle_lowest_tmpfile(min_ind, outfi, obuf, file_tops);
+    // }
+
+}
 
 void GAMSorter::write_index(string gamfile, string outfile, bool isSorted)
 {

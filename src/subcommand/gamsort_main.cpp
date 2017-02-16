@@ -130,8 +130,7 @@ int main_gamsort(int argc, char **argv)
     }
     else if (!dumb_sort)
     {
-        cerr << "Smart sort not implemented :' ( " << endl;
-        exit(11);
+        gs.stream_sort(gamfile);
     }
 
     if (do_index && just_use_rocks)

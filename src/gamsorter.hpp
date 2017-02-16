@@ -36,7 +36,7 @@ class GAMSorter
 
     void write_temp(vector<Alignment>& alns);
 
-    // void stream_sort(string gamfile);
+    void stream_sort(string gamfile);
 
     void dumb_sort(string gamfile);
 
