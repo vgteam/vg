@@ -401,172 +401,186 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // Either the graph or the sequence to align is too big to just
         // throw in to the banded aligner with big bands.
         
-        // We set this to true if we manage to find a valid alignment in the
-        // narrow band.
-        bool aligned_in_band;
+        // First try the endpoint alignments and see if they look like the whole thing might be in the graph.
         
-        try {
         
-            cerr << "Attempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+        // We need to figure out what bits we'll align
+        string left_tail; 
+        string right_tail;
         
-            // Throw it into the aligner with very restrictive banding to see if it's already basically present
-            aln = graph.align(to_align, &aligner,
-                0, false, false, 0, true, large_alignment_band_padding, max_span);
-            Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
-                0, false, false, 0, true, large_alignment_band_padding, max_span);
-            if (aln2.score() > aln.score()) {
-                // The reverse alignment is better. But spit it back in the
-                // forward orientation.
-                aln = reverse_complement_alignment(aln2, node_length_function);
-            }
-            aligned_in_band = true;
-        } catch(NoAlignmentInBandException ex) {
-            // If the aligner can't find any valid alignment in the restrictive
-            // band, we will need to knock together an alignment manually.
-            aligned_in_band = false;
-        }
-        
-        if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
-            // If we get a good score, use that alignment
-#ifdef debug
-            cerr << "Found sufficiently good restricted banded alignment" << endl;
-#endif
+        if (to_align.size() <= pinned_tail_size) {
+            // Each tail will just be the whole string
+            left_tail = to_align;
+            right_tail = to_align;
         } else {
-            // Otherwise, create short anchoring sequences on the left and right and align them
+            // Cut off the tails
+            left_tail = to_align.substr(0, pinned_tail_size);
+            right_tail = to_align.substr(to_align.size() - pinned_tail_size);
+        }
+        
+        // We don't want to try to align against truly massive graphs with
+        // gssw because we can overflow. We also know our alignments need to
+        // be near the ends of the extracted graph, so there's no point
+        // aligning to the middle.
+        
+        // Extract one subgraph at each end of the big subgraph we're
+        // aligning to. Since we know where we extracted the original
+        // subgraph from, this is possible.
+        VG left_subgraph;
+        VG right_subgraph;
+        left_subgraph.add_node(*graph.get_node(endpoints.first.node));
+        right_subgraph.add_node(*graph.get_node(endpoints.second.node));
+        graph.expand_context_by_length(left_subgraph, left_tail.size() * 2);
+        graph.expand_context_by_length(right_subgraph, right_tail.size() * 2);
+        
+        cerr << "Attempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
+            << " and " << right_tail.size() << " x " << right_subgraph.length() << " alignments" << endl;
+        
+        // Do the two pinned tail alignments on the forward strand, pinning
+        // opposite ends.
+        Alignment aln_left = left_subgraph.align(left_tail, &aligner,
+            0, true, true, 0, false, 0, max_span);
+        Alignment aln_right = right_subgraph.align(right_tail, &aligner,
+            0, true, false, 0, false, 0, max_span);
             
-            // We need to figure out what bits we'll align
-            string left_tail; 
-            string right_tail;
+        if (aln_left.path().mapping_size() < 1 ||
+            aln_left.path().mapping(0).position().node_id() != endpoints.first.node ||
+            aln_left.path().mapping(0).edit_size() < 1 || 
+            !edit_is_match(aln_left.path().mapping(0).edit(0))) {
+        
+            // The left alignment didn't start with a match to the correct
+            // endpoint node. Try aligning it in reverse complement, and
+            // pinning the other end.
             
-            if (to_align.size() <= pinned_tail_size) {
-                // Each tail will just be the whole string
-                left_tail = to_align;
-                right_tail = to_align;
-            } else {
-                // Cut off the tails
-                left_tail = to_align.substr(0, pinned_tail_size);
-                right_tail = to_align.substr(to_align.size() - pinned_tail_size);
+            // TODO: what if we have an exact palindrome over a reversing
+            // edge, and we keep getting the same alignment arbitrarily no
+            // matter how we flip the sequence to align?
+            aln_left = reverse_complement_alignment(left_subgraph.align(reverse_complement(left_tail), &aligner,
+                0, true, false, 0, false, 0, max_span), node_length_function);
+                
+        }
+        
+        // It's harder to do the same checks on the right side because we
+        // can't just look at 0. Go find the rightmost mapping and edit, if
+        // any.
+        const Mapping* rightmost_mapping = nullptr;
+        const Edit* rightmost_edit = nullptr;
+        if (aln_right.path().mapping_size() > 0) {
+            rightmost_mapping = &aln_right.path().mapping(aln_right.path().mapping_size() - 1);
+        }
+        if (rightmost_mapping != nullptr && rightmost_mapping->edit_size() > 0) {
+            rightmost_edit = &rightmost_mapping->edit(rightmost_mapping->edit_size() - 1);
+        }
+        
+        if (rightmost_mapping == nullptr ||
+            rightmost_mapping->position().node_id() != endpoints.second.node ||
+            rightmost_edit == nullptr || 
+            !edit_is_match(*rightmost_edit)) {
+        
+            // The right alignment didn't end with a match to the correct
+            // endpoint node. Try aligning it in reverse complement and
+            // pinning the other end.
+            
+            // TODO: what if we have an exact palindrome over a reversing
+            // edge, and we keep getting the same alignment arbitrarily no
+            // matter how we flip the sequence to align?
+            aln_right = reverse_complement_alignment(right_subgraph.align(reverse_complement(right_tail), &aligner,
+                0, true, true, 0, false, 0, max_span), node_length_function);
+        }
+        
+        cerr << "Scores: " << aln_left.score() << ", " << aln_right.score() << endl;
+        
+        if (aln_left.score() > left_tail.size() * aligner.match * min_score_factor ||
+            aln_right.score() > right_tail.size() * aligner.match * min_score_factor) {
+        
+            // Aligning the two tails suggests that the whole string might be in
+            // the graph already.
+        
+            // We set this to true if we manage to find a valid alignment in the
+            // narrow band.
+            bool aligned_in_band;
+            
+            try {
+            
+                cerr << "Attempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+            
+                // Throw it into the aligner with very restrictive banding to see if it's already basically present
+                aln = graph.align(to_align, &aligner,
+                    0, false, false, 0, true, large_alignment_band_padding, max_span);
+                Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
+                    0, false, false, 0, true, large_alignment_band_padding, max_span);
+                if (aln2.score() > aln.score()) {
+                    // The reverse alignment is better. But spit it back in the
+                    // forward orientation.
+                    aln = reverse_complement_alignment(aln2, node_length_function);
+                }
+                aligned_in_band = true;
+            } catch(NoAlignmentInBandException ex) {
+                // If the aligner can't find any valid alignment in the restrictive
+                // band, we will need to knock together an alignment manually.
+                aligned_in_band = false;
             }
             
-            // We don't want to try to align against truly massive graphs with
-            // gssw because we can overflow. We also know our alignments need to
-            // be near the ends of the extracted graph, so there's no point
-            // aligning to the middle.
-            
-            // Extract one subgraph at each end of the big subgraph we're
-            // aligning to. Since we know where we extracted the original
-            // subgraph from, this is possible.
-            VG left_subgraph;
-            VG right_subgraph;
-            left_subgraph.add_node(*graph.get_node(endpoints.first.node));
-            right_subgraph.add_node(*graph.get_node(endpoints.second.node));
-            graph.expand_context_by_length(left_subgraph, left_tail.size() * 2);
-            graph.expand_context_by_length(right_subgraph, right_tail.size() * 2);
-            
-            cerr << "Attempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
-                << " and " << right_tail.size() << " x " << right_subgraph.length() << " alignments" << endl;
-            
-            // Do the two pinned tail alignments on the forward strand, pinning
-            // opposite ends.
-            Alignment aln_left = left_subgraph.align(left_tail, &aligner,
-                0, true, true, 0, false, 0, max_span);
-            Alignment aln_right = right_subgraph.align(right_tail, &aligner,
-                0, true, false, 0, false, 0, max_span);
-                
-            if (aln_left.path().mapping_size() < 1 ||
-                aln_left.path().mapping(0).position().node_id() != endpoints.first.node ||
-                aln_left.path().mapping(0).edit_size() < 1 || 
-                !edit_is_match(aln_left.path().mapping(0).edit(0))) {
-            
-                // The left alignment didn't start with a match to the correct
-                // endpoint node. Try aligning it in reverse complement, and
-                // pinning the other end.
-                
-                // TODO: what if we have an exact palindrome over a reversing
-                // edge, and we keep getting the same alignment arbitrarily no
-                // matter how we flip the sequence to align?
-                aln_left = reverse_complement_alignment(left_subgraph.align(reverse_complement(left_tail), &aligner,
-                    0, true, false, 0, false, 0, max_span), node_length_function);
-                    
-            }
-            
-            // It's harder to do the same checks on the right side because we
-            // can't just look at 0. Go find the rightmost mapping and edit, if
-            // any.
-            const Mapping* rightmost_mapping = nullptr;
-            const Edit* rightmost_edit = nullptr;
-            if (aln_right.path().mapping_size() > 0) {
-                rightmost_mapping = &aln_right.path().mapping(aln_right.path().mapping_size() - 1);
-            }
-            if (rightmost_mapping != nullptr && rightmost_mapping->edit_size() > 0) {
-                rightmost_edit = &rightmost_mapping->edit(rightmost_mapping->edit_size() - 1);
-            }
-            
-            if (rightmost_mapping == nullptr ||
-                rightmost_mapping->position().node_id() != endpoints.second.node ||
-                rightmost_edit == nullptr || 
-                !edit_is_match(*rightmost_edit)) {
-            
-                // The right alignment didn't end with a match to the correct
-                // endpoint node. Try aligning it in reverse complement and
-                // pinning the other end.
-                
-                // TODO: what if we have an exact palindrome over a reversing
-                // edge, and we keep getting the same alignment arbitrarily no
-                // matter how we flip the sequence to align?
-                aln_right = reverse_complement_alignment(right_subgraph.align(reverse_complement(right_tail), &aligner,
-                    0, true, true, 0, false, 0, max_span), node_length_function);
-            }
-            
-            // Splice them together with any remaining sequence we didn't have
-            
-            // How much overlap is there between the two tails? May be negative.
-            int64_t overlap = (int64_t) aln_left.sequence().size() +
-                (int64_t) aln_right.sequence().size() - (int64_t) to_align.size();
-            
-            if (overlap >= 0) {
-                // All of the string is accounted for in these two
-                // alignments, and we can cut them and splice them.
-                
-                // Take half the overlap off each alignment and paste together
-                aln = simplify(merge_alignments(strip_from_end(aln_left, overlap / 2),
-                    strip_from_start(aln_right, (overlap + 1) / 2)));
-                    
-                // TODO: produce a better score!
-                aln.set_score(aln_left.score() + aln_right.score());
-                
+            if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
+                // If we get a good score, use that alignment
 #ifdef debug
-                cerr << "Spliced overlapping end alignments" << endl;
+                cerr << "Found sufficiently good restricted banded alignment" << endl;
 #endif
-                
-            } else {
-                // Not all of the string is accounted for in these two
-                // alignments, so we will splice them together with any
-                // remaining input sequence.
-                
-                string middle_sequence = to_align.substr(aln_left.sequence().size(), -overlap);
-                
-                // Make a big bogus alignment with an unplaced pure insert mapping.
-                Alignment aln_middle;
-                aln_middle.set_sequence(middle_sequence);
-                auto* middle_mapping = aln_middle.mutable_path()->add_mapping();
-                auto* middle_edit = middle_mapping->add_edit();
-                middle_edit->set_sequence(middle_sequence);
-                middle_edit->set_to_length(middle_sequence.size());
-                
-                // Paste everything together
-                aln = simplify(merge_alignments(merge_alignments(aln_left, aln_middle), aln_right));
-                
-                // TODO: produce a better score!
-                aln.set_score(aln_left.score() + aln_right.score());
-                
-#ifdef debug
-                cerr << "Spliced disconnected end alignments" << endl;
-#endif
-                
+                return aln;
             }
+        
+        }
+        
+        // If we get here, we couldn't find a good banded alignment, or it looks like the ends aren't present already.
+        
+        // Splice left and right tails together with any remaining sequence we didn't have
+        
+        // How much overlap is there between the two tails? May be negative.
+        int64_t overlap = (int64_t) aln_left.sequence().size() +
+            (int64_t) aln_right.sequence().size() - (int64_t) to_align.size();
+        
+        if (overlap >= 0) {
+            // All of the string is accounted for in these two
+            // alignments, and we can cut them and splice them.
+            
+            // Take half the overlap off each alignment and paste together
+            aln = simplify(merge_alignments(strip_from_end(aln_left, overlap / 2),
+                strip_from_start(aln_right, (overlap + 1) / 2)));
+                
+            // TODO: produce a better score!
+            aln.set_score(aln_left.score() + aln_right.score());
+            
+#ifdef debug
+            cerr << "Spliced overlapping end alignments" << endl;
+#endif
+            
+        } else {
+            // Not all of the string is accounted for in these two
+            // alignments, so we will splice them together with any
+            // remaining input sequence.
+            
+            string middle_sequence = to_align.substr(aln_left.sequence().size(), -overlap);
+            
+            // Make a big bogus alignment with an unplaced pure insert mapping.
+            Alignment aln_middle;
+            aln_middle.set_sequence(middle_sequence);
+            auto* middle_mapping = aln_middle.mutable_path()->add_mapping();
+            auto* middle_edit = middle_mapping->add_edit();
+            middle_edit->set_sequence(middle_sequence);
+            middle_edit->set_to_length(middle_sequence.size());
+            
+            // Paste everything together
+            aln = simplify(merge_alignments(merge_alignments(aln_left, aln_middle), aln_right));
+            
+            // TODO: produce a better score!
+            aln.set_score(aln_left.score() + aln_right.score());
+            
+#ifdef debug
+            cerr << "Spliced disconnected end alignments" << endl;
+#endif
             
         }
+            
     }
     
     // TODO: check if we got alignments that didn't respect our specified

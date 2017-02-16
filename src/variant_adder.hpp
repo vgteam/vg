@@ -90,7 +90,7 @@ public:
     /// If the restricted band alignment doesn't find anything, we resort to
     /// pinned alignments from the ends and cutting and pasting together. How
     /// big should each pinned tail be?
-    size_t pinned_tail_size = 100;
+    size_t pinned_tail_size = 200;
     
     /// We use this Aligner to hold the scoring parameters. It may be accessed
     /// by multiple threads at once.
