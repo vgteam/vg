@@ -130,10 +130,36 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         cerr << "Original context bounds: " << left_context_start << " - " << right_context_past_end << endl;
 #endif
         
-        // Round bounds to node start and endpoints.
-        sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
-            tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start, right_context_past_end);
-        });
+        // We need to move the bounds out so that we aren;t trying to anchor our alignment with Ns
+        char left_anchor_character;
+        char right_anchor_character;
+        do {
+        
+            // Round bounds to node start and endpoints.
+            sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
+                tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start, right_context_past_end);
+            });
+            
+            // Check the bound characters
+            const string& ref_sequence = sync.get_path_sequence(vcf_to_fasta(variant->sequenceName));
+            left_anchor_character = ref_sequence.at(left_context_start);
+            right_anchor_character = ref_sequence.at(right_context_past_end - 1);
+            
+            if (left_anchor_character == 'N') {
+                // Try moving left.
+                // TODO: somehow solve the problem of being at the end of the graph with an N.
+                assert(left_context_start > 0);
+                left_context_start--;
+            }
+            
+            if (right_anchor_character == 'N') {
+                // Try moving left.
+                // TODO: somehow solve the problem of being at the end of the graph with an N.
+                assert(right_context_past_end <= ref_sequence.size());
+                right_context_past_end++;
+            }
+            
+        } while (left_anchor_character == 'N' || right_anchor_character == 'N');
         
 #ifdef debug
         cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
@@ -279,25 +305,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Do the alignment, dispatching cleverly on size
             Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
             
-            if (local_variants.size() == 1) {
-                // We only have one variant here, so we ought to have at least the expected giant gap score
-                
-                // Calculate the expected min score, for a giant gap (i.e. this
-                // variant is an SV indel), assuming a perfect match context
-                // background.
-                int64_t min_length = min(right_context_past_end - left_context_start, to_align.str().size());
-                int64_t max_length = max(right_context_past_end - left_context_start, to_align.str().size());
-                int64_t expected_score = min_length * aligner.match -
-                    aligner.gap_open - 
-                    (max_length - 1 - min_length) * aligner.gap_extension;
-                    
-                // But maybe we don't have a massive indel and really have just
-                // a SNP or something. We should accept any positive scoring
-                // alignment.
-                expected_score = min(expected_score, (int64_t) 0);
-                
-                assert(aln.score() >= expected_score);
-            }
+            // We can't predict the min score, because there might be
+            // substitutions in addition to any length changes.
             
             // We shouldn't have dangling ends, really, but it's possible for
             // inserts that have copies already in the graph to end up producing
@@ -541,10 +550,12 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     // band, we will need to knock together an alignment manually.
                     aligned_in_band = false;
                 }
-                
+
+#ifdef debug                
                 if (aligned_in_band) {
                     cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor) << endl;
                 }
+#endif
                 
                 if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
                     // If we get a good score, use that alignment
