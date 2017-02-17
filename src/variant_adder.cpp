@@ -97,6 +97,20 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // Make the list of all the local variants in one vector
         vector<vcflib::Variant*> local_variants = filter_local_variants(before, variant, after);
         
+        // Get the unique haplotypes
+        auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
+        
+        // Track the total bp of haplotypes
+        size_t total_haplotype_bases = 0;
+        
+        // Track the total graph size for the alignments
+        size_t total_graph_bases = 0;
+            
+#ifdef debug
+        cerr << "Have " << haplotypes.size() << " haplotypes for variant "
+            << variant->sequenceName << ":" << variant->position << endl;
+#endif
+        
         // Where does the group of nearby variants start?
         size_t group_start = local_variants.front()->position;
         // And where does it end (exclusive)? This is the latest ending point of any variant in the group...
@@ -110,8 +124,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         size_t overall_center;
         size_t overall_radius;
         tie(overall_center, overall_radius) = get_center_and_radius(local_variants);
-        
-        // Get the leading and trailing ref sequence on either side of this group of variants (to pin the outside variants down).
+
+        // Get the leading and trailing ref sequence on either side of this
+        // group of variants (to pin the outside variants down).
 
         // On the left we want either flank_range bases, or all the bases before
         // the first base in the group.
@@ -125,71 +140,14 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         // TODO: this is sort of just undoing some math we already did
         size_t left_context_start = group_start - left_context_length;
         size_t right_context_past_end = group_end + right_context_length;
-        
+            
 #ifdef debug
-        cerr << "Original context bounds: " << left_context_start << " - " << right_context_past_end << endl;
+            cerr << "Original context bounds: " << left_context_start << " - " << right_context_past_end << endl;
 #endif
-        
-        // We need to move the bounds out so that we aren;t trying to anchor our alignment with Ns
-        char left_anchor_character;
-        char right_anchor_character;
-        do {
-        
-            // Round bounds to node start and endpoints.
-            sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
-                tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start, right_context_past_end);
-            });
-            
-            // Check the bound characters
-            const string& ref_sequence = sync.get_path_sequence(vcf_to_fasta(variant->sequenceName));
-            left_anchor_character = ref_sequence.at(left_context_start);
-            right_anchor_character = ref_sequence.at(right_context_past_end - 1);
-            
-            if (left_anchor_character == 'N') {
-                // Try moving left.
-                // TODO: somehow solve the problem of being at the end of the graph with an N.
-                assert(left_context_start > 0);
-                left_context_start--;
-            }
-            
-            if (right_anchor_character == 'N') {
-                // Try moving left.
-                // TODO: somehow solve the problem of being at the end of the graph with an N.
-                assert(right_context_past_end <= ref_sequence.size());
-                right_context_past_end++;
-            }
-            
-        } while (left_anchor_character == 'N' || right_anchor_character == 'N');
-        
-#ifdef debug
-        cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
-#endif
-        
-        // Recalculate context lengths
-        left_context_length = group_start - left_context_start;
-        right_context_length = right_context_past_end - group_end;
-        
-        // Make sure we pull out out to the ends of the contexts
-        overall_radius = max(overall_radius, max(overall_center - left_context_start, right_context_past_end - overall_center));
-        
-        // Get actual context strings
-        string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
-        string right_context = path_sequence.substr(group_end, right_context_length);
-        
-        // Get the unique haplotypes
-        auto haplotypes = get_unique_haplotypes(local_variants, &buffer);
-        
-        // Track the total bp of haplotypes
-        size_t total_haplotype_bases = 0;
-        
-        // Track the total graph size for the alignments
-        size_t total_graph_bases = 0;
-        
-#ifdef debug
-        cerr << "Have " << haplotypes.size() << " haplotypes for variant "
-            << variant->sequenceName << ":" << variant->position << endl;
-#endif
-        
+
+        // Find the reference sequence
+        const string& ref_sequence = sync.get_path_sequence(vcf_to_fasta(variant->sequenceName));
+
         for (auto& haplotype : haplotypes) {
             // For each haplotype
             
@@ -220,104 +178,190 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             }
             cerr << endl;
 #endif
+
+            // This lets us know if we need to walk out more to find matchable sequence
+            bool have_dangling_ends;
+            do {
+                // We need to be able to increase our bounds until we haven't
+                // shifted an indel to the border of our context.
             
-            // Make its combined string
-            stringstream to_align;
-            to_align << left_context << haplotype_to_string(haplotype, local_variants) << right_context;
-            
+                
+                // We need to move the bounds out so that we aren;t trying to anchor our alignment with Ns
+                char left_anchor_character;
+                char right_anchor_character;
+                do {
+                
+                    // Round bounds to node start and endpoints.
+                    // This haplotype and all subsequent ones will be aligned with this wider context.
+                    sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
+                        tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start,
+                            right_context_past_end);
+                    });
+                    
+                    // Check the bound characters
+                    left_anchor_character = ref_sequence.at(left_context_start);
+                    right_anchor_character = ref_sequence.at(right_context_past_end - 1);
+                    
+                    if (left_anchor_character == 'N') {
+                        // Try moving left.
+                        // TODO: somehow solve the problem of being at the end of the graph with an N.
+                        assert(left_context_start > 0);
+                        left_context_start--;
+                    }
+                    
+                    if (right_anchor_character == 'N') {
+                        // Try moving left.
+                        // TODO: somehow solve the problem of being at the end of the graph with an N.
+                        assert(right_context_past_end <= ref_sequence.size());
+                        right_context_past_end++;
+                    }
+                    
+                } while (left_anchor_character == 'N' || right_anchor_character == 'N');
+                
 #ifdef debug
-            cerr << "Align " << to_align.str() << endl;
+                cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
+#endif
+                
+                // Recalculate context lengths
+                left_context_length = group_start - left_context_start;
+                right_context_length = right_context_past_end - group_end;
+                
+                // Make sure we pull out out to the ends of the contexts
+                overall_radius = max(overall_radius, max(overall_center - left_context_start,
+                    right_context_past_end - overall_center));
+                
+                // Get actual context strings
+                string left_context = path_sequence.substr(group_start - left_context_length, left_context_length);
+                string right_context = path_sequence.substr(group_end, right_context_length);
+                
+                // Make the haplotype's combined string
+                stringstream to_align;
+                to_align << left_context << haplotype_to_string(haplotype, local_variants) << right_context;
+                
+#ifdef debug
+                cerr << "Align " << to_align.str() << endl;
 #endif
 
-            // Count all the bases
-            total_haplotype_bases += to_align.str().size();
-            
-            // Make a request to lock the subgraph, leaving the nodes we rounded
-            // to (or the child nodes they got broken into) as heads/tails.
-            GraphSynchronizer::Lock lock(sync, variant_path_name, left_context_start, right_context_past_end);
-            
+                // Count all the bases
+                total_haplotype_bases += to_align.str().size();
+                
+                // Make a request to lock the subgraph, leaving the nodes we rounded
+                // to (or the child nodes they got broken into) as heads/tails.
+                GraphSynchronizer::Lock lock(sync, variant_path_name, left_context_start, right_context_past_end);
+                
 #ifdef debug
-            cerr << "Waiting for lock on " << variant_path_name << ":"
-                << left_context_start << "-" << right_context_past_end << endl;
+                cerr << "Waiting for lock on " << variant_path_name << ":"
+                    << left_context_start << "-" << right_context_past_end << endl;
 #endif
-            
-            // Block until we get it
-            lock_guard<GraphSynchronizer::Lock> guard(lock);
-            
+                
+                // Block until we get it
+                lock_guard<GraphSynchronizer::Lock> guard(lock);
+                
 #ifdef debug
-            cerr << "Got lock on " << variant_path_name << ":"
-                << left_context_start << "-" << right_context_past_end << endl;
+                cerr << "Got lock on " << variant_path_name << ":"
+                    << left_context_start << "-" << right_context_past_end << endl;
 #endif            
-                
+                    
 #ifdef debug
-            cerr << "Got " << lock.get_subgraph().length() << " bp in " << lock.get_subgraph().size() << " nodes" << endl;
+                cerr << "Got " << lock.get_subgraph().length() << " bp in " << lock.get_subgraph().size() << " nodes" << endl;
 #endif
 
 #ifdef debug
-            ofstream seq_dump("seq_dump.txt");
-            seq_dump << to_align.str();
-            seq_dump.close();
+                ofstream seq_dump("seq_dump.txt");
+                seq_dump << to_align.str();
+                seq_dump.close();
 
-            sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
-                // Make sure we actually have the endpoints we wanted
-                auto found_left = index.find_position(left_context_start);
-                auto found_right = index.find_position(right_context_past_end - 1);
-                assert(left_context_start == found_left->first);
-                assert(right_context_past_end == found_right->first + index.node_length(found_right));
-                
-                cerr << "Group runs " << group_start << "-" << group_end << endl;
-                cerr << "Context runs " << left_context_start << "-" << right_context_past_end << ": "
-                    << right_context_past_end - left_context_start  << " bp" << endl;
-                cerr << "Sequence is " << to_align.str().size() << " bp" << endl;
-                cerr << "Leftmost node is " << found_left->second << endl;
-                cerr << "Leftmost Sequence: " << lock.get_subgraph().get_node(found_left->second.node)->sequence() << endl;
-                cerr << "Rightmost node is " << found_right->second << endl;
-                cerr << "Rightmost Sequence: " << lock.get_subgraph().get_node(found_right->second.node)->sequence() << endl;
-                cerr << "Left context: " << left_context << endl;
-                cerr << "Right context: " << right_context << endl;
-                
-                lock.get_subgraph().for_each_node([&](Node* node) {
-                    // Look at nodes
-                    if (index.by_id.count(node->id())) {
-                        cerr << "Node " << node->id() << " at " << index.by_id.at(node->id()).first
-                            << " orientation " << index.by_id.at(node->id()).second << endl;
+                sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
+                    // Make sure we actually have the endpoints we wanted
+                    auto found_left = index.find_position(left_context_start);
+                    auto found_right = index.find_position(right_context_past_end - 1);
+                    assert(left_context_start == found_left->first);
+                    assert(right_context_past_end == found_right->first + index.node_length(found_right));
+                    
+                    cerr << "Group runs " << group_start << "-" << group_end << endl;
+                    cerr << "Context runs " << left_context_start << "-" << right_context_past_end << ": "
+                        << right_context_past_end - left_context_start  << " bp" << endl;
+                    cerr << "Sequence is " << to_align.str().size() << " bp" << endl;
+                    cerr << "Leftmost node is " << found_left->second << endl;
+                    cerr << "Leftmost Sequence: " << lock.get_subgraph().get_node(found_left->second.node)->sequence() << endl;
+                    cerr << "Rightmost node is " << found_right->second << endl;
+                    cerr << "Rightmost Sequence: " << lock.get_subgraph().get_node(found_right->second.node)->sequence() << endl;
+                    cerr << "Left context: " << left_context << endl;
+                    cerr << "Right context: " << right_context << endl;
+                    
+                    lock.get_subgraph().for_each_node([&](Node* node) {
+                        // Look at nodes
+                        if (index.by_id.count(node->id())) {
+                            cerr << "Node " << node->id() << " at " << index.by_id.at(node->id()).first
+                                << " orientation " << index.by_id.at(node->id()).second << endl;
+                        } else {
+                            cerr << "Node " << node->id() << " not on path" << endl;
+                        }
+                    });
+                    
+                    if (lock.get_subgraph().is_acyclic()) {
+                        cerr << "Subgraph is acyclic" << endl;
                     } else {
-                        cerr << "Node " << node->id() << " not on path" << endl;
+                        cerr << "Subgraph is cyclic" << endl;
                     }
                 });
-                
-                if (lock.get_subgraph().is_acyclic()) {
-                    cerr << "Subgraph is acyclic" << endl;
-                } else {
-                    cerr << "Subgraph is cyclic" << endl;
-                }
-            });
 #endif
-            
-            // Work out how far we would have to unroll the graph to account for
-            // a giant deletion. We also want to account for alts that may
-            // already be in the graph and need unrolling for a long insert.
-            size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
-            
-            // Record the size of graph we're aligning to in bases
-            total_graph_bases += lock.get_subgraph().length();
-            
-            // Do the alignment, dispatching cleverly on size
-            Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
-            
-            // We can't predict the min score, because there might be
-            // substitutions in addition to any length changes.
-            
-            // We may have dangling ends, because our alignment can be to either
-            // strand of the graph, and our indels might get shifted to one side
-            // or the other.
-            
-            // Make this path's edits to the original graph. We don't need to do
-            // anything with the translations. Handle insertions on the very
-            // left by attaching them to whatever is attached to our leading
-            // node.
-            lock.apply_full_length_edit(aln.path());
-
+                
+                // Work out how far we would have to unroll the graph to account for
+                // a giant deletion. We also want to account for alts that may
+                // already be in the graph and need unrolling for a long insert.
+                size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
+                
+                // Record the size of graph we're aligning to in bases
+                total_graph_bases += lock.get_subgraph().length();
+                
+                // Do the alignment, dispatching cleverly on size
+                Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
+                
+                // Look at the ends of the alignment
+                assert(aln.path().mapping_size() > 0);
+                auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
+                assert(last_mapping.edit_size() > 0);
+                auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
+                auto& first_mapping = aln.path().mapping(0);
+                assert(first_mapping.edit_size() > 0);
+                auto& first_edit = first_mapping.edit(0);
+                
+                // Assume they aren't dangling
+                have_dangling_ends = false;
+                
+                if (!edit_is_match(first_edit) && left_context_start > 0) {
+                    // Actually the left end is dangling, so try looking left
+                    have_dangling_ends = true;
+                    left_context_start--;
+#ifdef debug
+                    cerr << "Left end dangled!" << endl;
+#endif
+                }
+                
+                if (!edit_is_match(last_edit) && right_context_past_end < ref_sequence.size()) {
+                    // Actually the right end is dangling, so try looking right
+                    have_dangling_ends = true;
+                    right_context_past_end++;
+#ifdef debug
+                    cerr << "Right end dangled!" << endl;
+#endif
+                }
+                
+                if (!have_dangling_ends) {
+                    
+                    // Make this path's edits to the original graph. We don't need to do
+                    // anything with the translations.
+                    lock.apply_full_length_edit(aln.path());
+                    
+                } else {
+#ifdef debug
+                    cerr << "Expand context and retry" << endl;
+#endif
+                }
+                // If we have dangling ends, we try again with our expanded context
+                
+            } while (have_dangling_ends);
         }
         
         if (variants_processed++ % 1000 == 0 || true) {
