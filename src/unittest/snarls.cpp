@@ -451,23 +451,24 @@ namespace vg {
                 
                 SnarlManager snarl_manager(snarls.begin(), snarls.end());
                 
-                const Snarl* top_snarl = snarl_manager.top_level_snarls()[0];
-                const Snarl* child_snarl = snarl_manager.children_of(top_snarl)[0];
-                
-                auto boundary_index = snarl_manager.child_boundary_index(top_snarl, graph);
-                auto start_index = snarl_manager.child_start_index(top_snarl, graph);
-                auto end_index = snarl_manager.child_end_index(top_snarl, graph);
-                
-                NodeTraversal child_start = to_node_traversal(child_snarl->start(), graph);
-                NodeTraversal child_end = to_rev_node_traversal(child_snarl->end(), graph);
-                
-                REQUIRE(boundary_index.count(child_start));
-                REQUIRE(boundary_index.count(child_end));
-                REQUIRE(start_index.count(child_start));
-                REQUIRE(end_index.count(child_end));
-                REQUIRE(boundary_index.size() == 2);
-                REQUIRE(start_index.size() == 1);
-                REQUIRE(end_index.size() == 1);
+                for (Snarl snarl : snarls) {
+                    const Snarl* from_start = snarl_manager.into_which_snarl(snarl.start().node_id(),
+                                                                             snarl.start().backward());
+                    const Snarl* from_end = snarl_manager.into_which_snarl(snarl.end().node_id(),
+                                                                           !snarl.end().backward());
+                    REQUIRE(from_start != nullptr);
+                    REQUIRE(from_end != nullptr);
+                    
+                    REQUIRE(from_start->start().node_id() == snarl.start().node_id());
+                    REQUIRE(from_start->start().backward() == snarl.start().backward());
+                    REQUIRE(from_start->end().node_id() == snarl.end().node_id());
+                    REQUIRE(from_start->end().backward() == snarl.end().backward());
+                    
+                    REQUIRE(from_end->start().node_id() == snarl.start().node_id());
+                    REQUIRE(from_end->start().backward() == snarl.start().backward());
+                    REQUIRE(from_end->end().node_id() == snarl.end().node_id());
+                    REQUIRE(from_end->end().backward() == snarl.end().backward());
+                }
             }
         }
     }
