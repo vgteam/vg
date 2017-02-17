@@ -27,7 +27,6 @@ void help_snarl(char** argv) {
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
-         << "    -i, --include-ends    include snarl endpoints as first and last nodes in traversal" << endl
          << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl
          << "    -t, --filter-trivial  don't report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls     return snarls in sorted order by node ID (for topologically ordered graphs)" << endl;
@@ -45,7 +44,6 @@ int main_snarl(int argc, char** argv) {
     string traversal_file;
     bool leaf_only = false;
     bool top_level_only = false;
-    bool include_endpoints = false;
     int max_nodes = 10;
     bool legacy_superbubbles = false;
     bool legacy_ultrabubbles = false;
@@ -62,7 +60,6 @@ int main_snarl(int argc, char** argv) {
                 {"traversals", required_argument, 0, 'r'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
-                {"include-endpoints", no_argument, 0, 'i'},
                 {"max-nodes", required_argument, 0, 'm'},
                 {"filter-trivial", no_argument, 0, 't'},
                 {"sort-snarls", no_argument, 0, 's'},
@@ -70,7 +67,7 @@ int main_snarl(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "bsur:ltoim:h?",
+        c = getopt_long (argc, argv, "bsur:ltom:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -98,10 +95,6 @@ int main_snarl(int argc, char** argv) {
 
         case 'o':
             top_level_only = true;
-            break;
-
-        case 'i':
-            include_endpoints = true;
             break;
 
         case 'm':
@@ -235,22 +228,6 @@ int main_snarl(int argc, char** argv) {
                 (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
                 
                 vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
-                
-                // Optionally add endpoints into traversals
-                if (include_endpoints) {
-                    for (auto& trav : travs) {
-                        SnarlTraversal new_trav;
-                        Visit* start_visit = new_trav.add_visits();
-                        *start_visit = snarl->start();
-                        for (int i = 0; i < trav.visits_size(); ++i) {
-                            Visit* visit = new_trav.add_visits();
-                            *visit = trav.visits(i);
-                        }
-                        Visit* end_visit = new_trav.add_visits();
-                        *end_visit = snarl->end();
-                        swap(trav, new_trav);
-                    }
-                }
                 
                 traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
                 stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
