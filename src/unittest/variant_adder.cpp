@@ -257,6 +257,63 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
 
 }
 
+TEST_CASE( "Structural duplications and duplicative CNVs can be skipped", "[variantadder]" ) {
+
+    // We'll work on this tiny VCF
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1	SAMPLE2
+ref	4	rs1337	CAAAAAAAAAAAAAAAAAAAAA	CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	29	PASS	SVTYPE=CNV	GT	2/1	0/0
+ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	29	PASS	SVTYPE=DUP	GT	0/0	0/1
+)";
+
+    // Make a stream out of the data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+
+    string graph_json = R"({
+        "node": [{"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC"}],
+        "path": [
+            {"name": "ref", "mapping": [
+                {"position": {"node_id": 1}, "edit": [{"from_length": 29, "to_length": 29}]}
+            ]}
+        ]
+    })";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Make a VariantAdder
+    VariantAdder adder(graph);
+    adder.skip_structural_duplications = true;
+    // Add the variants to the graph. None should actually make it.
+    adder.add_variants(&vcf);
+
+    SECTION("the graph should have 1 node") {
+        REQUIRE(graph.size() == 1);
+    }
+    
+    SECTION("the graph should have no edges") {
+        REQUIRE(graph.edge_count() == 0);
+    }
+
+}
+
 TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
 
     string graph_json = R"({
