@@ -72,7 +72,6 @@ SnarlManager CactusUltrabubbleFinder::find_snarls() {
             }
             
             converted_snarls.push_back(snarl);
-            
         }
     });
     
@@ -83,8 +82,10 @@ SnarlManager CactusUltrabubbleFinder::find_snarls() {
 }
     
    
-ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager) :
-                                                     graph(graph), snarl_manager(snarl_manager) {
+ExhaustiveTraversalFinder::ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+                                                     bool include_reversing_traversals) :
+                                                     graph(graph), snarl_manager(snarl_manager),
+                                                     include_reversing_traversals(include_reversing_traversals) {
     // nothing more to do
 }
     
@@ -140,21 +141,10 @@ void ExhaustiveTraversalFinder::stack_up_valid_walks(NodeTraversal walk_head, ve
     }
 }
 
-    
-vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& site) {
-
-    vector<SnarlTraversal> to_return;
-    
-    // construct maps that lets us "skip over" child sites
-    map<NodeTraversal, const Snarl*> child_site_starts;
-    map<NodeTraversal, const Snarl*> child_site_ends;
-    for (const Snarl* subsite : snarl_manager.children_of(&site)) {
-        child_site_starts[to_node_traversal(subsite->start(), graph)] = subsite;
-        // reverse the direction of the end because we want to find it when we're entering
-        // the site from that direction
-        child_site_ends[to_rev_node_traversal(subsite->end(), graph)] = subsite;
-    }
-    
+void ExhaustiveTraversalFinder::add_traversals(vector<SnarlTraversal>& traversals,
+                                               NodeTraversal traversal_start,
+                                               set<NodeTraversal>& stop_at,
+                                               set<NodeTraversal>& yield_at) {
     // keeps track of the walk of the DFS traversal
     list<Visit> path;
     
@@ -162,11 +152,9 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
     // they can be used to see how many nodes we need to peel off the path when we're
     // backtracking
     NodeTraversal stack_sentinel(nullptr);
-    NodeTraversal site_end = to_node_traversal(site.end(), graph);
     
     // initialize stack for DFS traversal of site
-    vector<NodeTraversal> stack;
-    stack.push_back(to_node_traversal(site.start(), graph));
+    vector<NodeTraversal> stack{traversal_start};
     
     while (stack.size()) {
         
@@ -180,66 +168,102 @@ vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& s
         }
         
         // have we finished a traversal through the site?
-        if (node_traversal == site_end) {
-            
-            // yield path as a snarl traversal
-            SnarlTraversal traversal;
-            to_return.push_back(traversal);
-            
-            // increment past the Snarl's start node, which we don't want in the traversal
-            auto iter = path.begin();
-            iter++;
-            // record the traversal in the return value
-            for (; iter != path.end(); iter++) {
-                *to_return.back().add_visits() = *iter;
+        if (stop_at.count(node_traversal)) {
+            if (yield_at.count(node_traversal)) {
+                // yield path as a snarl traversal
+                traversals.emplace_back();
+                
+                // record the traversal in the return value
+                for (auto iter = path.begin(); iter != path.end(); iter++) {
+                    *traversals.back().add_visits() = *iter;
+                }
+                // add the final visit
+                *traversals.back().add_visits() = to_visit(node_traversal);
             }
-            
-            // label which snarl this came from
-            *to_return.back().mutable_snarl()->mutable_start() = site.start();
-            *to_return.back().mutable_snarl()->mutable_end() = site.end();
             
             // don't proceed to add more onto the DFS stack
             continue;
         }
         
-        // mark the beginning of this node/site's edges forward in the stack
+        // mark the beginning of this node's edges forward in the stack
         stack.push_back(stack_sentinel);
         
-        // initialize empty visit for this iteration
-        Visit visit;
+        // make a visit through the node traversal and add it to the path
+        path.emplace_back();
+        path.back().set_node_id(node_traversal.node->id());
+        path.back().set_backward(node_traversal.backward);
         
-        if (child_site_starts.count(node_traversal)) {
-            // make a visit out of the site
-            const Snarl* child_site = child_site_starts[node_traversal];
-            transfer_boundary_info(*child_site, *visit.mutable_snarl());
-            visit.set_backward(false);
+        // does this traversal point into a child snarl?
+        const Snarl* into_snarl = snarl_manager.into_which_snarl(node_traversal.node->id(),
+                                                                 node_traversal.backward);
+        if (into_snarl && !(node_traversal == traversal_start)) {
+            // add a visit for the child snarl
+            path.emplace_back();
+            *path.back().mutable_snarl()->mutable_start() = into_snarl->start();
+            *path.back().mutable_snarl()->mutable_end() = into_snarl->end();
             
-            // skip the site and add the other side to the stack
-            stack.push_back(to_node_traversal(child_site->end(), graph));
-        }
-        else if (child_site_ends.count(node_traversal)) {
-            // make a visit out of the site
-            const Snarl* child_site = child_site_ends[node_traversal];
-            transfer_boundary_info(*child_site, *visit.mutable_snarl());
-            visit.set_backward(true);
+            // mark the beginning of this child snarls edges forward in the stack
+            stack.push_back(stack_sentinel);
             
-            // note: we're traveling through the site backwards, so we reverse the
-            // traversal on the start end
-            
-            // skip the site and add the other side to the stack
-            stack.push_back(to_rev_node_traversal(child_site->start(), graph));
+            // which side of the snarl does the traversal point into?
+            if (into_snarl->start().node_id() == node_traversal.node->id()
+                && into_snarl->start().backward() == node_traversal.backward) {
+                
+                // skip to the other side
+                stack.push_back(to_node_traversal(into_snarl->end(), graph));
+                
+                // if the same side is also reachable, add it to the stack too
+                if (into_snarl->start_self_reachable()) {
+                    stack.push_back(to_rev_node_traversal(into_snarl->start(), graph));
+                }
+                
+            }
+            else {
+                // skip to the other side
+                stack.push_back(to_node_traversal(into_snarl->start(), graph));
+                
+                // if the same side is also reachable, add it to the stack too
+                if (into_snarl->start_self_reachable()) {
+                    stack.push_back(to_rev_node_traversal(into_snarl->end(), graph));
+                }
+            }
         }
         else {
-            // make a visit out of the node traversal
-            visit.set_node_id(node_traversal.node->id());
-            visit.set_backward(node_traversal.backward);
-            
             // add all of the node traversals we can reach through valid walks to stack
             stack_up_valid_walks(node_traversal, stack);
         }
-        
-        // add visit to path
-        path.push_back(visit);
+    }
+}
+    
+vector<SnarlTraversal> ExhaustiveTraversalFinder::find_traversals(const Snarl& site) {
+
+    vector<SnarlTraversal> to_return;
+    
+    NodeTraversal site_end = to_node_traversal(site.end(), graph);
+    NodeTraversal site_start = to_node_traversal(site.start(), graph);
+    NodeTraversal site_rev_start = NodeTraversal(site_start.node, !site_start.backward);
+    
+    // stop searching when the traversal is leaving the site
+    set<NodeTraversal> stop_at;
+    stop_at.insert(site_end);
+    stop_at.insert(site_rev_start);
+    
+    // choose which side(s) can be the end of the traversal
+    set<NodeTraversal> yield_at;
+    yield_at.insert(site_end);
+    if (include_reversing_traversals) {
+        yield_at.insert(site_rev_start);
+    }
+    
+    // search forward from the start and add any traversals that leave the indicated boundaries
+    add_traversals(to_return, site_start, stop_at, yield_at);
+
+    if (site.end_self_reachable() && include_reversing_traversals) {
+        // if the end is reachable from itself, also look for traversals that both enter and
+        // leave through the end
+        yield_at.erase(site_rev_start);
+        add_traversals(to_return, NodeTraversal(site_end.node, !site_end.backward),
+                       stop_at, yield_at);
     }
     
     return to_return;
@@ -269,16 +293,6 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
     // certain traversal string, so we don't end up dropping unsupported ref
     // alleles.
     map<string, pair<list<Visit>, int>> results;
-    
-    // construct maps that lets us "skip over" child sites
-    map<NodeTraversal, const Snarl*> child_site_starts;
-    map<NodeTraversal, const Snarl*> child_site_ends;
-    for (const Snarl* subsite : snarl_manager.children_of(&site)) {
-        child_site_starts[to_node_traversal(subsite->start(), graph)] = subsite;
-        // reverse the direction of the end because we want to find it when we're entering
-        // the site from that direction
-        child_site_ends[to_rev_node_traversal(subsite->end(), graph)] = subsite;
-    }
     
 #ifdef debug
 #pragma omp critical (cerr)
@@ -403,40 +417,32 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
                     
                     // We are not yet at the end of the of the site on this path
                     
-                    // initialize visit
-                    Visit visit;
+                    // Add the node visit
+                    path_traversed.push_back(to_visit(node_traversal));
+                    allele_stream << node_traversal.node->sequence();
                     
-                    // is this traversal at the start of a nested subsite?
-                    Node* site_opposite_side = nullptr;
-                    if (child_site_starts.count(node_traversal)) {
-                        const Snarl* child_site = child_site_starts[node_traversal];
-                        site_opposite_side = graph.get_node(child_site->end().node_id());
+                    // Is this traversal at the start of a nested subsite?
+                    const Snarl* child_site = snarl_manager.into_which_snarl(node_traversal.node->id(),
+                                                                             node_traversal.backward);
+                    if (child_site) {
+                        // Add the site interior to the path
+                        path_traversed.emplace_back();
+                        *path_traversed.back().mutable_snarl()->mutable_start() = child_site->start();
+                        *path_traversed.back().mutable_snarl()->mutable_end() = child_site->end();
                         
-                        transfer_boundary_info(*child_site, *visit.mutable_snarl());
-                        
-                        // add the site into the sequence since we are going to skip it
-                        allele_stream << "(" << child_site->start().node_id() << ":" << child_site->end().node_id() << ")";
-                        
-                    }
-                    else if (child_site_ends.count(node_traversal)) {
-                        const Snarl* child_site = child_site_starts[node_traversal];
-                        site_opposite_side = graph.get_node(child_site->start().node_id());
-                        
-                        transfer_boundary_info(*child_site, *visit.mutable_snarl());
-                        visit.set_backward(true);
-                        
-                        // add the reverse site into the sequence since we are going to skip it
-                        allele_stream << "(" << child_site->end().node_id() << ":" << child_site->start().node_id() << ")";
-                    }
-                    else {
-                        visit = to_visit(node_traversal);
-                        allele_stream << node_traversal.node->sequence();
-                    }
-                    
-                    path_traversed.push_back(visit);
-                    
-                    // Was this node traversal entering a nested subsite?
-                    if (site_opposite_side) {
+                        // Find the node on the other side of the subsite and add the site interior to the allele
+                        Node* site_opposite_side;
+                        if (child_site->start().node_id() == node_traversal.node->id()
+                            && child_site->start().backward() == node_traversal.backward) {
+                            
+                            site_opposite_side = graph.get_node(child_site->end().node_id());
+                            allele_stream << "(" << child_site->start().node_id() << ":" << child_site->end().node_id() << ")";
+                        }
+                        else {
+                            site_opposite_side = graph.get_node(child_site->start().node_id());
+                            allele_stream << "(" << child_site->end().node_id() << ":" << child_site->start().node_id() << ")";
+                        }
+
                         // Skip the site
                         if (traversal_direction) {
                             // Go backwards until you hit the other side of the site
@@ -503,11 +509,6 @@ vector<SnarlTraversal> ReadRestrictedTraversalFinder::find_traversals(const Snar
         for (Visit& visit : visits) {
             *to_return.back().add_visits() = visit;
         }
-        
-        // label which snarl this came from
-        *to_return.back().mutable_snarl()->mutable_start() = site.start();
-        *to_return.back().mutable_snarl()->mutable_end() = site.end();
-        
     }
     
     return to_return;
@@ -542,7 +543,7 @@ TrivialTraversalFinder::TrivialTraversalFinder(VG& graph) : graph(graph) {
 }
 
 vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site) {
-    assert(site.type() == ULTRABUBBLE);
+    assert(site.type() == ULTRABUBBLE || site.type() == SUPERBUBBLE);
     
     // We'll fill this in and send it back
     vector<SnarlTraversal> to_return;
@@ -565,19 +566,16 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
             // Trace back a path
             list<NodeTraversal> path;
             
-            // Move back one node from the end so it isn't included
-            here = previous.at(here);
-            
             while (true) {
                 // Until we get to the start of the site
+                
+                // Put this traversal on the front of the path
+                path.push_front(here);
                 
                 if (here.node->id() == site.start().node_id()) {
                     // Stop when we've reached the start of the site
                     break;
                 }
-                
-                // Put this traversal on the front of the path
-                path.push_front(here);
                 
                 // Trace back
                 here = previous.at(here);
@@ -590,10 +588,6 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
             for (NodeTraversal node_traversal : path) {
                 *(to_return.back().add_visits()) = to_visit(node_traversal);
             }
-            
-            // label which snarl this came from
-            *to_return.back().mutable_snarl()->mutable_start() = site.start();
-            *to_return.back().mutable_snarl()->mutable_end() = site.end();
             
             // Stop early after having found one path
             break;

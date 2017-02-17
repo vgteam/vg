@@ -75,31 +75,11 @@ namespace vg {
         // update children index
         children[key_form(snarl)] = std::move(children[old_key]);
         children.erase(old_key);
+        
     }
     
-    map<NodeTraversal, const Snarl*> SnarlManager::child_boundary_index(const Snarl* snarl, VG& graph) {
-        map<NodeTraversal, const Snarl*> index;
-        for (const Snarl* child : children_of(snarl)) {
-            index[to_node_traversal(child->start(), graph)] = child;
-            index[to_rev_node_traversal(child->end(), graph)] = child;
-        }
-        return index;
-    }
-    
-    map<NodeTraversal, const Snarl*> SnarlManager::child_start_index(const Snarl* snarl, VG& graph) {
-        map<NodeTraversal, const Snarl*> index;
-        for (const Snarl* child : children_of(snarl)) {
-            index[to_node_traversal(child->start(), graph)] = child;
-        }
-        return index;
-    }
-    
-    map<NodeTraversal, const Snarl*> SnarlManager::child_end_index(const Snarl* snarl, VG& graph) {
-        map<NodeTraversal, const Snarl*> index;
-        for (const Snarl* child : children_of(snarl)) {
-            index[to_rev_node_traversal(child->end(), graph)] = child;
-        }
-        return index;
+    const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) {
+        return snarl_into.count(make_pair(id, reverse)) ? snarl_into[make_pair(id, reverse)] : nullptr;
     }
     
     // can include definition of inline function apart from forward declaration b/c only used in this file
@@ -108,7 +88,7 @@ namespace vg {
                          make_pair(snarl->end().node_id(), snarl->end().backward()));
     }
     
-    void SnarlManager::build_trees() {
+    void SnarlManager::build_indices() {
         
         for (Snarl& snarl : snarls) {
             // is this a top-level snarl?
@@ -126,6 +106,10 @@ namespace vg {
                 roots.push_back(&snarl);
                 parent[key_form(&snarl)] = nullptr;
             }
+            
+            // add the boundaries into the indices
+            snarl_into[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
+            snarl_into[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
         }
         
         for (Snarl& snarl : snarls) {

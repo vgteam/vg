@@ -44,6 +44,11 @@ namespace vg {
         /// Returns a pointer to the parent of a Snarl or nullptr if there is none
         const Snarl* parent_of(const Snarl* snarl);
         
+        /// Returns the Snarl that a traversal points into at either the start or end, or nullptr if
+        /// the traversal does not point into any Snarl. Note that Snarls store the end Visit pointing
+        /// out of rather than into the Anarl, so they must be reversed to query it.
+        const Snarl* into_which_snarl(int64_t id, bool reverse);
+        
         /// Returns true if snarl has no children and false otherwise
         bool is_leaf(const Snarl* snarl);
         
@@ -66,16 +71,6 @@ namespace vg {
         pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
                                                                         bool include_boundary_nodes);
         
-        // Returns a map from the boundaries of the child Snarls to the respective child Snarl. End NodeTraversals
-        // are reversed to point into the Snarl.
-        map<NodeTraversal, const Snarl*> child_boundary_index(const Snarl* snarl, VG& graph);
-        
-        // Returns a map from the start boundary of the children to the respective child Snarl.
-        map<NodeTraversal, const Snarl*> child_start_index(const Snarl* snarl, VG& graph);
-        
-        // Returns a map from the reversed end boundary of the children to the respective child Snarl.
-        map<NodeTraversal, const Snarl*> child_end_index(const Snarl* snarl, VG& graph);
-        
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
         
@@ -92,13 +87,18 @@ namespace vg {
         
         /// Map of snarls to the child snarls they contain
         unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, vector<const Snarl*> > children;
+        
+        /// Map of snarls to their parent
         unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, const Snarl*> parent;
+        
+        /// Map of node traversals to the snarls they point into
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_into;
         
         /// Converts Snarl to the form used as keys in internal data structures
         inline pair<pair<int64_t, bool>, pair<int64_t, bool> > key_form(const Snarl* snarl);
         
         /// Builds tree indices after Snarls have been added
-        void build_trees();
+        void build_indices();
     };
     
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead
@@ -129,7 +129,7 @@ namespace vg {
             snarls.push_back(*iter);
         }
         // record the tree structure
-        build_trees();
+        build_indices();
     }
     
     inline NodeTraversal to_node_traversal(const Visit& visit, VG& graph) {

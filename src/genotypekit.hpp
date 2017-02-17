@@ -188,9 +188,11 @@ class ExhaustiveTraversalFinder : public TraversalFinder {
     
     VG& graph;
     SnarlManager& snarl_manager;
+    bool include_reversing_traversals;
     
 public:
-    ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager);
+    ExhaustiveTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+                              bool include_reversing_traversals = false);
     
     virtual ~ExhaustiveTraversalFinder();
     
@@ -202,6 +204,8 @@ public:
     
 private:
     void stack_up_valid_walks(NodeTraversal walk_head, vector<NodeTraversal>& stack);
+    void add_traversals(vector<SnarlTraversal>& traversals, NodeTraversal traversal_start,
+                        set<NodeTraversal>& stop_at, set<NodeTraversal>& yield_at);
     
 };
     
