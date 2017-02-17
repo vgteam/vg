@@ -2312,18 +2312,10 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     };
     
     if (alignment_threads > 1) {
-        #pragma omp critical (cerr)
-        cerr << "Split into " << bands.size() << " bands" << endl;
 #pragma omp parallel for schedule(dynamic,1)
         for (int i = 0; i < bands.size(); ++i) {
-            {
-                do_band(i);
-                #pragma omp critical (cerr)
-                cerr << "Band " << i << " done by thread " << omp_get_thread_num() << "/" << omp_get_num_threads() << endl;
-            }
+            do_band(i);
         }
-        #pragma omp critical (cerr)
-        cerr << "Finished " << bands.size() << " bands" << endl;
     } else {
         for (int i = 0; i < bands.size(); ++i) {
             do_band(i);

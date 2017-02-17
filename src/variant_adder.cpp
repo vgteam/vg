@@ -367,7 +367,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     // we'll fill this in.
     Alignment aln;
     
+#ifdef debug
     cerr << "Consider " << to_align.size() << " x " << graph.length() << " problem" << endl;
+#endif
     
     if (to_align.size() <= whole_alignment_cutoff && graph.length() < whole_alignment_cutoff) {
         // If the graph and the string are short, do a normal banded global
@@ -375,7 +377,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // band padding. We can be inefficient but we won't bring down the
         // system.
 
+#ifdef debug
         cerr << "\tUse full-scale " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+#endif
         
         // Do the alignment in both orientations
         
@@ -390,7 +394,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // Note that the banded global aligner doesn't fill in identity.
         
 #ifdef debug
-        cerr << "Scores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
+        cerr << "\tScores: " << aln.score() << " fwd vs. " << aln2.score() << " rev" << endl;
 #endif
             
         if (aln2.score() > aln.score()) {
@@ -400,8 +404,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         }
 
 #ifdef debug
-        cerr << "Subgraph: " << pb2json(graph.graph) << endl;            
-        cerr << "Alignment: " << pb2json(aln) << endl;
+        cerr << "\tSubgraph: " << pb2json(graph.graph) << endl;            
+        cerr << "\tAlignment: " << pb2json(aln) << endl;
 #endif
         
     } else {
@@ -439,9 +443,11 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         right_subgraph.add_node(*graph.get_node(endpoints.second.node));
         graph.expand_context_by_length(left_subgraph, left_tail.size() * 2);
         graph.expand_context_by_length(right_subgraph, right_tail.size() * 2);
-        
+    
+#ifdef debug
         cerr << "\tAttempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
             << " and " << right_tail.size() << " x " << right_subgraph.length() << " alignments" << endl;
+#endif
         
         // Do the two pinned tail alignments on the forward strand, pinning
         // opposite ends.
@@ -495,8 +501,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 0, true, true, 0, false, 0, max_span), node_length_function);
         }
         
+#ifdef debug
         cerr << "\t\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.match * min_score_factor
             << ", " << aln_right.score() << "/" << right_tail.size() * aligner.match * min_score_factor << endl;
+#endif
         
         if (aln_left.score() > left_tail.size() * aligner.match * min_score_factor &&
             aln_right.score() > right_tail.size() * aligner.match * min_score_factor) {
@@ -513,7 +521,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 try {
                 
+#ifdef debug
                     cerr << "\tAttempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+#endif
                 
                     // Throw it into the aligner with very restrictive banding to see if it's already basically present
                     aln = graph.align(to_align, &aligner,
@@ -539,7 +549,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
                     // If we get a good score, use that alignment
 #ifdef debug
-                    cerr << "Found sufficiently good restricted banded alignment" << endl;
+                    cerr << "\tFound sufficiently good restricted banded alignment" << endl;
 #endif
                     return aln;
                 }
@@ -547,7 +557,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             } else if (to_align.size() < mapper_alignment_cutoff) {
                 // It's safe to try the Mapper-based banded alignment
             
+#ifdef debug
                 cerr << "\tAttempt mapper-based " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+#endif
             
                 // Otherwise, it's unsafe to try the tight banded alignment
                 // (because our bands might get too big). Try a Mapper-based
@@ -567,11 +579,15 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     gcsa_graph.prune_complex_with_head_tail(kmer_size, edge_max);
                     if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
                     // then index
+#ifdef debug
                     cerr << "\tGCSA index size: " << gcsa_graph.length() << " bp" << endl;
+#endif
                     gcsa_graph.build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, false, false, doubling_steps);
                 } else {
                     // if no complexity reduction is requested, just build the index
+#ifdef debug
                     cerr << "\tGCSA index size: " << graph.length() << " bp" << endl;
+#endif
                     graph.build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, false, false, doubling_steps);
                 }
                         
@@ -631,8 +647,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     }
                 }
                 
+#ifdef debug
                 cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)
                     << " with " << discontinuities << " breaks" << endl;
+#endif
                 
                 if (aln.score() > to_align.size() * aligner.match * min_score_factor && discontinuities == 0) {
                     // This alignment looks good.
@@ -642,7 +660,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 
             } else {
+#ifdef debug
                 cerr << "\tNo safe full alignment option available" << endl;
+#endif
             }
         
         }
@@ -650,7 +670,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // If we get here, we couldn't find a good banded alignment, or it looks
         // like the ends aren't present already, or we're just too big to try
         // banded aligning.
+#ifdef debug
         cerr << "\tSplicing tail alignments" << endl;
+#endif
         
         // Splice left and right tails together with any remaining sequence we didn't have
         
@@ -670,7 +692,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             aln.set_score(aln_left.score() + aln_right.score());
             
 #ifdef debug
-            cerr << "Spliced overlapping end alignments" << endl;
+            cerr << "\tSpliced overlapping end alignments" << endl;
 #endif
             
         } else {
@@ -695,7 +717,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             aln.set_score(aln_left.score() + aln_right.score());
             
 #ifdef debug
-            cerr << "Spliced disconnected end alignments" << endl;
+            cerr << "\tSpliced disconnected end alignments" << endl;
 #endif
             
         }
