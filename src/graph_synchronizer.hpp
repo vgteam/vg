@@ -115,10 +115,31 @@ public:
          *
          * Any new nodes created are created already locked.
          *
-         * Any new nodes created on the left of the alignment will be attached
-         * to the given "dangling" NodeSides.
+         * Any new nodes created on the left of the alignment (and any existing
+         * nodes visited) will be attached to the given "dangling" NodeSides.
+         * The set will be populated with the NodeSides for the ends of nodes
+         * created/visited at the end of the alignment.
          */
-        vector<Translation> apply_edit(const Path& path, set<NodeSide> dangling = set<NodeSide>());
+        vector<Translation> apply_edit(const Path& path, set<NodeSide>& dangling);
+        
+        /**
+         * May only be called when locked. Apply a path as an edit to the base
+         * graph, leaving new nodes at the ends of the path unattached on their
+         * outer sides.
+         */
+        vector<Translation> apply_edit(const Path& path);
+        
+        /**
+         * May only be called when locked. Apply a path as an edit to the base
+         * graph, attaching the outer sides of any newly created nodes to the
+         * sides in the periphery attached to the extraction start and end
+         * sides, respectively. The lock must have been obtained on a range,
+         * rather than a radius.
+         *
+         * The alignment must be in the local forward orientation of the graph
+         * for this to make sense.
+         */
+        vector<Translation> apply_full_length_edit(const Path& path);
         
     protected:
     

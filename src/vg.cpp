@@ -4582,7 +4582,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
 }
 
 // The not quite as robust but actually efficient way to edit the graph.
-vector<Translation> VG::edit_fast(const Path& path, set<NodeSide> dangling) {
+vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4977,7 +4977,25 @@ void VG::add_nodes_and_edges(const Path& path,
                              map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
                              const map<id_t, size_t>& orig_node_sizes,
-                             set<NodeSide> dangling,
+                             size_t max_node_size) {
+
+    set<NodeSide> dangling;
+    return add_nodes_and_edges(path,
+        node_translation,
+        added_seqs,
+        added_nodes,
+        orig_node_sizes,
+        dangling,
+        max_node_size);  
+
+}
+
+void VG::add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes,
+                             set<NodeSide>& dangling,
                              size_t max_node_size) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track

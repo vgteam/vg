@@ -308,45 +308,15 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // We can't predict the min score, because there might be
             // substitutions in addition to any length changes.
             
-            // We shouldn't have dangling ends, really, but it's possible for
-            // inserts that have copies already in the graph to end up producing
-            // alignments just as good as the alignment we wanted that have
-            // their gaps pushed to one end or the other, and we need to
-            // tolerate them and make their insertions.
-            
-            // We know the aligner left-shifts the gaps for inserts, so make
-            // sure that we at least *end* with a match.
-            assert(aln.path().mapping_size() > 0);
-            auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
-            assert(last_mapping.edit_size() > 0);
-            auto& last_edit = last_mapping.edit(last_mapping.edit_size() - 1);
-            assert(edit_is_match(last_edit));
-            
-            // Find the first edit and get its oriented node
-            auto& first_mapping = aln.path().mapping(0);
-            assert(first_mapping.edit_size() > 0);
-            auto& first_edit = first_mapping.edit(0);
-            
-            // Construct the NodeSide on the left of the graph in the orientation the graph is aligned to.
-            NodeSide left_of_alignment(first_mapping.position().node_id(), first_mapping.position().is_reverse());
-            
-            // Get all the NodeSides connected to it in the periphery of the
-            // graph we extracted.
-            set<NodeSide> connected = lock.get_peripheral_attachments(left_of_alignment);
-            
-#ifdef debug
-            cerr << "Alignment starts at " << left_of_alignment << " which connects to ";
-            for (auto& c : connected) {
-                cerr << c << ", ";
-            }
-            cerr << endl;
-#endif
+            // We may have dangling ends, because our alignment can be to either
+            // strand of the graph, and our indels might get shifted to one side
+            // or the other.
             
             // Make this path's edits to the original graph. We don't need to do
             // anything with the translations. Handle insertions on the very
             // left by attaching them to whatever is attached to our leading
             // node.
-            lock.apply_edit(aln.path(), connected);
+            lock.apply_full_length_edit(aln.path());
 
         }
         
