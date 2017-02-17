@@ -367,13 +367,15 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     // we'll fill this in.
     Alignment aln;
     
+    cerr << "Consider " << to_align.size() << " x " << graph.length() << " problem" << endl;
+    
     if (to_align.size() <= whole_alignment_cutoff && graph.length() < whole_alignment_cutoff) {
         // If the graph and the string are short, do a normal banded global
         // aligner with permissive banding and the whole string length as
         // band padding. We can be inefficient but we won't bring down the
         // system.
 
-        cerr << "Attempt full-scale " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+        cerr << "\tUse full-scale " << to_align.size() << " x " << graph.length() << " alignment" << endl;
         
         // Do the alignment in both orientations
         
@@ -438,7 +440,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         graph.expand_context_by_length(left_subgraph, left_tail.size() * 2);
         graph.expand_context_by_length(right_subgraph, right_tail.size() * 2);
         
-        cerr << "Attempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
+        cerr << "\tAttempt two smaller " << left_tail.size() << " x " << left_subgraph.length()
             << " and " << right_tail.size() << " x " << right_subgraph.length() << " alignments" << endl;
         
         // Do the two pinned tail alignments on the forward strand, pinning
@@ -493,10 +495,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 0, true, true, 0, false, 0, max_span), node_length_function);
         }
         
-        cerr << "\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.match * min_score_factor
+        cerr << "\t\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.match * min_score_factor
             << ", " << aln_right.score() << "/" << right_tail.size() * aligner.match * min_score_factor << endl;
         
-        if (aln_left.score() > left_tail.size() * aligner.match * min_score_factor ||
+        if (aln_left.score() > left_tail.size() * aligner.match * min_score_factor &&
             aln_right.score() > right_tail.size() * aligner.match * min_score_factor) {
         
             // Aligning the two tails suggests that the whole string might be in
@@ -511,7 +513,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 try {
                 
-                    cerr << "Attempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+                    cerr << "\tAttempt thin " << to_align.size() << " x " << graph.length() << " alignment" << endl;
                 
                     // Throw it into the aligner with very restrictive banding to see if it's already basically present
                     aln = graph.align(to_align, &aligner,
@@ -530,6 +532,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     aligned_in_band = false;
                 }
                 
+                if (aligned_in_band) {
+                    cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor) << endl;
+                }
+                
                 if (aligned_in_band && aln.score() > to_align.size() * aligner.match * min_score_factor) {
                     // If we get a good score, use that alignment
 #ifdef debug
@@ -538,9 +544,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     return aln;
                 }
                 
-            } else {
+            } else if (to_align.size() < mapper_alignment_cutoff) {
+                // It's safe to try the Mapper-based banded alignment
             
-                cerr << "Attempt mapper-based " << to_align.size() << " x " << graph.length() << " alignment" << endl;
+                cerr << "\tAttempt mapper-based " << to_align.size() << " x " << graph.length() << " alignment" << endl;
             
                 // Otherwise, it's unsafe to try the tight banded alignment
                 // (because our bands might get too big). Try a Mapper-based
@@ -634,12 +641,16 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 }
                 
                 
+            } else {
+                cerr << "\tNo safe full alignment option available" << endl;
             }
         
         }
         
-        // If we get here, we couldn't find a good banded alignment, or it looks like the ends aren't present already.
-        cerr << "Splicing tail alignments" << endl;
+        // If we get here, we couldn't find a good banded alignment, or it looks
+        // like the ends aren't present already, or we're just too big to try
+        // banded aligning.
+        cerr << "\tSplicing tail alignments" << endl;
         
         // Splice left and right tails together with any remaining sequence we didn't have
         

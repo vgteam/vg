@@ -109,7 +109,13 @@ public:
     
     // What's the cut-off above which we don't try thin banded aligners and do a
     // Mapper instead?
-    size_t thin_alignment_cutoff = 2000;
+    size_t thin_alignment_cutoff = 10000;
+    
+    // What's the cutoff at which we decide to not even try the mapper-based
+    // aligner (in query bases), and just resort to inserting duplicate
+    // insertions?
+    // TODO: This is disabled for now
+    size_t mapper_alignment_cutoff = 0;
     
 protected:
     /// The graph we are modifying
