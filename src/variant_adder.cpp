@@ -105,6 +105,9 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
         
         // Track the total graph size for the alignments
         size_t total_graph_bases = 0;
+        
+        // How many haplotypes actually pass any haplotype filtering?
+        size_t used_haplotypes = 0;
             
 #ifdef debug
         cerr << "Have " << haplotypes.size() << " haplotypes for variant "
@@ -242,9 +245,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 cerr << "Align " << to_align.str() << endl;
 #endif
 
-                // Count all the bases
-                total_haplotype_bases += to_align.str().size();
-                
                 // Make a request to lock the subgraph, leaving the nodes we rounded
                 // to (or the child nodes they got broken into) as heads/tails.
                 GraphSynchronizer::Lock lock(sync, variant_path_name, left_context_start, right_context_past_end);
@@ -312,9 +312,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 // already be in the graph and need unrolling for a long insert.
                 size_t max_span = max(right_context_past_end - left_context_start, to_align.str().size());
                 
-                // Record the size of graph we're aligning to in bases
-                total_graph_bases += lock.get_subgraph().length();
-                
                 // Do the alignment, dispatching cleverly on size
                 Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
                 
@@ -354,6 +351,14 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                     // anything with the translations.
                     lock.apply_full_length_edit(aln.path());
                     
+                    // Count all the bases in the haplotype
+                    total_haplotype_bases += to_align.str().size();
+                    // Record the size of graph we're aligning to in bases
+                    total_graph_bases += lock.get_subgraph().length();
+                    // Record the haplotype as used
+                    used_haplotypes++;
+                    
+                    
                 } else {
 #ifdef debug
                     cerr << "Expand context and retry" << endl;
@@ -368,8 +373,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             #pragma omp critical (cerr)
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "
-                << (total_haplotype_bases / haplotypes.size()) << " bp vs. "
-                << (total_graph_bases / haplotypes.size()) << " bp haplotypes vs. graphs average" << endl;
+                << (used_haplotypes ? (total_haplotype_bases / used_haplotypes) : 0) << " bp vs. "
+                << (used_haplotypes ? (total_graph_bases / used_haplotypes) : 0) << " bp haplotypes vs. graphs average" << endl;
         }
         
     }
@@ -811,12 +816,30 @@ set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Varian
                 
                 if (allele_index >= variant->alleles.size()) {
                     // This VCF has out-of-range alleles
-                    //cerr << "error:[vg::VariantAdder] variant " << variant->sequenceName << ":" << variant->position
-                    //    << " has invalid allele index " << allele_index
-                    //    << " but only " << variant->alt.size() << " alts" << endl;
-                    // TODO: right now we skip them as a hack
-                    allele_index = 0;
-                    //exit(1);
+                    cerr << "error:[vg::VariantAdder] variant " << variant->sequenceName << ":" << variant->position
+                        << " has invalid allele index " << allele_index
+                        << " but only " << variant->alt.size() << " alts" << endl;
+                    exit(1);
+                }
+                
+                if (skip_structural_duplications && 
+                    variant->info.count("SVTYPE") &&
+                    variant->info.at("SVTYPE").size() == 1 && 
+                    (variant->info.at("SVTYPE").at(0) == "CNV" || variant->info.at("SVTYPE").at(0) == "DUP") &&
+                    variant->alleles.at(allele_index).size() > variant->alleles.at(0).size()) {
+                    
+                    // This variant is a duplication (or a CNV) structural
+                    // variant, and this is the duplicated version, and we want
+                    // to skip those.
+                    
+                    // We only want to skip the duplication alts; deletion alts
+                    // of CNVs are passed through.
+                    
+                    // Don't add to this haplotype. It will get filtered out for
+                    // not being full length, and we won't consider the
+                    // duplication.
+                    continue;
+                    
                 }
                 
                 // Stick each allele number at the end of its appropriate phase

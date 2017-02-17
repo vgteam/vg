@@ -117,6 +117,11 @@ public:
     // TODO: This is disabled for now
     size_t mapper_alignment_cutoff = 0;
     
+    /// We have code to skip large structural duplications, because aligners
+    /// won't be able to distinguish the copies. TODO: we want to actually make
+    /// them into cycles.
+    bool skip_structural_duplications = true;
+    
 protected:
     /// The graph we are modifying
     VG& graph;
