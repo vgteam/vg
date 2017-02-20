@@ -4,6 +4,7 @@
 #include "vg.pb.h"
 #include "stream.hpp"
 #include <string>
+#include <queue>
 #include <sstream>
 #include <functional>
 #include <algorithm>
@@ -11,6 +12,13 @@
 #include <set>
 #include <vector>
 #include <unordered_map>
+#include <tuple>
+
+#include "google/protobuf/stubs/common.h"
+#include "google/protobuf/io/zero_copy_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/io/gzip_stream.h"
+#include "google/protobuf/io/coded_stream.h"
 
 /**
  Gam sort
@@ -59,7 +67,7 @@ class GAMSorter
   private:
     map<int, int> split_to_split_size;
     vector<string> tmp_filenames;
-    vector<ifstream> tmp_files;
+    vector<ifstream*> tmp_files;
     int max_buf_size = 20000;
     /**
     * We want to keep pairs together, with the lowest-coordinate pair coming first.

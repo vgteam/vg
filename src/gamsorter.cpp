@@ -27,6 +27,64 @@ void GAMSorter::merge(vector<string> sorted_tmp_filenames){
 
 **/
 
+class AlnSorter{
+    bool invert = false;
+public:
+  bool mycomparison(const bool& reverse=false)
+  {invert = reverse;}
+  bool operator() (const Alignment& a_one, const Alignment& a_two) const
+  {
+
+        // Unmapped case
+        int xf_size = a_one.path().mapping_size();
+        int xb_size = a_two.path().mapping_size();
+        
+        if (xf_size == 0 || xb_size == 0){
+            bool both_zero = (xf_size == xb_size);
+            if (both_zero){
+                return false;
+            }
+            else{
+                return (xf_size > xb_size) ? false : true;
+            }
+        }
+
+        Position x_front = a_one.path().mapping(0).position();
+        Position x_back = a_one.path().mapping(a_one.path().mapping_size() - 1).position();
+
+        Position lhs;
+        Position rhs;
+        if (x_front.node_id() < x_back.node_id())
+        {
+            lhs = x_front;
+        }
+        else
+        {
+            lhs = x_back;
+        }
+        Position y_front = a_two.path().mapping(0).position();
+        Position y_back = a_two.path().mapping(a_two.path().mapping_size() - 1).position();
+        if (y_front.node_id() < y_back.node_id())
+        {
+            rhs = y_front;
+        }
+        else
+        {
+            rhs = y_back;
+        }
+
+        if (lhs.node_id() == rhs.node_id())
+        {
+            return lhs.offset() < rhs.offset();
+        }
+        else
+        {
+            return lhs.node_id() < rhs.node_id();
+        }
+  }
+};
+
+
 struct custom_pos_sort_key
 {
     bool operator()(const Position lhs, const Position rhs)
@@ -46,6 +104,18 @@ struct custom_aln_sort_key
 {
     bool operator()(const Alignment a_one, const Alignment a_two)
     {
+        int xf_size = a_one.path().mapping_size();
+        int xb_size = a_two.path().mapping_size();
+        
+        if (xf_size == 0 || xb_size == 0){
+            bool both_zero = (xf_size == xb_size);
+            if (both_zero){
+                return false;
+            }
+            else{
+                return (xf_size > xb_size) ? false : true;
+            }
+        }
         Position x_front = a_one.path().mapping(0).position();
         Position x_back = a_one.path().mapping(a_one.path().mapping_size() - 1).position();
 
@@ -137,6 +207,7 @@ void GAMSorter::write_temp(vector<Alignment>& alns)
     ofstream t_file;
     t_file.open(t_name);
     stream::write_buffered(t_file, alns, 0);
+    t_file.close();
 }
 
 void GAMSorter::dumb_sort(string gamfile)
@@ -187,51 +258,130 @@ void GAMSorter::stream_sort(string gamfile){
     write_temp(buffer);
     buffer.clear();
 
-    // vector<Alignment> file_tops(tmp_files.size());
-    // std::function<int(vector<Alignment>)> min_index = [&](vector<Alignment> alns){
-    //     int min_ind = 0;
-    //     for (int i = 0; i < alns.size(); ++i){
-    //         if (alns[i] < alns[min_ind]){
-    //             min_ind = i;
-    //         }
-    //     }
-    //     return i;
-    // };
 
-    // std::function<void(int, vector<Alignment>&)> handle_lowest_tmpfile = [&](int min_ind,
-    //                                                                         ofstream ofi,
-    //                                                                         vector<Alignment> buf,
-    //                                                                         vector<Alignment>& alns){
-    //     //ofi.writeline(alns[i]);
-    //     //alns[i] = tmp_files[min_ind].getline();
-    //     if (tmp_files[min_ind].eof())){
-    //         tmp_files.erase(tmp_files.begin() + min_ind);
-    //         alns.erase(alns.begin() + min_ind);
-    //     }
-    //     if (buf.size() >= max_buf_size){
-    //         stream::write_buffered(ofi, buf, 1000);
-    //     }
-    //     };
 
-    // /**
-    // * Open all our files and maintain a buffer of size N(tmp_files)
-    // * at each iteration, perform a merge and write to disk
-    // */
-    // for (auto tmpfi : tmp_file_names){
-    //         // Open all our tmp_files and load 1 record into
-    //         // our buffer
-    //         tmp_files.emplace_back(ifstream(tmpfi));
+   
+    int num_valid = tmp_filenames.size();
+    vector<bool> still_valid(tmp_filenames.size());
+    vector<uint64_t> curr_file_count (tmp_filenames.size());
+    typedef priority_queue<Alignment,std::vector<Alignment>, AlnSorter> AlnHeap;
+    
 
-    // }
+    for (int i = 0; i < tmp_filenames.size(); ++i){
+        ifstream tfile;
+        tfile.open(tmp_filenames[i]);
+        tmp_files.emplace_back(&tfile);
+    }
 
-    // ofstream outfi;
-    // outfi.open("x.txt");
-    // int min_ind = 0;
-    // vector<Alignment> obuf;
-    // while(file_tops.size() > 0){
-    //     min_ind = min_index(file_tops);
-    //     handle_lowest_tmpfile(min_ind, outfi, obuf, file_tops);
-    // }
+
+    
+
+    vector<::google::protobuf::io::CodedInputStream*> protostreams;
+    vector<::google::protobuf::io::GzipInputStream*> zipstreams;
+
+    for (auto x : tmp_files){
+        ::google::protobuf::io::ZeroCopyInputStream *raw_in =
+          new ::google::protobuf::io::IstreamInputStream(x);
+        ::google::protobuf::io::GzipInputStream *gzip_in =
+          new ::google::protobuf::io::GzipInputStream(raw_in);
+        ::google::protobuf::io::CodedInputStream *pstream =
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
+
+        protostreams.push_back(pstream);
+        zipstreams.push_back(gzip_in);
+    }
+
+    std::function<bool(int)> handle_count_line = [&](int tmp_index){
+        uint64_t count;
+        protostreams[tmp_index]->ReadVarint64((::google::protobuf::uint64*) &count);
+        curr_file_count[tmp_index] = count;
+        cerr << std::to_string(count) << endl;
+        if (!count){
+            return false;
+        }
+        return true;
+    };
+
+    for (int i = 0; i < protostreams.size(); i++){
+        handle_count_line(i);
+    }
+
+    
+    
+    std::function<bool(int, Alignment&)> read_dat_buf = [&](int tmp_index, Alignment& ret){
+
+        // Read our message of size count.
+        std::string s;
+        //for (uint64_t i = 0; i < count; ++i) {
+            (curr_file_count[tmp_index])--;
+            if (curr_file_count[tmp_index] <= 0){
+                return handle_count_line(tmp_index);
+            }
+            uint32_t msgSize = 0;
+            delete (protostreams[tmp_index]);
+            (protostreams[tmp_index]) = new ::google::protobuf::io::CodedInputStream( (zipstreams[tmp_index]));
+            // the messages are prefixed by their size
+            (protostreams[tmp_index])->ReadVarint32(&msgSize);
+            if ((msgSize > 0) &&
+                (protostreams[tmp_index]->ReadString(&s, msgSize))) {
+                ret.ParseFromString(s);
+                return true;
+            }
+        //}
+     };
+
+
+    // Heap of size (tmp_files.size())
+    AlnHeap lil_heap;
+    for(int i = 0; i < tmp_files.size(); i++){
+        Alignment a;
+        read_dat_buf(i, a);
+        lil_heap.push( a );
+    }
+
+    
+    // Rotating index within the tmp_files array,
+    // for accessing the ifstream and associated Proto readers/writers
+    int tmp_file_index = 0;
+
+    // This is just an output buffer.
+    vector<Alignment> sorted_out_buf;
+    sorted_out_buf.reserve(1000);
+
+    // Our output stream
+    string outname = gamfile + ".sorted.gam";
+    ofstream ofile;
+    ofile.open(outname);
+
+    cerr << "in the loop" << endl;
+
+    while(!lil_heap.empty()){
+
+        Alignment a;
+        bool valid = read_dat_buf(tmp_file_index, a);
+        if (valid){
+            lil_heap.push(a);
+        }
+        else{
+            //handle_count_line(tmp_file_index);
+        }
+        
+
+        
+        sorted_out_buf.push_back(lil_heap.top());
+        cerr << "writing " << lil_heap.top().name() << endl;
+        if (sorted_out_buf.size() % 100 == 0){
+            cerr << "Done " << sorted_out_buf.size() << " records" << endl;
+        }
+        lil_heap.pop();
+        stream::write_buffered(ofile, sorted_out_buf, 1000);
+        tmp_file_index = (tmp_file_index + 1) % tmp_files.size();
+
+    }
+    cerr << "out the loop" << endl;
+
+    // write any remaining records in our buffer
+    stream::write_buffered(ofile, sorted_out_buf, 0);
 
 }
 

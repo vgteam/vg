@@ -33,6 +33,7 @@ class Filter{
     public:
         Filter();
         ~Filter();
+        // map<string, interval> sv-to-interval
          /* Filter functions.
          * Take an Alignment and walk it.
          * Perform the desired summary statistics.
@@ -61,19 +62,21 @@ class Filter{
         /*PE Functions*/
         pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
-        // TODO should give this one an insert size arg
+        
+        // // TODO should give this one an insert size arg
         pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> orientation_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Alignment, Alignment> pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
 
-        pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
-        // Pair-ified single end functions>
-        pair<Alignment, Alignment> depth_filter(Alignment& aln1, Alignment& aln2);
-        pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> soft_clip_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second);
+        // pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
+        
+        // // Pair-ified single end functions>
+        // pair<Alignment, Alignment> depth_filter(Alignment& aln1, Alignment& aln2);
+        // pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second);
+        // pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second);
+        // pair<Alignment, Alignment> soft_clip_filter(Alignment& aln_first, Alignment& aln_second);
+        // pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second);
+        // pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second);
+        // pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second);
 
 
         // SV filters
@@ -99,9 +102,12 @@ class Filter{
         void set_my_xg_idx(xg::XG* xg_idx);
         void set_inverse(bool do_inv);
 
-            private:
+    private:
         vg::VG* my_vg;
         xg::XG* my_xg_index;
+        gcsa::GCSA* gcsa_ind;
+        gcsa::LCPArray * lcp_ind;
+ 
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?
@@ -127,9 +133,13 @@ class Filter{
         int split_read_limit = -1;
         double min_percent_identity = 0.0;
         double min_avg_qual = 0.0;
+
         int max_path_length = 0;
 
         int my_max_distance = 1000;
+
+        float insert_mean = 1000;
+        float insert_sd = 100;
 
 
         };
