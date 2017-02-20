@@ -3592,6 +3592,8 @@ void help_stats(char** argv) {
          << "    -d, --to-head         show distance to head for each provided node" << endl
          << "    -t, --to-tail         show distance to head for each provided node" << endl
          << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl
+         << "    -r, --node-id-range   X:Y where X and Y are the smallest and largest "
+        "node id in the graph, respectively" << endl
          << "    -v, --verbose         output longer reports" << endl;
 }
 
@@ -3615,6 +3617,7 @@ int main_stats(int argc, char** argv) {
     bool edge_count = false;
     bool verbose = false;
     bool is_acyclic = false;
+    bool stats_range = false;
     set<vg::id_t> ids;
     // What alignments GAM file should we read and compute stats on with the
     // graph?
@@ -3640,12 +3643,13 @@ int main_stats(int argc, char** argv) {
             {"node", required_argument, 0, 'n'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
+            {"node-id-range", no_argument, 0, 'r'},
             {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vAr",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -3708,6 +3712,10 @@ int main_stats(int argc, char** argv) {
 
         case 'a':
             alignments_filename = optarg;
+            break;
+
+        case 'r':
+            stats_range = true;
             break;
 
         case 'v':
@@ -3781,6 +3789,10 @@ int main_stats(int argc, char** argv) {
             }
             cout << "\t" << length << endl;
         }
+    }
+
+    if (stats_range) {
+        cout << "node-id-range\t" << graph->min_node_id() << ":" << graph->max_node_id() << endl;
     }
 
     if (show_sibs) {
@@ -5285,7 +5297,8 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus, banded_global, debug);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
+            banded_global, max(seq.size(), graph->length()), debug);
     }
 
     if (!seq_name.empty()) {

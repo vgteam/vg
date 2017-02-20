@@ -19,7 +19,7 @@ using namespace vg::subcommand;
 
 void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph.vg > snarls.pb" << endl
-         << "       By default, a list of protobug Snarls is written" << endl
+         << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
          << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
          << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
@@ -28,7 +28,9 @@ void help_snarl(char** argv) {
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
          << "    -i, --include-ends    include snarl endpoints as first and last nodes in traversal" << endl
-         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl;
+         << "    -m, --max-nodes N     only compute traversals for snarls with <= N nodes [10]" << endl
+         << "    -t, --filter-trivial  don't report snarls that consist of a single edge" << endl
+         << "    -s, --sort-snarls     return snarls in sorted order by node ID (for topologically ordered graphs)" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -47,6 +49,8 @@ int main_snarl(int argc, char** argv) {
     int max_nodes = 10;
     bool legacy_superbubbles = false;
     bool legacy_ultrabubbles = false;
+    bool filter_trivial_bubbles = false;
+    bool sort_snarls = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -60,11 +64,13 @@ int main_snarl(int argc, char** argv) {
                 {"top-level", no_argument, 0, 'o'},
                 {"include-endpoints", no_argument, 0, 'i'},
                 {"max-nodes", required_argument, 0, 'm'},
+                {"filter-trivial", no_argument, 0, 't'},
+                {"sort-snarls", no_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "bur:loim:h?",
+        c = getopt_long (argc, argv, "bsur:ltoim:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -100,7 +106,15 @@ int main_snarl(int argc, char** argv) {
 
         case 'm':
             max_nodes = atoi(optarg);
-            break;            
+            break;
+            
+        case 't':
+            filter_trivial_bubbles = true;
+            break;
+            
+        case 's':
+            sort_snarls = true;
+            break;
             
         case 'h':
         case '?':
@@ -162,12 +176,36 @@ int main_snarl(int argc, char** argv) {
         return 0;
     }
     
-    // The only implemnted snarl finder:
-    SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph);
+    // The only implemented snarl finder:
+    SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", filter_trivial_bubbles);
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
-    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+    vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+    
+    // Sort the top level Snarls
+    if (sort_snarls) {
+        // Ensure that all snarls are stored in sorted order
+        list<const Snarl*> snarl_stack;
+        for (const Snarl* root : snarl_roots) {
+            snarl_stack.push_back(root);
+            while (!snarl_stack.empty()) {
+                const Snarl* snarl = snarl_stack.back();
+                snarl_stack.pop_back();
+                if (snarl->start().node_id() > snarl->end().node_id()) {
+                    snarl_manager.flip(snarl);
+                }
+                for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
+                    snarl_stack.push_back(child_snarl);
+                }
+            }
+        }
+        
+        // Sort the snarls by node ID
+        std::sort(snarl_roots.begin(), snarl_roots.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
+            return snarl_1->start().node_id() < snarl_2->end().node_id();
+        });
+    }
 
     // The only implemented traversal finder
     TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
@@ -175,40 +213,68 @@ int main_snarl(int argc, char** argv) {
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;
     vector<SnarlTraversal> traversal_buffer;
+    
+    list<const Snarl*> stack;
 
-    for (const Snarl* snarl : snarl_roots) {
-
-        // Write our snarl tree
-        snarl_buffer.push_back(*snarl);
-        stream::write_buffered(cout, snarl_buffer, buffer_size);
-
-        // Optionally write our traversals
-        if (!traversal_file.empty() && snarl->type() == ULTRABUBBLE &&
-            (!leaf_only || snarl_manager.is_leaf(snarl)) &&
-            (!top_level_only || snarl_manager.is_root(snarl)) &&
-            (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
-
-            vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+    for (const Snarl* root : snarl_roots) {
+        
+        stack.push_back(root);
+        
+        while (!stack.empty()) {
+            const Snarl* snarl = stack.back();
+            stack.pop_back();
+            
+            // Write our snarl tree
+            snarl_buffer.push_back(*snarl);
+            stream::write_buffered(cout, snarl_buffer, buffer_size);
+            
+            // Optionally write our traversals
+            if (!traversal_file.empty() && snarl->type() == ULTRABUBBLE &&
+                (!leaf_only || snarl_manager.is_leaf(snarl)) &&
+                (!top_level_only || snarl_manager.is_root(snarl)) &&
+                (snarl_manager.deep_contents(snarl, *graph, true).first.size() < max_nodes)) {
                 
-            // Optionally add endpoints into traversals
-            if (include_endpoints) {
-                for (auto& trav : travs) {
-                    SnarlTraversal new_trav;
-                    Visit* start_visit = new_trav.add_visits();
-                    *start_visit = snarl->start();
-                    for (int i = 0; i < trav.visits_size(); ++i) {
-                        Visit* visit = new_trav.add_visits();
-                        *visit = trav.visits(i);
+                vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+                
+                // Optionally add endpoints into traversals
+                if (include_endpoints) {
+                    for (auto& trav : travs) {
+                        SnarlTraversal new_trav;
+                        Visit* start_visit = new_trav.add_visits();
+                        *start_visit = snarl->start();
+                        for (int i = 0; i < trav.visits_size(); ++i) {
+                            Visit* visit = new_trav.add_visits();
+                            *visit = trav.visits(i);
+                        }
+                        Visit* end_visit = new_trav.add_visits();
+                        *end_visit = snarl->end();
+                        swap(trav, new_trav);
                     }
-                    Visit* end_visit = new_trav.add_visits();
-                    *end_visit = snarl->end();
-                    swap(trav, new_trav);
+                }
+                
+                traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
+                stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
+            }
+            
+            // Sort the child snarls by node ID?
+            if (sort_snarls) {
+                vector<const Snarl*> children = snarl_manager.children_of(snarl);
+                std::sort(children.begin(), children.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
+                    return snarl_1->start().node_id() < snarl_2->end().node_id();
+                });
+                
+                for (const Snarl* child_snarl : children) {
+                    stack.push_back(child_snarl);
                 }
             }
-
-            traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
-            stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
+            else {
+                for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
+                    stack.push_back(child_snarl);
+                }
+            }
         }
+        
+        
     }
     // flush
     stream::write_buffered(cout, snarl_buffer, 0);
