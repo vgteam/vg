@@ -15,12 +15,22 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
+#include <exception>
 #include "vg.pb.h"
 
 
 using namespace std;
 
 namespace vg {
+    
+    /**
+     * This gets thrown when the aligner can't find any valid alignment in
+     * the band that was requested.
+     */
+    class NoAlignmentInBandException : public exception {
+        virtual const char* what() const noexcept;
+        static const string message;
+    };
     
     /**
      * The outward-facing interface for banded global graph alignment. It computes optimal alignment
@@ -33,8 +43,6 @@ namespace vg {
     template <class IntType>
     class BandedGlobalAligner {
     public:
-        
-        
         /// Initializes banded alignment
         ///
         /// Args:

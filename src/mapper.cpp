@@ -153,6 +153,14 @@ double Mapper::graph_entropy(void) {
     return entropy(seq, seq_bytes);
 }
 
+void Mapper::set_alignment_threads(int new_thread_count) {
+    alignment_threads = new_thread_count;
+    clear_aligners(); // number of aligners per mapper depends on thread count
+    init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
+    init_node_cache();
+    init_node_pos_cache();
+}
+
 void Mapper::init_node_cache(void) {
     for (auto& nc : node_cache) {
         delete nc;
@@ -2218,7 +2226,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     // local alignment algorithm is only aware of alignment against DAGs.
     for (int i = 0; i < div; ++i) {
         size_t off = i*segment_size;
-        auto aln = read;
+        // TODO: copying the whole read here, including sequence and qualities,
+        // makes this O(n^2).
+        Alignment aln = read;
         size_t addl_seq = 0;
         if (i+1 == div) {
             // ensure we have a full-length segment for the last alignment
