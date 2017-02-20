@@ -95,7 +95,7 @@ int main_sift(int argc, char** argv){
     bool do_softclip = false;
     bool do_reversing = false;
     bool do_interchromosomal = false;
-    bool do_split = false;
+    bool do_split_read = false;
     bool do_depth = false;
     bool do_percent_id = false;
     bool do_quality = false;
@@ -190,6 +190,7 @@ int main_sift(int argc, char** argv){
             // check if anchored on both sides
             // check for small mismatches (to/from len diff or sequence)
         }
+        return true;
     };
 
     vector<Alignment> orphaned_selected;
