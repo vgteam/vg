@@ -2238,13 +2238,9 @@ int main_msga(int argc, char** argv) {
             mapper->mem_threading = use_mem_threader;
 
             // set up the multi-threaded alignment interface
-            // TODO abstract this into a single call!!
-            mapper->alignment_threads = alignment_threads;
-            mapper->clear_aligners(); // number of aligners per mapper depends on thread count
-                                      // we have to reset this here to re-init scores to the right number
+            mapper->set_alignment_threads(alignment_threads);
+            // Set scores after setting threads, since thread count changing resets scores
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
-            mapper->init_node_cache();
-            mapper->init_node_pos_cache();
         }
     };
 
@@ -5298,7 +5294,7 @@ int main_align(int argc, char** argv) {
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
         alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
-            banded_global, max(seq.size(), graph->length()), debug);
+            banded_global, 0, max(seq.size(), graph->length()), debug);
     }
 
     if (!seq_name.empty()) {
@@ -5345,7 +5341,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --compare         consider GAM input (-G) as thruth, table of name, overlap with truth, identity, score, mapqual" << endl
+         << "    -w, --compare         consider GAM input (-G) as truth, table of name, overlap with truth, identity, score, mapqual" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl

@@ -1186,24 +1186,24 @@ Mapping simplify(const Mapping& m) {
     Mapping n;
     if (m.rank()) n.set_rank(m.rank());
     //cerr << "pre simplify " << pb2json(m) << endl;
-    // get the position
-    if (!m.has_position() || m.position().node_id()==0) {
-        // Throw, because we can't simplify mappings with no positions, because
-        // we have to update their offsets when removing deletions.
-        throw runtime_error("Cannot simplify Mapping with no position; must update position when removing leading deletions");
-    } else {
-        // take the old position
-        *n.mutable_position() = m.position();
-    }
+    // take the old position (which may be empty)
+    *n.mutable_position() = m.position();
 
     size_t j = 0;
     // to simplify, we skip deletions at the very start of the node
     // these are implied by jumps in the path from other nodes
-    if (m.has_position() && m.position().offset() == 0) {
+    if (m.position().offset() == 0) {
         for ( ; j < m.edit_size(); ++j) {
             if (!edit_is_deletion(m.edit(j))) {
                 break;
             } else {
+                if (n.position().node_id() == 0) {
+                    // Complain if a Mapping has no position *and* has edit-initial
+                    // deletions, which we need to remove but can't.
+                    throw runtime_error(
+                        "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
+                }
+                
                 // Adjust the offset by the size of the deletion.
                 n.mutable_position()->set_offset(n.position().offset()
                                                  + m.edit(j).from_length());
@@ -1726,11 +1726,13 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
         auto& m = path.mapping(i);
         *p2.add_mapping() = m;
     }
+    // Make sure that the child paths have positions if the parent path did.
+    // Account for the fact that we may have a 0-length child path.
     assert(!path.mapping(0).has_position()
-           || (p1.mapping(0).has_position()
-               && p1.mapping(0).position().node_id()
-               && p2.mapping(0).has_position()
-               && p2.mapping(0).position().node_id()));
+           || ((p1.mapping_size() == 0 || (p1.mapping(0).has_position()
+               && p1.mapping(0).position().node_id())) &&
+               (p2.mapping_size() == 0 || (p2.mapping(0).has_position()
+               && p2.mapping(0).position().node_id()))));
 #ifdef debug
     cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
 #endif

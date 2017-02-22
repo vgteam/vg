@@ -4580,7 +4580,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     auto node_translation = ensure_breakpoints(breakpoints);
 
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, Node*> added_seqs;
+    map<pair<pos_t, string>, vector<Node*>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
     map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
@@ -4620,7 +4620,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
 }
 
 // The not quite as robust but actually efficient way to edit the graph.
-vector<Translation> VG::edit_fast(const Path& path, set<NodeSide> dangling) {
+vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4648,7 +4648,7 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide> dangling) {
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, Node*> added_seqs;
+    map<pair<pos_t, string>, vector<Node*>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
     map<Node*, Path> added_nodes;
     // create new nodes/wire things up.
@@ -5012,10 +5012,29 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
 
 void VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, Node*>& added_seqs,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
                              const map<id_t, size_t>& orig_node_sizes,
-                             set<NodeSide> dangling) {
+                             size_t max_node_size) {
+
+    set<NodeSide> dangling;
+    return add_nodes_and_edges(path,
+        node_translation,
+        added_seqs,
+        added_nodes,
+        orig_node_sizes,
+        dangling,
+        max_node_size);  
+
+}
+
+void VG::add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes,
+                             set<NodeSide>& dangling,
+                             size_t max_node_size) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
@@ -5133,7 +5152,6 @@ void VG::add_nodes_and_edges(const Path& path,
 #endif
                 // store the path representing this novel sequence in the translation table
                 auto prev_position = edit_first_position;
-                //auto& from_path = added_nodes[new_node];
                 Path from_path;
                 auto prev_from_mapping = from_path.add_mapping();
                 *prev_from_mapping->mutable_position() = make_position(prev_position);
@@ -5173,8 +5191,8 @@ void VG::add_nodes_and_edges(const Path& path,
                             }));
                 }
 
-                // Create the new node, reversing it if we are reversed
-                Node* new_node;
+                // Create the new nodes, reversing it if we are reversed
+                vector<Node*> new_nodes;
                 pos_t start_pos = make_pos_t(from_path.mapping(0).position());
                 auto fwd_seq = m.position().is_reverse() ?
                     reverse_complement(e.sequence())
@@ -5182,44 +5200,83 @@ void VG::add_nodes_and_edges(const Path& path,
                 auto novel_edit_key = make_pair(start_pos, fwd_seq);
                 auto added = added_seqs.find(novel_edit_key);
                 if (added != added_seqs.end()) {
-                    // if we have the node already, don't make it again, just use the existing one
-                    new_node = added->second;
+                    // if we have the node run already, don't make it again, just use the existing one
+                    new_nodes = added->second;
                 } else {
-                    new_node = create_node(fwd_seq);
-                    added_seqs[novel_edit_key] = new_node;
-                    added_nodes[new_node] = from_path;
+                    // Make a new run of nodes of up to max_node_size each
+                    
+                    // Make sure that we are trying to make a run of nodes of
+                    // the length we're supposed to be.
+                    assert(path_to_length(from_path) == fwd_seq.size());
+                    
+                    size_t cursor = 0;
+                    while (cursor < fwd_seq.size()) {
+                        // Until we used up all the sequence, make nodes
+                        Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
+                        cursor += max_node_size;
+                        new_nodes.push_back(new_node);
+                        
+                        // Chop the front of the from path off and associate it
+                        // with this node. TODO: this is n^2 in number of nodes
+                        // we add because we copy the whole path each time.
+                        Path front_path;
+                        
+                        if (path_to_length(from_path) > new_node->sequence().size()) {
+                            // There will still be path left, so we cut the path
+                            tie(front_path, from_path) = cut_path(from_path, new_node->sequence().size());
+                        } else {
+                            // We consume the rest of the path. Don't bother cutting it.
+                            swap(front_path, from_path);
+                        }
+                        
+                        // The front bit of the path belongs to this new node
+                        added_nodes[new_node] = front_path;
+                        
+                    }
+                    
+                    // TODO: fwd_seq can't be empty or problems will be happen
+                    // because we'll have an empty vector of created nodes. I
+                    // think the edit won't be an insert or sub if it is,
+                    // though.
+                    
+                    // Remember that this run belongs to this edit
+                    added_seqs[novel_edit_key] = new_nodes;
+                    
                 }
 
                 if (!path.name().empty()) {
-                    Mapping nm;
-                    nm.mutable_position()->set_node_id(new_node->id());
-                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    for (auto* new_node : new_nodes) {
+                        // Add a mapping to each newly created node
+                        Mapping nm;
+                        nm.mutable_position()->set_node_id(new_node->id());
+                        nm.mutable_position()->set_is_reverse(m.position().is_reverse());
 
-                    // Don't set a rank; since we're going through the input
-                    // path in order, the auto-generated ranks will put our
-                    // newly created mappings in order.
+                        // Don't set a rank; since we're going through the input
+                        // path in order, the auto-generated ranks will put our
+                        // newly created mappings in order.
 
-                    Edit* e = nm.add_edit();
-                    size_t l = new_node->sequence().size();
-                    e->set_from_length(l);
-                    e->set_to_length(l);
-                    // insert the mapping at the right place
-                    paths.append_mapping(path.name(), nm);
+                        Edit* e = nm.add_edit();
+                        size_t l = new_node->sequence().size();
+                        e->set_from_length(l);
+                        e->set_to_length(l);
+                        // insert the mapping at the right place
+                        paths.append_mapping(path.name(), nm);
+                    }
                 }
 
                 for (auto& dangler : dangling) {
                     // This actually referrs to a node.
 #ifdef debug_edit
-                    cerr << "Connecting " << dangler << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(new_nodes.front()->id(), m.position().is_reverse()) << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangler, NodeSide(new_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(new_nodes.front()->id(), m.position().is_reverse())));
 
                 }
 
-                // Dangle the end of this new node
+                // Dangle the end of this run of new nodes
                 dangling.clear();
-                dangling.insert(NodeSide(new_node->id(), !m.position().is_reverse()));
+                dangling.insert(NodeSide(new_nodes.back()->id(), !m.position().is_reverse()));
 
                 // save edit into translated path
 
@@ -6566,6 +6623,7 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
 
@@ -6593,10 +6651,24 @@ Alignment VG::align(const Alignment& alignment,
             exit(1);
         }
         if (banded_global) {
+            // Figure out if we should use permissive banding, or a fixed band padding
+            bool permissive_banding = (band_padding_override == 0);
+            // What band padding do we want? We used to hardcode it as 1, so it should always be at least 1.
+            size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
+            
+#ifdef debug
+            cerr << "Actual graph size: ";
+            size_t total_size = 0;
+            for(size_t i = 0; i < g.node_size(); i++) {
+                total_size += g.node(i).sequence().size();
+            }
+            cerr << total_size << endl;
+#endif
+            
             if (aligner && !qual_adj_aligner) {
-                aligner->align_global_banded(aln, g, 1);
+                aligner->align_global_banded(aln, g, band_padding, permissive_banding);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align_global_banded(aln, g, 1);
+                qual_adj_aligner->align_global_banded(aln, g, band_padding, permissive_banding);
             }
         } else if (pinned_alignment) {
             if (aligner && !qual_adj_aligner) {
@@ -6686,11 +6758,12 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, max_span, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6700,13 +6773,14 @@ Alignment VG::align(const string& sequence,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, max_span, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6715,12 +6789,13 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, max_span, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6729,13 +6804,14 @@ Alignment VG::align(const string& sequence,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, max_span, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
@@ -6745,11 +6821,12 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   bool pin_left,
                                   int8_t full_length_bonus,
                                   bool banded_global,
+                                  size_t band_padding_override,
                                   size_t max_span,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, max_span, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
@@ -6759,13 +6836,14 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   bool pin_left,
                                   int8_t full_length_bonus,
                                   bool banded_global,
+                                  size_t band_padding_override,
                                   size_t max_span,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio,
                                pinned_alignment, pin_left, full_length_bonus,
-                               banded_global, max_span, print_score_matrices);
+                               banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 const string VG::hash(void) {

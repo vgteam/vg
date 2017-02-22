@@ -153,6 +153,14 @@ double Mapper::graph_entropy(void) {
     return entropy(seq, seq_bytes);
 }
 
+void Mapper::set_alignment_threads(int new_thread_count) {
+    alignment_threads = new_thread_count;
+    clear_aligners(); // number of aligners per mapper depends on thread count
+    init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
+    init_node_cache();
+    init_node_pos_cache();
+}
+
 void Mapper::init_node_cache(void) {
     for (auto& nc : node_cache) {
         delete nc;
@@ -491,8 +499,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     xindex->get_id_range(id_from, id_from, graph.graph);
     xindex->expand_context(graph.graph,
                            get_at_least,
-                           false, // don't use steps (use length)
                            false, // don't add paths
+                           false, // don't use steps (use length)
                            go_forward,
                            go_backward);
     graph.rebuild_indexes();
@@ -1899,7 +1907,7 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     for (auto& node : nodes) {
         *graph.graph.add_node() = xindex->node(node);
     }
-    xindex->expand_context(graph.graph, max(1, context_size)); // get connected edges
+    xindex->expand_context(graph.graph, max(1, context_size), false); // get connected edges
     graph.rebuild_indexes();
     return graph;
 }
@@ -2218,7 +2226,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     // local alignment algorithm is only aware of alignment against DAGs.
     for (int i = 0; i < div; ++i) {
         size_t off = i*segment_size;
-        auto aln = read;
+        // TODO: copying the whole read here, including sequence and qualities,
+        // makes this O(n^2).
+        Alignment aln = read;
         size_t addl_seq = 0;
         if (i+1 == div) {
             // ensure we have a full-length segment for the last alignment
@@ -2293,6 +2303,13 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             // strip overlaps
             //cerr << "checking before strip" << endl;
             //check_alignment(aln);
+            // clean up null positions that confuse stripping
+            for (int j = 0; j < aln.path().mapping_size(); ++j) {
+                auto* mapping = aln.mutable_path()->mutable_mapping(j);
+                if (mapping->has_position() && !mapping->position().node_id()) {
+                    mapping->clear_position();
+                }
+            }
             aln = strip_from_start(aln, to_strip[i].first);
             aln = strip_from_end(aln, to_strip[i].second);
             //cerr << "checking after strip" << endl;
@@ -4717,16 +4734,27 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
 #endif
         // get the subgraph overlapping the alignment
         VG graph;
+        int count_fwd = 0;
+        int count_rev = 0;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
-            graph.add_node(xindex->node(aln.path().mapping(i).position().node_id()));
+            auto& mapping = aln.path().mapping(i);
+            if (mapping.has_position() && mapping.position().node_id()) {
+                if (mapping.position().is_reverse()) {
+                    ++count_rev;
+                } else {
+                    ++count_fwd;
+                }
+                graph.add_node(xindex->node(mapping.position().node_id()));
+            }
         }
-        xindex->expand_context(graph.graph, 1);
+        xindex->expand_context(graph.graph, 1, false);
         graph.rebuild_indexes();
         // re-do the alignment
         // against the graph
         // always use the banded global mode
         smoothed = aln;
-        bool flip = aln.path().mapping(0).position().is_reverse();
+        // take a majority opinion about our orientation
+        bool flip = count_rev > count_fwd;
         if (flip) {
             smoothed.set_sequence(reverse_complement(aln.sequence()));
             if (!aln.quality().empty()) {
@@ -5174,8 +5202,8 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         xindex->get_id_range(idl, idl, flanks);
         xindex->expand_context(flanks,
                                max(context_depth, (int)((sc_start+sc_end)/avg_node_size)),
-                               true, // use steps
-                               false); // don't add paths
+                               false, // don't add paths
+                               true); // use steps
         graph.extend(flanks);
 
         aln.clear_path();
