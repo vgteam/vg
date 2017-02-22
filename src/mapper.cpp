@@ -499,8 +499,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     xindex->get_id_range(id_from, id_from, graph.graph);
     xindex->expand_context(graph.graph,
                            get_at_least,
-                           false, // don't use steps (use length)
                            false, // don't add paths
+                           false, // don't use steps (use length)
                            go_forward,
                            go_backward);
     graph.rebuild_indexes();
@@ -1907,7 +1907,7 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     for (auto& node : nodes) {
         *graph.graph.add_node() = xindex->node(node);
     }
-    xindex->expand_context(graph.graph, max(1, context_size)); // get connected edges
+    xindex->expand_context(graph.graph, max(1, context_size), false); // get connected edges
     graph.rebuild_indexes();
     return graph;
 }
@@ -4740,7 +4740,7 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                 graph.add_node(xindex->node(mapping.position().node_id()));
             }
         }
-        xindex->expand_context(graph.graph, 1);
+        xindex->expand_context(graph.graph, 1, false);
         graph.rebuild_indexes();
         // re-do the alignment
         // against the graph
@@ -5195,8 +5195,8 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         xindex->get_id_range(idl, idl, flanks);
         xindex->expand_context(flanks,
                                max(context_depth, (int)((sc_start+sc_end)/avg_node_size)),
-                               true, // use steps
-                               false); // don't add paths
+                               false, // don't add paths
+                               true); // use steps
         graph.extend(flanks);
 
         aln.clear_path();
