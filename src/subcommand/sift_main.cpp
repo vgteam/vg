@@ -89,6 +89,8 @@ int main_sift(int argc, char** argv){
     bool remap = false;
 
 
+    bool do_all = true;
+
     bool do_orientation = false;
     bool do_oea = false;
     bool do_insert_size = false;
@@ -96,16 +98,18 @@ int main_sift(int argc, char** argv){
     bool do_reversing = false;
     bool do_interchromosomal = false;
     bool do_split_read = false;
+    bool do_unmapped = true;
     bool do_depth = false;
     bool do_percent_id = false;
     bool do_quality = false;
+    bool do_unmapped = false;
 
 
-    int insert_size = 300;
-    int insert_size_sigma = 50;
+    float insert_size = 300;
+    float insert_size_sigma = 50;
 
 
-    int soft_clip_max = -1;
+    int softclip_max = -1;
     int max_path_length = 0;
 
     int split_read_limit = -1;
@@ -146,6 +150,50 @@ int main_sift(int argc, char** argv){
             case 't':
                 threads = atoi(optarg);
                 break;
+
+            case 'u':
+                do_unmapped = true;
+                do_all = false;
+                break;
+            case 'c':
+                do_softclip = true;
+                softclip_max = atoi(optarg);
+                break;
+            case 's':
+                do_split_read = true;
+                break;
+            case 'q':
+                do_quality = true;
+                quality = atod(optarg);
+                break;
+            case 'd':
+                do_depth = true;
+                depth = atod(optarg);
+                break;
+            case 'R':
+                remap = true;
+                break;
+            case 'r':
+                do_reversing = true;
+                break;
+            case 'p':
+                is_paired = true;
+                break;
+            case 'C':
+                do_interchromosomal = true;
+                break;
+            case 'I':
+                insert_size = atof(optarg);
+                break;
+            case 'W':
+                insert_size_sigma = atof(optarg);
+                break;
+            case 'O':
+                do_oea = true;
+                break;
+            case 'D':
+                do_orientation = true;
+                break;
             default:
                 help_sift(argv);
                 exit(1);
@@ -178,11 +226,6 @@ int main_sift(int argc, char** argv){
     vector<Alignment> buffer;
     
     
-    static const int buffer_size = 1000; // we let this be off by 1
-    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
-        return buffer[i];
-    };
-
 
     function<bool(Alignment&)> single_diff = [&](Alignment& aln){
         bool anchored = false;
@@ -203,11 +246,17 @@ int main_sift(int argc, char** argv){
     vector<Alignment> insert_selected;
     vector<Alignment> depth_selected;
     vector<Alignment> single_bp_diff;
+    vector<Alignment> unmapped_selected;
 
-    string orphan_fn = "";
-    string discordant_fn = "";
-    string split_fn = "";
-    string reversing_fn = "";
+    string unmapped_fn = alignment_file + ".unmapped";
+    string discordant_fn = alignment_file + ".discordant";
+    string split_fn = alignment_file + ".split";
+    string reversing_fn = alignment_file +  ".reversing";
+    string oea_fn = alignment_file + ".oea";
+    string clipped_fn = alignment_file + ".clipped";
+    string insert_fn = alignment_file + ".insert_size";
+    string quality_fn = alignment_file + ".quality";
+    string depth_fn = alignment_file + ".depth";
 
 
 
@@ -225,38 +274,69 @@ int main_sift(int argc, char** argv){
 
         }
         if (do_oea){
+            ret = ff.one_end_anchored_filter(alns_first, alns_second);
+            #pragma omp critical (oea_selected)
+            {
+                one_end_anchored.push_back(alns_first);
+                one_end_anchored.push_back(alns_second);
+            }
 
-            one_end_anchored.push_back(alns_first);
-            one_end_anchored.push_back(alns_second);
         }
         if (do_insert_size){
 
-            insert_selected.push_back(alns_first);
-            insert_selected.push_back(alns_second);
+            #pragma omp critial (insert_selected)
+            {
+                insert_selected.push_back(alns_first);
+                insert_selected.push_back(alns_second);
+            }
+
 
         }
         if (do_split_read){
             // first check softclip with a default size of 15
             // then get the position of the clip start
-            // then remap the clipped/unclipped portions.
+            // then remap the clipped/unclipped portions if required.
             // Then binary-search map if needed.
+
+            if (remap){
+                // ff.split_remap(alns_first, alns_second);
+
+            }
+
             
-            split_selected.push_back(alns_first);
-            split_selected.push_back(alns_second);
+            #pragma omp critical (split_selected)
+            {
+                split_selected.push_back(alns_first);
+                split_selected.push_back(alns_second);
+            }
+
         }
         if (do_reversing){
-            reversing_selected.push_back(alns_first);
-            reversing_selected.push_back(alns_second);
+            #pragma omp critical (reversing_selected)
+            {
+                reversing_selected.push_back(alns_first);
+                reversing_selected.push_back(alns_second);
+            }
+
 
         }
         if (do_softclip){
 
-            clipped_selected.push_back(alns_first);
-            clipped_selected.push_back(alns_second);
+            #pragma omp critical (clipped_selected)
+            {
+                clipped_selected.push_back(alns_first);
+                clipped_selected.push_back(alns_second);
+            }
+
         }
         if (do_quality){
-            quality_selected.push_back(alns_first);
-            quality_selected.push_back(alns_second);
+
+            #pragma omp critical (quality_selected)
+            {
+                quality_selected.push_back(alns_first);
+                quality_selected.push_back(alns_second);
+            }
+
         }
         if (do_depth){
 
@@ -266,6 +346,17 @@ int main_sift(int argc, char** argv){
                 depth_selected.push_back(alns_second);
             }
             
+        }
+        if (do_unmapped){
+            if (alns_first.path().mapping_size() == 0 ||
+                alns_second.path().mapping_size() == 0){
+
+                    #pragma omp critical (unmapped_selected)
+                    {
+                        unmapped_selected.push_back(alns_first);
+                        unmapped_selected.push_back(alns_second);
+                    }
+                }
         }
 
 
@@ -315,7 +406,7 @@ else{
     }
 }
 
-    stream::write(cout, buffer.size(), write_buffer);
+
     buffer.clear();
 
 
