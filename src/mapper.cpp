@@ -4727,8 +4727,18 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
 #endif
         // get the subgraph overlapping the alignment
         VG graph;
+        int count_fwd = 0;
+        int count_rev = 0;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
-            graph.add_node(xindex->node(aln.path().mapping(i).position().node_id()));
+            auto& mapping = aln.path().mapping(i);
+            if (mapping.has_position() && mapping.position().node_id()) {
+                if (mapping.position().is_reverse()) {
+                    ++count_rev;
+                } else {
+                    ++count_fwd;
+                }
+                graph.add_node(xindex->node(mapping.position().node_id()));
+            }
         }
         xindex->expand_context(graph.graph, 1);
         graph.rebuild_indexes();
@@ -4736,7 +4746,8 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
         // against the graph
         // always use the banded global mode
         smoothed = aln;
-        bool flip = aln.path().mapping(0).position().is_reverse();
+        // take a majority opinion about our orientation
+        bool flip = count_rev > count_fwd;
         if (flip) {
             smoothed.set_sequence(reverse_complement(aln.sequence()));
             if (!aln.quality().empty()) {
