@@ -2303,6 +2303,13 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             // strip overlaps
             //cerr << "checking before strip" << endl;
             //check_alignment(aln);
+            // clean up null positions that confuse stripping
+            for (int j = 0; j < aln.path().mapping_size(); ++j) {
+                auto* mapping = aln.mutable_path()->mutable_mapping(j);
+                if (mapping->has_position() && !mapping->position().node_id()) {
+                    mapping->clear_position();
+                }
+            }
             aln = strip_from_start(aln, to_strip[i].first);
             aln = strip_from_end(aln, to_strip[i].second);
             //cerr << "checking after strip" << endl;
