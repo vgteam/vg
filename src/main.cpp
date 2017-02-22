@@ -2193,13 +2193,9 @@ int main_msga(int argc, char** argv) {
             mapper->mem_threading = use_mem_threader;
 
             // set up the multi-threaded alignment interface
-            // TODO abstract this into a single call!!
-            mapper->alignment_threads = alignment_threads;
-            mapper->clear_aligners(); // number of aligners per mapper depends on thread count
-                                      // we have to reset this here to re-init scores to the right number
+            mapper->set_alignment_threads(alignment_threads);
+            // Set scores after setting threads, since thread count changing resets scores
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
-            mapper->init_node_cache();
-            mapper->init_node_pos_cache();
         }
     };
 
@@ -5253,7 +5249,7 @@ int main_align(int argc, char** argv) {
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
         alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
-            banded_global, max(seq.size(), graph->length()), debug);
+            banded_global, 0, max(seq.size(), graph->length()), debug);
     }
 
     if (!seq_name.empty()) {
