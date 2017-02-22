@@ -14,7 +14,7 @@ namespace vg {
 namespace unittest {
 using namespace std;
 
-TEST_CASE("Mapping simplification fails when mapping position is not set", "[mapping]") {
+TEST_CASE("Mapping simplification fails when mapping position is not set and mapping leads with a deletion", "[mapping]") {
     
     // We can't remove leading deletions if there's no position to update
     string mapping_string = R"({"edit": [{"from_length": 1}, {"from_length": 1, "to_length": 1}]})";
@@ -22,7 +22,19 @@ TEST_CASE("Mapping simplification fails when mapping position is not set", "[map
     Mapping m;
     json2pb(m, mapping_string.c_str(), mapping_string.size());
     
-    REQUIRE_THROWS(simplify(m));
+    REQUIRE_THROWS(cerr << pb2json(simplify(m)) << endl);
+    
+}
+
+TEST_CASE("Mapping simplification workd when mapping position is not set and mapping does not lead with a deletion", "[mapping]") {
+    
+    // We might see a mapping like this in an unaligned read maybe?
+    string mapping_string = R"({"edit": [{"to_length": 100}]})";
+    
+    Mapping m;
+    json2pb(m, mapping_string.c_str(), mapping_string.size());
+    
+    REQUIRE(simplify(m).edit_size() == 1);
     
 }
 
