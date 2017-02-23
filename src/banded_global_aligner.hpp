@@ -46,7 +46,7 @@ namespace vg {
         /// Initializes banded alignment
         ///
         /// Args:
-        /// alignment                   empty alignment with a sequence (and possibly base qualities)
+        ///  alignment                   empty alignment with a sequence (and possibly base qualities)
         ///  g                           graph to align to
         ///  band_padding                width to expand band by
         ///  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
@@ -143,8 +143,8 @@ namespace vg {
                                vector<vector<int64_t>>& node_edges_out, int64_t band_padding,
                                vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
         /// Constructor helper function: compute the shortest path from a source to each node
-        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, vector<int64_t>& seq_lens_out,
-                                unordered_set<Node*> source_nodes);
+        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, unordered_set<Node*>& source_nodes,
+                                vector<pair<int64_t, int64_t>>& band_ends, vector<int64_t>& seq_lens_out);
     };
 
     /**
@@ -218,7 +218,7 @@ namespace vg {
     template <class IntType>
     class BandedGlobalAligner<IntType>::AltTracebackStack {
     public:
-        AltTracebackStack(int64_t max_multi_alns, vector<BAMatrix*> sink_node_matrices);
+        AltTracebackStack(int64_t max_multi_alns, vector<BAMatrix*>& sink_node_matrices);
         ~AltTracebackStack();
         
         /// Get the start position of the current alignment and advance deflection pointer to the first deflection
