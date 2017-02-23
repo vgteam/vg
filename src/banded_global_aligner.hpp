@@ -144,7 +144,7 @@ namespace vg {
                                vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
         /// Constructor helper function: compute the shortest path from a source to each node
         void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, unordered_set<Node*>& source_nodes,
-                                vector<pair<int64_t, int64_t>>& band_ends, vector<int64_t>& seq_lens_out);
+                                vector<int64_t>& seq_lens_out);
     };
 
     /**

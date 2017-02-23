@@ -1696,7 +1696,7 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, Graph& g
     // find the shortest sequence leading to each node so we can infer the length
     // of lead deletions
     vector<int64_t> shortest_seqs;
-    shortest_seq_paths(node_edges_out, source_nodes, band_ends, shortest_seqs);
+    shortest_seq_paths(node_edges_out, source_nodes, shortest_seqs);
     
 #ifdef debug_banded_aligner_objects
     cerr << "[BandedGlobalAligner]: constructing banded matrix objects" << endl;
@@ -2024,7 +2024,6 @@ void BandedGlobalAligner<IntType>::find_banded_paths(const string& read, bool pe
 template <class IntType>
 void BandedGlobalAligner<IntType>::shortest_seq_paths(vector<vector<int64_t>>& node_edges_out,
                                                       unordered_set<Node*>& source_nodes,
-                                                      vector<pair<int64_t, int64_t>>& band_ends,
                                                       vector<int64_t>& seq_lens_out) {
     
     // initialize vector with min identity to store sequence lengths
