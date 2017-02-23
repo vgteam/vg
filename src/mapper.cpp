@@ -2719,6 +2719,22 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         filter_and_process_multimaps(alignments, additional_multimaps);
     }
     
+    for (auto& aln : alignments) {
+        // Make sure no alignments are wandering out of the graph
+        for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+            // Look at each mapping
+            auto& mapping = aln.path().mapping(i);
+            
+            if (mapping.position().node_id()) {
+                // Get the size of its node
+                size_t node_size = xindex->node_length(mapping.position().node_id());
+                
+                // Make sure the mapping fits in the node
+                assert(mapping.position().offset() + mapping_from_length(mapping) <= node_size);
+            }
+        }
+    }
+    
     return alignments;
 }
 
