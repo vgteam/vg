@@ -172,6 +172,120 @@ TEST_CASE("Full-length bonus can hold down the right end", "[aligner][alignment]
         REQUIRE(aln2.path().mapping(0).edit(2).sequence() == "");
     }
 }
+
+TEST_CASE("Full-length bonus can attach Ns", "[aligner][alignment][mapping]") {
+    
+    VG graph;
+    
+    Aligner aligner;
+    
+    Node* n0 = graph.create_node("AGTG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("NNNNCTGANNN");
+    Alignment aln1, aln2;
+    aln1.set_sequence(read);
+    aln2.set_sequence(read);
+    
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
+    
+    SECTION("bonused alignment ends in full-length match/mismatches") {
+        REQUIRE(aln2.path().mapping_size() == 3);
+        REQUIRE(mapping_from_length(aln2.path().mapping(0)) == 4);
+        REQUIRE(mapping_to_length(aln2.path().mapping(0)) == 4);
+        REQUIRE(mapping_from_length(aln2.path().mapping(2)) == 6);
+        REQUIRE(mapping_to_length(aln2.path().mapping(2)) == 6);
+    }
+    
+    SECTION("bonus is collected at both ends") {
+        REQUIRE(aln2.score() == aln1.score() + 20);
+    }
+    
+}
+
+TEST_CASE("Full-length bonus can attach to Ns", "[aligner][alignment][mapping]") {
+    
+    VG graph;
+    
+    Aligner aligner;
+    
+    Node* n0 = graph.create_node("NNNG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGANNN");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("AGTGCTGAAGT");
+    Alignment aln1, aln2;
+    aln1.set_sequence(read);
+    aln2.set_sequence(read);
+    
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
+    
+    SECTION("bonused alignment ends in full-length match/mismatches") {
+        REQUIRE(aln2.path().mapping_size() == 3);
+        REQUIRE(mapping_from_length(aln2.path().mapping(0)) == 4);
+        REQUIRE(mapping_to_length(aln2.path().mapping(0)) == 4);
+        REQUIRE(mapping_from_length(aln2.path().mapping(2)) == 6);
+        REQUIRE(mapping_to_length(aln2.path().mapping(2)) == 6);
+    }
+    
+    SECTION("bonus is collected at both ends") {
+        REQUIRE(aln2.score() == aln1.score() + 20);
+    }
+    
+}
+
+TEST_CASE("Full-length bonus can attach Ns to Ns", "[aligner][alignment][mapping]") {
+    
+    VG graph;
+    
+    Aligner aligner;
+    
+    Node* n0 = graph.create_node("NNNG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGANNN");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("NNNGCTGANNN");
+    Alignment aln1, aln2;
+    aln1.set_sequence(read);
+    aln2.set_sequence(read);
+    
+    aligner.align(aln1, graph.graph, 0);
+    aligner.align(aln2, graph.graph, 10);
+    
+    SECTION("bonused alignment ends in full-length match/mismatches") {
+        REQUIRE(aln2.path().mapping_size() == 3);
+        REQUIRE(mapping_from_length(aln2.path().mapping(0)) == 4);
+        REQUIRE(mapping_to_length(aln2.path().mapping(0)) == 4);
+        REQUIRE(mapping_from_length(aln2.path().mapping(2)) == 6);
+        REQUIRE(mapping_to_length(aln2.path().mapping(2)) == 6);
+    }
+    
+    SECTION("bonus is collected at both ends") {
+        REQUIRE(aln2.score() == aln1.score() + 20);
+    }
+    
+}
    
 }
 }
