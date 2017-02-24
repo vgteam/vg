@@ -99,6 +99,26 @@ void GraphSynchronizer::Lock::lock() {
             // Fill in the endpoints pair
             endpoints = make_pair(start_left, end_right);
             
+#ifdef debug
+            cerr << "Endpoints: " << start_left << ", " << end_right << endl;
+            
+            // Trace the path in the index to say what should be found
+            cerr << "Path: " << endl;
+            auto it = synchronizer.get_path_index(path_name).find_position(start);
+            while(it != synchronizer.get_path_index(path_name).end() && it->second.flip() != end_right) {
+                cerr << "\tVisit " << it->second;
+                auto it2 = it;
+                ++it2;
+                if (it2 != synchronizer.get_path_index(path_name).end()) {
+                    // Make sure we have an edge from this node to the next on the path
+                    assert(synchronizer.graph.has_edge(it->second.flip(), it2->second));
+                    cerr << " " << pb2json(*synchronizer.graph.get_edge(it->second.flip(), it2->second));
+                }
+                ++it;
+                cerr << endl;
+            }
+#endif
+            
             // Make them into pos_ts that point left to right, the way Jordan thinks.
             pos_t left_pos = make_pos_t(start_left.node, start_left.is_end, 0);
             pos_t right_pos = make_pos_t(end_right.node, !end_right.is_end,
@@ -115,9 +135,13 @@ void GraphSynchronizer::Lock::lock() {
                 right_pos,
                 true, // Keep the specified positions in the graph
                 false, // Disallow terminal node cycles, so we don't duplicate nodes
-                true, // Remove other tipe
+                true, // Remove other tips
                 false, // We don't care about being on a path
                 false); // Or being strictly less than the specified length
+                
+#ifdef debug
+            cerr << "Extracted " << context_graph.node_size() << " nodes and " << context_graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
+#endif
                 
             // Any duplication is going to mess things up, since we need
             // operations on the new graph to make sense in the original graph.
@@ -219,6 +243,12 @@ void GraphSynchronizer::Lock::lock() {
         synchronizer.locked_nodes.insert(node->id());
         locked_nodes.insert(node->id());
     });
+    
+    // We should have actually grabbed something.
+    if (locked_nodes.empty()) {
+        cerr << "error:[vg::GraphSynchronizer] No nodes locked for " << path_name << ":" << start << "-" << past_end << endl;
+        throw runtime_error("No nodes locked!");
+    }
     
     // Now we know nobody else can touch those nodes and we can safely release
     // our lock on the main graph by letting it leave scope.
