@@ -245,7 +245,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                         pinned_alignment,
                         pin_left,
                         full_length_bonus,
-                        banded_global);
+                        banded_global,
+                        0, // band padding override
+                        aln.sequence().size());
     } else {
         auto aligner = get_qual_adj_aligner();
         if (adjust_alignments_for_base_quality) {
@@ -255,7 +257,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                           pinned_alignment,
                                           pin_left,
                                           full_length_bonus,
-                                          banded_global);
+                                          banded_global,
+                                          0, // band padding override
+                                          aln.sequence().size());
         } else {
             return vg.align(aln,
                             aligner,
@@ -263,7 +267,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                             pinned_alignment,
                             pin_left,
                             full_length_bonus,
-                            banded_global);
+                            banded_global,
+                            0, // band padding override
+                            aln.sequence().size());
         }
     }
 }

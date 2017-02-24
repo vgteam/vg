@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Get the vg id
+cd ~/vg && id=$(git log | head -1 | cut -f 2 -d\ | head -c 8) && cd -
+echo testing vg-$id
+
+# Generate 50k read pairs (100k reads) and their "true" positions from the vg graph:
+echo generating simulated reads
+time vg sim -s 271 -n 50000 -l 150 -p 500 -v 50 -x vg/index.xg -a | vg annotate -p -x vg/index.xg -a - | tee sim.gam | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l >sim.true_pos
+
+# This can then be mapped three ways.
+
+# By bwa:
+echo bwa mem mapping
+# first split the file into the mates
+vg view -a sim.gam | jq -cr 'select(.name | test("_1$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_1$// | gzip >sim_1.fq.gz
+vg view -a sim.gam | jq -cr 'select(.name | test("_2$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_2$// | gzip >sim_2.fq.gz
+# then map, correcting the names so they match vg's
+time bwa mem  F271.100k.ilv_1.fq.gz F271.100k.ilv_2.fq.gz | grep -v ^@ | perl -ne '@val = split("\t", $_); print @val[0] . "_" . (@val[1] & 64 ? "1" : @val[1] & 128 ? "2" : "?"), "\t" . @val[2] . "\t" . @val[3] . "\t" . @val[4] . "\n";' | pv -l | sort >F271.100k.ilv.bwa_mem.pos
+join F271.100k.ilv.true_pos F271.100k.ilv.bwa_mem.pos | ~/vg/scripts/pos_compare.py >bwa.compare
+
+# By vg-ref:
+echo vg ref mapping
+time vg map -iG sim.gam -x ~/ref/vg/index.xg -g SGRP2/SGRP2-cerevisiae.pathonly.gcsa -t 4 2>err | vg annotate -x ~/ref/vg/index.xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >vg-ref.pos
+join sim.true_pos vg-ref.pos | ~/vg/scripts/pos_compare.py >vg-ref.compare
+
+# By vg-pan:
+echo vg pan mappping
+time vg map -iG sim.gam -x ~/pan/vg/index.xg -g SGRP2/SGRP2-cerevisiae.pathonly.gcsa -t 4 2>err | vg annotate -x ~/pan/vg/index.xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >vg-pan.pos
+join sim.true_pos vg-pan.pos | ~/vg/scripts/pos_compare.py >vg-pan.compare
+
+# Now we combine the various positions into one table
+
+echo combining results
+( cat bwa.compare    | awk 'BEGIN { OFS="\t"; print "correct", "mq", "aligner"; } { print $2, $3, "bwa.mem" }' ;
+  cat vg-pan.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.ref" }' ;
+  cat vg-pan.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.pan" }' ) >results-$id.tsv
+
+# This can then be rendered using scripts in the vg repo
+echo rendering ROC
+~/vg/scripts/roc.R results-$id.tsv roc-$id.pdf
+echo rendering QQ
+~/vg/scripts/qq.R results-$id.tsv qq-$id.pdf

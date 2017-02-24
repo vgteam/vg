@@ -6639,6 +6639,7 @@ Alignment VG::align(const Alignment& alignment,
 
 #ifdef debug
     cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
+    //cerr << pinned_alignment << " " << pin_left << " " << (int)full_length_bonus << " " << banded_global << " " << band_padding_override << " "  << max_span << endl;
 #endif
 
     auto do_align = [&](Graph& g) {
@@ -6655,7 +6656,7 @@ Alignment VG::align(const Alignment& alignment,
             bool permissive_banding = (band_padding_override == 0);
             // What band padding do we want? We used to hardcode it as 1, so it should always be at least 1.
             size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            
+            cerr << permissive_banding << " " << band_padding << endl;
 #ifdef debug
             cerr << "Actual graph size: ";
             size_t total_size = 0;
@@ -6684,6 +6685,8 @@ Alignment VG::align(const Alignment& alignment,
             }
         }
     };
+
+    flip_doubly_reversed_edges();
 
     if (is_acyclic() && !has_inverting_edges()) {
         // graph is a non-inverting DAG, so we just need to sort
