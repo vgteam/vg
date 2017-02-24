@@ -2113,13 +2113,12 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 }
 
 // We need a function to get the lengths of nodes, in case we need to
-// reverse an Alignment, including all its Mappings and Positions. TODO:
-// make this cache the node lengths for the nodes used in the actual
-// alignments somehow?
+// reverse an Alignment, including all its Mappings and Positions.
 int64_t Mapper::get_node_length(int64_t node_id) {
     if(xindex) {
         // Grab the node sequence only from the XG index and get its size.
-        return xindex->node_length(node_id);
+        // Make sure to use the cache
+        return xg_cached_node_length(node_id, xindex, get_node_cache());
     } else if(index) {
         // Get a 1-element range from the index and then use that.
         VG one_node_graph;
@@ -2726,8 +2725,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             auto& mapping = aln.path().mapping(i);
             
             if (mapping.position().node_id()) {
-                // Get the size of its node
-                size_t node_size = xindex->node_length(mapping.position().node_id());
+                // Get the size of its node from whatever index we have
+                size_t node_size = get_node_length(mapping.position().node_id());
                 
                 // Make sure the mapping fits in the node
                 assert(mapping.position().offset() + mapping_from_length(mapping) <= node_size);
