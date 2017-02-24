@@ -4750,7 +4750,9 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                 } else {
                     ++count_fwd;
                 }
-                graph.add_node(xindex->node(mapping.position().node_id()));
+                if (mapping.position().node_id()) {
+                    graph.add_node(xindex->node(mapping.position().node_id()));
+                }
             }
         }
         xindex->expand_context(graph.graph, 1, false);
