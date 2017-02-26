@@ -207,7 +207,6 @@ void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int
         qual_adj_aligners[i] = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
                                          255, gc_content);
         regular_aligners[i] = new Aligner(match, mismatch, gap_open, gap_extend);
-        regular_aligners[i]->init_mapping_quality(gc_content); // should be done in constructor
     }
 }
 
@@ -236,8 +235,8 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool banded_global) {
     //cerr << "align_to_graph " << pb2json(aln) << endl << pb2json(vg.graph) << endl;
     // check if we have a cached aligner for this thread
-    if (aln.quality().empty()) {
-        auto aligner = get_regular_aligner();
+    if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+        Aligner* aligner = get_regular_aligner();
         //aligner.align_global_banded(aln, graph.graph, band_padding);
         return vg.align(aln,
                         aligner,
@@ -247,24 +246,14 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                         full_length_bonus,
                         banded_global);
     } else {
-        auto aligner = get_qual_adj_aligner();
-        if (adjust_alignments_for_base_quality) {
-            return vg.align_qual_adjusted(aln,
-                                          aligner,
-                                          max_query_graph_ratio,
-                                          pinned_alignment,
-                                          pin_left,
-                                          full_length_bonus,
-                                          banded_global);
-        } else {
-            return vg.align(aln,
-                            aligner,
-                            max_query_graph_ratio,
-                            pinned_alignment,
-                            pin_left,
-                            full_length_bonus,
-                            banded_global);
-        }
+        QualAdjAligner* aligner = get_qual_adj_aligner();
+        return vg.align_qual_adjusted(aln,
+                                      aligner,
+                                      max_query_graph_ratio,
+                                      pinned_alignment,
+                                      pin_left,
+                                      full_length_bonus,
+                                      banded_global);
     }
 }
 
@@ -444,7 +433,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
-    auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    //auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     double hang_threshold = 0.5;
     double retry_threshold = 0.5;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
@@ -1188,7 +1177,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     bool retrying) {
 
     double avg_node_len = average_node_length();
-    auto aligner = (read1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    int8_t match;
+    int8_t gap_extension;
+    int8_t gap_open;
+    if (read1.quality().empty() || !adjust_alignments_for_base_quality) {
+        auto aligner =  get_regular_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    else {
+        auto aligner =  get_qual_adj_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
     int total_multimaps = max_multimaps + extra_multimaps;
     double cluster_mq = 0;
 
@@ -1348,9 +1351,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     // accepted transition
                     jump = abs(jump);
                     if (jump) {
-                        return (double) ((unique_coverage * aligner->match) - (aligner->gap_open + jump * aligner->gap_extension)) * uniqueness;
+                        return (double) ((unique_coverage * match) - (gap_open + jump * gap_extension)) * uniqueness;
                     } else {
-                        return (double) unique_coverage * aligner->match * uniqueness;
+                        return (double) unique_coverage * match * uniqueness;
                     }
                 }
             }
@@ -1721,7 +1724,22 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
 #endif
     
-    auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    int8_t match;
+    int8_t gap_extension;
+    int8_t gap_open;
+    if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+        auto aligner =  get_regular_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    else {
+        auto aligner =  get_qual_adj_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    
     int total_multimaps = max_multimaps + additional_multimaps;
     
     double avg_node_len = average_node_length();
@@ -1775,9 +1793,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 // accepted transition
                 jump = abs(jump);
                 if (jump) {
-                    return (double) ((unique_coverage * aligner->match) - (aligner->gap_open + jump * aligner->gap_extension)) * uniqueness;
+                    return (double) ((unique_coverage * match) - (gap_open + jump * gap_extension)) * uniqueness;
                 } else {
-                    return (double) unique_coverage * aligner->match * uniqueness;
+                    return (double) unique_coverage * match * uniqueness;
                 }
             }
         }
@@ -2545,7 +2563,8 @@ LRUCache<gcsa::node_type, map<string, vector<size_t> > >& Mapper::get_node_pos_c
 
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq) {
     if (alns.empty()) return;
-    auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+
+    auto aligner = (alns.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_mapping_quality(alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
@@ -2560,7 +2579,7 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
-    auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    auto aligner = (pair_alns.first.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
@@ -4223,8 +4242,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     // walk along the alignment and find the portions that are unaligned
     int read_pos = 0;
     auto& path = aln.path();
-    auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
-    auto qual_adj_aligner = (QualAdjAligner*) aligner;
+    auto aligner = get_regular_aligner();
+    auto qual_adj_aligner = get_qual_adj_aligner();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
 #ifdef debug_mapper
@@ -4247,7 +4266,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 //cerr << "edit is match" << endl;
-                if (!aln.quality().empty()) {
+                if (!aln.quality().empty() && adjust_alignments_for_base_quality) {
                     //cerr << read_pos << " " << edit.to_length() << endl;
                     score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_pos, edit.to_length()),
@@ -4800,8 +4819,8 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
-    auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
-    auto qual_adj_aligner = (QualAdjAligner*) aligner;
+    auto aligner = get_regular_aligner();
+    auto qual_adj_aligner = get_qual_adj_aligner();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         //cerr << "looking at mapping " << pb2json(mapping) << endl;
@@ -4809,7 +4828,7 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             auto& edit = mapping.edit(j);
             //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
-                if (!aln.quality().empty()) {
+                if (!aln.quality().empty() && adjust_alignments_for_base_quality) {
                     score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_offset, edit.to_length()),
                         aln.quality().substr(read_offset, edit.to_length()));
@@ -5581,7 +5600,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
     int thread_ex = thread_extension;
     map<vector<int64_t>*, Alignment> alignments;
-    auto aligner = (alignment.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    int8_t match = alignment.quality().empty() ? get_regular_aligner()->match : get_qual_adj_aligner()->match;
 
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
@@ -5760,7 +5779,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 #ifdef debug_mapper
 #pragma omp critical
             {
-                if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
+                if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*match) << endl;
             }
 #endif
             if (greedy_accept && ta.identity() >= accept_identity) {

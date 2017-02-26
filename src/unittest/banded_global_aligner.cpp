@@ -24,7 +24,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -41,13 +41,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -78,7 +73,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -95,13 +90,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -132,7 +122,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("CCCAGTT");
                 Node* n1 = graph.create_node("C");
@@ -149,13 +139,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                                 
                 const Path& path = aln.path();
                 
@@ -190,7 +175,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("CCCAGATG");
                 Node* n1 = graph.create_node("C");
@@ -207,13 +192,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -252,7 +232,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGATG");
                 Node* n1 = graph.create_node("C");
@@ -269,13 +249,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);;
                 
                 const Path& path = aln.path();
                 
@@ -314,7 +289,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("C");
@@ -331,13 +306,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -376,7 +346,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("C");
@@ -393,13 +363,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -438,7 +403,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -455,13 +420,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -501,7 +461,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -518,13 +478,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -561,7 +516,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -578,13 +533,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -619,7 +569,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -636,13 +586,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);;
                 
                 const Path& path = aln.path();
                 
@@ -677,7 +622,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AACCCAGG");
                 Node* n1 = graph.create_node("CA");
@@ -694,13 +639,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);;
                 
                 const Path& path = aln.path();
                 
@@ -735,7 +675,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AA");
                 Node* n1 = graph.create_node("CCCAGGCA");
@@ -752,13 +692,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 3;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -879,7 +814,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("TG");
                 Node* n1 = graph.create_node("TGGC");
@@ -896,13 +831,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1015,7 +945,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("TG");
                 Node* n1 = graph.create_node("TGGC");
@@ -1032,13 +962,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1069,7 +994,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CGCC");
@@ -1083,13 +1008,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1115,7 +1035,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -1129,13 +1049,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1161,7 +1076,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CGCC");
@@ -1179,13 +1094,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1216,7 +1126,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CGCC");
@@ -1231,13 +1141,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1268,7 +1173,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("CAGGA");
                 Node* n1 = graph.create_node("AA");
@@ -1285,13 +1190,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 20;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1322,7 +1222,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -1339,13 +1239,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 0;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = false;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1419,7 +1314,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner = Aligner();
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
@@ -1436,14 +1331,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width,
-                                                                                         true);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1474,7 +1363,7 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner = QualAdjAligner();
+                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("CTGGTGTAGTA");
@@ -1491,14 +1380,8 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 0;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width,
-                                                                                         true);
-                
-                
-                banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1561,15 +1444,8 @@ namespace vg {
                 alignment_quality_char_to_short(aln);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width,
-                                                                                         true,
-                                                                                         true);
-                
-                
-                banded_aligner.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1620,15 +1496,8 @@ namespace vg {
                 alignment_quality_char_to_short(aln);
                 
                 int band_width = 1;
-                BandedGlobalAligner<int8_t> banded_aligner = BandedGlobalAligner<int8_t>(aln,
-                                                                                         graph.graph,
-                                                                                         band_width,
-                                                                                         true,
-                                                                                         true);
-                
-                
-                banded_aligner.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
-                                     aligner.gap_extension);
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1678,27 +1547,9 @@ namespace vg {
                 alignment_quality_char_to_short(aln_reduced);
                 
                 int band_width = 1;
-                
-                BandedGlobalAligner<int8_t> banded_aligner_full = BandedGlobalAligner<int8_t>(aln_full,
-                                                                                              graph.graph,
-                                                                                              band_width,
-                                                                                              true,
-                                                                                              true);
-                
-                BandedGlobalAligner<int8_t> banded_aligner_reduced = BandedGlobalAligner<int8_t>(aln_reduced,
-                                                                                                 graph.graph,
-                                                                                                 band_width,
-                                                                                                 true,
-                                                                                                 true);
-                
-                
-                banded_aligner_full.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.scaled_gap_open,
-                                          aligner.scaled_gap_extension);
-                
-                banded_aligner_reduced.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.scaled_gap_open,
-                                             aligner.scaled_gap_extension);
-                
-                
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln_full, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln_reduced, graph.graph, band_width, permissive_banding);
                 
                 const Path& path_full = aln_full.path();
                 const Path& path_reduced = aln_reduced.path();
@@ -2249,6 +2100,742 @@ namespace vg {
                     REQUIRE(alns_seen.count(aln_string) == 0);
                     alns_seen.insert(aln_string);
                 }
+            }
+        }
+        
+        TEST_CASE( "Banded global aligner can align to graphs with empty sources and sinks",
+                  "[alignment][banded][mapping]" ) {
+            
+            SECTION( "Banded global aligner can align to a graph with an empty source node") {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                Node* n1 = graph.create_node("CT");
+                Node* n2 = graph.create_node("TA");
+                Node* n3 = graph.create_node("GA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "CTGA";
+                string qual = "HHHH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+                
+                aln.Clear();
+                read = "TGA";
+                qual = "HHH";
+                
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 1);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(1).from_length() == 1);
+                REQUIRE(aln.path().mapping(1).edit(1).to_length() == 1);
+                REQUIRE(aln.path().mapping(1).edit(1).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+                
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with an empty sink node") {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("GA");
+                Node* n1 = graph.create_node("CT");
+                Node* n2 = graph.create_node("TA");
+                Node* n3 = graph.create_node("");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "GACT";
+                string qual = "HHHH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with an empty source and sink node") {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                Node* n1 = graph.create_node("CT");
+                Node* n2 = graph.create_node("TA");
+                Node* n3 = graph.create_node("");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "CT";
+                string qual = "HH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with a chained empty source and sink nodes") {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                Node* n1 = graph.create_node("");
+                Node* n2 = graph.create_node("CT");
+                Node* n3 = graph.create_node("TA");
+                Node* n4 = graph.create_node("");
+                Node* n5 = graph.create_node("");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n4, n5);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "CT";
+                string qual = "HH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n2->id());
+                REQUIRE(aln.path().mapping(3).position().node_id() == n4->id());
+                REQUIRE(aln.path().mapping(4).position().node_id() == n5->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(3).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(3).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(3).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(4).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(4).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(4).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with an empty nodes that is both a source and sink") {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "CT";
+                string qual = "HH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence() == read);
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with both empty and non-empty sources and sinks") {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                Node* n1 = graph.create_node("GA");
+                Node* n2 = graph.create_node("CT");
+                Node* n3 = graph.create_node("GA");
+                Node* n4 = graph.create_node("");
+                
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n2);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n2, n4);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "CTGA";
+                string qual = "HHHH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n2->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+                
+                
+                aln.Clear();
+                read = "GACT";
+                qual = "HHHH";
+                
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n2->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n4->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with empty interior nodes") {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("GA");
+                Node* n1 = graph.create_node("");
+                Node* n2 = graph.create_node("");
+                Node* n3 = graph.create_node("CT");
+                Node* n4 = graph.create_node("TA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n3);
+                graph.create_edge(n1, n2);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "GATA";
+                string qual = "HHHH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(2).position().node_id() == n2->id());
+                REQUIRE(aln.path().mapping(3).position().node_id() == n4->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(2).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).to_length() == 0);
+                REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
+                
+                REQUIRE(aln.path().mapping(3).edit(0).from_length() == 2);
+                REQUIRE(aln.path().mapping(3).edit(0).to_length() == 2);
+                REQUIRE(aln.path().mapping(3).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner can align to an empty graph" ) {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "G";
+                string qual = "H";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 1);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence() == read);
+            }
+            
+            
+            SECTION( "Banded global aligner can align to an empty graph of more than one node" ) {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                Node* n1 = graph.create_node("");
+                
+                graph.create_edge(n0, n1);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "G";
+                string qual = "H";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 0);
+                
+                REQUIRE((aln.path().mapping(0).edit(0).to_length() == 1) != (aln.path().mapping(1).edit(0).to_length() == 1));
+                REQUIRE((aln.path().mapping(0).edit(0).to_length() == 0) != (aln.path().mapping(1).edit(0).to_length() == 0));
+                
+                REQUIRE((aln.path().mapping(0).edit(0).sequence() == read) != (aln.path().mapping(1).edit(0).sequence() == read));
+                REQUIRE((aln.path().mapping(0).edit(0).sequence().empty()) != (aln.path().mapping(1).edit(0).sequence().empty()));
+            }
+            
+            SECTION( "Banded global aligner can align to a graph with empty and non-empty paths" ) {
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("");
+                Node* n1 = graph.create_node("");
+                Node* n2 = graph.create_node("TCA");
+                
+                graph.create_edge(n0, n1);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                
+                string read = "G";
+                string qual = "H";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+                REQUIRE(aln.path().mapping(1).edit(0).from_length() == 0);
+                
+                REQUIRE((aln.path().mapping(0).edit(0).to_length() == 1) != (aln.path().mapping(1).edit(0).to_length() == 1));
+                REQUIRE((aln.path().mapping(0).edit(0).to_length() == 0) != (aln.path().mapping(1).edit(0).to_length() == 0));
+                
+                REQUIRE((aln.path().mapping(0).edit(0).sequence() == read) != (aln.path().mapping(1).edit(0).sequence() == read));
+                REQUIRE((aln.path().mapping(0).edit(0).sequence().empty()) != (aln.path().mapping(1).edit(0).sequence().empty()));
+                
+                
+                aln.Clear();
+                read = "TCA";
+                qual = "HHH";
+                
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                
+                // is a global alignment
+                REQUIRE(aln.path().mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == graph.graph.node(aln.path().mapping(aln.path().mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping(0).position().node_id() == n2->id());
+                
+                // has corrects edits
+                REQUIRE(aln.path().mapping(0).edit(0).from_length() == 3);
+                REQUIRE(aln.path().mapping(0).edit(0).to_length() == 3);
+                REQUIRE(aln.path().mapping(0).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner can find multi-alignments over empty sink nodes" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("GA");
+                Node* n1 = graph.create_node("");
+                Node* n2 = graph.create_node("");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                int max_multi_alns = 2;
+                vector<Alignment> multi_alns;
+                
+                string read = "GA";
+                string qual = "HH";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    const Path& path = alt_aln.path();
+                    
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    is_first_opt = is_first_opt && (path.mapping(0).position().node_id() == n0->id());
+                    is_first_opt = is_first_opt && (path.mapping(1).position().node_id() == n1->id());
+                    
+                    // has corrects edits
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 2);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 2);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).from_length() == 0);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).to_length() == 0);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    // follows correct path
+                    is_second_opt = is_second_opt && (path.mapping(0).position().node_id() == n0->id());
+                    is_second_opt = is_second_opt && (path.mapping(1).position().node_id() == n2->id());
+                    
+                    // has corrects edits
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 2);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 2);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).from_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).to_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+                
+            }
+            
+            // note: alternate alignments over different paths of empty nodes from the same non-empty node
+            // to either the same non-empty node or a source are not supported
+            
+            SECTION( "Banded global aligner can find multi-alignments over empty and non-empty separated components" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 6);
+                
+                Node* n0 = graph.create_node("C");
+                Node* n1 = graph.create_node("TT");
+                Node* n2 = graph.create_node("");
+                
+                bool permissive_banding = true;
+                int band_padding = 1;
+                int max_multi_alns = 3;
+                vector<Alignment> multi_alns;
+                
+                string read = "C";
+                string qual = "H";
+                
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                REQUIRE(multi_alns.size() <= 3);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                bool found_third_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    
+                    const Path& path = alt_aln.path();
+                    
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    bool is_third_opt = true;
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    is_first_opt = is_first_opt && (path.mapping(0).position().node_id() == n0->id());
+                    
+                    // has corrects edits
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    // follows correct path
+                    is_second_opt = is_second_opt && (path.mapping(0).position().node_id() == n2->id());
+                    
+                    // has corrects edits
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence() == read);
+                    
+                    // follows correct path
+                    is_third_opt = is_third_opt && (path.mapping(0).position().node_id() == n1->id());
+                    
+                    // has corrects edits
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(1).from_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(0).to_length() == 0 || path.mapping(0).edit(0).to_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(1).to_length() == 0 || path.mapping(0).edit(1).to_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(0).to_length() == 0 != path.mapping(0).edit(1).to_length() == 0);
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
+                    found_third_opt = found_third_opt || is_third_opt;
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+                REQUIRE(found_third_opt);
             }
         }
     }
