@@ -1943,8 +1943,6 @@ namespace vg {
                 REQUIRE(found_second_opt);
             }
             
-            
-            
             SECTION( "Banded global aligner can identify an alternate alignment that branches from another alternate alignment inside a node sequence" ) {
                 
                 VG graph;
@@ -2058,6 +2056,87 @@ namespace vg {
                     found_first_opt = found_first_opt || is_first_opt;
                     found_second_opt = found_second_opt || is_second_opt;
                     
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+            }
+            
+            
+            
+            SECTION( "Banded global aligner can identify both of two lead deletions of equal length" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("C");
+                Node* n1 = graph.create_node("T");
+                Node* n2 = graph.create_node("GA");
+                
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n2);
+                
+                string read = string("A");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 2;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    const Path& path = alt_aln.path();
+                                        
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    is_first_opt = is_first_opt && (path.mapping(0).position().node_id() == n0->id());
+                    is_first_opt = is_first_opt && (path.mapping(1).position().node_id() == n2->id());
+                    
+                    // has corrects edits
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 0);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).to_length() == 0);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(1).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(1).to_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(1).sequence().empty());
+                    
+                    // follows correct path
+                    is_second_opt = is_second_opt && (path.mapping(0).position().node_id() == n1->id());
+                    is_second_opt = is_second_opt && (path.mapping(1).position().node_id() == n2->id());
+                    
+                    // has corrects edits
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).to_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(1).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(1).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(1).sequence().empty());
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
                 }
                 
                 REQUIRE(found_first_opt);

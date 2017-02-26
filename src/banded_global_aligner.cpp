@@ -874,6 +874,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                     // at top of matrix, move into implied lead gap along top edge
                     in_lead_gap = true;
                     // no where else to go, so break out of switch statement without checking alts
+                    i--;
                     break;
                 }
                 
@@ -1115,12 +1116,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
         // we are in the implied lead gap along the top of the matrix
         // take the shortest path back to the origin of the global alignment
         
-        found_trace = true;
-        
         // add final read deletion of node
         builder.update_state(curr_mat, node, -1, j);
         
-        int64_t shortest_seq_len = numeric_limits<int64_t>::max();
         while (!seed_queue.empty()) {
             
             auto seed_record = seed_queue.front();
@@ -1159,10 +1157,14 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                 continue;
             }
             
-            // does a shorter path to origin go through this seed?
-            if (seed->cumulative_seq_len < shortest_seq_len) {
+            score_diff = gap_extend * (seed->cumulative_seq_len + seed->node->sequence().length() - cumulative_seq_len);
+            if (score_diff == 0 && !found_trace) {
                 traceback_seed = seed;
-                shortest_seq_len = seed->cumulative_seq_len;
+                found_trace = true;
+            }
+            else {
+                alt_score = curr_traceback_score - score_diff;
+                traceback_stack.propose_deflection(alt_score, node_id, i, j, seed->node->id(), InsertCol);
             }
         }
         
@@ -1172,7 +1174,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
             int64_t seed_extended_top_diag = traceback_seed->top_diag + seed_ncols;
             traceback_seed_row = top_diag - seed_extended_top_diag + i + 1;
             traceback_seed_col = seed_ncols - 1;
-            found_trace = true;
         }
     }
     else {
@@ -1311,7 +1312,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                         }
                         else {
                             alt_score = curr_traceback_score - score_diff;
-                            traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
+                            traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
                         }
                         
                         // don't check any of the matrices because they will have garbage values in this position or seg fault
@@ -1481,7 +1482,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
 #ifdef debug_banded_aligner_traceback
         cerr << "[BAMatrix::traceback_internal] at beginning of first node in alignment" << endl;
 #endif
-        if (in_lead_gap) {
+        if (in_lead_gap & !found_trace) {
+            // this will always be the shortest gap
             found_source_trace = true;
             j--;
             i++;
