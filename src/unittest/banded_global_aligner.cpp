@@ -2093,7 +2093,7 @@ namespace vg {
                 bool found_second_opt = false;
                 for (Alignment& alt_aln : multi_alns) {
                     const Path& path = alt_aln.path();
-                                        
+                    
                     bool is_first_opt = true;
                     bool is_second_opt = true;
                     

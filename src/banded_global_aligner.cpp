@@ -1101,6 +1101,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
     }
     
     bool found_trace = false;
+    // if we traverse through nodes with no sequence, we need to keep track of which ones
     vector<BAMatrix*> empty_intermediate_nodes;
     
     // a queue of seeds and their empty predecessors
@@ -1478,7 +1479,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
     bool found_source_trace = false;
     
     if (treat_as_source) {
-        // this is the first node in the alignment
+        // this is a source node, or it is connected to one by a zero-length path
+        
 #ifdef debug_banded_aligner_traceback
         cerr << "[BAMatrix::traceback_internal] at beginning of first node in alignment" << endl;
 #endif
@@ -1562,8 +1564,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
 #ifdef debug_banded_aligner_traceback
             cerr << "[BAMatrix::traceback_internal] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << (char) tolower(read[top_diag + i - 1]) << " (lowercase of " << read[top_diag + i - 1]     << ")" << endl;
 #endif
-            builder.update_state(curr_mat, node, i + top_diag - 1, -1);
             i--;
+            builder.update_state(curr_mat, node, i + top_diag, -1);
         }
         return;
     }
