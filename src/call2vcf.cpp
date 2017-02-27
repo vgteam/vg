@@ -1365,9 +1365,21 @@ int call2vcf(
             const Snarl* site = std::move(site_queue.front());
             site_queue.pop_front();
             
+            if (!index.byId.count(site->start().node_id())) {
+                #pragma omp critical (cerr)
+                cerr << "Off-reference left end: " << pb2json(*site) << endl;
+            }
+            if (!index.byId.count(site->end().node_id())) {
+                #pragma omp critical (cerr)
+                cerr << "Off-reference right end: " << pb2json(*site) << endl;
+            }
+            
+            // Sites should not have gotten into the queue without being on the primary path at both ends
+            assert(index.byId.count(site->start().node_id()) && index.byId.count(site->end().node_id()));
+            
             // Where does the variable region start and end on the reference?
-            size_t ref_start = index.byId.at(site->start().node_id()).first
-                                + vg.get_node(site->start().node_id())->sequence().size();
+            size_t ref_start = index.byId.at(site->start().node_id()).first +
+                vg.get_node(site->start().node_id())->sequence().size();
             size_t ref_end = index.byId.at(site->end().node_id()).first;
             
             if(ref_start > ref_end) {
@@ -1382,6 +1394,12 @@ int call2vcf(
                 for(const Snarl* child : site_manager.children_of(site)) {
                     // Dump all the children into the queue for separate
                     // processing.
+                    
+                    if(!index.byId.count(child->start().node_id()) || !index.byId.count(child->end().node_id())) {
+                        // Skip child sites that aren't on the reference path at both ends.
+                        continue;
+                    }
+                    
                     site_queue.emplace_back(child);
                 }
 
