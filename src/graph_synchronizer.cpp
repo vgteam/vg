@@ -1,4 +1,5 @@
 #include "graph_synchronizer.hpp"
+#include "algorithms/vg_algorithms.hpp"
 
 #include <iterator>
 
@@ -88,61 +89,69 @@ void GraphSynchronizer::Lock::lock() {
         if (start != 0 || past_end != 0) {
             // We want to extract a range
             
+            // Make a Graph to fill in
+            Graph context_graph;
+            
             // Find the outer ends of this range
             NodeSide start_left = synchronizer.get_path_index(path_name).at_position(start);
             NodeSide end_right = synchronizer.get_path_index(path_name).at_position(past_end == 0 ? 0 : past_end - 1).flip();
             
-            // Save the endpoints, so the user can know the ends of their
-            // subgraph that they got.
+            // Fill in the endpoints pair
             endpoints = make_pair(start_left, end_right);
             
-            // Copy over only the bounding nodes, and the edge between them on
-            // the non-barrier side, if any.
-            context.add_node(*synchronizer.graph.get_node(start_left.node));
-            context.add_node(*synchronizer.graph.get_node(end_right.node));
-            if (synchronizer.graph.has_edge(start_left.flip(), end_right.flip())) {
-                // The seed nodes are connected on the non-barrier side. Copy
-                // that edge, because context expansion only adds edges between
-                // newly found nodes.
-                context.add_edge(*synchronizer.graph.get_edge(start_left.flip(), end_right.flip()));
-            }
+#ifdef debug
+            cerr << "Endpoints: " << start_left << ", " << end_right << endl;
             
-            // Go do a normal context expansion, but not going through those sides.
-            synchronizer.graph.expand_context_by_length(context, (past_end - start) * 2, false, true, {start_left, end_right});
-            
-            // Now we have to address the problem where long inserts will take
-            // any longer path and match terribly, rather than fit on the
-            // shorter chromosome path, when there are other available tips in
-            // the graph.
-            
-            // TODO: Jordan's fancy extractor will do this.
-            
-            // For now, just prune back any tips that aren't the designated
-            // nodes.
-            
-            // Keep going until we don't find any nodes to kill
-            bool removed = true;
-            while (removed) {
-                // Find the heads and tails
-                auto head_nodes = context.head_nodes();
-                auto tail_nodes = context.tail_nodes();
-                
-                // Make a set of all nodes that are heads or tails
-                set<Node*> tip_nodes{head_nodes.begin(), head_nodes.end()};
-                copy(tail_nodes.begin(), tail_nodes.end(), inserter(tip_nodes, tip_nodes.end()));
-                
-                removed = false;
-                for (Node* tip : tip_nodes) {
-                    // Look at all of them
-                    if (tip->id() != start_left.node && tip->id() != end_right.node) {
-                        // If any of them aren't the nodes we are supposed to
-                        // havem drop them (and their edges)
-                        context.destroy_node(tip);
-                        removed = true;
-                    }
+            // Trace the path in the index to say what should be found
+            cerr << "Path: " << endl;
+            auto it = synchronizer.get_path_index(path_name).find_position(start);
+            while(it != synchronizer.get_path_index(path_name).end() && it->second.flip() != end_right) {
+                cerr << "\tVisit " << it->second;
+                auto it2 = it;
+                ++it2;
+                if (it2 != synchronizer.get_path_index(path_name).end()) {
+                    // Make sure we have an edge from this node to the next on the path
+                    assert(synchronizer.graph.has_edge(it->second.flip(), it2->second));
+                    cerr << " " << pb2json(*synchronizer.graph.get_edge(it->second.flip(), it2->second));
                 }
+                ++it;
+                cerr << endl;
             }
-            // TODO: this loop is like n^2 for dropping long sticks we don't want.
+#endif
+            
+            // Make them into pos_ts that point left to right, the way Jordan thinks.
+            pos_t left_pos = make_pos_t(start_left.node, start_left.is_end, 0);
+            pos_t right_pos = make_pos_t(end_right.node, !end_right.is_end,
+                synchronizer.graph.get_node(end_right.node)->sequence().size() - 1);
+            
+            // Since these are already at node ends, we don't need to worry about node cuts.
+            
+            // Extract paths out to the length we need to connect the ends, or a bit further.
+            // TODO: be sure to extract really big indels somehow...
+            auto duplications = algorithms::extract_connecting_graph(synchronizer.graph,
+                context_graph,
+                (past_end - start) * 2,
+                left_pos,
+                right_pos,
+                true, // Keep the specified positions in the graph
+                false, // Disallow terminal node cycles, so we don't duplicate nodes
+                true, // Remove other tips
+                false, // We don't care about being on a path
+                false); // Or being strictly less than the specified length
+                
+#ifdef debug
+            cerr << "Extracted " << context_graph.node_size() << " nodes and " << context_graph.edge_size() << " edges between " << path_name << ":" << start << "-" << past_end << endl;
+#endif
+                
+            // Any duplication is going to mess things up, since we need
+            // operations on the new graph to make sense in the original graph.
+            // We need all the entries in this duplication map to be no-ops.
+            for (auto& kv : duplications) {
+                assert(kv.first == kv.second);
+            }
+            
+            // Dump nodes and edges into the context VG object.
+            context.extend(context_graph);
             
         } else {
             // We want to extract a radius
@@ -234,6 +243,12 @@ void GraphSynchronizer::Lock::lock() {
         synchronizer.locked_nodes.insert(node->id());
         locked_nodes.insert(node->id());
     });
+    
+    // We should have actually grabbed something.
+    if (locked_nodes.empty()) {
+        cerr << "error:[vg::GraphSynchronizer] No nodes locked for " << path_name << ":" << start << "-" << past_end << endl;
+        throw runtime_error("No nodes locked!");
+    }
     
     // Now we know nobody else can touch those nodes and we can safely release
     // our lock on the main graph by letting it leave scope.

@@ -5455,7 +5455,7 @@ int main_map(int argc, char** argv) {
                 {"output-json", no_argument, 0, 'J'},
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
-                {"fastq", no_argument, 0, 'f'},
+                {"fastq", required_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},

@@ -2182,6 +2182,112 @@ namespace vg {
             }
         }
         
+        TEST_CASE( "Banded global aligner works with Ns",
+                  "[alignment][banded][mapping]"  ) {
+            
+            SECTION( "Banded global aligner can align Ns to letters" ) {
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("AGTG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("NNNGCTGANNN");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_width = 1;
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                
+                SECTION("alignment ends in full-length matches/mismatches") {
+                    REQUIRE(aln.path().mapping_size() == 3);
+                    REQUIRE(mapping_from_length(aln.path().mapping(0)) == 4);
+                    REQUIRE(mapping_to_length(aln.path().mapping(0)) == 4);
+                    REQUIRE(mapping_from_length(aln.path().mapping(2)) == 6);
+                    REQUIRE(mapping_to_length(aln.path().mapping(2)) == 6);
+                }
+                
+                
+            }
+            
+            SECTION( "Banded global aligner can align letters to Ns" ) {
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("AGTG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AGTGCTGAAGT");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_width = 1;
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                
+                SECTION("alignment ends in full-length matches/mismatches") {
+                    REQUIRE(aln.path().mapping_size() == 3);
+                    REQUIRE(mapping_from_length(aln.path().mapping(0)) == 4);
+                    REQUIRE(mapping_to_length(aln.path().mapping(0)) == 4);
+                    REQUIRE(mapping_from_length(aln.path().mapping(2)) == 6);
+                    REQUIRE(mapping_to_length(aln.path().mapping(2)) == 6);
+                }
+                
+                
+            }
+            
+            SECTION( "Banded global aligner can align Ns to Ns" ) {
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("NNNG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGANNN");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("NNNGCTGANNN");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_width = 1;
+                bool permissive_banding = true;
+                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                
+                SECTION("alignment ends in full-length matches/mismatches") {
+                    REQUIRE(aln.path().mapping_size() == 3);
+                    REQUIRE(mapping_from_length(aln.path().mapping(0)) == 4);
+                    REQUIRE(mapping_to_length(aln.path().mapping(0)) == 4);
+                    REQUIRE(mapping_from_length(aln.path().mapping(2)) == 6);
+                    REQUIRE(mapping_to_length(aln.path().mapping(2)) == 6);
+                }
+            }
+        }
+        
+
+        
         TEST_CASE( "Banded global aligner can align to graphs with empty sources and sinks",
                   "[alignment][banded][mapping]" ) {
             
@@ -2283,6 +2389,7 @@ namespace vg {
                 Node* n1 = graph.create_node("CT");
                 Node* n2 = graph.create_node("TA");
                 Node* n3 = graph.create_node("");
+
                 
                 graph.create_edge(n0, n1);
                 graph.create_edge(n0, n2);

@@ -194,7 +194,7 @@ endif
 
 .PHONY: clean get-deps test set-path static docs .pre-build
 
-$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
+$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 # We also want to present the xg binary, which tests can use.
@@ -204,7 +204,7 @@ $(BIN_DIR)/xg: $(LIB_DIR)/libxg.a $(OBJ_DIR)/xg-main.o
 static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(LIB_DIR)/libvg.a: $(OBJ)
+$(LIB_DIR)/libvg.a: $(OBJ) $(DEPS)
 	ar rs $@ $^
 
 get-deps:
@@ -338,6 +338,8 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 
 # For most of the .o files we just specify dependencies and use the pattern rule.
 
+$(OBJ): $(DEPS)
+
 $(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
 $(OBJ_DIR)/banded_global_aligner.o: $(SRC_DIR)/banded_global_aligner.cpp $(SRC_DIR)/banded_global_aligner.hpp $(DEPS)
@@ -413,7 +415,7 @@ $(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adde
 
 $(OBJ_DIR)/name_mapper.o: $(SRC_DIR)/name_mapper.cpp $(DEPS)
 
-$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/algorithms/vg_algorithms.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?

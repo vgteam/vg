@@ -244,7 +244,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                         pinned_alignment,
                         pin_left,
                         full_length_bonus,
-                        banded_global);
+                        banded_global,
+                        0, // band padding override
+                        aln.sequence().size());
     } else {
         QualAdjAligner* aligner = get_qual_adj_aligner();
         return vg.align_qual_adjusted(aln,
@@ -253,7 +255,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                       pinned_alignment,
                                       pin_left,
                                       full_length_bonus,
-                                      banded_global);
+                                      banded_global,
+                                      0, // band padding override
+                                      aln.sequence().size());
     }
 }
 
@@ -2131,13 +2135,12 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 }
 
 // We need a function to get the lengths of nodes, in case we need to
-// reverse an Alignment, including all its Mappings and Positions. TODO:
-// make this cache the node lengths for the nodes used in the actual
-// alignments somehow?
+// reverse an Alignment, including all its Mappings and Positions.
 int64_t Mapper::get_node_length(int64_t node_id) {
     if(xindex) {
         // Grab the node sequence only from the XG index and get its size.
-        return xindex->node_length(node_id);
+        // Make sure to use the cache
+        return xg_cached_node_length(node_id, xindex, get_node_cache());
     } else if(index) {
         // Get a 1-element range from the index and then use that.
         VG one_node_graph;
@@ -2736,6 +2739,22 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         filter_and_process_multimaps(alignments, 0);
     } else {
         filter_and_process_multimaps(alignments, additional_multimaps);
+    }
+    
+    for (auto& aln : alignments) {
+        // Make sure no alignments are wandering out of the graph
+        for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+            // Look at each mapping
+            auto& mapping = aln.path().mapping(i);
+            
+            if (mapping.position().node_id()) {
+                // Get the size of its node from whatever index we have
+                size_t node_size = get_node_length(mapping.position().node_id());
+                
+                // Make sure the mapping fits in the node
+                assert(mapping.position().offset() + mapping_from_length(mapping) <= node_size);
+            }
+        }
     }
     
     return alignments;
@@ -4763,7 +4782,9 @@ Alignment Mapper::smooth_alignment(const Alignment& aln) {
                 } else {
                     ++count_fwd;
                 }
-                graph.add_node(xindex->node(mapping.position().node_id()));
+                if (mapping.position().node_id()) {
+                    graph.add_node(xindex->node(mapping.position().node_id()));
+                }
             }
         }
         xindex->expand_context(graph.graph, 1, false);
