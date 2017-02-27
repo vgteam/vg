@@ -323,6 +323,9 @@ PathIndex::iterator PathIndex::find_position(size_t position) const {
 #ifdef debug
     cerr << "At " << position << " we have " << starts_next->second << endl;
 #endif
+
+    // Make sure we didn't fall off the ends
+    assert(position - starts_next->first < node_length(starts_next));
     
     // Return that
     return starts_next;
