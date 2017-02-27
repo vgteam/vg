@@ -903,6 +903,7 @@ void help_call(char** argv) {
          << "    -S, --sample NAME          name the sample in the VCF with the given name [SAMPLE]" << endl
          << "    -o, --offset INT           offset variant positions by this amount in VCF [0]" << endl
          << "    -l, --length INT           override total sequence length in VCF" << endl
+         << "    -U, --subgraph             expect a subgraph and ignore extra pileup entries outside it" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
          << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
@@ -951,6 +952,8 @@ int main_call(int argc, char** argv) {
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
     int64_t maxDepth = 10;
+    // Shoudl we expect a subgraph and ignore pileups for missing nodes/edges?
+    bool expectSubgraph = false;
     // Should we write pileup information to the VCF for debugging?
     bool pileupAnnotate = false;
     // What should the total sequence length reported in the VCF header be?
@@ -1021,6 +1024,7 @@ int main_call(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"depth", required_argument, 0, 'D'},
                 {"length", required_argument, 0, 'l'},
+                {"subgraph", no_argument, 0, 'U'},
                 {"pileup", no_argument, 0, 'P'},
                 {"min_cov_frac", required_argument, 0, 'F'},
                 {"max_het_bias", required_argument, 0, 'H'},
@@ -1038,7 +1042,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuIE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1095,6 +1099,9 @@ int main_call(int argc, char** argv) {
         case 'l':
             // Set a length override
             lengthOverride = std::stoll(optarg);
+            break;
+        case 'U':
+            expectSubgraph = true;
             break;
         case 'P':
             pileupAnnotate = true;
@@ -1211,11 +1218,29 @@ int main_call(int argc, char** argv) {
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {
         // compute the augmented graph
-        function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
+        function<void(Pileup&)> lambda = [&](Pileup& pileup) {
             for (int i = 0; i < pileup.node_pileups_size(); ++i) {
+                if (!graph->has_node(pileup.node_pileups(i).node_id())) {
+                    // This pileup doesn't belong in this graph
+                    if(!expectSubgraph) {
+                        throw runtime_error("Found pileup for nonexistent node " + to_string(pileup.node_pileups(i).node_id()));
+                    }
+                    // If that's expected, just skip it
+                    continue;
+                }
+                // Send approved pileups to the caller
                 caller.call_node_pileup(pileup.node_pileups(i));
             }
             for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
+                if (!graph->has_edge(pileup.edge_pileups(i).edge())) {
+                    // This pileup doesn't belong in this graph
+                    if(!expectSubgraph) {
+                        throw runtime_error("Found pileup for nonexistent edge " + pb2json(pileup.edge_pileups(i).edge()));
+                    }
+                    // If that's expected, just skip it
+                    continue;
+                }
+                // Send approved pileups to the caller
                 caller.call_edge_pileup(pileup.edge_pileups(i));
             }
         };
