@@ -20,6 +20,10 @@ threshold = 100
 
 for line in sys.stdin:
     fields = line.split(' ')
+    # every input has a true position, and if it has less than the expected number of fields we assume alignment failed
+    if len(fields) != 6:
+        print aln_name, 0, 0
+        continue
     aln_name = fields[0]
     true_chr = fields[1]
     true_pos = int(fields[2])
