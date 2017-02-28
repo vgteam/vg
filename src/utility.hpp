@@ -54,6 +54,13 @@ inline double add_log(double log_x, double log_y) {
     return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
 
 }
+ 
+/**
+ * Convert a number ln to the same number log 10.
+ */   
+inline double ln_to_log10(double ln) {
+    return ln / log(10);
+}
     
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {

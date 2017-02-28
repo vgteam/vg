@@ -45,51 +45,6 @@ std::string to_string_ss(T val) {
     return ss.str();
 }
 
-// Poisson utility functions from Freebayes (when merging into vg
-// these should get offloaded into utility.cpp or something
-static long double gammaln(
-    long double x
-    ) {
-
-    long double cofactors[] = { 76.18009173, 
-                                -86.50532033,
-                                24.01409822,
-                                -1.231739516,
-                                0.120858003E-2,
-                                -0.536382E-5 };    
-
-    long double x1 = x - 1.0;
-    long double tmp = x1 + 5.5;
-    tmp -= (x1 + 0.5) * log(tmp);
-    long double ser = 1.0;
-    for (int j=0; j<=5; j++) {
-        x1 += 1.0;
-        ser += cofactors[j]/x1;
-    }
-    long double y =  (-1.0 * tmp + log(2.50662827465 * ser));
-
-    return y;
-}
-
-static long double factorial(
-    int n
-    ) {
-    if (n < 0) {
-        return (long double)0.0;
-    }
-    else if (n == 0) {
-        return (long double)1.0;
-    }
-    else {
-        return exp(gammaln(n + 1.0));
-    }
-}
-
-long double poissonp(int observed, int expected) {
-    return (double) pow((double) expected, (double) observed) * (double) pow(M_E, (double) -expected) / factorial(observed);
-}
-
-
 /**
  * We need to suppress overlapping variants, but interval trees are hard to
  * write. This accomplishes the collision check with a massive bit vector.
@@ -1837,8 +1792,8 @@ int call2vcf(
                     // Compute the likelihood for a best/second best het
                     // Quick quality: combine likelihood and depth, using poisson for latter
                     // TODO: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-                    gen_likelihood = log10(poissonp(total(best_support), 0.5 * total(baseline_support))) +
-                        log10(poissonp(total(second_best_support), 0.5 * total(baseline_support)));
+                    gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), 0.5 * total(baseline_support))) +
+                        ln_to_log10(poisson_prob_ln(total(second_best_support), 0.5 * total(baseline_support)));
                     gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
                     // Get minimum support for filter (not assuming it's second_best just to be sure)
                     min_site_support = std::min(total(second_best_support), total(best_support));
@@ -1850,7 +1805,7 @@ int call2vcf(
                     genotype.push_back(std::to_string(best_alt) + "/" + std::to_string(best_alt));
                     
                     // Compute the likelihood for hom best allele
-                    gen_likelihood = log10(poissonp(total(best_support), total(baseline_support)));
+                    gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support)));
                     gen_likelihood += min_likelihoods.at(best_allele);
 
                     // Get minimum support for filter
@@ -2360,16 +2315,16 @@ int call2vcf(
                 double genLikelihood;
                 double min_site_support = 0;
                 if (genotype.back() == "0/0") {
-                    genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
+                    genLikelihood = ln_to_log10(poisson_prob_ln(total(refSupport), total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second;
                     min_site_support =  total(refSupport);
                 } else if (genotype.back() == "1/1") {
-                    genLikelihood = log10(poissonp(total(altSupport), total(baselineSupport)));
+                    genLikelihood = ln_to_log10(poisson_prob_ln(total(altSupport), total(baselineSupport)));
                     genLikelihood += altMinLikelihood.second;
                     min_site_support = total(altSupport);
                 } else {
-                    genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
-                        log10(poissonp(total(altSupport), 0.5 * total(baselineSupport)));
+                    genLikelihood = ln_to_log10(poisson_prob_ln(total(refSupport), 0.5 * total(baselineSupport))) +
+                        ln_to_log10(poisson_prob_ln(total(altSupport), 0.5 * total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second + altMinLikelihood.second;
                     min_site_support = std::min(total(refSupport), total(altSupport));
                 }
@@ -2688,16 +2643,16 @@ int call2vcf(
                 double genLikelihood;
                 double min_site_support = 0;
                 if (genotype.back() == "0/0") {
-                    genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
+                    genLikelihood = ln_to_log10(poisson_prob_ln(total(refSupport), total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second;
                     min_site_support = total(refSupport);
                 } else if (genotype.back() == "1/1") {
-                    genLikelihood = log10(poissonp(total(altReadSupportTotal), total(baselineSupport)));
+                    genLikelihood = ln_to_log10(poisson_prob_ln(total(altReadSupportTotal), total(baselineSupport)));
                     genLikelihood += altMinLikelihood;
                     min_site_support = total(altReadSupportTotal);
                 } else {
-                    genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
-                        log10(poissonp(total(altReadSupportTotal), 0.5 * total(baselineSupport)));
+                    genLikelihood = ln_to_log10(poisson_prob_ln(total(refSupport), 0.5 * total(baselineSupport))) +
+                        ln_to_log10(poisson_prob_ln(total(altReadSupportTotal), 0.5 * total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second + altMinLikelihood;
                     min_site_support = std::min(total(refSupport), total(altReadSupportTotal));
                 }
