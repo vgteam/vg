@@ -16,6 +16,7 @@
 #include "Variant.h"
 #include "genotypekit.hpp"
 #include "snarls.hpp"
+#include "path_index.hpp"
 
 //#define debug
 
@@ -88,25 +89,6 @@ long double poissonp(int observed, int expected) {
     return (double) pow((double) expected, (double) observed) * (double) pow(M_E, (double) -expected) / factorial(observed);
 }
 
-
-/**
- * Holds indexes of the reference: position to node, node to position and
- * orientation, and the full reference string.
- */
-struct ReferenceIndex {
-    // Index from node ID to first position on the reference string and
-    // orientation it occurs there.
-    std::map<int64_t, std::pair<size_t, bool>> byId;
-    
-    // Index from start position on the reference to the oriented node that
-    // begins there.  Some nodes may be backward (orientation true) at their
-    // canonical reference positions. In this case, the last base of the node
-    // occurs at the given position.
-    std::map<size_t, vg::NodeTraversal> byStart;
-    
-    // The actual sequence of the reference.
-    std::string sequence;
-};
 
 /**
  * We need to suppress overlapping variants, but interval trees are hard to
@@ -396,7 +378,7 @@ Support min_support_in_path(vg::VG& graph,
  * reference path. Refuses to visit nodes with no support.
  */
 std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph,
-    vg::NodeTraversal node, const ReferenceIndex& index,
+    vg::NodeTraversal node, const PathIndex& index,
     const std::map<vg::Node*, Support>& nodeReadSupport,
     const std::map<vg::Edge*, Support>& edgeReadSupport,
     int64_t maxDepth = 10, bool stopIfVisited = false) {
@@ -447,7 +429,7 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph
         
         // Look up and see if the front node on the path is on our reference
         // path
-        if(index.byId.count(path.front().node->id())) {
+        if(index.by_id.count(path.front().node->id())) {
             // This node is on the reference path. TODO: we don't care if it
             // lands in a place that is itself deleted.
             
@@ -513,7 +495,7 @@ vg::NodeTraversal flip(vg::NodeTraversal toFlip) {
  * reference path.
  */
 std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& graph,
-    vg::NodeTraversal node, const ReferenceIndex& index,
+    vg::NodeTraversal node, const PathIndex& index,
     const std::map<vg::Node*, Support>& nodeReadSupport,
     const std::map<vg::Edge*, Support>& edgeReadSupport,
     int64_t maxDepth = 10, bool stopIfVisited = false) {
@@ -557,7 +539,7 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& grap
  * and their edges which aren't stored in the path)
  */
 std::pair<Support, std::vector<vg::NodeTraversal> >
-find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex& index,
+find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& index,
             const std::map<vg::Node*, Support>& nodeReadSupport,
             const std::map<vg::Edge*, Support>& edgeReadSupport, int64_t maxDepth,
             size_t max_bubble_paths) {
@@ -618,7 +600,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
             auto leftOrientation = leftPath.front().backward;
             
             // Get where it falls in the reference as a position, orientation pair.
-            auto leftRefPos = index.byId.at(leftNode->id());
+            auto leftRefPos = index.by_id.at(leftNode->id());
             
             // We have a backward orientation relative to the reference path if we
             // were traversing the anchoring node backwards, xor if it is backwards
@@ -649,7 +631,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
                 auto rightOrientation = rightPath.back().backward;
                 
                 // Get where it falls in the reference as a position, orientation pair.
-                auto rightRefPos = index.byId.at(rightNode->id());
+                auto rightRefPos = index.by_id.at(rightNode->id());
                 
                 // We have a backward orientation relative to the reference path if we
                 // were traversing the anchoring node backwards, xor if it is backwards
@@ -752,112 +734,6 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
     // found.
     return testCombinations(leftConverted, rightConverted);
     
-}
-
-/**
- * Trace out the reference path in the given graph named by the given name.
- * Returns a structure with useful indexes of the reference.
- */
-ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool verbose) {
-    // Make sure the reference path is present
-    assert(vg.paths.has_path(refPathName));
-    
-    // We'll fill this in and then return it.
-    ReferenceIndex index;
-    
-    // We're also going to build the reference sequence string
-    std::stringstream refSeqStream;
-    
-    // What base are we at in the reference
-    size_t referenceBase = 0;
-    
-    // What was the last rank? Ranks must always go up.
-    int64_t lastRank = -1;
-    
-    for(auto mapping : vg.paths.get_path(refPathName)) {
-        // All the mappings need to be perfect matches.
-        assert(mapping_is_perfect_match(mapping));
-    
-        if(!index.byId.count(mapping.position().node_id())) {
-            // This is the first time we have visited this node in the reference
-            // path.
-            
-            // Add in a mapping.
-            index.byId[mapping.position().node_id()] = 
-                std::make_pair(referenceBase, mapping.position().is_reverse());
-#ifdef debug
-            std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
-                << " starts at base " << referenceBase << " with "
-                << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
-#endif
-            
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > lastRank);
-            lastRank = mapping.rank();
-        } else if (verbose) {
-            std::cerr << "Warning: Cycle detected at " << mapping.position().node_id()
-                      << " in reference path " << refPathName << endl;
-        }
-        
-        // Find the node's sequence
-        std::string sequence = vg.get_node(mapping.position().node_id())->sequence();
-        
-        while(referenceBase == 0 && sequence.size() > 0 &&
-            (sequence[0] != 'A' && sequence[0] != 'T' && sequence[0] != 'C' &&
-            sequence[0] != 'G' && sequence[0] != 'N')) {
-            
-            // If the path leads with invalid characters (like "X"), throw them
-            // out when computing reference path positions.
-            
-            // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
-            // which leads with an X.
-
-            if (verbose) {
-                std::cerr << "Warning: dropping invalid leading character "
-                          << sequence[0] << " from node " << mapping.position().node_id()
-                          << std::endl;
-            }
-                
-            sequence.erase(sequence.begin());
-        }
-        
-        if(mapping.position().is_reverse()) {
-            // Put the reverse sequence in the reference path
-            refSeqStream << vg::reverse_complement(sequence);
-        } else {
-            // Put the forward sequence in the reference path
-            refSeqStream << sequence;
-        }
-            
-        // Say that this node appears here along the reference in this
-        // orientation.
-        index.byStart[referenceBase] = vg::NodeTraversal(
-            vg.get_node(mapping.position().node_id()), mapping.position().is_reverse()); 
-            
-        // Whether we found the right place for this node in the reference or
-        // not, we still need to advance along the reference path. We assume the
-        // whole node (except any leading bogus characters) is included in the
-        // path (since it sort of has to be, syntactically, unless it's the
-        // first or last node).
-        referenceBase += sequence.size();
-        
-        // TODO: handle leading bogus characters in calls on the first node.
-    }
-    
-    // Create the actual reference sequence we will use
-    index.sequence = refSeqStream.str();
-    
-    // Announce progress.
-    if (verbose) {
-        std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
-    
-        if(index.sequence.size() < 100) {
-            std::cerr << "Reference sequence: " << index.sequence << std::endl;
-        }
-    }
-    
-    // Give back the indexes we have been making
-    return index;
 }
 
 /**
@@ -1202,7 +1078,7 @@ int call2vcf(
     
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    ReferenceIndex index = trace_reference_path(vg, refPathName, verbose);  
+    PathIndex index(vg, refPathName, true);
     
     // This holds read support, on each strand, for all the nodes we have read
     // support provided for, by the node pointer in the vg graph.
@@ -1245,13 +1121,13 @@ int call2vcf(
     // support in total (node length * aligned reads) does the primary path get?
     Support primaryPathTotalSupport = std::make_pair(0.0, 0.0);
     for(auto& pointerAndSupport : nodeReadSupport) {
-        if(index.byId.count(pointerAndSupport.first->id())) {
+        if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
             primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
             if (expCoverage == 0) {
-                int bin = index.byId[pointerAndSupport.first->id()].first / refBinSize;
+                int bin = index.by_id[pointerAndSupport.first->id()].first / refBinSize;
                 if (bin == binnedSupport.size()) {
                     --bin;
                 }
@@ -1343,7 +1219,7 @@ int call2vcf(
         SnarlManager site_manager = finder.find_snarls();
         
         site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
-            if(!index.byId.count(site->start().node_id()) || !index.byId.count(site->end().node_id())) {
+            if(!index.by_id.count(site->start().node_id()) || !index.by_id.count(site->end().node_id())) {
                 // Skip top-level sites that aren't on the reference path at both ends.
                 return;
             }
@@ -1365,22 +1241,22 @@ int call2vcf(
             const Snarl* site = std::move(site_queue.front());
             site_queue.pop_front();
             
-            if (!index.byId.count(site->start().node_id())) {
+            if (!index.by_id.count(site->start().node_id())) {
                 #pragma omp critical (cerr)
                 cerr << "Off-reference left end: " << pb2json(*site) << endl;
             }
-            if (!index.byId.count(site->end().node_id())) {
+            if (!index.by_id.count(site->end().node_id())) {
                 #pragma omp critical (cerr)
                 cerr << "Off-reference right end: " << pb2json(*site) << endl;
             }
             
             // Sites should not have gotten into the queue without being on the primary path at both ends
-            assert(index.byId.count(site->start().node_id()) && index.byId.count(site->end().node_id()));
+            assert(index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id()));
             
             // Where does the variable region start and end on the reference?
-            size_t ref_start = index.byId.at(site->start().node_id()).first +
+            size_t ref_start = index.by_id.at(site->start().node_id()).first +
                 vg.get_node(site->start().node_id())->sequence().size();
-            size_t ref_end = index.byId.at(site->end().node_id()).first;
+            size_t ref_end = index.by_id.at(site->end().node_id()).first;
             
             if(ref_start > ref_end) {
                 // Make sure it's the right way around (it will get set straight
@@ -1395,7 +1271,7 @@ int call2vcf(
                     // Dump all the children into the queue for separate
                     // processing.
                     
-                    if(!index.byId.count(child->start().node_id()) || !index.byId.count(child->end().node_id())) {
+                    if(!index.by_id.count(child->start().node_id()) || !index.by_id.count(child->end().node_id())) {
                         // Skip child sites that aren't on the reference path at both ends.
                         continue;
                     }
@@ -1425,7 +1301,7 @@ int call2vcf(
                 }
                 
                 // Make sure start and end are front-ways relative to the ref path.
-                if(index.byId.at(site->start().node_id()).first > index.byId.at(site->end().node_id()).first) {
+                if(index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
                     // The site's end happens before its start, flip it around
                     site_manager.flip(site);
                 }
@@ -1451,19 +1327,19 @@ int call2vcf(
             // Trace the ref path through the site
             std::vector<NodeTraversal> ref_path_for_site;
 #ifdef debug
-            std::cerr << "Site starts with " << to_node_traversal(site->start(), vg) << " at " << index.byId.at(site->start().node_id()).first
-                << " and ends with " << to_node_traversal(site->end(), vg) << " at " << index.byId.at(site->end().node_id()).first << std::endl;
+            std::cerr << "Site starts with " << to_node_traversal(site->start(), vg) << " at " << index.by_id.at(site->start().node_id()).first
+                << " and ends with " << to_node_traversal(site->end(), vg) << " at " << index.by_id.at(site->end().node_id()).first << std::endl;
 #endif
             
-            int64_t ref_node_start = index.byId.at(site->start().node_id()).first;
-            while(ref_node_start <= index.byId.at(site->end().node_id()).first) {
+            int64_t ref_node_start = index.by_id.at(site->start().node_id()).first;
+            while(ref_node_start <= index.by_id.at(site->end().node_id()).first) {
             
                 // Find the reference node starting here or later.
-                auto found = index.byStart.lower_bound(ref_node_start);
-                if(found == index.byStart.end()) {
+                auto found = index.by_start.lower_bound(ref_node_start);
+                if(found == index.by_start.end()) {
                     throw runtime_error("No ref node found when tracing through site!");
                 }
-                if((*found).first > index.byId.at(site->end().node_id()).first) {
+                if((*found).first > index.by_id.at(site->end().node_id()).first) {
                     // The next reference node we can find is out of the space
                     // being replaced. We're done.
                     if (verbose) {
@@ -1472,25 +1348,28 @@ int call2vcf(
                     break;
                 }
                 
+                // Get the corresponding NodeTraversal (by converting through Visit)
+                NodeTraversal found_traversal = to_node_traversal(found->second.to_visit(), vg);
+                
                 // Add the traversal to the ref path through the site
-                ref_path_for_site.push_back((*found).second);
+                ref_path_for_site.push_back(found_traversal);
                 
                 // Make sure this node is actually in the site
-                assert(contents.first.count((*found).second.node));
+                assert(contents.first.count(found_traversal.node));
                 
                 // Drop it from the set of nodes in the site we haven't visited.
-                nodes_left.erase((*found).second.node);
+                nodes_left.erase(found_traversal.node);
                 
                 // Next iteration look where this node ends.
-                ref_node_start = (*found).first + (*found).second.node->sequence().size();
+                ref_node_start = found->first + found_traversal.node->sequence().size();
             }
             
             for(auto node : nodes_left) {
                 // Make sure none of the nodes in the site that we didn't visit
                 // while tracing along the ref path are on the ref path.
-                if(index.byId.count(node->id())) {
+                if(index.by_id.count(node->id())) {
                     std::cerr << "Node " << node->id() << " is on ref path at "
-                        << index.byId.at(node->id()).first << " but not traced in site "
+                        << index.by_id.at(node->id()).first << " but not traced in site "
                         << to_node_traversal(site->start(), vg) << " to " 
                         << to_node_traversal(site->end(), vg) << std::endl;
                     throw runtime_error("Extra ref node found");
@@ -1560,9 +1439,9 @@ int call2vcf(
                     // Make sure the site actually has the nodes we're visiting.
                     assert(contents.first.count(traversal.node));
 #ifdef debug
-                    if(index.byId.count(traversal.node->id())) {
+                    if(index.by_id.count(traversal.node->id())) {
                         std::cerr << "Path member " << traversal << " lives on ref at "
-                        << index.byId.at(traversal.node->id()).first << std::endl;
+                        << index.by_id.at(traversal.node->id()).first << std::endl;
                     } else {
                         std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
                     }
@@ -1622,7 +1501,7 @@ int call2vcf(
                     continue;
                 }
                 
-                if(index.byId.count(node->id())) {
+                if(index.by_id.count(node->id())) {
                     // Don't try to pathfind to the reference for reference nodes.
                     continue;
                 }
@@ -1652,7 +1531,7 @@ int call2vcf(
             for(Edge* edge : contents.second) {
                 // Go through all the edges
                 
-                if(!index.byId.count(edge->from()) || !index.byId.count(edge->to())) {
+                if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
                     // Edge doesn't touch reference at both ends. Don't use it
                     // because for some reason it makes performance worse
                     // overall.
@@ -1831,7 +1710,7 @@ int call2vcf(
             }
             
             // Since the variable part of the site is after the first anchoring node, where does it start?
-            size_t variation_start = index.byId.at(site->start().node_id()).first
+            size_t variation_start = index.by_id.at(site->start().node_id()).first
                                      + vg.get_node(site->start().node_id())->sequence().size();
             
             // Make a Variant
@@ -2085,7 +1964,7 @@ int call2vcf(
             // reference path, greedily.
         
             // Ensure this node is nonreference
-            if(index.byId.count(node->id())) {
+            if(index.by_id.count(node->id())) {
                 // Skip reference nodes
                 return;
             }
@@ -2112,14 +1991,14 @@ int call2vcf(
                 // position along the reference at which it occurs. Our bubble
                 // goes forward in the reference, so we must come out of the
                 // opposite end of the node from the one we have stored.
-                auto referenceIntervalStart = index.byId.at(path.front().node->id()).first +
+                auto referenceIntervalStart = index.by_id.at(path.front().node->id()).first +
                     path.front().node->sequence().size();
                 
                 // The position we have stored for the end node is the first
                 // position it occurs in the reference, and we know we go into
                 // it in a reference-concordant direction, so we must have our
                 // past-the-end position right there.
-                auto referenceIntervalPastEnd = index.byId.at(path.back().node->id()).first;
+                auto referenceIntervalPastEnd = index.by_id.at(path.back().node->id()).first;
                 
                 // We'll fill in this stream with all the node sequences we visit on
                 // the path, except for the first and last.
@@ -2248,8 +2127,8 @@ int call2vcf(
                     // Find the reference node starting here or later. Remember that
                     // a variant anchored at its left base to a reference position
                     // may have no node starting right where it starts.
-                    auto found = index.byStart.lower_bound(refNodeStart);
-                    if(found == index.byStart.end()) {
+                    auto found = index.by_start.lower_bound(refNodeStart);
+                    if(found == index.by_start.end()) {
                         // No reference nodes here! That's a bit weird. But stop the
                         // loop.
                         break;
@@ -2261,7 +2140,7 @@ int call2vcf(
                     }
                     
                     // Pull out the reference node we located
-                    auto* refNode = (*found).second.node;
+                    auto* refNode = vg.get_node((*found).second.node);
                     
                     // Record involvement
                     refInvolvedNodes.insert(refNode);
@@ -2551,7 +2430,7 @@ int call2vcf(
                 (deletion->from_start() ? "L" : "R") + "->" +
                 std::to_string(deletion->to()) + (deletion->to_end() ? "R" : "L");
             
-            if(!index.byId.count(deletion->from()) || !index.byId.count(deletion->to())) {
+            if(!index.by_id.count(deletion->from()) || !index.by_id.count(deletion->to())) {
                 // This deletion edge does not cover a reference interval.
                 // TODO: take into account its presence when pushing copy number.
 #ifdef debug
@@ -2562,8 +2441,8 @@ int call2vcf(
             
             // Where are we from and to in the reference (leftmost position and
             // relative orientation)
-            auto& fromPlacement = index.byId.at(deletion->from());
-            auto& toPlacement = index.byId.at(deletion->to());
+            auto& fromPlacement = index.by_id.at(deletion->from());
+            auto& toPlacement = index.by_id.at(deletion->to());
             
 #ifdef debug
             std::cerr << "Node " << deletion->from() << " is at ref position " 
@@ -2639,7 +2518,7 @@ int call2vcf(
 #endif
             
                 // Find the deleted node starting here in the reference
-                auto* deletedNode = index.byStart.at(deletedNodeStart).node;
+                auto* deletedNode = vg.get_node(index.by_start.at(deletedNodeStart).node);
                 // We know the next reference node should start just after this one.
                 // Even if it previously existed in the reference.
                 deletedNodeStart += deletedNode->sequence().size();
