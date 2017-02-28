@@ -1897,6 +1897,20 @@ double overlap(const Path& p1, const Path& p2) {
     }
     return (double) matching / (double) total;
 }
+    
+pos_t initial_position(const Path& path) {
+    return path.mapping_size() ? make_pos_t(path.mapping(0).position()) : pos_t();
+}
+
+pos_t final_position(const Path& path) {
+    if (!path.mapping_size()) {
+        return pos_t();
+    }
+    const Mapping& mapping = path.mapping(path.mapping_size() - 1);
+    return make_pos_t(mapping.position().node_id(),
+                      mapping.position().is_reverse(),
+                      mapping.position().offset() + mapping_from_length(mapping) - 1);
+}
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     // We'll fill in this path

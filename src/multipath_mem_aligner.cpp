@@ -33,9 +33,11 @@ namespace vg {
         //  - if the non-overlapping edge ends up being reachable in the graph, we probably never want the
         //    overlap edge because it's just going to get pulled into taking the same match
         prune_to_nodes_on_tracebacks(num_pruning_tracebacks);
+        remerge_split_nodes
         query_node_matches(alignment, xgindex, node_cache);
-        //remove_snarls()
-        //query_edge_subgraphs()
+        remove_snarls(alignment, snarl_manager, aligner);
+        // at this point the edge weights don't really mean anything
+        query_internal_edge_subgraphs(alignment, xgindex, node_cache);
     }
     
     void MultipathMEMAligner::init_first_pass_graph(const Alignment& alignment,
@@ -49,7 +51,7 @@ namespace vg {
         // is only likely when inversion is small so that distance is not overestimated too much)
         auto distance = [&](pos_t& pos_1, pos_t& pos_2) {
             return xgindex.min_approx_path_distance(vector<string>(), id(pos_1), id(pos_2))
-                   + (int64_t) offset(pos_1) - (int64_t) offset(pos_2);
+                   - (int64_t) offset(pos_1) + (int64_t) offset(pos_2);
         };
         
         // the maximum graph distances to the right and left sides detectable from each node
@@ -93,7 +95,10 @@ namespace vg {
             }
         }
         
-        // first pass: identify all pairs that could conceivably have edges
+        // first pass: identify all pairs that could conceivably have edges, i.e. that have a
+        // minimum insert of at most the maximum detectable gap and whos start positions are
+        // sequential along the read. we do not enforce that the MEMs have no overlap, because
+        // later we will check if we can get an edge by removing an overlap
         unordered_map<pair<int64_t, int64_t>, int64_t> pair_distances;
         for (int64_t i = 0, last = nodes.size() - 1; i < last; i++) {
             for (int64_t j = i + 1; j < nodes.size(); j++) {
@@ -139,6 +144,7 @@ namespace vg {
             }
         }
         
+        // as we make edges, record any overlaps that are necessary
         vector<pair<pair<int64_t, int64_t>, int64_t>> overlaps;
         
         for (const pair<pair<int64_t, int64_t>, size_t>& pair_distance : pair_distances) {
@@ -149,13 +155,14 @@ namespace vg {
             // TODO: need to look up how approximate distance function handles strand, sign, etc.
             int64_t absolute_dist = abs(pair_distance.second);
             
-            // can we make an edge between these without trimming an overlap?
-            if (node_1.end < node_2.begin) {
+            if (node_1.end <= node_2.begin) {
+                // these matches are non-overlapping on the read
+                
                 // the amount of read between these MEMs
                 int64_t between_length = node_2.begin - node_1.end;
                 
                 // TODO: assuming matches for intervening sequence will make it difficult to prune
-                // off erroneous sub-MEMs that we aren't going to filter out at this stage
+                // off erroneous sub-MEMs and overlaps that we aren't going to filter out at this stage
                 
                 // find the maximum possible score (goal is sensitivity at this stage)
                 int32_t weight;
@@ -175,16 +182,20 @@ namespace vg {
                 }
                 node_1.edges_from.emplace_back(pair_distance.first.second, weight);
             }
-            
-            // figure out how much of the first MEM could potentially overlap with the second
-            // TODO: some of these could represent the same underlying MEM, might be worth finding a
-            // way to only build suffix tree once per MEM
-            SuffixTree suffix_tree(node_1.begin, node_1.end);
-            size_t overlap = suffix_tree.longest_overlap(node_2.begin, node_2.end);
-            
-            // record any non-trivial overlaps
-            if (overlap) {// && overlap != node_2.end - node_2.begin) {
-                overlaps.push_back(make_pair(pair_distance.first, overlap));
+            else {
+                // these matches overlap on the read, but maybe we can make an edge by trimming
+                // off an overlap
+                
+                // figure out how much of the first MEM could potentially overlap with the second
+                // TODO: some of these could represent the same underlying MEM, might be worth finding a
+                // way to only build suffix tree once per MEM
+                SuffixTree suffix_tree(node_1.begin, node_1.end);
+                size_t overlap = suffix_tree.longest_overlap(node_2.begin, node_2.end);
+                
+                // record any non-trivial overlaps
+                if (overlap && overlap != node_2.end - node_2.begin) {
+                    overlaps.push_back(make_pair(pair_distance.first, overlap));
+                }
             }
         }
         
@@ -281,6 +292,18 @@ namespace vg {
                     - aligner.scaled_gap_open) / aligner.scaled_gap_extension,
                    (other_side_remaining * match_score + full_length_bonus
                     - aligner.scaled_gap_open) / aligner.scaled_gap_extension) + 1;
+        
+    }
+    
+    inline size_t MultipathMEMAligner::longest_detectable_gap(const Alignment& alignment,
+                                                              const string::const_iterator& gap_begin,
+                                                              const int8_t match_score,
+                                                              const QualAdjAligner& aligner,
+                                                              const int8_t full_length_bonus) {
+        
+        // algebraic solution for when score is > 0 assuming perfect match other than gap
+        return (min(gap_begin - alignment.sequence().begin(), alignment.sequence().end() - gap_begin) * match_score
+                - aligner.scaled_gap_open) / aligner.scaled_gap_extension + 1;
         
     }
     
@@ -803,7 +826,9 @@ namespace vg {
         }
     }
     
-    void MultipathMEMAligner::remove_snarls(SnarlManager& snarl_manager) {
+    void MultipathMEMAligner::remove_snarls(const Alignment& alignment,
+                                            const SnarlManager& snarl_manager,
+                                            const QualAdjAligner& aligner) {
         // TODO: removing all Snarl interiors is going to be too aggressive, but I'm not sure what
         // a better principled alternative would be
         // for now I'm going to remove only the bottom level Snarl traversed by the path because that's
@@ -812,30 +837,282 @@ namespace vg {
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_start_index = snarl_manager.snarl_start_index();
         unordered_map<pair<int64_t, bool>, const Snarl*> snarl_end_index = snarl_manager.snarl_end_index();
         
-        vector<pair<size_t, size_t>> cut_intervals;
-        for (MultipathMEMNode& node : nodes) {
+        // we are going to add nodes, so we record the number of nodes at the beginning of the loop
+        // and only iterate through those
+        for (int64_t i = 0, starting_num_nodes = nodes.size(); i < starting_num_nodes; i++) {
+            MultipathMEMNode& node = nodes[i];
             Path& path = node.path;
             
-            // indicate that we can cut from the beginning
-            size_t cut begin = 0;
+            // the start and end indices of the sections to cut out
+            vector<pair<int64_t, int64_t>> cut_intervals;
             
-            for (size_t i = 0; i < path.mapping_size(); i++) {
-                Position& position = path.mapping(i).position();
+            // the length of the read up to this point
+            vector<int64_t> prefix_length;
+            int64_t cumul_len = 0;
+            
+            // indicate that we can cut from the beginning
+            int64_t cut begin = 0;
+            
+            for (size_t j = 0; j < path.mapping_size(); j++) {
                 
-                //
+                // update the prefix length index
+                prefix_length.push_back(cumul_len);
+                cumul_len += mapping_to_length(path.mapping(j));
+                
+                const Position& position = path.mapping(j).position();
+                
                 if (snarl_end_index.count(make_pair(position.node_id(), !position.is_reverse()))
-                    snarl_start_index.count(make_pair(position.node_id(), !position.is_reverse()))) {
-                    // a cut ends here
+                    snarl_start_index.count(make_pair(position.node_id(), !position.is_reverse()))
+                    && cut_begin >= 0) {
+                    // a cut ends here and we haven't made a cut yet in this branch of the tree
+                    
+                    // record the interval covered by this site
+                    cut_intervals.emplace_back(cut_begin, j);
+                    // mark that we made a cut in this branch
+                    cut_begin = -1;
                 }
                 
-                // we allow a nested site to reset the beginning of the cu
+                // we allow a nested site to reset the beginning of the cut
                 if (snarl_start_index.count(make_pair(position.node_id(), position.is_reverse()))
                     snarl_end_index.count(make_pair(position.node_id(), position.is_reverse()))) {
                     // a cut starts here
-                    cut_begin = i + 1;
+                    cut_begin = j + 1;
                 }
             }
+            
+            // add final entry to prefix length index
+            prefix_length.push_back(cumul_len);
+            
+            // add final cut if it exists
+            if (cut_begin > 0) {
+                cut_intervals.emplace_back(cut_begin, path.mapping_size());
+            }
+            
+            // create a node for each new cut section
+            
+            // the index of the last new node we created
+            int64_t last_node_idx = i;
+            // the beginning of the last cut we made
+            int64_t last_cut_begin = path.mapping_size();
+            for (auto iter = cut_intervals.rbegin(); iter != cut_intervals.rend(); iter++) {
+                pair<int64_t, int64_t>& cut_interval = *iter;
+                
+                // make a new node with the section between the last cut, but don't make a new node
+                // if we would be cutting all the way to the end
+                if (cut_interval.second != path.mapping_size() && cut_interval.first != 0) {
+                    string::const_iterator new_begin = node.begin + prefix_length[cut_interval.second];
+                    string::const_iterator new_end = node.begin + prefix_length[last_cut_begin];
+                    int32_t new_score = aligner.score_exact_match(new_begin, new_end,
+                                                                  alignment.quality().begin()
+                                                                  + (new_begin - alignment.sequence().begin()));
+                    
+                    nodes.emplace_back(new_begin,
+                                       new_end,
+                                       node.start_pos,
+                                       node.offset + prefix_length[cut_interval.second],
+                                       new_score);
+                    
+                    MultipathMEMNode& new_node = nodes.back();
+                    
+                    // transfer over the part of the path that corresponds to this inter-cut segment
+                    for (int64_t j = cut_interval.second; j < last_cut_begin; j++) {
+                        *(new_node.path.add_mapping()) = path.mapping(j);
+                    }
+                    
+                    int64_t new_idx = nodes.size() - 1;
+                    
+                    // transfer over edges
+                    new_node.edges_from = std::move(node.edges_from);
+                    // update backwards references
+                    for (MultipathMEMEdge& edge_from : new_node.edges_from) {
+                        for (MultipathMEMEdge& edge_to : nodes[edge_from.to_idx].edges_to) {
+                            if (edge_to.to_idx == i) {
+                                edge_to.to_idx = new_idx;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // add an edge spanning the cut
+                    new_node.edges_to.emplace_back(i, 0);
+                    node.edges_from.emplace_back(new_idx, 0);
+                    
+                }
+                
+                // mark the end of the next node
+                last_cut_begin = cut_interval.first;
+            }
+            
+            if (!cut_intervals.empty()) {
+                // make a new path to replace the one on the original node and update its information
+                
+                // the interval of mappings that correspond to what will be left on this node
+                int64_t start_idx = 0;
+                int64_t end_idx = cut_intervals.front().first;
+                // if the cut goes all the way to the end of the node, move the interval down
+                if (end_idx == 0) {
+                    start_idx = cut_intervals.front().second;
+                    end_idx = cut_intervals.size() > 1 ? cut_intervals[1].first : path.mapping_size();
+                }
+                
+                // copy the segment of the path and replace the original
+                Path temp_path;
+                for (int64_t j = start_idx; j < end_idx; j++) {
+                    *(temp_path.add_mapping()) = path.mapping(j);
+                }
+                path = std::move(temp_path);
+                
+                // update the other information on the node
+                node.end = node.begin + prefix_length[end_idx];
+                node.begin = node.begin + prefix_length[start_idx];
+                node.score = aligner.score_exact_match(node.begin, node.end,
+                                                       alignment.quality().begin()
+                                                       + (node.end - alignment.sequence().begin()));
+            }
         }
+    }
+    
+    void MultipathMEMAligner::query_internal_edge_subgraphs(const Alignment& alignment,
+                                                            const QualAdjAligner& aligner,
+                                                            const int8_t full_length_bonus,
+                                                            xg::XG& xgindex,
+                                                            LRUCache<id_t, Node>& node_cache) {
+        
+        int8_t match_score = aligner.adjusted_score_matrix[25 * aligner.max_qual_score];
+        
+        unordered_map<pair<size_t, size_t>, Graph> edge_graphs;
+        
+#pragma omp parallel for
+        for (size_t i = 0; i < nodes.size(); i++) {
+            
+            MultipathMEMNode& node = nodes[i];
+            
+            pos_t left_cut_pos = final_position(node.path);
+            
+            size_t max_gap_len_left = longest_detectable_gap(alignment,
+                                                             node.end,
+                                                             match_score,
+                                                             aligner,
+                                                             full_length_bonus);
+            
+            for (MultipathMEMEdge& edge : node.edges_from) {
+                
+                MultipathMEMNode& next_node = nodes[edge.to_idx];
+                
+                pos_t right_cut_pos = initial_position(next_node.path);
+                
+                size_t max_gap_len_right = longest_detectable_gap(alignment,
+                                                                  next_node.begin,
+                                                                  match_score,
+                                                                  aligner,
+                                                                  full_length_bonus);
+                
+                int64_t read_segment_len = next_node.begin - node.end;
+                size_t max_dist = min(max_gap_len_left, max_gap_len_right) + read_segment_len;
+                
+                
+                // a heuristic to avoid querying large subgraphs looking for terminal cycles when the
+                // two positions are on the same node and can reach each other (this tends to be a costly
+                // case when the cycle doesn't actually exist). if there is a terminal cycle, it will
+                // have to traverse the entire node, so if the read segment is not comparably sized to
+                // the node sequence we don't look for cycles
+                bool detect_terminal_cycles = true;
+                if (id(left_cut_pos) == id(right_cut_pos)
+                    && is_rev(left_cut_pos) == is_rev(right_cut_pos)
+                    && offset(left_cut_pos) < offset(right_cut_pos)) {
+                    
+                    size_t node_len = node_length(id(left_cut_pos));
+                    
+                    detect_terminal_cycles = read_segment_len >= (3 * node_length) / 4
+                }
+                
+                // TODO: unless i'm going to hang onto all of these ID translators, i'll
+                // need to do the multi-alignment in this loop
+                
+                // get the graph between the two nodes
+                Graph connecting_graph;
+                auto id_trans = algorithms::extract_connecting_graph(xgindex, connecting_graph, max_dist,
+                                                                     left_cut_pos, right_cut_pos, false,
+                                                                     detect_terminal_cycles,
+                                                                     true, true, true, &node_cache);
+                
+                // we could not find a path between the positions, but this might be because they
+                // overlap each other unncessarily in the graph
+                if (!connecting_graph.node_size()) {
+                    // TODO: another place that might make sense to do the longest overlap is
+                    // after pruning with traceback
+                    
+                    // backtrack to reconstruct the MEM if it has been split
+                    MultipathMEMNode& mem_start_node = node;
+                    
+                    while (mem_start_node.offset > 0) {
+                        
+                        MultipathMEMNode* prev = nullptr;
+                        for (MultipathMEMEdge& edge : mem_start_node.edges_to) {
+                            MultipathMEMNode& from = nodes[edge.to_idx];
+                            // is this part of the same MEM?
+                            if (from.start_pos == mem_start_node.start_pos
+                                && from.end + (mem_start_node.offset - from.offset) == mem_start_node.begin) {
+                                prev = &from;
+                                break;
+                            }
+                        }
+                        
+                        if (prev) {
+                            mem_start_node = *prev;
+                        }
+                        else {
+                            // the real start node may have been pruned off
+                            break;
+                        }
+                    }
+                    
+                    // find the end of the next node's MEM
+                    MultipathMEMNode& mem_end_node = next_node;
+                    while (!mem_end_node.edges_from.empty()) {
+                        
+                        MultipathMEMNode* next = nullptr;
+                        for (MultipathMEMEdge& edge : mem_end_node.edge_from) {
+                            MultipathMEMNode& to = nodes[edge.to_idx];
+                            // is this part of the same MEM?
+                            if (to.start_pos == mem_end_node.start_pos
+                                && mem_end_node.begin + (to.offset - mem_end_node.offset) == to.begin) {
+                                next = &from;
+                                break;
+                            }
+                        }
+                        
+                        if (next) {
+                            mem_end_node = *next;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    
+                    // find the longest overlap between the two MEMs
+                    SuffixTree suffix_tree(mem_start_node.begin, node.end);
+                    size_t overlap = suffix_tree.longest_overlap(next_node.begin, mem_end_node.end);
+                    
+                    if (overlap) {
+                        // TODO:
+                    }
+                    
+                }
+                
+                
+                // did the positions end up being connected under the max length?
+                if (connecting_graph.node_size()) {
+                    if (<#condition#>) {
+                        <#statements#>
+                    }
+                    
+                    
+                }
+                
+            }
+        }
+        
     }
     
     MultipathMEMAligner::TracebackManager::TracebackManager(const vector<MultipathMEMNode>& nodes,

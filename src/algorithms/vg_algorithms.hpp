@@ -1,11 +1,8 @@
 //
 //  vg_algorithms.hpp
 //  
-<<<<<<< HEAD
-// A collection of utility algorithms to manipulating graphs
-=======
+
 // A collection of utility algorithms to manipulating graphs that can be use by both VG and XG objects
->>>>>>> origin/band-right
 //
 
 #ifndef vg_algorithms_hpp
@@ -22,31 +19,11 @@
 #include "vg.hpp"
 #include "vg.pb.h"
 #include "hash_map.hpp"
-<<<<<<< HEAD
-=======
 #include "json2pb.h"
->>>>>>> origin/band-right
 
 namespace vg {
 namespace algorithms {
     
-<<<<<<< HEAD
-    /// Fills Graph g with the section of the graph that connects two positions. The resulting
-    /// graph will contain all paths that move forward from the first position to the second position,
-    /// subject to a maximum length. Nodes and Edges that are not on some path between the two positions
-    /// are excluded from the graph. The nodes containing the end positions will be cut just past the
-    /// position (so that the two positions themselves are NOT included in the graph). To maintain all paths
-    /// between the positions while cutting, it is sometimes necessary to duplicate nodes. Accordingly,
-    /// the function returns a map to translate node IDs in the g to node IDs in the original graph. If
-    /// no path between the two positions is under the maximum length, g is left empty. Throws an exception
-    /// if g is not empty when function is called.
-    unordered_map<id_t, id_t> extract_connecting_graph(VG& vg, Graph& g, int64_t max_len,
-                                                       const pos_t& pos_1, const pos_t& pos_2);
-    
-    /// Same semantics as previous, but accesses graph through an XG object instead of VG.
-    unordered_map<id_t, id_t> extract_connecting_graph(xg::XG& xg_index, Graph& g, int64_t max_len,
-                                                       const pos_t& pos_1, const pos_t& pos_2);
-=======
     /// Fills Graph g with the subgraph of the VG graph vg that connects two positions. The nodes that contain
     /// the two positions will be "cut" at the position and will be tips in the returned graph. Sometimes it
     /// is necessary to duplicate nodes in order to do this, so a map is returned that translates node IDs in
@@ -91,7 +68,6 @@ namespace algorithms {
                                                        bool only_paths = false,
                                                        bool strict_max_len = false,
                                                        LRUCache<id_t, Node>* node_cache = nullptr);
->>>>>>> origin/band-right
     
 }
 }

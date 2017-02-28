@@ -272,6 +272,11 @@ double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
 void decompose(const Path& path, map<pos_t, int>& ref_positions, map<int, Edit>& edits);
 
+// the first position on the path
+pos_t initial_position(const Path& path);
+// the last position on the path
+pos_t final_position(const Path& path);
+    
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 

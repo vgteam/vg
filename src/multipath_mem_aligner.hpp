@@ -23,6 +23,8 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 #include "position.hpp"
+#include "path.hpp"
+#include "vg_algorithms.hpp"
 
 using namespace std;
 
@@ -52,6 +54,12 @@ namespace vg {
                                              const int32_t mem_score,
                                              const int8_t match_score,
                                              const bool gap_to_right,
+                                             const QualAdjAligner& aligner,
+                                             const int8_t full_length_bonus);
+        
+        inline size_t longest_detectable_gap(const Alignment& alignment,
+                                             const string::const_iterator& pos,
+                                             const int8_t match_score,
                                              const QualAdjAligner& aligner,
                                              const int8_t full_length_bonus);
         
@@ -85,12 +93,16 @@ namespace vg {
         void query_node_matches(const Alignment& alignment, xg::XG& xgindex, LRUCache<id_t, Node>& node_cache);
         
         /// Cut out any part of a match node in the interior of an ultrabubble
-        void remove_snarls(SnarlManager& snarl_manager);
+        void remove_snarls(const Alignment& alignment, const SnarlManager& snarl_manager,
+                           const QualAdjAligner& aligner);
+        
+        void query_internal_edge_subgraphs(const Alignment& alignment, const QualAdjAligner& aligner,
+                                           xg::XG& xgindex, LRUCache<id_t, Node>& node_cache);
         
         /// Master list of the nodes in the exact match graph
         vector<MultipathMEMNode> nodes;
         
-        /// Index of the connect subgraphs for each each
+        /// Index of the connect subgraphs for each edge
         unordered_map<pair<size_t, size_t>, Graph> edge_subgraphs;
     };
     
@@ -137,7 +149,6 @@ namespace vg {
         
         /// Weight for dynamic programming
         int32_t weight;
-        
     };
     
     struct MultipathMEMAligner::DPScoreComparator {
