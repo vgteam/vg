@@ -1489,7 +1489,10 @@ int call2vcf(
                 // Make sure none of the nodes in the site that we didn't visit
                 // while tracing along the ref path are on the ref path.
                 if(index.byId.count(node->id())) {
-                    std::cerr << "Node " << node->id() << " is on ref path but not traced in site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << std::endl;
+                    std::cerr << "Node " << node->id() << " is on ref path at "
+                        << index.byId.at(node->id()).first << " but not traced in site "
+                        << to_node_traversal(site->start(), vg) << " to " 
+                        << to_node_traversal(site->end(), vg) << std::endl;
                     throw runtime_error("Extra ref node found");
                 }
             }
