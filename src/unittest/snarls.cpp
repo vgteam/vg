@@ -469,6 +469,101 @@ namespace vg {
                 REQUIRE(start_index.size() == 1);
                 REQUIRE(end_index.size() == 1);
             }
+            
+            
+            
+            SECTION( "SnarlManager can correctly extract the full contents of a reversing-edge snarl") {
+                
+                string graph_json = R"(
+                {
+                    "node": [
+                             {
+                             "sequence": "TTTTTG",
+                             "id": 6462830
+                             },
+                             {
+                             "sequence": "AAAAAAAAAAAAAA",
+                             "id": 8480141
+                             },
+                             {
+                             "sequence": "A",
+                             "id": 6462831
+                             },
+                             {
+                             "sequence": "T",
+                             "id": 6462832
+                             },
+                             {
+                             "sequence": "G",
+                             "id": 8480142
+                             },
+                             {
+                             "sequence": "A",
+                             "id": 8480143
+                             }
+                             ],
+                    "edge": [
+                             {
+                             "to": 8480141,
+                             "from": 6462830,
+                             "from_start": true
+                             },
+                             {
+                             "to": 6462831,
+                             "from": 6462830
+                             },
+                             {
+                             "to": 6462832,
+                             "from": 6462830
+                             },
+                             {
+                             "to": 8480142,
+                             "from": 8480141
+                             },
+                             {
+                             "to": 8480143,
+                             "from": 8480141
+                             }
+                             ]
+                }
+                )";
+                
+                VG graph;
+                
+                // Load up the graph
+                Graph g;
+                json2pb(g, graph_json.c_str(), graph_json.size());
+                graph.extend(g);
+                
+                // Define the one snarl
+                Snarl snarl1;
+                snarl1.mutable_start()->set_node_id(6462830);
+                snarl1.mutable_start()->set_backward(true);
+                snarl1.mutable_end()->set_node_id(8480141);
+                snarl1.set_type(ULTRABUBBLE);
+                
+                list<Snarl> snarls;
+                snarls.push_back(snarl1);
+                
+                SnarlManager snarl_manager(snarls.begin(), snarls.end());
+                
+                // Find the snarl again
+                const Snarl* snarl = snarl_manager.top_level_snarls()[0];
+                
+                // Get its contents
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.deep_contents(snarl, graph, true);
+                
+                // We need the right snarl
+                REQUIRE(snarl->start().node_id() == 6462830);
+                REQUIRE(snarl->start().backward());
+                REQUIRE(snarl->end().node_id() == 8480141);
+                REQUIRE(!snarl->end().backward());
+                
+                // And it needs to contain just those two nodes and the edges connecting them.
+                REQUIRE(contents.first.size() == 2);
+                REQUIRE(contents.second.size() == 1);
+                
+            }  
         }
     }
 }
