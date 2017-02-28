@@ -1381,8 +1381,10 @@ int call2vcf(
                 // children.
                 for(const Snarl* child : site_manager.children_of(site)) {
                     // Dump all the children into the queue for separate
-                    // processing.
-                    site_queue.emplace_back(child);
+                    // processing (if they start and end on reference)
+                    if(index.byId.count(child->start().node_id()) && index.byId.count(child->end().node_id())) {
+                        site_queue.emplace_back(child);
+                    }
                 }
 
                 if (verbose) {
