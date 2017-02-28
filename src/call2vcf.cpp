@@ -84,6 +84,7 @@ struct IntervalBitfield {
 
 // We represent support as a pair, but we define math for it.
 // We use doubles because we may need fractional math.
+// We can't use vg::Support because it's int-based.
 typedef std::pair<double, double> Support;
 
 /**
@@ -176,7 +177,7 @@ void write_vcf_header(std::ostream& stream, std::string& sample_name, std::strin
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
-    stream << "##FILTER=<ID=FAIL,Description=\"Variant does meat minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
