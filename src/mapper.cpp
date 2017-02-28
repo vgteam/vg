@@ -1423,7 +1423,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = patch_alignment(mems_to_alignment(read1, cluster1));
+            p.first = align_cluster(read1, cluster1);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -1431,7 +1431,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = patch_alignment(mems_to_alignment(read2, cluster2));
+            p.second = align_cluster(read2, cluster2);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -1820,7 +1820,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     };
 
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) {
@@ -1828,7 +1828,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             show_clusters();
         }
     }
-#endif
+//#endif
 
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
@@ -1849,18 +1849,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (++multimaps > total_multimaps) { break; }
-        Alignment partial_alignment = mems_to_alignment(aln, cluster);
-        auto patch = patch_alignment(partial_alignment);
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) { cerr << "patch identity " << patch.identity() << endl; }
-        }
-#endif
-        if (patch.identity() > min_identity) {
-            alns.emplace_back(patch);
-            auto& a = alns.back();
-            a.set_name(aln.name());
+        // get the candidate graph
+        // align to it
+        Alignment candidate = align_cluster(aln, cluster);
+        if (candidate.identity() > min_identity) {
+            alns.emplace_back(candidate);
         }
     }
 #ifdef debug_mapper
@@ -1901,6 +1894,101 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }),
         alns.end());
     return alns;
+}
+
+Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) {
+    Alignment aln = base;
+    if (flip) {
+        aln.set_sequence(reverse_complement(base.sequence()));
+        if (!base.quality().empty()) {
+            aln.set_quality(base.quality());
+            reverse(aln.mutable_quality()->begin(),
+                    aln.mutable_quality()->end());
+        }
+    } else {
+        aln.set_sequence(base.sequence());
+        if (!base.quality().empty()) {
+            aln.set_quality(base.quality());
+        }
+    }
+    bool banded_global = false;
+    bool pinned_alignment = false;
+    bool pinned_reverse = false;
+    aln = align_to_graph(aln,
+                         graph,
+                         max_query_graph_ratio,
+                         pinned_alignment,
+                         pinned_reverse,
+                         full_length_alignment_bonus,
+                         banded_global);
+    aln.set_score(score_alignment(aln));
+    if (flip) {
+        aln = reverse_complement_alignment(
+            aln,
+            (function<int64_t(int64_t)>) ([&](int64_t id) {
+                    return (int64_t)graph.get_node(id)->sequence().size();
+                }));
+    }
+    return aln;
+}
+
+Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    // poll the mems to see if we should flip
+    int count_fwd = 0, count_rev = 0;
+    for (auto& mem : mems) {
+        bool is_rev = gcsa::Node::rc(mem.nodes.front());
+        if (is_rev) {
+            ++count_rev;
+        } else {
+            ++count_fwd;
+        }
+    }
+    // get the graph
+    VG graph = cluster_subgraph(aln, mems);
+    // and test each direction for which we have MEM hits
+    Alignment aln_fwd;
+    Alignment aln_rev;
+    if (count_fwd) {
+        aln_fwd = align_maybe_flip(aln, graph, false);
+    }
+    if (count_rev) {
+        aln_rev = align_maybe_flip(aln, graph, true);
+    }
+    if (aln_fwd.score() + aln_rev.score() == 0) {
+        // abject failure, nothing aligned with score > 0
+        Alignment result = aln;
+        result.clear_path();
+        result.clear_score();
+        return result;
+    } else if (aln_rev.score() > aln_fwd.score()) {
+        // reverse won
+        return aln_rev;
+    } else {
+        // forward won
+        return aln_fwd;
+    }
+}
+
+VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    set<id_t> nodes;
+    VG graph;
+    for (auto& mem : mems) {
+        nodes.insert(gcsa::Node::id(mem.nodes.front()));
+    }
+    for (auto& id : nodes) {
+        *graph.graph.add_node() = xindex->node(id);
+    }
+    int get_at_least = aln.sequence().size();
+    xindex->expand_context(graph.graph,
+                           get_at_least,
+                           false, // don't add paths
+                           false, // don't use steps (use length)
+                           true,  // go forward
+                           true); // go backward
+    xindex->expand_context(graph.graph, 1, false, true); // go one more step
+    graph.rebuild_indexes();
+
+    return graph;
 }
 
 VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
@@ -3110,7 +3198,12 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
         // re-sort the MEMs by their start position
         std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) { return m1.begin < m2.begin; });
     }
-    
+    // print the matches
+    /*
+    for (auto& mem : mems) {
+        cerr << mem << endl;
+    }
+    */
     // verify the matches (super costly at scale)
     /*
 #ifdef debug_mapper
@@ -4893,6 +4986,17 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
     }
 #endif
     return max(0, score);
+}
+
+int32_t Mapper::rescore_without_full_length_bonus(const Alignment& aln) {
+    int32_t score = aln.score();
+    if (softclip_start(aln) == 0) {
+        score -= full_length_alignment_bonus;
+    }
+    if (softclip_end(aln) == 0) {
+        score -= full_length_alignment_bonus;
+    }
+    return score;
 }
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
