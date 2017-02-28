@@ -72,8 +72,9 @@ PathIndex::PathIndex(const list<Mapping>& mappings, VG& vg) {
                 << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
 #endif
             
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > last_rank);
+            // Make sure ranks are monotonically increasing along the path, or
+            // unset.
+            assert(mapping.rank() > last_rank || (mapping.rank() == 0 && last_rank == 0));
             last_rank = mapping.rank();
         }
         
@@ -176,8 +177,9 @@ PathIndex::PathIndex(const Path& path, const xg::XG& index) {
                 << index.node_sequence(mapping.position().node_id()) << std::endl;
 #endif
             
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > last_rank);
+            // Make sure ranks are monotonically increasing along the path, or
+            // unset.
+            assert(mapping.rank() > last_rank || (mapping.rank() == 0 && last_rank == 0));
             last_rank = mapping.rank();
         }
         
@@ -321,6 +323,9 @@ PathIndex::iterator PathIndex::find_position(size_t position) const {
 #ifdef debug
     cerr << "At " << position << " we have " << starts_next->second << endl;
 #endif
+
+    // Make sure we didn't fall off the ends
+    assert(position - starts_next->first < node_length(starts_next));
     
     // Return that
     return starts_next;
@@ -341,6 +346,28 @@ size_t PathIndex::node_length(const iterator& here) const {
         // length
         return next->first - here->first;
     }
+}
+
+pair<size_t, size_t> PathIndex::round_outward(size_t start, size_t past_end) const {
+    // Find the node occurrence the start position is on
+    auto start_occurrence = find_position(start);
+    // Seek to the start of that occurrence
+    size_t start_rounded = start_occurrence->first;
+    
+    // Now try and round the end
+    size_t past_end_rounded;
+    if (past_end == 0) {
+        // Range must have been empty anyway, so keep it ending before the first
+        // node.
+        past_end_rounded = 0;
+    } else {
+        // Look for the node holding the last included base
+        auto end_occurrence = find_position(past_end - 1);
+        // Then go out past its end.
+        past_end_rounded = end_occurrence->first + node_length(end_occurrence);
+    }
+    
+    return make_pair(start_rounded, past_end_rounded);
 }
 
 map<id_t, vector<Mapping>> PathIndex::parse_translation(const Translation& translation) {

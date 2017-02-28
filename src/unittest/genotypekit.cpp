@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "genotypekit.hpp"
+#include "snarls.hpp"
 
 namespace Catch {
 
@@ -314,6 +315,150 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
     
     delete finder;
     
+
+}
+    
+TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverted node", "[genotype]") {
+    VG graph;
+    Node* n0 = graph.create_node("A");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("G");
+    Node* n3 = graph.create_node("T");
+    graph.create_edge(n0, n1, false, true);
+    graph.create_edge(n0, n2, false, false);
+    graph.create_edge(n3, n1, true, false);
+    graph.create_edge(n2, n3, false, false);
+    
+    Snarl site;
+    site.mutable_start()->set_node_id(n0->id());
+    site.mutable_end()->set_node_id(n3->id());
+    site.set_type(ULTRABUBBLE);
+    
+    list<Snarl> snarls{site};
+    
+    SnarlManager manager(snarls.begin(), snarls.end());
+    
+    ExhaustiveTraversalFinder finder(graph, manager);
+    
+    bool found_trav_1 = false;
+    bool found_trav_2 = false;
+    
+    for (auto snarl : manager.top_level_snarls()) {
+        auto travs = finder.find_traversals(*snarl);
+        for (SnarlTraversal trav : travs) {
+            if (trav.visits_size() == 1) {
+                if (trav.visits(0).node_id() == n1->id() && trav.visits(0).backward()) {
+                    found_trav_1 = true;
+                }
+                else if (trav.visits(0).node_id() == n2->id() && !trav.visits(0).backward()) {
+                    found_trav_2 = true;
+                }
+            }
+        }
+    }
+    
+    REQUIRE(found_trav_1);
+    REQUIRE(found_trav_2);
+}
+
+TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") {
+
+    SECTION("Directed cycle does not count as ultrabubble") {
+    
+        // Build a toy graph
+        const string graph_json = R"(
+    
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 4},
+            {"from": 1, "to": 4, "to_end": true},
+            {"from": 4, "to": 5}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        CactusUltrabubbleFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+            swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 5) == true);
+        REQUIRE(snarl->type() != ULTRABUBBLE);
+    }
+
+    SECTION("Ultrabubble flagged as ultrabubble") {
+    
+        // Build a toy graph
+        const string graph_json = R"(
+    
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"},
+            {"id": 6, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2, "to_end": true},
+            {"from": 2, "to": 4, "from_start": true},
+            {"from": 2, "to": 5, "from_start": true},
+            {"from": 4, "to": 6, "to_end": true},
+            {"from": 3, "to": 1, "from_start": true, "to_end": true},
+            {"from": 4, "to": 3, "from_start": true, "to_end": true},
+            {"from": 5, "to": 3, "from_start": true, "to_end": true},
+            {"from": 6, "to": 5, "to_end": true},
+            {"from": 1, "to": 6, "from_start": true}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        CactusUltrabubbleFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+            swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 6) == true);
+        REQUIRE(snarl->type() == ULTRABUBBLE);
+    }
 
 }
 

@@ -52,6 +52,7 @@ void help_mod(char** argv) {
          << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -D, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
+         << "    -I, --retain-complement keep only paths NOT specified with -r" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -107,6 +108,7 @@ int main_mod(int argc, char** argv) {
     bool drop_paths = false;
     bool force_path_match = false;
     set<string> paths_to_retain;
+    bool retain_complement = false;
     vector<int64_t> root_nodes;
     int32_t context_steps;
     bool remove_null;
@@ -178,7 +180,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Eav:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:",
                 long_options, &option_index);
 
 
@@ -220,6 +222,10 @@ int main_mod(int argc, char** argv) {
 
         case 'r':
             paths_to_retain.insert(optarg);
+            break;
+            
+        case 'I':
+            retain_complement = true;
             break;
 
         case 'o':
@@ -369,6 +375,21 @@ int main_mod(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
+    
+    if (retain_complement) {
+        // Compute the actual paths to retain
+        set<string> complement;
+        graph->paths.for_each_name([&](const string& name) {
+            if (!paths_to_retain.count(name)) {
+                // Complement the set the user specified by putting in all the
+                // paths they didn't mention.
+                complement.insert(name);
+            }
+        });
+        
+        // Retain the complement of what we were asking for.
+        paths_to_retain = complement;
+    }
 
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,
@@ -519,7 +540,7 @@ int main_mod(int argc, char** argv) {
         graph->keep_path(path_name);
     }
 
-    if (!paths_to_retain.empty()) {
+    if (!paths_to_retain.empty() || retain_complement) {
         graph->paths.keep_paths(paths_to_retain);
     }
 
@@ -740,4 +761,4 @@ int main_mod(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("mod", "filter, transform, and edit the graph", main_mod);
+static Subcommand vg_mod("mod", "filter, transform, and edit the graph", main_mod);

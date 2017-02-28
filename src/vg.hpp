@@ -397,8 +397,10 @@ public:
     /// fragment. Completely novel nodes are not mentioned, and nodes with no
     /// Translations are assumed to be carried through unchanged. Invalidates
     /// the rank-based Paths index. Does not sort the graph. Suitable for
-    /// calling in a loop.
-    vector<Translation> edit_fast(const Path& path);
+    /// calling in a loop. Can attach newly created nodes on the left of the
+    /// path to the given set of dangling NodeSides, and populates the set at
+    /// the end with the NodeSide corresponding to the end of the path.
+    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need
@@ -427,15 +429,28 @@ public:
     /// deletions on the start or end of mappings (the removal of which can be
     /// accomplished with the Path::simplify() function).
     ///
-    /// Outputs (and caches for subsequent calls) novel nodes in added_seqs, and
-    /// Paths describing where novel nodes translate back to in the original
+    /// Outputs (and caches for subsequent calls) novel node runs in added_seqs,
+    /// and Paths describing where novel nodes translate back to in the original
     /// graph in added_nodes. Also needs a map of the original sizes of nodes
-    /// deleted from the original graph, for reverse complementing.
+    /// deleted from the original graph, for reverse complementing. If dangling
+    /// is nonempty, left edges of nodes created for initial inserts will
+    /// connect to the specified sides. At the end, dangling is populated with
+    /// the side corresponding to the last edit in the path.
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, Node*>& added_seqs,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes);
+                             const map<id_t, size_t>& orig_node_sizes,
+                             set<NodeSide>& dangling,
+                             size_t max_node_size = 1024);
+    
+    /// This version doesn't require a set of dangling sides to populate                         
+    void add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes,
+                             size_t max_node_size = 1024);
 
     /// Produce a graph Translation object from information about the editing process.
     vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
@@ -545,7 +560,18 @@ public:
     /// Get the subgraph of a node and all the edges it is responsible for
     /// (where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
-    void expand_context(VG& g, size_t steps, bool add_paths = true);
+    /// Expand the context of what's already in the given graph by the given
+    /// distance, either in nodes or in bases. Pulls material from this graph.
+    void expand_context(VG& g, size_t distance, bool add_paths = true, bool use_steps = true);
+    /// Expand the context of the given graph by the given number of steps. 
+    void expand_context_by_steps(VG& g, size_t steps, bool add_paths = true);
+    /// Expand the context of the given graph by the given number of bases. If
+    /// reflect is true, bounce off the ends of nodes to get siblings of nodes
+    /// you came from. Can take a set of NodeSides not to look out from, that
+    /// act as barriers to context expansion. These barriers will have no edges
+    /// attached to them in the final graph.
+    void expand_context_by_length(VG& g, size_t length, bool add_paths = true,
+        bool reflect = false, const set<NodeSide>& barriers = set<NodeSide>());
     /// Destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     /// Destroy the node with the given ID.
@@ -821,6 +847,8 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     /// Align without base quality adjusted scores.
     /// Align to the graph.
@@ -833,6 +861,8 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     
     /// Align with default Aligner.
@@ -845,6 +875,8 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     /// Align with default Aligner.
     /// Align to the graph.
@@ -856,6 +888,8 @@ public:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
     
     /// Align with base quality adjusted scores.
@@ -869,6 +903,8 @@ public:
                                   bool pin_left = false,
                                   int8_t full_length_bonus = 0,
                                   bool banded_global = false,
+                                  size_t band_padding_override = 0,
+                                  size_t max_span = 0,
                                   bool print_score_matrices = false);
     /// Align with base quality adjusted scores.
     /// Align to the graph.
@@ -881,6 +917,8 @@ public:
                                   bool pin_left = false,
                                   int8_t full_length_bonus = 0,
                                   bool banded_global = false,
+                                  size_t band_padding_override = 0,
+                                  size_t max_span = 0,
                                   bool print_score_matrices = false);
     
     
@@ -1158,7 +1196,15 @@ private:
                         bool allow_negatives,
                         Node* node = nullptr);
     
-    /// Private method to funnel other align functions into.
+    /// Private method to funnel other align functions into. max_span specifies
+    /// the min distance to unfold the graph to, and is meant to be the longest
+    /// path that the specified sequence could cover, accounting for deletions.
+    /// If it's less than the sequence's length, the sequence's length is used.
+    /// band_padding_override gives the band padding to use for banded global
+    /// alignment. In banded global mode, if the band padding override is
+    /// nonzero, permissive banding is not used, and instead the given band
+    /// padding is provided. If the band padding override is not provided, the
+    /// max span is used as the band padding and permissive banding is enabled.
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
@@ -1167,6 +1213,8 @@ private:
                     bool pin_left = false,
                     int8_t full_length_bonus = 0,
                     bool banded_global = false,
+                    size_t band_padding_override = 0,
+                    size_t max_span = 0,
                     bool print_score_matrices = false);
 
 

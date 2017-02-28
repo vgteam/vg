@@ -221,12 +221,18 @@ public:
 
     // running estimation of fragment length distribution
     deque<double> fragment_lengths;
-    void record_fragment_length(int length);
+    deque<bool> fragment_orientations;
+    deque<bool> fragment_directions;
+    void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
     double fragment_length_pdf(double length);
+    bool fragment_orientation(void);
+    bool fragment_direction(void);
     double cached_fragment_length_mean;
     double cached_fragment_length_stdev;
+    bool cached_fragment_orientation;
+    bool cached_fragment_direction;
     int since_last_fragment_length_estimate;
     int fragment_length_estimate_interval;
 
@@ -247,6 +253,8 @@ public:
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
+    // use the fragment configuration statistics to rescue more precisely
+    bool pair_rescue(Alignment& mate1, Alignment& mate2);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -387,6 +395,14 @@ public:
     int approx_distance(pos_t pos1, pos_t pos2);
     // use the offset in the sequence array to get an approximate position
     int approx_position(pos_t pos);
+    // get the approximate position of the alignment or return -1 if it can't be had
+    int approx_alignment_position(const Alignment& aln);
+    // get the approximate distance between the starts of the alignments or return -1 if undefined
+    int approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    // use the cached fragment model to estimate the likely place we'll find the mate
+    pos_t likely_mate_position(const Alignment& aln, bool is_first);
+    // get the node approximately at the given offset relative to our position (offset may be negative)
+    id_t node_approximately_at(int approx_pos);
     // use the xg index to get a character at a particular position (rc or foward)
     char pos_char(pos_t pos);
     // the next positions and their characters following the same strand of the graph
@@ -407,7 +423,11 @@ public:
     double average_node_length(void);
     
     bool debug;
-    int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
+    int alignment_threads; // how many threads will *this* mapper use when running banded alignments. Should not be set directly.
+
+    /// Set the alignment thread count, updating internal data structures that
+    /// are per thread. Note that this resets aligner scores to their default values!
+    void set_alignment_threads(int new_thread_count);
 
     // kmer/"threaded" mapper parameters
     //

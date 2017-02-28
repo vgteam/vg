@@ -252,9 +252,10 @@ string Sampler::alignment_seq(const Alignment& aln) {
         auto& m = aln.path().mapping(i);
         if (m.has_position() && m.position().node_id()) {
             auto id = aln.path().mapping(i).position().node_id();
-            xgidx->neighborhood(id, 2, sub);
+            xgidx->get_id_range(id, id, sub);
         }
     }
+    xgidx->expand_context(sub, 2, false);
     VG g; g.extend(sub);
     return g.path_string(aln.path());
 }

@@ -2,6 +2,7 @@
 #include "stream.hpp"
 #include "gssw_aligner.hpp"
 #include <raptor2/raptor2.h>
+#include <stPinchGraphs.h>
 
 namespace vg {
 
@@ -782,6 +783,7 @@ void VG::simplify_siblings(void) {
                 to_sibs.insert(tsibs);
             }
         });
+        
     // make the sibling sets transitive
     // by removing any that are intransitive
     // then simplify
@@ -1009,9 +1011,18 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
     paths.compact_ranks();
 }
 
+void VG::expand_context(VG& g, size_t distance, bool add_paths, bool use_steps) {
+    // Dispatch the appropriate implementation
+    if (use_steps) {
+        expand_context_by_steps(g, distance, add_paths);
+    } else {
+        expand_context_by_length(g, distance, add_paths);
+    }
+}
+
 // expand the context of the subgraph g by this many steps
 // it's like a neighborhood function
-void VG::expand_context(VG& g, size_t steps, bool add_paths) {
+void VG::expand_context_by_steps(VG& g, size_t steps, bool add_paths) {
     set<id_t> to_visit;
     // start with the nodes in the subgraph
     g.for_each_node([&](Node* n) { to_visit.insert(n->id()); });
@@ -1057,6 +1068,196 @@ void VG::expand_context(VG& g, size_t steps, bool add_paths) {
             });
         g.sync_paths();
     }
+}
+
+void VG::expand_context_by_length(VG& g, size_t length, bool add_paths, bool reflect, const set<NodeSide>& barriers) {
+    
+    // We have a set of newly added nodes.
+    set<id_t> new_nodes;
+    
+    // We have an operation to take a node
+    auto take_node = [&](id_t id) {
+        if (!g.has_node(id)) {
+            g.create_node(get_node(id)->sequence(), id);
+            new_nodes.insert(id);
+        }
+    };
+    
+    // This holds how many bases of budget are remaining when about to leave
+    // from this NodeSide?
+    map<NodeSide, int64_t> budget_remaining;
+    
+    // This is the set of NodeSides we still have to look out from.
+    set<NodeSide> active;
+    
+    // start with the nodes in the subgraph
+    g.for_each_node([&](Node* n) {
+        // Say every node has a budget of the whole length out from its ends.
+        NodeSide left(n->id(), false);
+        budget_remaining[left] = length;
+        active.insert(left);
+#ifdef debug
+        cerr << "Start with budget " << length << " at " << left << endl;
+#endif
+        NodeSide right(n->id(), true);
+        budget_remaining[right] = length;
+        active.insert(right);
+#ifdef debug
+        cerr << "Start with budget " << length << " at " << right << endl;
+#endif
+    });
+    
+    while (!active.empty()) {
+        // While there are still active NodeSides to extend, find one
+        NodeSide here = *active.begin();
+        
+#ifdef debug
+        cerr << "Consider " << here << endl;
+#endif
+
+        // We know this node is already in the graph, so no need to add it.
+        
+        if (!barriers.count(here)) {
+            // We're allowed to expand out from this NodeSide
+        
+            // Get its budget
+            auto budget = budget_remaining.at(here);
+            
+#ifdef debug
+            cerr << "\tBudget: " << budget << endl;
+#endif
+            
+            for (auto connected : sides_of(here)) {
+                // Go through all the NodeSides we can reach from here
+            
+                // Add each of them to the graph if not there already
+                take_node(connected.node);
+                
+#ifdef debug
+                cerr << "\tTake node " << connected.node << " size " << get_node(connected.node)->sequence().size() << endl;
+#endif
+
+                if (reflect) {
+                    // Bounce right off this NodeSide
+                    if (budget > budget_remaining[connected]) {
+                        // We actually would make it go further
+                        budget_remaining[connected] = budget;
+                        active.insert(connected);
+                    
+#ifdef debug
+                        cerr << "\tUp budget on " << connected << " to " << budget << endl;
+#endif
+                    }
+                }
+                
+                // For each one, flip it to the other side of its node
+                auto flipped = connected.flip();
+                
+                // Deduct the length of the reached node from the budget of this NodeSide
+                int64_t new_budget = budget - get_node(connected.node)->sequence().size();
+
+                if (new_budget > 0 && new_budget > budget_remaining[flipped]) {            
+                    // If it's greater than the old budget (default budget is 0)
+                    
+                    // Replace the old budget and activate the other NodeSide
+                    budget_remaining[flipped] = new_budget;
+                    active.insert(flipped);
+                    
+#ifdef debug
+                    cerr << "\tUp budget on " << flipped << " to " << new_budget << endl;
+#endif
+                }
+            }
+            
+        } else {
+#ifdef debug
+            cerr << "\tIt's a barrier. Stop." << endl;
+#endif
+        }
+            
+        // Deactivate the NodeSide we just did
+        active.erase(here);
+    }
+    
+    // Now take all the edges among the nodes we added. Note that we only do NEW
+    // nodes! If you wanted edges between your seed nodes, you should have used
+    // nonoverlapping_node_context_without_paths. But that function doesn't
+    // respect barriers.
+    for (id_t new_id : new_nodes) {
+        // For each node, create edges involving any nodes that are
+        // in the graph. TODO: this will add edges twice, but they'll be
+        // deduplicated.
+        
+#ifdef debug
+        cerr << "For new node " << new_id << endl;
+#endif
+        
+        for (auto* edge : edges_from(get_node(new_id))) {
+            // For every edge from here
+            if (g.has_node(edge->to())) {
+                // If it goes to a node in the graph
+
+                // Break the edge up
+                auto sides = NodeSide::pair_from_edge(edge);
+                if (!barriers.count(sides.first) && !barriers.count(sides.second)) {
+                    // The edge doesn't attach to any barriers, so take it
+                
+                    g.add_edge(*edge);
+#ifdef debug
+                    cerr << "\tTake from edge " << pb2json(*edge) << endl;
+#endif
+                } else {
+#ifdef debug
+                    cerr << "\tSkip from edge " << pb2json(*edge) << endl;
+#endif
+                }
+
+            }
+        }
+        
+        for (auto* edge : edges_to(get_node(new_id))) {
+            // For every edge to here
+            if (g.has_node(edge->from())) {
+                // If it goes from a node in the graph
+                
+                // Break the edge up
+                auto sides = NodeSide::pair_from_edge(edge);
+                if (!barriers.count(sides.first) && !barriers.count(sides.second)) {
+                    // The edge doesn't attach to any barriers, so take it
+                
+                    g.add_edge(*edge);
+#ifdef debug
+                    cerr << "\tTake to edge " << pb2json(*edge) << endl;
+#endif
+                } else {
+#ifdef debug
+                    cerr << "\tTake skip edge " << pb2json(*edge) << endl;
+#endif
+                }
+            }
+        }
+        
+    }
+    
+    // then remove orphans
+    g.remove_orphan_edges();
+    
+    // and add paths
+    // TODO: deduplicate this code with the node count based version
+    if (add_paths) {
+        g.for_each_node([&](Node* n) {
+                for (auto& path : paths.get_node_mapping(n)) {
+                    for (auto& m : path.second) {
+                        g.paths.append_mapping(path.first, *m);
+                    }
+                }
+            });
+        g.sync_paths();
+    }
+    
+#ifdef dubug
+    cerr << pb2json(g.graph) << endl;
+#endif
 }
 
 bool VG::adjacent(const Position& pos1, const Position& pos2) {
@@ -2303,306 +2504,279 @@ void VG::bluntify(void) {
     // which is supported by the data format through the edge's overlap field,
     // into a blunt-end string graph which algorithms in VG assume
 
-    // in sketch: for each node, we chop the node at all overlap starts
-    // then, we retain a translation from edge to the new node traversal
-    set<Node*> overlap_nodes;
-    map<Edge*, Node*> from_edge_to_overlap;
-    map<Edge*, Node*> to_edge_from_overlap;
+    // We manage this by turning nodes with overlaps into threads in a pinch
+    // graph, and pinching together on the overlaps.
+    
+    // TODO: this does not preserve existing paths. If your assembler spits out
+    // paths you want to preserve, you'll need to write code to do that here.
+    paths.clear();
+    
+    // First we have to validate the overlaps claimed by the edges.
+
+    // We populate this with edges with incorrect overlaps that we want to delete.
+    set<Edge*> bad_edges;
     for_each_edge([&](Edge* edge) {
-            if (edge->overlap() > 0) {
-                //cerr << "claimed overlap " << edge->overlap() << endl;
-                // derive and check the overlap seqs
-                auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
-                //string from_overlap =
-                //from_overlap = from_overlap.substr(from_overlap.size() - edge->overlap());
-                auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
+        if (edge->overlap() > 0) {
+#ifdef debug
+            cerr << "claimed overlap " << edge->overlap() << endl;
+#endif
+            // derive and check the overlap seqs
+            auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
+            auto to_seq = trav_sequence(NodeTraversal(get_node(edge->to()), edge->to_end()));
 
-                // for now, we assume they perfectly match, and walk back from the matching end for each
-                auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
-                auto to_overlap = to_seq.substr(0, edge->overlap());
+            // for now, we assume they perfectly match, and walk back from the matching end for each
+            auto from_overlap = from_seq.substr(from_seq.size() - edge->overlap(), edge->overlap());
+            auto to_overlap = to_seq.substr(0, edge->overlap());
 
-                // an approximate overlap graph will violate this assumption
-                // so perhaps we should simply choose the first and throw a warning
-                if (from_overlap != to_overlap) {
-                    SSWAligner aligner;
-                    auto aln = aligner.align(from_overlap, to_overlap);
-                    // find the central match
-                    // the alignment from the first to second should match at the very beginning of the from_seq
-                    int correct_overlap = 0;
-                    if (aln.path().mapping(0).edit_size() <= 2
-                        && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
-                        // get the length of the first match
-                        correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
-                        //cerr << "correct overlap is " << correct_overlap << endl;
-                        edge->set_overlap(correct_overlap);
-                        // create the edges for the overlaps
-                        auto overlap = create_node(to_seq.substr(0, correct_overlap));
-                        overlap_nodes.insert(overlap);
-                        auto e1 = create_edge(edge->from(), overlap->id(), edge->from_start(), false);
-                        auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
-                        from_edge_to_overlap[e1] = overlap;
-                        to_edge_from_overlap[e2] = overlap;
-                        //cerr << "created overlap node " << overlap->id() << endl;
-                    } else {
-                        cerr << "[VG::bluntify] warning! overlaps of "
-                             << pb2json(*edge)
-                             << " are not identical and could not be resolved by alignment" << endl;
-                        cerr << "o1:  " << from_overlap << endl
-                             << "o2:  " << to_overlap << endl
-                             << "aln: " << pb2json(aln) << endl;
-                        // the effect is that we don't resolve this overlap
-                        edge->set_overlap(0);
-                        // we should axe the edge so as to not generate spurious sequences in the graph
-                    }
-
+            // an approximate overlap graph will violate this assumption
+            // so perhaps we should simply choose the first and throw a warning
+            if (from_overlap != to_overlap) {
+                SSWAligner aligner;
+                auto aln = aligner.align(from_overlap, to_overlap);
+                // find the central match
+                // the alignment from the first to second should match at the very beginning of the from_seq
+                int correct_overlap = 0;
+                if (aln.path().mapping(0).edit_size() <= 2
+                    && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
+                    // get the length of the first match
+                    correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
+#ifdef debug
+                    cerr << "correct overlap is " << correct_overlap << endl;
+#endif
+                    edge->set_overlap(correct_overlap);
                 } else {
-                    //cerr << "overlap as expected" << endl;
-                    //overlap_node[edge] = create_node(to_seq);
-                    auto overlap = create_node(to_overlap);
-                    overlap_nodes.insert(overlap);
-                    auto e1 = create_edge(edge->from(), overlap->id(), edge->from_start(), false);
-                    auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
-                    from_edge_to_overlap[e1] = overlap;
-                    to_edge_from_overlap[e2] = overlap;
-                    //cerr << "created overlap node " << overlap->id() << endl;
+                    cerr << "[VG::bluntify] warning! overlaps of "
+                         << pb2json(*edge)
+                         << " are not identical and could not be resolved by alignment" << endl;
+                    cerr << "o1:  " << from_overlap << endl
+                         << "o2:  " << to_overlap << endl
+                         << "aln: " << pb2json(aln) << endl;
+                    
+                    // Drop the edge
+                    bad_edges.insert(edge);
                 }
-            }
-        });
 
-    // we need to record a translation from cut point to overlap+edge
-    set<Node*> cut_nodes;
-    vector<Node*> to_process;
-    for_each_node([&](Node* node) {
-            to_process.push_back(node);
-        });
-    for (auto node : to_process) {
-        // cut at every position where there is an overlap ending
-        // record a map from the new node ends to the original overlap edge
-        id_t orig_id = node->id();
-        string orig_seq = node->sequence();
-        size_t orig_len = orig_seq.size();
-        set<pos_t> cut_pos;
-        map<Edge*, pos_t> from_edge;
-        map<Edge*, pos_t> to_edge;
-        map<NodeSide, int> to_overlaps;
-        map<NodeSide, int> from_overlaps;
-        // as we handle the edges which have overlaps
-        // we will find the intermediate nodes which have the overlap seq on them
-
-        for (auto& edge : edges_of(node)) {
-            // if we have an overlap
-            if (edge->overlap() > 0) {
-                // if the edge has been handled
-                // don't do any re-jiggering of it
-
-                // check which of the four edge types this is
-                // and record that we should cut the node at the appropriate place
-                if (edge->from() == node->id()) {
-                    auto p = make_pos_t(node->id(),
-                                        edge->from_start(),
-                                        orig_len - edge->overlap());
-                    cut_pos.insert(p);
-                    from_edge[edge] = p;
-                    from_overlaps[NodeSide(edge->to(), edge->to_end())] = edge->overlap();
-                } else {
-                    auto p = make_pos_t(node->id(),
-                                        edge->to_end(),
-                                        edge->overlap());
-                    cut_pos.insert(p);
-                    to_edge[edge] = p;
-                    to_overlaps[NodeSide(edge->from(), edge->from_start())] = edge->overlap();
-                }
-                //destroy_edge(edge);
-            }
-        }
-
-        if (!overlap_nodes.count(node)) {
-            set<int> cut_at;
-            for (auto p : cut_pos) {
-                if (is_rev(p)) {
-                    p = reverse(p, orig_len);
-                }
-                cut_at.insert(offset(p));
-            }
-            //cerr << "will cut " << cut_at.size() << " times" << endl;
-            vector<int> cut_at_pos;
-            for (auto i : cut_at) {
-                cut_at_pos.push_back(i);
-            }
-            // replace the node with a cut up node
-            vector<Node*> parts;
-            // copy the node
-            divide_node(node, cut_at_pos, parts);
-            for (auto p : parts) {
-                cut_nodes.insert(p);
-                //cerr << "cut " << orig_id << " into " << p->id() << endl;
-            }
-            Node* head = parts.front();
-            Node* tail = parts.back();
-            //map<NodeSide, int> to_overlaps;
-            //map<NodeSide, int> from_overlaps;
-            // re-set the overlaps
-            for (auto& e : edges_of(head)) {
-                if (e->to() == head->id()) {
-                    e->set_overlap(to_overlaps[NodeSide(e->from(), e->from_start())]);
-                } else {
-                    e->set_overlap(from_overlaps[NodeSide(e->to(), e->to_end())]);
-                }
-            }
-            for (auto& e : edges_of(tail)) {
-                if (e->from() == tail->id()) {
-                    e->set_overlap(from_overlaps[NodeSide(e->to(), e->to_end())]);
-                } else {
-                    e->set_overlap(to_overlaps[NodeSide(e->from(), e->from_start())]);
-                }
-            }
-        }
-    }
-
-
-    // now, we've cut up everything
-    // we have these dangling nodes
-    // what to do
-    // we need to map from the old edge overlap nodes
-    // to the new translation
-    // link them in
-    set<NodeTraversal> overlap_from;
-    set<NodeTraversal> overlap_to;
-    set<pair<NodeSide, NodeSide> > edges_to_destroy;
-    set<pair<NodeTraversal, NodeTraversal> > edges_to_create;
-    for (auto node : overlap_nodes) {
-        // walk back until we reach a bifurcation
-        // or we are no longer matching sequence
-        auto node_trav = NodeTraversal(node, false);
-        auto node_seq = node->sequence();
-        int matched_next = 0;
-        // get the travs from, note that the ovrelap nodes are in the natural orientation
-        auto tn = travs_from(node_trav);
-        auto next_trav = *tn.begin();
-        if (tn.size() == 1) {
-            overlap_to.insert(*tn.begin());
-        }
-        while (tn.size() == 1) {
-            // check if we match the next node
-            // starting from our match point
-            // if we do, set the next nodes to travs_from
-            // otherwise clear
-            next_trav = *tn.begin();
-            auto next_seq = trav_sequence(next_trav);
-            if (node_seq.substr(matched_next, next_seq.size()) == next_seq) {
-                tn = travs_from(next_trav);
-                matched_next += next_seq.size();
             } else {
-                tn.clear();
+#ifdef debug
+                cerr << "overlap as expected" << endl;
+#endif
             }
         }
-        //cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
-        if (matched_next == node_seq.size()) {
-            // remove the forward edge from the overlap node
-            // and attach it to the next_trav
-            tn = travs_from(node_trav);
-            assert(tn.size() == 1);
-            edges_to_destroy.insert(NodeSide::pair_from_edge(*get_edge(node_trav, *tn.begin())));
-            edges_to_create.insert(make_pair(node_trav, next_trav));
-        }
-        // the previous
-        int matched_prev = 0;
-        // get the travs from, note that the ovrelap nodes are in the natural orientation
-        auto tp = travs_to(node_trav);
-        auto prev_trav = *tp.begin();
-        if (tp.size() == 1) {
-            overlap_from.insert(*tp.begin());
-        }
-        while (tp.size() == 1) {
-            // check if we match the next node
-            // starting from our match point
-            // if we do, set the next nodes to travs_from
-            // otherwise clear
-            prev_trav = *tp.begin();
-            auto prev_seq = trav_sequence(prev_trav);
-            if (node_seq.substr(matched_prev, prev_seq.size()) == prev_seq) {
-                tp = travs_to(prev_trav);
-                matched_prev += prev_seq.size();
-            } else {
-                tp.clear();
-            }
-        }
-        //cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
-        if (matched_prev == node_seq.size()) {
-            // remove the forward edge from the overlap node
-            // and attach it to the next_trav
-            tp = travs_to(node_trav);
-            assert(tp.size() == 1);
-            edges_to_destroy.insert(NodeSide::pair_from_edge(*get_edge(*tp.begin(), node_trav)));
-            edges_to_create.insert(make_pair(prev_trav, node_trav));
-        }
-
-        // if we matched
-        // walk forward until we reach a bifurcation
-        // or we are no longer matching sequence
-
-        // we reattach the overlap node to that point
-        // later, normalization will remove the superfluous parts
-    }
-
-    for (auto& p : edges_to_create) {
-        create_edge(p.first, p.second);
-    }
-    for (auto& e : edges_to_destroy) {
-        destroy_edge(e);
-    }
-
-    // TODO
-    // walk back from the overlap edges
-    // and remove the nodes until we meet a bifurcation
-    vector<Edge*> overlap_edges_to_destroy;
-    for_each_edge([&](Edge* edge) {
-            if (edge->overlap() > 0) {
-                overlap_edges_to_destroy.push_back(edge);
-            }
-        });
-    for (auto& edge : overlap_edges_to_destroy) {
+    });
+    
+    for (auto* edge : bad_edges) {
+        // Drop all the edges with incorrect overlaps
         destroy_edge(edge);
     }
-
-    // walk the graph starting with the dangling overlap neighbors
-    // until we reach a bifurcation, which by definition is where we've reconnected
-    set<id_t> nodes_to_destroy;
-    for (auto& trav : overlap_to) {
-        // walk forward until there's a bifurcation
-        // if we have no inbound nodes
-        if (travs_to(trav).size() > 0) continue;
-        nodes_to_destroy.insert(trav.node->id());
-        auto tn = travs_from(trav);
-        auto next_trav = *tn.begin();
-        while (tn.size() == 1) {
-            next_trav = *tn.begin();
-            if (travs_to(next_trav).size() > 0
-                || !cut_nodes.count(next_trav.node)) break;
-            nodes_to_destroy.insert(next_trav.node->id());
-            tn = travs_from(next_trav);
+    
+    // Create a pinch graph.
+    // Note that in pinch graphs, orientation 1 = forward, and 0 = reverse
+    auto* pinch_graph = stPinchThreadSet_construct();
+    
+    // Have a function to add a node to the pinch graph if it's not there
+    // already, or get it if it is.
+    auto obtain_thread = [&](Node* node) {
+        // IF it's there, grab it
+        auto* found = stPinchThreadSet_getThread(pinch_graph, node->id());
+        if (found == nullptr) {
+            // If not, make it
+            found = stPinchThreadSet_addThread(pinch_graph, node->id(), 0, node->sequence().size());
         }
-    }
-    for (auto& trav : overlap_from) {
-        // walk forward until there's a bifurcation
-        // if we have no inbound nodes
-        if (travs_from(trav).size() > 0) continue;
-        nodes_to_destroy.insert(trav.node->id());
-        auto tp = travs_to(trav);
-        auto prev_trav = *tp.begin();
-        while (tp.size() == 1) {
-            prev_trav = *tp.begin();
-            if (travs_from(prev_trav).size() > 0
-                || !cut_nodes.count(prev_trav.node)) break;
-            nodes_to_destroy.insert(prev_trav.node->id());
-            tp = travs_to(prev_trav);
+        return found;
+    }; 
+    
+    // We fill this with the nodes we're going to replace.
+    set<Node*> overlapped_nodes;
+    
+    // And this with the overlap edges which we remove from the graph (to be
+    // replaced by pinching parts of nodes).
+    vector<Edge*> overlap_edges; 
+    
+    for_each_edge([&](Edge* edge) {
+        // Now loop over only the real edges
+        if (edge->overlap() > 0) {
+            // and for each one with overlap
+            
+            // Make it a pair of NodeSides
+            NodeSide left;
+            NodeSide right;
+            tie(left, right) = NodeSide::pair_from_edge(*edge);
+            
+            // Grab the nodes
+            Node* left_node = get_node(left.node);
+            Node* right_node = get_node(right.node);
+            
+            // Mark them overlapped
+            overlapped_nodes.insert(left_node);
+            overlapped_nodes.insert(right_node);
+        
+            // Grab both the nodes' threads from the pinch graph
+            auto* left_thread = obtain_thread(left_node);
+            auto* right_thread = obtain_thread(right_node);
+            // And the nodes' lengths
+            size_t left_length = left_node->sequence().size();
+            size_t right_length = right_node->sequence().size();
+            
+            // What should be the first base merged on the left node? If we're
+            // on the start of the node, we start at 0, but if we're on the end
+            // of the node, we start however far in we need to be to allow for
+            // the overlap.
+            size_t left_start = left.is_end ? (left_length - edge->overlap()) : 0;
+            // And on the right node?
+            size_t right_start = right.is_end ? (right_length - edge->overlap()) : 0;
+            
+            // Make the actual pinch. We have to do opposite strands if we're
+            // pinching the same ends of nodes together. Otherwise the remaining
+            // pieces of the node will wind up on the same side of the resulting
+            // merged block. Note that we need to send true for a forward
+            // relative orientation.
+            stPinchThread_pinch(left_thread, right_thread, left_start, right_start, edge->overlap(), !(left.is_end == right.is_end));
+#ifdef debug
+            cerr << "pinched " << left_node->id() << ":" << left_start << " and "
+                << right_node->id() << ":" << right_start << " for "
+                << edge->overlap() << " bp in pinch orientation "
+                << !(left.is_end == right.is_end) << endl;
+#endif
+
+            // Remember to remove the edge from the graph
+            overlap_edges.push_back(edge);
+            
         }
+    });
+    
+    // Remove all the overlap edges from the graph, since we represent them with
+    // stuff coming back from the pinch graph.
+    for (auto* edge : overlap_edges) {
+        destroy_edge(edge);
     }
+    
+    // Clean up any trivial boundaries that might be in the pinch graph.
+    stPinchThreadSet_joinTrivialBoundaries(pinch_graph);
+    
+    // This maps from pinch block to new node created for it.
+    map<stPinchBlock*, Node*> new_block_nodes;
+    // Some segments aren't in blocks but still need nodes.
+    map<stPinchSegment*, Node*> new_segment_nodes;
+    
+    // We have a function that will get the node for a segment's block or for
+    // the segment, and the relative orientation of the node to the segment
+    // (true for reverse). It will create the node if it's not found.
+    auto obtain_node = [&](stPinchSegment* segment) {
+        auto* block = stPinchSegment_getBlock(segment);
+        
+        if (block == nullptr) {
+            // No block, just do node by segment
+            if (!new_segment_nodes.count(segment)) {
+                // Need to make the node. So grab the sequence.
+                Node* source_node = get_node(stPinchSegment_getName(segment));
+                string segment_sequence = source_node->sequence().substr(stPinchSegment_getStart(segment), stPinchSegment_getLength(segment));
+                new_segment_nodes[segment] = create_node(segment_sequence);
+            }
+            // Send it back saying it's definitely in the right orientation.
+            return make_pair(new_segment_nodes[segment], false);
+        } else {
+            // The segment is in a block, so we look for the block's node.
+            if (!new_block_nodes.count(block)) {
+                // Need to make the node. So grab the sequence.
+                Node* source_node = get_node(stPinchSegment_getName(segment));
+                string segment_sequence = source_node->sequence().substr(stPinchSegment_getStart(segment), stPinchSegment_getLength(segment));
+                if (!stPinchSegment_getBlockOrientation(segment)) {
+                    // This block is really the reverse complement of this segment
+                    segment_sequence = reverse_complement(segment_sequence);
+                }
+                new_block_nodes[block] = create_node(segment_sequence);
+            }
+            
+            // Send the node back, along with its VG-style orientation relative to the segment.
+            return make_pair(new_block_nodes[block], !stPinchSegment_getBlockOrientation(segment));
+        }
+    };
+    
+    // Now we go through the pinch segments
+    auto iterator = stPinchThreadSet_getSegmentIt(pinch_graph);
+    auto* segment = stPinchThreadSetSegmentIt_getNext(&iterator);
+    
+    while (segment != nullptr) {
+        // For each segment, we have to have a new node. Find it and its
+        // orientation relative to the segment (true = opposite orientations).
+        Node* segment_node;
+        bool segment_is_reverse;
+        tie(segment_node, segment_is_reverse) = obtain_node(segment);
+        
+        // What node did we break up?
+        Node* old_node = get_node(stPinchSegment_getName(segment));
+        
+#ifdef debug
+        cerr << "Handle segment " << segment << " of node " << old_node->id() << " as new node " << segment_node->id() << endl;
+#endif
+        
+        // We look at all the connected blocks, and if they have associated nodes, we create edges to them
+        
+        auto* prev_segment = stPinchSegment_get5Prime(segment);
+        if (prev_segment != nullptr) {
+            // There's more of this original node left of here
+            Node* prev_node;
+            bool prev_is_reverse;
+            tie(prev_node, prev_is_reverse) = obtain_node(prev_segment);
+            
+            // Make the edge (which may exist already)
+            create_edge(prev_node, segment_node, prev_is_reverse, segment_is_reverse);
 
-    for (auto& id : nodes_to_destroy) {
-        destroy_node(id);
+#ifdef debug
+            cerr << "\tAttach to prev segment " << prev_segment << " as new node " << prev_node->id() << endl;
+#endif
+            
+        } else {
+            // We're the start of our original node
+            NodeSide original_start(old_node->id(), false);
+            for (auto& attached : sides_of(original_start)) {
+                // For everything attached to the start of the original node, attach it to the left of here
+                create_edge(attached, NodeSide(segment_node->id(), segment_is_reverse));
+                
+#ifdef debug
+                cerr << "\tAttach to old side " << attached << " on the left" << endl;
+#endif
+            }
+        }
+        
+        auto* next_segment = stPinchSegment_get3Prime(segment);
+        if (next_segment != nullptr) {
+            // There's more of our original node right of here
+            Node* next_node;
+            bool next_is_reverse;
+            tie(next_node, next_is_reverse) = obtain_node(next_segment);
+            
+            // Make the edge (which may exist already)
+            create_edge(segment_node, next_node, segment_is_reverse, next_is_reverse);
+            
+#ifdef debug
+            cerr << "\tAttach to next segment " << next_segment << " as new node " << next_node->id() << endl;
+#endif
+            
+        } else {
+            // We're the end of our original node
+            NodeSide original_end(old_node->id(), true);
+            for (auto& attached : sides_of(original_end)) {
+                // For everything attached to the end of the original node, attach it to the right of here
+                create_edge(attached, NodeSide(segment_node->id(), !segment_is_reverse));
+                
+#ifdef debug
+                cerr << "\tAttach to old side " << attached << " on the right" << endl;
+#endif
+            }
+        }
+        
+        segment = stPinchThreadSetSegmentIt_getNext(&iterator);
     }
-
+    
+    // Now clean up the pinch thread set. This invalidates all the pointers we got from it.
+    stPinchThreadSet_destruct(pinch_graph);
+    
+    for (auto* node : overlapped_nodes) {
+        // Then finally we go through all the nodes that had overlaps and remove them and their edges.
+        destroy_node(node);
+    }
+    
 }
 
 static
@@ -3833,9 +4007,6 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
                     // Mapping offsets are the same as offsets from the start of the node.
                     halves = cut_mapping(remainder, pos - local_offset);
                 }
-                // TODO: since there are no edits to move, none of that is
-                // strictly necessary, because both mapping halves will be
-                // identical.
 
                 // This is the one we have produced
                 Mapping& chunk = halves.first;
@@ -4409,7 +4580,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     auto node_translation = ensure_breakpoints(breakpoints);
 
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, Node*> added_seqs;
+    map<pair<pos_t, string>, vector<Node*>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
     map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
@@ -4448,8 +4619,8 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     return make_translation(node_translation, added_nodes, orig_node_sizes);
 }
 
-// The not quite as correct but actually efficient way to edit the graph.
-vector<Translation> VG::edit_fast(const Path& path) {
+// The not quite as robust but actually efficient way to edit the graph.
+vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4472,22 +4643,20 @@ vector<Translation> VG::edit_fast(const Path& path) {
         orig_node_sizes[kv.first] = get_node(kv.first)->sequence().size();
     }
 
-    // Clear existing path ranks (sicne we invalidate them)
-    paths.clear_mapping_ranks();
-    
     // Break any nodes that need to be broken. Save the map we need to translate
     // from start positions on old nodes to new nodes.
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, Node*> added_seqs;
+    map<pair<pos_t, string>, vector<Node*>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
     map<Node*, Path> added_nodes;
     // create new nodes/wire things up.
-    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling);
 
-    // Make the translations (in about the same format as VG::edit(), but without
-    // every single node)
+    // Make the translations (in about the same format as VG::edit(), but
+    // without a translation for every single node and with just the nodes we
+    // touched)
     vector<Translation> translations;
     
     for (auto& kv : node_translation) {
@@ -4758,7 +4927,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
         // Go through all the nodes we need to break up
         auto original_node_id = kv.first;
 
-        // Save the original node length. We don;t want to break here (or later)
+        // Save the original node length. We don't want to break here (or later)
         // because that would be off the end.
         id_t original_node_length = get_node(original_node_id)->sequence().size();
 
@@ -4843,19 +5012,39 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
 
 void VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, Node*>& added_seqs,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
                              map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes) {
+                             const map<id_t, size_t>& orig_node_sizes,
+                             size_t max_node_size) {
+
+    set<NodeSide> dangling;
+    return add_nodes_and_edges(path,
+        node_translation,
+        added_seqs,
+        added_nodes,
+        orig_node_sizes,
+        dangling,
+        max_node_size);  
+
+}
+
+void VG::add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes,
+                             set<NodeSide>& dangling,
+                             size_t max_node_size) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
-    // edit that creates new sequence, we check if it has been added before
-    // If it has, we use it. If not, we create that new sequence as a node,
-    // and attach it to the dangling NodeSide, and leave its end dangling. If we
-    // hit an edit that corresponds to a match, we know that there's a
-    // breakpoint on each end (since it's bordered by a non-perfect-match or the
-    // end of a node), so we can attach its start to the dangling NodeSide and
-    // leave its end dangling.
+    // edit that creates new sequence, we check if it has been added before If
+    // it has, we use it. If not, we create that new sequence as a node, and
+    // attach it to the dangling NodeSide(s), and leave its end dangling
+    // instead. If we hit an edit that corresponds to a match, we know that
+    // there's a breakpoint on each end (since it's bordered by a non-perfect-
+    // match or the end of a node), so we can attach its start to the dangling
+    // NodeSide(s) and leave its end dangling instead.
 
     // We need node_translation to translate between node ID space, where the
     // paths are articulated, and new node ID space, where the edges are being
@@ -4928,10 +5117,6 @@ void VG::add_nodes_and_edges(const Path& path,
         return mappings;
     };
 
-    // What's dangling and waiting to be attached to? In current node ID space.
-    // We use the default constructed one (id 0) as a placeholder.
-    NodeSide dangling;
-
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
         const Mapping& m = path.mapping(i);
@@ -4967,7 +5152,6 @@ void VG::add_nodes_and_edges(const Path& path,
 #endif
                 // store the path representing this novel sequence in the translation table
                 auto prev_position = edit_first_position;
-                //auto& from_path = added_nodes[new_node];
                 Path from_path;
                 auto prev_from_mapping = from_path.add_mapping();
                 *prev_from_mapping->mutable_position() = make_position(prev_position);
@@ -5007,8 +5191,8 @@ void VG::add_nodes_and_edges(const Path& path,
                             }));
                 }
 
-                // Create the new node, reversing it if we are reversed
-                Node* new_node;
+                // Create the new nodes, reversing it if we are reversed
+                vector<Node*> new_nodes;
                 pos_t start_pos = make_pos_t(from_path.mapping(0).position());
                 auto fwd_seq = m.position().is_reverse() ?
                     reverse_complement(e.sequence())
@@ -5016,43 +5200,83 @@ void VG::add_nodes_and_edges(const Path& path,
                 auto novel_edit_key = make_pair(start_pos, fwd_seq);
                 auto added = added_seqs.find(novel_edit_key);
                 if (added != added_seqs.end()) {
-                    // if we have the node already, don't make it again, just use the existing one
-                    new_node = added->second;
+                    // if we have the node run already, don't make it again, just use the existing one
+                    new_nodes = added->second;
                 } else {
-                    new_node = create_node(fwd_seq);
-                    added_seqs[novel_edit_key] = new_node;
-                    added_nodes[new_node] = from_path;
+                    // Make a new run of nodes of up to max_node_size each
+                    
+                    // Make sure that we are trying to make a run of nodes of
+                    // the length we're supposed to be.
+                    assert(path_to_length(from_path) == fwd_seq.size());
+                    
+                    size_t cursor = 0;
+                    while (cursor < fwd_seq.size()) {
+                        // Until we used up all the sequence, make nodes
+                        Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
+                        cursor += max_node_size;
+                        new_nodes.push_back(new_node);
+                        
+                        // Chop the front of the from path off and associate it
+                        // with this node. TODO: this is n^2 in number of nodes
+                        // we add because we copy the whole path each time.
+                        Path front_path;
+                        
+                        if (path_to_length(from_path) > new_node->sequence().size()) {
+                            // There will still be path left, so we cut the path
+                            tie(front_path, from_path) = cut_path(from_path, new_node->sequence().size());
+                        } else {
+                            // We consume the rest of the path. Don't bother cutting it.
+                            swap(front_path, from_path);
+                        }
+                        
+                        // The front bit of the path belongs to this new node
+                        added_nodes[new_node] = front_path;
+                        
+                    }
+                    
+                    // TODO: fwd_seq can't be empty or problems will be happen
+                    // because we'll have an empty vector of created nodes. I
+                    // think the edit won't be an insert or sub if it is,
+                    // though.
+                    
+                    // Remember that this run belongs to this edit
+                    added_seqs[novel_edit_key] = new_nodes;
+                    
                 }
 
                 if (!path.name().empty()) {
-                    Mapping nm;
-                    nm.mutable_position()->set_node_id(new_node->id());
-                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    for (auto* new_node : new_nodes) {
+                        // Add a mapping to each newly created node
+                        Mapping nm;
+                        nm.mutable_position()->set_node_id(new_node->id());
+                        nm.mutable_position()->set_is_reverse(m.position().is_reverse());
 
-                    // Don't set a rank; since we're going through the input
-                    // path in order, the auto-generated ranks will put our
-                    // newly created mappings in order.
+                        // Don't set a rank; since we're going through the input
+                        // path in order, the auto-generated ranks will put our
+                        // newly created mappings in order.
 
-                    Edit* e = nm.add_edit();
-                    size_t l = new_node->sequence().size();
-                    e->set_from_length(l);
-                    e->set_to_length(l);
-                    // insert the mapping at the right place
-                    paths.append_mapping(path.name(), nm);
+                        Edit* e = nm.add_edit();
+                        size_t l = new_node->sequence().size();
+                        e->set_from_length(l);
+                        e->set_to_length(l);
+                        // insert the mapping at the right place
+                        paths.append_mapping(path.name(), nm);
+                    }
                 }
 
-                if(dangling.node) {
+                for (auto& dangler : dangling) {
                     // This actually referrs to a node.
 #ifdef debug_edit
-                    cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(new_nodes.front()->id(), m.position().is_reverse()) << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangling, NodeSide(new_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(new_nodes.front()->id(), m.position().is_reverse())));
 
                 }
 
-                // Dangle the end of this new node
-                dangling = NodeSide(new_node->id(), !m.position().is_reverse());
+                // Dangle the end of this run of new nodes
+                dangling.clear();
+                dangling.insert(NodeSide(new_nodes.back()->id(), !m.position().is_reverse()));
 
                 // save edit into translated path
 
@@ -5092,17 +5316,20 @@ void VG::add_nodes_and_edges(const Path& path,
                 cerr << "Handling match relative to " << node_id << endl;
 #endif
 
-                if(dangling.node) {
+                for (auto& dangler : dangling) {
 #ifdef debug_edit
-                    cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
 #endif
 
                     // Connect the left end of the left node we matched in the direction we matched it
-                    assert(create_edge(dangling, NodeSide(left_node->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, NodeSide(left_node->id(), m.position().is_reverse())));
                 }
 
                 // Dangle the right end of the right node in the direction we matched it.
-                if (right_node != nullptr) dangling = NodeSide(right_node->id(), !m.position().is_reverse());
+                if (right_node != nullptr) {
+                    dangling.clear();
+                    dangling.insert(NodeSide(right_node->id(), !m.position().is_reverse()));
+                }
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
 #ifdef debug_edit
@@ -6396,6 +6623,8 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
+                    size_t max_span,
                     bool print_score_matrices) {
 
     auto aln = alignment;
@@ -6410,6 +6639,7 @@ Alignment VG::align(const Alignment& alignment,
 
 #ifdef debug
     cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
+    //cerr << pinned_alignment << " " << pin_left << " " << (int)full_length_bonus << " " << banded_global << " " << band_padding_override << " "  << max_span << endl;
 #endif
 
     auto do_align = [&](Graph& g) {
@@ -6422,10 +6652,24 @@ Alignment VG::align(const Alignment& alignment,
             exit(1);
         }
         if (banded_global) {
+            // Figure out if we should use permissive banding, or a fixed band padding
+            bool permissive_banding = (band_padding_override == 0);
+            // What band padding do we want? We used to hardcode it as 1, so it should always be at least 1.
+            size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
+            cerr << permissive_banding << " " << band_padding << endl;
+#ifdef debug
+            cerr << "Actual graph size: ";
+            size_t total_size = 0;
+            for(size_t i = 0; i < g.node_size(); i++) {
+                total_size += g.node(i).sequence().size();
+            }
+            cerr << total_size << endl;
+#endif
+            
             if (aligner && !qual_adj_aligner) {
-                aligner->align_global_banded(aln, g, 1);
+                aligner->align_global_banded(aln, g, band_padding, permissive_banding);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align_global_banded(aln, g, 1);
+                qual_adj_aligner->align_global_banded(aln, g, band_padding, permissive_banding);
             }
         } else if (pinned_alignment) {
             if (aligner && !qual_adj_aligner) {
@@ -6442,6 +6686,8 @@ Alignment VG::align(const Alignment& alignment,
         }
     };
 
+    flip_doubly_reversed_edges();
+
     if (is_acyclic() && !has_inverting_edges()) {
         // graph is a non-inverting DAG, so we just need to sort
         sort();
@@ -6451,7 +6697,11 @@ Alignment VG::align(const Alignment& alignment,
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;
         map<id_t, pair<id_t, bool> > dagify_trans;
-        size_t max_length = alignment.sequence().size();
+        // Work out how long we could possibly span with an alignment.
+        // TODO: we probably want to be able to span more than just the sequence
+        // length if we don't get a hint. Look at scores and guess the max span
+        // with those scores?
+        size_t max_length = max(max_span, alignment.sequence().size());
         size_t component_length_max = 100*max_length; // hard coded to be 100x
 
         // dagify the graph by unfolding inversions and then applying dagify forward unroll
@@ -6465,7 +6715,7 @@ Alignment VG::align(const Alignment& alignment,
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
         dag.sort();
-
+        
         // run the alignment
         do_align(dag.graph);
 
@@ -6511,10 +6761,12 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
+                    size_t max_span,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6524,12 +6776,14 @@ Alignment VG::align(const string& sequence,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
+                    size_t max_span,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6538,11 +6792,13 @@ Alignment VG::align(const Alignment& alignment,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
+                    size_t max_span,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6551,12 +6807,14 @@ Alignment VG::align(const string& sequence,
                     bool pin_left,
                     int8_t full_length_bonus,
                     bool banded_global,
+                    size_t band_padding_override,
+                    size_t max_span,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
@@ -6566,10 +6824,12 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   bool pin_left,
                                   int8_t full_length_bonus,
                                   bool banded_global,
+                                  size_t band_padding_override,
+                                  size_t max_span,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, max_query_graph_ratio,
                  pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, print_score_matrices);
+                 banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
@@ -6579,12 +6839,14 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   bool pin_left,
                                   int8_t full_length_bonus,
                                   bool banded_global,
+                                  size_t band_padding_override,
+                                  size_t max_span,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio,
                                pinned_alignment, pin_left, full_length_bonus,
-                               banded_global, print_score_matrices);
+                               banded_global, band_padding_override, max_span, print_score_matrices);
 }
 
 const string VG::hash(void) {
@@ -8376,40 +8638,59 @@ VG VG::unfold(uint32_t max_length,
     VG unfolded = *this;
     unfolded.flip_doubly_reversed_edges();
     if (!unfolded.has_inverting_edges()) return unfolded;
-    // maps from entry id to the set of nodes
-    // map from component root id to a translation
-    // that maps the unrolled id to the original node and whether we've inverted or not
-    // TODO
-    // we need to first collect the components so we can ask quickly if a certain node is in one
-    // then we need to
+    
+    // This is the set of oriented nodes that we want to include in a reverse orientation.
     set<NodeTraversal> travs_to_flip;
-    //set<Edge*> edges_to_flip;
+    // These are the edges we need to fix up
     set<pair<NodeTraversal, NodeTraversal> > edges_to_flip;
-    //set<Edge*> edges_to_forward;
+    // These are edges from the reverse world to the forward world
     set<pair<NodeTraversal, NodeTraversal> > edges_to_forward;
-    //set<Edge*> edges_from_forward;
+    // And these are edges from the forward world to the reverse worls
     set<pair<NodeTraversal, NodeTraversal> > edges_from_forward;
 
     // collect the set to invert
     // and we'll copy them over
     // then link back in according to how the inbound links work
     // so as to eliminate the reversing edges
+    
+    // This stores how much length we had left when we visited each node in the
+    // original graph in each orientation.
     map<NodeTraversal, int32_t> seen;
     function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
                                                      int32_t length) {
 
+#ifdef debug
+        cerr << "Visit " << curr << " with " << length << " bases remaining" << endl;
+#endif
+        
+        set<NodeTraversal> next;
+        travs_to_flip.insert(curr);
+
         // check if we've passed our length limit
         // or if we've seen this node before at an earlier step
         // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
-        set<NodeTraversal> next;
-        travs_to_flip.insert(curr);
-        if (length <= 0 || (seen.find(curr) != seen.end() && seen[curr] < length)) {
+        if (length <= 0 || (seen.find(curr) != seen.end() && seen[curr] >= length)) {
+#ifdef debug
+            cerr << "\tDon't explore further" << endl;
+            if (seen.find(curr) != seen.end()) {
+                cerr << "\t\tBecause we already saw " << curr << " with " << seen[curr] << " remaining" << endl;
+            } else {
+                cerr << "\t\tBecuase " << length << " <= 0" << endl;
+            }
+#endif
             return;
         }
+        
+        // We can reach this node with this much length left.
         seen[curr] = length;
         for (auto& trav : travs_from(curr)) {
+            // Look at all the oriented nodes we can go to next
             if (trav.backward) {
+                // We can get to this node backward from a node that's already
+                // backward, so remember to make a reverse-world version of the
+                // edge.
                 edges_to_flip.insert(make_pair(curr, trav));
+                // Flip and continue from that node with the remaining length
                 walk(trav, length-trav.node->sequence().size());
             } else {
                 // we would not continue, but we should retain this edge because it brings
@@ -8418,8 +8699,13 @@ VG VG::unfold(uint32_t max_length,
             }
         }
         for (auto& trav : travs_to(curr)) {
+            // Look at all the oriented nodes we could have come from
             if (trav.backward) {
+                // We can get to this node backward from a node that's already
+                // backward, so remember to make a reverse-world version of the
+                // edge.
                 edges_to_flip.insert(make_pair(trav, curr));
+                // Keep looking off of that node.
                 walk(trav, length-trav.node->sequence().size());
             } else {
                 // we would not continue, but we should retain this edge because it brings
@@ -8431,26 +8717,40 @@ VG VG::unfold(uint32_t max_length,
 
     // run over the inverting edges
     for_each_node([&](Node* node) {
+            // For each node
             for (auto& trav : travs_of(NodeTraversal(node, false))) {
+                // For everything connecte dto this node in the forward orientation
                 if (trav.backward) {
+                    // If it's in the reverse orientation, look outwards from it
+#ifdef debug
+                    cerr << "Start walk out from " << trav << " which is reverse and attached to "
+                        << node->id() << " forward" << endl;
+#endif
                     walk(trav,  max_length);
                 }
             }
         });
     // now build out the component of the graph that's reversed
 
-    // our friend is map<id_t, pair<id_t, bool> >& node_translation;
+    // This map is sort of the reverse of map<id_t, pair<id_t, bool> >& node_translation
+    // It maps from original NodeTranslation to the new node ID that represents it on the forward strand.
     map<NodeTraversal, id_t> inv_translation;
 
     // first adding nodes that we've flipped
     for (auto t : travs_to_flip) {
         // make a new node, add it to the flattened version
         // record it in the translation
-        //string seq = reverse_complement(t.node->sequence()) + ":" + convert(t.node->id());
         string seq = reverse_complement(t.node->sequence());
         id_t i = unfolded.create_node(seq)->id();
+        // Remember the old node ID and orientation as where this new node came from
         node_translation[i] = make_pair(t.node->id(), t.backward);
+        // Remember the new ID for the forward version of this NodeTraversal.
         inv_translation[t] = i;
+        
+#ifdef debug
+        cerr << "Transform " << t << " into new node " << i << endl;
+#endif
+        
     }
 
     // then edges that we should translate into the reversed component
@@ -8467,7 +8767,7 @@ VG VG::unfold(uint32_t max_length,
     // finally the edges that take us from the reversed component back to the original graph
     for (auto e : edges_to_forward) {
         Edge f;
-        f.set_from(inv_translation[e.first]);//NodeTraversal(get_node(e->from()), true)]);
+        f.set_from(inv_translation[e.first]);
         f.set_to(e.second.node->id());
         unfolded.add_edge(f);
     }

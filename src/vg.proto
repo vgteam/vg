@@ -242,6 +242,9 @@ message SnarlTraversal {
     // the node leaving the Snarl *SHOULD* be inluded (this simplifies the case where a
     // node is a boundary of two adjacent Snarls)
     repeated Visit visits = 1;
+
+    // A Snarl with the start and end Visits filled in to label which Snarl these traverse.
+    Snarl snarl = 2;
 }
 
 // Describes a genetic locus with multiple possible alleles, a genotype, and observational support.

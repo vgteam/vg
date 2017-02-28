@@ -50,6 +50,11 @@ double stdev(const T& v) {
 // https://en.wikipedia.org/wiki/Cumulative_distribution_function
 double phi(double x1, double x2);
 
+inline double add_log(double log_x, double log_y) {
+    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
+
+}
+    
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);
@@ -209,6 +214,9 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     return pulled_out + prob_to_logprob(total);
 }
 
+/// Find the system temp directory using defaults and environment variables
+string find_temp_dir();
+
 /// Create a temporary file starting with the given base name
 string tmpfilename(const string& base);
 
@@ -305,6 +313,10 @@ void get_input_file(int& optind, int argc, char** argv, function<void(istream&)>
 // Parse out the name of an input file (i.e. the next positional argument), or
 // throw an error. File name must be nonempty, but may be "-" or may not exist.
 string get_input_file_name(int& optind, int argc, char** argv);
+
+// Parse out the name of an output file (i.e. the next positional argument), or
+// throw an error. File name must be nonempty.
+string get_output_file_name(int& optind, int argc, char** argv);
 
 // Get a callback with an istream& to an open file. Handles "-" as a filename as
 // indicating standard input. The reference passed is guaranteed to be valid
