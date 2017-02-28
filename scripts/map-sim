@@ -16,7 +16,7 @@ echo bwa mem mapping
 vg view -a sim.gam | jq -cr 'select(.name | test("_1$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_1$// | gzip >sim_1.fq.gz
 vg view -a sim.gam | jq -cr 'select(.name | test("_2$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_2$// | gzip >sim_2.fq.gz
 # then map, correcting the names so they match vg's
-time bwa mem sim_1.fq.gz sim_2.fq.gz ~/hs37d5/hs37d5.fa | grep -v ^@ | perl -ne '@val = split("\t", $_); print @val[0] . "_" . (@val[1] & 64 ? "1" : @val[1] & 128 ? "2" : "?"), "\t" . @val[2] . "\t" . @val[3] . "\t" . @val[4] . "\n";' | pv -l | sort >bwa_mem.pos
+time bwa mem ~/hs37d5/hs37d5.fa sim_1.fq.gz sim_2.fq.gz | grep -v ^@ | perl -ne '@val = split("\t", $_); print @val[0] . "_" . (@val[1] & 64 ? "1" : @val[1] & 128 ? "2" : "?"), "\t" . @val[2] . "\t" . @val[3] . "\t" . @val[4] . "\n";' | pv -l | sort >bwa_mem.pos
 join true.pos bwa_mem.pos | ~/vg/scripts/pos_compare.py >bwa.compare
 
 # By vg-ref:
@@ -33,7 +33,7 @@ join true.pos vg-pan.pos | ~/vg/scripts/pos_compare.py >vg-pan.compare
 
 echo combining results
 ( cat bwa.compare    | awk 'BEGIN { OFS="\t"; print "correct", "mq", "aligner"; } { print $2, $3, "bwa.mem" }' ;
-  cat vg-pan.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.ref" }' ;
+  cat vg-ref.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.ref" }' ;
   cat vg-pan.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.pan" }' ) >results-$id.tsv
 
 # This can then be rendered using scripts in the vg repo
