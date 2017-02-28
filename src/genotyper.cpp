@@ -31,11 +31,6 @@ void Genotyper::run(VG& graph,
                     int length_override,
                     int variant_offset) {
     
-    // TODO: this maybe should be in a constructor? Or the base Aligner's
-    // constructor?
-    // Set up the mapping quality on our aligner.
-    normal_aligner.init_mapping_quality(default_gc_content);
-    
     if(ref_path_name.empty()) {
         // Guess the ref path name
         if(graph.paths.size() == 1) {
