@@ -278,6 +278,14 @@ public:
     Alignment smooth_alignment(const Alignment& aln);
     // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
     int32_t score_alignment(const Alignment& aln);
+    // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
+    int32_t rescore_without_full_length_bonus(const Alignment& aln);
+    // get the graph context of a particular cluster, using a given alignment to describe the required size
+    VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // for aligning to a particular MEM cluster
+    Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // wraps align_to_graph with flipping
+    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

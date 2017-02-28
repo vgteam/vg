@@ -6656,7 +6656,6 @@ Alignment VG::align(const Alignment& alignment,
             bool permissive_banding = (band_padding_override == 0);
             // What band padding do we want? We used to hardcode it as 1, so it should always be at least 1.
             size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            cerr << permissive_banding << " " << band_padding << endl;
 #ifdef debug
             cerr << "Actual graph size: ";
             size_t total_size = 0;
@@ -6665,7 +6664,6 @@ Alignment VG::align(const Alignment& alignment,
             }
             cerr << total_size << endl;
 #endif
-            
             if (aligner && !qual_adj_aligner) {
                 aligner->align_global_banded(aln, g, band_padding, permissive_banding);
             } else if (qual_adj_aligner && !aligner) {
@@ -6693,7 +6691,6 @@ Alignment VG::align(const Alignment& alignment,
         sort();
         // run the alignment
         do_align(this->graph);
-
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;
         map<id_t, pair<id_t, bool> > dagify_trans;

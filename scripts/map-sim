@@ -6,7 +6,7 @@ echo testing vg-$id
 
 # Generate 50k read pairs (100k reads) and their "true" positions from the vg graph:
 echo generating simulated reads
-time vg sim -s 271 -n 50000 -l 150 -p 500 -v 50 -x vg/index.xg -a | vg annotate -p -x vg/index.xg -a - | tee sim.gam | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l >true.pos
+time vg sim -s 271 -n 50000 -l 150 -p 500 -v 50 -x ~/pan/vg/index.xg -a | vg annotate -p -x ~/pan/vg/index.xg -a - | tee sim.gam | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >true.pos
 
 # This can then be mapped three ways.
 
@@ -16,17 +16,17 @@ echo bwa mem mapping
 vg view -a sim.gam | jq -cr 'select(.name | test("_1$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_1$// | gzip >sim_1.fq.gz
 vg view -a sim.gam | jq -cr 'select(.name | test("_2$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_2$// | gzip >sim_2.fq.gz
 # then map, correcting the names so they match vg's
-time bwa mem sim_1.fq.gz sim_2.fq.gz | grep -v ^@ | perl -ne '@val = split("\t", $_); print @val[0] . "_" . (@val[1] & 64 ? "1" : @val[1] & 128 ? "2" : "?"), "\t" . @val[2] . "\t" . @val[3] . "\t" . @val[4] . "\n";' | pv -l | sort >bwa_mem.pos
+time bwa mem sim_1.fq.gz sim_2.fq.gz ~/hs37d5/hs37d5.fa | grep -v ^@ | perl -ne '@val = split("\t", $_); print @val[0] . "_" . (@val[1] & 64 ? "1" : @val[1] & 128 ? "2" : "?"), "\t" . @val[2] . "\t" . @val[3] . "\t" . @val[4] . "\n";' | pv -l | sort >bwa_mem.pos
 join true.pos bwa_mem.pos | ~/vg/scripts/pos_compare.py >bwa.compare
 
 # By vg-ref:
 echo vg ref mapping
-time vg map -iG sim.gam -x ~/ref/vg/index.xg -g ~/ref/vg/index.gcsa -t 4 2>err | vg annotate -x ~/ref/vg/index.xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >vg-ref.pos
+time vg map -iG sim.gam -x ~/ref/vg/index.xg -g ~/ref/vg/index.gcsa -t 32 | vg annotate -x ~/ref/vg/index.xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >vg-ref.pos
 join true.pos vg-ref.pos | ~/vg/scripts/pos_compare.py >vg-ref.compare
 
 # By vg-pan:
 echo vg pan mappping
-time vg map -iG sim.gam -x ~/pan/vg/index.xg -g ~/pan/vg/index.gcsa -t 4 2>err | vg annotate -x ~/pan/vg/index.xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >vg-pan.pos
+time vg map -iG sim.gam -x ~/pan/vg/index.xg -g ~/pan/vg/index.gcsa -t 32 | vg annotate -x ~/pan/vg/index.xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >vg-pan.pos
 join true.pos vg-pan.pos | ~/vg/scripts/pos_compare.py >vg-pan.compare
 
 # Now we combine the various positions into one table
