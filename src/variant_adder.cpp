@@ -189,7 +189,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 // shifted an indel to the border of our context.
             
                 
-                // We need to move the bounds out so that we aren;t trying to anchor our alignment with Ns
+                // We need to move the bounds out so that we aren't trying to
+                // anchor our alignment with Ns, if that's possible not to do
                 char left_anchor_character;
                 char right_anchor_character;
                 do {
@@ -205,21 +206,19 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                     left_anchor_character = ref_sequence.at(left_context_start);
                     right_anchor_character = ref_sequence.at(right_context_past_end - 1);
                     
-                    if (left_anchor_character == 'N') {
+                    if (left_anchor_character == 'N' && left_context_start > 0) {
                         // Try moving left.
-                        // TODO: somehow solve the problem of being at the end of the graph with an N.
-                        assert(left_context_start > 0);
                         left_context_start--;
                     }
                     
-                    if (right_anchor_character == 'N') {
-                        // Try moving left.
-                        // TODO: somehow solve the problem of being at the end of the graph with an N.
-                        assert(right_context_past_end <= ref_sequence.size());
+                    if (right_anchor_character == 'N' && right_context_past_end <= ref_sequence.size()) {
+                        // Try moving right.
                         right_context_past_end++;
                     }
                     
-                } while (left_anchor_character == 'N' || right_anchor_character == 'N');
+                } while ((left_anchor_character == 'N' && left_context_start > 0) || 
+                    (right_anchor_character == 'N' && right_context_past_end <= ref_sequence.size()));
+                // Keep looping until we haven't landed on N (or we hit the contig ends)
                 
 #ifdef debug
                 cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
