@@ -33,7 +33,6 @@ Caller::Caller(VG* graph,
                bool leave_uncalled,
                int default_quality,
                double max_strand_bias,
-               ostream* text_calls,
                bool bridge_alts):
     _graph(graph),
     _het_log_prior(safe_log(het_prior)),
@@ -46,7 +45,6 @@ Caller::Caller(VG* graph,
     _leave_uncalled(leave_uncalled),
     _default_quality(default_quality),
     _max_strand_bias(max_strand_bias),
-    _text_calls(text_calls),
     _bridge_alts(bridge_alts) {
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
@@ -241,15 +239,13 @@ void Caller::update_call_graph() {
     _graph->for_each_edge(map_edge);
     process_augmented_edges(false);
 
-    // write out all the nodes in the divider structure to tsv
-    if (_text_calls != NULL) {
-        write_nd_tsv();
-        // add on the inserted nodes
-        for (auto i : _inserted_nodes) {
-            auto& n = i.second; 
-            write_node_tsv(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
-        }
-    }    
+    // Annotate all the nodes in the divider structure in the AugmentedGraph
+    emit_augmented_nd();
+    // add on the inserted nodes
+    for (auto i : _inserted_nodes) {
+        auto& n = i.second; 
+        emit_augmented_node(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
+    }
 }
 
 
@@ -393,12 +389,10 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         if (is_it != _insertion_supports.end()) {
                             edge_support = edge_support - is_it->second;
                         }                        
-                        // can edges be written more than once with different cats?
-                        // if so, first one will prevail. should check if this
-                        // can impact vcf converter...
-                        if (_text_calls != NULL) {
-                            write_edge_tsv(edge, cat, edge_support);
-                        }
+                        // TODO: can edges be emitted more than once with
+                        // different cats? if so, last one will prevail. should
+                        // check if this can impact vcf converter...
+                        emit_augmented_edge(edge, cat, edge_support);
                     }
                 }
             }
@@ -894,22 +888,52 @@ void AugmentedGraph::to_tsv(ostream& out) {
     });
 }
 
-void Caller::write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
+void Caller::emit_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
-    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << support.fs << "\t"
-                 << support.rs << "\t" << support.os << "\t" << support.likelihood << "\t"
-                 << orig_id << "\t" << orig_offset << endl;
+    // Copy over the data.
+    // TODO: don't copy the graph somehow???
+    _augmented_graph.new_graph.add_node(*node);
+    // This holds the copied node.
+    Node* new_node = _augmented_graph.new_graph.get_node(node->id());
+    
+    _augmented_graph.node_calls[new_node] = (ElementCall) call;
+    _augmented_graph.node_supports[new_node].set_forward(support.fs);
+    _augmented_graph.node_supports[new_node].set_reverse(support.rs);
+    _augmented_graph.node_likelihoods[new_node] = support.likelihood;
+    
+    if (orig_id != 0 && call != 'S' && call != 'I') {
+        // Add translations for preserved parts
+        Translation trans;
+        auto* new_mapping = trans.mutable_to()->add_mapping();
+        new_mapping->mutable_position()->set_node_id(new_node->id());
+        auto* new_edit = new_mapping->add_edit();
+        new_edit->set_from_length(new_node->sequence().size());
+        new_edit->set_to_length(new_node->sequence().size());
+        auto* old_mapping = trans.mutable_from()->add_mapping();
+        old_mapping->mutable_position()->set_node_id(orig_id);
+        old_mapping->mutable_position()->set_offset(orig_offset);
+        auto* old_edit = old_mapping->add_edit();
+        old_edit->set_from_length(new_node->sequence().size());
+        old_edit->set_to_length(new_node->sequence().size());
+    }
 }
 
-void Caller::write_edge_tsv(Edge* edge, char call, StrandSupport support)
+void Caller::emit_augmented_edge(Edge* edge, char call, StrandSupport support)
 {
-    *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
-                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support.fs
-                 << "\t" << support.rs << "\t" << support.os << "\t" << support.likelihood
-                 << "\t.\t." << endl;
+    // Copy over the data.
+    // TODO: don't copy the graph somehow???
+    
+    _augmented_graph.new_graph.add_edge(*edge);
+    // This holds the copied edge.
+    Edge* new_edge = _augmented_graph.new_graph.get_edge(NodeSide::pair_from_edge(*edge));
+    
+    _augmented_graph.edge_calls[new_edge] = (ElementCall) call;
+    _augmented_graph.edge_supports[new_edge].set_forward(support.fs);
+    _augmented_graph.edge_supports[new_edge].set_reverse(support.rs);
+    _augmented_graph.edge_likelihoods[new_edge] = support.likelihood;
 }
 
-void Caller::write_nd_tsv()
+void Caller::emit_augmented_nd()
 {
     for (auto& i : _node_divider.index) {
         int64_t orig_node_id = i.first;
@@ -917,12 +941,12 @@ void Caller::write_nd_tsv()
             int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
             char call = entry.sup_ref.empty() || avgSup(entry.sup_ref) == StrandSupport() ? 'U' : 'R';
-            write_node_tsv(entry.ref, call, avgSup(entry.sup_ref), orig_node_id, orig_node_offset);
+            emit_augmented_node(entry.ref, call, avgSup(entry.sup_ref), orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
-                write_node_tsv(entry.alt1, 'S', avgSup(entry.sup_alt1), orig_node_id, orig_node_offset);
+                emit_augmented_node(entry.alt1, 'S', avgSup(entry.sup_alt1), orig_node_id, orig_node_offset);
             }
             if (entry.alt2 != NULL) {
-                write_node_tsv(entry.alt2, 'S', avgSup(entry.sup_alt2), orig_node_id, orig_node_offset);
+                emit_augmented_node(entry.alt2, 'S', avgSup(entry.sup_alt2), orig_node_id, orig_node_offset);
             }
         }
     }

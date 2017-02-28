@@ -1201,19 +1201,13 @@ int main_call(int argc, char** argv) {
         graph = new VG(in);
     });
 
-    // this is the call tsv file that was used to communicate with glenn2vcf
-    // it's still here for the time being but never actually written
-    // (just passed as a string to the caller)
-    stringstream text_file_stream;
-
     if (show_progress) {
         cerr << "Computing augmented graph" << endl;
     }
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
                   min_frac, Caller::Default_min_log_likelihood,
-                  true, default_read_qual, max_strand_bias,
-                  &text_file_stream, bridge_alts);
+                  true, default_read_qual, max_strand_bias, bridge_alts);
 
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {
@@ -1267,6 +1261,13 @@ int main_call(int argc, char** argv) {
         ofstream aug_stream(aug_file.c_str());
         caller.write_call_graph(aug_stream, false);
     }
+    
+    // this is the call tsv file that was used to communicate with glenn2vcf
+    // it's still here for the time being but never actually written
+    // (just passed as a string to the caller)
+    stringstream text_file_stream;
+    // Convert the annotations on the augmented graph to the TSV format
+    caller._augmented_graph.to_tsv(text_file_stream);
 
     if (show_progress) {
         cerr << "Calling variants" << endl;

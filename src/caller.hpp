@@ -215,7 +215,6 @@ public:
            bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
-           ostream* text_calls = NULL,
            bool bridge_alts = false);
     ~Caller();
     void clear();
@@ -224,8 +223,8 @@ public:
     VG* _graph;
     // output called graph
     VG _call_graph;
-    // optional text file of calls
-    ostream* _text_calls;
+    // Augmented graph with annotations
+    AugmentedGraph _augmented_graph;
 
     // buffer for base calls for each position in the node
     // . = reference
@@ -351,10 +350,10 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
                                StrandSupport support);
 
-    // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
-    void write_edge_tsv(Edge* edge, char call, StrandSupport support);
-    void write_nd_tsv();
+    // Emit calling info to an annotated augmented graph
+    void emit_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
+    void emit_augmented_edge(Edge* edge, char call, StrandSupport support);
+    void emit_augmented_nd();
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {

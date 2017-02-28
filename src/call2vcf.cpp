@@ -988,27 +988,27 @@ void parse_tsv(const std::string& tsvFile,
             std::string callType;
             tokens >> callType;
                         
-            // Read the read support
+            // Read the read support and likelihood
             Support readSupport;
             int other_support = 0;
             double likelihood = 0.;
-            if((tokens >> readSupport.first) && (tokens >> readSupport.second) &&
-               (tokens >> other_support) && (tokens >> likelihood)) {
-                // For nodes with the number there, actually process the read support
+            tokens >> readSupport.first;
+            tokens >> readSupport.second;
+            tokens >> other_support;
+            tokens >> likelihood;
             
 #ifdef debug
-                std::cerr << "Line " << std::to_string(lineNumber) << ": Node " << nodeId
-                    << " has read support " << readSupport.first << "," << readSupport.second << endl;
+            std::cerr << "Line " << std::to_string(lineNumber) << ": Node " << nodeId
+                << " has read support " << readSupport.first << "," << readSupport.second << endl;
 #endif
-                
-                // Save it
-                nodeReadSupport[nodePointer] = readSupport;
-                nodeLikelihood[nodePointer] = likelihood;
-                
-                if(callType == "R") {
-                    // Note that this is a reference node
-                    knownNodes.insert(nodePointer);
-                }
+            
+            // Save it
+            nodeReadSupport[nodePointer] = readSupport;
+            nodeLikelihood[nodePointer] = likelihood;
+            
+            if(callType == "R") {
+                // Note that this is a reference node
+                knownNodes.insert(nodePointer);
             }
             
             // Load the original node ID and offset for this node, if present.
