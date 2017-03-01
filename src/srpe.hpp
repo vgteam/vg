@@ -83,11 +83,17 @@ public:
             // clear any region restrictions, delete all the pointers, clear depth maps and settings.
             // void reset();
 
-            // void regenerate_depth_map(vg::VG* graph);
+            // Remake the depth map for a graph / subgraph.
+            // void regenerate_depth_map(Alignment& a);
+            // void regenerate_depth_map(pair<Alignment, Alignment> alns);
 
             // void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);
 
+            // Use Filter to locate read-pair signatures
             // void detect_paired_signatures(vector<Alignment>& in_alns, vector<Alignment>& out_alns);
+
+            // Use Filter to detect paired-read signatures
+            // void detect_split_read_signatures(Alignment& aln);
 
             // std::pair<int,int> calculate_insert_size_bounds(vector<pair<Alignment, Alignment> > alns);
             // std::pair<double, double> calculate_insert_size_sigma(vector<pair<Alignment, Alignment> alns);
@@ -98,6 +104,8 @@ public:
             // void normalize_pairs(vector<pair<Alignment&, Alignment&> > alns);
             // void normalize_singles(vector<Alignment&> alns);
 
+            // void load_read(vector<Alignment> a);
+            // void flush_reads(vector<Alignment> a);
 
             
             // // Performs graph augmentation in a way that won't shatter the graph into single
@@ -138,6 +146,9 @@ public:
 
             // A graph (or subgraph) for the region this SRPE is handling.
             vg::VG* vg;
+
+            // Cap the total coverage at a given position
+            // int max_reads;
 
 
 };

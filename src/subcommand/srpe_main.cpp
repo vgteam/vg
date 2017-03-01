@@ -9,6 +9,7 @@
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
+#include "path.hpp"
 //#include "genotyper.hpp"
 #include "genotypekit.hpp"
 #include "path_index.hpp"
@@ -25,13 +26,16 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_srpe(char** argv){
-    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
+    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl
         << "Options: " << endl
-
-        << "   -S / --specific <VCF>    look up variants in <VCF> in the graph and report only those." << endl
-        << "   -R / --recall            recall (i.e. type) all variants with paths stored in the graph." << endl
-        << "   -r / --reference         reference genome to pull structural variants from." << endl
-        << "   -I / --insertions        fasta file containing insertion sequences." << endl
+        << "Variant recall:" << endl
+        << "   -S / --specific    <VCF>       look up variants in <VCF> in the graph and report only those." << endl
+        << "   -R / --recall                  recall (i.e. type) all variant paths stored in the graph." << endl
+        << "   -r / --reference   <REF>       reference genome to pull structural variants from." << endl
+        << "   -I / --insertions  <INS>       fasta file containing insertion sequences." << endl
+        << "Smart genotyping:" << endl
+        << "   -a / --augmented   <AUG>       write the intermediate augmented graph to <AUG>." << endl
+        << "   -p / --ref-path   <PATHNAME>   find variants relative to <PATHNAME>" << endl
         << endl;
     //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
 
@@ -52,6 +56,11 @@ int main_srpe(int argc, char** argv){
     string spec_vcf = "";
     string ref_fasta = "";
     string ins_fasta = "";
+
+    string augmented_graph_name = "";
+    bool augment_paths = true;
+
+    string ref_path = "";
 
     int max_iter = 2;
     int max_frag_len = 10000;
@@ -76,6 +85,7 @@ int main_srpe(int argc, char** argv){
         {
             {"max-iter", required_argument, 0, 'm'},
             {"xg-index", required_argument, 0, 'x'},
+            {"augmented", required_argument, 0, 'a'},
             {"help", no_argument, 0, 'h'},
             {"gcsa-index", required_argument, 0, 'g'},
             {"specific", required_argument, 0, 'S'},
@@ -83,11 +93,12 @@ int main_srpe(int argc, char** argv){
             {"insertions", required_argument, 0, 'I'},
             {"reference", required_argument, 0, 'r'},
             {"threads", required_argument, 0, 't'},
+            {"ref-path", required_argument, 0, 'p'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:m:S:RI:r:t:",
+        c = getopt_long (argc, argv, "hx:g:m:S:RI:r:t:a:wp:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -96,6 +107,9 @@ int main_srpe(int argc, char** argv){
 
         switch (c)
         {
+            case 'a':
+                augmented_graph_name = optarg;
+                break;
             case 'm':
                 max_iter = atoi(optarg);
                 break;
@@ -122,6 +136,9 @@ int main_srpe(int argc, char** argv){
             case 'I':
                 ins_fasta = optarg;
                 break;
+            case 'p':
+                ref_path = optarg;
+                break;
             case 'h':
             case '?':
             default:
@@ -134,7 +151,7 @@ int main_srpe(int argc, char** argv){
     omp_set_num_threads(threads);
 
 
-    SRPE srpe;
+    //SRPE srpe;
 
 
     gam_name = argv[optind];
@@ -296,19 +313,23 @@ int main_srpe(int argc, char** argv){
         vector<Alignment> complex_reads;
 
         Filter ff;
-
         vector<Path> simple_paths;
+
+        // TODO expose at CLI
+        int min_depth = 5;
 
         std::function<void(Alignment&)> get_simples_and_perfects = [&](Alignment& aln){
             if (ff.perfect_filter(aln)){
                 #pragma omp critical
                 perfects.push_back(aln);
             }
-            else if (ff.simple_filter(aln)){
+            //else if (ff.simple_filter(aln)){
+            else if (true){
                 #pragma omp critical
                 {
                     simple_mismatches.push_back(aln);
-                    simple_paths.push_back(aln.path());
+                    Path p = trim_hanging_ends(aln.path());
+                    simple_paths.push_back(p);
                 }
             }
             // else{
@@ -327,39 +348,60 @@ int main_srpe(int argc, char** argv){
 
         // Grab our perfect and simple reads
         // incorporate our simple reads.
-
+        // optionally, incorporate all reads and their paths.
+        Translator tt;
         vector<Translation> translations = graph->edit(simple_paths);
+        tt.load(translations);
+
+        if (augment_paths){
+
+        }
+
+
+        if (!augmented_graph_name.empty()){
+            ofstream augstream;
+            augstream.open(augmented_graph_name);
+            graph->serialize_to_ostream(augstream);
+        }
         
         // Add both simple and perfect reads to the depth map.
         DepthMap dm(graph->size());
         dm.fill(simple_mismatches);
         dm.fill(perfects);
         
-        // Save memory by disposing of our perfects and simples.
+        // Save memory (maybe???) by disposing of our perfects and simples.
         // TODO is clear enough?
         simple_mismatches.clear();
         perfects.clear();
 
+
         // You could call SNPs right here. We should also check known variants at this stage.
         // Call snarlmanager, tossing out trivial snarls
         // Report them as either loci or VCF records
-        SnarlFinder* snf = new CactusUltrabubbleFinder(*graph, "", true);
+        SnarlFinder* snf = new CactusUltrabubbleFinder(*graph, ref_path, true);
 
         SnarlManager snarl_manager = snf->find_snarls();
         vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+        TraversalFinder* trav_finder;
+        if (augment_paths){
 
-        TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+        }
+        else{
+            trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
 
-        bool justSNPs = true;
+        }
+
+
+        bool justSNPs = false;
         if (justSNPs){
             for (auto x : snarl_roots){
                 vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
                 for (auto t : site_traversals){
                     //cout << t.start() << " ";
                     for (auto zed : t.visits()){
-                        cout << zed.node_id() << ", ";
+                        //cout << zed.node_id() << ", ";
                     }
-                    cout <<  endl;
+                    //cout <<  endl;
                 }
             }
         }
@@ -371,27 +413,8 @@ int main_srpe(int argc, char** argv){
         double expected_insert_sd = 100.0;
 
         std::unordered_map<string, Alignment> mates_by_name;
-        std::function<void(pair<Alignment, Alignment>)> make_mate_map = [&](pair<Alignment, Alignment> alns){
-            if (alns.second.name() != ""){
-                mates_by_name[alns.second.name()] = alns.second;
-            }
-            else if (warned){
-
-            }
-            else{
-                cerr << "Alignment with no name present." << endl;
-                warned = true;
-            }
-        };
-        stream::for_each_interleaved_pair_parallel(all_reads, make_mate_map);
-
-        std::function<void(Alignment&)> rectify_single_read = [&](Alignment& a){
-
-        };
-
-        std::function<void(pair<Alignment, Alignment>)> rectify_read_pair = [&](pair<Alignment, Alignment> alns){
-
-        };
+        vector<Alignment> complex_singles;
+        vector<Alignment> complex_pairs;
 
         // for every read in our nasty set, try to normalize it. If we succeed,
         // grab its mate (if appropriate) and generate an IMPRECISE variant based on the two.
