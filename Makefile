@@ -140,6 +140,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/chunk_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/snarls_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/explode_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/gamsort_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/srpe_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -515,7 +516,7 @@ $(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.c
 
 $(SUBCOMMAND_OBJ_DIR)/sift_main.o: $(SUBCOMMAND_SRC_DIR)/sift_main.cpp $(OBJ_DIR)/filter.o $(OBJ_DIR)/vg.o $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(OBJ_DIR)/srpe.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.hpp $(OBJ_DIR)/vg.o $(OBJ_DIR)/bubbles.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(OBJ_DIR)/srpe.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/vg.o $(OBJ_DIR)/bubbles.o $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/index_main.o: $(SUBCOMMAND_SRC_DIR)/index_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 

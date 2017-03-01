@@ -364,9 +364,34 @@ int main_srpe(int argc, char** argv){
             }
         }
 
-        // Read in all our nasty discordant/split/clipped reads, in pairs if required.
+        // Read in all our nasty discordant/split/clipped reads and
+        // filter the nice ones from the nasty ones.
 
-        // for every read pair, create a map first->second mate.
+        double expected_insert_size = 500.0;
+        double expected_insert_sd = 100.0;
+
+        std::unordered_map<string, Alignment> mates_by_name;
+        std::function<void(pair<Alignment, Alignment>)> make_mate_map = [&](pair<Alignment, Alignment> alns){
+            if (alns.second.name() != ""){
+                mates_by_name[alns.second.name()] = alns.second;
+            }
+            else if (warned){
+
+            }
+            else{
+                cerr << "Alignment with no name present." << endl;
+                warned = true;
+            }
+        };
+        stream::for_each_interleaved_pair_parallel(all_reads, make_mate_map);
+
+        std::function<void(Alignment&)> rectify_single_read = [&](Alignment& a){
+
+        };
+
+        std::function<void(pair<Alignment, Alignment>)> rectify_read_pair = [&](pair<Alignment, Alignment> alns){
+
+        };
 
         // for every read in our nasty set, try to normalize it. If we succeed,
         // grab its mate (if appropriate) and generate an IMPRECISE variant based on the two.
