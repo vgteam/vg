@@ -6,7 +6,7 @@ echo testing vg-$id
 
 # Generate 50k read pairs (100k reads) and their "true" positions from the vg graph:
 echo generating simulated reads
-time vg sim -s 271 -n 50000 -l 150 -p 500 -v 50 -x ~/pan/vg/index.xg -a | vg annotate -p -x ~/pan/vg/index.xg -a - | tee sim.gam | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >true.pos
+time vg sim -s 271 -n 50000 -l 150 -p 500 -v 50 -x ~/pan/vg/index.xg -a | tee sim.gam | vg annotate -p -x ~/pan/vg/index.xg -a - | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >true.pos
 
 # This can then be mapped three ways.
 
