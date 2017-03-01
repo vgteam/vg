@@ -1209,6 +1209,9 @@ int main_call(int argc, char** argv) {
                   min_frac, Caller::Default_min_log_likelihood,
                   true, default_read_qual, max_strand_bias, bridge_alts);
 
+    // This will be the subset pileup for just this graph
+    Pileup subgraph_pileup;
+
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {
         // compute the augmented graph
@@ -1216,7 +1219,7 @@ int main_call(int argc, char** argv) {
             for (int i = 0; i < pileup.node_pileups_size(); ++i) {
                 if (!graph->has_node(pileup.node_pileups(i).node_id())) {
                     // This pileup doesn't belong in this graph
-                    if(!expectSubgraph) {
+                    if (!expectSubgraph) {
                         throw runtime_error("Found pileup for nonexistent node " + to_string(pileup.node_pileups(i).node_id()));
                     }
                     // If that's expected, just skip it
@@ -1224,11 +1227,16 @@ int main_call(int argc, char** argv) {
                 }
                 // Send approved pileups to the caller
                 caller.call_node_pileup(pileup.node_pileups(i));
+                
+                if (expectSubgraph) {
+                    // Save the node pileups that fall in the subgraph
+                    *subgraph_pileup.add_node_pileups() = pileup.node_pileups(i);
+                }
             }
             for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
                 if (!graph->has_edge(pileup.edge_pileups(i).edge())) {
                     // This pileup doesn't belong in this graph
-                    if(!expectSubgraph) {
+                    if (!expectSubgraph) {
                         throw runtime_error("Found pileup for nonexistent edge " + pb2json(pileup.edge_pileups(i).edge()));
                     }
                     // If that's expected, just skip it
@@ -1236,10 +1244,19 @@ int main_call(int argc, char** argv) {
                 }
                 // Send approved pileups to the caller
                 caller.call_edge_pileup(pileup.edge_pileups(i));
+                
+                if (expectSubgraph) {
+                    // Save the edge pileups that fall in the subgraph
+                    *subgraph_pileup.add_edge_pileups() = pileup.edge_pileups(i);
+                }
             }
         };
         stream::for_each(pileup_stream, lambda);
     });
+    
+    if (expectSubgraph) {
+        cerr << "Subgraph pileup: " << pb2json(subgraph_pileup) << endl;
+    }
     
     // map the edges from original graph
     if (show_progress) {
