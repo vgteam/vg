@@ -439,8 +439,6 @@ int call2vcf(
     bool suppress_overlaps,
     // Should we use average support instead minimum support for our calculations?
     bool useAverageSupport,
-    // Should we use the site finder and multiallelic support?
-    bool multiallelic_support,
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
     size_t max_ref_length,

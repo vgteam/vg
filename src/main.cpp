@@ -985,9 +985,6 @@ int main_call(int argc, char** argv) {
     bool suppress_overlaps = false;
     // Should we use average support instead minimum support for our calculations?
     bool useAverageSupport = false;
-    // Should we go by sites and thus support multiallelic sites (true), or use
-    // the old single-branch-bubble method (false)?
-    bool multiallelic_support = true;
     // How big a site should we try to type all at once instead of replacing
     // with its children if it has any?
     size_t max_ref_length = 100;
@@ -1035,14 +1032,13 @@ int main_call(int argc, char** argv) {
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
-                {"singleallelic", no_argument, 0, 'I'},
                 {"min_mad", required_argument, 0, 'E'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuIE:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1144,10 +1140,6 @@ int main_call(int argc, char** argv) {
         case 'u':
             // Average (isntead of min) support
             useAverageSupport = true;
-            break;
-        case 'I':
-            // Disallow for multiallelic sites by using a different algorithm
-            multiallelic_support = false;
             break;
         case 'E':
             // Minimum min-allele-depth required to give Filter column a PASS
@@ -1294,7 +1286,6 @@ int main_call(int argc, char** argv) {
                         expCoverage,
                         suppress_overlaps,
                         useAverageSupport,
-                        multiallelic_support,
                         max_ref_length,
                         max_bubble_paths,
                         min_mad_for_filter,
