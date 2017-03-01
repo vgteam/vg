@@ -3,19 +3,21 @@
 #include <getopt.h>
 #include <functional>
 #include <regex>
+//#include "intervaltree.hpp"
 #include "subcommand.hpp"
 #include "stream.hpp"
-#include "mapper.hpp"
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
-#include "genotyper.hpp"
+//#include "genotyper.hpp"
+#include "genotypekit.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
 #include "srpe.hpp"
 #include "filter.hpp"
 #include "utility.hpp"
 #include "Variant.h"
+#include "translator.hpp"
 #include "Fasta.h"
 
 using namespace std;
@@ -136,7 +138,7 @@ int main_srpe(int argc, char** argv){
 
 
     gam_name = argv[optind];
-    gam_index_name = argv[++optind];
+    //gam_index_name = argv[++optind];
     graph_name = argv[++optind];
 
     xg::XG* xg_ind = new xg::XG();
@@ -144,23 +146,20 @@ int main_srpe(int argc, char** argv){
 
     vg::VG* graph;
 
-    if (!xg_name.empty()){
-        ifstream in(xg_name);
-        xg_ind->load(in);
-    }
-    if (!gam_index_name.empty()){
-        gamind.open_read_only(gam_index_name);
-    }
-    else{
+    // if (!xg_name.empty()){
+    //     ifstream in(xg_name);
+    //     xg_ind->load(in);
+    // }
+    // if (!gam_index_name.empty()){
+    //     gamind.open_read_only(gam_index_name);
+    // }
+    // else{
 
-    }
+    // }
 
     if (!graph_name.empty()){
         ifstream in(graph_name);
         graph = new VG(in, false);
-    }
-    else{
-
     }
 
     // Open a variant call file,
@@ -244,6 +243,7 @@ int main_srpe(int argc, char** argv){
                     sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
 
                 }
+                #pragma omp critical
                 it.second.info["AD"].push_back(std::to_string(sum_reads));
             }
             cout << it.second << endl;
@@ -280,14 +280,103 @@ int main_srpe(int argc, char** argv){
 
         // First, slurp in our discordant, split-read,
         // one-end-anchored, etc reads.
+        // basename = * 
+        // *.gam.split
+        // *.gam.oea
+        // *.gam.unmapped
+        // *.gam.discordant
+        
+        ifstream all_reads;
+        all_reads.open(gam_name);
+        // Reads with no mismatches.
+        vector<Alignment> perfects;
+        // Reads with anchored mismatches or indels.
+        vector<Alignment> simple_mismatches;
+        // All the other reads
+        vector<Alignment> complex_reads;
 
-        // Generate candidate SVs based on our input reads
-        // and place them in the graph.
+        Filter ff;
 
-        // Determine whether reads support each variant
-        // and if they should be kept
+        vector<Path> simple_paths;
+
+        std::function<void(Alignment&)> get_simples_and_perfects = [&](Alignment& aln){
+            if (ff.perfect_filter(aln)){
+                #pragma omp critical
+                perfects.push_back(aln);
+            }
+            else if (ff.simple_filter(aln)){
+                #pragma omp critical
+                {
+                    simple_mismatches.push_back(aln);
+                    simple_paths.push_back(aln.path());
+                }
+            }
+            // else{
+            //     #pragma omp critical
+            //     complex_reads.push_back(aln);
+            // }
+        };
+
+        stream::for_each_parallel(all_reads, get_simples_and_perfects);
+
+        if (true){
+            cerr << perfects.size() << " perfect reads." << endl;
+            cerr << simple_mismatches.size() << " simple reads." << endl; 
+            cerr << complex_reads.size() << " more complex reads." << endl;
+        }
+
+        // Grab our perfect and simple reads
+        // incorporate our simple reads.
+
+        vector<Translation> translations = graph->edit(simple_paths);
+        
+        // Add both simple and perfect reads to the depth map.
+        DepthMap dm(graph->size());
+        dm.fill(simple_mismatches);
+        dm.fill(perfects);
+        
+        // Save memory by disposing of our perfects and simples.
+        // TODO is clear enough?
+        simple_mismatches.clear();
+        perfects.clear();
+
+        // You could call SNPs right here. We should also check known variants at this stage.
+        // Call snarlmanager, tossing out trivial snarls
+        // Report them as either loci or VCF records
+        SnarlFinder* snf = new CactusUltrabubbleFinder(*graph, "", true);
+
+        SnarlManager snarl_manager = snf->find_snarls();
+        vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+
+        TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+
+        bool justSNPs = true;
+        if (justSNPs){
+            for (auto x : snarl_roots){
+                vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
+                for (auto t : site_traversals){
+                    //cout << t.start() << " ";
+                    for (auto zed : t.visits()){
+                        cout << zed.node_id() << ", ";
+                    }
+                    cout <<  endl;
+                }
+            }
+        }
+
+        // Read in all our nasty discordant/split/clipped reads, in pairs if required.
+
+        // for every read pair, create a map first->second mate.
+
+        // for every read in our nasty set, try to normalize it. If we succeed,
+        // grab its mate (if appropriate) and generate an IMPRECISE variant based on the two.
+        // Place that IMPRECISE candidate somewhere within its predicted range in the graph.
+
+        // If desired, remap our unmapped and nasty reads. This will help us to augment our depth map.
+
 
         // call variants 
+    
     }
 
 

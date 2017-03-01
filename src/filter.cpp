@@ -58,6 +58,38 @@ namespace vg{
         inverse = do_inv;
     }
 
+    bool Filter::perfect_filter(Alignment& aln){
+        for (int i = 0; i < aln.path().mapping_size(); i++){
+            Mapping m = aln.path().mapping(i);
+            for (int j = 0; j < m.edit_size(); j++){
+                Edit e = m.edit(j);
+                if (e.to_length() != e.from_length() || !e.sequence().empty()){
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    bool Filter::simple_filter(Alignment& aln){
+        int min_match_len = 5;
+        Mapping map_end = aln.path().mapping( aln.path().mapping_size() - 1);
+        Edit front = aln.path().mapping(0).edit(0);
+        Edit back = map_end.edit( map_end.edit_size() - 1);
+
+        bool valid = true;
+        if (front.to_length() != front.from_length() ||
+             front.to_length() < min_match_len ||
+             !front.sequence().empty()){
+                valid = false;
+        }
+        if (back.to_length() != back.from_length() ||
+             back.to_length() < min_match_len ||
+             !back.sequence().empty()){
+                valid = false;
+        }
+        return valid;
+    }
+
     Alignment Filter::depth_filter(Alignment& aln){
         if (use_avg && window_length != 0){
 

@@ -70,6 +70,8 @@ public:
         
     };
 
+
+
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     size_t max_path_search_steps = 100;
     

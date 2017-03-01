@@ -102,7 +102,6 @@ int main_sift(int argc, char** argv){
     bool do_depth = false;
     bool do_percent_id = false;
     bool do_quality = false;
-    bool do_unmapped = false;
 
 
     float insert_size = 300;
@@ -121,7 +120,7 @@ int main_sift(int argc, char** argv){
     double pct_id = 0;
     double quality = 0.0;
 
-
+    Filter ff;
 
 
     int c;
@@ -158,17 +157,18 @@ int main_sift(int argc, char** argv){
             case 'c':
                 do_softclip = true;
                 softclip_max = atoi(optarg);
+                ff.set_soft_clip_limit(softclip_max);
                 break;
             case 's':
                 do_split_read = true;
                 break;
             case 'q':
                 do_quality = true;
-                quality = atod(optarg);
+                quality = atof(optarg);
                 break;
             case 'd':
                 do_depth = true;
-                depth = atod(optarg);
+                depth = atof(optarg);
                 break;
             case 'R':
                 remap = true;
@@ -213,13 +213,8 @@ int main_sift(int argc, char** argv){
 
 
     omp_set_num_threads(threads);
-
-    Filter ff;
     ff.set_inverse(inverse);
 
-    if (soft_clip_max >= 0){
-        ff.set_soft_clip_limit(soft_clip_max);
-    }
 
 
 
@@ -257,6 +252,20 @@ int main_sift(int argc, char** argv){
     string insert_fn = alignment_file + ".insert_size";
     string quality_fn = alignment_file + ".quality";
     string depth_fn = alignment_file + ".depth";
+
+    ofstream unmapped_stream;
+    ofstream discordant_stream;
+    ofstream split_stream;
+    ofstream reversing_stream;
+    ofstream oea_stream;
+    ofstream clipped_stream;
+    ofstream insert_stream;
+    ofstream quality_stream;
+    ofstream depth_stream;
+
+    std::function<void()> write_all = [&](){
+
+    };
 
 
 
@@ -312,15 +321,23 @@ int main_sift(int argc, char** argv){
 
         }
         if (do_reversing){
+            Alignment x = ff.reversing_filter(alns_first);
+            Alignment y = ff.reversing_filter(alns_second);
+            if (x.name() != "" || y.name() != ""){
             #pragma omp critical (reversing_selected)
             {
                 reversing_selected.push_back(alns_first);
                 reversing_selected.push_back(alns_second);
             }
+            }
+       
 
 
         }
         if (do_softclip){
+
+            Alignment x = ff.soft_clip_filter(alns_first);
+            Alignment y = ff.soft_clip_filter(alns_second);
 
             #pragma omp critical (clipped_selected)
             {
@@ -370,7 +387,11 @@ int main_sift(int argc, char** argv){
             reversing_selected.push_back(aln);
         }
         if (do_softclip){
-            clipped_selected.push_back(aln);
+           if (!ff.soft_clip_filter(aln).name().empty()){
+                clipped_selected.push_back(aln);
+           }
+           stream::write_buffered(clipped_stream, clipped_selected, 1000);
+
         }
         if (do_quality){
             quality_selected.push_back(aln);

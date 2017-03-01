@@ -70,12 +70,23 @@ using namespace std;
             }
             tot_len += e.to_length();
         }
-        return ( (double) matches / (double) tot_len) > 0.7;
+        return ( (double) matches / (double) tot_len) > 0.99;
+    };
+
+    std::function<bool(const Mapping& m)> perfect_matches = [&](const Mapping& m){
+
+        for (int i = 0; i < m.edit_size(); i++){
+            Edit e = m.edit(i);
+            if (e.to_length() != e.from_length() || !e.sequence().empty()){
+                return false;
+            }
+            return true;
+        }
     };
 
     std::function<void(Alignment& a)> incr = [&](Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
-                if (sufficient_matches(a.path().mapping(i))){
+                if (perfect_matches(a.path().mapping(i))){
                     node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
             }
             }
@@ -87,8 +98,7 @@ using namespace std;
     stream::for_each(gamstream, incr);
 
     #ifdef DEBUG
-        cerr << node_id_to_depth.size() << " reads in node-to-depth map." << endl;
-        cerr << hash_to_var.size() << endl;
+        cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
     #endif
 
     for (auto it : hash_to_var){
@@ -97,9 +107,9 @@ using namespace std;
             string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
             for (int i = 0; i < varname_to_node_id[ alt_id ].size(); i++){
                     readsum += node_id_to_depth[varname_to_node_id[ alt_id ][i]];
-                }
-                it.second.info["AD"].push_back(std::to_string(readsum));
             }
+            it.second.info["AD"].push_back(std::to_string(readsum));
+        }
             cout << it.second << endl;
         }
 }
@@ -222,7 +232,7 @@ void Genotyper::run(VG& graph,
     translator.load(augmentation_translations);
     
     if(show_progress) {
-#pragma omp critical (cerr)
+        #pragma omp critical (cerr)
         cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
     }
     
@@ -380,7 +390,19 @@ void Genotyper::run(VG& graph,
     
     if(show_progress) {
 #pragma omp critical (cerr)
+        {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
+        // for (auto x : sites){
+        //     cout << x.start.node->id() << " ";
+        //     for (auto y : x.contents){
+        //         cout << y << " ";
+        //     }
+        //     cout << x.end.node->id() << endl;
+        // }
+
+        // exit(1);
+        }
+
     }
     
     // We're going to count up all the affinities we compute
@@ -558,10 +580,10 @@ void Genotyper::run(VG& graph,
                                     score_counts.at(chosen)++;
                                 }
                                 
-#ifdef debug
-#pragma omp critical (cerr)
+                                #ifdef debug
+                                #pragma omp critical (cerr)
                                 cerr << consistency << ": " << alignment_and_affinities.first->sequence() << endl;
-#endif
+                                #endif
                                 
                                 
                                 // Increment the count for that pattern
@@ -1613,6 +1635,8 @@ Genotyper::get_affinities_fast(VG& graph,
         if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
             // This read only touches the head or tail of the site, and so
             // cannot possibly be informative.
+            cerr << "Possibly informative long variant site... " << endl
+            << read_traversal.front() << " to " << read_traversal.back() << endl;  
             continue;
         }
         

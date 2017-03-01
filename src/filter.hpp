@@ -42,6 +42,8 @@ class Filter{
          * an empty Alignment if the alignment fails and we don't allow
          * modified alignments.
          */
+        bool perfect_filter(Alignment& aln);
+        bool simple_filter(Alignment& aln);
         Alignment depth_filter(Alignment& aln);
         Alignment qual_filter(Alignment& aln);
         Alignment coverage_filter(Alignment& aln);
