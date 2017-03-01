@@ -85,19 +85,19 @@ struct IntervalBitfield {
 // We represent support as a pair, but we define math for it.
 // We use doubles because we may need fractional math.
 // We can't use vg::Support because it's int-based.
-typedef std::pair<double, double> Support;
+typedef std::pair<double, double> FractionalSupport;
 
 /**
- * Add two Support values together, accounting for strand.
+ * Add two FractionalSupport values together, accounting for strand.
  */
-Support operator+(const Support& one, const Support& other) {
+FractionalSupport operator+(const FractionalSupport& one, const FractionalSupport& other) {
     return std::make_pair(one.first + other.first, one.second + other.second);
 }
 
 /**
- * Add in a Support to another.
+ * Add in a FractionalSupport to another.
  */
-Support& operator+=(Support& one, const Support& other) {
+FractionalSupport& operator+=(FractionalSupport& one, const FractionalSupport& other) {
     one.first += other.first;
     one.second += other.second;
     return one;
@@ -108,7 +108,7 @@ Support& operator+=(Support& one, const Support& other) {
  * Scale a support by a factor.
  */
 template<typename Scalar>
-Support operator*(const Support& support, const Scalar& scale) {
+FractionalSupport operator*(const FractionalSupport& support, const Scalar& scale) {
     return std::make_pair(support.first * scale, support.second * scale);
 }
 
@@ -116,7 +116,7 @@ Support operator*(const Support& support, const Scalar& scale) {
  * Scale a support by a factor, the other way
  */
 template<typename Scalar>
-Support operator*(const Scalar& scale, const Support& support) {
+FractionalSupport operator*(const Scalar& scale, const FractionalSupport& support) {
     return std::make_pair(support.first * scale, support.second * scale);
 }
 
@@ -124,28 +124,28 @@ Support operator*(const Scalar& scale, const Support& support) {
  * Divide a support by a factor.
  */
 template<typename Scalar>
-Support operator/(const Support& support, const Scalar& scale) {
+FractionalSupport operator/(const FractionalSupport& support, const Scalar& scale) {
     return std::make_pair(support.first / scale, support.second / scale);
 }
     
 /**
  * Allow printing a support.
  */
-std::ostream& operator<<(std::ostream& stream, const Support& support) {
+std::ostream& operator<<(std::ostream& stream, const FractionalSupport& support) {
     return stream << support.first << "," << support.second;
 }
 
 /**
  * Get the total read support in a support.
  */
-double total(const Support& support) {
+double total(const FractionalSupport& support) {
     return support.first + support.second;
 }
 
 /**
  * Get the strand bias of a support.
  */
-double strand_bias(const Support& support) {
+double strand_bias(const FractionalSupport& support) {
     return std::max(support.first, support.second) / (support.first + support.second);
 }
 
@@ -153,7 +153,7 @@ double strand_bias(const Support& support) {
  * Get the minimum support of a pair of supports, by taking the min in each
  * orientation.
  */
-Support support_min(const Support& a, const Support& b) {
+FractionalSupport support_min(const FractionalSupport& a, const FractionalSupport& b) {
     return std::make_pair(std::min(a.first, b.first), std::min(a.second, b.second));
 }
 
@@ -303,26 +303,26 @@ size_t bp_length(const std::list<vg::NodeTraversal>& path) {
 /**
  * Get the minimum support of all nodes and edges in path
  */
-Support min_support_in_path(vg::VG& graph,
-                            const std::map<vg::Node*, Support>& nodeReadSupport,
-                            const std::map<vg::Edge*, Support>& edgeReadSupport,
+FractionalSupport min_support_in_path(vg::VG& graph,
+                            const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
+                            const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
                             const std::list<vg::NodeTraversal>& path) {
     if (path.empty()) {
-        return Support();
+        return FractionalSupport();
     }
     auto cur = path.begin();
     auto next = path.begin();
     ++next;
-    Support minSupport = nodeReadSupport.count(cur->node) ? nodeReadSupport.at(cur->node) : Support();
+    FractionalSupport minSupport = nodeReadSupport.count(cur->node) ? nodeReadSupport.at(cur->node) : FractionalSupport();
     for (; next != path.end(); ++cur, ++next) {
         // check the node support
-        Support support = nodeReadSupport.count(next->node) ? nodeReadSupport.at(next->node) : Support();
+        FractionalSupport support = nodeReadSupport.count(next->node) ? nodeReadSupport.at(next->node) : FractionalSupport();
         minSupport = support_min(minSupport, support);
         
         // check the edge support
         Edge* edge = graph.get_edge(*cur, *next);
         assert(edge != NULL);
-        Support edgeSupport = edgeReadSupport.count(edge) ? edgeReadSupport.at(edge) : Support();
+        FractionalSupport edgeSupport = edgeReadSupport.count(edge) ? edgeReadSupport.at(edge) : FractionalSupport();
         minSupport = support_min(minSupport, edgeSupport);
     }
     return minSupport;
@@ -335,8 +335,8 @@ Support min_support_in_path(vg::VG& graph,
  */
 std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph,
     vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, Support>& nodeReadSupport,
-    const std::map<vg::Edge*, Support>& edgeReadSupport,
+    const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
+    const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
     int64_t maxDepth = 10, bool stopIfVisited = false) {
 
     // Holds partial paths we want to return, with their lengths in bp.
@@ -452,8 +452,8 @@ vg::NodeTraversal flip(vg::NodeTraversal toFlip) {
  */
 std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& graph,
     vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, Support>& nodeReadSupport,
-    const std::map<vg::Edge*, Support>& edgeReadSupport,
+    const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
+    const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
     int64_t maxDepth = 10, bool stopIfVisited = false) {
 
     // Look left from the backward version of the node.
@@ -494,10 +494,10 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& grap
  * found on any edge or node in the bubble (including the reference node endpoints
  * and their edges which aren't stored in the path)
  */
-std::pair<Support, std::vector<vg::NodeTraversal> >
+std::pair<FractionalSupport, std::vector<vg::NodeTraversal> >
 find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& index,
-            const std::map<vg::Node*, Support>& nodeReadSupport,
-            const std::map<vg::Edge*, Support>& edgeReadSupport, int64_t maxDepth,
+            const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
+            const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport, int64_t maxDepth,
             size_t max_bubble_paths) {
 
     // What are we going to find our left and right path halves based on?
@@ -536,7 +536,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
     // orientations) and which doesn't use the same nodes on both sides.
     // Track support of up to max_bubble_paths combinations, and return the
     // highest
-    std::pair<Support, std::vector<NodeTraversal> > bestBubblePath;
+    std::pair<FractionalSupport, std::vector<NodeTraversal> > bestBubblePath;
     int bubbleCount = 0;
     
     // We need to look in different combinations of lists.
@@ -570,7 +570,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
             }
 
             // Get the minimum support in the left path
-            Support minLeftSupport = min_support_in_path(
+            FractionalSupport minLeftSupport = min_support_in_path(
                 graph, nodeReadSupport, edgeReadSupport, leftPath);
             
             for(auto rightPath : rightList) {
@@ -595,7 +595,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
                 bool rightRelativeOrientation = rightOrientation != rightRefPos.second;
 
                 // Get the minimum support in the right path
-                Support minRightSupport = min_support_in_path(
+                FractionalSupport minRightSupport = min_support_in_path(
                     graph, nodeReadSupport, edgeReadSupport, rightPath);
                 
                 if(leftRelativeOrientation == rightRelativeOrientation &&
@@ -606,7 +606,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
                     // the reference before they leave.
 
                     // Get the minimum support of combined left and right paths
-                    Support minFullSupport = support_min(minLeftSupport, minRightSupport);
+                    FractionalSupport minFullSupport = support_min(minLeftSupport, minRightSupport);
                     
                     // Start with the left path
                     std::vector<vg::NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
@@ -743,9 +743,9 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
     }
 }
 
-    std::map<vg::Node*, Support> nodeReadSupport;
+    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
     // And read support for the edges
-    std::map<vg::Edge*, Support> edgeReadSupport;
+    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
     // This holds all the edges that are deletions, by the pointer to the stored
     // Edge object in the VG graph
     std::set<vg::Edge*> deletionEdges;
@@ -767,8 +767,8 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
  */
 void parse_tsv(const std::string& tsvFile,
                vg::VG& vg,
-               std::map<vg::Node*, Support>& nodeReadSupport,
-               std::map<vg::Edge*, Support>& edgeReadSupport,
+               std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
+               std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
                std::map<vg::Node*, double>& nodeLikelihood,
                std::map<vg::Edge*, double>& edgeLikelihood,
                std::set<vg::Edge*>& deletionEdges,
@@ -821,7 +821,7 @@ void parse_tsv(const std::string& tsvFile,
             tokens >> callType;
                         
             // Read the read support and likelihood
-            Support readSupport;
+            FractionalSupport readSupport;
             int other_support = 0;
             double likelihood = 0.;
             tokens >> readSupport.first;
@@ -914,7 +914,7 @@ void parse_tsv(const std::string& tsvFile,
             }
             
             // Read the read support
-            Support readSupport;
+            FractionalSupport readSupport;
             int other_support;
             double likelihood;
             tokens >> readSupport.first;
@@ -1036,9 +1036,9 @@ int call2vcf(
     
     // This holds read support, on each strand, for all the nodes we have read
     // support provided for, by the node pointer in the vg graph.
-    std::map<vg::Node*, Support> nodeReadSupport;
+    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
     // And read support for the edges
-    std::map<vg::Edge*, Support> edgeReadSupport;
+    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
     // This maps the likelihood passed from the tsv to the nodes and edges
     // (todo: could save some lookups by lumping with supports)
     std::map<vg::Node*, double> nodeLikelihood;
@@ -1068,12 +1068,12 @@ int call2vcf(
     // Store support binned along reference path;
     // Last bin extended to include remainder
     refBinSize = min(refBinSize, index.sequence.size());
-    vector<Support> binnedSupport(max(1, int(index.sequence.size() / refBinSize)),
-                                  Support(expCoverage / 2, expCoverage /2));
+    vector<FractionalSupport> binnedSupport(max(1, int(index.sequence.size() / refBinSize)),
+                                  FractionalSupport(expCoverage / 2, expCoverage /2));
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
-    Support primaryPathTotalSupport = std::make_pair(0.0, 0.0);
+    FractionalSupport primaryPathTotalSupport = std::make_pair(0.0, 0.0);
     for(auto& pointerAndSupport : nodeReadSupport) {
         if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
@@ -1460,7 +1460,7 @@ int call2vcf(
                 continue;
             }
             
-            std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+            std::pair<FractionalSupport, std::vector<NodeTraversal>> sup_path = find_bubble(
                 vg, node, nullptr, index, nodeReadSupport,
                 edgeReadSupport, maxDepth, max_bubble_paths);
 
@@ -1493,7 +1493,7 @@ int call2vcf(
             }
             
             // Find a path based around this edge
-            std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+            std::pair<FractionalSupport, std::vector<NodeTraversal>> sup_path = find_bubble(
                 vg, nullptr, edge, index, nodeReadSupport,
                 edgeReadSupport, maxDepth, max_bubble_paths);
             std::vector<NodeTraversal>& path = sup_path.second;
@@ -1535,8 +1535,8 @@ int call2vcf(
         // And the lists of involved IDs that we use for variant IDs
         std::vector<string> id_lists;
         // Calculate average and min support for all the alts.
-        std::vector<Support> min_supports;
-        std::vector<Support> average_supports;
+        std::vector<FractionalSupport> min_supports;
+        std::vector<FractionalSupport> average_supports;
         // And the min likelihood along each path
         std::vector<double> min_likelihoods;
         // Is the path as a whole known or novel?
@@ -1553,10 +1553,10 @@ int call2vcf(
             std::stringstream id_stream;
             
             // What's the total support for this path?
-            Support total_support = std::make_pair(0.0, 0.0);
+            FractionalSupport total_support = std::make_pair(0.0, 0.0);
             
             // And the min
-            Support min_support = std::make_pair(INFINITY, INFINITY);
+            FractionalSupport min_support = std::make_pair(INFINITY, INFINITY);
             
             // Also, what's the min likelihood
             double min_likelihood = INFINITY;
@@ -1584,7 +1584,7 @@ int call2vcf(
                 }
                 
                 // How much support do we have for visiting this node?
-                Support node_support = nodeReadSupport.at(path[i].node);
+                FractionalSupport node_support = nodeReadSupport.at(path[i].node);
                 // Grab the edge we're traversing into the node
                 vg::Edge* in_edge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
                                                           vg::NodeSide(path[i].node->id(), path[i].backward)));
@@ -1638,7 +1638,7 @@ int call2vcf(
         // TODO: complain if multiple copies of the same string exist???
         
         // Decide which support vector we use to actually decide
-        std::vector<Support>& supports = useAverageSupport ? average_supports : min_supports;
+        std::vector<FractionalSupport>& supports = useAverageSupport ? average_supports : min_supports;
         
         // Now look at all the paths for the site and pick the top 2.
         int best_allele = -1;
@@ -1722,7 +1722,7 @@ int call2vcf(
         if (bin == binnedSupport.size()) {
             --bin;
         }
-        const Support& baseline_support = binnedSupport[bin];
+        const FractionalSupport& baseline_support = binnedSupport[bin];
 
         // Decide if we're an indel. We're an indel if the sequence lengths
         // aren't all equal between the ref and the alleles we're going to call.
@@ -1733,15 +1733,15 @@ int call2vcf(
         double bias_multiple = is_indel ? indelBiasMultiple : 1.0;
         
         // How much support do we have for the top two alleles?
-        Support site_support = supports.at(best_allele);
+        FractionalSupport site_support = supports.at(best_allele);
         if(second_best_allele != -1) {
             site_support += supports.at(second_best_allele);
         }
         
         // Pull out the different supports. Some of them may be the same.
-        Support ref_support = supports.at(0);
-        Support best_support = supports.at(best_allele);
-        Support second_best_support = std::make_pair(0.0, 0.0);
+        FractionalSupport ref_support = supports.at(0);
+        FractionalSupport best_support = supports.at(best_allele);
+        FractionalSupport second_best_support = std::make_pair(0.0, 0.0);
         if(second_best_allele != -1) {
             second_best_support = supports.at(second_best_allele);
         }
@@ -1832,7 +1832,7 @@ int call2vcf(
         }
         
         // Add depth for the variant and the samples
-        Support total_support = ref_support;
+        FractionalSupport total_support = ref_support;
         if(best_allele != 0) {
             // Add in the depth from the best allele, which is not already counted
             total_support += best_support;
@@ -1872,7 +1872,7 @@ int call2vcf(
         }
         
         // And total alt allele depth for the alt alleles
-        Support alt_support = std::make_pair(0.0, 0.0);
+        FractionalSupport alt_support = std::make_pair(0.0, 0.0);
         if(best_allele != 0) {
             alt_support += best_support;
         }
