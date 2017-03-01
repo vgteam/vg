@@ -207,7 +207,6 @@ void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int
         qual_adj_aligners[i] = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
                                          255, gc_content);
         regular_aligners[i] = new Aligner(match, mismatch, gap_open, gap_extend);
-        regular_aligners[i]->init_mapping_quality(gc_content); // should be done in constructor
     }
 }
 
@@ -236,8 +235,8 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool banded_global) {
     //cerr << "align_to_graph " << pb2json(aln) << endl << pb2json(vg.graph) << endl;
     // check if we have a cached aligner for this thread
-    if (aln.quality().empty()) {
-        auto aligner = get_regular_aligner();
+    if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+        Aligner* aligner = get_regular_aligner();
         //aligner.align_global_banded(aln, graph.graph, band_padding);
         return vg.align(aln,
                         aligner,
@@ -249,28 +248,16 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                         0, // band padding override
                         aln.sequence().size());
     } else {
-        auto aligner = get_qual_adj_aligner();
-        if (adjust_alignments_for_base_quality) {
-            return vg.align_qual_adjusted(aln,
-                                          aligner,
-                                          max_query_graph_ratio,
-                                          pinned_alignment,
-                                          pin_left,
-                                          full_length_bonus,
-                                          banded_global,
-                                          0, // band padding override
-                                          aln.sequence().size());
-        } else {
-            return vg.align(aln,
-                            aligner,
-                            max_query_graph_ratio,
-                            pinned_alignment,
-                            pin_left,
-                            full_length_bonus,
-                            banded_global,
-                            0, // band padding override
-                            aln.sequence().size());
-        }
+        QualAdjAligner* aligner = get_qual_adj_aligner();
+        return vg.align_qual_adjusted(aln,
+                                      aligner,
+                                      max_query_graph_ratio,
+                                      pinned_alignment,
+                                      pin_left,
+                                      full_length_bonus,
+                                      banded_global,
+                                      0, // band padding override
+                                      aln.sequence().size());
     }
 }
 
@@ -450,7 +437,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
-    auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    //auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     double hang_threshold = 0.5;
     double retry_threshold = 0.5;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
@@ -1194,7 +1181,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     bool retrying) {
 
     double avg_node_len = average_node_length();
-    auto aligner = (read1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    int8_t match;
+    int8_t gap_extension;
+    int8_t gap_open;
+    if (read1.quality().empty() || !adjust_alignments_for_base_quality) {
+        auto aligner =  get_regular_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    else {
+        auto aligner =  get_qual_adj_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
     int total_multimaps = max_multimaps + extra_multimaps;
     double cluster_mq = 0;
 
@@ -1354,9 +1355,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     // accepted transition
                     jump = abs(jump);
                     if (jump) {
-                        return (double) ((unique_coverage * aligner->match) - (aligner->gap_open + jump * aligner->gap_extension)) * uniqueness;
+                        return (double) ((unique_coverage * match) - (gap_open + jump * gap_extension)) * uniqueness;
                     } else {
-                        return (double) unique_coverage * aligner->match * uniqueness;
+                        return (double) unique_coverage * match * uniqueness;
                     }
                 }
             }
@@ -1423,7 +1424,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = patch_alignment(mems_to_alignment(read1, cluster1));
+            p.first = align_cluster(read1, cluster1);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -1431,7 +1432,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = patch_alignment(mems_to_alignment(read2, cluster2));
+            p.second = align_cluster(read2, cluster2);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -1727,7 +1728,22 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
 #endif
     
-    auto aligner = (aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    int8_t match;
+    int8_t gap_extension;
+    int8_t gap_open;
+    if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+        auto aligner =  get_regular_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    else {
+        auto aligner =  get_qual_adj_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    
     int total_multimaps = max_multimaps + additional_multimaps;
     
     double avg_node_len = average_node_length();
@@ -1781,9 +1797,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 // accepted transition
                 jump = abs(jump);
                 if (jump) {
-                    return (double) ((unique_coverage * aligner->match) - (aligner->gap_open + jump * aligner->gap_extension)) * uniqueness;
+                    return (double) ((unique_coverage * match) - (gap_open + jump * gap_extension)) * uniqueness;
                 } else {
-                    return (double) unique_coverage * aligner->match * uniqueness;
+                    return (double) unique_coverage * match * uniqueness;
                 }
             }
         }
@@ -1820,7 +1836,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     };
 
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) {
@@ -1828,7 +1844,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             show_clusters();
         }
     }
-#endif
+//#endif
 
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, aln.sequence().size());
@@ -1849,18 +1865,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (++multimaps > total_multimaps) { break; }
-        Alignment partial_alignment = mems_to_alignment(aln, cluster);
-        auto patch = patch_alignment(partial_alignment);
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) { cerr << "patch identity " << patch.identity() << endl; }
-        }
-#endif
-        if (patch.identity() > min_identity) {
-            alns.emplace_back(patch);
-            auto& a = alns.back();
-            a.set_name(aln.name());
+        // get the candidate graph
+        // align to it
+        Alignment candidate = align_cluster(aln, cluster);
+        if (candidate.identity() > min_identity) {
+            alns.emplace_back(candidate);
         }
     }
 #ifdef debug_mapper
@@ -1901,6 +1910,101 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }),
         alns.end());
     return alns;
+}
+
+Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) {
+    Alignment aln = base;
+    if (flip) {
+        aln.set_sequence(reverse_complement(base.sequence()));
+        if (!base.quality().empty()) {
+            aln.set_quality(base.quality());
+            reverse(aln.mutable_quality()->begin(),
+                    aln.mutable_quality()->end());
+        }
+    } else {
+        aln.set_sequence(base.sequence());
+        if (!base.quality().empty()) {
+            aln.set_quality(base.quality());
+        }
+    }
+    bool banded_global = false;
+    bool pinned_alignment = false;
+    bool pinned_reverse = false;
+    aln = align_to_graph(aln,
+                         graph,
+                         max_query_graph_ratio,
+                         pinned_alignment,
+                         pinned_reverse,
+                         full_length_alignment_bonus,
+                         banded_global);
+    aln.set_score(score_alignment(aln));
+    if (flip) {
+        aln = reverse_complement_alignment(
+            aln,
+            (function<int64_t(int64_t)>) ([&](int64_t id) {
+                    return (int64_t)graph.get_node(id)->sequence().size();
+                }));
+    }
+    return aln;
+}
+
+Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    // poll the mems to see if we should flip
+    int count_fwd = 0, count_rev = 0;
+    for (auto& mem : mems) {
+        bool is_rev = gcsa::Node::rc(mem.nodes.front());
+        if (is_rev) {
+            ++count_rev;
+        } else {
+            ++count_fwd;
+        }
+    }
+    // get the graph
+    VG graph = cluster_subgraph(aln, mems);
+    // and test each direction for which we have MEM hits
+    Alignment aln_fwd;
+    Alignment aln_rev;
+    if (count_fwd) {
+        aln_fwd = align_maybe_flip(aln, graph, false);
+    }
+    if (count_rev) {
+        aln_rev = align_maybe_flip(aln, graph, true);
+    }
+    if (aln_fwd.score() + aln_rev.score() == 0) {
+        // abject failure, nothing aligned with score > 0
+        Alignment result = aln;
+        result.clear_path();
+        result.clear_score();
+        return result;
+    } else if (aln_rev.score() > aln_fwd.score()) {
+        // reverse won
+        return aln_rev;
+    } else {
+        // forward won
+        return aln_fwd;
+    }
+}
+
+VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    set<id_t> nodes;
+    VG graph;
+    for (auto& mem : mems) {
+        nodes.insert(gcsa::Node::id(mem.nodes.front()));
+    }
+    for (auto& id : nodes) {
+        *graph.graph.add_node() = xindex->node(id);
+    }
+    int get_at_least = aln.sequence().size();
+    xindex->expand_context(graph.graph,
+                           get_at_least,
+                           false, // don't add paths
+                           false, // don't use steps (use length)
+                           true,  // go forward
+                           true); // go backward
+    xindex->expand_context(graph.graph, 1, false, true); // go one more step
+    graph.rebuild_indexes();
+
+    return graph;
 }
 
 VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
@@ -2550,7 +2654,8 @@ LRUCache<gcsa::node_type, map<string, vector<size_t> > >& Mapper::get_node_pos_c
 
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq) {
     if (alns.empty()) return;
-    auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+
+    auto aligner = (alns.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_mapping_quality(alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
@@ -2565,7 +2670,7 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
-    auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    auto aligner = (pair_alns.first.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
@@ -3110,7 +3215,12 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
         // re-sort the MEMs by their start position
         std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) { return m1.begin < m2.begin; });
     }
-    
+    // print the matches
+    /*
+    for (auto& mem : mems) {
+        cerr << mem << endl;
+    }
+    */
     // verify the matches (super costly at scale)
     /*
 #ifdef debug_mapper
@@ -4244,8 +4354,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     // walk along the alignment and find the portions that are unaligned
     int read_pos = 0;
     auto& path = aln.path();
-    auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
-    auto qual_adj_aligner = (QualAdjAligner*) aligner;
+    auto aligner = get_regular_aligner();
+    auto qual_adj_aligner = get_qual_adj_aligner();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
 #ifdef debug_mapper
@@ -4268,7 +4378,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 //cerr << "edit is match" << endl;
-                if (!aln.quality().empty()) {
+                if (!aln.quality().empty() && adjust_alignments_for_base_quality) {
                     //cerr << read_pos << " " << edit.to_length() << endl;
                     score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_pos, edit.to_length()),
@@ -4823,8 +4933,8 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
-    auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
-    auto qual_adj_aligner = (QualAdjAligner*) aligner;
+    auto aligner = get_regular_aligner();
+    auto qual_adj_aligner = get_qual_adj_aligner();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         //cerr << "looking at mapping " << pb2json(mapping) << endl;
@@ -4832,7 +4942,7 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
             auto& edit = mapping.edit(j);
             //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
-                if (!aln.quality().empty()) {
+                if (!aln.quality().empty() && adjust_alignments_for_base_quality) {
                     score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_offset, edit.to_length()),
                         aln.quality().substr(read_offset, edit.to_length()));
@@ -4893,6 +5003,17 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
     }
 #endif
     return max(0, score);
+}
+
+int32_t Mapper::rescore_without_full_length_bonus(const Alignment& aln) {
+    int32_t score = aln.score();
+    if (softclip_start(aln) == 0) {
+        score -= full_length_alignment_bonus;
+    }
+    if (softclip_end(aln) == 0) {
+        score -= full_length_alignment_bonus;
+    }
+    return score;
 }
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
@@ -5604,7 +5725,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
     int thread_ex = thread_extension;
     map<vector<int64_t>*, Alignment> alignments;
-    auto aligner = (alignment.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
+    int8_t match = alignment.quality().empty() ? get_regular_aligner()->match : get_qual_adj_aligner()->match;
 
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
@@ -5783,7 +5904,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 #ifdef debug_mapper
 #pragma omp critical
             {
-                if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
+                if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*match) << endl;
             }
 #endif
             if (greedy_accept && ta.identity() >= accept_identity) {

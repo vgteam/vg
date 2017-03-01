@@ -50,6 +50,11 @@ double stdev(const T& v) {
 // https://en.wikipedia.org/wiki/Cumulative_distribution_function
 double phi(double x1, double x2);
 
+inline double add_log(double log_x, double log_y) {
+    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
+
+}
+    
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);

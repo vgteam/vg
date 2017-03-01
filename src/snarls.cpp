@@ -209,7 +209,7 @@ namespace vg {
         graph.edges_of_node(end_node, edges_of_node);
         for (Edge* edge : edges_of_node) {
             // does the edge point into the snarl?
-            if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->start().backward()) {
+            if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->end().backward()) {
                 
                 Node* node = graph.get_node(edge->to());
                 
@@ -220,7 +220,7 @@ namespace vg {
                 
                 to_return.second.insert(edge);
             }
-            else if (edge->to() == snarl->start().node_id() && edge->to_end() == snarl->start().backward()) {
+            else if (edge->to() == snarl->end().node_id() && edge->to_end() == snarl->end().backward()) {
                 
                 Node* node = graph.get_node(edge->from());
                 
@@ -387,7 +387,7 @@ namespace vg {
         graph.edges_of_node(end_node, edges_of_node);
         for (Edge* edge : edges_of_node) {
             // does the edge point into the snarl?
-            if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->start().backward()) {
+            if (edge->from() == snarl->end().node_id() && edge->from_start() != snarl->end().backward()) {
                 
                 Node* node = graph.get_node(edge->to());
                 
@@ -398,7 +398,7 @@ namespace vg {
                 
                 to_return.second.insert(edge);
             }
-            else if (edge->to() == snarl->start().node_id() && edge->to_end() == snarl->start().backward()) {
+            else if (edge->to() == snarl->end().node_id() && edge->to_end() == snarl->end().backward()) {
                 
                 Node* node = graph.get_node(edge->from());
                 
