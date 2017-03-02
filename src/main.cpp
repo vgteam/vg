@@ -903,6 +903,7 @@ void help_call(char** argv) {
          << "    -S, --sample NAME          name the sample in the VCF with the given name [SAMPLE]" << endl
          << "    -o, --offset INT           offset variant positions by this amount in VCF [0]" << endl
          << "    -l, --length INT           override total sequence length in VCF" << endl
+         << "    -U, --subgraph             expect a subgraph and ignore extra pileup entries outside it" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
          << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
@@ -938,65 +939,20 @@ int main_call(int argc, char** argv) {
     double max_strand_bias = Caller::Default_max_strand_bias;
     string aug_file;
     bool bridge_alts = false;
-    // Option variables (formerly from glenn2vcf)
-    // What's the name of the reference path in the graph?
-    string refPathName = "";
-    // What name should we give the contig in the VCF file?
-    string contigName = "";
-    // What name should we use for the sample in the VCF file?
-    string sampleName = "SAMPLE";
-    // How far should we offset positions of variants?
-    int64_t variantOffset = 0;
-    // How many nodes should we be willing to look at on our path back to the
-    // primary path? Keep in mind we need to look at all valid paths (and all
-    // combinations thereof) until we find a valid pair.
-    int64_t maxDepth = 10;
-    // Should we write pileup information to the VCF for debugging?
+    
+    
+    
+    // Should we expect a subgraph and ignore pileups for missing nodes/edges?
+    bool expectSubgraph = false;
+    
+    // Should we annotate the VCF with pileup info?
     bool pileupAnnotate = false;
-    // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride = -1;
-    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    double minFractionForCall = 0;
-    // What fraction of the reads supporting an alt are we willing to discount?
-    // At 2, if twice the reads support one allele as the other, we'll call
-    // homozygous instead of heterozygous. At infinity, every call will be
-    // heterozygous if even one read supports each allele.
-    double maxHetBias = 3;
-    // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias = 4;
-    // How many times more bias do we allow for indels?
-    double indelBiasMultiple = 1;
-    // What's the minimum integer number of reads that must support a call? We
-    // don't necessarily want to call a SNP as het because we have a single
-    // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 1;
-    // Bin size used for counting coverage along the reference path.  The
-    // bin coverage is used for computing the probability of an allele
-    // of a certain depth
-    size_t refBinSize = 250;
-    // On some graphs, we can't get the coverage because it's split over
-    // parallel paths.  Allow overriding here
-    size_t expCoverage = 0;
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps = false;
-    // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport = false;
-    // Should we go by sites and thus support multiallelic sites (true), or use
-    // the old single-branch-bubble method (false)?
-    bool multiallelic_support = true;
-    // How big a site should we try to type all at once instead of replacing
-    // with its children if it has any?
-    size_t max_ref_length = 100;
-    // What's the maximum number of bubble path combinations we can explore
-    // while finding one with maximum support?
-    size_t max_bubble_paths = 100;
-    // what's the minimum minimum allele depth to give a PASS in the filter column
-    // (anything below gets FAIL)
-    size_t min_mad_for_filter = 5;
+
+    // This manages conversion from an augmented graph to a VCF, and makes the
+    // actual calls.
+    Call2Vcf call2vcf;
 
     bool show_progress = false;
-    bool verbose = false;
     int thread_count = 1;
 
     int c;
@@ -1021,6 +977,7 @@ int main_call(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"depth", required_argument, 0, 'D'},
                 {"length", required_argument, 0, 'l'},
+                {"subgraph", no_argument, 0, 'U'},
                 {"pileup", no_argument, 0, 'P'},
                 {"min_cov_frac", required_argument, 0, 'F'},
                 {"max_het_bias", required_argument, 0, 'H'},
@@ -1031,14 +988,13 @@ int main_call(int argc, char** argv) {
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
-                {"singleallelic", no_argument, 0, 'I'},
                 {"min_mad", required_argument, 0, 'E'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1074,83 +1030,82 @@ int main_call(int argc, char** argv) {
         // old glenn2vcf opts start here
         case 'r':
             // Set the reference path name
-            refPathName = optarg;
+            call2vcf.refPathName = optarg;
             break;
         case 'c':
             // Set the contig name
-            contigName = optarg;
+            call2vcf.contigName = optarg;
             break;
         case 'S':
             // Set the sample name
-            sampleName = optarg;
+            call2vcf.sampleName = optarg;
             break;
         case 'o':
             // Offset variants
-            variantOffset = std::stoll(optarg);
+            call2vcf.variantOffset = std::stoll(optarg);
             break;
         case 'D':
             // Limit max depth for pathing to primary path
-            maxDepth = std::stoll(optarg);
+            call2vcf.maxDepth = std::stoll(optarg);
             break;
         case 'l':
             // Set a length override
-            lengthOverride = std::stoll(optarg);
+            call2vcf.lengthOverride = std::stoll(optarg);
+            break;
+        case 'U':
+            expectSubgraph = true;
             break;
         case 'P':
             pileupAnnotate = true;
             break;
         case 'F':
             // Set min fraction of average coverage for a call
-            minFractionForCall = std::stod(optarg);
+            call2vcf.minFractionForCall = std::stod(optarg);
             break;
         case 'H':
             // Set max factor between reads on one alt and reads on the other
             // alt for calling a het.
-            maxHetBias = std::stod(optarg);
+            call2vcf.maxHetBias = std::stod(optarg);
             break;
         case 'R':
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
-            maxRefHetBias = std::stod(optarg);
+            call2vcf.maxRefHetBias = std::stod(optarg);
             break;
         case 'M':
             // Set multiplier for bias limits for indels
-            indelBiasMultiple = std::stod(optarg);
+            call2vcf.indelBiasMultiple = std::stod(optarg);
             break;
         case 'n':
             // How many reads need to touch an allele before we are willing to
             // call it?
-            minTotalSupportForCall = std::stoll(optarg);
+            call2vcf.minTotalSupportForCall = std::stoll(optarg);
             break;
         case 'B':
             // Set the reference bin size
-            refBinSize = std::stoll(optarg);
+            call2vcf.refBinSize = std::stoll(optarg);
             break;
         case 'C':
             // Override expected coverage
-            expCoverage = std::stoll(optarg);
+            call2vcf.expCoverage = std::stoll(optarg);
             break;
         case 'O':
             // Suppress variants that overlap others
-            suppress_overlaps = true;
+            call2vcf.suppress_overlaps = true;
             break;
         case 'u':
             // Average (isntead of min) support
-            useAverageSupport = true;
-            break;
-        case 'I':
-            // Disallow for multiallelic sites by using a different algorithm
-            multiallelic_support = false;
+            call2vcf.useAverageSupport = true;
             break;
         case 'E':
             // Minimum min-allele-depth required to give Filter column a PASS
-            min_mad_for_filter = std::stoi(optarg);
+            call2vcf.min_mad_for_filter = std::stoi(optarg);
             break;
         case 'p':
             show_progress = true;
             break;
         case 'v':
-            verbose = true;
+            call2vcf.verbose = true;
             break;
         case 't':
             thread_count = atoi(optarg);
@@ -1194,28 +1149,40 @@ int main_call(int argc, char** argv) {
         graph = new VG(in);
     });
 
-    // this is the call tsv file that was used to communicate with glenn2vcf
-    // it's still here for the time being but never actually written
-    // (just passed as a string to the caller)
-    stringstream text_file_stream;
-
     if (show_progress) {
         cerr << "Computing augmented graph" << endl;
     }
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
                   min_frac, Caller::Default_min_log_likelihood,
-                  true, default_read_qual, max_strand_bias,
-                  &text_file_stream, bridge_alts);
+                  true, default_read_qual, max_strand_bias, bridge_alts);
 
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {
         // compute the augmented graph
-        function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
+        function<void(Pileup&)> lambda = [&](Pileup& pileup) {
             for (int i = 0; i < pileup.node_pileups_size(); ++i) {
+                if (!graph->has_node(pileup.node_pileups(i).node_id())) {
+                    // This pileup doesn't belong in this graph
+                    if(!expectSubgraph) {
+                        throw runtime_error("Found pileup for nonexistent node " + to_string(pileup.node_pileups(i).node_id()));
+                    }
+                    // If that's expected, just skip it
+                    continue;
+                }
+                // Send approved pileups to the caller
                 caller.call_node_pileup(pileup.node_pileups(i));
             }
             for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
+                if (!graph->has_edge(pileup.edge_pileups(i).edge())) {
+                    // This pileup doesn't belong in this graph
+                    if(!expectSubgraph) {
+                        throw runtime_error("Found pileup for nonexistent edge " + pb2json(pileup.edge_pileups(i).edge()));
+                    }
+                    // If that's expected, just skip it
+                    continue;
+                }
+                // Send approved pileups to the caller
                 caller.call_edge_pileup(pileup.edge_pileups(i));
             }
         };
@@ -1242,37 +1209,23 @@ int main_call(int argc, char** argv) {
         ofstream aug_stream(aug_file.c_str());
         caller.write_call_graph(aug_stream, false);
     }
+    
+    // this is the call tsv file that was used to communicate with glenn2vcf
+    // it's still here for the time being but never actually written
+    // (just passed as a string to the caller)
+    stringstream text_file_stream;
+    // Convert the annotations on the augmented graph to the TSV format
+    caller._augmented_graph.to_tsv(text_file_stream);
 
     if (show_progress) {
         cerr << "Calling variants" << endl;
     }
 
     // project the augmented graph to a reference path
-    // in order to create a VCF of calls.  this
-    // was once a separate tool called glenn2vcf
-    glenn2vcf::call2vcf(caller._call_graph,
-                        text_file_stream.str(),
-                        refPathName,
-                        contigName,
-                        sampleName,
-                        variantOffset,
-                        maxDepth,
-                        lengthOverride,
-                        pileupAnnotate ? pileup_file_name : string(),
-                        minFractionForCall,
-                        maxHetBias,
-                        maxRefHetBias,
-                        indelBiasMultiple,
-                        minTotalSupportForCall,
-                        refBinSize,
-                        expCoverage,
-                        suppress_overlaps,
-                        useAverageSupport,
-                        multiallelic_support,
-                        max_ref_length,
-                        max_bubble_paths,
-                        min_mad_for_filter,
-                        verbose);
+    // in order to create a VCF of calls.
+    call2vcf.call(caller._call_graph,
+        text_file_stream.str(),
+        pileupAnnotate ? pileup_file_name : string());
 
     return 0;
 }
