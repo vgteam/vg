@@ -358,23 +358,44 @@ int main_srpe(int argc, char** argv){
         }
 
 
-        if (!augmented_graph_name.empty()){
-            ofstream augstream;
-            augstream.open(augmented_graph_name);
-            graph->serialize_to_ostream(augstream);
-        }
+        
         
         // Add both simple and perfect reads to the depth map.
         DepthMap dm(graph->size());
-        dm.fill(simple_mismatches);
-        dm.fill(perfects);
+        vector<Path> translated;
+        translated.reserve(100000);
+        for (auto x : simple_mismatches){
+            translated.push_back(  tt.translate(x.path()));
+        }
+        for (auto y : perfects){
+            translated.push_back(tt.translate(y.path()));
+        }
+
+        dm.fill(translated);
         
         // Save memory (maybe???) by disposing of our perfects and simples.
         // TODO is clear enough?
         simple_mismatches.clear();
         perfects.clear();
 
+        // Rip out any nodes supported by an insufficient number of reads.
+        std::function<void(Node*)> remove_low_depth_nodes = [&](Node* n){
+            if (dm.get_depth(n->id()) < min_depth){
+                #pragma omp critical
+                {
+                    graph->destroy_node(n);
+                }
+            }
+        };
+        graph->for_each_node_parallel(remove_low_depth_nodes);
+        graph->remove_orphan_edges();
 
+
+        if (!augmented_graph_name.empty()){
+            ofstream augstream;
+            augstream.open(augmented_graph_name);
+            graph->serialize_to_ostream(augstream);
+        }
         // You could call SNPs right here. We should also check known variants at this stage.
         // Call snarlmanager, tossing out trivial snarls
         // Report them as either loci or VCF records

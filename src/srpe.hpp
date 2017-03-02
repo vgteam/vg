@@ -36,6 +36,20 @@ namespace vg{
 
 //  };
 
+struct Flags{
+    /**
+    * 1 = mapped
+    * 2 = mate_unmapped
+    * 3 = read is soft-clipped
+    * 4 = read is split
+    * 5 = discordant orientation
+    * 6 = discordant insert length
+    * 7 = 
+    * 8 = 
+    */
+    bool* flags;
+};
+
 class DepthMap {
     /**
     *  Map <node_id : depth>
@@ -61,6 +75,40 @@ public:
             }
         }
     }
+  };
+  inline void fill(vector<Path> paths){
+    #pragma omp parallel for
+    for (int p_ind = 0; p_ind < paths.size(); ++p_ind){
+        Path p = paths[p_ind];
+        for (int i=0; i<p.mapping_size(); ++i){
+            Mapping m = p.mapping(i);
+            bool match = false;
+            for (int j = 0; j < m.edit_size(); ++j){
+                if (m.edit(j).from_length() == m.edit(j).to_length() &&
+                        m.edit(j).sequence().empty()){
+                            match = true;
+                        }
+            }
+            if (match){
+                #pragma omp atomic
+                depths[m.position().node_id()] += 1;
+            }
+            
+        }
+    }
+  };
+  inline void fill(Path path){
+        for (int i=0; i<path.mapping_size(); ++i){
+            Mapping m = path.mapping(i);
+            for (int j = 0; j < m.edit_size(); ++j){
+                if (m.edit(j).from_length() == m.edit(j).to_length() &&
+                        m.edit(j).sequence().empty()){
+                            depths[m.position().node_id()] == 1;
+                            break;
+                        }
+            }
+            
+        }
   };
   inline void add_node(int64_t node_id) {
     if (node_id < size) {
@@ -101,8 +149,8 @@ public:
             // check if our insert size for a given set of alignments falls within our expected range.
             // bool reasonable_insert_size(pair<Alignment, Alignment> mates);
 
-            // void normalize_pairs(vector<pair<Alignment&, Alignment&> > alns);
-            // void normalize_singles(vector<Alignment&> alns);
+            // void normalize_pairs(vector<pair<Alignment&, Alignment&> > alns, vector<pair<Alignment, Alignment> > normals);
+            // void normalize_singles(vector<Alignment&> alns, vector<Alignment&> normals);
 
             // void load_read(vector<Alignment> a);
             // void flush_reads(vector<Alignment> a);
@@ -148,7 +196,7 @@ public:
             vg::VG* vg;
 
             // Cap the total coverage at a given position
-            // int max_reads;
+            // int max_reads = 125;
 
 
 };

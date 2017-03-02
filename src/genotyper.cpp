@@ -70,7 +70,7 @@ using namespace std;
             }
             tot_len += e.to_length();
         }
-        return ( (double) matches / (double) tot_len) > 0.99;
+        return ( (double) matches / (double) tot_len) > 0.85;
     };
 
     std::function<bool(const Mapping& m)> perfect_matches = [&](const Mapping& m){
@@ -86,7 +86,7 @@ using namespace std;
 
     std::function<void(Alignment& a)> incr = [&](Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
-                if (perfect_matches(a.path().mapping(i))){
+                if (sufficient_matches(a.path().mapping(i))){
                     node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
             }
             }

@@ -72,6 +72,9 @@ namespace vg{
     }
     bool Filter::simple_filter(Alignment& aln){
         int min_match_len = 10;
+        if (aln.path().mapping_size() > 2){
+            return false;
+        }
         Mapping map_end = aln.path().mapping( aln.path().mapping_size() - 1);
         Edit front = aln.path().mapping(0).edit(0);
         Edit back = map_end.edit( map_end.edit_size() - 1);

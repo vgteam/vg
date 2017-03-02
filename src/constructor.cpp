@@ -1198,7 +1198,7 @@ namespace vg {
                 if(!allATGC(alt)) {
                     // It may be a symbolic allele or something. Skip this variant.
                     variant_acceptable = false;
-#pragma omp critical (cerr)
+                    #pragma omp critical (cerr)
                     {
                         bool warn = true;
                         if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
