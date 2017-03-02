@@ -133,6 +133,16 @@ FractionalSupport operator/(const FractionalSupport& support, const Scalar& scal
 FractionalSupport from_support(const Support& other) {
     return make_pair(other.forward(), other.reverse());
 }
+
+/**
+ * Downgrade an integral Protobuf Support to a FractionalSupport.
+ */
+Support to_support(const FractionalSupport& other) {
+    Support to_return;
+    to_return.set_forward(other.first);
+    to_return.set_reverse(other.second);
+    return to_return;
+}
     
 /**
  * Allow printing a support.
@@ -178,6 +188,7 @@ Support support_min(const Support& a, const Support& b) {
     Support to_return;
     to_return.set_forward(min(a.forward(), b.forward()));
     to_return.set_reverse(min(a.reverse(), b.reverse()));
+    return to_return;
 }
 
 
@@ -309,6 +320,7 @@ Support min_support_in_path(vg::VG& graph,
         Support edgeSupport = edge_supports.count(edge) ? edge_supports.at(edge) : Support();
         minSupport = support_min(minSupport, edgeSupport);
     }
+
     return minSupport;
 }
 
