@@ -17,12 +17,11 @@
 #include "genotypekit.hpp"
 #include "snarls.hpp"
 #include "path_index.hpp"
+#include "caller.hpp"
 
 //#define debug
 
-namespace glenn2vcf {
-
-using namespace vg;
+namespace vg {
 
 // TODO:
 //  - Decide if we need to have sibling alts detect (somehow) and coordinate with each other
@@ -191,68 +190,6 @@ void write_vcf_header(std::ostream& stream, std::string& sample_name, std::strin
         stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << std::endl;
     }
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << std::endl;
-}
-
-/**
- * Create the reference allele for an empty vcflib Variant, since apaprently
- * there's no method for that already. Must be called before any alt alleles are
- * added.
- */
-void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
-    // Set the ref allele
-    variant.ref = allele;
-    
-    for(size_t i = 0; i < variant.ref.size(); i++) {
-        // Look at all the bases
-        if(variant.ref[i] != 'A' && variant.ref[i] != 'C' && variant.ref[i] != 'G' && variant.ref[i] != 'T') {
-            // Correct anything bogus (like "X") to N
-            variant.ref[i] = 'N';
-        }
-    }
-    
-    // Make it 0 in the alleles-by-index list
-    variant.alleles.push_back(allele);
-    // Build the reciprocal index-by-allele mapping
-    variant.updateAlleleIndexes();
-}
-
-/**
- * Add a new alt allele to a vcflib Variant, since apaprently there's no method
- * for that already.
- *
- * If that allele already exists in the variant, does not add it again.
- *
- * Returns the allele number (0, 1, 2, etc.) corresponding to the given allele
- * string in the given variant. 
- */
-int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
-    // Copy the allele so we can throw out bad characters
-    std::string fixed(allele);
-    
-    for(size_t i = 0; i < fixed.size(); i++) {
-        // Look at all the bases
-        if(fixed[i] != 'A' && fixed[i] != 'C' && fixed[i] != 'G' && fixed[i] != 'T') {
-            // Correct anything bogus (like "X") to N
-            fixed[i] = 'N';
-        }
-    }
-    
-    for(int i = 0; i < variant.alleles.size(); i++) {
-        if(variant.alleles[i] == fixed) {
-            // Already exists
-            return i;
-        }
-    }
-
-    // Add it as an alt
-    variant.alt.push_back(fixed);
-    // Make it next in the alleles-by-index list
-    variant.alleles.push_back(fixed);
-    // Build the reciprocal index-by-allele mapping
-    variant.updateAlleleIndexes();
-
-    // We added it in at the end
-    return variant.alleles.size() - 1;
 }
 
 /**
@@ -943,71 +880,14 @@ void parse_tsv(const std::string& tsvFile,
 }
 
 // this was main() in glenn2vcf
-// all that's changed for now is that arguments passed in rather than
-// parsed from argc/argv (or passed as files)
-int call2vcf(
-
+void Call2Vcf::call(
     // Augmented graph
     vg::VG& vg,
     // "glennfile" as string (relic from old pipeline)
     const std::string& glennFile,
-    // Option variables
-    // What's the name of the reference path in the graph?
-    std::string refPathName,
-    // What name should we give the contig in the VCF file?
-    std::string contigName,
-    // What name should we use for the sample in the VCF file?
-    std::string sampleName,
-    // How far should we offset positions of variants?
-    int64_t variantOffset,
-    // How many nodes should we be willing to look at on our path back to the
-    // primary path? Keep in mind we need to look at all valid paths (and all
-    // combinations thereof) until we find a valid pair.
-    int64_t maxDepth,
-    // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
-    std::string pileupFilename,
-    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall,
-    // What fraction of the reads supporting an alt are we willing to discount?
-    // At 2, if twice the reads support one allele as the other, we'll call
-    // homozygous instead of heterozygous. At infinity, every call will be
-    // heterozygous if even one read supports each allele.
-    double maxHetBias,
-    // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias,
-    // How much should we multiply the bias limits for indels?
-    double indelBiasMultiple,
-    // What's the minimum integer number of reads that must support a call? We
-    // don't necessarily want to call a SNP as het because we have a single
-    // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall,
-    // Bin size used for counting coverage along the reference path.  The
-    // bin coverage is used for computing the probability of an allele
-    // of a certain depth
-    size_t refBinSize,
-    // On some graphs, we can't get the coverage because it's split over
-    // parallel paths.  Allow overriding here
-    size_t expCoverage,
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps,
-    // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport,
-    // What's the max ref length of a site that we genotype as a whole instead
-    // of splitting?
-    size_t max_ref_length,
-    // What's the maximum number of bubble path combinations we can explore
-    // while finding one with maximum support?
-    size_t max_bubble_paths,
-    // what's the minimum minimum allele depth to give a PASS in the filter column
-    // (anything below gets FAIL)    
-    size_t min_mad_for_filter,
-    // print warnings etc. to stderr
-    bool verbose) {
+    std::string pileupFilename) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -1907,8 +1787,6 @@ int call2vcf(
     if (verbose) {
         std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
     }
-    
-    return 0;
 }
 
 }

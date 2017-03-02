@@ -175,14 +175,15 @@ struct NodeDivider {
 ostream& operator<<(ostream& os, const NodeDivider::NodeMap& nm);
 ostream& operator<<(ostream& os, NodeDivider::Entry entry);
 
-// Super simple variant caller, for now written to get bakeoff evaluation bootstrapped.
-// Idea: Idependently process Pileup records, using simple model to make calls that
-//       take into account read errors with diploid assumption.  Edges and node positions
-//       are called independently for now.  
-// Outputs either a sample graph (only called nodes and edges) or augmented graph
-// (include uncalled nodes and edges too).
-// The augmented graph (leave_uncalled), with optional text annotation output (text_calls)
-// is required to convert calls to VCF. 
+/**
+ * Super simple graph augmentor/caller.
+ * Idea: Idependently process Pileup records, using simple model to make calls that
+ *       take into account read errors with diploid assumption.  Edges and node positions
+ *       are called independently for now.  
+ * Outputs either a sample graph (only called nodes and edges) or augmented graph
+ * (include uncalled nodes and edges too).
+ * The augmented graph (leave_uncalled) is required to convert calls to VCF. 
+ */
 class Caller {
 public:
 
@@ -383,73 +384,84 @@ public:
 };
 
 ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
-}
 
-namespace glenn2vcf {
-// old glenn2vcf interface
-// todo: integrate more smoothly into caller class
-int call2vcf(
-    // Augmented graph
-    vg::VG& vg,
-    // "glennfile" as string (relic from old pipeline)
-    const string& glennfile,
+/**
+ * Call2Vcf: take an augmented graph from a Caller and produce actual calls in a
+ * VCF.
+ */
+class Call2Vcf {
+
+public:
+
+    /**
+     * Set up to call with default parameters.
+     */
+    Call2Vcf() = default;
+    
+    /**
+     * Produce calls for the given VG and the given coverage TSV data. If a
+     * pileupFilename is provided, the pileup is loaded again and used to add
+     * comments describing variants
+     */
+    void call(vg::VG& vg, const string& glennfile, string pileupFilename = "");
+    
     // Option variables
     // What's the name of the reference path in the graph?
-    string refPathName,
+    string refPathName = "";
     // What name should we give the contig in the VCF file?
-    string contigName,
+    string contigName = "";
     // What name should we use for the sample in the VCF file?
-    string sampleName,
+    string sampleName = "SAMPLE";
     // How far should we offset positions of variants?
-    int64_t variantOffset,
+    int64_t variantOffset = 0;
     // How many nodes should we be willing to look at on our path back to the
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
-    int64_t maxDepth,
+    int64_t maxDepth = 10;
     // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride,
-    // Should we load a pileup and print out pileup info as comments after
-    // variants?
-    string pileupFilename,
+    int64_t lengthOverride = -1;
+    
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
     // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall,
+    double minFractionForCall = 0;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
-    double maxHetBias,
+    double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias,
+    double maxRefHetBias = 4;
     // How much should we multiply the bias limits for indels?
-    double indelBiasMultiple,
+    double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall,
+    size_t minTotalSupportForCall = 1;
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize,
+    size_t refBinSize = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    size_t expCoverage,
+    size_t expCoverage = 0;
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps,
+    bool suppress_overlaps = false;
     // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport,
+    bool useAverageSupport = false;
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
-    size_t max_ref_length,
+    size_t max_ref_length = 100;
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
-    size_t max_bubble_paths,
+    size_t max_bubble_paths = 100;
     // what's the minimum minimum allele depth to give a PASS in the filter column
     // (anything below gets FAIL)    
-    size_t min_mad_for_filter,
+    size_t min_mad_for_filter = 5;
     // print warnings etc. to stderr
-    bool verbose);
+    bool verbose = false;
+    
+};
 
 }
 

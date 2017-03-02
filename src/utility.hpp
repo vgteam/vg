@@ -235,6 +235,26 @@ string tmpfilename();
 string get_or_make_variant_id(const vcflib::Variant& variant);
 string make_variant_id(const vcflib::Variant& variant);
 
+// TODO: move these to genotypekit on a VCF emitter?
+
+/**
+ * Create the reference allele for an empty vcflib Variant, since apaprently
+ * there's no method for that already. Must be called before any alt alleles are
+ * added.
+ */
+void create_ref_allele(vcflib::Variant& variant, const std::string& allele);
+
+/**
+ * Add a new alt allele to a vcflib Variant, since apaprently there's no method
+ * for that already.
+ *
+ * If that allele already exists in the variant, does not add it again.
+ *
+ * Retuerns the allele number (0, 1, 2, etc.) corresponding to the given allele
+ * string in the given variant. 
+ */
+int add_alt_allele(vcflib::Variant& variant, const std::string& allele);
+
 // Simple little tree
 template<typename T>
 struct TreeNode {
@@ -291,7 +311,7 @@ string get_output_file_name(int& optind, int argc, char** argv);
 // indicating standard input. The reference passed is guaranteed to be valid
 // only until the callback returns.
 void get_input_file(const string& file_name, function<void(istream&)> callback);
-    
+
 }
 
 #endif
