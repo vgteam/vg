@@ -292,7 +292,7 @@ int main_call(int argc, char** argv) {
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
                   min_frac, Caller::Default_min_log_likelihood,
-                  true, default_read_qual, max_strand_bias, bridge_alts);
+                  default_read_qual, max_strand_bias, bridge_alts);
 
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {

@@ -182,7 +182,6 @@ ostream& operator<<(ostream& os, NodeDivider::Entry entry);
  *       are called independently for now.  
  * Outputs either a sample graph (only called nodes and edges) or augmented graph
  * (include uncalled nodes and edges too).
- * The augmented graph (leave_uncalled) is required to convert calls to VCF. 
  */
 class Caller {
 public:
@@ -213,7 +212,6 @@ public:
            int min_support = Default_min_support,
            double min_frac = Default_min_frac,
            double min_log_likelihood = Default_min_log_likelihood, 
-           bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
            bool bridge_alts = false);
@@ -286,9 +284,6 @@ public:
     double _min_frac;
     // minimum log likelihood for a snp to be called
     double _min_log_likelihood;
-    // don't erase positions that aren't aligned to. so ouput will be original
-    // graph plus snps. 
-    bool _leave_uncalled;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
     // min deviation from .5 in proportion of negative strand reads

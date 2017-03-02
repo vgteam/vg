@@ -30,7 +30,6 @@ Caller::Caller(VG* graph,
                int min_support,
                double min_frac,
                double min_log_likelihood, 
-               bool leave_uncalled,
                int default_quality,
                double max_strand_bias,
                bool bridge_alts):
@@ -42,7 +41,6 @@ Caller::Caller(VG* graph,
     _min_support(min_support),
     _min_frac(min_frac),
     _min_log_likelihood(min_log_likelihood),
-    _leave_uncalled(leave_uncalled),
     _default_quality(default_quality),
     _max_strand_bias(max_strand_bias),
     _bridge_alts(bridge_alts) {
@@ -142,17 +140,15 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
 
 void Caller::update_call_graph() {
     
-    // if we're leaving uncalled nodes, add'em:
-    if (_leave_uncalled) {
-        function<void(Node*)> add_node = [&](Node* node) {
-            if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
-                Node* call_node = _call_graph.create_node(node->sequence(), node->id());
-                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref,
-                                           vector<StrandSupport>());
-            }
-        };
-        _graph->for_each_node(add_node);
-    }
+    // Add nodes we don't think necessarily exist.
+    function<void(Node*)> add_node = [&](Node* node) {
+        if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
+            Node* call_node = _call_graph.create_node(node->sequence(), node->id());
+            _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref,
+                                       vector<StrandSupport>());
+        }
+    };
+    _graph->for_each_node(add_node);
 
     // map every edge in the original graph to equivalent sides
     // in the call graph. if both sides exist, make an edge in the call graph
@@ -161,9 +157,7 @@ void Caller::update_call_graph() {
         // skip uncalled edges if not writing augmented graph
         auto called_it = _called_edges.find(sides);
         bool called = called_it != _called_edges.end();
-        if (!_leave_uncalled && !called) {
-            return;
-        }
+        
         StrandSupport support = called ? called_it->second : StrandSupport();
         assert(support.fs >= 0 && support.rs >= 0);
         
@@ -250,9 +244,7 @@ void Caller::update_call_graph() {
 
 
 void Caller::map_paths() {
-    // if we don't leave uncalled nodes (ie make augmented graph),
-    // then the paths may get disconnected, which we don't support for now
-    assert(_leave_uncalled == true);
+    // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
         list<Mapping>& call_path = _call_graph.paths.create_path(path.name());
         int last_rank = -1;
@@ -654,10 +646,7 @@ void Caller::create_node_calls(const NodePileup& np) {
         if (cat == 2 || cat != next_cat ||
             _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
 
-            if (cat == 0 && !_leave_uncalled) {
-                // uncalled: do nothing (unless writing augmented graph)
-            }        
-            else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
+            if (cat == 0 || cat == 1) {
                 // add reference
                 vector<StrandSupport> sup;
                 if (_node_calls[cur].first == ".") {
@@ -690,7 +679,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                 function<void(string&, StrandSupport, string&, NodeDivider::EntryCat)>  call_het =
                     [&](string& call1, StrandSupport support1, string& call2, NodeDivider::EntryCat altCat) {
                 
-                    if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
+                    if (call1 == "." || (altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
                         StrandSupport sup = call1 == "." ? support1 : StrandSupport();
                         assert(call2 != "."); // should be handled above
