@@ -347,13 +347,6 @@ int main_call(int argc, char** argv) {
         caller.write_augmented_graph(aug_stream, false);
     }
     
-    // this is the call tsv file that was used to communicate with glenn2vcf
-    // it's still here for the time being but never actually written
-    // (just passed as a string to the caller)
-    stringstream text_file_stream;
-    // Convert the annotations on the augmented graph to the TSV format
-    caller._augmented_graph.to_tsv(text_file_stream);
-
     if (show_progress) {
         cerr << "Calling variants" << endl;
     }
@@ -361,7 +354,6 @@ int main_call(int argc, char** argv) {
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.
     call2vcf.call(caller._augmented_graph,
-        text_file_stream.str(),
         pileupAnnotate ? pileup_file_name : string());
 
     return 0;

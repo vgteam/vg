@@ -402,7 +402,7 @@ public:
      * pileupFilename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(AugmentedGraph& augmented, const string& glennFile, string pileupFilename = "");
+    void call(AugmentedGraph& augmented, string pileupFilename = "");
     
     // Option variables
     // What's the name of the reference path in the graph?
