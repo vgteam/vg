@@ -142,10 +142,17 @@ std::ostream& operator<<(std::ostream& stream, const FractionalSupport& support)
 }
 
 /**
- * Get the total read support in a support.
+ * Get the total read support in a FractionalSupport.
  */
 double total(const FractionalSupport& support) {
     return support.first + support.second;
+}
+
+/**
+ * Get the total read support in a Support.
+ */
+int total(const Support& support) {
+    return support.forward() + support.reverse();
 }
 
 /**
@@ -156,12 +163,45 @@ double strand_bias(const FractionalSupport& support) {
 }
 
 /**
- * Get the minimum support of a pair of supports, by taking the min in each
+ * Get the minimum support of a pair of FractionalSupports, by taking the min in each
  * orientation.
  */
 FractionalSupport support_min(const FractionalSupport& a, const FractionalSupport& b) {
     return std::make_pair(std::min(a.first, b.first), std::min(a.second, b.second));
 }
+
+/**
+ * Get the minimum support of a pair of Supports, by taking the min in each
+ * orientation.
+ */
+Support support_min(const Support& a, const Support& b) {
+    Support to_return;
+    to_return.set_forward(min(a.forward(), b.forward()));
+    to_return.set_reverse(min(a.reverse(), b.reverse()));
+}
+
+
+/**
+ * This TraversalFinder is derived from the old vg call code, and emits at least
+ * one traversal representing every node, and one traversal representing every
+ * edge.
+ */
+class RepresentativeTraversalFinder : public TraversalFinder {
+    
+    AugmentedGraph& augmented;
+    SnarlManager& snarl_manager;
+    
+public:
+    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager);
+    
+    virtual ~RepresentativeTraversalFinder() = default;
+    
+    /**
+     * Find traversals to cover the nodes and edges of the snarl.
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+    
+};
 
 /**
  * Make a letter into a full string because apparently that's too fancy for the
@@ -247,26 +287,26 @@ size_t bp_length(const std::list<vg::NodeTraversal>& path) {
 /**
  * Get the minimum support of all nodes and edges in path
  */
-FractionalSupport min_support_in_path(vg::VG& graph,
-                            const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-                            const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
+Support min_support_in_path(vg::VG& graph,
+                            const std::map<vg::Node*, Support>& node_supports,
+                            const std::map<vg::Edge*, Support>& edge_supports,
                             const std::list<vg::NodeTraversal>& path) {
     if (path.empty()) {
-        return FractionalSupport();
+        return Support();
     }
     auto cur = path.begin();
     auto next = path.begin();
     ++next;
-    FractionalSupport minSupport = nodeReadSupport.count(cur->node) ? nodeReadSupport.at(cur->node) : FractionalSupport();
+    Support minSupport = node_supports.count(cur->node) ? node_supports.at(cur->node) : Support();
     for (; next != path.end(); ++cur, ++next) {
         // check the node support
-        FractionalSupport support = nodeReadSupport.count(next->node) ? nodeReadSupport.at(next->node) : FractionalSupport();
+        Support support = node_supports.count(next->node) ? node_supports.at(next->node) : Support();
         minSupport = support_min(minSupport, support);
         
         // check the edge support
         Edge* edge = graph.get_edge(*cur, *next);
         assert(edge != NULL);
-        FractionalSupport edgeSupport = edgeReadSupport.count(edge) ? edgeReadSupport.at(edge) : FractionalSupport();
+        Support edgeSupport = edge_supports.count(edge) ? edge_supports.at(edge) : Support();
         minSupport = support_min(minSupport, edgeSupport);
     }
     return minSupport;
@@ -279,8 +319,8 @@ FractionalSupport min_support_in_path(vg::VG& graph,
  */
 std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph,
     vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-    const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
+    const std::map<vg::Node*, Support>& node_supports,
+    const std::map<vg::Edge*, Support>& edge_supports,
     int64_t maxDepth = 10, bool stopIfVisited = false) {
 
     // Holds partial paths we want to return, with their lengths in bp.
@@ -350,10 +390,10 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph
                 vg::Edge* edge = graph.get_edge(prevNode, path.front());
                 assert(edge != NULL);
                 
-                if((!nodeReadSupport.empty() && (!nodeReadSupport.count(prevNode.node) ||
-                    total(nodeReadSupport.at(prevNode.node)) == 0)) ||
-                   (!edgeReadSupport.empty() && (!edgeReadSupport.count(edge) ||
-                    total(edgeReadSupport.at(edge)) == 0))) {
+                if((!node_supports.empty() && (!node_supports.count(prevNode.node) ||
+                    total(node_supports.at(prevNode.node)) == 0)) ||
+                   (!edge_supports.empty() && (!edge_supports.count(edge) ||
+                    total(edge_supports.at(edge)) == 0))) {
                     
                     // We have no support at all for visiting this node (but we
                     // do have some node read support data)
@@ -396,13 +436,13 @@ vg::NodeTraversal flip(vg::NodeTraversal toFlip) {
  */
 std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& graph,
     vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-    const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
+    const std::map<vg::Node*, Support>& node_supports,
+    const std::map<vg::Edge*, Support>& edge_supports,
     int64_t maxDepth = 10, bool stopIfVisited = false) {
 
     // Look left from the backward version of the node.
-    auto toConvert = bfs_left(graph, flip(node), index, nodeReadSupport,
-                              edgeReadSupport, maxDepth, stopIfVisited);
+    auto toConvert = bfs_left(graph, flip(node), index, node_supports,
+                              edge_supports, maxDepth, stopIfVisited);
     
     // Since we can't modify set records in place, we need to do a copy
     std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
@@ -438,10 +478,10 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& grap
  * found on any edge or node in the bubble (including the reference node endpoints
  * and their edges which aren't stored in the path)
  */
-std::pair<FractionalSupport, std::vector<vg::NodeTraversal> >
+std::pair<Support, std::vector<vg::NodeTraversal> >
 find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& index,
-            const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-            const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport, int64_t maxDepth,
+            const std::map<vg::Node*, Support>& node_supports,
+            const std::map<vg::Edge*, Support>& edge_supports, int64_t maxDepth,
             size_t max_bubble_paths) {
 
     // What are we going to find our left and right path halves based on?
@@ -469,10 +509,10 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
     // Find paths on both sides, with nodes on the primary path at the outsides
     // and this edge in the middle. Returns path lengths and paths in pairs in a
     // set.
-    auto leftPaths = bfs_left(graph, left_traversal, index, nodeReadSupport,
-                              edgeReadSupport, maxDepth);
-    auto rightPaths = bfs_right(graph, right_traversal, index, nodeReadSupport,
-                                edgeReadSupport, maxDepth);
+    auto leftPaths = bfs_left(graph, left_traversal, index, node_supports,
+                              edge_supports, maxDepth);
+    auto rightPaths = bfs_right(graph, right_traversal, index, node_supports,
+                                edge_supports, maxDepth);
     
     // Find a combination of two paths which gets us to the reference in a
     // consistent orientation (meaning that when you look at the ending nodes'
@@ -480,7 +520,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
     // orientations) and which doesn't use the same nodes on both sides.
     // Track support of up to max_bubble_paths combinations, and return the
     // highest
-    std::pair<FractionalSupport, std::vector<NodeTraversal> > bestBubblePath;
+    std::pair<Support, std::vector<NodeTraversal> > bestBubblePath;
     int bubbleCount = 0;
     
     // We need to look in different combinations of lists.
@@ -514,8 +554,8 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
             }
 
             // Get the minimum support in the left path
-            FractionalSupport minLeftSupport = min_support_in_path(
-                graph, nodeReadSupport, edgeReadSupport, leftPath);
+            Support minLeftSupport = min_support_in_path(
+                graph, node_supports, edge_supports, leftPath);
             
             for(auto rightPath : rightList) {
                 // Figure out the relative orientation for the rightmost node.
@@ -539,8 +579,8 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
                 bool rightRelativeOrientation = rightOrientation != rightRefPos.second;
 
                 // Get the minimum support in the right path
-                FractionalSupport minRightSupport = min_support_in_path(
-                    graph, nodeReadSupport, edgeReadSupport, rightPath);
+                Support minRightSupport = min_support_in_path(
+                    graph, node_supports, edge_supports, rightPath);
                 
                 if(leftRelativeOrientation == rightRelativeOrientation &&
                     ((!leftRelativeOrientation && leftRefPos.first < rightRefPos.first) ||
@@ -550,7 +590,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
                     // the reference before they leave.
 
                     // Get the minimum support of combined left and right paths
-                    FractionalSupport minFullSupport = support_min(minLeftSupport, minRightSupport);
+                    Support minFullSupport = support_min(minLeftSupport, minRightSupport);
                     
                     // Start with the left path
                     std::vector<vg::NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
@@ -635,6 +675,21 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
     return testCombinations(leftConverted, rightConverted);
     
 }
+
+RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
+    SnarlManager& snarl_manager) : augmented(augmented), snarl_manager(snarl_manager) {
+    
+    // Nothing to do!
+
+}
+
+vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snarl& site) {
+    
+    // TODO: implement!
+    
+    return vector<SnarlTraversal>();
+}
+
 
 /**
  * Given a collection of pileups by original node ID, and a set of original node
@@ -1187,9 +1242,9 @@ void Call2Vcf::call(
                 continue;
             }
             
-            std::pair<FractionalSupport, std::vector<NodeTraversal>> sup_path = find_bubble(
-                vg, node, nullptr, index, nodeReadSupport,
-                edgeReadSupport, maxDepth, max_bubble_paths);
+            std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+                vg, node, nullptr, index, augmented.node_supports,
+                augmented.edge_supports, maxDepth, max_bubble_paths);
 
             std::vector<NodeTraversal>& path = sup_path.second;
             
@@ -1220,9 +1275,9 @@ void Call2Vcf::call(
             }
             
             // Find a path based around this edge
-            std::pair<FractionalSupport, std::vector<NodeTraversal>> sup_path = find_bubble(
-                vg, nullptr, edge, index, nodeReadSupport,
-                edgeReadSupport, maxDepth, max_bubble_paths);
+            std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+                vg, nullptr, edge, index, augmented.node_supports,
+                augmented.edge_supports, maxDepth, max_bubble_paths);
             std::vector<NodeTraversal>& path = sup_path.second;
             
 #ifdef debug
