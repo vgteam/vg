@@ -36,7 +36,7 @@ namespace vg {
         remerge_split_nodes
         query_node_matches(alignment, xgindex, node_cache);
         remove_snarls(alignment, snarl_manager, aligner);
-        // at this point the edge weights don't really mean anything
+        // past this point the edge weights don't really mean anything
         query_internal_edge_subgraphs(alignment, xgindex, node_cache);
     }
     
@@ -67,9 +67,6 @@ namespace vg {
             
             string::const_iterator base_qual_begin = alignment.quality().begin()
                                                      + (mem.begin - alignment.sequence().begin());
-            
-            // TODO: should I include the full length alignment bonus in here? easy to include it
-            // on the MEM itself, but hard to factor in the dangling end of the read near a mismatch
             
             int32_t mem_score = aligner.score_exact_match(mem.begin, mem.end, base_qual_begin);
             
@@ -187,8 +184,8 @@ namespace vg {
                 // off an overlap
                 
                 // figure out how much of the first MEM could potentially overlap with the second
-                // TODO: some of these could represent the same underlying MEM, might be worth finding a
-                // way to only build suffix tree once per MEM
+                // TODO: some MEMs could represent the same read sequence, might be worth finding a
+                // way to only build suffix tree once per sequence
                 SuffixTree suffix_tree(node_1.begin, node_1.end);
                 size_t overlap = suffix_tree.longest_overlap(node_2.begin, node_2.end);
                 
@@ -270,6 +267,8 @@ namespace vg {
                 nodes[edge.to_idx].edges_to.emplace_back(i, edge.weight);
             }
         }
+        
+        // TODO: remove transitively redundant edges (node-skipping edges)?
     }
     
     inline size_t MultipathMEMAligner::longest_detectable_gap(const Alignment& alignment,
@@ -441,8 +440,8 @@ namespace vg {
                         else {
                             // this traceback is non optimal, but it might be part of a high scoring
                             // sub-optimal traceback
-                            // TODO: detect whether this is an overlap edge and add it to the edge list
-                            // without actually included a basically identical traceback?
+                            // TODO: detect whether this is an overlap edge and add it to the traced edges list
+                            // without actually including a basically identical traceback?
                             traceback_manager.propose_deflection(traceback_idx, edge.to_idx,
                                                                  traceback_score - score_diff);
                         }
@@ -972,15 +971,19 @@ namespace vg {
         }
     }
     
-    void MultipathMEMAligner::query_internal_edge_subgraphs(const Alignment& alignment,
-                                                            const QualAdjAligner& aligner,
-                                                            const int8_t full_length_bonus,
-                                                            xg::XG& xgindex,
-                                                            LRUCache<id_t, Node>& node_cache) {
+    void MultipathMEMAligner::align_internal_edges(const Alignment& alignment,
+                                                   const QualAdjAligner& aligner,
+                                                   const int8_t full_length_bonus,
+                                                   size_t max_alns_per_edge,
+                                                   xg::XG& xgindex,
+                                                   LRUCache<id_t, Node>& node_cache) {
         
         int8_t match_score = aligner.adjusted_score_matrix[25 * aligner.max_qual_score];
         
-        unordered_map<pair<size_t, size_t>, Graph> edge_graphs;
+        unordered_set<size_t> prune_nodes;
+        unordered_set<pair<size_t, size_t>> prune_edges;
+        
+        unordered_map<pair<size_t, size_t>, vector<Alignment>> edge_alns;
         
 #pragma omp parallel for
         for (size_t i = 0; i < nodes.size(); i++) {
@@ -997,7 +1000,14 @@ namespace vg {
             
             for (MultipathMEMEdge& edge : node.edges_from) {
                 
-                MultipathMEMNode& next_node = nodes[edge.to_idx];
+                size_t next_idx = edge.to_idx;
+                MultipathMEMNode& next_node = nodes[next_idx];
+                
+                // don't extract subgraphs for split edges
+                if (next.start_pos == next_node.start_pos &&
+                    node.offset + (node.end - node.begin) == next_node.offset) {
+                    continue;
+                }
                 
                 pos_t right_cut_pos = initial_position(next_node.path);
                 
@@ -1037,10 +1047,10 @@ namespace vg {
                                                                      true, true, true, &node_cache);
                 
                 // we could not find a path between the positions, but this might be because they
-                // overlap each other unncessarily in the graph
+                // overlap each other unncessarily in the graph, so we look for overlap and requery
                 if (!connecting_graph.node_size()) {
                     // TODO: another place that might make sense to do the longest overlap is
-                    // after pruning with traceback
+                    // after pruning with traceback (easier, but doesn't take into account the graph connectivity)
                     
                     // backtrack to reconstruct the MEM if it has been split
                     MultipathMEMNode& mem_start_node = node;
@@ -1048,7 +1058,7 @@ namespace vg {
                     while (mem_start_node.offset > 0) {
                         
                         MultipathMEMNode* prev = nullptr;
-                        for (MultipathMEMEdge& edge : mem_start_node.edges_to) {
+                        for (MultipathMEMEdge& mem_edge : mem_start_node.edges_to) {
                             MultipathMEMNode& from = nodes[edge.to_idx];
                             // is this part of the same MEM?
                             if (from.start_pos == mem_start_node.start_pos
@@ -1067,13 +1077,13 @@ namespace vg {
                         }
                     }
                     
-                    // find the end of the next node's MEM
+                    // forward search to reconstruct next node's MEM if it has been split
                     MultipathMEMNode& mem_end_node = next_node;
                     while (!mem_end_node.edges_from.empty()) {
                         
                         MultipathMEMNode* next = nullptr;
-                        for (MultipathMEMEdge& edge : mem_end_node.edge_from) {
-                            MultipathMEMNode& to = nodes[edge.to_idx];
+                        for (MultipathMEMEdge& mem_edge : mem_end_node.edge_from) {
+                            MultipathMEMNode& to = nodes[mem_edge.to_idx];
                             // is this part of the same MEM?
                             if (to.start_pos == mem_end_node.start_pos
                                 && mem_end_node.begin + (to.offset - mem_end_node.offset) == to.begin) {
@@ -1094,20 +1104,183 @@ namespace vg {
                     SuffixTree suffix_tree(mem_start_node.begin, node.end);
                     size_t overlap = suffix_tree.longest_overlap(next_node.begin, mem_end_node.end);
                     
-                    if (overlap) {
-                        // TODO:
+                    // did we identify a non-trivial overlap that might rescue this unreachable edge?
+                    if (overlap && overlap != mem_end_node.end - next_node.begin) {
+                        // find the node that corresponds to this part of the split
+                        size_t split_idx = edge.to_idx;
+                        MultipathMEMNode& split_node = next_node
+                        size_t beginning_offset = next_node.offset;
+                        while (split_node.offset - beginning_offset + (split_node.end - split_node.begin) <= overlap) {
+                            for (MultipathMEMEdge& split_edge : split_node.edges_from) {
+                                split_idx = split_edge.to_idx;
+                                MultipathMEMNode& to = nodes[split_idx];
+                                // is this part of the same MEM?
+                                if (to.start_pos == split_node.start_pos
+                                    && split_node.begin + (to.offset - split_node.offset) == to.begin) {
+                                    split_node = to;
+                                    break;
+                                }
+
+                            }
+                        }
+                        
+                        int64_t dist_on_node = overlap - (split_node.offset - beginning_offset);
+                        string::const_iterator split_point = split_node.begin + dist_on_node;
+                        
+                        
+                        int32_t section_score = aligner.score_exact_match(split_node.begin, split_point,
+                                                                          alignment.quality().begin() + (split_node.begin -
+                                                                                                         alignment.sequence().begin()));
+                        
+                        // make a new node
+                        nodes.emplace_back(split_point, split_node.end, split_node.start_pos,
+                                           split_node.offset + dist_on_node, split_node.score - section_score);
+                        
+                        // update old node information
+                        split_node.end = split_point;
+                        split_node.score = section_score;
+                        
+                        // split the path
+                        
+                        // find the split point
+                        size_t split_mapping_idx = 0;
+                        size_t split_mapping_offset = 0;
+                        size_t length_so_far = 0;
+                        for (size_t j = 0; j < split_node.path.mapping_size(); j++) {
+                            size_t next_length_so_far = length_so_far + mapping_to_length(split_node.path.mapping(j));
+                            if (next_length_so_far > dist_on_node) {
+                                split_mapping_idx = j;
+                                split_mapping_offset = dist_on_node - length_so_far;
+                            }
+                            length_so_far = next_length_so_far;
+                        }
+                        
+                        // copy the end of the path past the split point
+                        Mapping* mapping = new_node.path.add_mapping();
+                        mapping->mutable_position()->set_offset(split_node.path.mapping(split_mapping_idx).position().offset()
+                                                                + split_mapping_offset);
+                        mapping->mutable_position()->set_node_id(split_node.path.mapping(split_mapping_idx).position().node_id());
+                        mapping->set_from_length(split_node.path.mapping(split_mapping_idx).from_length() - split_mapping_offset);
+                        mapping->set_to_length(mapping->from_length());
+                        for (size_t j = split_mapping_idx + 1; j < split_node.path.mapping_size(); j++) {
+                            mapping = new_node.path.add_mapping();
+                            mapping->mutable_position()->set_node_id(split_node.path.mapping(j).position().node_id());
+                            mapping->set_from_length(split_node.path.mapping(j).from_length());
+                            mapping->set_to_length(mapping->from_length());
+                        }
+                        
+                        // duplicate the path before the split point and replace the original
+                        Path temp_path;
+                        for (size_t j = 0; j < split_mapping_idx; j++) {
+                            mapping = temp_path.add_mapping();
+                            mapping->mutable_position()->set_node_id(split_node.path.mapping(j).position().node_id());
+                            mapping->mutable_position()->set_offset(split_node.path.mapping(j).position().offset());
+                            mapping->set_from_length(split_node.path.mapping(j).from_length());
+                            mapping->set_to_length(mapping->from_length());
+                        }
+                        // don't copy the first last mapping if the entire thing was moved to the next path
+                        if (split_mapping_offset > 0) {
+                            mapping = temp_path.add_mapping();
+                            mapping->mutable_position()->set_offset(split_node.path.mapping(split_mapping_idx).position().offset());
+                            mapping->mutable_position()->set_node_id(split_node.path.mapping(split_mapping_idx).position().node_id());
+                            mapping->set_from_length(split_mapping_offset);
+                            mapping->set_to_length(mapping->from_length());
+                        }
+                        split_node.path = std::move(temp_path);
+                        
+                        // move forward edges onto the new node
+                        nodes.back().edges_from = std::move(split_node.edges_from);
+                        split_node.edges_from.clear();
+                        
+                        // create an edges between the split sides
+                        size_t new_idx = nodes.size() - 1;
+                        split_node.edges_from.emplace_back(new_idx, 0);
+                        split_node.edges_to.emplace_back(split_idx, 0);
+                        
+                        // move the old edge that turned out to be unreachable
+                        nodes.back().edges_to.emplace_back(i, edge.weight);
+                        edge.to_idx = new_idx;
+                        auto new_end = std::remove_if(next_node.edges_to.begin(), next_node.edges_to.end(),
+                                                      auto [&](const MultipathMEMEdge& e) {return e.to_idx == i});
+                        next_node.edges_to.resize(new_end - next_node.edges_to.begin());
+                        
+                        // flag any earlier part of the MEM that was only connected by this edge
+                        if (next_node.edges_to.size() == 0) {
+                            prune_nodes.insert(next_idx);
+                            while (next_node.edges_from.size() == 1) {
+                                next_idx = next_node.edges_from[0].to_idx;
+                                next_node = nodes[next_idx];
+                                if (next_node.edges_to.size() == 1) {
+                                    prune_nodes.insert(next_idx);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // update the reference to the new node
+                        next_node = new_node;
+                        next_idx = new_idx;
+                        
+                        // requery the graph
+                        right_cut_pos = initial_position(split_node.path);
+                        id_trans = algorithms::extract_connecting_graph(xgindex, connecting_graph, max_dist,
+                                                                        left_cut_pos, right_cut_pos, false,
+                                                                        detect_terminal_cycles,
+                                                                        true, true, true, &node_cache);
+                        
                     }
-                    
                 }
-                
                 
                 // did the positions end up being connected under the max length?
                 if (connecting_graph.node_size()) {
-                    if (<#condition#>) {
-                        <#statements#>
+                    
+                    // wrap the graph with a function to make a VG object
+                    bool passed_graph = false;
+                    auto pass_graph = [&](Graph& graph) {
+                        if (passed_graph) {
+                            return false;
+                        }
+                        else {
+                            graph = std::move(connecting_graph);
+                            passed_graph = true;
+                            return true;
+                        }
+                    };
+                    
+                    VG vg(pass_graph);
+                    
+                    string::const_iterator base_qual_begin = alignment.quality().begin()
+                                                             + (node.end - alignment.sequence().begin());
+                    
+                    // transfer in the
+                    Alignment edge_aln;
+                    edge_aln.set_sequence(string(node.end, next_node.begin));
+                    edge_aln.set_quality(string(base_qual_begin, base_qual_begin + (next_node.begin - node.end)));
+                    
+                    vector<Alignment>& edge_alt_alns = edge_alns[make_pair(i, next_idx)];
+                    
+                    // TODO !!!!!!!!!! Dagify
+                    
+                    
+                    aligner.align_global_banded_multi(edge_aln, edge_alt_alns,
+                                                      connecting_graph, max_alns_per_edge,
+                                                      1, true);
+                    
+                    // translate the node IDs in the alignments
+                    for (Alignment& aln : edge_alt_alns) {
+                        Path* path = aln.mutable_path();
+                        for (size_t j = 0; j < path->mapping_size(); j++) {
+                            Position* pos = path->mutable_mapping(j)->mutable_position();
+                            pos->set_node_id(id_trans[pos->node_id()]);
+                        }
                     }
                     
-                    
+                }
+                else {
+                    // the edge does not represent a true connection
+                    prune_edges.insert(make_pair(i, next_idx));
                 }
                 
             }
