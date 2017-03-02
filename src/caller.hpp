@@ -398,11 +398,11 @@ public:
     Call2Vcf() = default;
     
     /**
-     * Produce calls for the given VG and the given coverage TSV data. If a
+     * Produce calls for the given annotated augmented graph. If a
      * pileupFilename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(vg::VG& vg, const string& glennfile, string pileupFilename = "");
+    void call(AugmentedGraph& augmented, const string& glennFile, string pileupFilename = "");
     
     // Option variables
     // What's the name of the reference path in the graph?

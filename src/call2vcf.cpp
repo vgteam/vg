@@ -126,6 +126,13 @@ template<typename Scalar>
 FractionalSupport operator/(const FractionalSupport& support, const Scalar& scale) {
     return std::make_pair(support.first / scale, support.second / scale);
 }
+
+/**
+ * Upgrade an integral Protobuf Support to a FractionalSupport.
+ */
+FractionalSupport from_support(const Support& other) {
+    return make_pair(other.forward(), other.reverse());
+}
     
 /**
  * Allow printing a support.
@@ -882,13 +889,115 @@ void parse_tsv(const std::string& tsvFile,
 // this was main() in glenn2vcf
 void Call2Vcf::call(
     // Augmented graph
-    vg::VG& vg,
-    // "glennfile" as string (relic from old pipeline)
-    const std::string& glennFile,
+    AugmentedGraph& augmented,
+    const string& glennFile,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     std::string pileupFilename) {
     
+    // Pull things out of the augmented graph
+    VG& vg = augmented.graph;
+    std::map<vg::Node*, double> nodeLikelihood;
+    std::map<vg::Node*, double> nodeLikelihood_fake;
+    std::map<vg::Edge*, double> edgeLikelihood;
+    std::map<vg::Edge*, double> edgeLikelihood_fake;
+    
+    /*
+    std::map<vg::Node*, double>& nodeLikelihood = augmented.node_likelihoods;
+    std::map<vg::Edge*, double>& edgeLikelihood = augmented.edge_likelihoods;
+    */
+    
+    // Copy over Supports to FractionalSupports.
+    
+    // This holds read support, on each strand, for all the nodes we have read
+    // support provided for, by the node pointer in the vg graph.
+    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
+    std::map<vg::Node*, FractionalSupport> nodeReadSupport_fake;
+    /*for(auto& kv : augmented.node_supports) {
+        nodeReadSupport[kv.first] = from_support(kv.second);
+    }*/
+    // And read support for the edges
+    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
+    std::map<vg::Edge*, FractionalSupport> edgeReadSupport_fake;
+    for(auto& kv : augmented.edge_supports) {
+        edgeReadSupport[kv.first] = from_support(kv.second);
+    }
+    
+    // This holds all the edges that are deletions, by the pointer to the stored
+    // Edge object in the VG graph
+    std::set<vg::Edge*> deletionEdges;
+    std::set<vg::Edge*> deletionEdges_fake;
+    /*for (auto& kv : augmented.edge_calls) {
+        if(kv.second == CALL_REFERENCE || kv.second == CALL_DELETION) {
+            // Note that this is an edge that can represent a deletion
+            deletionEdges.insert(kv.first);
+        }
+    }*/
+    
+    // This holds where nodes came from (node and offset) in the original, un-
+    // augmented graph. For pieces of original nodes, this is where the piece
+    // started. For novel nodes, this is where the piece that thois is an
+    // alternative to started.
+    std::map<vg::Node*, std::pair<id_t, size_t>> nodeSources;
+    std::map<vg::Node*, std::pair<id_t, size_t>> nodeSources_fake;
+    /*for (Translation& trans : augmented.translations) {
+        // We assume all the translations are portion of old node to whole new
+        // node in the same orientation.
+        
+        assert(trans.from().mapping_size() == 1);
+        assert(trans.to().mapping_size() == 1);
+        
+        // Where did the node come from?
+        auto& from_position = trans.from().mapping(0).position();
+        
+        // What ID did it get?
+        id_t new_id = trans.to().mapping(0).position().node_id();
+        
+        assert(!from_position.is_reverse());
+        
+        // Record the mapping
+        nodeSources[vg.get_node(new_id)] = make_pair(from_position.node_id(), from_position.offset());
+    }*/
+    
+    // We also need to track what edges and nodes are reference (i.e. already
+    // known)
+    std::set<vg::Node*> knownNodes;
+    std::set<vg::Node*> knownNodes_fake;
+    /*for (auto& kv : augmented.node_calls) {
+        if(kv.second == CALL_REFERENCE) {
+            // Note that this is a reference node
+            knownNodes.insert(kv.first);
+        }
+    }*/
+    std::set<vg::Edge*> knownEdges;
+    std::set<vg::Edge*> knownEdges_fake;
+    /*for (auto& kv : augmented.edge_calls) {
+        if(kv.second == CALL_REFERENCE) {
+            // Note that this is a reference edge
+            knownEdges.insert(kv.first);
+        }
+    }*/
+    
+    // Parse tsv into an internal format, where we track status and copy number
+    // for nodes and edges.
+    parse_tsv(glennFile, vg, nodeReadSupport, edgeReadSupport_fake,
+              nodeLikelihood, edgeLikelihood, deletionEdges,
+              nodeSources, knownNodes, knownEdges, verbose);
+              
+             
+    assert(edgeReadSupport.size() == edgeReadSupport_fake.size());
+    for (auto& kv : edgeReadSupport) {
+        if (edgeReadSupport_fake[kv.first] != kv.second) {
+            ofstream logfile("/cluster/home/anovak/build/toil-vg/log.txt"); 
+            logfile << "Edge support for " << pb2json(*kv.first) << ": " << kv.second << " vs " << edgeReadSupport_fake[kv.first] << endl;
+            logfile.close();
+            exit(1);
+        }
+    }
+    
+    assert(edgeReadSupport == edgeReadSupport_fake);
+    
+    // Set up the graph's paths properly after augmentation modified them.
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
     
@@ -913,37 +1022,6 @@ void Call2Vcf::call(
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
     PathIndex index(vg, refPathName, true);
-    
-    // This holds read support, on each strand, for all the nodes we have read
-    // support provided for, by the node pointer in the vg graph.
-    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
-    // And read support for the edges
-    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
-    // This maps the likelihood passed from the tsv to the nodes and edges
-    // (todo: could save some lookups by lumping with supports)
-    std::map<vg::Node*, double> nodeLikelihood;
-    std::map<vg::Edge*, double> edgeLikelihood;
-
-    // This holds all the edges that are deletions, by the pointer to the stored
-    // Edge object in the VG graph
-    std::set<vg::Edge*> deletionEdges;
-    
-    // This holds where nodes came from (node and offset) in the original, un-
-    // augmented graph. For pieces of original nodes, this is where the piece
-    // started. For novel nodes, this is where the piece that thois is an
-    // alternative to started.
-    std::map<vg::Node*, std::pair<int64_t, size_t>> nodeSources;
-    
-    // We also need to track what edges and nodes are reference (i.e. already
-    // known)
-    std::set<vg::Node*> knownNodes;
-    std::set<vg::Edge*> knownEdges;
-
-    // Parse tsv into an internal format, where we track status and copy number
-    // for nodes and edges.
-    parse_tsv(glennFile, vg, nodeReadSupport, edgeReadSupport,
-              nodeLikelihood, edgeLikelihood, deletionEdges,
-              nodeSources, knownNodes, knownEdges, verbose);
 
     // Store support binned along reference path;
     // Last bin extended to include remainder

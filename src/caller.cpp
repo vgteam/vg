@@ -877,7 +877,7 @@ void AugmentedGraph::to_tsv(ostream& out) {
         // Emit each edge
         out << "E\t" << edge->from() << "," << edge->from_start() << "," 
             << edge->to() << "," << edge->to_end() << "\t" << (char)edge_calls[edge] << "\t" << edge_supports[edge].forward()
-            << "\t" << edge_supports[edge].forward() << "\t" << 0 << "\t" << edge_likelihoods[edge]
+            << "\t" << edge_supports[edge].reverse() << "\t" << 0 << "\t" << edge_likelihoods[edge]
             << "\t.\t." << endl;
     
     });

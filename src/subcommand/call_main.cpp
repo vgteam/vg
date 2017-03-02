@@ -360,7 +360,7 @@ int main_call(int argc, char** argv) {
 
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.
-    call2vcf.call(caller._augmented_graph.graph,
+    call2vcf.call(caller._augmented_graph,
         text_file_stream.str(),
         pileupAnnotate ? pileup_file_name : string());
 
