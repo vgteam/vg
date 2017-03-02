@@ -59,11 +59,6 @@ struct AugmentedGraph {
     vector<Translation> translations;
     
     /**
-     * Convert to a TSV, in the glenn2vcf format.
-     */
-    void to_tsv(ostream& out);
-    
-    /**
      * Clear the contents.
      */
     void clear();

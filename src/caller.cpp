@@ -847,42 +847,6 @@ void AugmentedGraph::clear() {
     *this = AugmentedGraph();
 }
 
-void AugmentedGraph::to_tsv(ostream& out) {
-    // We know the translations are from parts of old nodes to single whole new
-    // nodes on the forward strand, so index them.
-    map<id_t, const Translation*> translations_by_node;
-    for(auto& translation : translations) {
-        translations_by_node[translation.to().mapping(0).position().node_id()] = &translation;
-    }
-
-    graph.for_each_node([&](Node* node) {
-        // Emit each node
-        out << "N\t" << node->id() << "\t" << (char)node_calls[node] << "\t" << node_supports[node].forward() << "\t"
-            << node_supports[node].reverse() << "\t" << 0 << "\t" << node_likelihoods[node];
-                   
-        if (translations_by_node.count(node->id())) {
-            // This node came from an original node
-            auto& original_position = translations_by_node.at(node->id())->from().mapping(0).position();
-            out << "\t" << original_position.node_id() << "\t" << original_position.offset();
-        } else {
-            // We don't know what original node this node came from
-            // TODO: track substitutions...
-            out << 0 << "\t" << 0;
-        }
-        
-        out << endl;
-    });
-    
-    graph.for_each_edge([&](Edge* edge) {
-        // Emit each edge
-        out << "E\t" << edge->from() << "," << edge->from_start() << "," 
-            << edge->to() << "," << edge->to_end() << "\t" << (char)edge_calls[edge] << "\t" << edge_supports[edge].forward()
-            << "\t" << edge_supports[edge].reverse() << "\t" << 0 << "\t" << edge_likelihoods[edge]
-            << "\t.\t." << endl;
-    
-    });
-}
-
 void Caller::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
     _augmented_graph.node_calls[node] = (ElementCall) call;
