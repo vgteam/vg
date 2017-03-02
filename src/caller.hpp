@@ -29,10 +29,11 @@ enum ElementCall {
 };
 
 /// Data structure for representing an augmented graph as created by the Caller,
-/// with semantic hints about how it was generated.
+/// with semantic hints about how it was generated and how much support each
+/// node and edge has.
 struct AugmentedGraph {
     // This holds all the new nodes and edges
-    VG new_graph;
+    VG graph;
     
     // This holds info about where all the nodes came from
     map<Node*, ElementCall> node_calls;
@@ -61,6 +62,11 @@ struct AugmentedGraph {
      * Convert to a TSV, in the glenn2vcf format.
      */
     void to_tsv(ostream& out);
+    
+    /**
+     * Clear the contents.
+     */
+    void clear();
 };
 
 // container for storing pairs of support for calls (value for each strand)
@@ -220,9 +226,7 @@ public:
 
     // input graph
     VG* _graph;
-    // output called graph
-    VG _call_graph;
-    // Augmented graph with annotations
+    // Output augmented graph with annotations
     AugmentedGraph _augmented_graph;
 
     // buffer for base calls for each position in the node
@@ -296,8 +300,8 @@ public:
     // pairs of consecutive alts). 
     bool _bridge_alts;
 
-    // write the call graph
-    void write_call_graph(ostream& out, bool json);
+    // write the augmented graph
+    void write_augmented_graph(ostream& out, bool json);
 
     // call every position in the node pileup
     void call_node_pileup(const NodePileup& pileup);
@@ -305,9 +309,9 @@ public:
     // call an edge.  remembering it in a table for the whole graph
     void call_edge_pileup(const EdgePileup& pileup);
 
-    // fill in edges in the call graph (those that are incident to 2 call nodes)
-    // and add uncalled nodes (optionally)
-    void update_call_graph();
+    // fill in edges in the augmented graph (those that are incident to 2 call
+    // nodes) and add uncalled nodes (optionally)
+    void update_augmented_graph();
 
     // map paths from input graph into called graph
     void map_paths();
@@ -346,10 +350,10 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
                                StrandSupport support);
 
-    // Emit calling info to an annotated augmented graph
-    void emit_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
-    void emit_augmented_edge(Edge* edge, char call, StrandSupport support);
-    void emit_augmented_nd();
+    // Annotate nodes and edges in the augmented graph with call info.
+    void annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
+    void annotate_augmented_edge(Edge* edge, char call, StrandSupport support);
+    void annotate_augmented_nd();
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {

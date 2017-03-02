@@ -330,7 +330,7 @@ int main_call(int argc, char** argv) {
     if (show_progress) {
         cerr << "Mapping edges into augmented graph" << endl;
     }
-    caller.update_call_graph();
+    caller.update_augmented_graph();
 
     // map the paths from the original graph
     if (show_progress) {
@@ -344,7 +344,7 @@ int main_call(int argc, char** argv) {
             cerr << "Writing augmented graph" << endl;
         }
         ofstream aug_stream(aug_file.c_str());
-        caller.write_call_graph(aug_stream, false);
+        caller.write_augmented_graph(aug_stream, false);
     }
     
     // this is the call tsv file that was used to communicate with glenn2vcf
@@ -360,7 +360,7 @@ int main_call(int argc, char** argv) {
 
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.
-    call2vcf.call(caller._call_graph,
+    call2vcf.call(caller._augmented_graph.graph,
         text_file_stream.str(),
         pileupAnnotate ? pileup_file_name : string());
 
