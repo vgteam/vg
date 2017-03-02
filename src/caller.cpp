@@ -828,7 +828,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                         vector<pair<id_t, bool>> next_nodes = _graph->edges_end(_node->id());
                         NodeOffSide no3 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
                         for (auto nn : next_nodes) {
-                            NodeOffSide no4 = NodeOffSide(NodeSide(nn.first, nn.second), 0);
+                            int64_t offset4 = !nn.second ? 0 : _graph->get_node(nn.first)->sequence().length() - 1;
+                            NodeOffSide no4 = NodeOffSide(NodeSide(nn.first, nn.second), offset4);
                             _augmented_edges[make_pair(no3, no4)] = 'I';
                             // bridge across insert
                             _augmented_edges[make_pair(no1, no4)] = 'R';
