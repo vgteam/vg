@@ -638,10 +638,10 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     pair<unordered_set<Node*>, unordered_set<Edge*>> contents = snarl_manager.deep_contents(&site, augmented.graph, true);
     
     // Copy its node set
-    std::unordered_set<Node*> nodes_left(contents.first);
+    unordered_set<Node*> nodes_left(contents.first);
 
     // Trace the ref path through the site
-    std::vector<NodeTraversal> ref_path_for_site;
+    vector<NodeTraversal> ref_path_for_site;
     
     // First figure where the site starts and ends in the primary path
     // TODO: support off-path sites
@@ -650,10 +650,10 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     
 #ifdef debug
-    std::cerr << "Site starts with " << to_node_traversal(site.start(), augmented.graph)
+    cerr << "Site starts with " << to_node_traversal(site.start(), augmented.graph)
         << " at " << site_start
         << " and ends with " << to_node_traversal(site.end(), augmented.graph)
-        << " at " << site_end << std::endl;
+        << " at " << site_end << endl;
 #endif
 
     // The primary path may go through the site backward. So get the primary min and max coords
@@ -699,22 +699,22 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Make sure none of the nodes in the site that we didn't visit
         // while tracing along the ref path are on the ref path.
         if(index.by_id.count(node->id())) {
-            std::cerr << "Node " << node->id() << " is on ref path at "
+            cerr << "Node " << node->id() << " is on ref path at "
                 << index.by_id.at(node->id()).first << " but not traced in site "
                 << to_node_traversal(site.start(), augmented.graph) << " to " 
-                << to_node_traversal(site.end(), augmented.graph) << std::endl;
+                << to_node_traversal(site.end(), augmented.graph) << endl;
             throw runtime_error("Extra ref node found");
         }
     }
     
     // We need to know all the full-length traversals we're going to consider.
     // XREF states will have to be calculated later, over the whole traversal.
-    std::set<std::vector<NodeTraversal>> site_traversal_set;
+    set<vector<NodeTraversal>> site_traversal_set;
     
     // We have this function to extend a partial traversal into a full
     // traversal and add it as a path. The path must already be rooted on
     // the reference in the correct order and orientation.
-    auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
+    auto extend_into_allele = [&](vector<NodeTraversal> path) {
         // Splice the ref path through the site and the bubble's path
         // through the site together.
         vector<NodeTraversal> extended_path;
@@ -724,10 +724,10 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             assert(contents.first.count(traversal.node));
 #ifdef debug
             if(index.by_id.count(traversal.node->id())) {
-                std::cerr << "Path member " << traversal << " lives on ref at "
-                << index.by_id.at(traversal.node->id()).first << std::endl;
+                cerr << "Path member " << traversal << " lives on ref at "
+                << index.by_id.at(traversal.node->id()).first << endl;
             } else {
-                std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
+                cerr << "Path member " << traversal << " does not live on ref" << endl;
             }
 #endif
         }
@@ -760,11 +760,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
             if(ref_path_index == ref_path_for_site.size()) {
                 // Still couldn't find it!
-                std::stringstream err;
+                stringstream err;
                 err << "Couldn't find " << path.back() << " in ref path of site "
                     << to_node_traversal(site.start(), augmented.graph)
                     << " to " << to_node_traversal(site.end(), augmented.graph) << endl;
-                throw std::runtime_error(err.str());
+                throw runtime_error(err.str());
             }
         }
         // Skip the matching NodeTraversal
@@ -793,11 +793,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         // TODO: allow bubbles that don't backend into the primary path
-        std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(
             augmented.graph, node, nullptr, index, augmented.node_supports,
             augmented.edge_supports, max_depth, max_bubble_paths);
 
-        std::vector<NodeTraversal>& path = sup_path.second;
+        vector<NodeTraversal>& path = sup_path.second;
         
         if(path.empty()) {
             // We couldn't find a path back to the primary path. Discard
@@ -827,15 +827,15 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         // Find a path based around this edge
-        std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(
             augmented.graph, nullptr, edge, index, augmented.node_supports,
             augmented.edge_supports, max_depth, max_bubble_paths);
-        std::vector<NodeTraversal>& path = sup_path.second;
+        vector<NodeTraversal>& path = sup_path.second;
         
 #ifdef debug
-        std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
+        cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << endl;
         for(auto& traversal : path) {
-            std::cerr << "\t" << traversal << std::endl;
+            cerr << "\t" << traversal << endl;
         }
 #endif
         
@@ -912,8 +912,8 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 }
 
 pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(VG& graph, Node* node,
-    Edge* edge, const PathIndex& index, const std::map<Node*, Support>& node_supports,
-    const std::map<Edge*, Support>& edge_supports, int64_t maxDepth, size_t max_bubble_paths) {
+    Edge* edge, const PathIndex& index, const map<Node*, Support>& node_supports,
+    const map<Edge*, Support>& edge_supports, int64_t maxDepth, size_t max_bubble_paths) {
 
     // What are we going to find our left and right path halves based on?
     NodeTraversal left_traversal;
@@ -934,7 +934,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     }
     
 #ifdef debug
-    std::cerr << "Starting from: " << left_traversal << ", " << right_traversal << std::endl;
+    cerr << "Starting from: " << left_traversal << ", " << right_traversal << endl;
 #endif
 
     // Find paths on both sides, with nodes on the primary path at the outsides
@@ -951,19 +951,19 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     // orientations) and which doesn't use the same nodes on both sides.
     // Track support of up to max_bubble_paths combinations, and return the
     // highest
-    std::pair<Support, std::vector<NodeTraversal> > bestBubblePath;
+    pair<Support, vector<NodeTraversal> > bestBubblePath;
     int bubbleCount = 0;
     
     // We need to look in different combinations of lists.
-    auto testCombinations = [&](const std::list<std::list<vg::NodeTraversal>>& leftList,
-        const std::list<std::list<vg::NodeTraversal>>& rightList) {
+    auto testCombinations = [&](const list<list<NodeTraversal>>& leftList,
+        const list<list<NodeTraversal>>& rightList) {
 
         for(auto leftPath : leftList) {
             // Figure out the relative orientation for the leftmost node.
 #ifdef debug        
-            std::cerr << "Left path: " << std::endl;
+            cerr << "Left path: " << endl;
             for(auto traversal : leftPath ) {
-                std::cerr << "\t" << traversal << std::endl;
+                cerr << "\t" << traversal << endl;
             }
 #endif    
             // Split out its node pointer and orientation
@@ -979,7 +979,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
             bool leftRelativeOrientation = leftOrientation != leftRefPos.second;
             
             // Make a set of all the nodes in the left path
-            std::set<int64_t> leftPathNodes;
+            set<int64_t> leftPathNodes;
             for(auto visit : leftPath) {
                 leftPathNodes.insert(visit.node->id());
             }
@@ -991,9 +991,9 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
             for(auto rightPath : rightList) {
                 // Figure out the relative orientation for the rightmost node.
 #ifdef debug            
-                std::cerr << "Right path: " << std::endl;
+                cerr << "Right path: " << endl;
                 for(auto traversal : rightPath ) {
-                    std::cerr << "\t" << traversal << std::endl;
+                    cerr << "\t" << traversal << endl;
                 }
 #endif            
                 // Split out its node pointer and orientation
@@ -1024,7 +1024,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
                     Support minFullSupport = support_min(minLeftSupport, minRightSupport);
                     
                     // Start with the left path
-                    std::vector<vg::NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
+                    vector<NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
                     
                     // We need to detect overlap with the left path
                     bool overlap = false;
@@ -1056,7 +1056,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
                         // Turns out our anchored path is backwards.
                         
                         // Reorder everything the other way
-                        std::reverse(fullPath.begin(), fullPath.end());
+                        reverse(fullPath.begin(), fullPath.end());
                         
                         for(auto& traversal : fullPath) {
                             // Flip each traversal
@@ -1066,9 +1066,9 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
 
                     
 #ifdef debug        
-                    std::cerr << "Merged path:" << std::endl;
+                    cerr << "Merged path:" << endl;
                     for(auto traversal : fullPath) {
-                        std::cerr << "\t" << traversal << std::endl;
+                        cerr << "\t" << traversal << endl;
                     }                    
 #endif
                     // update our best path by seeing if we've found one with higher min support
@@ -1092,13 +1092,13 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     };
     
     // Convert sets to lists, which requires a copy again...
-    std::list<std::list<vg::NodeTraversal>> leftConverted;
+    list<list<NodeTraversal>> leftConverted;
     for(auto lengthAndPath : leftPaths) {
-        leftConverted.emplace_back(std::move(lengthAndPath.second));
+        leftConverted.emplace_back(move(lengthAndPath.second));
     }
-    std::list<std::list<vg::NodeTraversal>> rightConverted;
+    list<list<NodeTraversal>> rightConverted;
     for(auto lengthAndPath : rightPaths) {
-        rightConverted.emplace_back(std::move(lengthAndPath.second));
+        rightConverted.emplace_back(move(lengthAndPath.second));
     }
     
     // Look for a valid combination, or return an empty path if one iesn't
@@ -1107,10 +1107,10 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     
 }
 
-Support RepresentativeTraversalFinder::min_support_in_path(vg::VG& graph,
-    const std::map<vg::Node*, Support>& node_supports,
-    const std::map<vg::Edge*, Support>& edge_supports,
-    const std::list<vg::NodeTraversal>& path) {
+Support RepresentativeTraversalFinder::min_support_in_path(VG& graph,
+    const map<Node*, Support>& node_supports,
+    const map<Edge*, Support>& edge_supports,
+    const list<NodeTraversal>& path) {
     
     if (path.empty()) {
         return Support();
@@ -1134,27 +1134,27 @@ Support RepresentativeTraversalFinder::min_support_in_path(vg::VG& graph,
     return minSupport;
 }
 
-std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(vg::VG& graph,
-    vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, Support>& node_supports,
-    const std::map<vg::Edge*, Support>& edge_supports,
+set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(VG& graph,
+    NodeTraversal node, const PathIndex& index,
+    const map<Node*, Support>& node_supports,
+    const map<Edge*, Support>& edge_supports,
     int64_t maxDepth, bool stopIfVisited) {
 
     // Holds partial paths we want to return, with their lengths in bp.
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
+    set<pair<size_t, list<NodeTraversal>>> toReturn;
     
     // Do a BFS
     
     // This holds the paths to get to NodeTraversals to visit (all of which will
     // end with the node we're starting with).
-    std::list<std::list<vg::NodeTraversal>> toExtend;
+    list<list<NodeTraversal>> toExtend;
     
     // This keeps a set of all the oriented nodes we already got to and don't
     // need to queue again.
-    std::set<vg::NodeTraversal> alreadyQueued;
+    set<NodeTraversal> alreadyQueued;
     
     // Start at this node at depth 0
-    toExtend.emplace_back(std::list<vg::NodeTraversal> {node});
+    toExtend.emplace_back(list<NodeTraversal> {node});
     // Mark this traversal as already queued
     alreadyQueued.insert(node);
     
@@ -1170,13 +1170,13 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
         searchTicks++;
         if(searchTicks % 100 == 0) {
             // Report on how much searching we are doing.
-            std::cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << std::endl;
+            cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << endl;
         }
 #endif
         
         // Dequeue a path to extend.
         // Make sure to move out of the list to avoid a useless copy.
-        std::list<vg::NodeTraversal> path(std::move(toExtend.front()));
+        list<NodeTraversal> path(move(toExtend.front()));
         toExtend.pop_front();
         stillToExtend--;
         
@@ -1191,7 +1191,7 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
             // lands in a place that is itself deleted.
             
             // Say we got to the right place
-            toReturn.emplace(bp_length(path), std::move(path));
+            toReturn.emplace(bp_length(path), move(path));
             
             // Don't bother looking for extensions, we already got there.
         } else if(path.size() <= maxDepth) {
@@ -1199,12 +1199,12 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
             // the max depth. Extend with all the possible extensions.
             
             // Look left
-            vector<vg::NodeTraversal> prevNodes;
+            vector<NodeTraversal> prevNodes;
             graph.nodes_prev(path.front(), prevNodes);
             
             for(auto prevNode : prevNodes) {
                 // For each node we can get to
-                vg::Edge* edge = graph.get_edge(prevNode, path.front());
+                Edge* edge = graph.get_edge(prevNode, path.front());
                 assert(edge != NULL);
                 
                 if((!node_supports.empty() && (!node_supports.count(prevNode.node) ||
@@ -1223,9 +1223,9 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
                 }
             
                 // Make a new path extended left with the node
-                std::list<vg::NodeTraversal> extended(path);
+                list<NodeTraversal> extended(path);
                 extended.push_front(prevNode);
-                toExtend.emplace_back(std::move(extended));
+                toExtend.emplace_back(move(extended));
                 stillToExtend++;
                 
                 // Remember we found a way to this node, so we don't try and
@@ -1239,10 +1239,10 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
     return toReturn;
 }
 
-std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversalFinder::bfs_right(vg::VG& graph,
-    vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, Support>& node_supports,
-    const std::map<vg::Edge*, Support>& edge_supports,
+set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_right(VG& graph,
+    NodeTraversal node, const PathIndex& index,
+    const map<Node*, Support>& node_supports,
+    const map<Edge*, Support>& edge_supports,
     int64_t maxDepth, bool stopIfVisited) {
 
     // Look left from the backward version of the node.
@@ -1250,7 +1250,7 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
                               edge_supports, maxDepth, stopIfVisited);
     
     // Since we can't modify set records in place, we need to do a copy
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
+    set<pair<size_t, list<NodeTraversal>>> toReturn;
     
     for(auto lengthAndPath : toConvert) {
         // Flip every path to run the other way
@@ -1260,13 +1260,13 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> RepresentativeTraversa
             traversal = traversal.reverse();
         }
         // Stick it in the new set
-        toReturn.emplace(std::move(lengthAndPath));
+        toReturn.emplace(move(lengthAndPath));
     }
     
     return toReturn;
 }
 
-size_t RepresentativeTraversalFinder::bp_length(const std::list<vg::NodeTraversal>& path) {
+size_t RepresentativeTraversalFinder::bp_length(const list<NodeTraversal>& path) {
     size_t length = 0;
     for(auto& traversal : path) {
         // Sum up length of each node's sequence

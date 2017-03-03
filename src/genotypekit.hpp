@@ -352,16 +352,16 @@ protected:
     /**
      * Get the minimum support of all nodes and edges in path
      */
-    Support min_support_in_path(vg::VG& graph, const std::map<vg::Node*, Support>& node_supports,
-        const std::map<vg::Edge*, Support>& edge_supports, const std::list<vg::NodeTraversal>& path);
+    Support min_support_in_path(VG& graph, const map<Node*, Support>& node_supports,
+        const map<Edge*, Support>& edge_supports, const list<NodeTraversal>& path);
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the indexed
      * reference path. Refuses to visit nodes with no support.
      */
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph, vg::NodeTraversal node, const PathIndex& index,
-        const std::map<vg::Node*, Support>& node_supports, const std::map<vg::Edge*, Support>& edge_supports,
+    set<pair<size_t, list<NodeTraversal>>> bfs_left(VG& graph, NodeTraversal node, const PathIndex& index,
+        const map<Node*, Support>& node_supports, const map<Edge*, Support>& edge_supports,
         int64_t maxDepth = 10, bool stopIfVisited = false);
         
     /**
@@ -369,14 +369,14 @@ protected:
      * lengths and paths starting at the given node and ending on the indexed
      * reference path.
      */
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& graph, vg::NodeTraversal node, const PathIndex& index,
-        const std::map<vg::Node*, Support>& node_supports, const std::map<vg::Edge*, Support>& edge_supports,
+    set<pair<size_t, list<NodeTraversal>>> bfs_right(VG& graph, NodeTraversal node, const PathIndex& index,
+        const map<Node*, Support>& node_supports, const map<Edge*, Support>& edge_supports,
         int64_t maxDepth = 10, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.
      */
-    size_t bp_length(const std::list<vg::NodeTraversal>& path);
+    size_t bp_length(const list<NodeTraversal>& path);
     
 public:
 
