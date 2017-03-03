@@ -25,6 +25,8 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+#define DEBUG
+
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl
         << "Options: " << endl
@@ -412,9 +414,17 @@ int main_srpe(int argc, char** argv){
 
         }
 
+        vector<vector<Locus> > locus_buffer;
+        int thread_count = omp_get_num_threads();
+        locus_buffer.resize(thread_count);
+
+        vcflib::VariantCallFile* vcf = nullptr;
+        vector<PathIndex*> pindexes;
+
 
         bool justSNPs = false;
         if (justSNPs){
+
             for (auto x : snarl_roots){
                 vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
                 for (auto t : site_traversals){
