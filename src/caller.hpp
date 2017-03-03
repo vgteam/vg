@@ -13,6 +13,7 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "pileup.hpp"
+#include "path_index.hpp"
 
 namespace vg {
 
@@ -398,6 +399,21 @@ public:
      * comments describing variants
      */
     void call(AugmentedGraph& augmented, string pileupFilename = "");
+    
+    /**
+     * Decide if the given SnarlTraversal is included in the original base graph
+     * (true), or if it represents a novel variant (false).
+     *
+     * Looks at the nodes in the traversal that aren't along the primary path,
+     * and sees if their calls are CALL_REFERENCE or not.
+     *
+     * Specially handles single-edge traversals.
+     *
+     * If given a traversal that's all primary path nodes, it assumes it is non-
+     * reference, because it assumes the caller will never pass it the all-
+     * primary-path reference traversal.
+     */
+    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path);
     
     // Option variables
     // What's the name of the reference path in the graph?

@@ -109,6 +109,14 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
+    /// Converts a Visit to a NodeSide for its left side. Throws an exception if
+    /// the Visit is of a Snarl instead of a Node.
+    inline NodeSide to_left_side(const Visit& visit);
+    
+    /// Converts a Visit to a NodeSide for its right side. Throws an exception if
+    /// the Visit is of a Snarl instead of a Node.
+    inline NodeSide to_right_side(const Visit& visit);
+    
     /// Converts a NodeTraversal to a Visit.
     inline Visit to_visit(const NodeTraversal& node_traversal);
     
@@ -140,6 +148,16 @@ namespace vg {
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, VG& graph) {
         assert(visit.node_id());
         return NodeTraversal(graph.get_node(visit.node_id()), !visit.backward());
+    }
+    
+    inline NodeSide to_left_side(const Visit& visit) {
+        assert(visit.node_id());
+        return NodeSide(visit.node_id(), visit.backward());
+    }
+    
+    inline NodeSide to_right_side(const Visit& visit) {
+        assert(visit.node_id());
+        return NodeSide(visit.node_id(), !visit.backward());
     }
     
     inline Visit to_visit(const NodeTraversal& node_traversal) {

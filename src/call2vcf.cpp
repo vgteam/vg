@@ -1349,9 +1349,8 @@ void Call2Vcf::call(
         // Get the traversals
         auto traversals = traversal_finder.find_traversals(*site);
         
-        // Turn them back into vectors in a set
-        // TODO: avoid this
-        std::set<std::vector<NodeTraversal>> site_traversal_set;
+        // Make it the first in the ordered alleles
+        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
         
         for (auto& traversal : traversals) {
             // Make each traversal into a vector of NodeTraversals
@@ -1365,20 +1364,16 @@ void Call2Vcf::call(
             // Finish up with the site's end
             traversal_vector.push_back(to_node_traversal(site->end(), vg));
             
-            site_traversal_set.insert(traversal_vector);
-        }
-        
-        // Throw the ref allele out of the set
-        if(site_traversal_set.count(ref_path_for_site)) {
-            site_traversal_set.erase(ref_path_for_site);
-        }
-        
-        // Make it the first in the ordered alleles
-        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
-        // Then add all the rest
-        // TODO: need to get whether they're xref or not.
-        for (auto& traversal : site_traversal_set) {
-            ordered_paths.push_back(make_pair(traversal, false));
+            if (traversal_vector == ref_path_for_site) {
+                // This is just the reference traversal we already have, so skip
+                // it
+                continue;
+            }
+            
+            // Otherwise it's a different one, so put it in the list after the
+            // reference one, with an annotation saying whether it's a
+            // previously-known traversal or not.
+            ordered_paths.push_back(make_pair(traversal_vector, is_reference(traversal, augmented, index)));
         }
         
         // Collect sequences for all the paths
@@ -1757,6 +1752,80 @@ void Call2Vcf::call(
     // Announce how much we can't show.
     if (verbose) {
         std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+    }
+}
+
+bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path) {
+    
+    if (trav.visits_size() == 0) {
+        // If the traversal is empty, we just consider the edge across it from
+        // the start to the end
+        
+        Edge* edge = augmented.graph.get_edge(to_right_side(trav.snarl().start()), to_left_side(trav.snarl().end()));
+        
+        if (augmented.edge_calls.at(edge) == CALL_REFERENCE) {
+            // This is a known edge
+            cout << "Ref edge traversal" << endl;
+            return true;
+        } else {
+            // Edge is not annotated as previously known
+            cout << "Novel edge traversal" << endl;
+            return false;
+        }
+    } else {
+        // Otherwise, we go through each visit to a node not on the primary
+        // path, and count up the bases, and ask if the majority of bases are
+        // known.
+        
+        // How many bases along the traversal are not on the primary path?
+        size_t off_path_bases = 0;
+        // And how many bases along the traversal are known? TODO: Do we want to
+        // count uncalled? Or just CALL_REFERENCE (which I think implies present
+        // in the sample)?
+        size_t known_bases = 0;
+        
+        // We have a function to count the bases from each visit
+        auto handle_visit = [&](const Visit& visit) {
+            // TODO: we don't handle nested snarls yet!
+            assert(visit.node_id());
+            
+            // Get the actual node
+            Node* node = augmented.graph.get_node(visit.node_id());
+            
+            if (!primary_path.by_id.count(node->id())) {
+                // This is not a primary path node
+                off_path_bases += node->sequence().size();
+            
+                if (augmented.node_calls.at(node) == CALL_REFERENCE) {
+                    // But it is a known node
+                    known_bases += node->sequence().size();
+                    cout << "\tKnown " << node->id() << ": " << node->sequence().size() << endl;
+                } else {
+                    cout << "\tNovel " << (char)augmented.node_calls.at(node) << " " << node->id() << ": " << node->sequence().size() << endl;
+                }
+            } else {
+                cout << "\tPrimary Path " << node->id() << ": " << node->sequence().size() << endl;
+            }
+        };
+        
+        cout << "Traversal of " << trav.visits_size() << " nodes plus ends:" << endl;
+        // Look at all the visits in the traversal
+        handle_visit(trav.snarl().start());
+        for (size_t i = 0; i < trav.visits_size(); i++) {
+            handle_visit(trav.visits(i));
+        }
+        handle_visit(trav.snarl().end());
+        
+        // Return true if some non-primary-path bases have been seen before and
+        // they are at least half the non-primary-path bases. If we're all
+        // primary path bases, we return false, because we know we don't have
+        // the primary path's full traversal of the site, so we must be taking
+        // other edges.
+        bool to_return = (known_bases > 0 && known_bases >= off_path_bases / 2);
+        cout << "\t" << known_bases << " of " << off_path_bases << " known" << endl;
+        cout << "\tConclusion: " << (to_return ? "ref" : "novel") << endl;
+        return to_return; 
+        
     }
 }
 
