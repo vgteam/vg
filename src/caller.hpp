@@ -14,56 +14,11 @@
 #include "utility.hpp"
 #include "pileup.hpp"
 #include "path_index.hpp"
+#include "genotypekit.hpp"
 
 namespace vg {
 
 using namespace std;
-
-// Represents an assertion that an element in the augmented graph results from
-// an event of a certain type.
-enum ElementCall {
-    CALL_DELETION = 'D',
-    CALL_REFERENCE = 'R',
-    CALL_UNCALLED = 'U',
-    CALL_SUBSTITUTION = 'S',
-    CALL_INSERTION = 'I'
-};
-
-/// Data structure for representing an augmented graph as created by the Caller,
-/// with semantic hints about how it was generated and how much support each
-/// node and edge has.
-struct AugmentedGraph {
-    // This holds all the new nodes and edges
-    VG graph;
-    
-    // This holds info about where all the nodes came from
-    map<Node*, ElementCall> node_calls;
-    // And this similarly holds origin information for the edges
-    map<Edge*, ElementCall> edge_calls;
-    
-    // This holds support info for nodes. Note that we discard the "os" other
-    // support field from StrandSupport.
-    map<Node*, Support> node_supports;
-    // And for edges
-    map<Edge*, Support> edge_supports;
-    
-    // This holds the likelihood for each node.
-    // TODO: what exactly does that mean?
-    map<Node*, double> node_likelihoods;
-    // And for edges
-    map<Edge*, double> edge_likelihoods;
-    
-    // This records how each new node came from the original graph, if it's not
-    // just a straight copy. Each Translation is a single mapping for a single
-    // whole new node on the forward strand, and the piece of the single old
-    // node it came from, on the forward strand.
-    vector<Translation> translations;
-    
-    /**
-     * Clear the contents.
-     */
-    void clear();
-};
 
 // container for storing pairs of support for calls (value for each strand)
 struct StrandSupport {
