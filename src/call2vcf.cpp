@@ -135,7 +135,7 @@ FractionalSupport from_support(const Support& other) {
 }
 
 /**
- * Downgrade an integral Protobuf Support to a FractionalSupport.
+ * Downgrade a FractionalSupport to an integral Protobuf suopport.
  */
 Support to_support(const FractionalSupport& other) {
     Support to_return;
@@ -145,7 +145,7 @@ Support to_support(const FractionalSupport& other) {
 }
     
 /**
- * Allow printing a support.
+ * Allow printing a FractionalSupport.
  */
 std::ostream& operator<<(std::ostream& stream, const FractionalSupport& support) {
     return stream << support.first << "," << support.second;
@@ -546,10 +546,35 @@ void Call2Vcf::call(
         // in site orientation, which may oppose primary path orientation.
         auto traversals = traversal_finder.find_traversals(*site);
         
+        // Make a Locus to represent this site, with all the Paths of the
+        // different alleles.
+        Locus locus;
+        
+        // And keep around a vector of is_reference statuses for all the alleles
+        vector<bool> is_ref;
+        
         // We turn them all back into NodeTraversal vectors
         std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths;
         
         for (auto& traversal : traversals) {
+            // Convert each traversal to a path
+            Path* path = locus.add_allele();
+        
+            // Start at the start of the site
+            *path->add_mapping() = to_mapping(site->start(), vg);
+            for (size_t i = 0; i < traversal.visits_size(); i++) {
+                // Then visit each node in turn
+                *path->add_mapping() = to_mapping(traversal.visits(i), vg);
+            }
+            // Finish up with the site's end
+            *path->add_mapping() = to_mapping(site->end(), vg);
+            
+            // Save the traversal's reference status
+            is_ref.push_back(is_reference(traversal, augmented, index));
+            
+            // Also, save the data the old way that powers the VCF output
+            // currently
+            
             // Make each traversal into a vector of NodeTraversals
             vector<NodeTraversal> traversal_vector;
             // Start at the start of the site
@@ -574,7 +599,7 @@ void Call2Vcf::call(
             
             // Put it in the list, with an annotation saying whether it's a
             // previously-known traversal or not.
-            ordered_paths.push_back(make_pair(traversal_vector, is_reference(traversal, augmented, index)));
+            ordered_paths.push_back(make_pair(traversal_vector, is_ref.back()));
         }
         
         // Collect sequences for all the paths
