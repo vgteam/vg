@@ -1757,76 +1757,58 @@ void Call2Vcf::call(
 
 bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path) {
     
-    if (trav.visits_size() == 0) {
-        // If the traversal is empty, we just consider the edge across it from
-        // the start to the end
+    // Keep track of the previous NodeSide
+    NodeSide previous;
+    
+    // We'll call this function with each visit in turn.
+    // If it ever returns false, the whole thing is nonreference.
+    auto experience_visit = [&](const Visit& visit) {
+        // TODO: handle nested sites
+        assert(visit.node_id());
         
-        Edge* edge = augmented.graph.get_edge(to_right_side(trav.snarl().start()), to_left_side(trav.snarl().end()));
+        if (previous.node != 0) {
+            // Consider the edge from the previous visit
+            Edge* edge = augmented.graph.get_edge(previous, to_left_side(visit));
+            
+            if (augmented.edge_calls.at(edge) != CALL_REFERENCE) {
+                // Found a novel edge!
+                return false;
+            }
+        }
         
-        if (augmented.edge_calls.at(edge) == CALL_REFERENCE) {
-            // This is a known edge
-            cout << "Ref edge traversal" << endl;
-            return true;
-        } else {
-            // Edge is not annotated as previously known
-            cout << "Novel edge traversal" << endl;
+        if (augmented.node_calls.at(augmented.graph.get_node(visit.node_id())) != CALL_REFERENCE) {
+            // This node itself is novel
             return false;
         }
-    } else {
-        // Otherwise, we go through each visit to a node not on the primary
-        // path, and count up the bases, and ask if the majority of bases are
-        // known.
         
-        // How many bases along the traversal are not on the primary path?
-        size_t off_path_bases = 0;
-        // And how many bases along the traversal are known? TODO: Do we want to
-        // count uncalled? Or just CALL_REFERENCE (which I think implies present
-        // in the sample)?
-        size_t known_bases = 0;
+        // Remember we want an edge from this visit when we look at the next
+        // one.
+        previous = to_right_side(visit);
         
-        // We have a function to count the bases from each visit
-        auto handle_visit = [&](const Visit& visit) {
-            // TODO: we don't handle nested snarls yet!
-            assert(visit.node_id());
-            
-            // Get the actual node
-            Node* node = augmented.graph.get_node(visit.node_id());
-            
-            if (!primary_path.by_id.count(node->id())) {
-                // This is not a primary path node
-                off_path_bases += node->sequence().size();
-            
-                if (augmented.node_calls.at(node) == CALL_REFERENCE) {
-                    // But it is a known node
-                    known_bases += node->sequence().size();
-                    cout << "\tKnown " << node->id() << ": " << node->sequence().size() << endl;
-                } else {
-                    cout << "\tNovel " << (char)augmented.node_calls.at(node) << " " << node->id() << ": " << node->sequence().size() << endl;
-                }
-            } else {
-                cout << "\tPrimary Path " << node->id() << ": " << node->sequence().size() << endl;
-            }
-        };
-        
-        cout << "Traversal of " << trav.visits_size() << " nodes plus ends:" << endl;
-        // Look at all the visits in the traversal
-        handle_visit(trav.snarl().start());
-        for (size_t i = 0; i < trav.visits_size(); i++) {
-            handle_visit(trav.visits(i));
-        }
-        handle_visit(trav.snarl().end());
-        
-        // Return true if some non-primary-path bases have been seen before and
-        // they are at least half the non-primary-path bases. If we're all
-        // primary path bases, we return false, because we know we don't have
-        // the primary path's full traversal of the site, so we must be taking
-        // other edges.
-        bool to_return = (known_bases > 0 && known_bases >= off_path_bases / 2);
-        cout << "\t" << known_bases << " of " << off_path_bases << " known" << endl;
-        cout << "\tConclusion: " << (to_return ? "ref" : "novel") << endl;
-        return to_return; 
-        
+        // This visit is known.
+        return true;
+    };
+    
+    // Make sure we visit a ref start node
+    if (!experience_visit(trav.snarl().start())) {
+        return false;
     }
+    
+    // Then all the internal nodes
+    for (size_t i = 0; i < trav.visits_size(); i++) {
+        if (!experience_visit(trav.visits(i))) {
+            return false;
+        }
+    }
+    
+    // And finally the end node
+    if (!experience_visit(trav.snarl().end())) {
+        return false;
+    }
+    
+    // And if we make it through it's a reference traversal.
+    return true;
+        
 }
 
 }
