@@ -328,10 +328,10 @@ protected:
     size_t max_bubble_paths;
     
     /**
-     * Given a vg graph, an edge or node in the graph, and an index for the
-     * reference path, look out from the edge or node in both directions to find
-     * a shortest bubble relative to the path, with a consistent orientation.
-     * The bubble may not visit the same node twice.
+     * Given an edge or node in the augmented graph, look out from the edge or
+     * node in both directions to find a shortest bubble relative to the path,
+     * with a consistent orientation. The bubble may not visit the same node
+     * twice.
      *
      * Exactly one of edge and node must be null, and one not null.
      *
@@ -343,35 +343,26 @@ protected:
      * support found on any edge or node in the bubble (including the reference
      * node endpoints and their edges which aren't stored in the path)
      */
-    pair<Support, vector<NodeTraversal>> find_bubble(VG& graph, Node* node,
-        Edge* edge, const PathIndex& index,
-        const map<Node*, Support>& node_supports,
-        const map<Edge*, Support>& edge_supports, int64_t maxDepth,
-        size_t max_bubble_paths);
+    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge);
         
     /**
      * Get the minimum support of all nodes and edges in path
      */
-    Support min_support_in_path(VG& graph, const map<Node*, Support>& node_supports,
-        const map<Edge*, Support>& edge_supports, const list<NodeTraversal>& path);
+    Support min_support_in_path(const list<NodeTraversal>& path);
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the indexed
      * reference path. Refuses to visit nodes with no support.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_left(VG& graph, NodeTraversal node, const PathIndex& index,
-        const map<Node*, Support>& node_supports, const map<Edge*, Support>& edge_supports,
-        int64_t maxDepth = 10, bool stopIfVisited = false);
+    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the indexed
      * reference path.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_right(VG& graph, NodeTraversal node, const PathIndex& index,
-        const map<Node*, Support>& node_supports, const map<Edge*, Support>& edge_supports,
-        int64_t maxDepth = 10, bool stopIfVisited = false);
+    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.

@@ -793,9 +793,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         // TODO: allow bubbles that don't backend into the primary path
-        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(
-            augmented.graph, node, nullptr, index, augmented.node_supports,
-            augmented.edge_supports, max_depth, max_bubble_paths);
+        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(node, nullptr);
 
         vector<NodeTraversal>& path = sup_path.second;
         
@@ -827,9 +825,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         // Find a path based around this edge
-        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(
-            augmented.graph, nullptr, edge, index, augmented.node_supports,
-            augmented.edge_supports, max_depth, max_bubble_paths);
+        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(nullptr, edge);
         vector<NodeTraversal>& path = sup_path.second;
         
 #ifdef debug
@@ -911,9 +907,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     return unique_traversals;
 }
 
-pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(VG& graph, Node* node,
-    Edge* edge, const PathIndex& index, const map<Node*, Support>& node_supports,
-    const map<Edge*, Support>& edge_supports, int64_t maxDepth, size_t max_bubble_paths) {
+pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(Node* node, Edge* edge) {
 
     // What are we going to find our left and right path halves based on?
     NodeTraversal left_traversal;
@@ -924,8 +918,8 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
         
         // Find the nodes at the ends of the edges. Look at them traversed in the
         // edge's local orientation.
-        left_traversal = NodeTraversal(graph.get_node(edge->from()), edge->from_start());
-        right_traversal = NodeTraversal(graph.get_node(edge->to()), edge->to_end());
+        left_traversal = NodeTraversal(augmented.graph.get_node(edge->from()), edge->from_start());
+        right_traversal = NodeTraversal(augmented.graph.get_node(edge->to()), edge->to_end());
         
     } else {
         // Be node-based
@@ -940,10 +934,8 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     // Find paths on both sides, with nodes on the primary path at the outsides
     // and this edge in the middle. Returns path lengths and paths in pairs in a
     // set.
-    auto leftPaths = bfs_left(graph, left_traversal, index, node_supports,
-                              edge_supports, maxDepth);
-    auto rightPaths = bfs_right(graph, right_traversal, index, node_supports,
-                                edge_supports, maxDepth);
+    auto leftPaths = bfs_left(left_traversal);
+    auto rightPaths = bfs_right(right_traversal);
     
     // Find a combination of two paths which gets us to the reference in a
     // consistent orientation (meaning that when you look at the ending nodes'
@@ -985,8 +977,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
             }
 
             // Get the minimum support in the left path
-            Support minLeftSupport = min_support_in_path(
-                graph, node_supports, edge_supports, leftPath);
+            Support minLeftSupport = min_support_in_path(leftPath);
             
             for(auto rightPath : rightList) {
                 // Figure out the relative orientation for the rightmost node.
@@ -1010,8 +1001,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
                 bool rightRelativeOrientation = rightOrientation != rightRefPos.second;
 
                 // Get the minimum support in the right path
-                Support minRightSupport = min_support_in_path(
-                    graph, node_supports, edge_supports, rightPath);
+                Support minRightSupport = min_support_in_path(rightPath);
                 
                 if(leftRelativeOrientation == rightRelativeOrientation &&
                     ((!leftRelativeOrientation && leftRefPos.first < rightRefPos.first) ||
@@ -1107,10 +1097,7 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     
 }
 
-Support RepresentativeTraversalFinder::min_support_in_path(VG& graph,
-    const map<Node*, Support>& node_supports,
-    const map<Edge*, Support>& edge_supports,
-    const list<NodeTraversal>& path) {
+Support RepresentativeTraversalFinder::min_support_in_path(const list<NodeTraversal>& path) {
     
     if (path.empty()) {
         return Support();
@@ -1118,27 +1105,23 @@ Support RepresentativeTraversalFinder::min_support_in_path(VG& graph,
     auto cur = path.begin();
     auto next = path.begin();
     ++next;
-    Support minSupport = node_supports.count(cur->node) ? node_supports.at(cur->node) : Support();
+    Support minSupport = augmented.node_supports.count(cur->node) ? augmented.node_supports.at(cur->node) : Support();
     for (; next != path.end(); ++cur, ++next) {
         // check the node support
-        Support support = node_supports.count(next->node) ? node_supports.at(next->node) : Support();
+        Support support = augmented.node_supports.count(next->node) ? augmented.node_supports.at(next->node) : Support();
         minSupport = support_min(minSupport, support);
         
         // check the edge support
-        Edge* edge = graph.get_edge(*cur, *next);
+        Edge* edge = augmented.graph.get_edge(*cur, *next);
         assert(edge != NULL);
-        Support edgeSupport = edge_supports.count(edge) ? edge_supports.at(edge) : Support();
+        Support edgeSupport = augmented.edge_supports.count(edge) ? augmented.edge_supports.at(edge) : Support();
         minSupport = support_min(minSupport, edgeSupport);
     }
 
     return minSupport;
 }
 
-set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(VG& graph,
-    NodeTraversal node, const PathIndex& index,
-    const map<Node*, Support>& node_supports,
-    const map<Edge*, Support>& edge_supports,
-    int64_t maxDepth, bool stopIfVisited) {
+set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(NodeTraversal node, bool stopIfVisited) {
 
     // Holds partial paths we want to return, with their lengths in bp.
     set<pair<size_t, list<NodeTraversal>>> toReturn;
@@ -1194,23 +1177,23 @@ set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(V
             toReturn.emplace(bp_length(path), move(path));
             
             // Don't bother looking for extensions, we already got there.
-        } else if(path.size() <= maxDepth) {
+        } else if(path.size() <= max_depth) {
             // We haven't hit the reference path yet, but we also haven't hit
             // the max depth. Extend with all the possible extensions.
             
             // Look left
             vector<NodeTraversal> prevNodes;
-            graph.nodes_prev(path.front(), prevNodes);
+            augmented.graph.nodes_prev(path.front(), prevNodes);
             
             for(auto prevNode : prevNodes) {
                 // For each node we can get to
-                Edge* edge = graph.get_edge(prevNode, path.front());
+                Edge* edge = augmented.graph.get_edge(prevNode, path.front());
                 assert(edge != NULL);
                 
-                if((!node_supports.empty() && (!node_supports.count(prevNode.node) ||
-                    total(node_supports.at(prevNode.node)) == 0)) ||
-                   (!edge_supports.empty() && (!edge_supports.count(edge) ||
-                    total(edge_supports.at(edge)) == 0))) {
+                if((!augmented.node_supports.empty() && (!augmented.node_supports.count(prevNode.node) ||
+                    total(augmented.node_supports.at(prevNode.node)) == 0)) ||
+                   (!augmented.edge_supports.empty() && (!augmented.edge_supports.count(edge) ||
+                    total(augmented.edge_supports.at(edge)) == 0))) {
                     
                     // We have no support at all for visiting this node (but we
                     // do have some node read support data)
@@ -1239,15 +1222,10 @@ set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(V
     return toReturn;
 }
 
-set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_right(VG& graph,
-    NodeTraversal node, const PathIndex& index,
-    const map<Node*, Support>& node_supports,
-    const map<Edge*, Support>& edge_supports,
-    int64_t maxDepth, bool stopIfVisited) {
+set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_right(NodeTraversal node, bool stopIfVisited) {
 
     // Look left from the backward version of the node.
-    auto toConvert = bfs_left(graph, node.reverse(), index, node_supports,
-                              edge_supports, maxDepth, stopIfVisited);
+    auto toConvert = bfs_left(node.reverse(), stopIfVisited);
     
     // Since we can't modify set records in place, we need to do a copy
     set<pair<size_t, list<NodeTraversal>>> toReturn;
