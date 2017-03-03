@@ -1264,5 +1264,56 @@ Support support_min(const Support& a, const Support& b) {
     return to_return;
 }
 
+Support operator+(const Support& one, const Support& other) {
+    Support sum;
+    sum.set_forward(one.forward() + other.forward());
+    sum.set_reverse(one.reverse() + other.reverse());
+    sum.set_left(one.left() + other.left());
+    sum.set_right(one.right() + other.right());
+    
+    // log-scaled quality can just be added
+    sum.set_quality(one.quality() + other.quality());
+    
+    return sum;
+}
+
+Support& operator+=(Support& one, const Support& other) {
+    one.set_forward(one.forward() + other.forward());
+    one.set_reverse(one.reverse() + other.reverse());
+    one.set_left(one.left() + other.left());
+    one.set_right(one.right() + other.right());
+    
+    // log-scaled quality can just be added
+    one.set_quality(one.quality() + other.quality());
+    
+    return one;
+}
+
+Support operator*(const Support& support, const size_t& scale) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
+Support operator*(const size_t& scale, const Support& support) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
 
 }

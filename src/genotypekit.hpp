@@ -432,6 +432,26 @@ int total(const Support& support);
  */
 Support support_min(const Support& a, const Support& b);
 
+/**
+ * Add two Support values together, accounting for strand.
+ */
+Support operator+(const Support& one, const Support& other);
+
+/**
+ * Add in a Support to another.
+ */
+Support& operator+=(Support& one, const Support& other);
+
+/**
+ * Scale a Support by an integral factor.
+ */
+Support operator*(const Support& support, const size_t& scale);
+
+/**
+ * Scale a Support by an integral factor, the other way
+ */
+Support operator*(const size_t& scale, const Support& support);
+
     
 }
 

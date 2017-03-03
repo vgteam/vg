@@ -306,72 +306,6 @@ void Call2Vcf::call(
     std::map<vg::Node*, double>& nodeLikelihood = augmented.node_likelihoods;
     std::map<vg::Edge*, double>& edgeLikelihood = augmented.edge_likelihoods;
     
-    
-    // Copy over Supports to FractionalSupports.
-    
-    // This holds read support, on each strand, for all the nodes we have read
-    // support provided for, by the node pointer in the vg graph.
-    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
-    for(auto& kv : augmented.node_supports) {
-        nodeReadSupport[kv.first] = from_support(kv.second);
-    }
-    // And read support for the edges
-    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
-    for(auto& kv : augmented.edge_supports) {
-        edgeReadSupport[kv.first] = from_support(kv.second);
-    }
-    
-    // This holds all the edges that are deletions, by the pointer to the stored
-    // Edge object in the VG graph
-    std::set<vg::Edge*> deletionEdges;
-    for (auto& kv : augmented.edge_calls) {
-        if(kv.second == CALL_REFERENCE || kv.second == CALL_DELETION) {
-            // Note that this is an edge that can represent a deletion
-            deletionEdges.insert(kv.first);
-        }
-    }
-    
-    // This holds where nodes came from (node and offset) in the original, un-
-    // augmented graph. For pieces of original nodes, this is where the piece
-    // started. For novel nodes, this is where the piece that thois is an
-    // alternative to started.
-    std::map<vg::Node*, std::pair<id_t, size_t>> nodeSources;
-    for (Translation& trans : augmented.translations) {
-        // We assume all the translations are portion of old node to whole new
-        // node in the same orientation.
-        
-        assert(trans.from().mapping_size() == 1);
-        assert(trans.to().mapping_size() == 1);
-        
-        // Where did the node come from?
-        auto& from_position = trans.from().mapping(0).position();
-        
-        // What ID did it get?
-        id_t new_id = trans.to().mapping(0).position().node_id();
-        
-        assert(!from_position.is_reverse());
-        
-        // Record the mapping
-        nodeSources[vg.get_node(new_id)] = make_pair(from_position.node_id(), from_position.offset());
-    }
-    
-    // We also need to track what edges and nodes are reference (i.e. already
-    // known)
-    std::set<vg::Node*> knownNodes;
-    for (auto& kv : augmented.node_calls) {
-        if(kv.second == CALL_REFERENCE) {
-            // Note that this is a reference node
-            knownNodes.insert(kv.first);
-        }
-    }
-    std::set<vg::Edge*> knownEdges;
-    for (auto& kv : augmented.edge_calls) {
-        if(kv.second == CALL_REFERENCE) {
-            // Note that this is a reference edge
-            knownEdges.insert(kv.first);
-        }
-    }
-    
     // Set up the graph's paths properly after augmentation modified them.
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -406,11 +340,11 @@ void Call2Vcf::call(
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
-    FractionalSupport primaryPathTotalSupport = std::make_pair(0.0, 0.0);
-    for(auto& pointerAndSupport : nodeReadSupport) {
+    FractionalSupport primaryPathTotalSupport = FractionalSupport();
+    for(auto& pointerAndSupport : augmented.node_supports) {
         if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
-            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * from_support(pointerAndSupport.second);
             
             // We also update the total for the appropriate bin
             if (expCoverage == 0) {
@@ -419,7 +353,7 @@ void Call2Vcf::call(
                     --bin;
                 }
                 binnedSupport[bin] = binnedSupport[bin] + 
-                    pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+                    pointerAndSupport.first->sequence().size() * from_support(pointerAndSupport.second);
             }
         }
     }
@@ -647,7 +581,9 @@ void Call2Vcf::call(
         std::vector<std::string> sequences;
         // And the lists of involved IDs that we use for variant IDs
         std::vector<string> id_lists;
-        // Calculate average and min support for all the alts.
+        // Calculate average and min support for all the alts. These both need
+        // to be the same type, so they are interchangeable in a reference and
+        // we can pick one to use.
         std::vector<FractionalSupport> min_supports;
         std::vector<FractionalSupport> average_supports;
         // And the min likelihood along each path
@@ -666,10 +602,10 @@ void Call2Vcf::call(
             std::stringstream id_stream;
             
             // What's the total support for this path?
-            FractionalSupport total_support = std::make_pair(0.0, 0.0);
+            Support total_support;
             
             // And the min
-            FractionalSupport min_support = std::make_pair(INFINITY, INFINITY);
+            Support min_support;
             
             // Also, what's the min likelihood
             double min_likelihood = INFINITY;
@@ -697,23 +633,24 @@ void Call2Vcf::call(
                 }
                 
                 // How much support do we have for visiting this node?
-                FractionalSupport node_support = nodeReadSupport.at(path[i].node);
+                Support node_support = augmented.node_supports.at(path[i].node);
                 // Grab the edge we're traversing into the node
                 vg::Edge* in_edge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
                                                           vg::NodeSide(path[i].node->id(), path[i].backward)));
                 // If there's less support on the in edge than on the node,
                 // knock it down. We do this separately in each dimension.
-                node_support = support_min(node_support, edgeReadSupport.at(in_edge));
+                node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
                 
                 // Ditto for the edge we're traversing out of the node
                 vg::Edge* out_edge = vg.get_edge(make_pair(vg::NodeSide(path[i].node->id(), !path[i].backward),
                                                            vg::NodeSide(path[i+1].node->id(), path[i+1].backward)));
-                node_support = support_min(node_support, edgeReadSupport.at(out_edge));
+                node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
                 
                 
                 // Add support in to the total support for the alt. Scale by node length.
                 total_support += path[i].node->sequence().size() * node_support;
-                min_support = support_min(min_support, node_support);
+                // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
+                min_support = (i == 1 ? node_support : support_min(min_support, node_support));
 
                 // Update minimum likelihood in the alt path
                 min_likelihood = std::min(min_likelihood, nodeLikelihood.at(path[i].node));
@@ -729,7 +666,7 @@ void Call2Vcf::call(
                                                        vg::NodeSide(path[1].node->id(), path[1].backward)));
                 
                 // Only use the support on the edge
-                total_support = edgeReadSupport.at(edge);
+                total_support = augmented.edge_supports.at(edge);
                 min_support = total_support;
                 
                 // And the likelihood on the edge
@@ -740,10 +677,10 @@ void Call2Vcf::call(
             // Fill in the vectors
             sequences.push_back(sequence_stream.str());
             id_lists.push_back(id_stream.str());
-            min_supports.push_back(min_support);
+            min_supports.push_back(from_support(min_support));
             // The support needs to get divided by bases, unless we're just a
             // single edge empty allele, in which case we're special.
-            average_supports.push_back(sequences.back().size() > 0 ? total_support / sequences.back().size() : total_support);
+            average_supports.push_back(sequences.back().size() > 0 ? from_support(total_support) / sequences.back().size() : from_support(total_support));
             min_likelihoods.push_back(min_likelihood);
             is_known.push_back(path_is_known);
         }
