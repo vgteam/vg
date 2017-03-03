@@ -201,9 +201,19 @@ class RepresentativeTraversalFinder : public TraversalFinder {
     
     AugmentedGraph& augmented;
     SnarlManager& snarl_manager;
+    PathIndex& index;
+    
+    // What DFS depth should we search to?
+    size_t max_depth;
+    // How many search intermediates can we allow?
+    size_t max_bubble_paths;
     
 public:
-    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager);
+
+    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
+        PathIndex& index, size_t max_depth, size_t max_bubble_paths);
+    
+    bool verbose = false;
     
     virtual ~RepresentativeTraversalFinder() = default;
     
@@ -689,7 +699,9 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& inde
 }
 
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
-    SnarlManager& snarl_manager) : augmented(augmented), snarl_manager(snarl_manager) {
+    SnarlManager& snarl_manager, PathIndex& index, size_t max_depth,
+    size_t max_bubble_paths) : augmented(augmented), snarl_manager(snarl_manager),
+    index(index), max_depth(max_depth), max_bubble_paths(max_bubble_paths) {
     
     // Nothing to do!
 
@@ -697,9 +709,242 @@ RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& aug
 
 vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snarl& site) {
     
-    // TODO: implement!
     
-    return vector<SnarlTraversal>();
+    // Get its nodes and edges (including all child sites)
+    pair<unordered_set<Node*>, unordered_set<Edge*>> contents = snarl_manager.deep_contents(&site, augmented.graph, true);
+    
+    // Copy its node set
+    std::unordered_set<Node*> nodes_left(contents.first);
+
+    // Trace the ref path through the site
+    std::vector<NodeTraversal> ref_path_for_site;
+#ifdef debug
+    std::cerr << "Site starts with " << to_node_traversal(site.start(), augmented.graph)
+        << " at " << index.by_id.at(site.start().node_id()).first
+        << " and ends with " << to_node_traversal(site.end(), augmented.graph)
+        << " at " << index.by_id.at(site.end().node_id()).first << std::endl;
+#endif
+    
+    int64_t ref_node_start = index.by_id.at(site.start().node_id()).first;
+    while(ref_node_start <= index.by_id.at(site.end().node_id()).first) {
+    
+        // Find the reference node starting here or later.
+        auto found = index.by_start.lower_bound(ref_node_start);
+        if(found == index.by_start.end()) {
+            throw runtime_error("No ref node found when tracing through site!");
+        }
+        if((*found).first > index.by_id.at(site.end().node_id()).first) {
+            // The next reference node we can find is out of the space
+            // being replaced. We're done.
+            if (verbose) {
+                cerr << "Stopping for out-of-bounds node" << endl;
+            }
+            break;
+        }
+        
+        // Get the corresponding NodeTraversal (by converting through Visit)
+        NodeTraversal found_traversal = to_node_traversal(found->second.to_visit(), augmented.graph);
+        
+        // Add the traversal to the ref path through the site
+        ref_path_for_site.push_back(found_traversal);
+        
+        // Make sure this node is actually in the site
+        assert(contents.first.count(found_traversal.node));
+        
+        // Drop it from the set of nodes in the site we haven't visited.
+        nodes_left.erase(found_traversal.node);
+        
+        // Next iteration look where this node ends.
+        ref_node_start = found->first + found_traversal.node->sequence().size();
+    }
+    
+    for(auto node : nodes_left) {
+        // Make sure none of the nodes in the site that we didn't visit
+        // while tracing along the ref path are on the ref path.
+        if(index.by_id.count(node->id())) {
+            std::cerr << "Node " << node->id() << " is on ref path at "
+                << index.by_id.at(node->id()).first << " but not traced in site "
+                << to_node_traversal(site.start(), augmented.graph) << " to " 
+                << to_node_traversal(site.end(), augmented.graph) << std::endl;
+            throw runtime_error("Extra ref node found");
+        }
+    }
+    
+    // We need to know all the full-length traversals we're going to consider.
+    // XREF states will have to be calculated later, over the whole traversal.
+    std::set<std::vector<NodeTraversal>> site_traversal_set;
+    
+    // We have this function to extend a partial traversal into a full
+    // traversal and add it as a path. The path must already be rooted on
+    // the reference in the correct order and orientation.
+    auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
+        // Splice the ref path through the site and the bubble's path
+        // through the site together.
+        vector<NodeTraversal> extended_path;
+
+        for(auto& traversal : path) {
+            // Make sure the site actually has the nodes we're visiting.
+            assert(contents.first.count(traversal.node));
+#ifdef debug
+            if(index.by_id.count(traversal.node->id())) {
+                std::cerr << "Path member " << traversal << " lives on ref at "
+                << index.by_id.at(traversal.node->id()).first << std::endl;
+            } else {
+                std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
+            }
+#endif
+        }
+        
+        size_t ref_path_index = 0;
+        size_t bubble_path_index = 0;
+        
+        while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
+            // Collect NodeTraversals from the ref path until we hit the one
+            // at which the bubble path starts.
+            extended_path.push_back(ref_path_for_site[ref_path_index++]);
+        }
+        while(bubble_path_index < path.size()) {
+            // Then take the whole bubble path
+            extended_path.push_back(path[bubble_path_index++]);
+        }
+        while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
+            // Then skip ahead to the matching point in the ref path
+            ref_path_index++;
+        }
+        if(ref_path_index == ref_path_for_site.size()) {
+            // We ran out of ref path before finding the place to leave the alt.
+            // This must be a backtracking loop or something; start over from the beginning.
+            ref_path_index = 0;
+            
+            while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
+                // Then skip ahead to the matching point in the ref path
+                ref_path_index++;
+            }
+            
+            if(ref_path_index == ref_path_for_site.size()) {
+                // Still couldn't find it!
+                std::stringstream err;
+                err << "Couldn't find " << path.back() << " in ref path of site "
+                    << to_node_traversal(site.start(), augmented.graph)
+                    << " to " << to_node_traversal(site.end(), augmented.graph) << endl;
+                throw std::runtime_error(err.str());
+            }
+        }
+        // Skip the matching NodeTraversal
+        ref_path_index++;
+        while(ref_path_index < ref_path_for_site.size()) {
+            // Then take the entier rest of the ref path
+            extended_path.push_back(ref_path_for_site[ref_path_index++]);
+        }
+        
+        // Now add it to the set
+        site_traversal_set.insert(extended_path);
+    
+    };
+
+    for(Node* node : contents.first) {
+        // Find the bubble for each node
+        
+        if(total(augmented.node_supports.at(node)) == 0) {
+            // Don't bother with unsupported nodes
+            continue;
+        }
+        
+        if(index.by_id.count(node->id())) {
+            // Don't try to pathfind to the reference for reference nodes.
+            continue;
+        }
+        
+        // TODO: allow bubbles that don't backend into the primary path
+        std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+            augmented.graph, node, nullptr, index, augmented.node_supports,
+            augmented.edge_supports, max_depth, max_bubble_paths);
+
+        std::vector<NodeTraversal>& path = sup_path.second;
+        
+        if(path.empty()) {
+            // We couldn't find a path back to the primary path. Discard
+            // this material.
+            if (verbose) {
+                cerr << "Warning: No path found for node " << node->id() << endl;
+            }
+            // TODO: record the node's bases as lost.
+            
+            // TODO: what if it's already in another bubble/the node is deleted?
+            continue;
+        }
+        
+        // Extend it out into an allele
+        extend_into_allele(path);
+        
+    }
+    
+    for(Edge* edge : contents.second) {
+        // Go through all the edges
+        
+        if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
+            // Edge doesn't touch reference at both ends. Don't use it
+            // because for some reason it makes performance worse
+            // overall.
+            continue;
+        }
+        
+        // Find a path based around this edge
+        std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+            augmented.graph, nullptr, edge, index, augmented.node_supports,
+            augmented.edge_supports, max_depth, max_bubble_paths);
+        std::vector<NodeTraversal>& path = sup_path.second;
+        
+#ifdef debug
+        std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
+        for(auto& traversal : path) {
+            std::cerr << "\t" << traversal << std::endl;
+        }
+#endif
+        
+        if(path.empty()) {
+            // We couldn't find a path back to the primary path. Discard
+            // this material.
+            if (verbose) {
+                cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+            }
+            // TODO: bases lost
+            // TODO: what if it's already in another bubble/the node is deleted?
+            continue;
+        }
+        
+        // Extend it out into an allele
+        extend_into_allele(path);
+    }
+    
+    
+    // Now convert to SnarlTraversals
+    vector<SnarlTraversal> unique_traversals;
+    
+    for(auto& node_traversals : site_traversal_set) {
+        // Look at each vector of NodeTraversals
+        
+        // Make it into this SnarlTraversal
+        SnarlTraversal trav;
+        
+        // Label traversal with the snarl
+        *trav.mutable_snarl()->mutable_start() = site.start();
+        *trav.mutable_snarl()->mutable_end() = site.end();
+        
+        // Add everything but the first and last nodes as Visits.
+        // TODO: think about nested sites?
+        
+        for(size_t i = 1; i + 1 < node_traversals.size(); i++) {
+            // Make a Visit for each NodeTraversal but the first and last
+            *trav.add_visits() = to_visit(node_traversals[i]);;
+        }
+        
+        // Save the SnarlTraversal
+        unique_traversals.push_back(trav);
+        
+    }
+    
+    return unique_traversals;
 }
 
 
@@ -1063,21 +1308,16 @@ void Call2Vcf::call(
         std::cerr << "Found " << sites.size() << " sites" << std::endl;
     }
     
+    // Now start looking for traversals of the sites
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, index, maxDepth, max_bubble_paths);
+    
     for(const Snarl* site : sites) {
         // For every site, we're going to make a variant
         
-        // Get its nodes and edges (including all child sites)
-        pair<unordered_set<Node*>, unordered_set<Edge*>> contents = site_manager.deep_contents(site, vg, true);
-        
-        // Copy its node set
-        std::unordered_set<Node*> nodes_left(contents.first);
-        
-        // Trace the ref path through the site
+        // Trace the ref path through the site. TODO: the TraversalFinder does
+        // this too. But we need to know which traversal is the reference one
+        // for VCF output.
         std::vector<NodeTraversal> ref_path_for_site;
-#ifdef debug
-        std::cerr << "Site starts with " << to_node_traversal(site->start(), vg) << " at " << index.by_id.at(site->start().node_id()).first
-            << " and ends with " << to_node_traversal(site->end(), vg) << " at " << index.by_id.at(site->end().node_id()).first << std::endl;
-#endif
         
         int64_t ref_node_start = index.by_id.at(site->start().node_id()).first;
         while(ref_node_start <= index.by_id.at(site->end().node_id()).first) {
@@ -1102,216 +1342,30 @@ void Call2Vcf::call(
             // Add the traversal to the ref path through the site
             ref_path_for_site.push_back(found_traversal);
             
-            // Make sure this node is actually in the site
-            assert(contents.first.count(found_traversal.node));
-            
-            // Drop it from the set of nodes in the site we haven't visited.
-            nodes_left.erase(found_traversal.node);
-            
             // Next iteration look where this node ends.
             ref_node_start = found->first + found_traversal.node->sequence().size();
         }
-        
-        for(auto node : nodes_left) {
-            // Make sure none of the nodes in the site that we didn't visit
-            // while tracing along the ref path are on the ref path.
-            if(index.by_id.count(node->id())) {
-                std::cerr << "Node " << node->id() << " is on ref path at "
-                    << index.by_id.at(node->id()).first << " but not traced in site "
-                    << to_node_traversal(site->start(), vg) << " to " 
-                    << to_node_traversal(site->end(), vg) << std::endl;
-                throw runtime_error("Extra ref node found");
-            }
-        }
-        
-#ifdef debug
-        // Make sure we didn't screw it up
-        std::cerr << "Site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << ":" << std::endl;
-        for(auto& item : ref_path_for_site) {
-            std::cerr << "\t" << item << std::endl;
-        }
-#endif
-        assert( ref_path_for_site.front() == to_node_traversal(site->start(), vg) );
-        assert( ref_path_for_site.back() == to_node_traversal(site->end(), vg) );
 
-        // check if a path is mostly reference for deciding if we add XREF tag
-        auto is_path_known = [&](std::vector<NodeTraversal> path) {
-            bool path_is_known = false;
-            if(path.size() == 2) {
-                // We just have the anchoring nodes and the edge between them.
-                // Look at that edge specially.
-                vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
-                                                       vg::NodeSide(path[1].node->id(), path[1].backward)));
-
-                // The path is known if the edge is known
-                path_is_known = knownEdges.count(edge);
-            } else {
-                // How many bases are known (for XREF determination)?
-                assert(path.size() > 2);
-                size_t known_bases = 0;
-                size_t unknown_bases = 0;
-
-                // don't iterate over referenc anchors at either end
-                for (int i = 1; i < path.size() - 1; ++i) {
-                    if (knownNodes.count(path[i].node)) {
-                        // This is a reference node.
-                        known_bases += path[i].node->sequence().size();
-                    } else {
-                        unknown_bases += path[i].node->sequence().size();
-                    }
-                }
-                // The path is known if more than half of its bases are reference
-                path_is_known = known_bases > 0 && known_bases >= (known_bases + unknown_bases) / 2;
-            }
-            return path_is_known;
-        };
+        // Get the traversals
+        auto traversals = traversal_finder.find_traversals(*site);
         
-        // We need to know all the full-length traversals we're going to
-        // consider. We want them in a set so we can find only unique ones.
-        // We also store the XREF state here because we want to compute
-        // it before the extension is done. 
-        std::map<std::vector<NodeTraversal>, bool> site_traversal_set;
+        // Turn them back into vectors in a set
+        // TODO: avoid this
+        std::set<std::vector<NodeTraversal>> site_traversal_set;
         
-        // We have this function to extend a partial traversal into a full
-        // traversal and add it as a path. The path must already be rooted on
-        // the reference in the correct order and orientation.
-        auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
-            // Splice the ref path through the site and the bubble's path
-            // through the site together.
-            vector<NodeTraversal> extended_path;
-
-            // Check if the path is xref before adding a bunch of reference stuff to it
-            bool path_known = is_path_known(path);
-            
-            for(auto& traversal : path) {
-                // Make sure the site actually has the nodes we're visiting.
-                assert(contents.first.count(traversal.node));
-#ifdef debug
-                if(index.by_id.count(traversal.node->id())) {
-                    std::cerr << "Path member " << traversal << " lives on ref at "
-                    << index.by_id.at(traversal.node->id()).first << std::endl;
-                } else {
-                    std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
-                }
-#endif
+        for (auto& traversal : traversals) {
+            // Make each traversal into a vector of NodeTraversals
+            vector<NodeTraversal> traversal_vector;
+            // Start at the start of the site
+            traversal_vector.push_back(to_node_traversal(site->start(), vg));
+            for (size_t i = 0; i < traversal.visits_size(); i++) {
+                // Then visit each node in turn
+                traversal_vector.push_back(to_node_traversal(traversal.visits(i), vg));
             }
+            // Finish up with the site's end
+            traversal_vector.push_back(to_node_traversal(site->end(), vg));
             
-            size_t ref_path_index = 0;
-            size_t bubble_path_index = 0;
-            
-            while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
-                // Collect NodeTraversals from the ref path until we hit the one
-                // at which the bubble path starts.
-                extended_path.push_back(ref_path_for_site[ref_path_index++]);
-            }
-            while(bubble_path_index < path.size()) {
-                // Then take the whole bubble path
-                extended_path.push_back(path[bubble_path_index++]);
-            }
-            while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
-                // Then skip ahead to the matching point in the ref path
-                ref_path_index++;
-            }
-            if(ref_path_index == ref_path_for_site.size()) {
-                // We ran out of ref path before finding the place to leave the alt.
-                // This must be a backtracking loop or something; start over from the beginning.
-                ref_path_index = 0;
-                
-                while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
-                    // Then skip ahead to the matching point in the ref path
-                    ref_path_index++;
-                }
-                
-                if(ref_path_index == ref_path_for_site.size()) {
-                    // Still couldn't find it!
-                    std::stringstream err;
-                    err << "Couldn't find " << path.back() << " in ref path of site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << endl;
-                    throw std::runtime_error(err.str());
-                }
-            }
-            // Skip the matching NodeTraversal
-            ref_path_index++;
-            while(ref_path_index < ref_path_for_site.size()) {
-                // Then take the entier rest of the ref path
-                extended_path.push_back(ref_path_for_site[ref_path_index++]);
-            }
-            
-            // Now add it to the set
-            site_traversal_set.insert(make_pair(extended_path, path_known));
-        
-        };
-
-        for(Node* node : contents.first) {
-            // Find the bubble for each node
-            
-            if(total(nodeReadSupport.at(node)) == 0) {
-                // Don't bother with unsupported nodes
-                continue;
-            }
-            
-            if(index.by_id.count(node->id())) {
-                // Don't try to pathfind to the reference for reference nodes.
-                continue;
-            }
-            
-            std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
-                vg, node, nullptr, index, augmented.node_supports,
-                augmented.edge_supports, maxDepth, max_bubble_paths);
-
-            std::vector<NodeTraversal>& path = sup_path.second;
-            
-            if(path.empty()) {
-                // We couldn't find a path back to the primary path. Discard
-                // this material.
-                if (verbose) {
-                    cerr << "Warning: No path found for node " << node->id() << endl;
-                }
-                basesLost += node->sequence().size();
-                // TODO: what if it's already in another bubble/the node is deleted?
-                continue;
-            }
-            
-            // Extend it out into an allele
-            extend_into_allele(path);
-            
-        }
-        
-        for(Edge* edge : contents.second) {
-            // Go through all the edges
-            
-            if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
-                // Edge doesn't touch reference at both ends. Don't use it
-                // because for some reason it makes performance worse
-                // overall.
-                continue;
-            }
-            
-            // Find a path based around this edge
-            std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
-                vg, nullptr, edge, index, augmented.node_supports,
-                augmented.edge_supports, maxDepth, max_bubble_paths);
-            std::vector<NodeTraversal>& path = sup_path.second;
-            
-#ifdef debug
-            std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
-            for(auto& traversal : path) {
-                std::cerr << "\t" << traversal << std::endl;
-            }
-#endif
-            
-            if(path.empty()) {
-                // We couldn't find a path back to the primary path. Discard
-                // this material.
-                if (verbose) {
-                    cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
-                }
-                // TODO: bases lost
-                // TODO: what if it's already in another bubble/the node is deleted?
-                continue;
-            }
-            
-            // Extend it out into an allele
-            extend_into_allele(path);
+            site_traversal_set.insert(traversal_vector);
         }
         
         // Throw the ref allele out of the set
@@ -1322,7 +1376,10 @@ void Call2Vcf::call(
         // Make it the first in the ordered alleles
         std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
         // Then add all the rest
-        std::copy(site_traversal_set.begin(), site_traversal_set.end(), std::back_inserter(ordered_paths));
+        // TODO: need to get whether they're xref or not.
+        for (auto& traversal : site_traversal_set) {
+            ordered_paths.push_back(make_pair(traversal, false));
+        }
         
         // Collect sequences for all the paths
         std::vector<std::string> sequences;
