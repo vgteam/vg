@@ -325,8 +325,8 @@ int main_srpe(int argc, char** argv){
                 #pragma omp critical
                 perfects.push_back(aln);
             }
-            //else if (ff.simple_filter(aln)){
-            else if (true){
+       //     else if (true){
+        else if (ff.simple_filter(aln)){
                 #pragma omp critical
                 {
                     simple_mismatches.push_back(aln);
@@ -354,6 +354,7 @@ int main_srpe(int argc, char** argv){
         Translator tt;
         vector<Translation> translations = graph->edit(simple_paths);
         tt.load(translations);
+        cerr << "Loaded " << translations.size() << " translations." << endl;
 
         if (augment_paths){
 
@@ -366,14 +367,14 @@ int main_srpe(int argc, char** argv){
         DepthMap dm(graph->size());
         vector<Path> translated;
         translated.reserve(100000);
-        for (auto x : simple_mismatches){
-            translated.push_back(  tt.translate(x.path()));
+        for (auto x : simple_paths){
+            cerr << "Translating " << x.name() << endl;
+            Path translated_path = tt.translate(x);
+            dm.fill(translated_path);
         }
         for (auto y : perfects){
-            translated.push_back(tt.translate(y.path()));
         }
 
-        dm.fill(translated);
         
         // Save memory (maybe???) by disposing of our perfects and simples.
         // TODO is clear enough?
