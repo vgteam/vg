@@ -218,7 +218,8 @@ public:
     virtual ~RepresentativeTraversalFinder() = default;
     
     /**
-     * Find traversals to cover the nodes and edges of the snarl.
+     * Find traversals to cover the nodes and edges of the snarl. Always emits
+     * the primary path traversal first, if applicable.
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
@@ -709,6 +710,9 @@ RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& aug
 
 vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snarl& site) {
     
+    // TODO: we can only do ultrabubbles right now. Other snarls may not have
+    // traversals through from end to end.
+    assert(site.type() == ULTRABUBBLE);
     
     // Get its nodes and edges (including all child sites)
     pair<unordered_set<Node*>, unordered_set<Edge*>> contents = snarl_manager.deep_contents(&site, augmented.graph, true);
@@ -718,15 +722,28 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 
     // Trace the ref path through the site
     std::vector<NodeTraversal> ref_path_for_site;
+    
+    // First figure where the site starts and ends in the primary path
+    // TODO: support off-path sites
+    size_t site_start = index.by_id.at(site.start().node_id()).first;
+    size_t site_end = index.by_id.at(site.end().node_id()).first;
+    
+    
 #ifdef debug
     std::cerr << "Site starts with " << to_node_traversal(site.start(), augmented.graph)
-        << " at " << index.by_id.at(site.start().node_id()).first
+        << " at " << site_start
         << " and ends with " << to_node_traversal(site.end(), augmented.graph)
-        << " at " << index.by_id.at(site.end().node_id()).first << std::endl;
+        << " at " << site_end << std::endl;
 #endif
-    
-    int64_t ref_node_start = index.by_id.at(site.start().node_id()).first;
-    while(ref_node_start <= index.by_id.at(site.end().node_id()).first) {
+
+    // The primary path may go through the site backward. So get the primary min and max coords
+    size_t primary_min = min(site_start, site_end);
+    size_t primary_max = max(site_start, site_end);
+
+    // Then walk nodes from min coordinate to max coordinate. This holds the
+    // start coordinate of the current node.
+    int64_t ref_node_start = primary_min;
+    while(ref_node_start <= primary_max) {
     
         // Find the reference node starting here or later.
         auto found = index.by_start.lower_bound(ref_node_start);
@@ -921,9 +938,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     // Now convert to SnarlTraversals
     vector<SnarlTraversal> unique_traversals;
     
-    for(auto& node_traversals : site_traversal_set) {
-        // Look at each vector of NodeTraversals
-        
+    // Have a function to convert a vector of NodeTraversals including the snarl
+    // ends into a SnarlTraversal
+    auto emit_traversal = [&](vector<NodeTraversal> node_traversals) {
         // Make it into this SnarlTraversal
         SnarlTraversal trav;
         
@@ -934,13 +951,40 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Add everything but the first and last nodes as Visits.
         // TODO: think about nested sites?
         
-        for(size_t i = 1; i + 1 < node_traversals.size(); i++) {
-            // Make a Visit for each NodeTraversal but the first and last
-            *trav.add_visits() = to_visit(node_traversals[i]);;
+        if (site_start > site_end) {
+            // The primary path runs backward, so we need to emit all our lists
+            // of NodeTraversals backward so they come out in the snarl's
+            // orientation and not the primary path's.
+            
+            for(size_t i = 1; i + 1 < node_traversals.size(); i++) {
+                // Make a Visit for each NodeTraversal but the first and last,
+                // but backward and in reverse order.
+                *trav.add_visits() = to_visit(node_traversals[node_traversals.size() - 1 - i].reverse());
+            }
+            
+        } else {
+            // The primary path and the snarl use the same orientation
+            
+            for(size_t i = 1; i + 1 < node_traversals.size(); i++) {
+                // Make a Visit for each NodeTraversal but the first and last
+                *trav.add_visits() = to_visit(node_traversals[i]);
+            }
+            
         }
         
         // Save the SnarlTraversal
         unique_traversals.push_back(trav);
+    };
+    
+    
+    // Do the ref path first
+    emit_traversal(ref_path_for_site);
+    for(auto& node_traversals : site_traversal_set) {
+        // Look at each vector of NodeTraversals
+        if (node_traversals != ref_path_for_site) {
+            // And do everything other than the ref path
+            emit_traversal(node_traversals);            
+        }
         
     }
     
@@ -1314,43 +1358,12 @@ void Call2Vcf::call(
     for(const Snarl* site : sites) {
         // For every site, we're going to make a variant
         
-        // Trace the ref path through the site. TODO: the TraversalFinder does
-        // this too. But we need to know which traversal is the reference one
-        // for VCF output.
-        std::vector<NodeTraversal> ref_path_for_site;
-        
-        int64_t ref_node_start = index.by_id.at(site->start().node_id()).first;
-        while(ref_node_start <= index.by_id.at(site->end().node_id()).first) {
-        
-            // Find the reference node starting here or later.
-            auto found = index.by_start.lower_bound(ref_node_start);
-            if(found == index.by_start.end()) {
-                throw runtime_error("No ref node found when tracing through site!");
-            }
-            if((*found).first > index.by_id.at(site->end().node_id()).first) {
-                // The next reference node we can find is out of the space
-                // being replaced. We're done.
-                if (verbose) {
-                    cerr << "Stopping for out-of-bounds node" << endl;
-                }
-                break;
-            }
-            
-            // Get the corresponding NodeTraversal (by converting through Visit)
-            NodeTraversal found_traversal = to_node_traversal(found->second.to_visit(), vg);
-            
-            // Add the traversal to the ref path through the site
-            ref_path_for_site.push_back(found_traversal);
-            
-            // Next iteration look where this node ends.
-            ref_node_start = found->first + found_traversal.node->sequence().size();
-        }
-
-        // Get the traversals
+        // Get the traversals. The ref traversal is the first one. They are all
+        // in site orientation, which may oppose primary path orientation.
         auto traversals = traversal_finder.find_traversals(*site);
         
-        // Make it the first in the ordered alleles
-        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
+        // We turn them all back into NodeTraversal vectors
+        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths;
         
         for (auto& traversal : traversals) {
             // Make each traversal into a vector of NodeTraversals
@@ -1364,14 +1377,18 @@ void Call2Vcf::call(
             // Finish up with the site's end
             traversal_vector.push_back(to_node_traversal(site->end(), vg));
             
-            if (traversal_vector == ref_path_for_site) {
-                // This is just the reference traversal we already have, so skip
-                // it
-                continue;
+            if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
+                // This site is backward relative to the primary path.
+                
+                // Turn the traversal around to primary path orientation.
+                std::reverse(traversal_vector.begin(), traversal_vector.end());
+                for (auto& trav : traversal_vector) {
+                    // Flip every traversal in it
+                    trav = trav.reverse();
+                }
             }
             
-            // Otherwise it's a different one, so put it in the list after the
-            // reference one, with an annotation saying whether it's a
+            // Put it in the list, with an annotation saying whether it's a
             // previously-known traversal or not.
             ordered_paths.push_back(make_pair(traversal_vector, is_reference(traversal, augmented, index)));
         }
