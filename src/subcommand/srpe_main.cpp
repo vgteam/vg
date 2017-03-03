@@ -366,12 +366,12 @@ int main_srpe(int argc, char** argv){
         DepthMap dm(graph->size());
         vector<Path> translated;
         translated.reserve(100000);
-        for (auto x : simple_mismatches){
-            translated.push_back(  tt.translate(x.path()));
+        for (auto x : simple_paths){
+            translated.push_back(  tt.translate(x));
         }
-        for (auto y : perfects){
-            translated.push_back(tt.translate(y.path()));
-        }
+        // for (auto y : perfects){
+        //     translated.push_back(tt.translate(y.path()));
+        // }
 
         dm.fill(translated);
         
