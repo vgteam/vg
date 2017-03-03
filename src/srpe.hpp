@@ -110,11 +110,16 @@ public:
             
         }
   };
-  inline void add_node(int64_t node_id) {
+  inline void fill(Mapping m){
+    #pragma omp atomic
+    depths[m.position().node_id()]++;
+  };
+  inline void fill(int64_t node_id) {
     if (node_id < size) {
-
+        #pragma omp atomic
+        depths[node_id] += 1;
     } else {
-
+        cerr << "WARNING: INVALID NODE" << node_id << endl;
     }
   }
 };

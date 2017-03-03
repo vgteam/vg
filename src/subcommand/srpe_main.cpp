@@ -325,19 +325,26 @@ int main_srpe(int argc, char** argv){
                 #pragma omp critical
                 perfects.push_back(aln);
             }
-            //else if (ff.simple_filter(aln)){
-            else if (true){
+            else if (ff.simple_filter(aln)){
                 #pragma omp critical
                 {
                     simple_mismatches.push_back(aln);
                     Path p = trim_hanging_ends(aln.path());
+                    p.set_name(aln.name());
                     simple_paths.push_back(p);
+                    
                 }
             }
-            // else{
-            //     #pragma omp critical
-            //     complex_reads.push_back(aln);
-            // }
+            else{
+                #pragma omp critical
+                {
+                complex_reads.push_back(aln);
+                Path p = trim_hanging_ends(aln.path());
+                p.set_name(aln.name());
+                simple_paths.push_back(p);
+                }
+                
+            }
         };
 
         stream::for_each_parallel(all_reads, get_simples_and_perfects);
@@ -345,6 +352,7 @@ int main_srpe(int argc, char** argv){
         if (true){
             cerr << perfects.size() << " perfect reads." << endl;
             cerr << simple_mismatches.size() << " simple reads." << endl; 
+            cerr << "Addding " << simple_paths.size() << " paths to graph." << endl;
             cerr << complex_reads.size() << " more complex reads." << endl;
         }
 
@@ -354,6 +362,8 @@ int main_srpe(int argc, char** argv){
         Translator tt;
         vector<Translation> translations = graph->edit(simple_paths);
         tt.load(translations);
+        graph->paths.rebuild_mapping_aux();
+        cerr << "Loaded " << translations.size() << " translations." << endl;
 
         if (augment_paths){
 
@@ -364,34 +374,35 @@ int main_srpe(int argc, char** argv){
         
         // Add both simple and perfect reads to the depth map.
         DepthMap dm(graph->size());
-        vector<Path> translated;
-        translated.reserve(100000);
-        for (auto x : simple_paths){
-            translated.push_back(  tt.translate(x));
+        for (auto x : complex_reads){
+            list<Mapping>& mappings = graph->paths.get_path(x.name());
+            for (auto m : mappings){
+                dm.fill(m);
+            }
         }
-        // for (auto y : perfects){
-        //     translated.push_back(tt.translate(y.path()));
-        // }
+        cerr << "Filled depth map." << endl;
+        
 
-        dm.fill(translated);
+
         
         // Save memory (maybe???) by disposing of our perfects and simples.
         // TODO is clear enough?
-        simple_mismatches.clear();
-        perfects.clear();
+        //simple_mismatches.clear();
+        //perfects.clear();
 
         // Rip out any nodes supported by an insufficient number of reads.
         std::function<void(Node*)> remove_low_depth_nodes = [&](Node* n){
             if (dm.get_depth(n->id()) < min_depth){
                 #pragma omp critical
                 {
+                    cerr << "Destroying node: " << n->id() << endl;
                     graph->destroy_node(n);
                 }
             }
         };
-        graph->for_each_node_parallel(remove_low_depth_nodes);
-        graph->remove_orphan_edges();
-
+        graph->for_each_node(remove_low_depth_nodes);
+        //graph->remove_orphan_edges();
+        cerr << "Low-depth nodes/edges removed from graph" << endl;
 
         if (!augmented_graph_name.empty()){
             ofstream augstream;
