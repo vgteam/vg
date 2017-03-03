@@ -368,7 +368,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             } while (have_dangling_ends);
         }
         
-        if (variants_processed++ % 1000 == 0 || true) {
+        if (print_updates && (variants_processed++ % 1000 == 0 || true)) {
             #pragma omp critical (cerr)
             cerr << "Variant " << variants_processed << ": " << haplotypes.size() << " haplotypes at "
                 << variant->sequenceName << ":" << variant->position << ": "

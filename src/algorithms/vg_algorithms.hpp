@@ -69,6 +69,51 @@ namespace algorithms {
                                                        bool strict_max_len = false,
                                                        LRUCache<id_t, Node>* node_cache = nullptr);
     
+    
+    /// Fills graph g with the subgraph of the VG graph vg that contains all of the positions in
+    /// the positions vector and all other nodes and edges that can be reached within a maximum
+    /// distance from any of these positions.
+    ///
+    /// Args:
+    ///  vg                         graph to extract subgraph from
+    ///  g                          graph to extract into
+    ///  positions                  search outward from these positions
+    ///  max_dist                   include all nodes and edges that can be reached in at most this distance
+    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions, size_t max_dist);
+    
+    /// Same semantics as previous, but accesses graph through an XG instead of a VG. Optionally uses
+    /// an LRUCache to speed up Node queries.
+    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions, size_t max_dist,
+                                  LRUCache<id_t, Node>* node_cache = nullptr);
+    
+    /// Same semantics as previous except that there is a separate maximum distance for different
+    /// positions in the graph. Each distance is associated with the position with the same index. Throws
+    /// an error if the position and distance vectors are not the same length.
+    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
+                                  const vector<size_t>& position_max_dist);
+    
+    /// Same semantics as previous, but accesses graph through an XG instead of a VG. Optionally uses
+    /// an LRUCache to speed up Node queries.
+    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
+                                  const vector<size_t>& position_max_dist,
+                                  LRUCache<id_t, Node>* node_cache = nullptr);
+    
+    /// Same semantics as previous except that there is a separate maximum distance for different
+    /// positions in the graph and for each search direction. Each distance is associated with the
+    /// position with the same index. The forward distance is in the same orientation as the position,
+    /// and the backward distance is in the reverse orientation of the position. Throws an error if
+    /// the position and distance vectors are not the same length.
+    void extract_containing_graph(VG& vg, Graph& g, const vector<pos_t>& positions,
+                                  const vector<size_t>& position_forward_max_dist,
+                                  const vector<size_t>& position_backward_max_dist);
+    
+    /// Same semantics as previous, but accesses graph through an XG instead of a VG. Optionally uses
+    /// an LRUCache to speed up Node queries.
+    void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
+                                  const vector<size_t>& position_forward_max_dist,
+                                  const vector<size_t>& position_backward_max_dist,
+                                  LRUCache<id_t, Node>* node_cache = nullptr);
+    
 }
 }
 
