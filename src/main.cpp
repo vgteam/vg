@@ -5890,6 +5890,10 @@ int main_map(int argc, char** argv) {
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                 : 2 * m->min_mem_length);
+        if (debug && i == 0) {
+            cerr << "[vg map] : min_mem_length = " << m->min_mem_length
+                 << ", mem_reseed_length = " << m->mem_reseed_length << endl;
+        }
         m->fast_reseed = use_fast_reseed;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;

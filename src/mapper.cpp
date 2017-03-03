@@ -1213,11 +1213,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     */
 
     if(debug) {
-        cerr << "align_paired_multi_simul " << endl
+        cerr << "align_paired_multi_simul "
+             << "with " << read1.name() << " and "
+             << read2.name() << endl
             //<< "read 1 " << read1.sequence() << endl
             //<< "read 2 " << read2.sequence() << endl
-             << "read 1 " << pb2json(read1) << endl
-             << "read 2 " << pb2json(read2) << endl
+            //<< "read 1 " << pb2json(read1) << endl
+            //<< "read 2 " << pb2json(read2) << endl
              << "fragment model " << fragment_max << ", "
              << fragment_size << ", "
              << cached_fragment_length_mean << ", "
