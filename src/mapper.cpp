@@ -1368,7 +1368,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 
     // build the paired-read MEM markov model
     MEMMarkovModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, 32);
-    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
+    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, true, debug);
 
     // now reconstruct the paired fragments from the threads
     // for each thread we accept either both pairs or one fragment or the other
