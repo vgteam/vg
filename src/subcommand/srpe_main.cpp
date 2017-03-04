@@ -252,7 +252,12 @@ int main_srpe(int argc, char** argv){
 
         gamind.for_alignment_to_nodes(variant_nodes, incr);
 
-        cerr << node_to_depth.size () << " reads in count map" << endl;
+
+        vector<Genotype> genotypes;
+        vector<Locus> loci;
+        vector<LongVariantAffinity> affinities;
+        // TODO : calculate genotype likelihoods
+
 
         for (auto it : hash_to_var){
             for (int i = 0; i <= it.second.alt.size(); i++){
@@ -260,13 +265,15 @@ int main_srpe(int argc, char** argv){
                 string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
                 for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
                     sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
-
                 }
                 #pragma omp critical
                 it.second.info["AD"].push_back(std::to_string(sum_reads));
             }
             cout << it.second << endl;
         }
+
+
+
 
     }
     else if (do_all){

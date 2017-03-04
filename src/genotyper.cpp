@@ -24,10 +24,10 @@ using namespace std;
                                 vcflib::VariantCallFile* vars,
                                 FastaReference* ref_genome,
                                 vector<FastaReference*> insertions,
-                                string gamfile){
+                                string gamfile, bool isIndex){
     // Store variant->name index
     map<string, vcflib::Variant> hash_to_var;
-    unordered_set<int64_t> variant_nodes;
+    vector<int64_t> variant_nodes;
     // Store a list of node IDs each variant covers
     map<string, vector<int64_t> > varname_to_node_id;
     // A dumb depth map, for each node in the graph, of substantial size
@@ -51,14 +51,29 @@ using namespace std;
 
         hash_to_var[ var_id ] = var;
 
-        for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
+        if (!isIndex){
+            for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
             string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
             list<Mapping> x_path = gpaths[ alt_id ];
                 for (Mapping x_m : x_path){
                     varname_to_node_id[ alt_id ].push_back(x_m.position().node_id());
                 }
         }
+
+        }
+        else{
+            for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
+            string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
+            list<Mapping> x_path = gpaths[ alt_id ];
+                for (Mapping x_m : x_path){
+                        variant_nodes.push_back(x_m.position().node_id());
+                }
+        }
+
     }
+    }
+
+    
 
     std::function<bool(const Mapping& m)> sufficient_matches = [&](const Mapping& m){
         int matches = 0;
@@ -84,7 +99,7 @@ using namespace std;
         }
     };
 
-    std::function<void(Alignment& a)> incr = [&](Alignment& a){
+    std::function<void(Alignment& a)> incr = [&](const Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
                 if (sufficient_matches(a.path().mapping(i))){
                     node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
@@ -94,8 +109,19 @@ using namespace std;
     
 
     // open our gam, count our reads, close our gam.
-    ifstream gamstream(gamfile);
-    stream::for_each(gamstream, incr);
+    if (!isIndex){
+        ifstream gamstream(gamfile);
+        if (gamstream.good()){
+            stream::for_each(gamstream, incr);
+        }
+        gamstream.close();
+    }
+    else{
+        Index gamindex;
+        gamindex.open_read_only(gamfile);
+        //gamindex.for_alignment_to_nodes(variant_nodes, incr);
+    }
+    
 
     #ifdef DEBUG
         cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
@@ -121,33 +147,7 @@ struct SV_Config{
     int64_t max_bp_range = -1;
 };
 
-/**void Genotyper::call_sv_signatures(vector<string> sigtypes,
-                                    SV_Config conf,
-                                    string discord_gam,
-                                    string split_gam,
-                                    int max_refinement_iterations,
-                                    int max_parallelism){
-// Call SV signatures based on split and discordant reads
 
-// COLLECT Take in a bunch of reads
-// Collect those supporting a specific type of SV
-// Give each pair of reads an interval, which may be
-// fully nested within but not one-end-overlapping another interval
-// NORMALIZE normalize signatures within an interval (i.e. collate reads that
-represent a single signature as a single data structure.)
-// insert the signature into the graph as a Path though the graph.
-// REFINE remap the reads within the signatures interval to a 
-subgraph that spans the interval containing the local signature.
-// repeat this max_refinement_iterations times.
-// Take the best refinement and place it into the initial graph.
-// Continue on with the next signature/variant.
-
-// We should process variants from largest to smallest to minimize having to deal
-// with nested variation.
-
-}
-
-*/
 
 
 void Genotyper::run(VG& graph,

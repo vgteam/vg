@@ -21,6 +21,7 @@
 #include "types.hpp"
 #include "genotypekit.hpp"
 #include "path_index.hpp"
+#include "index.hpp"
 
 namespace vg {
 
@@ -139,7 +140,7 @@ public:
                                 vcflib::VariantCallFile* vars,
                                 FastaReference* ref_genome,
                                 vector<FastaReference*> insertions,
-                                string gamfile);
+                                string gamfile, bool isIndex = false);
     // Process and write output
     void run(VG& graph,
              vector<Alignment>& alignments,

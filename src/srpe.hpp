@@ -9,7 +9,7 @@
 #include "vg.hpp"
 #include "gcsa.h"
 #include "alignment.hpp"
-#include "genotyper.hpp"
+#include "genotypekit.hpp"
 using namespace std;
 namespace vg{
 
@@ -35,6 +35,17 @@ namespace vg{
 //         inline BPDepthMap(int64_t sz) {bp_depths = new uint8_t**[sz]};
 
 //  };
+           
+    
+    struct LongVariantAffinity{
+        bool consistent_enough = true;
+        double affinity = 0.0;
+        bool is_reverse = false;
+        double score = 0.0;
+        double likelihood_ln = 0.0;
+        LongVariantAffinity() = default;
+    };
+
 
 struct Flags{
     /**
@@ -175,19 +186,7 @@ public:
             // void import_depth_map(string mapname);
             // void export_reference_names(vector<string> names);
            
-           
-            /**
-    struct LongVariantAffinity{
-        bool consistent_enough = false;
-        double affinity = 0.0;
-        bool is_reverse = false;
-        double score = 0.0;
-        double likelihood_ln = 0.0;
-        LongVariantAffinity() = default;
-        LongVariantAffinity(double affinity, bool is_reverse) : consistent_enough(affinity >= 0.95),
-            affinity(affinity), is_reverse(is_reverse), score(affinity);
-    };
-            */
+
         public:
             vector<string> ref_names;
             // Are multiple references present in the same subgraph?

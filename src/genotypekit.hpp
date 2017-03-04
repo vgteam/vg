@@ -54,8 +54,42 @@ public:
     
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
 };
-    
-    
+
+  /**
+    Classes which assume:
+    1. The graph is minimally augmented, or not at all.
+    2. There are known variants in the graph.
+    3. Depth is stored in an external map.
+  **/ 
+class SimpleDepthTracker{
+    virtual uint32_t get_position_depth(Position p);
+    virtual uint32_t get_node_depth(int64_t id);
+    virtual void increment_depth(Position p);
+    virtual void increment_depth(int64_t id);
+
+    // convenience functions
+    virtual void fill(const vector<Alignment>& alns);
+    virtual void fill(const vector<Paths>& paths);
+};
+class SimpleConsistencyCalculator{
+    virtual vector<bool> calculate_consistency(const vector<Path> allele_paths,
+        vector<Alignment>& reads);
+};
+class SimpleAffinityCalculator{
+        virtual vector<Support> calculate_supports(vector<Path> allele_paths,
+                vector<Alignment>& reads, vector<bool> consistencies);
+};
+class SimpleGenotypeLikelihoodCalculator{
+    virtual double calculate_log_likelihood(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Genotype& genotype,
+        const vector<vector<bool>>& consistencies, const vector<Support>& supports,
+        const vector<Alignment>& reads) = 0;
+};
+
+class SimpleBubbleTraversalFinder{
+    virtual vector<Path> find_allele_paths(const Snarl& site);
+    virtual vector<Path> find_read_supported_allele_paths(const Snarl& site, SimpleDepthTracker depthmap);
+};
 
 /**
  * Represents a strategy for computing consistency between Alignments and
@@ -155,7 +189,10 @@ public:
 };
 
 
-// And now the implementations
+
+/////////////////////////////////
+// And now the implementations //
+/////////////////////////////////
     
 class CactusUltrabubbleFinder : public SnarlFinder {
     
@@ -280,18 +317,18 @@ public:
  * TBD
  *
  */
-//class StandardVcfRecordConverter {
-//private:
+// class StandardVcfRecordConverter {
+// private:
 //    const ReferenceIndex& index;
 //    vcflib::VariantCallFile& vcf;
 //    const string& sample_name;
-//    
-//public:
+   
+// public:
 //    StandardVcfRecordConverter();
 //    virtual ~StandardVcfRecordConverter() = default;
-//    
+   
 //    virtual vcflib::Variant convert(const Locus& locus) = 0;
-//};
+// };
     
     
 }
