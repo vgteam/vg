@@ -210,6 +210,11 @@ public:
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
 
+    // node start cache for fast approximate position estimates
+    vector<LRUCache<id_t, size_t>* > node_start_cache;
+    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    void init_node_start_cache(void);
+
     // match node traversals to path positions
     vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
     LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);

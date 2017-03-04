@@ -158,6 +158,7 @@ void Mapper::set_alignment_threads(int new_thread_count) {
     clear_aligners(); // number of aligners per mapper depends on thread count
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
+    init_node_start_cache();
     init_node_pos_cache();
 }
 
@@ -167,7 +168,17 @@ void Mapper::init_node_cache(void) {
     }
     node_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_cache.push_back(new LRUCache<id_t, Node>(256));
+        node_cache.push_back(new LRUCache<id_t, Node>(4096));
+    }
+}
+
+void Mapper::init_node_start_cache(void) {
+    for (auto& nc : node_start_cache) {
+        delete nc;
+    }
+    node_start_cache.clear();
+    for (int i = 0; i < alignment_threads; ++i) {
+        node_start_cache.push_back(new LRUCache<id_t, size_t>(4096));
     }
 }
 
@@ -177,7 +188,7 @@ void Mapper::init_node_pos_cache(void) {
     }
     node_pos_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(256));
+        node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(4096));
     }
 }
 
@@ -2649,6 +2660,11 @@ LRUCache<id_t, Node>& Mapper::get_node_cache(void) {
     return *node_cache[tid];
 }
 
+LRUCache<id_t, size_t>& Mapper::get_node_start_cache(void) {
+    int tid = node_start_cache.size() > 1 ? omp_get_thread_num() : 0;
+    return *node_start_cache[tid];
+}
+
 LRUCache<gcsa::node_type, map<string, vector<size_t> > >& Mapper::get_node_pos_cache(void) {
     int tid = node_pos_cache.size() > 1 ? omp_get_thread_num() : 0;
     return *node_pos_cache[tid];
@@ -4132,7 +4148,7 @@ int Mapper::approx_position(pos_t pos) {
     if (is_rev(pos)) {
         pos = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
     }
-    return xindex->node_start(id(pos)) + offset(pos);
+    return xg_cached_node_start(id(pos), xindex, get_node_start_cache()) + offset(pos);
 }
 
 int Mapper::approx_distance(pos_t pos1, pos_t pos2) {
