@@ -608,14 +608,9 @@ void Call2Vcf::call(
         std::vector<FractionalSupport> average_supports;
         // And the min likelihood along each path
         std::vector<double> min_likelihoods;
-        // Is the path as a whole known or novel?
-        std::vector<bool> is_known;
         for(size_t i = 0; i < locus.allele_size(); i++) {
             // Go through all the Paths in the Locus
             const Path& path = locus.allele(i);
-            
-            // Look up if it's a known path or not
-            const bool& path_is_known = is_ref.at(i);
             
             // We use this to construct the allele sequence
             std::stringstream sequence_stream;
@@ -706,15 +701,22 @@ void Call2Vcf::call(
                 
             }
             
-            // Fill in the vectors
-            sequences.push_back(sequence_stream.str());
-            id_lists.push_back(id_stream.str());
+            // Calculate the min and average FractionalSupports
             min_supports.push_back(from_support(min_support));
             // The support needs to get divided by bases, unless we're just a
             // single edge empty allele, in which case we're special.
-            average_supports.push_back(sequences.back().size() > 0 ? from_support(total_support) / sequences.back().size() : from_support(total_support));
+            average_supports.push_back(sequence_stream.str().size() > 0 ? 
+                from_support(total_support) / sequence_stream.str().size() : 
+                from_support(total_support));
+            
+            // Fill in the support for this allele in the Locus, by rounding the appropriate FractionalSupport
+            *locus.add_support() = to_support(useAverageSupport ? average_supports.back() : min_supports.back());
+            
+            // Fill in the other vectors
+            // TODO: add this info to Locus? Or calculate later when emitting VCF?
+            sequences.push_back(sequence_stream.str());
+            id_lists.push_back(id_stream.str());
             min_likelihoods.push_back(min_likelihood);
-            is_known.push_back(path_is_known);
         }
         
         // TODO: complain if multiple copies of the same string exist???
@@ -725,8 +727,7 @@ void Call2Vcf::call(
         // Now look at all the paths for the site and pick the top 2.
         int best_allele = -1;
         int second_best_allele = -1;
-        
-        for(size_t i = 0; i < ordered_paths.size(); i++) {
+        for(size_t i = 0; i < locus.allele_size(); i++) {
             if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
                 // We have a new best. Demote the old best.
                 second_best_allele = best_allele;
@@ -905,8 +906,8 @@ void Call2Vcf::call(
         
         // Now fill in all the other variant info/format stuff
 
-        if((best_allele != 0 && is_known.at(best_allele)) || 
-            (second_best_allele != 0 && second_best_allele != -1 && is_known.at(second_best_allele))) {
+        if((best_allele != 0 && is_ref.at(best_allele)) || 
+            (second_best_allele != 0 && second_best_allele != -1 && is_ref.at(second_best_allele))) {
             // Flag the variant as reference if either of its two best alleles
             // is known but not the primary path. Don't put in a false entry if
             // it isn't known, because vcflib will spit out the flag anyway...
