@@ -257,7 +257,12 @@ void Genotyper::run(VG& graph,
     
     
     // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
-    
+
+    // Set up our genotypekit members.
+    SnarlFinder* snarl_finder;
+
+
+
     // Find all the sites in either the main graph or the subset
     vector<Genotyper::Site> sites;
     
@@ -356,6 +361,7 @@ void Genotyper::run(VG& graph,
         // Unfold/unroll, find the superbubbles, and translate back. Note that
         // we can only use Cactus with the ref path if it survived the
         // subsetting.
+       
         sites = use_cactus ? (
                               subset.paths.has_path(ref_path_name) ?
                               find_sites_with_cactus(subset, ref_path_name)
@@ -379,8 +385,35 @@ void Genotyper::run(VG& graph,
         }
         
         // Unfold/unroll, find the superbubbles, and translate back.
-        sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-        : find_sites_with_supbub(graph);
+        // sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+        // : find_sites_with_supbub(graph);
+
+        graph.sort();
+
+        bool filter_trivials = true;
+        snarl_finder =  new CactusUltrabubbleFinder(graph, "", filter_trivials);
+
+        // Get our snarls.
+        SnarlManager snarl_manager = snarl_finder->find_snarls();
+        vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+
+        // Enumerate traversals through our snarls
+        // TODO : handle reversing sites in sites
+        TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(graph, snarl_manager);
+        for (auto x : snarl_roots){
+            vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
+            Site current;
+            current.start.node = graph.get_node(x->start().node_id());
+            current.end.node = graph.get_node(x->end().node_id());
+            set<id_t> contents;
+            for (auto tr : site_traversals){
+                for (auto v : tr.visits()){
+                contents.insert(v.node_id());
+                }
+            }
+            current.contents = contents;
+            sites.push_back(current);
+        }
     }
     
     if(show_progress) {
@@ -628,7 +661,8 @@ void Genotyper::run(VG& graph,
                                     variant.sequenceName = ref_path_name;
                                 }
                                 variant.position += variant_offset;
-#pragma omp critical(cout)
+                                
+                                #pragma omp critical(cout)
                                 cout << variant << endl;
                             }
                         } else {

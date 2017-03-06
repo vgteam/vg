@@ -346,9 +346,6 @@ int main_srpe(int argc, char** argv){
                 #pragma omp critical
                 {
                 complex_reads.push_back(aln);
-                Path p = trim_hanging_ends(aln.path());
-                p.set_name(aln.name());
-                simple_paths.push_back(p);
                 }
                 
             }
@@ -359,7 +356,7 @@ int main_srpe(int argc, char** argv){
         if (true){
             cerr << perfects.size() << " perfect reads." << endl;
             cerr << simple_mismatches.size() << " simple reads." << endl; 
-            cerr << "Addding " << simple_paths.size() << " paths to graph." << endl;
+            cerr << "Adding " << simple_paths.size() << " paths to graph." << endl;
             cerr << complex_reads.size() << " more complex reads." << endl;
         }
 
@@ -440,7 +437,7 @@ int main_srpe(int argc, char** argv){
         vector<PathIndex*> pindexes;
 
 
-        bool justSNPs = false;
+        bool justSNPs = true;
         if (justSNPs){
 
             for (auto x : snarl_roots){
