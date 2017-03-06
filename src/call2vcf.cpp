@@ -297,23 +297,18 @@ void Call2Vcf::call(
     // variants?
     std::string pileupFilename) {
     
-    // Pull things out of the augmented graph
-    VG& vg = augmented.graph;
-    std::map<vg::Node*, double>& nodeLikelihood = augmented.node_likelihoods;
-    std::map<vg::Edge*, double>& edgeLikelihood = augmented.edge_likelihoods;
-    
     // Set up the graph's paths properly after augmentation modified them.
-    vg.paths.sort_by_mapping_rank();
-    vg.paths.rebuild_mapping_aux();
+    augmented.graph.paths.sort_by_mapping_rank();
+    augmented.graph.paths.rebuild_mapping_aux();
     
     if(refPathName.empty()) {
         if (verbose) {
-          std:cerr << "Graph has " << vg.paths.size() << " paths to choose from."
+          std:cerr << "Graph has " << augmented.graph.paths.size() << " paths to choose from."
                    << std::endl;
         }
-        if(vg.paths.size() == 1) {
+        if(augmented.graph.paths.size() == 1) {
             // Autodetect the reference path name as the name of the only path
-            refPathName = (*vg.paths._paths.begin()).first;
+            refPathName = (*augmented.graph.paths._paths.begin()).first;
         } else {
             refPathName = "ref";
         }
@@ -326,7 +321,7 @@ void Call2Vcf::call(
     
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    PathIndex index(vg, refPathName, true);
+    PathIndex index(augmented.graph, refPathName, true);
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
@@ -436,7 +431,7 @@ void Call2Vcf::call(
     // Find all the top-level sites
     std::list<const Snarl*> site_queue;
     
-    CactusUltrabubbleFinder finder(vg, refPathName);
+    CactusUltrabubbleFinder finder(augmented.graph, refPathName);
     SnarlManager site_manager = finder.find_snarls();
     
     site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
@@ -476,7 +471,7 @@ void Call2Vcf::call(
         
         // Where does the variable region start and end on the reference?
         size_t ref_start = index.by_id.at(site->start().node_id()).first +
-            vg.get_node(site->start().node_id())->sequence().size();
+            augmented.graph.get_node(site->start().node_id())->sequence().size();
         size_t ref_end = index.by_id.at(site->end().node_id()).first;
         
         if(ref_start > ref_end) {
@@ -564,13 +559,13 @@ void Call2Vcf::call(
             Path* path = locus.add_allele();
         
             // Start at the start of the site
-            *path->add_mapping() = to_mapping(site->start(), vg);
+            *path->add_mapping() = to_mapping(site->start(), augmented.graph);
             for (size_t i = 0; i < traversal.visits_size(); i++) {
                 // Then visit each node in turn
-                *path->add_mapping() = to_mapping(traversal.visits(i), vg);
+                *path->add_mapping() = to_mapping(traversal.visits(i), augmented.graph);
             }
             // Finish up with the site's end
-            *path->add_mapping() = to_mapping(site->end(), vg);
+            *path->add_mapping() = to_mapping(site->end(), augmented.graph);
             
             // Save the traversal's reference status
             is_ref.push_back(is_reference(traversal, augmented, index));
@@ -581,13 +576,13 @@ void Call2Vcf::call(
             // Make each traversal into a vector of NodeTraversals
             vector<NodeTraversal> traversal_vector;
             // Start at the start of the site
-            traversal_vector.push_back(to_node_traversal(site->start(), vg));
+            traversal_vector.push_back(to_node_traversal(site->start(), augmented.graph));
             for (size_t i = 0; i < traversal.visits_size(); i++) {
                 // Then visit each node in turn
-                traversal_vector.push_back(to_node_traversal(traversal.visits(i), vg));
+                traversal_vector.push_back(to_node_traversal(traversal.visits(i), augmented.graph));
             }
             // Finish up with the site's end
-            traversal_vector.push_back(to_node_traversal(site->end(), vg));
+            traversal_vector.push_back(to_node_traversal(site->end(), augmented.graph));
             
             if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
                 // This site is backward relative to the primary path.
@@ -670,15 +665,15 @@ void Call2Vcf::call(
                 // How much support do we have for visiting this node?
                 Support node_support = augmented.node_supports.at(node);
                 // Grab the edge we're traversing into the node
-                vg::Edge* in_edge = vg.get_edge(make_pair(to_right_side(to_visit(prev)),
-                                                          to_left_side(to_visit(here))));
+                vg::Edge* in_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(prev)),
+                                                                       to_left_side(to_visit(here))));
                 // If there's less support on the in edge than on the node,
                 // knock it down. We do this separately in each dimension.
                 node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
                 
                 // Ditto for the edge we're traversing out of the node
-                vg::Edge* out_edge = vg.get_edge(make_pair(to_right_side(to_visit(here)),
-                                                           to_left_side(to_visit(next))));
+                vg::Edge* out_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(here)),
+                                                                        to_left_side(to_visit(next))));
                 node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
                 
                 
@@ -697,8 +692,8 @@ void Call2Vcf::call(
             if(path.mapping_size() == 2) {
                 // We just have the anchoring nodes and the edge between them.
                 // Look at that edge specially.
-                vg::Edge* edge = vg.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
-                                                       to_left_side(to_visit(path.mapping(1)))));
+                vg::Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
+                                                                    to_left_side(to_visit(path.mapping(1)))));
                 
                 // Only use the support on the edge
                 total_support = augmented.edge_supports.at(edge);
@@ -756,7 +751,7 @@ void Call2Vcf::call(
         
         // Since the variable part of the site is after the first anchoring node, where does it start?
         size_t variation_start = index.by_id.at(site->start().node_id()).first
-                                 + vg.get_node(site->start().node_id())->sequence().size();
+                                 + augmented.graph.get_node(site->start().node_id())->sequence().size();
         
         // Find which coordinate bin the variation start is in, so we can get the typical local support
         int bin = variation_start / refBinSize;
