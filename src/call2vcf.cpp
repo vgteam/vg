@@ -18,6 +18,7 @@
 #include "snarls.hpp"
 #include "path_index.hpp"
 #include "caller.hpp"
+#include "stream.hpp"
 
 //#define debug
 
@@ -400,23 +401,27 @@ void Call2Vcf::call(
         stream::for_each(in, handlePileup);
     }
     
-    // Generate a vcf header. We can't make Variant records without a
-    // VariantCallFile, because the variants need to know which of their
-    // available info fields or whatever are defined in the file's header, so
-    // they know what to output.
-    // Handle length override if specified.
-    std::stringstream headerStream;
-    write_vcf_header(headerStream, sampleName, contigName,
-                     lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
-                     min_mad_for_filter);
-    
-    // Load the headers into a new VCF file object
+    // Make a VCF because we need it in scope later, if we are outputting VCF.
     vcflib::VariantCallFile vcf;
-    std::string headerString = headerStream.str();
-    assert(vcf.openForOutput(headerString));
     
-    // Spit out the header
-    std::cout << headerStream.str();
+    if (convert_to_vcf) {
+        // Generate a vcf header. We can't make Variant records without a
+        // VariantCallFile, because the variants need to know which of their
+        // available info fields or whatever are defined in the file's header, so
+        // they know what to output.
+        // Handle length override if specified.
+        std::stringstream headerStream;
+        write_vcf_header(headerStream, sampleName, contigName,
+                         lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
+                         min_mad_for_filter);
+        
+        // Load the headers into a the VCF file object
+        std::string headerString = headerStream.str();
+        assert(vcf.openForOutput(headerString));
+        
+        // Spit out the header
+        std::cout << headerStream.str();
+    }
     
     // Then go through it from the graph's point of view: first over alt nodes
     // backending into the reference (creating things occupying ranges to which
@@ -533,6 +538,9 @@ void Call2Vcf::call(
     
     // Now start looking for traversals of the sites
     RepresentativeTraversalFinder traversal_finder(augmented, site_manager, index, maxDepth, max_bubble_paths);
+    
+    // When we genotype the sites into Locus objects, we will use this buffer for outputting them.
+    vector<Locus> locus_buffer;
     
     for(const Snarl* site : sites) {
         // For every site, we're going to make a variant
@@ -879,6 +887,15 @@ void Call2Vcf::call(
             // Don't add the genotype to the locus
         }
         
+        // Find the total support for the Locus across all alleles
+        FractionalSupport locus_support;
+        for (auto& s : supports) {
+            // Sum up all the FractionalSupports form all alleles (even the non-best/second-best).
+            locus_support += s;
+        }
+        // Round to ints and save
+        *locus.mutable_overall_support() = to_support(locus_support);
+        
         auto emit_variant = [&](const Locus& locus) {
         
             // Make a Variant
@@ -1049,8 +1066,19 @@ void Call2Vcf::call(
             
         };
         
-        // Emit the variant for this Locus
-        emit_variant(locus);
+        if (convert_to_vcf) {
+            // Emit the variant for this Locus
+            emit_variant(locus);
+        } else {
+            // Emit the locus itself
+            locus_buffer.push_back(locus);
+            stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+        }
+    }
+    
+    if (!convert_to_vcf) {
+        // Flush the buffer of Locus objects we have to write
+        stream::write_buffered(cout, locus_buffer, locus_buffer_size);
     }
     
     // Announce how much we can't show.

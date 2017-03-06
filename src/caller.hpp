@@ -371,6 +371,12 @@ public:
     bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path);
     
     // Option variables
+    
+    // Should we output in VCF (true) or Protobuf Locus (false) format?
+    bool convert_to_vcf = false;
+    // How big should our output buffer be?
+    size_t locus_buffer_size = 1000;
+    
     // What's the name of the reference path in the graph?
     string refPathName = "";
     // What name should we give the contig in the VCF file?
