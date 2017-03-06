@@ -34,7 +34,7 @@ const static double LOG_ZERO = (double)-1e100;
 
 // convert to string using stringstream (to replace to_string when we want sci. notation)
 template <typename T>
-std::string to_string_ss(T val) {
+string to_string_ss(T val) {
     stringstream ss;
     ss << val;
     return ss.str();
@@ -46,7 +46,7 @@ std::string to_string_ss(T val) {
  */
 struct IntervalBitfield {
     // Mark every position that's used in a variant
-    std::vector<bool> used;
+    vector<bool> used;
     
     /**
      * Make a new IntervalBitfield covering a region of the specified length.
@@ -79,14 +79,14 @@ struct IntervalBitfield {
 
 // We represent support as a pair, but we define math for it.
 // We use doubles because we may need fractional math.
-// We can't use vg::Support because it's int-based.
-typedef std::pair<double, double> FractionalSupport;
+// We can't use Support because it's int-based.
+typedef pair<double, double> FractionalSupport;
 
 /**
  * Add two FractionalSupport values together, accounting for strand.
  */
 FractionalSupport operator+(const FractionalSupport& one, const FractionalSupport& other) {
-    return std::make_pair(one.first + other.first, one.second + other.second);
+    return make_pair(one.first + other.first, one.second + other.second);
 }
 
 /**
@@ -104,7 +104,7 @@ FractionalSupport& operator+=(FractionalSupport& one, const FractionalSupport& o
  */
 template<typename Scalar>
 FractionalSupport operator*(const FractionalSupport& support, const Scalar& scale) {
-    return std::make_pair(support.first * scale, support.second * scale);
+    return make_pair(support.first * scale, support.second * scale);
 }
 
 /**
@@ -112,7 +112,7 @@ FractionalSupport operator*(const FractionalSupport& support, const Scalar& scal
  */
 template<typename Scalar>
 FractionalSupport operator*(const Scalar& scale, const FractionalSupport& support) {
-    return std::make_pair(support.first * scale, support.second * scale);
+    return make_pair(support.first * scale, support.second * scale);
 }
 
 /**
@@ -120,7 +120,7 @@ FractionalSupport operator*(const Scalar& scale, const FractionalSupport& suppor
  */
 template<typename Scalar>
 FractionalSupport operator/(const FractionalSupport& support, const Scalar& scale) {
-    return std::make_pair(support.first / scale, support.second / scale);
+    return make_pair(support.first / scale, support.second / scale);
 }
 
 /**
@@ -143,7 +143,7 @@ Support to_support(const FractionalSupport& other) {
 /**
  * Allow printing a FractionalSupport.
  */
-std::ostream& operator<<(std::ostream& stream, const FractionalSupport& support) {
+ostream& operator<<(ostream& stream, const FractionalSupport& support) {
     return stream << support.first << "," << support.second;
 }
 
@@ -158,7 +158,7 @@ double total(const FractionalSupport& support) {
  * Get the strand bias of a FractionalSupport.
  */
 double strand_bias(const FractionalSupport& support) {
-    return std::max(support.first, support.second) / (support.first + support.second);
+    return max(support.first, support.second) / (support.first + support.second);
 }
 
 /**
@@ -166,15 +166,15 @@ double strand_bias(const FractionalSupport& support) {
  * orientation.
  */
 FractionalSupport support_min(const FractionalSupport& a, const FractionalSupport& b) {
-    return std::make_pair(std::min(a.first, b.first), std::min(a.second, b.second));
+    return make_pair(min(a.first, b.first), min(a.second, b.second));
 }
 
 /**
  * Make a letter into a full string because apparently that's too fancy for the
  * standard library.
  */
-std::string char_to_string(const char& letter) {
-    std::string toReturn;
+string char_to_string(const char& letter) {
+    string toReturn;
     toReturn.push_back(letter);
     return toReturn;
 }
@@ -182,27 +182,27 @@ std::string char_to_string(const char& letter) {
 /**
  * Write a minimal VCF header for a single-sample file.
  */
-void write_vcf_header(std::ostream& stream, std::string& sample_name, std::string& contig_name, size_t contig_size,
+void write_vcf_header(ostream& stream, string& sample_name, string& contig_name, size_t contig_size,
                       int min_mad_for_filter) {
-    stream << "##fileformat=VCFv4.2" << std::endl;
-    stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
-    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
-    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
-    stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
+    stream << "##fileformat=VCFv4.2" << endl;
+    stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
+    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
+    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
+    stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
     stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
-    stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
-    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
-    stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
-    stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
+    stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
+    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+    stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
+    stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
-    stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << std::endl;
-    stream << "##FORMAT=<ID=AL,Number=.,Type=Float,Description=\"Allelic likelihoods for the ref and alt alleles in the order listed\">" << std::endl;
+    stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << endl;
+    stream << "##FORMAT=<ID=AL,Number=.,Type=Float,Description=\"Allelic likelihoods for the ref and alt alleles in the order listed\">" << endl;
     
     if(!contig_name.empty()) {
         // Announce the contig as well.
-        stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << std::endl;
+        stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << endl;
     }
-    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << std::endl;
+    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << endl;
 }
 
 /**
@@ -225,7 +225,7 @@ bool can_write_alleles(vcflib::Variant& variant) {
 /**
  * Return true if a mapping is a perfect match, and false if it isn't.
  */
-bool mapping_is_perfect_match(const vg::Mapping& mapping) {
+bool mapping_is_perfect_match(const Mapping& mapping) {
     for (auto edit : mapping.edit()) {
         if (edit.from_length() != edit.to_length() || !edit.sequence().empty()) {
             // This edit isn't a perfect match
@@ -246,11 +246,11 @@ bool mapping_is_perfect_match(const vg::Mapping& mapping) {
  *
  * TODO: VCF comments aren't really a thing.
  */
-std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups,
-    const std::set<std::pair<int64_t, size_t>>& refCrossreferences,
-    const std::set<std::pair<int64_t, size_t>>& altCrossreferences) {
+string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
+    const set<pair<int64_t, size_t>>& refCrossreferences,
+    const set<pair<int64_t, size_t>>& altCrossreferences) {
     // We'll make a stringstream to write to.
-    std::stringstream out;
+    stringstream out;
     
     out << "#";
     
@@ -281,7 +281,7 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
     
     if(out.str().size() > 1) {
         // We actually found something. Send it out with a trailing newline
-        out << std::endl;
+        out << endl;
         return out.str();
     } else {
         // Give an empty string.
@@ -295,7 +295,7 @@ void Call2Vcf::call(
     AugmentedGraph& augmented,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
-    std::string pileupFilename) {
+    string pileupFilename) {
     
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();
@@ -304,7 +304,7 @@ void Call2Vcf::call(
     if(refPathName.empty()) {
         if (verbose) {
           std:cerr << "Graph has " << augmented.graph.paths.size() << " paths to choose from."
-                   << std::endl;
+                   << endl;
         }
         if(augmented.graph.paths.size() == 1) {
             // Autodetect the reference path name as the name of the only path
@@ -314,8 +314,8 @@ void Call2Vcf::call(
         }
 
         if (verbose) {
-            std::cerr << "Guessed reference path name of " << refPathName
-                      << std::endl;
+            cerr << "Guessed reference path name of " << refPathName
+                      << endl;
         }
     }
     
@@ -369,18 +369,18 @@ void Call2Vcf::call(
     }
 
     if (verbose) {
-        std::cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
-        std::cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
+        cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
+        cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
                   << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
-        std::cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
+        cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
                   << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
     }
     
     // If applicable, load the pileup.
     // This will hold pileup records by node ID.
-    std::map<int64_t, vg::NodePileup> nodePileups;
+    map<int64_t, NodePileup> nodePileups;
     
-    std::function<void(vg::Pileup&)> handlePileup = [&](vg::Pileup& p) { 
+    function<void(Pileup&)> handlePileup = [&](Pileup& p) { 
         // Handle each pileup chunk
         for(size_t i = 0; i < p.node_pileups_size(); i++) {
             // Pull out every node pileup
@@ -391,7 +391,7 @@ void Call2Vcf::call(
     };
     if(!pileupFilename.empty()) {
         // We have to load some pileups
-        std::ifstream in;
+        ifstream in;
         in.open(pileupFilename.c_str());
         stream::for_each(in, handlePileup);
     }
@@ -405,17 +405,17 @@ void Call2Vcf::call(
         // available info fields or whatever are defined in the file's header, so
         // they know what to output.
         // Handle length override if specified.
-        std::stringstream headerStream;
+        stringstream headerStream;
         write_vcf_header(headerStream, sampleName, contigName,
                          lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
                          min_mad_for_filter);
         
         // Load the headers into a the VCF file object
-        std::string headerString = headerStream.str();
+        string headerString = headerStream.str();
         assert(vcf.openForOutput(headerString));
         
         // Spit out the header
-        std::cout << headerStream.str();
+        cout << headerStream.str();
     }
     
     // Then go through it from the graph's point of view: first over alt nodes
@@ -429,7 +429,7 @@ void Call2Vcf::call(
     // Do the new thing where we support multiple alleles
 
     // Find all the top-level sites
-    std::list<const Snarl*> site_queue;
+    list<const Snarl*> site_queue;
     
     CactusUltrabubbleFinder finder(augmented.graph, refPathName);
     SnarlManager site_manager = finder.find_snarls();
@@ -450,11 +450,11 @@ void Call2Vcf::call(
     // manageably-sized sites on the ref path. We won't be able to genotype
     // huge translocations or deletions, but we can save those for the
     // proper nested-site-aware genotyper.
-    std::vector<const Snarl*> sites;
+    vector<const Snarl*> sites;
     
     while(!site_queue.empty()) {
         // Grab the first site
-        const Snarl* site = std::move(site_queue.front());
+        const Snarl* site = move(site_queue.front());
         site_queue.pop_front();
         
         if (!index.by_id.count(site->start().node_id())) {
@@ -477,7 +477,7 @@ void Call2Vcf::call(
         if(ref_start > ref_end) {
             // Make sure it's the right way around (it will get set straight
             // in the site when we do the bubbling-up).
-            std::swap(ref_start, ref_end);
+            swap(ref_start, ref_end);
         }
         
         if(!site_manager.children_of(site).empty() && ref_end > ref_start + max_ref_length) {
@@ -496,8 +496,8 @@ void Call2Vcf::call(
             }
 
             if (verbose) {
-                std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                          << site_manager.children_of(site).size() << " children" << std::endl;
+                cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
+                          << site_manager.children_of(site).size() << " children" << endl;
             }
             
         } else {
@@ -511,8 +511,8 @@ void Call2Vcf::call(
             if(ref_end > ref_start + max_ref_length) {
                 // This site is big but we left it anyway.
                 if (verbose) {
-                    std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                              << site_manager.children_of(site).size() << " children" << std::endl;
+                    cerr << "Left site from " << ref_start << " to " << ref_end << " with "
+                              << site_manager.children_of(site).size() << " children" << endl;
                 }
             }
             
@@ -528,7 +528,7 @@ void Call2Vcf::call(
     }
 
     if (verbose) {
-        std::cerr << "Found " << sites.size() << " sites" << std::endl;
+        cerr << "Found " << sites.size() << " sites" << endl;
     }
     
     // Now start looking for traversals of the sites
@@ -552,7 +552,7 @@ void Call2Vcf::call(
         vector<bool> is_ref;
         
         // We turn them all back into NodeTraversal vectors
-        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths;
+        vector<pair<vector<NodeTraversal>, bool>> ordered_paths;
         
         for (auto& traversal : traversals) {
             // Convert each traversal to a path
@@ -588,7 +588,7 @@ void Call2Vcf::call(
                 // This site is backward relative to the primary path.
                 
                 // Turn the traversal around to primary path orientation.
-                std::reverse(traversal_vector.begin(), traversal_vector.end());
+                reverse(traversal_vector.begin(), traversal_vector.end());
                 for (auto& trav : traversal_vector) {
                     // Flip every traversal in it
                     trav = trav.reverse();
@@ -601,25 +601,25 @@ void Call2Vcf::call(
         }
         
         // Collect sequences for all the paths
-        std::vector<std::string> sequences;
+        vector<string> sequences;
         // And the lists of involved IDs that we use for variant IDs
-        std::vector<string> id_lists;
+        vector<string> id_lists;
         // Calculate average and min support for all the alts. These both need
         // to be the same type, so they are interchangeable in a reference and
         // we can pick one to use.
-        std::vector<FractionalSupport> min_supports;
-        std::vector<FractionalSupport> average_supports;
+        vector<FractionalSupport> min_supports;
+        vector<FractionalSupport> average_supports;
         // And the min likelihood along each path
-        std::vector<double> min_likelihoods;
+        vector<double> min_likelihoods;
         for(size_t i = 0; i < locus.allele_size(); i++) {
             // Go through all the Paths in the Locus
             const Path& path = locus.allele(i);
             
             // We use this to construct the allele sequence
-            std::stringstream sequence_stream;
+            stringstream sequence_stream;
             
             // And this to compose the allele's name in terms of node IDs
-            std::stringstream id_stream;
+            stringstream id_stream;
             
             // What's the total support for this path?
             Support total_support;
@@ -642,7 +642,7 @@ void Call2Vcf::call(
                 Node* node = augmented.graph.get_node(node_id);
                 
                 // Grab the node sequence in the correct orientation.
-                std::string added_sequence = node->sequence();
+                string added_sequence = node->sequence();
                 if(path.mapping(i).position().is_reverse()) {
                     // If the node is traversed backward, we need to flip its sequence.
                     added_sequence = reverse_complement(added_sequence);
@@ -652,7 +652,7 @@ void Call2Vcf::call(
                 sequence_stream << added_sequence;
                 
                 // Record ID
-                id_stream << std::to_string(node_id);
+                id_stream << to_string(node_id);
                 if(i + 2 != path.mapping_size()) {
                     // If this is not the last mapping we're going to do, add a separator.
                     id_stream << "_";
@@ -665,14 +665,14 @@ void Call2Vcf::call(
                 // How much support do we have for visiting this node?
                 Support node_support = augmented.node_supports.at(node);
                 // Grab the edge we're traversing into the node
-                vg::Edge* in_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(prev)),
+                Edge* in_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(prev)),
                                                                        to_left_side(to_visit(here))));
                 // If there's less support on the in edge than on the node,
                 // knock it down. We do this separately in each dimension.
                 node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
                 
                 // Ditto for the edge we're traversing out of the node
-                vg::Edge* out_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(here)),
+                Edge* out_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(here)),
                                                                         to_left_side(to_visit(next))));
                 node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
                 
@@ -683,7 +683,7 @@ void Call2Vcf::call(
                 min_support = (i == 1 ? node_support : support_min(min_support, node_support));
 
                 // Update minimum likelihood in the alt path
-                min_likelihood = std::min(min_likelihood, augmented.node_likelihoods.at(node));
+                min_likelihood = min(min_likelihood, augmented.node_likelihoods.at(node));
                 
                 // TODO: use edge likelihood here too?
                     
@@ -692,7 +692,7 @@ void Call2Vcf::call(
             if(path.mapping_size() == 2) {
                 // We just have the anchoring nodes and the edge between them.
                 // Look at that edge specially.
-                vg::Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
+                Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
                                                                     to_left_side(to_visit(path.mapping(1)))));
                 
                 // Only use the support on the edge
@@ -725,7 +725,7 @@ void Call2Vcf::call(
         // TODO: complain if multiple copies of the same string exist???
         
         // Decide which support vector we use to actually decide
-        std::vector<FractionalSupport>& supports = useAverageSupport ? average_supports : min_supports;
+        vector<FractionalSupport>& supports = useAverageSupport ? average_supports : min_supports;
         
         // Now look at all the paths for the site and pick the top 2.
         int best_allele = -1;
@@ -778,7 +778,7 @@ void Call2Vcf::call(
         // Pull out the different supports. Some of them may be the same.
         FractionalSupport ref_support = supports.at(0);
         FractionalSupport best_support = supports.at(best_allele);
-        FractionalSupport second_best_support = std::make_pair(0.0, 0.0);
+        FractionalSupport second_best_support = make_pair(0.0, 0.0);
         if(second_best_allele != -1) {
             second_best_support = supports.at(second_best_allele);
         }
@@ -811,13 +811,13 @@ void Call2Vcf::call(
             double bias_limit = (best_allele == 0) ? maxRefHetBias : maxHetBias;
             
 #ifdef debug
-            std::cerr << best_allele << ", " << best_support << " and "
-                << second_best_allele << ", " << second_best_support << std::endl;
+            cerr << best_allele << ", " << best_support << " and "
+                << second_best_allele << ", " << second_best_support << endl;
             
-            std::cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
-                << total(best_support) << std::endl;
+            cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
+                << total(best_support) << endl;
                 
-            std::cerr << total(second_best_support) << " vs " << minTotalSupportForCall << std::endl;
+            cerr << total(second_best_support) << " vs " << minTotalSupportForCall << endl;
 #endif
             
             if(second_best_allele != -1 &&
@@ -843,7 +843,7 @@ void Call2Vcf::call(
                 genotype.set_likelihood(log10_to_ln(gen_likelihood));
                 
                 // Get minimum support for filter (not assuming it's second_best just to be sure)
-                min_site_support = std::min(total(second_best_support), total(best_support));
+                min_site_support = min(total(second_best_support), total(best_support));
                 
                 // Make the call
                 *locus.add_genotype() = genotype;
@@ -918,7 +918,7 @@ void Call2Vcf::call(
                 // We need to grab the character before the variable part of the
                 // site in the reference.
                 assert(variation_start > 0);
-                std::string extra_base = char_to_string(index.sequence.at(variation_start - 1));
+                string extra_base = char_to_string(index.sequence.at(variation_start - 1));
                 
                 for(auto& seq : sequences) {
                     // Stick it on the front of all the allele sequences
@@ -998,38 +998,38 @@ void Call2Vcf::call(
                 // Add in the depth from the second allele
                 total_support += second_best_support;
             }
-            std::string depth_string = std::to_string((int64_t)round(total(total_support)));
+            string depth_string = to_string((int64_t)round(total(total_support)));
             variant.format.push_back("DP");
             variant.samples[sampleName]["DP"].push_back(depth_string);
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
             
             // Also allelic depths
             variant.format.push_back("AD");
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(ref_support))));
+            variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(ref_support))));
             // And strand biases
             variant.format.push_back("SB");
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.second)));
+            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.first)));
+            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.second)));
             // Also allelic likelihoods (from minimum values found on their paths)
             variant.format.push_back("AL");
             variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
             if(best_allele != 0) {
                 // If our best allele isn't ref, it comes next.
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(best_support))));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.second)));
+                variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(best_support))));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.first)));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.second)));
                 variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
             }
             if(second_best_allele != -1 && second_best_allele != 0) {
                 // If our second best allele is real and not ref, it comes next.
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(second_best_support))));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.second)));
+                variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(second_best_support))));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.first)));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.second)));
                 variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
             }
             
             // And total alt allele depth for the alt alleles
-            FractionalSupport alt_support = std::make_pair(0.0, 0.0);
+            FractionalSupport alt_support = make_pair(0.0, 0.0);
             if(best_allele != 0) {
                 alt_support += best_support;
             }
@@ -1037,7 +1037,7 @@ void Call2Vcf::call(
                 alt_support += second_best_support;
             }
             variant.format.push_back("XAAD");
-            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(alt_support))));
+            variant.samples[sampleName]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
 
             // Copy over the quality value
             variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
@@ -1049,10 +1049,10 @@ void Call2Vcf::call(
                 // No need to check for collisions because we assume sites are correctly found.
                 
                 // Output the created VCF variant.
-                std::cout << variant << std::endl;
+                cout << variant << endl;
             } else {
                 if (verbose) {
-                    std::cerr << "Variant is too large" << std::endl;
+                    cerr << "Variant is too large" << endl;
                 }
                 // TODO: account for the 1 base we added extra if it was a pure
                 // insert.
@@ -1078,7 +1078,7 @@ void Call2Vcf::call(
     
     // Announce how much we can't show.
     if (verbose) {
-        std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+        cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << endl;
     }
 }
 
