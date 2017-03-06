@@ -13,55 +13,12 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "pileup.hpp"
+#include "path_index.hpp"
+#include "genotypekit.hpp"
 
 namespace vg {
 
 using namespace std;
-
-// Represents an assertion that an element in the augmented graph results from
-// an event of a certain type.
-enum ElementCall {
-    CALL_DELETION = 'D',
-    CALL_REFERENCE = 'R',
-    CALL_UNCALLED = 'U',
-    CALL_SUBSTITUTION = 'S',
-    CALL_INSERTION = 'I'
-};
-
-/// Data structure for representing an augmented graph as created by the Caller,
-/// with semantic hints about how it was generated.
-struct AugmentedGraph {
-    // This holds all the new nodes and edges
-    VG new_graph;
-    
-    // This holds info about where all the nodes came from
-    map<Node*, ElementCall> node_calls;
-    // And this similarly holds origin information for the edges
-    map<Edge*, ElementCall> edge_calls;
-    
-    // This holds support info for nodes. Note that we discard the "os" other
-    // support field from StrandSupport.
-    map<Node*, Support> node_supports;
-    // And for edges
-    map<Edge*, Support> edge_supports;
-    
-    // This holds the likelihood for each node.
-    // TODO: what exactly does that mean?
-    map<Node*, double> node_likelihoods;
-    // And for edges
-    map<Edge*, double> edge_likelihoods;
-    
-    // This records how each new node came from the original graph, if it's not
-    // just a straight copy. Each Translation is a single mapping for a single
-    // whole new node on the forward strand, and the piece of the single old
-    // node it came from, on the forward strand.
-    vector<Translation> translations;
-    
-    /**
-     * Convert to a TSV, in the glenn2vcf format.
-     */
-    void to_tsv(ostream& out);
-};
 
 // container for storing pairs of support for calls (value for each strand)
 struct StrandSupport {
@@ -182,7 +139,6 @@ ostream& operator<<(ostream& os, NodeDivider::Entry entry);
  *       are called independently for now.  
  * Outputs either a sample graph (only called nodes and edges) or augmented graph
  * (include uncalled nodes and edges too).
- * The augmented graph (leave_uncalled) is required to convert calls to VCF. 
  */
 class Caller {
 public:
@@ -213,7 +169,6 @@ public:
            int min_support = Default_min_support,
            double min_frac = Default_min_frac,
            double min_log_likelihood = Default_min_log_likelihood, 
-           bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
            bool bridge_alts = false);
@@ -222,9 +177,7 @@ public:
 
     // input graph
     VG* _graph;
-    // output called graph
-    VG _call_graph;
-    // Augmented graph with annotations
+    // Output augmented graph with annotations
     AugmentedGraph _augmented_graph;
 
     // buffer for base calls for each position in the node
@@ -286,9 +239,6 @@ public:
     double _min_frac;
     // minimum log likelihood for a snp to be called
     double _min_log_likelihood;
-    // don't erase positions that aren't aligned to. so ouput will be original
-    // graph plus snps. 
-    bool _leave_uncalled;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
     // min deviation from .5 in proportion of negative strand reads
@@ -301,8 +251,8 @@ public:
     // pairs of consecutive alts). 
     bool _bridge_alts;
 
-    // write the call graph
-    void write_call_graph(ostream& out, bool json);
+    // write the augmented graph
+    void write_augmented_graph(ostream& out, bool json);
 
     // call every position in the node pileup
     void call_node_pileup(const NodePileup& pileup);
@@ -310,9 +260,9 @@ public:
     // call an edge.  remembering it in a table for the whole graph
     void call_edge_pileup(const EdgePileup& pileup);
 
-    // fill in edges in the call graph (those that are incident to 2 call nodes)
-    // and add uncalled nodes (optionally)
-    void update_call_graph();
+    // fill in edges in the augmented graph (those that are incident to 2 call
+    // nodes) and add uncalled nodes (optionally)
+    void update_augmented_graph();
 
     // map paths from input graph into called graph
     void map_paths();
@@ -351,10 +301,10 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
                                StrandSupport support);
 
-    // Emit calling info to an annotated augmented graph
-    void emit_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
-    void emit_augmented_edge(Edge* edge, char call, StrandSupport support);
-    void emit_augmented_nd();
+    // Annotate nodes and edges in the augmented graph with call info.
+    void annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
+    void annotate_augmented_edge(Edge* edge, char call, StrandSupport support);
+    void annotate_augmented_nd();
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {
@@ -399,11 +349,26 @@ public:
     Call2Vcf() = default;
     
     /**
-     * Produce calls for the given VG and the given coverage TSV data. If a
+     * Produce calls for the given annotated augmented graph. If a
      * pileupFilename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(vg::VG& vg, const string& glennfile, string pileupFilename = "");
+    void call(AugmentedGraph& augmented, string pileupFilename = "");
+    
+    /**
+     * Decide if the given SnarlTraversal is included in the original base graph
+     * (true), or if it represents a novel variant (false).
+     *
+     * Looks at the nodes in the traversal that aren't along the primary path,
+     * and sees if their calls are CALL_REFERENCE or not.
+     *
+     * Specially handles single-edge traversals.
+     *
+     * If given a traversal that's all primary path nodes, it assumes it is non-
+     * reference, because it assumes the caller will never pass it the all-
+     * primary-path reference traversal.
+     */
+    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path);
     
     // Option variables
     // What's the name of the reference path in the graph?
