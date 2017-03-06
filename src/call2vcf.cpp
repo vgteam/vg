@@ -23,11 +23,6 @@
 
 namespace vg {
 
-// TODO:
-//  - Decide if we need to have sibling alts detect (somehow) and coordinate with each other
-//  - Parallelize variant generation
-//  - Make variant stamping out some kind of function, don't duplicate the same variant construction code 6 times
-
 // How many bases may we put in an allele in VCF if we expect GATK to be able to
 // parse it?
 // 0 means no maximum is enforced.
@@ -572,7 +567,7 @@ void Call2Vcf::call(
             // Save the traversal's reference status
             is_ref.push_back(is_reference(traversal, augmented, index));
             
-            // Also, save the data the old way that powers the VCF output
+            // TODO: Also, save the data the old way that powers the VCF output
             // currently
             
             // Make each traversal into a vector of NodeTraversals
@@ -615,10 +610,12 @@ void Call2Vcf::call(
         std::vector<double> min_likelihoods;
         // Is the path as a whole known or novel?
         std::vector<bool> is_known;
-        for(auto& path_xref : ordered_paths) {
-            // Go through all the paths
-            auto& path = path_xref.first;
-            bool path_is_known = path_xref.second;
+        for(size_t i = 0; i < locus.allele_size(); i++) {
+            // Go through all the Paths in the Locus
+            const Path& path = locus.allele(i);
+            
+            // Look up if it's a known path or not
+            const bool& path_is_known = is_ref.at(i);
             
             // We use this to construct the allele sequence
             std::stringstream sequence_stream;
@@ -635,13 +632,20 @@ void Call2Vcf::call(
             // Also, what's the min likelihood
             double min_likelihood = INFINITY;
                             
-            for(int64_t i = 1; i < path.size() - 1; i++) {
-                // For all but the first and last nodes (which are anchors),
-                // grab their sequences in the correct orientation.
+            for(int64_t i = 1; i + 1 < path.mapping_size(); i++) {
+                // For all but the first and last nodes (which are anchors)...
                 
-                std::string added_sequence = path[i].node->sequence();
-            
-                if(path[i].backward) {
+                // Grab the mapping
+                const Mapping& here = path.mapping(i);
+                
+                // Look up the node ID we're visiting
+                id_t node_id = path.mapping(i).position().node_id();
+                // And the Node* in the graph
+                Node* node = augmented.graph.get_node(node_id);
+                
+                // Grab the node sequence in the correct orientation.
+                std::string added_sequence = node->sequence();
+                if(path.mapping(i).position().is_reverse()) {
                     // If the node is traversed backward, we need to flip its sequence.
                     added_sequence = reverse_complement(added_sequence);
                 }
@@ -650,52 +654,55 @@ void Call2Vcf::call(
                 sequence_stream << added_sequence;
                 
                 // Record ID
-                id_stream << std::to_string(path[i].node->id());
-                if(i != path.size() - 2) {
-                    // Add a separator (-2 since the last thing is path is an
-                    // anchoring reference node)
+                id_stream << std::to_string(node_id);
+                if(i + 2 != path.mapping_size()) {
+                    // If this is not the last mapping we're going to do, add a separator.
                     id_stream << "_";
                 }
                 
+                // Peek at the next and previous Mappings
+                const Mapping& prev = path.mapping(i - 1);
+                const Mapping& next = path.mapping(i + 1);
+                
                 // How much support do we have for visiting this node?
-                Support node_support = augmented.node_supports.at(path[i].node);
+                Support node_support = augmented.node_supports.at(node);
                 // Grab the edge we're traversing into the node
-                vg::Edge* in_edge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
-                                                          vg::NodeSide(path[i].node->id(), path[i].backward)));
+                vg::Edge* in_edge = vg.get_edge(make_pair(to_right_side(to_visit(prev)),
+                                                          to_left_side(to_visit(here))));
                 // If there's less support on the in edge than on the node,
                 // knock it down. We do this separately in each dimension.
                 node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
                 
                 // Ditto for the edge we're traversing out of the node
-                vg::Edge* out_edge = vg.get_edge(make_pair(vg::NodeSide(path[i].node->id(), !path[i].backward),
-                                                           vg::NodeSide(path[i+1].node->id(), path[i+1].backward)));
+                vg::Edge* out_edge = vg.get_edge(make_pair(to_right_side(to_visit(here)),
+                                                           to_left_side(to_visit(next))));
                 node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
                 
                 
                 // Add support in to the total support for the alt. Scale by node length.
-                total_support += path[i].node->sequence().size() * node_support;
+                total_support += node->sequence().size() * node_support;
                 // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
                 min_support = (i == 1 ? node_support : support_min(min_support, node_support));
 
                 // Update minimum likelihood in the alt path
-                min_likelihood = std::min(min_likelihood, nodeLikelihood.at(path[i].node));
+                min_likelihood = std::min(min_likelihood, augmented.node_likelihoods.at(node));
                 
                 // TODO: use edge likelihood here too?
                     
             }
             
-            if(path.size() == 2) {
+            if(path.mapping_size() == 2) {
                 // We just have the anchoring nodes and the edge between them.
                 // Look at that edge specially.
-                vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
-                                                       vg::NodeSide(path[1].node->id(), path[1].backward)));
+                vg::Edge* edge = vg.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
+                                                       to_left_side(to_visit(path.mapping(1)))));
                 
                 // Only use the support on the edge
                 total_support = augmented.edge_supports.at(edge);
                 min_support = total_support;
                 
                 // And the likelihood on the edge
-                min_likelihood = edgeLikelihood.at(edge);
+                min_likelihood = augmented.edge_likelihoods.at(edge);
                 
             }
             
