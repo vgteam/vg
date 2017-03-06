@@ -22,11 +22,11 @@ using namespace vg;
 using namespace vg::subcommand;
 
 void help_call(char** argv) {
-    cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > output.loci" << endl
-         << "Output variant calls in Locus or VCF format given a graph and pileup" << endl
+    cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > output.vcf" << endl
+         << "Output variant calls in VCF or Loci format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -V, --vcf                  output variants in text VCF format instead of binary Loci format" << endl
+         << "    -V, --no-vcf               output variants in binary Loci format instead of text VCF format" << endl
          << "    -d, --min-depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
          << "    -e, --max-depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
          << "    -s, --min-support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
@@ -98,7 +98,7 @@ int main_call(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"vcf", no_argument, 0, 'V'},
+                {"no-vcf", no_argument, 0, 'V'},
                 {"min-depth", required_argument, 0, 'd'},
                 {"max-depth", required_argument, 0, 'e'},
                 {"min-support", required_argument, 0, 's'},
@@ -143,7 +143,7 @@ int main_call(int argc, char** argv) {
         switch (c)
         {
         case 'V':
-            call2vcf.convert_to_vcf = true;
+            call2vcf.convert_to_vcf = false;
             break;
         case 'd':
             min_depth = atoi(optarg);

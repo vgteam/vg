@@ -373,7 +373,7 @@ public:
     // Option variables
     
     // Should we output in VCF (true) or Protobuf Locus (false) format?
-    bool convert_to_vcf = false;
+    bool convert_to_vcf = true;
     // How big should our output buffer be?
     size_t locus_buffer_size = 1000;
     
