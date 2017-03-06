@@ -1315,5 +1315,24 @@ Support operator*(const size_t& scale, const Support& support) {
     return prod;
 }
 
+string to_vcf_genotype(const Genotype& gt) {
+    // Emit parts into this stream
+    stringstream stream;
+    
+    for (size_t i = 0; i < gt.allele_size(); i++) {
+        // For each allele called as present in the genotype
+        
+        // Put it in the string
+        stream << gt.allele(i);
+        
+        if (i + 1 != gt.allele_size()) {
+            // Write a separator after all but the last one
+            stream << (gt.is_phased() ? '|' : '/');
+        }
+    }
+    
+    return stream.str();
+}
+
 
 }

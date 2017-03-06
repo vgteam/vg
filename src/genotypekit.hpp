@@ -452,6 +452,10 @@ Support operator*(const Support& support, const size_t& scale);
  */
 Support operator*(const size_t& scale, const Support& support);
 
+/**
+ * Get a VCF-style 1/2, 1|2|3, etc. string from a Genotype.
+ */
+string to_vcf_genotype(const Genotype& gt);
     
 }
 

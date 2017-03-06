@@ -750,57 +750,7 @@ void Call2Vcf::call(
         size_t variation_start = index.by_id.at(site->start().node_id()).first
                                  + vg.get_node(site->start().node_id())->sequence().size();
         
-        // Make a Variant
-        vcflib::Variant variant;
-        variant.sequenceName = contigName;
-        variant.setVariantCallFile(vcf);
-        variant.quality = 0;
-        variant.position = variation_start + 1 + variantOffset;
-        
-        // Set the ID based on the IDs of the involved nodes. Note that the best
-        // allele may have no nodes (because it's a pure edge)
-        variant.id = id_lists.at(best_allele);
-        if(second_best_allele != -1 && !id_lists.at(second_best_allele).empty()) {
-            // Add the second best allele's nodes in.
-            variant.id += "-" + id_lists.at(second_best_allele);
-        }
-        
-        
-        if(sequences.at(0).empty() ||
-            (best_allele != -1 && sequences.at(best_allele).empty()) ||
-            (second_best_allele != -1 && sequences.at(second_best_allele).empty())) {
-            
-            // Fix up the case where we have an empty allele.
-            
-            // We need to grab the character before the variable part of the
-            // site in the reference.
-            assert(variation_start > 0);
-            std::string extra_base = char_to_string(index.sequence.at(variation_start - 1));
-            
-            for(auto& seq : sequences) {
-                // Stick it on the front of all the allele sequences
-                seq = extra_base + seq;
-            }
-            
-            // Budge the variant left
-            variant.position--;
-        }
-        
-        // Add the ref allele to the variant
-        create_ref_allele(variant, sequences.front());
-        
-        // Add the best allele
-        assert(best_allele != -1);
-        int best_alt = add_alt_allele(variant, sequences.at(best_allele));
-        
-        int second_best_alt = (second_best_allele == -1) ? -1 : add_alt_allele(variant, sequences.at(second_best_allele));
-        
-        
-        // Say we're going to spit out the genotype for this sample.        
-        variant.format.push_back("GT");
-        auto& genotype = variant.samples[sampleName]["GT"];
-
-        // find which coordinate bin we're in, so we can get the typical local support
+        // Find which coordinate bin the variation start is in, so we can get the typical local support
         int bin = variation_start / refBinSize;
         if (bin == binnedSupport.size()) {
             --bin;
@@ -809,6 +759,7 @@ void Call2Vcf::call(
 
         // Decide if we're an indel. We're an indel if the sequence lengths
         // aren't all equal between the ref and the alleles we're going to call.
+        // TODO: is this backwards?
         bool is_indel = sequences.front().size() == sequences[best_allele].size() &&
             (second_best_allele == -1 || sequences.front().size() == sequences[second_best_allele].size());
 
@@ -835,6 +786,10 @@ void Call2Vcf::call(
 
         // Minimum allele depth of called alleles
         double min_site_support = 0;
+        
+        // This is where we'll put the genotype. We only actually add it to the
+        // Locus if we are confident enough to actually call.
+        Genotype genotype;
         
         // We're going to make some really bad calls at low depth. We can
         // pull them out with a depth filter, but for now just elide them.
@@ -869,7 +824,10 @@ void Call2Vcf::call(
                 // There's a second best allele, and it's not too biased to
                 // call, and both alleles exceed the minimum to call them
                 // present.
-                genotype.push_back(std::to_string(best_alt) + "/" + std::to_string(second_best_alt));
+                
+                // Say both are present
+                genotype.add_allele(best_allele);
+                genotype.add_allele(second_best_allele);
                 
                 // Compute the likelihood for a best/second best het
                 // Quick quality: combine likelihood and depth, using poisson for latter
@@ -877,113 +835,222 @@ void Call2Vcf::call(
                 gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), 0.5 * total(baseline_support))) +
                     ln_to_log10(poisson_prob_ln(total(second_best_support), 0.5 * total(baseline_support)));
                 gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
+                
+                // Save the likelihood in the Genotype
+                genotype.set_likelihood(log10_to_ln(gen_likelihood));
+                
                 // Get minimum support for filter (not assuming it's second_best just to be sure)
                 min_site_support = std::min(total(second_best_support), total(best_support));
+                
+                // Make the call
+                *locus.add_genotype() = genotype;
                 
             } else if(total(best_support) >= minTotalSupportForCall) {
                 // The second best allele isn't present or isn't good enough,
                 // but the best allele has enough coverage that we can just call
                 // two of it.
-                genotype.push_back(std::to_string(best_alt) + "/" + std::to_string(best_alt));
+                
+                // Say the best is present twice
+                genotype.add_allele(best_allele);
+                genotype.add_allele(best_allele);
                 
                 // Compute the likelihood for hom best allele
                 gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support)));
                 gen_likelihood += min_likelihoods.at(best_allele);
 
+                // Save the likelihood in the Genotype
+                genotype.set_likelihood(log10_to_ln(gen_likelihood));
+
                 // Get minimum support for filter
                 min_site_support = total(best_support);
+                
+                // Make the call
+                *locus.add_genotype() = genotype;
 
-            
             } else {
                 // We can't really call this as anything.
-                genotype.push_back("./.");
+                
+                // Don't add the genotype to the locus
             }
         } else {
             // Depth too low. Say we have no idea.
             // TODO: elide variant?
-            genotype.push_back("./.");
-        }
-        
-        // Now fill in all the other variant info/format stuff
-
-        if((best_allele != 0 && is_ref.at(best_allele)) || 
-            (second_best_allele != 0 && second_best_allele != -1 && is_ref.at(second_best_allele))) {
-            // Flag the variant as reference if either of its two best alleles
-            // is known but not the primary path. Don't put in a false entry if
-            // it isn't known, because vcflib will spit out the flag anyway...
-            variant.infoFlags["XREF"] = true;
-        }
-        
-        // Add depth for the variant and the samples
-        FractionalSupport total_support = ref_support;
-        if(best_allele != 0) {
-            // Add in the depth from the best allele, which is not already counted
-            total_support += best_support;
-        }
-        if(second_best_allele != -1 && second_best_allele != 0) {
-            // Add in the depth from the second allele
-            total_support += second_best_support;
-        }
-        std::string depth_string = std::to_string((int64_t)round(total(total_support)));
-        variant.format.push_back("DP");
-        variant.samples[sampleName]["DP"].push_back(depth_string);
-        variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
-        
-        // Also allelic depths
-        variant.format.push_back("AD");
-        variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(ref_support))));
-        // And strand biases
-        variant.format.push_back("SB");
-        variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.first)));
-        variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.second)));
-        // Also allelic likelihoods (from minimum values found on their paths)
-        variant.format.push_back("AL");
-        variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
-        if(best_allele != 0) {
-            // If our best allele isn't ref, it comes next.
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(best_support))));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.second)));
-            variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
-        }
-        if(second_best_allele != -1 && second_best_allele != 0) {
-            // If our second best allele is real and not ref, it comes next.
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(second_best_support))));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.second)));
-            variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
-        }
-        
-        // And total alt allele depth for the alt alleles
-        FractionalSupport alt_support = std::make_pair(0.0, 0.0);
-        if(best_allele != 0) {
-            alt_support += best_support;
-        }
-        if(second_best_allele != -1 && second_best_allele != 0) {
-            alt_support += second_best_support;
-        }
-        variant.format.push_back("XAAD");
-        variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(alt_support))));
-
-        // Copy over the quality value
-        variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
-
-        // Apply Min Allele Depth cutoff and store result in Filter column
-        variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
-        
-        if(can_write_alleles(variant)) {
-            // No need to check for collisions because we assume sites are correctly found.
             
-            // Output the created VCF variant.
-            std::cout << variant << std::endl;
-        } else {
-            if (verbose) {
-                std::cerr << "Variant is too large" << std::endl;
-            }
-            // TODO: account for the 1 base we added extra if it was a pure
-            // insert.
-            basesLost += sequences.at(best_allele).size();
+            // Don't add the genotype to the locus
         }
+        
+        auto emit_variant = [&](const Locus& locus) {
+        
+            // Make a Variant
+            vcflib::Variant variant;
+            variant.sequenceName = contigName;
+            variant.setVariantCallFile(vcf);
+            variant.quality = 0;
+            variant.position = variation_start + 1 + variantOffset;
+            
+            // Set the ID based on the IDs of the involved nodes. Note that the best
+            // allele may have no nodes (because it's a pure edge)
+            variant.id = id_lists.at(best_allele);
+            if(second_best_allele != -1 && !id_lists.at(second_best_allele).empty()) {
+                // Add the second best allele's nodes in.
+                variant.id += "-" + id_lists.at(second_best_allele);
+            }
+            
+            
+            if(sequences.at(0).empty() ||
+                (best_allele != -1 && sequences.at(best_allele).empty()) ||
+                (second_best_allele != -1 && sequences.at(second_best_allele).empty())) {
+                
+                // Fix up the case where we have an empty allele.
+                
+                // We need to grab the character before the variable part of the
+                // site in the reference.
+                assert(variation_start > 0);
+                std::string extra_base = char_to_string(index.sequence.at(variation_start - 1));
+                
+                for(auto& seq : sequences) {
+                    // Stick it on the front of all the allele sequences
+                    seq = extra_base + seq;
+                }
+                
+                // Budge the variant left
+                variant.position--;
+            }
+            
+            // Add the ref allele to the variant
+            create_ref_allele(variant, sequences.front());
+            
+            // Add the best allele
+            assert(best_allele != -1);
+            int best_alt = add_alt_allele(variant, sequences.at(best_allele));
+            
+            int second_best_alt = (second_best_allele == -1) ? -1 : add_alt_allele(variant, sequences.at(second_best_allele));
+            
+            
+            // Say we're going to spit out the genotype for this sample.        
+            variant.format.push_back("GT");
+            auto& genotype_vector = variant.samples[sampleName]["GT"];
+
+            if (locus.genotype_size() > 0) {
+                // We actually made a call. Emit the first genotype, which is the call.
+                
+                // We need to rewrite the allele numbers to alt numbers, since
+                // we aren't keeping all the alleles in the VCF, so we can't use
+                // the natural conversion of Genotype to VCF genotype string.
+                
+                // Emit parts into this stream
+                stringstream stream;
+                for (size_t i = 0; i < genotype.allele_size(); i++) {
+                    // For each allele called as present in the genotype
+                    
+                    // Convert from allele number to alt number
+                    if (genotype.allele(i) == best_allele) {
+                        stream << best_alt;
+                    } else if (genotype.allele(i) == second_best_allele) {
+                        stream << second_best_alt;
+                    } else {
+                        throw runtime_error("Allele " + to_string(genotype.allele(i)) +
+                            " is not best or second-best and has no alt");
+                    }
+                    
+                    if (i + 1 != genotype.allele_size()) {
+                        // Write a separator after all but the last one
+                        stream << (genotype.is_phased() ? '|' : '/');
+                    }
+                }
+                
+                // Save the finished genotype
+                genotype_vector.push_back(stream.str());              
+            } else {
+                // Say there's no call here
+                genotype_vector.push_back("./.");
+            }
+            
+            // Now fill in all the other variant info/format stuff
+
+            if((best_allele != 0 && is_ref.at(best_allele)) || 
+                (second_best_allele != 0 && second_best_allele != -1 && is_ref.at(second_best_allele))) {
+                // Flag the variant as reference if either of its two best alleles
+                // is known but not the primary path. Don't put in a false entry if
+                // it isn't known, because vcflib will spit out the flag anyway...
+                variant.infoFlags["XREF"] = true;
+            }
+            
+            // Add depth for the variant and the samples
+            FractionalSupport total_support = ref_support;
+            if(best_allele != 0) {
+                // Add in the depth from the best allele, which is not already counted
+                total_support += best_support;
+            }
+            if(second_best_allele != -1 && second_best_allele != 0) {
+                // Add in the depth from the second allele
+                total_support += second_best_support;
+            }
+            std::string depth_string = std::to_string((int64_t)round(total(total_support)));
+            variant.format.push_back("DP");
+            variant.samples[sampleName]["DP"].push_back(depth_string);
+            variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+            
+            // Also allelic depths
+            variant.format.push_back("AD");
+            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(ref_support))));
+            // And strand biases
+            variant.format.push_back("SB");
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.first)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.second)));
+            // Also allelic likelihoods (from minimum values found on their paths)
+            variant.format.push_back("AL");
+            variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
+            if(best_allele != 0) {
+                // If our best allele isn't ref, it comes next.
+                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(best_support))));
+                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.first)));
+                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.second)));
+                variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
+            }
+            if(second_best_allele != -1 && second_best_allele != 0) {
+                // If our second best allele is real and not ref, it comes next.
+                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(second_best_support))));
+                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.first)));
+                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.second)));
+                variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
+            }
+            
+            // And total alt allele depth for the alt alleles
+            FractionalSupport alt_support = std::make_pair(0.0, 0.0);
+            if(best_allele != 0) {
+                alt_support += best_support;
+            }
+            if(second_best_allele != -1 && second_best_allele != 0) {
+                alt_support += second_best_support;
+            }
+            variant.format.push_back("XAAD");
+            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(alt_support))));
+
+            // Copy over the quality value
+            variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
+
+            // Apply Min Allele Depth cutoff and store result in Filter column
+            variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
+            
+            if(can_write_alleles(variant)) {
+                // No need to check for collisions because we assume sites are correctly found.
+                
+                // Output the created VCF variant.
+                std::cout << variant << std::endl;
+            } else {
+                if (verbose) {
+                    std::cerr << "Variant is too large" << std::endl;
+                }
+                // TODO: account for the 1 base we added extra if it was a pure
+                // insert.
+                basesLost += sequences.at(best_allele).size();
+            }
+            
+        };
+        
+        // Emit the variant for this Locus
+        emit_variant(locus);
     }
     
     // Announce how much we can't show.

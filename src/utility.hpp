@@ -61,6 +61,13 @@ inline double add_log(double log_x, double log_y) {
 inline double ln_to_log10(double ln) {
     return ln / log(10);
 }
+
+/**
+ * Convert a number log 10 to the same number ln.
+ */   
+inline double log10_to_ln(double l10) {
+    return l10 * log(10);
+}
     
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
