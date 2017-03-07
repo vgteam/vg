@@ -210,6 +210,11 @@ public:
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
 
+    // node start cache for fast approximate position estimates
+    vector<LRUCache<id_t, size_t>* > node_start_cache;
+    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    void init_node_start_cache(void);
+
     // match node traversals to path positions
     vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
     LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
@@ -249,6 +254,10 @@ public:
     bool alignments_consistent(const map<string, double>& pos1,
                                const map<string, double>& pos2,
                                int fragment_size_bound);
+
+    // use the fragment length annotations to assess if the pair is consistent or not
+    bool pair_consistent(const Alignment& aln1,
+                         const Alignment& aln2);
 
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
@@ -349,6 +358,18 @@ public:
                                int pair_window = 64,
                                bool only_top_scoring_pair = false,
                                bool retrying = false);
+
+    // align the pair's ends singly, then take the cross of possible pairs based on the fragment distribution
+    pair<vector<Alignment>, vector<Alignment>>
+        align_paired_multi_combi(const Alignment& read1,
+                                 const Alignment& read2,
+                                 bool& queued_resolve_later,
+                                 int kmer_size = 0,
+                                 int stride = 0,
+                                 int max_mem_length = 0,
+                                 int band_width = 1000,
+                                 bool only_top_scoring_pair = false,
+                                 bool retrying = false);
 
     // align the pair as a single component using MEM threading and patching on the pair simultaneously
     pair<vector<Alignment>, vector<Alignment>> 
@@ -493,6 +514,7 @@ public:
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
     int8_t full_length_alignment_bonus;
+    bool simultaneous_pair_alignment;
 
 };
 

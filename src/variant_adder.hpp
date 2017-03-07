@@ -122,6 +122,10 @@ public:
     /// them into cycles.
     bool skip_structural_duplications = true;
     
+    /// Should we print out periodic updates about the variants we have
+    /// processed?
+    bool print_updates = false;
+    
 protected:
     /// The graph we are modifying
     VG& graph;

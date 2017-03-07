@@ -177,6 +177,8 @@ int main_add(int argc, char** argv) {
     
         // Make a VariantAdder for the graph
         VariantAdder adder(*graph);
+        // Report updates when running interactively
+        adder.print_updates = true;
         
         // Set up parameters
         adder.ignore_missing_contigs = ignore_missing;

@@ -100,8 +100,8 @@ is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J -a | jq -c '.path.map
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
-vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -J  > temp_paired_alignment.json
-vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -u 4 -J  > temp_independent_alignment.json
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -J -a  > temp_paired_alignment.json
+vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -u 4 -J -a  > temp_independent_alignment.json
 paired_score=$(jq -r ".score" < temp_paired_alignment.json | awk '{ sum+=$1} END {print sum}')
 independent_score=$(jq -r ".score" < temp_independent_alignment.json | awk '{ sum+=$1} END {print sum}')
 is $(printf "%s\t%s\n" $paired_score $independent_score | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent have lower score than unrestricted alignments"
@@ -114,14 +114,14 @@ is $(vg map -r x.reads -x x.xg -g x.gcsa -k 22 -J | jq -r ".mapping_quality" | w
 
 rm temp_paired_alignment.json temp_independent_alignment.json
 
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -v 1 -J | jq -r ".mapping_quality") $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -U -u 4 -v 2 -J | jq -r ".mapping_quality") "mapping quality approximation is equal to exact calculation in a clear cut case"
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -v 1 -J -a | jq -r ".mapping_quality") $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -U -u 4 -v 2 -J -a | jq -r ".mapping_quality") "mapping quality approximation is equal to exact calculation in a clear cut case"
 
 vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -J -1 | jq -c '.score' > temp_scores_full_qual.txt
 vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -J -1 | jq -c '.score' > temp_scores_reduced_qual.txt
 is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') 10 "base quality adjusted alignment produces higher scores if mismatches have low quality"
 rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
 
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -W 1000:300:20:0:1 -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -W 1000:300:20:0:1 -J -a | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
 
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -u 4 -J
 is $? 1 "error on vg map -f <nonexistent-file> (unpaired)"
