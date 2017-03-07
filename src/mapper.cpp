@@ -648,16 +648,16 @@ bool Mapper::pair_consistent(const Alignment& aln1,
         // use the approximate distance
         int len = approx_fragment_length(aln1, aln2);
         if (len > 0 && len < fragment_size
-            || !fragment_size && len < fragment_max) {
+            || !fragment_size && len > 0 && len < fragment_max) {
             return true;
         }
     } else {
         // use the distance induced by the graph paths
         assert(aln1.fragment_size() == aln2.fragment_size());
         for (size_t i = 0; i < aln1.fragment_size(); ++i) {
-            int len = aln1.fragment(i).length();
+            int len = abs(aln1.fragment(i).length());
             if (len > 0 && len < fragment_size
-                || !fragment_size && len < fragment_max) {
+                || !fragment_size && len > 0 && len < fragment_max) {
                 return true;
             }
         }
@@ -1311,14 +1311,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
             alnpair.score = alnpair.mate1.score() + alnpair.mate2.score();
             // see if we should compute a pair matching bonus
             if (alnpair.mate1.score() && alnpair.mate2.score()) {
-                int dist = abs(approx_fragment_length(alnpair.mate1, alnpair.mate2));
-                if (dist) {
-                    if (fragment_size && dist < fragment_size
-                        || dist < fragment_max) {
-                        alnpair.bonus = cluster_mq1 + cluster_mq2;
-                    }
-                    if (fragment_size) {
-                        alnpair.bonus *= fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
+                int dist = approx_fragment_length(alnpair.mate1, alnpair.mate2);
+                if (dist > 0) {
+                    if (!fragment_size) {
+                        if (dist < fragment_max) {
+                            alnpair.bonus = cluster_mq1 + cluster_mq2;
+                        }
+                    } else if (dist < fragment_size) {
+                        alnpair.bonus = fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
                     }
                 }
             }
@@ -1327,7 +1327,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         std::sort(alns.begin(), alns.end(),
                   [&](const AlignmentPair& pair1,
                       const AlignmentPair& pair2) {
-                      return pair1.score + pair1.bonus > pair2.score + pair2.bonus;
+                      return pair1.score > pair2.score && pair1.bonus > pair2.bonus;
                       //return pair1.mate1.score() + pair1.mate2.score() > pair2.mate1.score() + pair2.mate2.score();
                   });
         // remove duplicates (same score and same start position of both pairs)
@@ -1468,20 +1468,20 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
 
     // do not compute the paired mapping quality
     // this does not seem to be doing the right thing in this context
-    //compute_mapping_qualities(results, cluster_mq);
 
     // compute mapping qualities for first
+    /*
     if (!results.first.empty()) {
         // do we meet the fragment size requirements
         auto& mate1 = results.first.front();
         auto& mate2 = results.second.front();
         // if not, we downgrade the mapping quality in an ad-hoc way
         // TODO could we do this in a way that reflects this pair's specific fragment length?
-        if (!pair_consistent(mate1, mate2)) {
-            mate1.set_mapping_quality(mate1.mapping_quality()/2);
-            mate2.set_mapping_quality(mate2.mapping_quality()/2);
+        if (pair_consistent(mate1, mate2)) {
+            compute_mapping_qualities(results, cluster_mq);
         }
     }
+    */
 
     if(results.first.empty()) {
         results.first.push_back(read1);
