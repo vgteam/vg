@@ -451,14 +451,57 @@ Support operator+(const Support& one, const Support& other);
 Support& operator+=(Support& one, const Support& other);
 
 /**
- * Scale a Support by an integral factor.
+ * Scale a Support by a factor.
  */
-Support operator*(const Support& support, const size_t& scale);
+template<typename Scalar>
+Support operator*(const Support& support, const Scalar& scale) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
 
 /**
- * Scale a Support by an integral factor, the other way
+ * Scale a Support by a factor, the other way
  */
-Support operator*(const size_t& scale, const Support& support);
+template<typename Scalar>
+Support operator*(const Scalar& scale, const Support& support) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
+/**
+ * Divide a Support by a factor.
+ */
+template<typename Scalar>
+Support operator/(const Support& support, const Scalar& scale) {
+    Support scaled;
+    
+    scaled.set_forward(support.forward() / scale);
+    scaled.set_reverse(support.reverse() / scale);
+    scaled.set_left(support.left() / scale);
+    scaled.set_right(support.right() / scale);
+    
+    // log-scaled quality can just be divided. Maybe.
+    scaled.set_quality(support.quality() / scale);
+    
+    return scaled;
+}
 
 /**
  * Get a VCF-style 1/2, 1|2|3, etc. string from a Genotype.

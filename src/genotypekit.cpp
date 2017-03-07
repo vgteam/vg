@@ -1336,32 +1336,6 @@ Support& operator+=(Support& one, const Support& other) {
     return one;
 }
 
-Support operator*(const Support& support, const size_t& scale) {
-    Support prod;
-    prod.set_forward(support.forward() * scale);
-    prod.set_reverse(support.reverse() * scale);
-    prod.set_left(support.left() * scale);
-    prod.set_right(support.right() * scale);
-    
-    // log-scaled quality can just be multiplied
-    prod.set_quality(support.quality() * scale);
-    
-    return prod;
-}
-
-Support operator*(const size_t& scale, const Support& support) {
-    Support prod;
-    prod.set_forward(support.forward() * scale);
-    prod.set_reverse(support.reverse() * scale);
-    prod.set_left(support.left() * scale);
-    prod.set_right(support.right() * scale);
-    
-    // log-scaled quality can just be multiplied
-    prod.set_quality(support.quality() * scale);
-    
-    return prod;
-}
-
 string to_vcf_genotype(const Genotype& gt) {
     // Emit parts into this stream
     stringstream stream;
