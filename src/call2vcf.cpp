@@ -323,9 +323,18 @@ void Call2Vcf::call(
     // index by node start, and the reconstructed path sequence.
     PathIndex index(augmented.graph, refPathName, true);
 
+    if (index.sequence.size() == 0) {
+        // No empty reference paths allowed
+        throw runtime_error("Reference path cannot be empty");
+    }
+
     // Store support binned along reference path;
     // Last bin extended to include remainder
     refBinSize = min(refBinSize, index.sequence.size());
+    if (refBinSize <= 0) {
+        // No zero-sized bins allowed
+        throw runtime_error("Reference bin size must be 1 or larger");
+    }
     vector<FractionalSupport> binnedSupport(max(1, int(index.sequence.size() / refBinSize)),
                                   FractionalSupport(expCoverage / 2, expCoverage /2));
     
@@ -754,16 +763,28 @@ void Call2Vcf::call(
             continue;
         }
         
-        // Since the variable part of the site is after the first anchoring node, where does it start?
-        size_t variation_start = index.by_id.at(site->start().node_id()).first
-                                 + augmented.graph.get_node(site->start().node_id())->sequence().size();
+        // We need to figure out how much support a site ought to have
+        FractionalSupport baseline_support;
         
-        // Find which coordinate bin the variation start is in, so we can get the typical local support
-        int bin = variation_start / refBinSize;
-        if (bin == binnedSupport.size()) {
-            --bin;
+        if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
+            // We're on the primary path, so we can find the appropriate bin
+        
+            // Since the variable part of the site is after the first anchoring node, where does it start?
+            size_t variation_start = index.by_id.at(site->start().node_id()).first
+                                     + augmented.graph.get_node(site->start().node_id())->sequence().size();
+            
+            // Find which coordinate bin the variation start is in, so we can get the typical local support
+            int bin = variation_start / refBinSize;
+            if (bin == binnedSupport.size()) {
+                --bin;
+            }
+            baseline_support = binnedSupport[bin];
+            
+        } else {
+            // TODO: get support from what actually landed on the primary path
+            // For now just hack it
+            baseline_support = make_pair(15.0, 15.0);
         }
-        const FractionalSupport& baseline_support = binnedSupport[bin];
 
         // Decide if we're an indel. We're an indel if the sequence lengths
         // aren't all equal between the ref and the alleles we're going to call.
@@ -897,6 +918,11 @@ void Call2Vcf::call(
         *locus.mutable_overall_support() = to_support(locus_support);
         
         auto emit_variant = [&](const Locus& locus) {
+        
+            // Since the variable part of the site is after the first anchoring node, where does it start?
+            // TODO: we calculate this twice...
+            size_t variation_start = index.by_id.at(site->start().node_id()).first
+                                     + augmented.graph.get_node(site->start().node_id())->sequence().size();
         
             // Make a Variant
             vcflib::Variant variant;
@@ -1067,8 +1093,15 @@ void Call2Vcf::call(
         };
         
         if (convert_to_vcf) {
-            // Emit the variant for this Locus
-            emit_variant(locus);
+            // We want to emit VCF
+            if(index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
+                // And this site is on the primery path
+                
+                // Emit the variant for this Locus
+                emit_variant(locus);
+            }
+            // Otherwise discard it as off-path
+            // TODO: update bases lost
         } else {
             // Emit the locus itself
             locus_buffer.push_back(locus);
