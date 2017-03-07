@@ -1604,7 +1604,8 @@ map<Alignment*, vector<Genotyper::Affinity> >
 Genotyper::get_affinities_fast(VG& graph,
                                const map<string, Alignment*>& reads_by_name,
                                const Site& site,
-                               const vector<list<NodeTraversal> >& superbubble_paths) {
+                               const vector<list<NodeTraversal> >& superbubble_paths,
+                               bool allow_internal_alignments) {
     
     // We're going to build this up gradually, appending to all the vectors.
     map<Alignment*, vector<Affinity>> to_return;
@@ -1664,7 +1665,7 @@ Genotyper::get_affinities_fast(VG& graph,
         if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
             // This read only touches the head or tail of the site, and so
             // cannot possibly be informative.
-            cerr << "Possibly informative long variant site... " << endl
+            cerr << "Non-informative site being removed " << endl
             << read_traversal.front() << " to " << read_traversal.back() << endl;  
             continue;
         }
@@ -1703,6 +1704,9 @@ Genotyper::get_affinities_fast(VG& graph,
                 // This read doesn't touch either end.
                 #pragma omp critical (cerr)
                 cerr << "Warning: read doesn't touch either end of its site!" << endl;
+                if (allow_internal_alignments){
+                    
+                }
             }
             
 #ifdef debug

@@ -242,7 +242,7 @@ public:
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths);
+        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.

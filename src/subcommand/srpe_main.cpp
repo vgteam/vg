@@ -12,6 +12,7 @@
 #include "path.hpp"
 //#include "genotyper.hpp"
 #include "genotypekit.hpp"
+#include "genotyper.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
 #include "srpe.hpp"
@@ -227,6 +228,11 @@ int main_srpe(int argc, char** argv){
         vector<int64_t> variant_nodes;
         variant_nodes.reserve(10000);
 
+        // Store a site for each VCF variant.
+        map<string, Site > name_to_site;
+
+        
+
         // Hash a variant from the VCF
         vcflib::Variant var;
         while (variant_file->getNextVariant(var)){
@@ -234,14 +240,20 @@ int main_srpe(int argc, char** argv){
             var.canonicalize_sv(*linear_ref, insertions, -1);
             string var_id = make_variant_id(var);
             hash_to_var[ var_id ] = var;
+            Site s;
+            set<id_t> contents;
             for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
+                // TODO: escape to the bubble's ends to make sure we get the
+                // start/end of the site correct.
                 string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
                 list<Mapping> x_path = graphpaths[ alt_id ];
                 for (Mapping x_m : x_path){
                     variant_nodes.push_back(x_m.position().node_id());
                     varname_to_nodeid[ alt_id ].push_back(x_m.position().node_id());
+                    contents.insert(x_m.position().node_id());
                 }
             }
+            
 
         }
         std::function<void(const Alignment& a)> incr = [&](const Alignment& a){
@@ -255,8 +267,22 @@ int main_srpe(int argc, char** argv){
 
         vector<Genotype> genotypes;
         vector<Locus> loci;
-        vector<LongVariantAffinity> affinities;
+        vector<Affinity> affinities;
         // TODO : calculate genotype likelihoods
+        map<Alignment*, vector<Genotyper::Affinity>> affinities;
+        std::function<void(vector<Alignment>&, vg::VG* graph) calc_affins = [&](vector<Aligment>& alignments,
+        vg::VG* graph,
+        Path p){
+            string p_str = graph->paths.path_to_string(p);
+            for (auto x : alignments){
+                Affinity af;
+                Site s;
+                list<NodeTraversal> read_traversal = get_traversal_of_site(*graph, s, x.path());
+
+            }
+        };
+
+        
 
 
         for (auto it : hash_to_var){
@@ -266,6 +292,7 @@ int main_srpe(int argc, char** argv){
                 for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
                     sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
                 }
+                
                 #pragma omp critical
                 it.second.info["AD"].push_back(std::to_string(sum_reads));
             }
@@ -327,6 +354,7 @@ int main_srpe(int argc, char** argv){
         // TODO expose at CLI
         int min_depth = 5;
 
+
         std::function<void(Alignment&)> get_simples_and_perfects = [&](Alignment& aln){
             if (ff.perfect_filter(aln)){
                 #pragma omp critical
@@ -339,7 +367,6 @@ int main_srpe(int argc, char** argv){
                     Path p = trim_hanging_ends(aln.path());
                     p.set_name(aln.name());
                     simple_paths.push_back(p);
-                    
                 }
             }
             else{
@@ -350,6 +377,8 @@ int main_srpe(int argc, char** argv){
                 
             }
         };
+
+
 
         stream::for_each_parallel(all_reads, get_simples_and_perfects);
 
@@ -368,6 +397,18 @@ int main_srpe(int argc, char** argv){
         tt.load(translations);
         graph->paths.rebuild_mapping_aux();
         cerr << "Loaded " << translations.size() << " translations." << endl;
+
+        map<string, Alignment*> reads_by_name;
+    for(auto& alignment : simple_mismatches) {
+        reads_by_name[alignment.name()] = &alignment;
+        // Make sure to replace the alignment's path with the path it has in the augmented graph
+        list<Mapping>& mappings = graph->paths.get_path(alignment.name());
+        alignment.mutable_path()->clear_mapping();
+        for(auto& mapping : mappings) {
+            // Copy over all the transformed mappings
+            *alignment.mutable_path()->add_mapping() = mapping;
+        }
+    }
 
         if (augment_paths){
 
@@ -422,6 +463,7 @@ int main_srpe(int argc, char** argv){
         vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
         TraversalFinder* trav_finder;
         if (augment_paths){
+            //trav_finder = new ReadRestrictedTraversalFinder(*graph, snarl_manager, reads_by_name);
 
         }
         else{
