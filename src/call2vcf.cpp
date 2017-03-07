@@ -435,11 +435,6 @@ void Call2Vcf::call(
     SnarlManager site_manager = finder.find_snarls();
     
     site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
-        if(!index.by_id.count(site->start().node_id()) || !index.by_id.count(site->end().node_id())) {
-            // Skip top-level sites that aren't on the reference path at both ends.
-            return;
-        }
-    
         // Stick all the sites in this vector.
         #pragma omp critical (sites)
         site_queue.emplace_back(site);
@@ -457,74 +452,81 @@ void Call2Vcf::call(
         const Snarl* site = move(site_queue.front());
         site_queue.pop_front();
         
-        if (!index.by_id.count(site->start().node_id())) {
-            #pragma omp critical (cerr)
-            cerr << "Off-reference left end: " << pb2json(*site) << endl;
-        }
-        if (!index.by_id.count(site->end().node_id())) {
-            #pragma omp critical (cerr)
-            cerr << "Off-reference right end: " << pb2json(*site) << endl;
-        }
+        if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
+            // This site is on the primary path
         
-        // Sites should not have gotten into the queue without being on the primary path at both ends
-        assert(index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id()));
-        
-        // Where does the variable region start and end on the reference?
-        size_t ref_start = index.by_id.at(site->start().node_id()).first +
-            augmented.graph.get_node(site->start().node_id())->sequence().size();
-        size_t ref_end = index.by_id.at(site->end().node_id()).first;
-        
-        if(ref_start > ref_end) {
-            // Make sure it's the right way around (it will get set straight
-            // in the site when we do the bubbling-up).
-            swap(ref_start, ref_end);
-        }
-        
-        if(!site_manager.children_of(site).empty() && ref_end > ref_start + max_ref_length) {
-            // Site is too big and has children. Split it up and do the
-            // children.
+            // Where does the variable region start and end on the reference?
+            size_t ref_start = index.by_id.at(site->start().node_id()).first +
+                augmented.graph.get_node(site->start().node_id())->sequence().size();
+            size_t ref_end = index.by_id.at(site->end().node_id()).first;
+            
+            if(ref_start > ref_end) {
+                // Make sure it's the right way around (it will get set straight
+                // in the site when we do the bubbling-up).
+                swap(ref_start, ref_end);
+            }
+            
+            if(!site_manager.is_leaf(site) && ref_end > ref_start + max_ref_length) {
+                // Site is too big and has children. Split it up and do the
+                // children.
+                for(const Snarl* child : site_manager.children_of(site)) {
+                    // Dump all the children into the queue for separate
+                    // processing.
+                    site_queue.emplace_back(child);
+                }
+
+                if (verbose) {
+                    cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
+                              << site_manager.children_of(site).size() << " children" << endl;
+                }
+                
+            } else {
+                // With no children, site may still be huge, but it doesn't
+                // matter because there's nothing to nest in it, so we can
+                // genotype it just fine.
+                
+                // With children, it's practical to just include the child
+                // genotypes in the site genotype.
+                
+                if(ref_end > ref_start + max_ref_length) {
+                    // This site is big but we left it anyway.
+                    if (verbose) {
+                        cerr << "Left site from " << ref_start << " to " << ref_end << " with "
+                                  << site_manager.children_of(site).size() << " children" << endl;
+                    }
+                }
+                
+                // Make sure start and end are front-ways relative to the ref path.
+                if(index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
+                    // The site's end happens before its start, flip it around
+                    site_manager.flip(site);
+                }
+                
+                // Throw it in the final vector of sites we're going to process.
+                sites.push_back(site);
+            }        
+        } else if (!convert_to_vcf) {
+            // The site is not on the primary path, but we can handle it anyway.
+            
+            // TODO: enforce a max size or something?
+            sites.push_back(site);
+            
+        } else {
+            // The site is not on the primary path, but maybe the primary path
+            // is inside it somewhere and one of its children might be on it.
+            
             for(const Snarl* child : site_manager.children_of(site)) {
                 // Dump all the children into the queue for separate
                 // processing.
-                
-                if(!index.by_id.count(child->start().node_id()) || !index.by_id.count(child->end().node_id())) {
-                    // Skip child sites that aren't on the reference path at both ends.
-                    continue;
-                }
-                
                 site_queue.emplace_back(child);
             }
 
             if (verbose) {
-                cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                          << site_manager.children_of(site).size() << " children" << endl;
+                cerr << "Broke up off-reference site into "
+                     << site_manager.children_of(site).size() << " children" << endl;
             }
             
-        } else {
-            // With no children, site may still be huge, but it doesn't
-            // matter because there's nothing to nest in it, so we can
-            // genotype it just fine.
-            
-            // With children, it's practical to just include the child
-            // genotypes in the site genotype.
-            
-            if(ref_end > ref_start + max_ref_length) {
-                // This site is big but we left it anyway.
-                if (verbose) {
-                    cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                              << site_manager.children_of(site).size() << " children" << endl;
-                }
-            }
-            
-            // Make sure start and end are front-ways relative to the ref path.
-            if(index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
-                // The site's end happens before its start, flip it around
-                site_manager.flip(site);
-            }
-            
-            // Throw it in the final vector of sites we're going to process.
-            sites.push_back(site);
-        }                
+        }     
     }
 
     if (verbose) {
@@ -584,14 +586,17 @@ void Call2Vcf::call(
             // Finish up with the site's end
             traversal_vector.push_back(to_node_traversal(site->end(), augmented.graph));
             
-            if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
-                // This site is backward relative to the primary path.
-                
-                // Turn the traversal around to primary path orientation.
-                reverse(traversal_vector.begin(), traversal_vector.end());
-                for (auto& trav : traversal_vector) {
-                    // Flip every traversal in it
-                    trav = trav.reverse();
+            if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
+                // This site is on the primary path
+                if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
+                    // This site is backward relative to the primary path.
+                    
+                    // Turn the traversal around to primary path orientation.
+                    reverse(traversal_vector.begin(), traversal_vector.end());
+                    for (auto& trav : traversal_vector) {
+                        // Flip every traversal in it
+                        trav = trav.reverse();
+                    }
                 }
             }
             

@@ -620,12 +620,36 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
-    SnarlManager& snarl_manager, PathIndex& index, size_t max_depth,
+    SnarlManager& snarl_manager, PathIndex& primary_path_index, size_t max_depth,
     size_t max_bubble_paths) : augmented(augmented), snarl_manager(snarl_manager),
-    index(index), max_depth(max_depth), max_bubble_paths(max_bubble_paths) {
+    primary_path_index(primary_path_index), max_depth(max_depth), max_bubble_paths(max_bubble_paths) {
     
     // Nothing to do!
 
+}
+
+Path RepresentativeTraversalFinder::find_backbone(const Snarl& site) {
+    
+    // TODO: this cheats and uses certain things that happen to be true about
+    // the TrivialTraversalFinder in order to work.
+
+    // Find a traversal, ignoring the fact that child sites ought to own their
+    // nodes.
+    TrivialTraversalFinder finder(augmented.graph);
+    auto traversals = finder.find_traversals(site);
+    assert(!traversals.empty());
+    auto& traversal = traversals.front();
+    
+    // Convert it into a path that includes the boundry nodes
+    Path to_return;
+    *to_return.add_mapping() = to_mapping(traversal.snarl().start(), augmented.graph);
+    for (size_t i = 0; i < traversal.visits_size(); i++) {
+        *to_return.add_mapping() = to_mapping(traversal.visits(i), augmented.graph);
+    }
+    *to_return.add_mapping() = to_mapping(traversal.snarl().end(), augmented.graph);
+    
+    return to_return;
+    
 }
 
 vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snarl& site) {
@@ -634,7 +658,29 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     // traversals through from end to end.
     assert(site.type() == ULTRABUBBLE);
     
-    // Get its nodes and edges (including all child sites)
+    // We may need to make a new index for a backbone for this site, if it's not
+    // on the primary path.
+    unique_ptr<PathIndex> backbone_index;
+    
+    if (!primary_path_index.by_id.count(site.start().node_id()) || !primary_path_index.by_id.count(site.end().node_id())) {
+        // This site is not strung along the primary path, so we will need to
+        // generate a backbone traversal of it to structure our search for
+        // representative traversals (because they always want to come back to
+        // the backbone as soon as possible).
+        
+        // TODO: we don't handle children correctly (we just glom them into
+        // ourselves).
+        Path backbone = find_backbone(site);
+        
+        // Index the backbone (but don't bother with the sequence)
+        backbone_index = unique_ptr<PathIndex>(new PathIndex(backbone));
+    }
+    
+    // Determnine what path will be the path we use to scaffold the traversals:
+    // the primary path index by default, or the backbone index if we needed one.
+    PathIndex& index = (backbone_index.get() != nullptr ? *backbone_index : primary_path_index);
+    
+    // Get the site's nodes and edges (including all child sites)
     pair<unordered_set<Node*>, unordered_set<Edge*>> contents = snarl_manager.deep_contents(&site, augmented.graph, true);
     
     // Copy its node set
@@ -643,8 +689,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     // Trace the ref path through the site
     vector<NodeTraversal> ref_path_for_site;
     
-    // First figure where the site starts and ends in the primary path
-    // TODO: support off-path sites
+    // First figure where the site starts and ends in the selected path
     size_t site_start = index.by_id.at(site.start().node_id()).first;
     size_t site_end = index.by_id.at(site.end().node_id()).first;
     
@@ -668,7 +713,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Find the reference node starting here or later.
         auto found = index.by_start.lower_bound(ref_node_start);
         if(found == index.by_start.end()) {
-            throw runtime_error("No ref node found when tracing through site!");
+            throw runtime_error("No backbone node found when tracing through site!");
         }
         if((*found).first > index.by_id.at(site.end().node_id()).first) {
             // The next reference node we can find is out of the space
@@ -699,7 +744,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Make sure none of the nodes in the site that we didn't visit
         // while tracing along the ref path are on the ref path.
         if(index.by_id.count(node->id())) {
-            cerr << "Node " << node->id() << " is on ref path at "
+            cerr << "Node " << node->id() << " is on backbone path at "
                 << index.by_id.at(node->id()).first << " but not traced in site "
                 << to_node_traversal(site.start(), augmented.graph) << " to " 
                 << to_node_traversal(site.end(), augmented.graph) << endl;
@@ -724,10 +769,10 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             assert(contents.first.count(traversal.node));
 #ifdef debug
             if(index.by_id.count(traversal.node->id())) {
-                cerr << "Path member " << traversal << " lives on ref at "
+                cerr << "Path member " << traversal << " lives on backbone at "
                 << index.by_id.at(traversal.node->id()).first << endl;
             } else {
-                cerr << "Path member " << traversal << " does not live on ref" << endl;
+                cerr << "Path member " << traversal << " does not live on backbone" << endl;
             }
 #endif
         }
@@ -761,7 +806,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             if(ref_path_index == ref_path_for_site.size()) {
                 // Still couldn't find it!
                 stringstream err;
-                err << "Couldn't find " << path.back() << " in ref path of site "
+                err << "Couldn't find " << path.back() << " in backbone path of site "
                     << to_node_traversal(site.start(), augmented.graph)
                     << " to " << to_node_traversal(site.end(), augmented.graph) << endl;
                 throw runtime_error(err.str());
@@ -788,12 +833,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         if(index.by_id.count(node->id())) {
-            // Don't try to pathfind to the reference for reference nodes.
+            // Don't try to pathfind to the backbone for backbone nodes.
             continue;
         }
         
-        // TODO: allow bubbles that don't backend into the primary path
-        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(node, nullptr);
+        // Find bubbles that backend into the backbone path
+        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(node, nullptr, index);
 
         vector<NodeTraversal>& path = sup_path.second;
         
@@ -818,14 +863,14 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Go through all the edges
         
         if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
-            // Edge doesn't touch reference at both ends. Don't use it
+            // Edge doesn't touch backbone at both ends. Don't use it
             // because for some reason it makes performance worse
             // overall.
             continue;
         }
         
         // Find a path based around this edge
-        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(nullptr, edge);
+        pair<Support, vector<NodeTraversal>> sup_path = find_bubble(nullptr, edge, index);
         vector<NodeTraversal>& path = sup_path.second;
         
 #ifdef debug
@@ -907,7 +952,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     return unique_traversals;
 }
 
-pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(Node* node, Edge* edge) {
+pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(Node* node, Edge* edge, PathIndex& index) {
 
     // What are we going to find our left and right path halves based on?
     NodeTraversal left_traversal;
@@ -934,8 +979,8 @@ pair<Support, vector<NodeTraversal>> RepresentativeTraversalFinder::find_bubble(
     // Find paths on both sides, with nodes on the primary path at the outsides
     // and this edge in the middle. Returns path lengths and paths in pairs in a
     // set.
-    auto leftPaths = bfs_left(left_traversal);
-    auto rightPaths = bfs_right(right_traversal);
+    auto leftPaths = bfs_left(left_traversal, index);
+    auto rightPaths = bfs_right(right_traversal, index);
     
     // Find a combination of two paths which gets us to the reference in a
     // consistent orientation (meaning that when you look at the ending nodes'
@@ -1121,7 +1166,8 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<NodeTraver
     return minSupport;
 }
 
-set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(NodeTraversal node, bool stopIfVisited) {
+set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(NodeTraversal node,
+    PathIndex& index, bool stopIfVisited) {
 
     // Holds partial paths we want to return, with their lengths in bp.
     set<pair<size_t, list<NodeTraversal>>> toReturn;
@@ -1222,10 +1268,11 @@ set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(N
     return toReturn;
 }
 
-set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_right(NodeTraversal node, bool stopIfVisited) {
+set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_right(NodeTraversal node, PathIndex& index,
+    bool stopIfVisited) {
 
     // Look left from the backward version of the node.
-    auto toConvert = bfs_left(node.reverse(), stopIfVisited);
+    auto toConvert = bfs_left(node.reverse(), index, stopIfVisited);
     
     // Since we can't modify set records in place, we need to do a copy
     set<pair<size_t, list<NodeTraversal>>> toReturn;

@@ -319,13 +319,21 @@ protected:
     AugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-    /// An index of the primary path in the graph, to scaffold the produced traversals.
-    PathIndex& index;
+    /// An index of the primary path in the graph, to scaffold the produced
+    /// traversals when sites are on the primary path.
+    PathIndex& primary_path_index;
     
     /// What DFS depth should we search to?
     size_t max_depth;
-    //. How many search intermediates can we allow?
+    /// How many search intermediates can we allow?
     size_t max_bubble_paths;
+    
+    /**
+     * Find a Path that runs from the start of the given snarl to the end, which
+     * we can use to backend our traversals into when a snarl is off the primary
+     * path.
+     */
+    Path find_backbone(const Snarl& site);
     
     /**
      * Given an edge or node in the augmented graph, look out from the edge or
@@ -343,7 +351,7 @@ protected:
      * support found on any edge or node in the bubble (including the reference
      * node endpoints and their edges which aren't stored in the path)
      */
-    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge);
+    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge, PathIndex& index);
         
     /**
      * Get the minimum support of all nodes and edges in path
@@ -352,17 +360,17 @@ protected:
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the indexed
-     * reference path. Refuses to visit nodes with no support.
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path. Refuses to visit nodes with no support.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, bool stopIfVisited = false);
+    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the indexed
-     * reference path.
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, bool stopIfVisited = false);
+    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.
