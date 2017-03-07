@@ -378,7 +378,7 @@ void Call2Vcf::call(
     }
 
     if (verbose) {
-        cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
+        cerr << "Primary path average/off-path assumed coverage: " << primaryPathAverageSupport << endl;
         cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
                   << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
         cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
@@ -524,6 +524,8 @@ void Call2Vcf::call(
             // The site is not on the primary path, but maybe the primary path
             // is inside it somewhere and one of its children might be on it.
             
+            size_t child_count = site_manager.children_of(site).size();
+            
             for(const Snarl* child : site_manager.children_of(site)) {
                 // Dump all the children into the queue for separate
                 // processing.
@@ -531,8 +533,12 @@ void Call2Vcf::call(
             }
 
             if (verbose) {
-                cerr << "Broke up off-reference site into "
-                     << site_manager.children_of(site).size() << " children" << endl;
+                if (child_count) {
+                    cerr << "Broke up off-reference site into "
+                         << child_count << " children" << endl;
+                } else {
+                    cerr << "Dropped off-reference site" << endl;
+                }
             }
             
         }     
@@ -781,9 +787,8 @@ void Call2Vcf::call(
             baseline_support = binnedSupport[bin];
             
         } else {
-            // TODO: get support from what actually landed on the primary path
-            // For now just hack it
-            baseline_support = make_pair(15.0, 15.0);
+            // Just use the primary path's average support
+            baseline_support = primaryPathAverageSupport;
         }
 
         // Decide if we're an indel. We're an indel if the sequence lengths
