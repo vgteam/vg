@@ -126,30 +126,47 @@ template<typename Scalar>
 FractionalSupport operator/(const FractionalSupport& support, const Scalar& scale) {
     return std::make_pair(support.first / scale, support.second / scale);
 }
+
+/**
+ * Upgrade an integral Protobuf Support to a FractionalSupport.
+ */
+FractionalSupport from_support(const Support& other) {
+    return make_pair(other.forward(), other.reverse());
+}
+
+/**
+ * Downgrade a FractionalSupport to an integral Protobuf suopport.
+ */
+Support to_support(const FractionalSupport& other) {
+    Support to_return;
+    to_return.set_forward(other.first);
+    to_return.set_reverse(other.second);
+    return to_return;
+}
     
 /**
- * Allow printing a support.
+ * Allow printing a FractionalSupport.
  */
 std::ostream& operator<<(std::ostream& stream, const FractionalSupport& support) {
     return stream << support.first << "," << support.second;
 }
 
 /**
- * Get the total read support in a support.
+ * Get the total read support in a FractionalSupport.
  */
 double total(const FractionalSupport& support) {
     return support.first + support.second;
 }
 
 /**
- * Get the strand bias of a support.
+ * Get the strand bias of a FractionalSupport.
  */
 double strand_bias(const FractionalSupport& support) {
     return std::max(support.first, support.second) / (support.first + support.second);
 }
 
 /**
- * Get the minimum support of a pair of supports, by taking the min in each
+ * Get the minimum support of a pair of FractionalSupports, by taking the min in each
  * orientation.
  */
 FractionalSupport support_min(const FractionalSupport& a, const FractionalSupport& b) {
@@ -226,410 +243,6 @@ bool mapping_is_perfect_match(const vg::Mapping& mapping) {
 }
 
 /**
- * Get the length of a path through nodes, in base pairs.
- */
-size_t bp_length(const std::list<vg::NodeTraversal>& path) {
-    size_t length = 0;
-    for(auto& traversal : path) {
-        // Sum up length of each node's sequence
-        length += traversal.node->sequence().size();
-    }
-    return length;
-}
-
-/**
- * Get the minimum support of all nodes and edges in path
- */
-FractionalSupport min_support_in_path(vg::VG& graph,
-                            const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-                            const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
-                            const std::list<vg::NodeTraversal>& path) {
-    if (path.empty()) {
-        return FractionalSupport();
-    }
-    auto cur = path.begin();
-    auto next = path.begin();
-    ++next;
-    FractionalSupport minSupport = nodeReadSupport.count(cur->node) ? nodeReadSupport.at(cur->node) : FractionalSupport();
-    for (; next != path.end(); ++cur, ++next) {
-        // check the node support
-        FractionalSupport support = nodeReadSupport.count(next->node) ? nodeReadSupport.at(next->node) : FractionalSupport();
-        minSupport = support_min(minSupport, support);
-        
-        // check the edge support
-        Edge* edge = graph.get_edge(*cur, *next);
-        assert(edge != NULL);
-        FractionalSupport edgeSupport = edgeReadSupport.count(edge) ? edgeReadSupport.at(edge) : FractionalSupport();
-        minSupport = support_min(minSupport, edgeSupport);
-    }
-    return minSupport;
-}
-
-/**
- * Do a breadth-first search left from the given node traversal, and return
- * lengths and paths starting at the given node and ending on the indexed
- * reference path. Refuses to visit nodes with no support.
- */
-std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph,
-    vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-    const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
-    int64_t maxDepth = 10, bool stopIfVisited = false) {
-
-    // Holds partial paths we want to return, with their lengths in bp.
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
-    
-    // Do a BFS
-    
-    // This holds the paths to get to NodeTraversals to visit (all of which will
-    // end with the node we're starting with).
-    std::list<std::list<vg::NodeTraversal>> toExtend;
-    
-    // This keeps a set of all the oriented nodes we already got to and don't
-    // need to queue again.
-    std::set<vg::NodeTraversal> alreadyQueued;
-    
-    // Start at this node at depth 0
-    toExtend.emplace_back(std::list<vg::NodeTraversal> {node});
-    // Mark this traversal as already queued
-    alreadyQueued.insert(node);
-    
-    // How many ticks have we spent searching?
-    size_t searchTicks = 0;
-    // Track how many options we have because size may be O(n).
-    size_t stillToExtend = toExtend.size();
-    
-    while(!toExtend.empty()) {
-        // Keep going until we've visited every node up to our max search depth.
-        
-#ifdef debug
-        searchTicks++;
-        if(searchTicks % 100 == 0) {
-            // Report on how much searching we are doing.
-            std::cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << std::endl;
-        }
-#endif
-        
-        // Dequeue a path to extend.
-        // Make sure to move out of the list to avoid a useless copy.
-        std::list<vg::NodeTraversal> path(std::move(toExtend.front()));
-        toExtend.pop_front();
-        stillToExtend--;
-        
-        // We can't just throw out longer paths, because shorter paths may need
-        // to visit a node twice (in opposite orientations) and thus might get
-        // rejected later. Or they might overlap with paths on the other side.
-        
-        // Look up and see if the front node on the path is on our reference
-        // path
-        if(index.by_id.count(path.front().node->id())) {
-            // This node is on the reference path. TODO: we don't care if it
-            // lands in a place that is itself deleted.
-            
-            // Say we got to the right place
-            toReturn.emplace(bp_length(path), std::move(path));
-            
-            // Don't bother looking for extensions, we already got there.
-        } else if(path.size() <= maxDepth) {
-            // We haven't hit the reference path yet, but we also haven't hit
-            // the max depth. Extend with all the possible extensions.
-            
-            // Look left
-            vector<vg::NodeTraversal> prevNodes;
-            graph.nodes_prev(path.front(), prevNodes);
-            
-            for(auto prevNode : prevNodes) {
-                // For each node we can get to
-                vg::Edge* edge = graph.get_edge(prevNode, path.front());
-                assert(edge != NULL);
-                
-                if((!nodeReadSupport.empty() && (!nodeReadSupport.count(prevNode.node) ||
-                    total(nodeReadSupport.at(prevNode.node)) == 0)) ||
-                   (!edgeReadSupport.empty() && (!edgeReadSupport.count(edge) ||
-                    total(edgeReadSupport.at(edge)) == 0))) {
-                    
-                    // We have no support at all for visiting this node (but we
-                    // do have some node read support data)
-                    continue;
-                }
-                
-                if(stopIfVisited && alreadyQueued.count(prevNode)) {
-                    // We already have a way to get here.
-                    continue;
-                }
-            
-                // Make a new path extended left with the node
-                std::list<vg::NodeTraversal> extended(path);
-                extended.push_front(prevNode);
-                toExtend.emplace_back(std::move(extended));
-                stillToExtend++;
-                
-                // Remember we found a way to this node, so we don't try and
-                // visit it other ways.
-                alreadyQueued.insert(prevNode);
-            }
-        }
-        
-    }
-    
-    return toReturn;
-}
-
-/**
- * Flip a NodeTraversal around and return the flipped copy.
- */
-vg::NodeTraversal flip(vg::NodeTraversal toFlip) {
-    return vg::NodeTraversal(toFlip.node, !toFlip.backward);
-}
-
-/**
- * Do a breadth-first search right from the given node traversal, and return
- * lengths and paths starting at the given node and ending on the indexed
- * reference path.
- */
-std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& graph,
-    vg::NodeTraversal node, const PathIndex& index,
-    const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-    const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
-    int64_t maxDepth = 10, bool stopIfVisited = false) {
-
-    // Look left from the backward version of the node.
-    auto toConvert = bfs_left(graph, flip(node), index, nodeReadSupport,
-                              edgeReadSupport, maxDepth, stopIfVisited);
-    
-    // Since we can't modify set records in place, we need to do a copy
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
-    
-    for(auto lengthAndPath : toConvert) {
-        // Flip every path to run the other way
-        lengthAndPath.second.reverse();
-        for(auto& traversal : lengthAndPath.second) {
-            // And invert the orientation of every node in the path in place.
-            traversal = flip(traversal);
-        }
-        // Stick it in the new set
-        toReturn.emplace(std::move(lengthAndPath));
-    }
-    
-    return toReturn;
-}
-
-
-/**
- * Given a vg graph, an edge or node in the graph, and an index for the
- * reference path, look out from the edge or node in both directions to find a
- * shortest bubble relative to the path, with a consistent orientation. The
- * bubble may not visit the same node twice.
- *
- * Exactly one of edge and node must be null, and one not null.
- *
- * Takes a max depth for the searches producing the paths on each side.
- * 
- * Return the ordered and oriented nodes in the bubble, with the outer nodes
- * being oriented forward along the named path, and with the first node coming
- * before the last node in the reference.  Also return the minimum support
- * found on any edge or node in the bubble (including the reference node endpoints
- * and their edges which aren't stored in the path)
- */
-std::pair<FractionalSupport, std::vector<vg::NodeTraversal> >
-find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const PathIndex& index,
-            const std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-            const std::map<vg::Edge*, FractionalSupport>& edgeReadSupport, int64_t maxDepth,
-            size_t max_bubble_paths) {
-
-    // What are we going to find our left and right path halves based on?
-    NodeTraversal left_traversal;
-    NodeTraversal right_traversal;
-
-    if(edge != nullptr) {
-        // Be edge-based
-        
-        // Find the nodes at the ends of the edges. Look at them traversed in the
-        // edge's local orientation.
-        left_traversal = NodeTraversal(graph.get_node(edge->from()), edge->from_start());
-        right_traversal = NodeTraversal(graph.get_node(edge->to()), edge->to_end());
-        
-    } else {
-        // Be node-based
-        assert(node != nullptr);
-        left_traversal = right_traversal = NodeTraversal(node);
-    }
-    
-#ifdef debug
-    std::cerr << "Starting from: " << left_traversal << ", " << right_traversal << std::endl;
-#endif
-
-    // Find paths on both sides, with nodes on the primary path at the outsides
-    // and this edge in the middle. Returns path lengths and paths in pairs in a
-    // set.
-    auto leftPaths = bfs_left(graph, left_traversal, index, nodeReadSupport,
-                              edgeReadSupport, maxDepth);
-    auto rightPaths = bfs_right(graph, right_traversal, index, nodeReadSupport,
-                                edgeReadSupport, maxDepth);
-    
-    // Find a combination of two paths which gets us to the reference in a
-    // consistent orientation (meaning that when you look at the ending nodes'
-    // Mappings in the reference path, the ones with minimal ranks have the same
-    // orientations) and which doesn't use the same nodes on both sides.
-    // Track support of up to max_bubble_paths combinations, and return the
-    // highest
-    std::pair<FractionalSupport, std::vector<NodeTraversal> > bestBubblePath;
-    int bubbleCount = 0;
-    
-    // We need to look in different combinations of lists.
-    auto testCombinations = [&](const std::list<std::list<vg::NodeTraversal>>& leftList,
-        const std::list<std::list<vg::NodeTraversal>>& rightList) {
-
-        for(auto leftPath : leftList) {
-            // Figure out the relative orientation for the leftmost node.
-#ifdef debug        
-            std::cerr << "Left path: " << std::endl;
-            for(auto traversal : leftPath ) {
-                std::cerr << "\t" << traversal << std::endl;
-            }
-#endif    
-            // Split out its node pointer and orientation
-            auto leftNode = leftPath.front().node;
-            auto leftOrientation = leftPath.front().backward;
-            
-            // Get where it falls in the reference as a position, orientation pair.
-            auto leftRefPos = index.by_id.at(leftNode->id());
-            
-            // We have a backward orientation relative to the reference path if we
-            // were traversing the anchoring node backwards, xor if it is backwards
-            // in the reference path.
-            bool leftRelativeOrientation = leftOrientation != leftRefPos.second;
-            
-            // Make a set of all the nodes in the left path
-            std::set<int64_t> leftPathNodes;
-            for(auto visit : leftPath) {
-                leftPathNodes.insert(visit.node->id());
-            }
-
-            // Get the minimum support in the left path
-            FractionalSupport minLeftSupport = min_support_in_path(
-                graph, nodeReadSupport, edgeReadSupport, leftPath);
-            
-            for(auto rightPath : rightList) {
-                // Figure out the relative orientation for the rightmost node.
-#ifdef debug            
-                std::cerr << "Right path: " << std::endl;
-                for(auto traversal : rightPath ) {
-                    std::cerr << "\t" << traversal << std::endl;
-                }
-#endif            
-                // Split out its node pointer and orientation
-                // Remember it's at the end of this path.
-                auto rightNode = rightPath.back().node;
-                auto rightOrientation = rightPath.back().backward;
-                
-                // Get where it falls in the reference as a position, orientation pair.
-                auto rightRefPos = index.by_id.at(rightNode->id());
-                
-                // We have a backward orientation relative to the reference path if we
-                // were traversing the anchoring node backwards, xor if it is backwards
-                // in the reference path.
-                bool rightRelativeOrientation = rightOrientation != rightRefPos.second;
-
-                // Get the minimum support in the right path
-                FractionalSupport minRightSupport = min_support_in_path(
-                    graph, nodeReadSupport, edgeReadSupport, rightPath);
-                
-                if(leftRelativeOrientation == rightRelativeOrientation &&
-                    ((!leftRelativeOrientation && leftRefPos.first < rightRefPos.first) ||
-                    (leftRelativeOrientation && leftRefPos.first > rightRefPos.first))) {
-                    // We found a pair of paths that get us to and from the
-                    // reference without turning around, and that don't go back to
-                    // the reference before they leave.
-
-                    // Get the minimum support of combined left and right paths
-                    FractionalSupport minFullSupport = support_min(minLeftSupport, minRightSupport);
-                    
-                    // Start with the left path
-                    std::vector<vg::NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
-                    
-                    // We need to detect overlap with the left path
-                    bool overlap = false;
-                    
-                    // If we're starting from an edge, we keep the first node on
-                    // the right path. If we're starting from a node, we need to
-                    // discard it because it's just another copy of our node
-                    // we're starting with.
-                    for(auto it = (edge != nullptr ? rightPath.begin() : ++(rightPath.begin())); it != rightPath.end(); ++it) {
-                        // For all but the first node on the right path, add that in
-                        fullPath.push_back(*it);
-                        
-                        if(leftPathNodes.count((*it).node->id())) {
-                            // We already visited this node on the left side. Try
-                            // the next right path instead.
-                            overlap = true;
-                        }
-                    }
-                    
-                    if(overlap) {
-                        // Can't combine this right with this left, as they share
-                        // nodes and we can't handle the copy number implications.
-                        // Try the next right.
-                        // TODO: handle the copy number implications.
-                        continue;
-                    }
-                    
-                    if(leftRelativeOrientation) {
-                        // Turns out our anchored path is backwards.
-                        
-                        // Reorder everything the other way
-                        std::reverse(fullPath.begin(), fullPath.end());
-                        
-                        for(auto& traversal : fullPath) {
-                            // Flip each traversal
-                            traversal = flip(traversal);
-                        }
-                    }
-
-                    
-#ifdef debug        
-                    std::cerr << "Merged path:" << std::endl;
-                    for(auto traversal : fullPath) {
-                        std::cerr << "\t" << traversal << std::endl;
-                    }                    
-#endif
-                    // update our best path by seeing if we've found one with higher min support
-                    if (total(minFullSupport) > total(bestBubblePath.first)) {
-                        bestBubblePath.first = minFullSupport;
-                        bestBubblePath.second = fullPath;
-                    }
-
-                    // keep things from getting out of hand
-                    if (++bubbleCount >= max_bubble_paths) {
-                        return bestBubblePath;
-                    }
-                }
-            }
-        }
-        
-        // Return the best path along with its min support
-        // (could be empty)
-        return bestBubblePath;
-        
-    };
-    
-    // Convert sets to lists, which requires a copy again...
-    std::list<std::list<vg::NodeTraversal>> leftConverted;
-    for(auto lengthAndPath : leftPaths) {
-        leftConverted.emplace_back(std::move(lengthAndPath.second));
-    }
-    std::list<std::list<vg::NodeTraversal>> rightConverted;
-    for(auto lengthAndPath : rightPaths) {
-        rightConverted.emplace_back(std::move(lengthAndPath.second));
-    }
-    
-    // Look for a valid combination, or return an empty path if one iesn't
-    // found.
-    return testCombinations(leftConverted, rightConverted);
-    
-}
-
-/**
  * Given a collection of pileups by original node ID, and a set of original node
  * id:offset cross-references in both ref and alt categories, produce a VCF
  * comment line giving the pileup for each of those positions on those nodes.
@@ -680,215 +293,20 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
     }
 }
 
-    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
-    // And read support for the edges
-    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
-    // This holds all the edges that are deletions, by the pointer to the stored
-    // Edge object in the VG graph
-    std::set<vg::Edge*> deletionEdges;
-    
-    // This holds where nodes came from (node and offset) in the original, un-
-    // augmented graph. For pieces of original nodes, this is where the piece
-    // started. For novel nodes, this is where the piece that thois is an
-    // alternative to started.
-    std::map<vg::Node*, std::pair<int64_t, size_t>> nodeSources;
-    
-    // We also need to track what edges and nodes are reference (i.e. already
-    // known)
-    std::set<vg::Node*> knownNodes;
-    std::set<vg::Edge*> knownEdges;
-
-/**
- * Parse tsv into an internal format, where we track status and copy number
- * for nodes and edges.
- */
-void parse_tsv(const std::string& tsvFile,
-               vg::VG& vg,
-               std::map<vg::Node*, FractionalSupport>& nodeReadSupport,
-               std::map<vg::Edge*, FractionalSupport>& edgeReadSupport,
-               std::map<vg::Node*, double>& nodeLikelihood,
-               std::map<vg::Edge*, double>& edgeLikelihood,
-               std::set<vg::Edge*>& deletionEdges,
-               std::map<vg::Node*, std::pair<int64_t, size_t>>& nodeSources,
-               std::set<vg::Node*>& knownNodes,
-               std::set<vg::Edge*>& knownEdges,
-               bool verbose) {
-    
-    // Open up the TSV-file
-    std::stringstream tsvStream(tsvFile);
-
-    // Loop through all the lines
-    std::string line;
-    size_t lineNumber = 0;
-    while(std::getline(tsvStream, line)) {
-        // For each line
-        
-        lineNumber++;
-        
-        if(line == "") {
-            // Skip blank lines
-            continue;
-        }
-        
-        // Make a stringstream to read out tokens
-        std::stringstream tokens(line);
-        
-        // Read the kind of line this is ("N"ode or "E"dge)
-        std::string lineType;
-        tokens >> lineType; 
-        
-        if(lineType == "N") {
-            // This is a line about a node
-            
-            // Read the node ID
-            int64_t nodeId;
-            tokens >> nodeId;
-            
-            if(!vg.has_node(nodeId)) {
-                throw std::runtime_error("Line " + std::to_string(lineNumber) + ": Invalid node: " + std::to_string(nodeId));
-            }
-            
-            // Retrieve the node we're talking about 
-            vg::Node* nodePointer = vg.get_node(nodeId);
-            
-            // What kind of call is it? Could be "U"ncalled, or "R"eference
-            // (i.e. known in the original graph), which we have special
-            // handling for.
-            std::string callType;
-            tokens >> callType;
-                        
-            // Read the read support and likelihood
-            FractionalSupport readSupport;
-            int other_support = 0;
-            double likelihood = 0.;
-            tokens >> readSupport.first;
-            tokens >> readSupport.second;
-            tokens >> other_support;
-            tokens >> likelihood;
-            
-#ifdef debug
-            std::cerr << "Line " << std::to_string(lineNumber) << ": Node " << nodeId
-                << " has read support " << readSupport.first << "," << readSupport.second << endl;
-#endif
-            
-            // Save it
-            nodeReadSupport[nodePointer] = readSupport;
-            nodeLikelihood[nodePointer] = likelihood;
-            
-            if(callType == "R") {
-                // Note that this is a reference node
-                knownNodes.insert(nodePointer);
-            }
-            
-            // Load the original node ID and offset for this node, if present.
-            int64_t originalId;
-            size_t originalOffset;
-            
-            if(tokens >> originalId && tokens >> originalOffset && originalId != 0) {
-                nodeSources[nodePointer] = std::make_pair(originalId, originalOffset);
-            }
-            
-        } else if(lineType == "E") {
-        
-            // Read the edge data
-            std::string edgeDescription;
-            tokens >> edgeDescription;
-            
-            // Split on commas. We'd just iterate the regex iterator ourselves,
-            // but it seems to only split on the first comma if we do that.
-            std::vector<string> parts;
-            std::regex comma_re(",");
-            std::copy(std::sregex_token_iterator(edgeDescription.begin(), edgeDescription.end(), comma_re, -1), std::sregex_token_iterator(), std::back_inserter(parts));
-            
-            // We need the four fields to describe an edge.
-            assert(parts.size() == 4);
-            
-            // Parse the from node
-            int64_t from = std::stoll(parts[0]);
-            // And the from_start flag
-            bool fromStart = std::stoi(parts[1]);
-            // Make a NodeSide for the from side
-            vg::NodeSide fromSide(from, !fromStart);
-            // Parse the to node
-            int64_t to = std::stoll(parts[2]);
-            // And the to_end flag
-            bool toEnd = std::stoi(parts[3]);
-            // Make a NodeSide for the to side
-            vg::NodeSide toSide(to, toEnd);
-            
-            if(!vg.has_edge(std::make_pair(fromSide, toSide))) {
-                // Ensure we really have that edge
-                throw std::runtime_error("Line " + std::to_string(lineNumber) + ": Edge " + edgeDescription + " not in graph.");
-            }
-            
-            // Get the edge
-            vg::Edge* edgePointer = vg.get_edge(std::make_pair(fromSide, toSide));
-            
-            // Parse the mode
-            std::string mode;
-            tokens >> mode;
-            
-            if(mode == "L" || mode == "R") {
-                // This is a deletion edge, or an edge in the primary path that
-                // may describe a nonzero-length deletion.
-#ifdef debug
-                std::cerr << "Line " << std::to_string(lineNumber) << ": Edge "
-                    << edgeDescription << " may describe a deletion." << endl;
-#endif
-
-                // Say it's a deletion
-                deletionEdges.insert(edgePointer);
-                
-                if(mode == "R") {
-                    // The reference edges also get marked as such
-                    knownEdges.insert(edgePointer);
-#ifdef debug
-                    std::cerr << "Line " << std::to_string(lineNumber) << ": Edge "
-                        << edgeDescription << " is reference." << endl;
-#endif
-                }
-
-            }
-            
-            // Read the read support
-            FractionalSupport readSupport;
-            int other_support;
-            double likelihood;
-            tokens >> readSupport.first;
-            tokens >> readSupport.second;
-            tokens >> other_support;
-            tokens >> likelihood;
-            
-#ifdef debug
-            std::cerr << "Line " << std::to_string(lineNumber) << ": Edge " << edgeDescription
-                << " has read support " << readSupport.first << "," << readSupport.second << endl;
-#endif
-                
-            // Save it
-            edgeReadSupport[edgePointer] = readSupport;
-            edgeLikelihood[edgePointer] = likelihood;
-        
-        } else {
-            // This is not a real kind of line
-            throw std::runtime_error("Line " + std::to_string(lineNumber) + ": Unknown line type: " + lineType);
-        }
-        
-    }
-    if (verbose) {
-        std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
-    }
-}
-
 // this was main() in glenn2vcf
 void Call2Vcf::call(
     // Augmented graph
-    vg::VG& vg,
-    // "glennfile" as string (relic from old pipeline)
-    const std::string& glennFile,
+    AugmentedGraph& augmented,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     std::string pileupFilename) {
     
+    // Pull things out of the augmented graph
+    VG& vg = augmented.graph;
+    std::map<vg::Node*, double>& nodeLikelihood = augmented.node_likelihoods;
+    std::map<vg::Edge*, double>& edgeLikelihood = augmented.edge_likelihoods;
+    
+    // Set up the graph's paths properly after augmentation modified them.
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
     
@@ -913,37 +331,6 @@ void Call2Vcf::call(
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
     PathIndex index(vg, refPathName, true);
-    
-    // This holds read support, on each strand, for all the nodes we have read
-    // support provided for, by the node pointer in the vg graph.
-    std::map<vg::Node*, FractionalSupport> nodeReadSupport;
-    // And read support for the edges
-    std::map<vg::Edge*, FractionalSupport> edgeReadSupport;
-    // This maps the likelihood passed from the tsv to the nodes and edges
-    // (todo: could save some lookups by lumping with supports)
-    std::map<vg::Node*, double> nodeLikelihood;
-    std::map<vg::Edge*, double> edgeLikelihood;
-
-    // This holds all the edges that are deletions, by the pointer to the stored
-    // Edge object in the VG graph
-    std::set<vg::Edge*> deletionEdges;
-    
-    // This holds where nodes came from (node and offset) in the original, un-
-    // augmented graph. For pieces of original nodes, this is where the piece
-    // started. For novel nodes, this is where the piece that thois is an
-    // alternative to started.
-    std::map<vg::Node*, std::pair<int64_t, size_t>> nodeSources;
-    
-    // We also need to track what edges and nodes are reference (i.e. already
-    // known)
-    std::set<vg::Node*> knownNodes;
-    std::set<vg::Edge*> knownEdges;
-
-    // Parse tsv into an internal format, where we track status and copy number
-    // for nodes and edges.
-    parse_tsv(glennFile, vg, nodeReadSupport, edgeReadSupport,
-              nodeLikelihood, edgeLikelihood, deletionEdges,
-              nodeSources, knownNodes, knownEdges, verbose);
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
@@ -953,11 +340,11 @@ void Call2Vcf::call(
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
-    FractionalSupport primaryPathTotalSupport = std::make_pair(0.0, 0.0);
-    for(auto& pointerAndSupport : nodeReadSupport) {
+    FractionalSupport primaryPathTotalSupport = FractionalSupport();
+    for(auto& pointerAndSupport : augmented.node_supports) {
         if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
-            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * from_support(pointerAndSupport.second);
             
             // We also update the total for the appropriate bin
             if (expCoverage == 0) {
@@ -966,7 +353,7 @@ void Call2Vcf::call(
                     --bin;
                 }
                 binnedSupport[bin] = binnedSupport[bin] + 
-                    pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+                    pointerAndSupport.first->sequence().size() * from_support(pointerAndSupport.second);
             }
         }
     }
@@ -1149,272 +536,79 @@ void Call2Vcf::call(
         std::cerr << "Found " << sites.size() << " sites" << std::endl;
     }
     
+    // Now start looking for traversals of the sites
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, index, maxDepth, max_bubble_paths);
+    
     for(const Snarl* site : sites) {
         // For every site, we're going to make a variant
         
-        // Get its nodes and edges (including all child sites)
-        pair<unordered_set<Node*>, unordered_set<Edge*>> contents = site_manager.deep_contents(site, vg, true);
+        // Get the traversals. The ref traversal is the first one. They are all
+        // in site orientation, which may oppose primary path orientation.
+        auto traversals = traversal_finder.find_traversals(*site);
         
-        // Copy its node set
-        std::unordered_set<Node*> nodes_left(contents.first);
+        // Make a Locus to represent this site, with all the Paths of the
+        // different alleles.
+        Locus locus;
         
-        // Trace the ref path through the site
-        std::vector<NodeTraversal> ref_path_for_site;
-#ifdef debug
-        std::cerr << "Site starts with " << to_node_traversal(site->start(), vg) << " at " << index.by_id.at(site->start().node_id()).first
-            << " and ends with " << to_node_traversal(site->end(), vg) << " at " << index.by_id.at(site->end().node_id()).first << std::endl;
-#endif
+        // And keep around a vector of is_reference statuses for all the alleles
+        vector<bool> is_ref;
         
-        int64_t ref_node_start = index.by_id.at(site->start().node_id()).first;
-        while(ref_node_start <= index.by_id.at(site->end().node_id()).first) {
+        // We turn them all back into NodeTraversal vectors
+        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths;
         
-            // Find the reference node starting here or later.
-            auto found = index.by_start.lower_bound(ref_node_start);
-            if(found == index.by_start.end()) {
-                throw runtime_error("No ref node found when tracing through site!");
-            }
-            if((*found).first > index.by_id.at(site->end().node_id()).first) {
-                // The next reference node we can find is out of the space
-                // being replaced. We're done.
-                if (verbose) {
-                    cerr << "Stopping for out-of-bounds node" << endl;
-                }
-                break;
-            }
-            
-            // Get the corresponding NodeTraversal (by converting through Visit)
-            NodeTraversal found_traversal = to_node_traversal(found->second.to_visit(), vg);
-            
-            // Add the traversal to the ref path through the site
-            ref_path_for_site.push_back(found_traversal);
-            
-            // Make sure this node is actually in the site
-            assert(contents.first.count(found_traversal.node));
-            
-            // Drop it from the set of nodes in the site we haven't visited.
-            nodes_left.erase(found_traversal.node);
-            
-            // Next iteration look where this node ends.
-            ref_node_start = found->first + found_traversal.node->sequence().size();
-        }
+        for (auto& traversal : traversals) {
+            // Convert each traversal to a path
+            Path* path = locus.add_allele();
         
-        for(auto node : nodes_left) {
-            // Make sure none of the nodes in the site that we didn't visit
-            // while tracing along the ref path are on the ref path.
-            if(index.by_id.count(node->id())) {
-                std::cerr << "Node " << node->id() << " is on ref path at "
-                    << index.by_id.at(node->id()).first << " but not traced in site "
-                    << to_node_traversal(site->start(), vg) << " to " 
-                    << to_node_traversal(site->end(), vg) << std::endl;
-                throw runtime_error("Extra ref node found");
+            // Start at the start of the site
+            *path->add_mapping() = to_mapping(site->start(), vg);
+            for (size_t i = 0; i < traversal.visits_size(); i++) {
+                // Then visit each node in turn
+                *path->add_mapping() = to_mapping(traversal.visits(i), vg);
             }
-        }
-        
-#ifdef debug
-        // Make sure we didn't screw it up
-        std::cerr << "Site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << ":" << std::endl;
-        for(auto& item : ref_path_for_site) {
-            std::cerr << "\t" << item << std::endl;
-        }
-#endif
-        assert( ref_path_for_site.front() == to_node_traversal(site->start(), vg) );
-        assert( ref_path_for_site.back() == to_node_traversal(site->end(), vg) );
-
-        // check if a path is mostly reference for deciding if we add XREF tag
-        auto is_path_known = [&](std::vector<NodeTraversal> path) {
-            bool path_is_known = false;
-            if(path.size() == 2) {
-                // We just have the anchoring nodes and the edge between them.
-                // Look at that edge specially.
-                vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
-                                                       vg::NodeSide(path[1].node->id(), path[1].backward)));
-
-                // The path is known if the edge is known
-                path_is_known = knownEdges.count(edge);
-            } else {
-                // How many bases are known (for XREF determination)?
-                assert(path.size() > 2);
-                size_t known_bases = 0;
-                size_t unknown_bases = 0;
-
-                // don't iterate over referenc anchors at either end
-                for (int i = 1; i < path.size() - 1; ++i) {
-                    if (knownNodes.count(path[i].node)) {
-                        // This is a reference node.
-                        known_bases += path[i].node->sequence().size();
-                    } else {
-                        unknown_bases += path[i].node->sequence().size();
-                    }
-                }
-                // The path is known if more than half of its bases are reference
-                path_is_known = known_bases > 0 && known_bases >= (known_bases + unknown_bases) / 2;
-            }
-            return path_is_known;
-        };
-        
-        // We need to know all the full-length traversals we're going to
-        // consider. We want them in a set so we can find only unique ones.
-        // We also store the XREF state here because we want to compute
-        // it before the extension is done. 
-        std::map<std::vector<NodeTraversal>, bool> site_traversal_set;
-        
-        // We have this function to extend a partial traversal into a full
-        // traversal and add it as a path. The path must already be rooted on
-        // the reference in the correct order and orientation.
-        auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
-            // Splice the ref path through the site and the bubble's path
-            // through the site together.
-            vector<NodeTraversal> extended_path;
-
-            // Check if the path is xref before adding a bunch of reference stuff to it
-            bool path_known = is_path_known(path);
+            // Finish up with the site's end
+            *path->add_mapping() = to_mapping(site->end(), vg);
             
-            for(auto& traversal : path) {
-                // Make sure the site actually has the nodes we're visiting.
-                assert(contents.first.count(traversal.node));
-#ifdef debug
-                if(index.by_id.count(traversal.node->id())) {
-                    std::cerr << "Path member " << traversal << " lives on ref at "
-                    << index.by_id.at(traversal.node->id()).first << std::endl;
-                } else {
-                    std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
-                }
-#endif
-            }
+            // Save the traversal's reference status
+            is_ref.push_back(is_reference(traversal, augmented, index));
             
-            size_t ref_path_index = 0;
-            size_t bubble_path_index = 0;
+            // Also, save the data the old way that powers the VCF output
+            // currently
             
-            while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
-                // Collect NodeTraversals from the ref path until we hit the one
-                // at which the bubble path starts.
-                extended_path.push_back(ref_path_for_site[ref_path_index++]);
+            // Make each traversal into a vector of NodeTraversals
+            vector<NodeTraversal> traversal_vector;
+            // Start at the start of the site
+            traversal_vector.push_back(to_node_traversal(site->start(), vg));
+            for (size_t i = 0; i < traversal.visits_size(); i++) {
+                // Then visit each node in turn
+                traversal_vector.push_back(to_node_traversal(traversal.visits(i), vg));
             }
-            while(bubble_path_index < path.size()) {
-                // Then take the whole bubble path
-                extended_path.push_back(path[bubble_path_index++]);
-            }
-            while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
-                // Then skip ahead to the matching point in the ref path
-                ref_path_index++;
-            }
-            if(ref_path_index == ref_path_for_site.size()) {
-                // We ran out of ref path before finding the place to leave the alt.
-                // This must be a backtracking loop or something; start over from the beginning.
-                ref_path_index = 0;
+            // Finish up with the site's end
+            traversal_vector.push_back(to_node_traversal(site->end(), vg));
+            
+            if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
+                // This site is backward relative to the primary path.
                 
-                while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
-                    // Then skip ahead to the matching point in the ref path
-                    ref_path_index++;
-                }
-                
-                if(ref_path_index == ref_path_for_site.size()) {
-                    // Still couldn't find it!
-                    std::stringstream err;
-                    err << "Couldn't find " << path.back() << " in ref path of site " << to_node_traversal(site->start(), vg) << " to " << to_node_traversal(site->end(), vg) << endl;
-                    throw std::runtime_error(err.str());
+                // Turn the traversal around to primary path orientation.
+                std::reverse(traversal_vector.begin(), traversal_vector.end());
+                for (auto& trav : traversal_vector) {
+                    // Flip every traversal in it
+                    trav = trav.reverse();
                 }
             }
-            // Skip the matching NodeTraversal
-            ref_path_index++;
-            while(ref_path_index < ref_path_for_site.size()) {
-                // Then take the entier rest of the ref path
-                extended_path.push_back(ref_path_for_site[ref_path_index++]);
-            }
             
-            // Now add it to the set
-            site_traversal_set.insert(make_pair(extended_path, path_known));
-        
-        };
-
-        for(Node* node : contents.first) {
-            // Find the bubble for each node
-            
-            if(total(nodeReadSupport.at(node)) == 0) {
-                // Don't bother with unsupported nodes
-                continue;
-            }
-            
-            if(index.by_id.count(node->id())) {
-                // Don't try to pathfind to the reference for reference nodes.
-                continue;
-            }
-            
-            std::pair<FractionalSupport, std::vector<NodeTraversal>> sup_path = find_bubble(
-                vg, node, nullptr, index, nodeReadSupport,
-                edgeReadSupport, maxDepth, max_bubble_paths);
-
-            std::vector<NodeTraversal>& path = sup_path.second;
-            
-            if(path.empty()) {
-                // We couldn't find a path back to the primary path. Discard
-                // this material.
-                if (verbose) {
-                    cerr << "Warning: No path found for node " << node->id() << endl;
-                }
-                basesLost += node->sequence().size();
-                // TODO: what if it's already in another bubble/the node is deleted?
-                continue;
-            }
-            
-            // Extend it out into an allele
-            extend_into_allele(path);
-            
+            // Put it in the list, with an annotation saying whether it's a
+            // previously-known traversal or not.
+            ordered_paths.push_back(make_pair(traversal_vector, is_ref.back()));
         }
-        
-        for(Edge* edge : contents.second) {
-            // Go through all the edges
-            
-            if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
-                // Edge doesn't touch reference at both ends. Don't use it
-                // because for some reason it makes performance worse
-                // overall.
-                continue;
-            }
-            
-            // Find a path based around this edge
-            std::pair<FractionalSupport, std::vector<NodeTraversal>> sup_path = find_bubble(
-                vg, nullptr, edge, index, nodeReadSupport,
-                edgeReadSupport, maxDepth, max_bubble_paths);
-            std::vector<NodeTraversal>& path = sup_path.second;
-            
-#ifdef debug
-            std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
-            for(auto& traversal : path) {
-                std::cerr << "\t" << traversal << std::endl;
-            }
-#endif
-            
-            if(path.empty()) {
-                // We couldn't find a path back to the primary path. Discard
-                // this material.
-                if (verbose) {
-                    cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
-                }
-                // TODO: bases lost
-                // TODO: what if it's already in another bubble/the node is deleted?
-                continue;
-            }
-            
-            // Extend it out into an allele
-            extend_into_allele(path);
-        }
-        
-        // Throw the ref allele out of the set
-        if(site_traversal_set.count(ref_path_for_site)) {
-            site_traversal_set.erase(ref_path_for_site);
-        }
-        
-        // Make it the first in the ordered alleles
-        std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
-        // Then add all the rest
-        std::copy(site_traversal_set.begin(), site_traversal_set.end(), std::back_inserter(ordered_paths));
         
         // Collect sequences for all the paths
         std::vector<std::string> sequences;
         // And the lists of involved IDs that we use for variant IDs
         std::vector<string> id_lists;
-        // Calculate average and min support for all the alts.
+        // Calculate average and min support for all the alts. These both need
+        // to be the same type, so they are interchangeable in a reference and
+        // we can pick one to use.
         std::vector<FractionalSupport> min_supports;
         std::vector<FractionalSupport> average_supports;
         // And the min likelihood along each path
@@ -1433,10 +627,10 @@ void Call2Vcf::call(
             std::stringstream id_stream;
             
             // What's the total support for this path?
-            FractionalSupport total_support = std::make_pair(0.0, 0.0);
+            Support total_support;
             
             // And the min
-            FractionalSupport min_support = std::make_pair(INFINITY, INFINITY);
+            Support min_support;
             
             // Also, what's the min likelihood
             double min_likelihood = INFINITY;
@@ -1464,23 +658,24 @@ void Call2Vcf::call(
                 }
                 
                 // How much support do we have for visiting this node?
-                FractionalSupport node_support = nodeReadSupport.at(path[i].node);
+                Support node_support = augmented.node_supports.at(path[i].node);
                 // Grab the edge we're traversing into the node
                 vg::Edge* in_edge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
                                                           vg::NodeSide(path[i].node->id(), path[i].backward)));
                 // If there's less support on the in edge than on the node,
                 // knock it down. We do this separately in each dimension.
-                node_support = support_min(node_support, edgeReadSupport.at(in_edge));
+                node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
                 
                 // Ditto for the edge we're traversing out of the node
                 vg::Edge* out_edge = vg.get_edge(make_pair(vg::NodeSide(path[i].node->id(), !path[i].backward),
                                                            vg::NodeSide(path[i+1].node->id(), path[i+1].backward)));
-                node_support = support_min(node_support, edgeReadSupport.at(out_edge));
+                node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
                 
                 
                 // Add support in to the total support for the alt. Scale by node length.
                 total_support += path[i].node->sequence().size() * node_support;
-                min_support = support_min(min_support, node_support);
+                // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
+                min_support = (i == 1 ? node_support : support_min(min_support, node_support));
 
                 // Update minimum likelihood in the alt path
                 min_likelihood = std::min(min_likelihood, nodeLikelihood.at(path[i].node));
@@ -1496,7 +691,7 @@ void Call2Vcf::call(
                                                        vg::NodeSide(path[1].node->id(), path[1].backward)));
                 
                 // Only use the support on the edge
-                total_support = edgeReadSupport.at(edge);
+                total_support = augmented.edge_supports.at(edge);
                 min_support = total_support;
                 
                 // And the likelihood on the edge
@@ -1507,10 +702,10 @@ void Call2Vcf::call(
             // Fill in the vectors
             sequences.push_back(sequence_stream.str());
             id_lists.push_back(id_stream.str());
-            min_supports.push_back(min_support);
+            min_supports.push_back(from_support(min_support));
             // The support needs to get divided by bases, unless we're just a
             // single edge empty allele, in which case we're special.
-            average_supports.push_back(sequences.back().size() > 0 ? total_support / sequences.back().size() : total_support);
+            average_supports.push_back(sequences.back().size() > 0 ? from_support(total_support) / sequences.back().size() : from_support(total_support));
             min_likelihoods.push_back(min_likelihood);
             is_known.push_back(path_is_known);
         }
@@ -1787,6 +982,62 @@ void Call2Vcf::call(
     if (verbose) {
         std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
     }
+}
+
+bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path) {
+    
+    // Keep track of the previous NodeSide
+    NodeSide previous;
+    
+    // We'll call this function with each visit in turn.
+    // If it ever returns false, the whole thing is nonreference.
+    auto experience_visit = [&](const Visit& visit) {
+        // TODO: handle nested sites
+        assert(visit.node_id());
+        
+        if (previous.node != 0) {
+            // Consider the edge from the previous visit
+            Edge* edge = augmented.graph.get_edge(previous, to_left_side(visit));
+            
+            if (augmented.edge_calls.at(edge) != CALL_REFERENCE) {
+                // Found a novel edge!
+                return false;
+            }
+        }
+        
+        if (augmented.node_calls.at(augmented.graph.get_node(visit.node_id())) != CALL_REFERENCE) {
+            // This node itself is novel
+            return false;
+        }
+        
+        // Remember we want an edge from this visit when we look at the next
+        // one.
+        previous = to_right_side(visit);
+        
+        // This visit is known.
+        return true;
+    };
+    
+    // Make sure we visit a ref start node
+    if (!experience_visit(trav.snarl().start())) {
+        return false;
+    }
+    
+    // Then all the internal nodes
+    for (size_t i = 0; i < trav.visits_size(); i++) {
+        if (!experience_visit(trav.visits(i))) {
+            return false;
+        }
+    }
+    
+    // And finally the end node
+    if (!experience_visit(trav.snarl().end())) {
+        return false;
+    }
+    
+    // And if we make it through it's a reference traversal.
+    return true;
+        
 }
 
 }
