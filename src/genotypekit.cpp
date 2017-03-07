@@ -1187,8 +1187,11 @@ set<pair<size_t, list<NodeTraversal>>> RepresentativeTraversalFinder::bfs_left(N
     // Mark this traversal as already queued
     alreadyQueued.insert(node);
     
+#ifdef debug
     // How many ticks have we spent searching?
     size_t searchTicks = 0;
+#endif
+
     // Track how many options we have because size may be O(n).
     size_t stillToExtend = toExtend.size();
     
