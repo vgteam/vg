@@ -255,6 +255,10 @@ public:
                                const map<string, double>& pos2,
                                int fragment_size_bound);
 
+    // use the fragment length annotations to assess if the pair is consistent or not
+    bool pair_consistent(const Alignment& aln1,
+                         const Alignment& aln2);
+
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
