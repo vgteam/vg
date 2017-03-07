@@ -77,96 +77,11 @@ struct IntervalBitfield {
     }
 };
 
-// We represent support as a pair, but we define math for it.
-// We use doubles because we may need fractional math.
-// We can't use Support because it's int-based.
-typedef pair<double, double> FractionalSupport;
-
 /**
- * Add two FractionalSupport values together, accounting for strand.
+ * Get the strand bias of a Support.
  */
-FractionalSupport operator+(const FractionalSupport& one, const FractionalSupport& other) {
-    return make_pair(one.first + other.first, one.second + other.second);
-}
-
-/**
- * Add in a FractionalSupport to another.
- */
-FractionalSupport& operator+=(FractionalSupport& one, const FractionalSupport& other) {
-    one.first += other.first;
-    one.second += other.second;
-    return one;
-}
-
-
-/**
- * Scale a support by a factor.
- */
-template<typename Scalar>
-FractionalSupport operator*(const FractionalSupport& support, const Scalar& scale) {
-    return make_pair(support.first * scale, support.second * scale);
-}
-
-/**
- * Scale a support by a factor, the other way
- */
-template<typename Scalar>
-FractionalSupport operator*(const Scalar& scale, const FractionalSupport& support) {
-    return make_pair(support.first * scale, support.second * scale);
-}
-
-/**
- * Divide a support by a factor.
- */
-template<typename Scalar>
-FractionalSupport operator/(const FractionalSupport& support, const Scalar& scale) {
-    return make_pair(support.first / scale, support.second / scale);
-}
-
-/**
- * Upgrade an integral Protobuf Support to a FractionalSupport.
- */
-FractionalSupport from_support(const Support& other) {
-    return make_pair(other.forward(), other.reverse());
-}
-
-/**
- * Downgrade a FractionalSupport to an integral Protobuf suopport.
- */
-Support to_support(const FractionalSupport& other) {
-    Support to_return;
-    to_return.set_forward(other.first);
-    to_return.set_reverse(other.second);
-    return to_return;
-}
-    
-/**
- * Allow printing a FractionalSupport.
- */
-ostream& operator<<(ostream& stream, const FractionalSupport& support) {
-    return stream << support.first << "," << support.second;
-}
-
-/**
- * Get the total read support in a FractionalSupport.
- */
-double total(const FractionalSupport& support) {
-    return support.first + support.second;
-}
-
-/**
- * Get the strand bias of a FractionalSupport.
- */
-double strand_bias(const FractionalSupport& support) {
-    return max(support.first, support.second) / (support.first + support.second);
-}
-
-/**
- * Get the minimum support of a pair of FractionalSupports, by taking the min in each
- * orientation.
- */
-FractionalSupport support_min(const FractionalSupport& a, const FractionalSupport& b) {
-    return make_pair(min(a.first, b.first), min(a.second, b.second));
+double strand_bias(const Support& support) {
+    return max(support.forward(), support.reverse()) / (support.forward() + support.reverse());
 }
 
 /**
@@ -335,16 +250,19 @@ void Call2Vcf::call(
         // No zero-sized bins allowed
         throw runtime_error("Reference bin size must be 1 or larger");
     }
-    vector<FractionalSupport> binnedSupport(max(1, int(index.sequence.size() / refBinSize)),
-                                  FractionalSupport(expCoverage / 2, expCoverage /2));
+    // Start out all the bins with the expected coverage override, split evenly across strands.
+    Support base_support;
+    base_support.set_forward(expCoverage / 2);
+    base_support.set_reverse(expCoverage / 2);
+    vector<Support> binnedSupport(max(1, int(index.sequence.size() / refBinSize)), base_support);
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
-    FractionalSupport primaryPathTotalSupport = FractionalSupport();
+    Support primaryPathTotalSupport = Support();
     for(auto& pointerAndSupport : augmented.node_supports) {
         if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
-            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * from_support(pointerAndSupport.second);
+            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
             if (expCoverage == 0) {
@@ -353,7 +271,7 @@ void Call2Vcf::call(
                     --bin;
                 }
                 binnedSupport[bin] = binnedSupport[bin] + 
-                    pointerAndSupport.first->sequence().size() * from_support(pointerAndSupport.second);
+                    pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             }
         }
     }
@@ -627,8 +545,8 @@ void Call2Vcf::call(
         // Calculate average and min support for all the alts. These both need
         // to be the same type, so they are interchangeable in a reference and
         // we can pick one to use.
-        vector<FractionalSupport> min_supports;
-        vector<FractionalSupport> average_supports;
+        vector<Support> min_supports;
+        vector<Support> average_supports;
         // And the min likelihood along each path
         vector<double> min_likelihoods;
         for(size_t i = 0; i < locus.allele_size(); i++) {
@@ -686,14 +604,14 @@ void Call2Vcf::call(
                 Support node_support = augmented.node_supports.at(node);
                 // Grab the edge we're traversing into the node
                 Edge* in_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(prev)),
-                                                                       to_left_side(to_visit(here))));
+                                                                   to_left_side(to_visit(here))));
                 // If there's less support on the in edge than on the node,
                 // knock it down. We do this separately in each dimension.
                 node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
                 
                 // Ditto for the edge we're traversing out of the node
                 Edge* out_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(here)),
-                                                                        to_left_side(to_visit(next))));
+                                                                    to_left_side(to_visit(next))));
                 node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
                 
                 
@@ -713,7 +631,7 @@ void Call2Vcf::call(
                 // We just have the anchoring nodes and the edge between them.
                 // Look at that edge specially.
                 Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
-                                                                    to_left_side(to_visit(path.mapping(1)))));
+                                                                to_left_side(to_visit(path.mapping(1)))));
                 
                 // Only use the support on the edge
                 total_support = augmented.edge_supports.at(edge);
@@ -724,16 +642,16 @@ void Call2Vcf::call(
                 
             }
             
-            // Calculate the min and average FractionalSupports
-            min_supports.push_back(from_support(min_support));
+            // Calculate the min and average Supports
+            min_supports.push_back(min_support);
             // The support needs to get divided by bases, unless we're just a
             // single edge empty allele, in which case we're special.
             average_supports.push_back(sequence_stream.str().size() > 0 ? 
-                from_support(total_support) / sequence_stream.str().size() : 
-                from_support(total_support));
+                total_support / sequence_stream.str().size() : 
+                total_support);
             
-            // Fill in the support for this allele in the Locus, by rounding the appropriate FractionalSupport
-            *locus.add_support() = to_support(useAverageSupport ? average_supports.back() : min_supports.back());
+            // Fill in the support for this allele in the Locus
+            *locus.add_support() = useAverageSupport ? average_supports.back() : min_supports.back();
             
             // Fill in the other vectors
             // TODO: add this info to Locus? Or calculate later when emitting VCF?
@@ -745,7 +663,7 @@ void Call2Vcf::call(
         // TODO: complain if multiple copies of the same string exist???
         
         // Decide which support vector we use to actually decide
-        vector<FractionalSupport>& supports = useAverageSupport ? average_supports : min_supports;
+        vector<Support>& supports = useAverageSupport ? average_supports : min_supports;
         
         // Now look at all the paths for the site and pick the top 2.
         int best_allele = -1;
@@ -770,7 +688,7 @@ void Call2Vcf::call(
         }
         
         // We need to figure out how much support a site ought to have
-        FractionalSupport baseline_support;
+        Support baseline_support;
         
         if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
             // We're on the primary path, so we can find the appropriate bin
@@ -801,15 +719,15 @@ void Call2Vcf::call(
         double bias_multiple = is_indel ? indelBiasMultiple : 1.0;
         
         // How much support do we have for the top two alleles?
-        FractionalSupport site_support = supports.at(best_allele);
+        Support site_support = supports.at(best_allele);
         if(second_best_allele != -1) {
             site_support += supports.at(second_best_allele);
         }
         
         // Pull out the different supports. Some of them may be the same.
-        FractionalSupport ref_support = supports.at(0);
-        FractionalSupport best_support = supports.at(best_allele);
-        FractionalSupport second_best_support = make_pair(0.0, 0.0);
+        Support ref_support = supports.at(0);
+        Support best_support = supports.at(best_allele);
+        Support second_best_support; // Defaults to 0
         if(second_best_allele != -1) {
             second_best_support = supports.at(second_best_allele);
         }
@@ -914,13 +832,13 @@ void Call2Vcf::call(
         }
         
         // Find the total support for the Locus across all alleles
-        FractionalSupport locus_support;
+        Support locus_support;
         for (auto& s : supports) {
-            // Sum up all the FractionalSupports form all alleles (even the non-best/second-best).
+            // Sum up all the Supports form all alleles (even the non-best/second-best).
             locus_support += s;
         }
-        // Round to ints and save
-        *locus.mutable_overall_support() = to_support(locus_support);
+        // Save support
+        *locus.mutable_overall_support() = locus_support;
         
         auto emit_variant = [&](const Locus& locus) {
         
@@ -1025,7 +943,7 @@ void Call2Vcf::call(
             }
             
             // Add depth for the variant and the samples
-            FractionalSupport total_support = ref_support;
+            Support total_support = ref_support;
             if(best_allele != 0) {
                 // Add in the depth from the best allele, which is not already counted
                 total_support += best_support;
@@ -1044,28 +962,28 @@ void Call2Vcf::call(
             variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(ref_support))));
             // And strand biases
             variant.format.push_back("SB");
-            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.first)));
-            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.second)));
+            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.forward())));
+            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.reverse())));
             // Also allelic likelihoods (from minimum values found on their paths)
             variant.format.push_back("AL");
             variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
             if(best_allele != 0) {
                 // If our best allele isn't ref, it comes next.
                 variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(best_support))));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.first)));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.second)));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.forward())));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.reverse())));
                 variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
             }
             if(second_best_allele != -1 && second_best_allele != 0) {
                 // If our second best allele is real and not ref, it comes next.
                 variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(second_best_support))));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.first)));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.second)));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.forward())));
+                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.reverse())));
                 variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
             }
             
             // And total alt allele depth for the alt alleles
-            FractionalSupport alt_support = make_pair(0.0, 0.0);
+            Support alt_support; // Defaults to 0
             if(best_allele != 0) {
                 alt_support += best_support;
             }

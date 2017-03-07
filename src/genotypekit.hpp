@@ -432,7 +432,7 @@ public:
 /**
  * Get the total read support in a Support.
  */
-int total(const Support& support);
+double total(const Support& support);
 
 /**
  * Get the minimum support of a pair of Supports, by taking the min in each
@@ -502,6 +502,21 @@ Support operator/(const Support& support, const Scalar& scale) {
     
     return scaled;
 }
+
+/**
+ * Support less-than, based on total coverage.
+ */
+bool operator< (const Support& a, const Support& b);
+
+/**
+ * Support greater-than, based on total coverage.
+ */
+bool operator> (const Support& a, const Support& b);
+
+/**
+ * Allow printing a Support.
+ */
+ostream& operator<<(ostream& stream, const Support& support);
 
 /**
  * Get a VCF-style 1/2, 1|2|3, etc. string from a Genotype.

@@ -1300,7 +1300,7 @@ size_t RepresentativeTraversalFinder::bp_length(const list<NodeTraversal>& path)
     return length;
 }
 
-int total(const Support& support) {
+double total(const Support& support) {
     return support.forward() + support.reverse();
 }
 
@@ -1334,6 +1334,18 @@ Support& operator+=(Support& one, const Support& other) {
     one.set_quality(one.quality() + other.quality());
     
     return one;
+}
+
+bool operator< (const Support& a, const Support& b) {
+    return total(a) < total(b);
+}
+
+bool operator> (const Support& a, const Support& b) {
+    return total(a) > total(b);
+}
+
+ostream& operator<<(ostream& stream, const Support& support) {
+    return stream << support.forward() << "," << support.reverse();
 }
 
 string to_vcf_genotype(const Genotype& gt) {
