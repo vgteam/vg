@@ -14,6 +14,21 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
     graph.sort();
 }
 
+// vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
+//     auto paths_to_traversals = [&](vector<Path> paths, Snarl s){
+
+//     };
+    
+//     vector<Path> paths;
+//     vector<int64_t> snarl_node_ids;
+//     // Get nodes in snarl
+//     for (int i = 0; i < site.visit_size(); i++){
+//         Visit v = site.visits(i);
+//         snarl_node_ids.push_back(v.node_id());
+
+//     }
+// }
+
 SnarlManager CactusUltrabubbleFinder::find_snarls() {
     
     // Get the bubble tree in Cactus format

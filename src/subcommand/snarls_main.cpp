@@ -24,6 +24,7 @@ void help_snarl(char** argv) {
          << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
          << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
          << "traversals:" << endl
+         << "    -p, --pathnames       output variant paths as SnarlTraversals" << endl
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
@@ -51,6 +52,7 @@ int main_snarl(int argc, char** argv) {
     bool legacy_ultrabubbles = false;
     bool filter_trivial_bubbles = false;
     bool sort_snarls = false;
+    bool fill_path_names = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -60,6 +62,7 @@ int main_snarl(int argc, char** argv) {
                 {"superbubbles", no_argument, 0, 'b'},
                 {"ultrabubbles", no_argument, 0, 'u'},
                 {"traversals", required_argument, 0, 'r'},
+		        {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
                 {"include-endpoints", no_argument, 0, 'i'},
@@ -70,7 +73,7 @@ int main_snarl(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "bsur:ltoim:h?",
+        c = getopt_long (argc, argv, "bsur:ltopim:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -205,6 +208,29 @@ int main_snarl(int argc, char** argv) {
         std::sort(snarl_roots.begin(), snarl_roots.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
             return snarl_1->start().node_id() < snarl_2->end().node_id();
         });
+    }
+
+    if (fill_path_names){
+        std::regex front("_alt_");
+        std::regex back("_[0-9]*_");
+        
+        for (const Snarl* snarl : snarl_roots ){
+            vector<int64_t> snarl_nodes;
+            vector<string> pathnames;
+            for (int i = 0; i < snarl->visit_size(); i++){
+                int64_t n = snarl->visit(i).node_id();
+                snarl_nodes.push_back(n);
+                if (graph->paths.has_node_mapping(n)){
+                    string pname = graph->paths.get_node_mappings(n).first;
+                    if (std::regex_match(pname)){
+                        pathnames.push_back(pname);
+                        std::string rep = std::regex_replace(pname, front, "");
+                        cerr << rep << endl;
+                    }
+                }
+            }
+
+        }
     }
 
     // The only implemented traversal finder

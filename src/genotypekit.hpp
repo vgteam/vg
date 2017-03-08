@@ -87,9 +87,8 @@ class SimpleGenotypeLikelihoodCalculator{
         const vector<Alignment>& reads) = 0;
 };
 
-class SimpleBubbleTraversalFinder{
-    virtual vector<Path> find_allele_paths(const Snarl& site);
-    virtual vector<Path> find_read_supported_allele_paths(const Snarl& site, SimpleDepthTracker depthmap);
+class PathBasedTraversalFinder{
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 };
 
 /**
