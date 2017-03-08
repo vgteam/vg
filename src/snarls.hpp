@@ -151,6 +151,7 @@ namespace vg {
     
     // We need some Visit operators
     bool operator==(const Visit& a, const Visit& b);
+    bool operator!=(const Visit& a, const Visit& b);
     bool operator<(const Visit& a, const Visit& b);
     
     /****

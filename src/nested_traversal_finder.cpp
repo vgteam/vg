@@ -137,7 +137,7 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(Visit root, co
             // We're done! Do a trace back.
             
             // Fill in this path
-            list<visit> path;           
+            list<Visit> path;           
             
             // With this cursor
             Visit v = to_extend_from;
@@ -152,7 +152,7 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(Visit root, co
             path.push_back(v);
             
             // Add the path and its length to the list to return
-            to_return.push_back(make_pair(path.size(), path));
+            to_return.insert(make_pair(path.size(), path));
             
             // And go ahead and return it right now (since it's maximally short)
             return to_return;
@@ -179,7 +179,7 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(Visit root, co
     
     // We should never get here becuase we should eventually reach the end of
     // the site we're searching.
-    throw runtime_error("Got lost in site in bfs_left!");
+    throw runtime_error("Got lost in site in search_left!");
 }
 
 set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_right(Visit root, const Snarl& site,
@@ -190,12 +190,12 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_right(Visit root, c
     root_rev.set_backward(!root_rev.backward());
 
     // Look left from the backward version of the root
-    auto toConvert = bfs_left(rev_root, site, child_boundary_index);
+    auto to_convert = search_left(root_rev, site, child_boundary_index);
     
     // Since we can't modify set records in place, we need to do a copy
     set<pair<size_t, list<Visit>>> to_return;
     
-    for(auto length_and_path : toConvert) {
+    for(auto length_and_path : to_convert) {
         // Flip every path to run the other way
         length_and_path.second.reverse();
         for(auto& visit : length_and_path.second) {
