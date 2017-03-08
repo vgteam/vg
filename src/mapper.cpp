@@ -1255,9 +1255,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     // We maintain the invariant that these two vectors of alignments are sorted
     // by score, descending, as returned from align_multi_internal.
     double cluster_mq1, cluster_mq2;
-    vector<Alignment> alignments1 = align_multi_internal(true, read1, kmer_size, stride, max_mem_length,
+    vector<Alignment> alignments1 = align_multi_internal(false, read1, kmer_size, stride, max_mem_length,
                                                          band_width, cluster_mq1, extra_multimaps, nullptr);
-    vector<Alignment> alignments2 = align_multi_internal(true, read2, kmer_size, stride, max_mem_length,
+    vector<Alignment> alignments2 = align_multi_internal(false, read2, kmer_size, stride, max_mem_length,
                                                          band_width, cluster_mq2, extra_multimaps, nullptr);
 
     size_t best_score1 = 0;
@@ -1315,10 +1315,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
                 if (dist > 0) {
                     if (!fragment_size) {
                         if (dist < fragment_max) {
-                            alnpair.bonus = cluster_mq1 + cluster_mq2;
+                            alnpair.bonus = alnpair.score; // + cluster_mq1 + cluster_mq2;
                         }
                     } else if (dist < fragment_size) {
-                        alnpair.bonus = fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
+                        alnpair.bonus = alnpair.score * fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
                     }
                 }
             }
@@ -1327,7 +1327,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         std::sort(alns.begin(), alns.end(),
                   [&](const AlignmentPair& pair1,
                       const AlignmentPair& pair2) {
-                      return pair1.score > pair2.score && pair1.bonus > pair2.bonus;
+                      return pair1.bonus > pair2.bonus;
+                      //return pair1.score > pair2.score && pair1.bonus > pair2.bonus;
                       //return pair1.mate1.score() + pair1.mate2.score() > pair2.mate1.score() + pair2.mate2.score();
                   });
         // remove duplicates (same score and same start position of both pairs)
@@ -1396,6 +1397,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         read2_max_score = max(p.mate2.score(), read2_max_score);
         results.first.push_back(p.mate1);
         results.second.push_back(p.mate2);
+    }
+
+    // compute mapping qualities
+    if (!results.first.empty()) {
+        // do we meet the fragment size requirements
+        auto& mate1 = results.first.front();
+        auto& mate2 = results.second.front();
+        // if not, we downgrade the mapping quality in an ad-hoc way
+        // TODO could we do this in a way that reflects this pair's specific fragment length?
+        if (pair_consistent(mate1, mate2)) {
+            // if the pair is consistent, compute the joint mapping quality
+            compute_mapping_qualities(results, cluster_mq);
+        } else {
+            // otherwise compute mapqual separately
+            compute_mapping_qualities(results.first, cluster_mq1);
+            compute_mapping_qualities(results.second, cluster_mq2);
+        }
     }
 
     // remove the extra pair used to compute mapping quality if necessary
@@ -1468,20 +1486,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
 
     // do not compute the paired mapping quality
     // this does not seem to be doing the right thing in this context
-
-    // compute mapping qualities for first
-    /*
-    if (!results.first.empty()) {
-        // do we meet the fragment size requirements
-        auto& mate1 = results.first.front();
-        auto& mate2 = results.second.front();
-        // if not, we downgrade the mapping quality in an ad-hoc way
-        // TODO could we do this in a way that reflects this pair's specific fragment length?
-        if (pair_consistent(mate1, mate2)) {
-            compute_mapping_qualities(results, cluster_mq);
-        }
-    }
-    */
 
     if(results.first.empty()) {
         results.first.push_back(read1);
