@@ -1282,36 +1282,40 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     unaligned2.clear_path();
     unaligned2.clear_score();
     typedef struct {
-        Alignment mate1;
-        Alignment mate2;
+        Alignment* mate1;
+        Alignment* mate2;
         int score;
         double bonus;
     } AlignmentPair;
-    vector<AlignmentPair> alns;
+    vector<AlignmentPair> alnpairs;
     for (auto& aln1 : alignments1) {
         for (auto& aln2 : alignments2) {
             if (&aln1 != &aln2) {
-                alns.emplace_back();
-                alns.back().mate1 = aln1;
-                alns.back().mate2 = aln2;
-                alns.emplace_back();
-                alns.back().mate1 = unaligned1;
-                alns.back().mate2 = aln2;
+                // add this combination
+                alnpairs.emplace_back();
+                alnpairs.back().mate1 = &aln1;
+                alnpairs.back().mate2 = &aln2;
+                // add a pair for each with the mate unaligned
+                alnpairs.emplace_back();
+                alnpairs.back().mate1 = &unaligned1;
+                alnpairs.back().mate2 = &aln2;
             }
         }
-        alns.emplace_back();
-        alns.back().mate1 = aln1;
-        alns.back().mate2 = unaligned2;
+        // add a pair for each with the mate unaligned
+        alnpairs.emplace_back();
+        alnpairs.back().mate1 = &aln1;
+        alnpairs.back().mate2 = &unaligned2;
     }
-    // add a pair for each with the mate unaligned
+    vector<AlignmentPair*> alns;
+    for (auto& p : alnpairs) alns.push_back(&p);
 
     auto score_sort_and_dedup = [&](void) {
         // add a bonus score for alignments that are within bounds
-        for (auto& alnpair : alns) {
-            alnpair.score = alnpair.mate1.score() + alnpair.mate2.score();
+        for (auto& alnpair : alnpairs) {
+            alnpair.score = alnpair.mate1->score() + alnpair.mate2->score();
             // see if we should compute a pair matching bonus
-            if (alnpair.mate1.score() && alnpair.mate2.score()) {
-                int dist = approx_fragment_length(alnpair.mate1, alnpair.mate2);
+            if (alnpair.score) {
+                int dist = approx_fragment_length(*alnpair.mate1, *alnpair.mate2);
                 if (dist > 0) {
                     if (!fragment_size) {
                         if (dist < fragment_max) {
@@ -1325,9 +1329,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         }
         // sort the aligned pairs
         std::sort(alns.begin(), alns.end(),
-                  [&](const AlignmentPair& pair1,
-                      const AlignmentPair& pair2) {
-                      return pair1.bonus > pair2.bonus;
+                  [&](const AlignmentPair* pair1,
+                      const AlignmentPair* pair2) {
+                      return pair1->bonus > pair2->bonus;
                       //return pair1.score > pair2.score && pair1.bonus > pair2.bonus;
                       //return pair1.mate1.score() + pair1.mate2.score() > pair2.mate1.score() + pair2.mate2.score();
                   });
@@ -1335,19 +1339,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         alns.erase(
             std::unique(
                 alns.begin(), alns.end(),
-                [&](const AlignmentPair& pair1,
-                    const AlignmentPair& pair2) {
+                [&](const AlignmentPair* pair1,
+                    const AlignmentPair* pair2) {
                     bool same = true;
-                    if (pair1.mate1.score() && pair2.mate1.score()) {
-                        same &= make_pos_t(pair1.mate1.path().mapping(0).position())
-                            == make_pos_t(pair2.mate1.path().mapping(0).position());
+                    if (pair1->mate1->score() && pair2->mate1->score()) {
+                        same &= make_pos_t(pair1->mate1->path().mapping(0).position())
+                            == make_pos_t(pair2->mate1->path().mapping(0).position());
                     }
-                    if (pair1.mate2.score() && pair2.mate2.score()) {
-                        same &= make_pos_t(pair1.mate2.path().mapping(0).position())
-                            == make_pos_t(pair2.mate2.path().mapping(0).position());
+                    if (pair1->mate2->score() && pair2->mate2->score()) {
+                        same &= make_pos_t(pair1->mate2->path().mapping(0).position())
+                            == make_pos_t(pair2->mate2->path().mapping(0).position());
                     }
-                    if (!(pair1.mate1.score() && pair2.mate1.score()
-                          || pair1.mate2.score() && pair2.mate2.score())) {
+                    if (!(pair1->mate1->score() && pair2->mate1->score()
+                          || pair1->mate2->score() && pair2->mate2->score())) {
                         same = false;
                     }
                     return same;
@@ -1393,10 +1397,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     int read1_max_score = 0;
     int read2_max_score = 0;
     for (auto& p : alns) {
-        read1_max_score = max(p.mate1.score(), read1_max_score);
-        read2_max_score = max(p.mate2.score(), read2_max_score);
-        results.first.push_back(p.mate1);
-        results.second.push_back(p.mate2);
+        read1_max_score = max(p->mate1->score(), read1_max_score);
+        read2_max_score = max(p->mate2->score(), read2_max_score);
+        results.first.push_back(*p->mate1);
+        results.second.push_back(*p->mate2);
     }
 
     // compute mapping qualities
