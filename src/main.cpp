@@ -4928,7 +4928,7 @@ void help_map(char** argv) {
          << "                              max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 32)" << endl
+         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 100)" << endl
          << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -4937,7 +4937,7 @@ void help_map(char** argv) {
          << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
          << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 10000)" << endl
          << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
@@ -4988,7 +4988,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 100;
+    int hit_max = 10000;
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 10;
@@ -5024,7 +5024,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 32;
+    int extra_multimaps = 100;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;

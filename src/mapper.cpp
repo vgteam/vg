@@ -38,7 +38,7 @@ Mapper::Mapper(Index* idex,
     , fast_reseed(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
-    , extra_multimaps(16)
+    , extra_multimaps(100)
     , always_rescue(false)
     , fragment_size(0)
     , fragment_max(1e5)
