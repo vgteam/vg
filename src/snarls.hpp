@@ -150,14 +150,59 @@ namespace vg {
     inline void transfer_boundary_info(const Snarl& from, Snarl& to);
     
     // We need some Visit operators
+    
+    /**
+     * Two Visits are equal if they represent the same traversal of the same
+     * Node or Snarl.
+     */
     bool operator==(const Visit& a, const Visit& b);
+    /**
+     * Two Visits are unequal if they are not equal.
+     */
     bool operator!=(const Visit& a, const Visit& b);
+    /**
+     * A Visit is less than another Visit if it represents a traversal of a
+     * smaller node, or it represents a traversal of a smaller snarl, or it
+     * represents a traversal of the same node or snarl forward instead of
+     * backward.
+     */
     bool operator<(const Visit& a, const Visit& b);
     
     // And some operators for SnarlTraversals
+    
+    /**
+     * Two SnarlTraversals are equal if their snarls are equal and they have the
+     * same number of visits and all their visits are equal.
+     */
     bool operator==(const SnarlTraversal& a, const SnarlTraversal& b);
+    /**
+     * Two SnarlTraversals are unequal if they are not equal.
+     */
     bool operator!=(const SnarlTraversal& a, const SnarlTraversal& b);
+    /**
+     * A SnalTraversal is less than another if it is a traversal of a smaller
+     * Snarl, or if its list of Visits has a smaller Visit first, or if its list
+     * of Visits is shorter.
+     */
     bool operator<(const SnarlTraversal& a, const SnarlTraversal& b);
+    
+    // And some operators for Snarls
+    
+    /**
+     * Two Snarls are equal if their types are equal and their bounding Visits
+     * are equal and their parents are equal.
+     */
+    bool operator==(const Snarl& a, const Snarl& b);
+    /**
+     * Two Snarls are unequal if they are not equal.
+     */
+    bool operator!=(const Snarl& a, const Snarl& b);
+    /**
+     * A Snarl is less than another Snarl if its type is smaller, or its start
+     * Visit is smaller, or its end Visit is smaller, or its parent is smaller.
+     */
+    bool operator<(const Snarl& a, const Snarl& b);
+    
     
     /****
      * Template and Inlines:

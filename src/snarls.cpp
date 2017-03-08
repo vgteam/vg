@@ -505,6 +505,103 @@ namespace vg {
         return visits_right(reversed, graph, child_boundary_index);
         
     }
+    
+    bool operator==(const Visit& a, const Visit& b) {
+        // IDs and orientations have to match, and nobody has a snarl or the
+        // snarls match.
+        return a.node_id() == b.node_id() &&
+            a.backward() == b.backward() &&
+            ((!a.has_snarl() && !b.has_snarl()) ||
+            a.snarl() == b.snarl());
+    }
+    
+    bool operator!=(const Visit& a, const Visit& b) {
+        return !(a == b);
+    }
+    
+    bool operator<(const Visit& a, const Visit& b) {
+        if (!a.has_snarl() && !b.has_snarl()) {
+            // Compare everything but the snarl
+            return make_tuple(a.node_id(), a.backward()) < make_tuple(b.node_id(), b.backward());
+        } else {
+            // Compare including the snarl
+            return make_tuple(a.node_id(), a.snarl(), a.backward()) < make_tuple(b.node_id(), b.snarl(), b.backward());
+        }        
+    }
+    
+    bool operator==(const SnarlTraversal& a, const SnarlTraversal& b) {
+        if (a.snarl() != b.snarl()) {
+            return false;
+        }
+        if (a.visits_size() != b.visits_size()) {
+            return false;
+        }
+        for (size_t i = 0; i < a.visits_size(); i++) {
+            if (a.visits(i) != b.visits(i)) {
+                return false;
+            }
+        }
+        // Otherwise everything we can think of matches
+        return true;
+    }
+    
+    bool operator!=(const SnarlTraversal& a, const SnarlTraversal& b) {
+        return !(a == b);
+    }
+    
+    bool operator<(const SnarlTraversal& a, const SnarlTraversal& b) {
+        if (a.snarl() < b.snarl()) {
+            return true;
+        } else if (b.snarl() < a.snarl()) {
+            return false;
+        }
+        for (size_t i = 0; i < b.visits_size(); i++) {
+            if (i >= a.visits_size()) {
+                // A has run out and B is still going
+                return true;
+            }
+            
+            if (a.visits(i) < b.visits(i)) {
+                return true;
+            } else if (b.visits(i) < a.visits(i)) {
+                return false;
+            }
+        }
+        
+        // If we get here either they're equal or A has more visits than B
+        return false;
+    }
+    
+    bool operator==(const Snarl& a, const Snarl& b) {
+        if (a.type() != b.type()) {
+            return false;
+        }
+        if (a.start() != b.start()) {
+            return false;
+        }
+        if (a.end() != b.end()) {
+            return false;
+        }
+        if (a.has_parent() || b.has_parent()) {
+            // Someone has a parent so we must compare them.
+            return a.parent() == b.parent();
+        }
+        return true;
+    }
+    
+    bool operator!=(const Snarl& a, const Snarl& b) {
+        return !(a == b);
+    }
+    
+    bool operator<(const Snarl& a, const Snarl& b) {
+        if (!a.has_parent() && !b.has_parent()) {
+            // Compare without parent
+            return make_tuple(a.type(), a.start(), a.end()) < make_tuple(b.type(), b.start(), b.end());
+        } else {
+            // Compare with parent
+            return make_tuple(a.type(), a.start(), a.end(), a.parent()) < make_tuple(b.type(), b.start(), b.end(), b.parent());
+        }
+    }
 }
 
 
