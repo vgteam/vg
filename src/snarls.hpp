@@ -101,6 +101,20 @@ namespace vg {
         void build_trees();
     };
     
+    /**
+     * Look left from the given visit in the given graph and get all the
+     * attached Visits to nodes or snarls. Uses the given index from inward-
+     * facing NodeTraversal to snarl to identify child snarls.
+     */
+    vector<Visit> visits_left(const Visit& visit, VG& graph, const map<NodeTraversal, const Snarl*>& child_boundary_index);
+    
+    /**
+     * Look right from the given visit in the given graph and get all the
+     * attached Visits to nodes or snarls. Uses the given index from inward-
+     * facing NodeTraversal to snarl to identify child snarls.
+     */
+    vector<Visit> visits_right(const Visit& visit, VG& graph, const map<NodeTraversal, const Snarl*>& child_boundary_index);
+    
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead
     /// of a Node
     inline NodeTraversal to_node_traversal(const Visit& visit, const VG& graph);
@@ -109,12 +123,10 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
-    /// Converts a Visit to a NodeSide for its left side. Throws an exception if
-    /// the Visit is of a Snarl instead of a Node.
+    /// Converts a Visit to a node or snarl into a NodeSide for its left side.
     inline NodeSide to_left_side(const Visit& visit);
     
-    /// Converts a Visit to a NodeSide for its right side. Throws an exception if
-    /// the Visit is of a Snarl instead of a Node.
+    /// Converts a Visit to a node or snarl into a NodeSide for its right side.
     inline NodeSide to_right_side(const Visit& visit);
     
     /// Converts a NodeTraversal to a Visit.
@@ -136,6 +148,10 @@ namespace vg {
     
     // Copies the boundary Visits from one Snarl into another
     inline void transfer_boundary_info(const Snarl& from, Snarl& to);
+    
+    // We need some Visit operators
+    bool operator==(const Visit& a, const Visit& b);
+    bool operator<(const Visit& a, const Visit& b);
     
     /****
      * Template and Inlines:
@@ -162,13 +178,37 @@ namespace vg {
     }
     
     inline NodeSide to_left_side(const Visit& visit) {
-        assert(visit.node_id());
-        return NodeSide(visit.node_id(), visit.backward());
+        if (visit.node_id()) {
+            // Just report the left side of this node
+            return NodeSide(visit.node_id(), visit.backward());
+        } else if (visit.backward()) {
+            // This is a reverse visit to a snarl, so its left side is the right
+            // side of the end visit of the snarl.
+            assert(visit.snarl().end().node_id());
+            return to_right_side(visit.snarl().end());
+        } else {
+            // This is a forward visit to a snarl, so its left side is the left
+            // side of the start visit of the snarl.
+            assert(visit.snarl().start().node_id());
+            return to_left_side(visit.snarl().start());
+        }
     }
     
     inline NodeSide to_right_side(const Visit& visit) {
-        assert(visit.node_id());
-        return NodeSide(visit.node_id(), !visit.backward());
+        if (visit.node_id()) {
+            // Just report the right side of this node
+            return NodeSide(visit.node_id(), !visit.backward());
+        } else if (visit.backward()) {
+            // This is a reverse visit to a snarl, so its right side is the
+            // left side of the start visit of the snarl.
+            assert(visit.snarl().start().node_id());
+            return to_left_side(visit.snarl().start());
+        } else {
+            // This is a forward visit to a snarl, so its right side is the
+            // right side of the end visit of the snarl.
+            assert(visit.snarl().end().node_id());
+            return to_right_side(visit.snarl().end());
+        }
     }
     
     inline Visit to_visit(const NodeTraversal& node_traversal) {

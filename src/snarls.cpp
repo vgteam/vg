@@ -441,6 +441,70 @@ namespace vg {
         
         return to_return;
     }
+    
+    vector<Visit> visits_right(const Visit& visit, VG& graph,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+        
+        // We'll populate this
+        vector<Visit> to_return;
+        
+        // Find the right side of the visit we're on
+        NodeSide right_side = to_right_side(visit);
+        
+        for (auto attached : graph.sides_of(right_side)) {
+            // For every NodeSide attached to the right side of this visit
+            
+            // Make it a NodeTraversal reading away from that side
+            NodeTraversal attached_traversal(graph.get_node(attached.node), attached.is_end);
+            
+            if (child_boundary_index.count(attached_traversal)) {
+                // We're reading into a child
+                
+                // Which child is it?
+                const Snarl* child = child_boundary_index.at(attached_traversal);
+                
+                if (attached.node == child->start().node_id()) {
+                    // We're reading into the start of the child
+                    
+                    // Make a visit to the child snarl
+                    Visit child_visit;
+                    transfer_boundary_info(*child, *child_visit.mutable_snarl());
+                    
+                    // Put it in in the forward orientation
+                    to_return.push_back(child_visit);
+                } else if (attached.node == child->end().node_id()) {
+                    // We're reading into the end of the child
+                    
+                    // Make a visit to the child snarl
+                    Visit child_visit;
+                    transfer_boundary_info(*child, *child_visit.mutable_snarl());
+                    child_visit.set_backward(true);
+                    
+                    // Put it in in the reverse orientation
+                    to_return.push_back(child_visit);
+                } else {
+                    // Should never happen
+                    throw runtime_error("Read into child " + pb2json(*child) + " with non-matching traversal");
+                }
+            } else {
+                // We just go into a normal node
+                to_return.push_back(to_visit(attached_traversal));
+            }
+        }
+        
+    }
+    
+    vector<Visit> visits_left(const Visit& visit, VG& graph,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+        
+        // Reverse the visit
+        Visit reversed = visit;
+        reversed.set_backward(!reversed.backward());
+        
+        // Return everything right of the reversed version
+        return visits_right(reversed, graph, child_boundary_index);
+        
+    }
 }
 
 
