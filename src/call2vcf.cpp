@@ -486,9 +486,6 @@ void Call2Vcf::call(
         // And keep around a vector of is_reference statuses for all the alleles
         vector<bool> is_ref;
         
-        // We turn them all back into NodeTraversal vectors
-        vector<pair<vector<NodeTraversal>, bool>> ordered_paths;
-        
         for (auto& traversal : traversals) {
             // Convert each traversal to a path
             Path* path = locus.add_allele();
@@ -504,38 +501,6 @@ void Call2Vcf::call(
             
             // Save the traversal's reference status
             is_ref.push_back(is_reference(traversal, augmented, index));
-            
-            // TODO: Also, save the data the old way that powers the VCF output
-            // currently
-            
-            // Make each traversal into a vector of NodeTraversals
-            vector<NodeTraversal> traversal_vector;
-            // Start at the start of the site
-            traversal_vector.push_back(to_node_traversal(site->start(), augmented.graph));
-            for (size_t i = 0; i < traversal.visits_size(); i++) {
-                // Then visit each node in turn
-                traversal_vector.push_back(to_node_traversal(traversal.visits(i), augmented.graph));
-            }
-            // Finish up with the site's end
-            traversal_vector.push_back(to_node_traversal(site->end(), augmented.graph));
-            
-            if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
-                // This site is on the primary path
-                if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
-                    // This site is backward relative to the primary path.
-                    
-                    // Turn the traversal around to primary path orientation.
-                    reverse(traversal_vector.begin(), traversal_vector.end());
-                    for (auto& trav : traversal_vector) {
-                        // Flip every traversal in it
-                        trav = trav.reverse();
-                    }
-                }
-            }
-            
-            // Put it in the list, with an annotation saying whether it's a
-            // previously-known traversal or not.
-            ordered_paths.push_back(make_pair(traversal_vector, is_ref.back()));
         }
         
         // Collect sequences for all the paths
