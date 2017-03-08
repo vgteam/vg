@@ -492,6 +492,8 @@ namespace vg {
             }
         }
         
+        return to_return;
+        
     }
     
     vector<Visit> visits_left(const Visit& visit, VG& graph,

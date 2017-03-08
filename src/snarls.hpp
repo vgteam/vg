@@ -229,6 +229,7 @@ namespace vg {
     }
     
     inline NodeSide to_left_side(const Visit& visit) {
+        assert(visit.node_id() || (visit.snarl().start().node_id() && visit.snarl().end().node_id()));
         if (visit.node_id()) {
             // Just report the left side of this node
             return NodeSide(visit.node_id(), visit.backward());
@@ -246,6 +247,7 @@ namespace vg {
     }
     
     inline NodeSide to_right_side(const Visit& visit) {
+        assert(visit.node_id() || (visit.snarl().start().node_id() && visit.snarl().end().node_id()));
         if (visit.node_id()) {
             // Just report the right side of this node
             return NodeSide(visit.node_id(), !visit.backward());

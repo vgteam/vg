@@ -121,7 +121,7 @@ pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge
     // What are we going to find our left and right path halves based on?
     Visit left_visit;
     Visit right_visit;
-
+    
     if(edge != nullptr) {
         // Be edge-based
         

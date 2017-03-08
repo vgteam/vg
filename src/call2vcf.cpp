@@ -19,6 +19,7 @@
 #include "path_index.hpp"
 #include "caller.hpp"
 #include "stream.hpp"
+#include "nested_traversal_finder.hpp"
 
 //#define debug
 
@@ -477,7 +478,7 @@ void Call2Vcf::call(
         
         // Get the traversals. The ref traversal is the first one. They are all
         // in site orientation, which may oppose primary path orientation.
-        auto traversals = traversal_finder.find_traversals(*site);
+        vector<SnarlTraversal> traversals = traversal_finder.find_traversals(*site);
         
         // Make a Locus to represent this site, with all the Paths of the
         // different alleles.
