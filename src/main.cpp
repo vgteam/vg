@@ -1355,7 +1355,8 @@ void help_msga(char** argv) {
          << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
-         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them (default: 2x min-mem)" << endl
+         << "    -V, --mem-reseed N      reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
+         << "                            set to -1 to estimate as 2x min mem length (default: 0/unset)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -1800,7 +1801,8 @@ int main_msga(int argc, char** argv) {
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
                                       : mapper->random_match_length(chance_match));
             mapper->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
-                                         : 2 * mapper->min_mem_length);
+                                         : (mem_reseed_length == 0 ? 0
+                                            : 2 * mapper->min_mem_length));
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -4951,7 +4953,8 @@ void help_map(char** argv) {
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them (default: 32)" << endl
+         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
+         << "                             set to -1 to estimate as 2x min mem length (default: 0/unset)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -5543,7 +5546,8 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
-                                : 2 * m->min_mem_length);
+                                : (mem_reseed_length == 0 ? 0
+                                   : 2 * m->min_mem_length));
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
                  << ", mem_reseed_length = " << m->mem_reseed_length << endl;
