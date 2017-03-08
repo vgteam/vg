@@ -188,6 +188,8 @@ public:
     /// for inversions/transversions/breakpoints?).
     // TODO: map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
     map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+
+    map<string, vector<SnarlTraversal> > variant_to_traversals;
                        
                        
     /// Chop up the nodes.

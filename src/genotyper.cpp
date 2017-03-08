@@ -128,13 +128,19 @@ using namespace std;
     #endif
 
     for (auto it : hash_to_var){
+        int32_t total_reads = 0;
         for (int i = 0; i <= it.second.alt.size(); ++i){
             int32_t readsum = 0;
             string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
             for (int i = 0; i < varname_to_node_id[ alt_id ].size(); i++){
                     readsum += node_id_to_depth[varname_to_node_id[ alt_id ][i]];
+                    total_reads += readsum;
             }
             it.second.info["AD"].push_back(std::to_string(readsum));
+        }
+        for (int i = 0; i <= it.second.alt.size(); ++i){
+            double av = (double) stod(it.second.info["AD"][i]) / (double) total_reads;
+            it.second.info["GP"].push_back(std::to_string(av));
         }
             cout << it.second << endl;
         }
