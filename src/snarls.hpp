@@ -154,6 +154,11 @@ namespace vg {
     bool operator!=(const Visit& a, const Visit& b);
     bool operator<(const Visit& a, const Visit& b);
     
+    // And some operators for SnarlTraversals
+    bool operator==(const SnarlTraversal& a, const SnarlTraversal& b);
+    bool operator!=(const SnarlTraversal& a, const SnarlTraversal& b);
+    bool operator<(const SnarlTraversal& a, const SnarlTraversal& b);
+    
     /****
      * Template and Inlines:
      ****/

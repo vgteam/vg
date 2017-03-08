@@ -31,10 +31,10 @@ protected:
      * found on any edge or node in the bubble that is not contained within a
      * child.
      *
-     * If there is no path with any support, returns a zero Support and an empty
-     * vector.
+     * If there is no path with any support, returns a zero Support and a
+     * possibly empty Path.
      */
-    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, Snarl* child,
+    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* child,
         const Snarl& site, const map<NodeTraversal, const Snarl*>& child_boundary_index);
         
     /**
@@ -96,10 +96,106 @@ NestedTraversalFinder::NestedTraversalFinder(AugmentedGraph& augmented,
 
 vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site) {
     
-    // For each node, edge, and child snarl, try and find a traversal that visits it
+    // We will populate this
+    set<SnarlTraversal> to_return;
+    
+    // We need a function to check supports and convert things to
+    // SnarlTraversals
+    auto emit_path = [&](const pair<Support, vector<Visit>>& bubble) {
+        if (total(bubble.first) == 0) {
+            // There's no support for this
+            return;
+        }
+        
+        // This is a legit path to consider
+        
+        // Make a traversal of the path
+        SnarlTraversal trav;
+        transfer_boundary_info(site, *trav.mutable_snarl());
+        
+        // We need to have the anchoring boundary nodes.
+        assert(bubble.second.size() >= 2);
+        
+        // Do we need to reverse the bubble so it hits the start on the left and the end on the right?
+        bool flip_path;
+        if (bubble.second.front() == site.start()) {
+            // We're already forward
+            flip_path = false;
+        } else {
+            // We must be backward
+            flip_path = true;
+            // Make sure we actually start with the right node for being backward.
+            assert(site.end().node_id() == bubble.second.front().node_id());
+        }
+        
+        for (size_t i = 1; i < bubble.second.size(); i++) {
+            // For every visit except the first and last anchoring visits
+            
+            // Which visit do we pull
+            size_t index = flip_path ? bubble.second.size() - 1 - i : i;
+            Visit v = bubble.second[index];
+            
+            if (flip_path) {
+                // If we're flipping the path around, flip all its visits in
+                // addition to going through it backward.
+                v.set_backward(!v.backward());
+            }
+            
+            // Stick the visit in the traversal
+            *trav.add_visits() = v;
+        }
+            
+        // Now emit the actual traversal
+        to_return.insert(trav);
+    };
+    
+    // Index our snarl's children
+    map<NodeTraversal, const Snarl*> child_boundary_index = snarl_manager.child_boundary_index(&site, augmented.graph);
+    
+    // Get our contained nodes and edges
+    unordered_set<Node*> nodes;
+    unordered_set<Edge*> edges;
+    
+    // Grab them, including child boundaries but not our boundaries (which we're
+    // guaranteed to visit)
+    tie(nodes, edges) = snarl_manager.shallow_contents(&site, augmented.graph, false);
+    
+    for(auto it = nodes.begin(); it != nodes.end(); ) {
+        // For each node
+        if (child_boundary_index.count(NodeTraversal(*it, false)) ||
+            child_boundary_index.count(NodeTraversal(*it, true))) {
+        
+            // If the node is a child boundary, don't use it. Use visits to the
+            // child instead.
+            it = nodes.erase(it);
+            
+        } else {
+            // Not a chind boundary. Try the next one.
+            ++it;
+        }
+    }  
+    
+    for (Node* node : nodes) {
+        // Find bubbles for nodes
+        emit_path(find_bubble(node, nullptr, nullptr, site, child_boundary_index));
+    }
+    
+    for (Edge* edge : edges) {
+        // Find bubbles for edges
+        emit_path(find_bubble(nullptr, edge, nullptr, site, child_boundary_index));
+    }
+    
+    for (const Snarl* child : snarl_manager.children_of(&site)) {
+        // Find bubbles for children
+        emit_path(find_bubble(nullptr, nullptr, child, site, child_boundary_index));
+    }
+    
+    // Convert to a vector and return
+    return vector<SnarlTraversal> {to_return.begin(), to_return.end()};
+    
 }
 
-pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge* edge, Snarl* child, const Snarl& site, const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge* edge, const Snarl* child, const Snarl& site, const map<NodeTraversal, const Snarl*>& child_boundary_index) {
 
     // What are we going to find our left and right path halves based on?
     Visit left_visit;
@@ -107,8 +203,6 @@ pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge
 
     if(edge != nullptr) {
         // Be edge-based
-        
-        // TODO: if the edge has no support, don't go looking for a path
         
         // Find the nodes at the ends of the edges. Look at them traversed in the
         // edge's local orientation.
