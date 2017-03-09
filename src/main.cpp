@@ -1355,7 +1355,8 @@ void help_msga(char** argv) {
          << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
-         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them (default: 2x min-mem)" << endl
+         << "    -V, --mem-reseed N      reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
+         << "                            set to -1 to estimate as 2x min mem length (default: 0/unset)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -1800,7 +1801,8 @@ int main_msga(int argc, char** argv) {
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
                                       : mapper->random_match_length(chance_match));
             mapper->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
-                                         : 2 * mapper->min_mem_length);
+                                         : (mem_reseed_length == 0 ? 0
+                                            : 2 * mapper->min_mem_length));
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -4935,7 +4937,7 @@ void help_map(char** argv) {
          << "                              max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 32)" << endl
+         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 100)" << endl
          << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -4944,7 +4946,7 @@ void help_map(char** argv) {
          << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
          << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 10000)" << endl
          << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
@@ -4960,7 +4962,8 @@ void help_map(char** argv) {
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them (default: 32)" << endl
+         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
+         << "                             set to -1 to estimate as 2x min mem length (default: 0/unset)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -4994,7 +4997,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 100;
+    int hit_max = 10000;
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 10;
@@ -5030,7 +5033,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 32;
+    int extra_multimaps = 100;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -5552,7 +5555,8 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
-                                : 2 * m->min_mem_length);
+                                : (mem_reseed_length == 0 ? 0
+                                   : 2 * m->min_mem_length));
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
                  << ", mem_reseed_length = " << m->mem_reseed_length << endl;
