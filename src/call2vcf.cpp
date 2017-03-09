@@ -19,6 +19,7 @@
 #include "path_index.hpp"
 #include "caller.hpp"
 #include "stream.hpp"
+#include "nested_traversal_finder.hpp"
 
 //#define debug
 
@@ -469,15 +470,24 @@ void Call2Vcf::call(
     // Now start looking for traversals of the sites
     RepresentativeTraversalFinder traversal_finder(augmented, site_manager, index, maxDepth, max_bubble_paths);
     
+    // We're going to remember what nodes and edges are covered by sites, so we
+    // will know which nodes/edges aren't in any sites and may need generic
+    // presence/absence calls.
+    set<Node*> covered_nodes;
+    set<Edge*> covered_edges;
+    
     // When we genotype the sites into Locus objects, we will use this buffer for outputting them.
     vector<Locus> locus_buffer;
+    
+    // How many sites result in output?
+    size_t called_loci = 0;
     
     for(const Snarl* site : sites) {
         // For every site, we're going to make a variant
         
         // Get the traversals. The ref traversal is the first one. They are all
         // in site orientation, which may oppose primary path orientation.
-        auto traversals = traversal_finder.find_traversals(*site);
+        vector<SnarlTraversal> traversals = traversal_finder.find_traversals(*site);
         
         // Make a Locus to represent this site, with all the Paths of the
         // different alleles.
@@ -485,9 +495,6 @@ void Call2Vcf::call(
         
         // And keep around a vector of is_reference statuses for all the alleles
         vector<bool> is_ref;
-        
-        // We turn them all back into NodeTraversal vectors
-        vector<pair<vector<NodeTraversal>, bool>> ordered_paths;
         
         for (auto& traversal : traversals) {
             // Convert each traversal to a path
@@ -504,38 +511,6 @@ void Call2Vcf::call(
             
             // Save the traversal's reference status
             is_ref.push_back(is_reference(traversal, augmented, index));
-            
-            // TODO: Also, save the data the old way that powers the VCF output
-            // currently
-            
-            // Make each traversal into a vector of NodeTraversals
-            vector<NodeTraversal> traversal_vector;
-            // Start at the start of the site
-            traversal_vector.push_back(to_node_traversal(site->start(), augmented.graph));
-            for (size_t i = 0; i < traversal.visits_size(); i++) {
-                // Then visit each node in turn
-                traversal_vector.push_back(to_node_traversal(traversal.visits(i), augmented.graph));
-            }
-            // Finish up with the site's end
-            traversal_vector.push_back(to_node_traversal(site->end(), augmented.graph));
-            
-            if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
-                // This site is on the primary path
-                if (index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
-                    // This site is backward relative to the primary path.
-                    
-                    // Turn the traversal around to primary path orientation.
-                    reverse(traversal_vector.begin(), traversal_vector.end());
-                    for (auto& trav : traversal_vector) {
-                        // Flip every traversal in it
-                        trav = trav.reverse();
-                    }
-                }
-            }
-            
-            // Put it in the list, with an annotation saying whether it's a
-            // previously-known traversal or not.
-            ordered_paths.push_back(make_pair(traversal_vector, is_ref.back()));
         }
         
         // Collect sequences for all the paths
@@ -1030,11 +1005,93 @@ void Call2Vcf::call(
             locus_buffer.push_back(locus);
             stream::write_buffered(cout, locus_buffer, locus_buffer_size);
         }
+        
+        // We called a site
+        called_loci++;
+        
+        // Mark all the nodes and edges in the site as covered
+        auto contents = site_manager.deep_contents(site, augmented.graph, true);
+        for (auto* node : contents.first) {
+            covered_nodes.insert(node);
+        }
+        for (auto* edge : contents.second) {
+            covered_edges.insert(edge);
+        }
     }
     
+    if (verbose) {
+        cerr << "Called " << called_loci << " loci" << endl;
+    }
+    
+    // OK now we have handled all the real sites. But there are still nodes and
+    // edges that we might want to call as present or absent.
+    
     if (!convert_to_vcf) {
+        
+        size_t extra_loci = 0;
+        
+        augmented.graph.for_each_edge([&](Edge* e) {
+            // We want to make calls on all the edges that aren't covered yet
+            if (covered_edges.count(e)) {
+                // Skip this edge
+                return;
+            }
+            
+            // Make a couple of fake Visits
+            Visit from_visit;
+            from_visit.set_node_id(e->from());
+            from_visit.set_backward(e->from_start());
+            Visit to_visit;
+            to_visit.set_node_id(e->to());
+            to_visit.set_backward(e->to_end());
+            
+            // Make a Locus for the edge
+            Locus locus;
+            
+            // Give it an allele
+            Path* path = locus.add_allele();
+            
+            // Fill in 
+            *path->add_mapping() = to_mapping(from_visit, augmented.graph);
+            *path->add_mapping() = to_mapping(to_visit, augmented.graph);
+            
+            // Set the support
+            *locus.add_support() = augmented.edge_supports[e];
+            *locus.mutable_overall_support() = augmented.edge_supports[e];
+            
+            // Decide on the genotype
+            Genotype gt;
+            
+            // TODO: use the coverage bins
+            if (total(locus.support(0)) > total(primaryPathAverageSupport) * 0.25) {
+                // We're closer to 1 copy than 0 copies
+                gt.add_allele(0);
+                
+                if (total(locus.support(0)) > total(primaryPathAverageSupport) * 0.75) {
+                    // We're closer to 2 copies than 1 copy
+                    gt.add_allele(0);
+                }
+            }
+            // Save the genotype with 0, 1, or 2 copies.
+            *locus.add_genotype() = gt;
+            
+            // Send out the locus
+            locus_buffer.push_back(locus);
+            stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+            
+            extra_loci++;
+            
+        });
+        
+        // TODO: look at average node coverages and do node loci (in case any nodes have no edges?)
+    
         // Flush the buffer of Locus objects we have to write
-        stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+        stream::write_buffered(cout, locus_buffer, 0);
+        
+        if (verbose) {
+            cerr << "Called " << extra_loci << " extra loci with copy number estimates" << endl;
+        }
+        
     }
     
     // Announce how much we can't show.
