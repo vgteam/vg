@@ -12,11 +12,18 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
             vector<bool> consistencies(traversals.size());
             for (int i = 0; i < traversals.size(); ++i){
                 SnarlTraversal trav = traversals[i];
-                set<int64_t> trav_ids;
-                set<int64_t> read_ids;
-                for (auto x : read.path().mapping()){
-                    read_ids.insert(x.position().node_id());
-                }
+                // Our snarltraversals run forward (i.e. along increading node_ids)
+                // Our Alignment path may run forward OR backward.
+                // We can check if an alignment is on the reverse strand and
+                // flip its path around to match our snarltraversal direction.
+                // Cases of consistency:
+                // 1. A read maps to either end of the snarl but no internal nodes
+                // 2. A read maps to both ends of the snarl but no internal nodes
+                // 3. A read maps to one end of the snarl and some internal nodes.
+                // 4. A read maps to both ends of the snarl and some internal nodes.
+                // 5. A read maps to internal nodes, but not the snarl ends
+                // A read may map to a node multiple times, or it may skip a node
+                // and put an insert there.
             }
 }
 
