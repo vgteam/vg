@@ -164,7 +164,7 @@ namespace vg {
                 REQUIRE(dist == std::numeric_limits<int64_t>::max());
             }
             
-            SECTION("Distance approxmation produces expected output when positions are in disconnected components") {
+            SECTION("Distance approxmation produces expected output when cannot reach each other within the maximum distance") {
                 int64_t dist = xg_index.closest_shared_path_oriented_distance(n1->id(),
                                                                               3,
                                                                               false,
