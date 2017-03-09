@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <functional>
 #include <cmath>
+#include <regex>
 #include <limits>
 #include <unordered_set>
 #include <unordered_map>
@@ -56,40 +57,6 @@ public:
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
 };
 
-  /**
-    Classes which assume:
-    1. The graph is minimally augmented, or not at all.
-    2. There are known variants in the graph.
-    3. Depth is stored in an external map.
-  **/ 
-class SimpleDepthTracker{
-    virtual uint32_t get_position_depth(Position p);
-    virtual uint32_t get_node_depth(int64_t id);
-    virtual void increment_depth(Position p);
-    virtual void increment_depth(int64_t id);
-
-    // convenience functions
-    virtual void fill(const vector<Alignment>& alns);
-    virtual void fill(const vector<Paths>& paths);
-};
-class SimpleConsistencyCalculator{
-    virtual vector<bool> calculate_consistency(const vector<Path> allele_paths,
-        vector<Alignment>& reads);
-};
-class SimpleAffinityCalculator{
-        virtual vector<Support> calculate_supports(vector<Path> allele_paths,
-                vector<Alignment>& reads, vector<bool> consistencies);
-};
-class SimpleGenotypeLikelihoodCalculator{
-    virtual double calculate_log_likelihood(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const Genotype& genotype,
-        const vector<vector<bool>>& consistencies, const vector<Support>& supports,
-        const vector<Alignment>& reads) = 0;
-};
-
-class PathBasedTraversalFinder{
-    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
-};
 
 /**
  * Represents a strategy for computing consistency between Alignments and
@@ -108,6 +75,13 @@ public:
     virtual vector<bool> calculate_consistency(const Snarl& site,
         const vector<SnarlTraversal>& traversals, const Alignment& read) const = 0;
 };
+
+class SimpleConsistencyCalculator : public ConsistencyCalculator{
+    public:
+    virtual vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read);
+};
+
 
 /**
  * Represents a strategy for calculating Supports for SnarlTraversals.
@@ -319,6 +293,15 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
+};
+
+class PathBasedTraversalFinder : public TraversalFinder{
+    vg::VG graph;
+    public:
+    PathBasedTraversalFinder(vg::VG graph);
+    virtual ~PathBasedTraversalFinder() = default;
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
 };
 
 /**

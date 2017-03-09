@@ -6,6 +6,7 @@
 
 #include <list>
 #include <fstream>
+#include <regex>
 
 #include "subcommand.hpp"
 
@@ -185,6 +186,7 @@ int main_snarl(int argc, char** argv) {
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+    TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
     
     // Sort the top level Snarls
     if (sort_snarls) {
@@ -211,30 +213,13 @@ int main_snarl(int argc, char** argv) {
     }
 
     if (fill_path_names){
-        std::regex front("_alt_");
-        std::regex back("_[0-9]*_");
-        
+        delete trav_finder;
+        trav_finder = new PathBasedTraversalFinder(*graph);
         for (const Snarl* snarl : snarl_roots ){
-            vector<int64_t> snarl_nodes;
-            vector<string> pathnames;
-            for (int i = 0; i < snarl->visit_size(); i++){
-                int64_t n = snarl->visit(i).node_id();
-                snarl_nodes.push_back(n);
-                if (graph->paths.has_node_mapping(n)){
-                    string pname = graph->paths.get_node_mappings(n).first;
-                    if (std::regex_match(pname)){
-                        pathnames.push_back(pname);
-                        std::string rep = std::regex_replace(pname, front, "");
-                        cerr << rep << endl;
-                    }
-                }
-            }
-
+            trav_finder->find_traversals(*snarl);
         }
     }
 
-    // The only implemented traversal finder
-    TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
 
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;

@@ -188,6 +188,7 @@ int main_srpe(int argc, char** argv){
     map<string, Locus> name_to_loc;
     // Makes a pathindex, which allows us to query length and push out a VCF with a position
     map<string, PathIndex*> pindexes;
+    Genotyper gg;
     regex is_alt ("_alt_.*");
 
     vector<FastaReference*> insertions;
@@ -215,9 +216,16 @@ int main_srpe(int argc, char** argv){
         vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
         variant_file->open(spec_vcf);
 
-        string descrip = "";
-        descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
-        variant_file->addHeaderLine(descrip);
+        std::function<int(vcflib::Variant)> call = [&](vcflib::Variant var){
+            // Sort genotypes by probability 
+            // if top two are sufficiently close, output a homozygous call
+            // otherwise, output the highest probability genotype.
+            return -1;
+        };
+        string ad_line = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
+        string prob_line = "##INFO=<ID=GP,Number=R,Type=Float,Description=\"Genotype probability for each allele.\"\\>";
+        variant_file->addHeaderLine(ad_line);
+        variant_file->addHeaderLine(prob_line);
 
         cout << variant_file->header << endl;
 
@@ -229,7 +237,7 @@ int main_srpe(int argc, char** argv){
         variant_nodes.reserve(10000);
 
         // Store a site for each VCF variant.
-        map<string, Site > name_to_site;
+        map<string, Genotyper::Site > name_to_site;
 
         
 
@@ -240,8 +248,8 @@ int main_srpe(int argc, char** argv){
             var.canonicalize_sv(*linear_ref, insertions, -1);
             string var_id = make_variant_id(var);
             hash_to_var[ var_id ] = var;
-            Site s;
-            set<id_t> contents;
+            //Genotyper::Site s;
+            //set<vg::id_t> contents;
             for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
                 // TODO: escape to the bubble's ends to make sure we get the
                 // start/end of the site correct.
@@ -250,12 +258,13 @@ int main_srpe(int argc, char** argv){
                 for (Mapping x_m : x_path){
                     variant_nodes.push_back(x_m.position().node_id());
                     varname_to_nodeid[ alt_id ].push_back(x_m.position().node_id());
-                    contents.insert(x_m.position().node_id());
+              //      contents.insert(x_m.position().node_id());
                 }
             }
             
 
         }
+
         std::function<void(const Alignment& a)> incr = [&](const Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
                 node_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
@@ -265,27 +274,35 @@ int main_srpe(int argc, char** argv){
         gamind.for_alignment_to_nodes(variant_nodes, incr);
 
 
-        vector<Genotype> genotypes;
-        vector<Locus> loci;
-        vector<Affinity> affinities;
-        // TODO : calculate genotype likelihoods
-        map<Alignment*, vector<Genotyper::Affinity>> affinities;
-        std::function<void(vector<Alignment>&, vg::VG* graph) calc_affins = [&](vector<Aligment>& alignments,
-        vg::VG* graph,
-        Path p){
-            string p_str = graph->paths.path_to_string(p);
-            for (auto x : alignments){
-                Affinity af;
-                Site s;
-                list<NodeTraversal> read_traversal = get_traversal_of_site(*graph, s, x.path());
-
-            }
-        };
+        // vector<Genotype> genotypes;
+        // vector<Locus> loci;
+        // //vector<Genotyper::Affinity> affinities;
+        // // TODO : calculate genotype likelihoods
+        // map<Alignment*, vector<Genotyper::Affinity>> affinities;
+        // std::function<void(vector<Alignment>&, vg::VG* graph, Path p)> calc_affins = [&](vector<Alignment>& alignments,
+        // vg::VG* graph,
+        // Path p){
+        //     string p_str = path_to_string(p);
+        //     for (auto x : alignments){
+        //         Genotyper::Affinity af;
+        //         Genotyper::Site s;
+        //         list<NodeTraversal> read_traversal = gg.get_traversal_of_site(*graph, s, x.path());
+        //     }
+        // };
 
         
 
 
         for (auto it : hash_to_var){
+            int32_t total_reads = 0;
+            // for (int i = 0; i <= it.second.alt.size(); i++){
+            //     int32_t sum_reads = 0;
+            //     string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
+            //     for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
+            //         sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
+            //     }
+            //     total_reads+= sum_reads;
+            // }
             for (int i = 0; i <= it.second.alt.size(); i++){
                 int32_t sum_reads = 0;
                 string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
@@ -295,8 +312,12 @@ int main_srpe(int argc, char** argv){
                 
                 #pragma omp critical
                 it.second.info["AD"].push_back(std::to_string(sum_reads));
+                double gp = (double) sum_reads / (double) 10;
+                #pragma omp critical
+                it.second.info["GP"].push_back(std::to_string(gp));
             }
             cout << it.second << endl;
+
         }
 
 
