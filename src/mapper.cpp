@@ -38,7 +38,7 @@ Mapper::Mapper(Index* idex,
     , fast_reseed(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
-    , extra_multimaps(16)
+    , extra_multimaps(100)
     , always_rescue(false)
     , fragment_size(0)
     , fragment_max(1e5)
@@ -56,7 +56,7 @@ Mapper::Mapper(Index* idex,
     , full_length_alignment_bonus(5)
     , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
-    , mem_reseed_length(32)
+    , mem_reseed_length(0)
     , use_cluster_mq(false)
     , smooth_alignments(true)
     , simultaneous_pair_alignment(false)
@@ -1255,9 +1255,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     // We maintain the invariant that these two vectors of alignments are sorted
     // by score, descending, as returned from align_multi_internal.
     double cluster_mq1, cluster_mq2;
-    vector<Alignment> alignments1 = align_multi_internal(true, read1, kmer_size, stride, max_mem_length,
+    vector<Alignment> alignments1 = align_multi_internal(false, read1, kmer_size, stride, max_mem_length,
                                                          band_width, cluster_mq1, extra_multimaps, nullptr);
-    vector<Alignment> alignments2 = align_multi_internal(true, read2, kmer_size, stride, max_mem_length,
+    vector<Alignment> alignments2 = align_multi_internal(false, read2, kmer_size, stride, max_mem_length,
                                                          band_width, cluster_mq2, extra_multimaps, nullptr);
 
     size_t best_score1 = 0;
@@ -1282,71 +1282,76 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     unaligned2.clear_path();
     unaligned2.clear_score();
     typedef struct {
-        Alignment mate1;
-        Alignment mate2;
+        Alignment* mate1;
+        Alignment* mate2;
         int score;
         double bonus;
     } AlignmentPair;
-    vector<AlignmentPair> alns;
+    vector<AlignmentPair> alnpairs;
     for (auto& aln1 : alignments1) {
         for (auto& aln2 : alignments2) {
             if (&aln1 != &aln2) {
-                alns.emplace_back();
-                alns.back().mate1 = aln1;
-                alns.back().mate2 = aln2;
-                alns.emplace_back();
-                alns.back().mate1 = unaligned1;
-                alns.back().mate2 = aln2;
+                // add this combination
+                alnpairs.emplace_back();
+                alnpairs.back().mate1 = &aln1;
+                alnpairs.back().mate2 = &aln2;
+                // add a pair for each with the mate unaligned
+                alnpairs.emplace_back();
+                alnpairs.back().mate1 = &unaligned1;
+                alnpairs.back().mate2 = &aln2;
             }
         }
-        alns.emplace_back();
-        alns.back().mate1 = aln1;
-        alns.back().mate2 = unaligned2;
+        // add a pair for each with the mate unaligned
+        alnpairs.emplace_back();
+        alnpairs.back().mate1 = &aln1;
+        alnpairs.back().mate2 = &unaligned2;
     }
-    // add a pair for each with the mate unaligned
+    vector<AlignmentPair*> alns;
+    for (auto& p : alnpairs) alns.push_back(&p);
 
     auto score_sort_and_dedup = [&](void) {
         // add a bonus score for alignments that are within bounds
-        for (auto& alnpair : alns) {
-            alnpair.score = alnpair.mate1.score() + alnpair.mate2.score();
+        for (auto& alnpair : alnpairs) {
+            alnpair.score = alnpair.mate1->score() + alnpair.mate2->score();
             // see if we should compute a pair matching bonus
-            if (alnpair.mate1.score() && alnpair.mate2.score()) {
-                int dist = approx_fragment_length(alnpair.mate1, alnpair.mate2);
+            if (alnpair.score) {
+                int dist = approx_fragment_length(*alnpair.mate1, *alnpair.mate2);
                 if (dist > 0) {
                     if (!fragment_size) {
                         if (dist < fragment_max) {
-                            alnpair.bonus = cluster_mq1 + cluster_mq2;
+                            alnpair.bonus = alnpair.score; // + cluster_mq1 + cluster_mq2;
                         }
                     } else if (dist < fragment_size) {
-                        alnpair.bonus = fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
+                        alnpair.bonus = alnpair.score * fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
                     }
                 }
             }
         }
         // sort the aligned pairs
         std::sort(alns.begin(), alns.end(),
-                  [&](const AlignmentPair& pair1,
-                      const AlignmentPair& pair2) {
-                      return pair1.score > pair2.score && pair1.bonus > pair2.bonus;
+                  [&](const AlignmentPair* pair1,
+                      const AlignmentPair* pair2) {
+                      return pair1->bonus > pair2->bonus;
+                      //return pair1.score > pair2.score && pair1.bonus > pair2.bonus;
                       //return pair1.mate1.score() + pair1.mate2.score() > pair2.mate1.score() + pair2.mate2.score();
                   });
         // remove duplicates (same score and same start position of both pairs)
         alns.erase(
             std::unique(
                 alns.begin(), alns.end(),
-                [&](const AlignmentPair& pair1,
-                    const AlignmentPair& pair2) {
+                [&](const AlignmentPair* pair1,
+                    const AlignmentPair* pair2) {
                     bool same = true;
-                    if (pair1.mate1.score() && pair2.mate1.score()) {
-                        same &= make_pos_t(pair1.mate1.path().mapping(0).position())
-                            == make_pos_t(pair2.mate1.path().mapping(0).position());
+                    if (pair1->mate1->score() && pair2->mate1->score()) {
+                        same &= make_pos_t(pair1->mate1->path().mapping(0).position())
+                            == make_pos_t(pair2->mate1->path().mapping(0).position());
                     }
-                    if (pair1.mate2.score() && pair2.mate2.score()) {
-                        same &= make_pos_t(pair1.mate2.path().mapping(0).position())
-                            == make_pos_t(pair2.mate2.path().mapping(0).position());
+                    if (pair1->mate2->score() && pair2->mate2->score()) {
+                        same &= make_pos_t(pair1->mate2->path().mapping(0).position())
+                            == make_pos_t(pair2->mate2->path().mapping(0).position());
                     }
-                    if (!(pair1.mate1.score() && pair2.mate1.score()
-                          || pair1.mate2.score() && pair2.mate2.score())) {
+                    if (!(pair1->mate1->score() && pair2->mate1->score()
+                          || pair1->mate2->score() && pair2->mate2->score())) {
                         same = false;
                     }
                     return same;
@@ -1392,10 +1397,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     int read1_max_score = 0;
     int read2_max_score = 0;
     for (auto& p : alns) {
-        read1_max_score = max(p.mate1.score(), read1_max_score);
-        read2_max_score = max(p.mate2.score(), read2_max_score);
-        results.first.push_back(p.mate1);
-        results.second.push_back(p.mate2);
+        read1_max_score = max(p->mate1->score(), read1_max_score);
+        read2_max_score = max(p->mate2->score(), read2_max_score);
+        results.first.push_back(*p->mate1);
+        results.second.push_back(*p->mate2);
+    }
+
+    // compute mapping qualities
+    if (!results.first.empty()) {
+        // do we meet the fragment size requirements
+        auto& mate1 = results.first.front();
+        auto& mate2 = results.second.front();
+        // if not, we downgrade the mapping quality in an ad-hoc way
+        // TODO could we do this in a way that reflects this pair's specific fragment length?
+        if (pair_consistent(mate1, mate2)) {
+            // if the pair is consistent, compute the joint mapping quality
+            compute_mapping_qualities(results, cluster_mq);
+        } else {
+            // otherwise compute mapqual separately
+            compute_mapping_qualities(results.first, cluster_mq1);
+            compute_mapping_qualities(results.second, cluster_mq2);
+        }
     }
 
     // remove the extra pair used to compute mapping quality if necessary
@@ -1468,20 +1490,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
 
     // do not compute the paired mapping quality
     // this does not seem to be doing the right thing in this context
-
-    // compute mapping qualities for first
-    /*
-    if (!results.first.empty()) {
-        // do we meet the fragment size requirements
-        auto& mate1 = results.first.front();
-        auto& mate2 = results.second.front();
-        // if not, we downgrade the mapping quality in an ad-hoc way
-        // TODO could we do this in a way that reflects this pair's specific fragment length?
-        if (pair_consistent(mate1, mate2)) {
-            compute_mapping_qualities(results, cluster_mq);
-        }
-    }
-    */
 
     if(results.first.empty()) {
         results.first.push_back(read1);

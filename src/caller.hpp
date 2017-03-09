@@ -371,6 +371,12 @@ public:
     bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path);
     
     // Option variables
+    
+    // Should we output in VCF (true) or Protobuf Locus (false) format?
+    bool convert_to_vcf = true;
+    // How big should our output buffer be?
+    size_t locus_buffer_size = 1000;
+    
     // What's the name of the reference path in the graph?
     string refPathName = "";
     // What name should we give the contig in the VCF file?
@@ -412,7 +418,7 @@ public:
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
     bool suppress_overlaps = false;
-    // Should we use average support instead minimum support for our calculations?
+    // Should we use average support instead of minimum support for our calculations?
     bool useAverageSupport = false;
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
