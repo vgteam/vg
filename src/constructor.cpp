@@ -3,6 +3,7 @@
  * constructor.cpp: contains implementations for vg construction functions.
  */
 
+#define DEBUG
 
 #include "vg.hpp"
 #include "constructor.hpp"

@@ -122,10 +122,13 @@ message Alignment {
     repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph
 
     // SAMTools-style flags
-    // bool is_clipped
-    // bool is_split
-    // bool discordant_orientation
-    // bool discordant_insert_size
+    bool read_paired = 20;
+    bool read_mapped = 21;
+    bool mate_unmapped = 22;
+    bool read_on_reverse_strand = 23;
+    bool mate_on_reverse_strand = 24;
+    bool soft_clipped = 25;
+    bool discordant_insert_size = 26;
     
 }
 

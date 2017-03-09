@@ -5,6 +5,21 @@ namespace vg {
 using namespace std;
 
     
+
+vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read){
+            // For each traversal
+            vector<bool> consistencies(traversals.size());
+            for (int i = 0; i < traversals.size(); ++i){
+                SnarlTraversal trav = traversals[i];
+                set<int64_t> trav_ids;
+                set<int64_t> read_ids;
+                for (auto x : read.path().mapping()){
+                    read_ids.insert(x.position().node_id());
+                }
+            }
+}
+
 CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
                                                  const string& hint_path_name,
                                                  bool filter_trivial_bubbles) :
@@ -14,20 +29,88 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
     graph.sort();
 }
 
-// vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
-//     auto paths_to_traversals = [&](vector<Path> paths, Snarl s){
-
-//     };
+vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
+    // Goal: enumerate traversals in the snarl supported by paths in the graph
+    // that may not cover the ends of the snarl.
+    // Label the Snarl's name as the name of the paths, if they exist.
+    vector<Path> paths;
+    vector<int64_t> snarl_node_ids;
     
-//     vector<Path> paths;
-//     vector<int64_t> snarl_node_ids;
-//     // Get nodes in snarl
-//     for (int i = 0; i < site.visit_size(); i++){
-//         Visit v = site.visits(i);
-//         snarl_node_ids.push_back(v.node_id());
+    // BFS through the site to get relevant node snarl_node_ids
+    vector<Node*> q;
+    q.push_back(graph.get_node(site.start().node_id()));
+    while (!q.empty() && !(q.front()->id() == site.end().node_id()) ){
+        vector<Edge*> edges = graph.edges_from(q.front());
+        for (auto e : edges){
+            Node* n = graph.get_node( e->to() );
+            q.push_back(n);
+            snarl_node_ids.push_back(n->id());
+        }
+    }
 
-//     }
-// }
+    regex front ("_alt_");
+    regex back ("_[0-9]*_");
+    
+    auto path_to_traversal = [&](Path p, Snarl snarl){
+        SnarlTraversal s;
+        Node* start_node = graph.get_node( snarl.start().node_id() );
+        Node* end_node = graph.get_node( snarl.end().node_id() );
+
+        if (start_node->id() > end_node->id()){
+            // Site is reversed.
+            Visit* v = s.add_visits();
+            v->set_node_id( end_node->id() );
+            v->set_backward(true);
+        }
+        else{
+            Visit* v = s.add_visits();
+            v->set_node_id( start_node->id() );
+            v->set_backward(false);
+        }
+
+        for (int i = 0; i < p.mapping_size(); i++){
+            Visit* v = s.add_visits();
+            Mapping m = p.mapping(i);
+            Position pos = m.position();
+            v->set_node_id(pos.node_id());
+            v->set_backward(pos.is_reverse());
+        }
+        
+        if (start_node->id() > end_node->id()){
+            // Site is reversed.
+            Visit* v = s.add_visits();
+            v->set_node_id( start_node->id() );
+            v->set_backward(true);
+        }
+        else{
+            Visit* v = s.add_visits();
+            v->set_node_id( end_node->id() );
+            v->set_backward(false);
+        }
+
+        return s;
+    };
+
+    set<string> npaths;
+    for (auto id : snarl_node_ids){
+        if (graph.paths.has_node_mapping(id)){
+            map<string, set<Mapping*> > name_to_mappings = graph.paths.get_node_mapping(id);
+            for (auto it : name_to_mappings){
+                if (std::regex_match(it.first, front)){
+                    // TODO modify path name to chop off alt_ and [0-9]_
+                    string new_name = std::regex_replace(it.first, front, "");
+                    new_name = std::regex_replace(new_name, back, "");
+                    // We have alt paths for this node.
+                    // Generate snarl traversals for our paths
+                    SnarlTraversal st = path_to_traversal( graph.paths.path(it.first), site);
+
+                }
+            }
+        }
+    }
+
+
+}
 
 SnarlManager CactusUltrabubbleFinder::find_snarls() {
     
