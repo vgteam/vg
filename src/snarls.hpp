@@ -120,6 +120,9 @@ namespace vg {
     /// Converts a NodeTraversal to a Visit.
     inline Visit to_visit(const NodeTraversal& node_traversal);
     
+    /// Converts a Mapping to a Visit. The mapping must represent a full node match.
+    inline Visit to_visit(const Mapping& mapping);
+    
     /// Converts a NodeTraversal to a Visit in the opposite orientation.
     inline Visit to_rev_visit(const NodeTraversal& node_traversal);
     
@@ -172,6 +175,15 @@ namespace vg {
         Visit to_return;
         to_return.set_node_id(node_traversal.node->id());
         to_return.set_backward(node_traversal.backward);
+        return to_return;
+    }
+    
+    inline Visit to_visit(const Mapping& mapping) {
+        assert(mapping_is_match(mapping));
+        assert(mapping.position().offset() == 0);
+        Visit to_return;
+        to_return.set_node_id(mapping.position().node_id());
+        to_return.set_backward(mapping.position().is_reverse());
         return to_return;
     }
     
