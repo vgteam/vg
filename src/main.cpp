@@ -4400,6 +4400,15 @@ int main_find(int argc, char** argv) {
             }
         }
         if (!node_ids.empty() && !path_name.empty() && !pairwise_distance) {
+            // Go get the positions of these nodes in this path
+            
+            if (xindex.path_rank(path_name) == 0) {
+                // This path doesn't exist, and we'll get a segfault or worse if
+                // we go look for positions in it.
+                cerr << "[vg find] error, path \"" << path_name << "\" not found in index" << endl;
+                exit(1);
+            }
+            
             // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
