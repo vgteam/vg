@@ -76,6 +76,14 @@ public:
     inline NodeSide flip(void) const {
         return NodeSide(node, !is_end);
     }
+    
+    /// Convert to a Visit
+    inline Visit to_visit() const {
+        Visit visit;
+        visit.set_node_id(node);
+        visit.set_backward(is_end);
+        return visit;
+    }
 
 };
 

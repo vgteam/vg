@@ -283,4 +283,52 @@ double phi(double x1, double x2) {
     return (std::erf(x2/std::sqrt(2)) - std::erf(x1/std::sqrt(2)))/2;
 }
 
+void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
+    // Set the ref allele
+    variant.ref = allele;
+    
+    for(size_t i = 0; i < variant.ref.size(); i++) {
+        // Look at all the bases
+        if(variant.ref[i] != 'A' && variant.ref[i] != 'C' && variant.ref[i] != 'G' && variant.ref[i] != 'T') {
+            // Correct anything bogus (like "X") to N
+            variant.ref[i] = 'N';
+        }
+    }
+    
+    // Make it 0 in the alleles-by-index list
+    variant.alleles.push_back(allele);
+    // Build the reciprocal index-by-allele mapping
+    variant.updateAlleleIndexes();
+}
+
+int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
+    // Copy the allele so we can throw out bad characters
+    std::string fixed(allele);
+    
+    for(size_t i = 0; i < fixed.size(); i++) {
+        // Look at all the bases
+        if(fixed[i] != 'A' && fixed[i] != 'C' && fixed[i] != 'G' && fixed[i] != 'T') {
+            // Correct anything bogus (like "X") to N
+            fixed[i] = 'N';
+        }
+    }
+    
+    for(int i = 0; i < variant.alleles.size(); i++) {
+        if(variant.alleles[i] == fixed) {
+            // Already exists
+            return i;
+        }
+    }
+
+    // Add it as an alt
+    variant.alt.push_back(fixed);
+    // Make it next in the alleles-by-index list
+    variant.alleles.push_back(fixed);
+    // Build the reciprocal index-by-allele mapping
+    variant.updateAlleleIndexes();
+
+    // We added it in at the end
+    return variant.alleles.size() - 1;
+}
+
 }

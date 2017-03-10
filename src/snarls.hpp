@@ -101,6 +101,20 @@ namespace vg {
         void build_trees();
     };
     
+    /**
+     * Look left from the given visit in the given graph and get all the
+     * attached Visits to nodes or snarls. Uses the given index from inward-
+     * facing NodeTraversal to snarl to identify child snarls.
+     */
+    vector<Visit> visits_left(const Visit& visit, VG& graph, const map<NodeTraversal, const Snarl*>& child_boundary_index);
+    
+    /**
+     * Look right from the given visit in the given graph and get all the
+     * attached Visits to nodes or snarls. Uses the given index from inward-
+     * facing NodeTraversal to snarl to identify child snarls.
+     */
+    vector<Visit> visits_right(const Visit& visit, VG& graph, const map<NodeTraversal, const Snarl*>& child_boundary_index);
+    
     /// Converts a Visit to a NodeTraversal. Throws an exception if the Visit is of a Snarl instead
     /// of a Node
     inline NodeTraversal to_node_traversal(const Visit& visit, const VG& graph);
@@ -109,14 +123,86 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
+    /// Converts a Visit to a node or snarl into a NodeSide for its left side.
+    inline NodeSide to_left_side(const Visit& visit);
+    
+    /// Converts a Visit to a node or snarl into a NodeSide for its right side.
+    inline NodeSide to_right_side(const Visit& visit);
+    
     /// Converts a NodeTraversal to a Visit.
     inline Visit to_visit(const NodeTraversal& node_traversal);
+    
+    /// Converts a Mapping to a Visit. The mapping must represent a full node match.
+    inline Visit to_visit(const Mapping& mapping);
     
     /// Converts a NodeTraversal to a Visit in the opposite orientation.
     inline Visit to_rev_visit(const NodeTraversal& node_traversal);
     
+    /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
+    /// of a Node. Uses a function to get node length.
+    inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_length);
+    
+    /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
+    /// of a Node. Uses a graph to get node length.
+    inline Mapping to_mapping(const Visit& visit, VG& vg);
+    
     // Copies the boundary Visits from one Snarl into another
     inline void transfer_boundary_info(const Snarl& from, Snarl& to);
+    
+    // We need some Visit operators
+    
+    /**
+     * Two Visits are equal if they represent the same traversal of the same
+     * Node or Snarl.
+     */
+    bool operator==(const Visit& a, const Visit& b);
+    /**
+     * Two Visits are unequal if they are not equal.
+     */
+    bool operator!=(const Visit& a, const Visit& b);
+    /**
+     * A Visit is less than another Visit if it represents a traversal of a
+     * smaller node, or it represents a traversal of a smaller snarl, or it
+     * represents a traversal of the same node or snarl forward instead of
+     * backward.
+     */
+    bool operator<(const Visit& a, const Visit& b);
+    
+    // And some operators for SnarlTraversals
+    
+    /**
+     * Two SnarlTraversals are equal if their snarls are equal and they have the
+     * same number of visits and all their visits are equal.
+     */
+    bool operator==(const SnarlTraversal& a, const SnarlTraversal& b);
+    /**
+     * Two SnarlTraversals are unequal if they are not equal.
+     */
+    bool operator!=(const SnarlTraversal& a, const SnarlTraversal& b);
+    /**
+     * A SnalTraversal is less than another if it is a traversal of a smaller
+     * Snarl, or if its list of Visits has a smaller Visit first, or if its list
+     * of Visits is shorter.
+     */
+    bool operator<(const SnarlTraversal& a, const SnarlTraversal& b);
+    
+    // And some operators for Snarls
+    
+    /**
+     * Two Snarls are equal if their types are equal and their bounding Visits
+     * are equal and their parents are equal.
+     */
+    bool operator==(const Snarl& a, const Snarl& b);
+    /**
+     * Two Snarls are unequal if they are not equal.
+     */
+    bool operator!=(const Snarl& a, const Snarl& b);
+    /**
+     * A Snarl is less than another Snarl if its type is smaller, or its start
+     * Visit is smaller, or its end Visit is smaller, or its parent is smaller.
+     */
+    bool operator<(const Snarl& a, const Snarl& b);
+    
     
     /****
      * Template and Inlines:
@@ -142,10 +228,55 @@ namespace vg {
         return NodeTraversal(graph.get_node(visit.node_id()), !visit.backward());
     }
     
+    inline NodeSide to_left_side(const Visit& visit) {
+        assert(visit.node_id() || (visit.snarl().start().node_id() && visit.snarl().end().node_id()));
+        if (visit.node_id()) {
+            // Just report the left side of this node
+            return NodeSide(visit.node_id(), visit.backward());
+        } else if (visit.backward()) {
+            // This is a reverse visit to a snarl, so its left side is the right
+            // side of the end visit of the snarl.
+            assert(visit.snarl().end().node_id());
+            return to_right_side(visit.snarl().end());
+        } else {
+            // This is a forward visit to a snarl, so its left side is the left
+            // side of the start visit of the snarl.
+            assert(visit.snarl().start().node_id());
+            return to_left_side(visit.snarl().start());
+        }
+    }
+    
+    inline NodeSide to_right_side(const Visit& visit) {
+        assert(visit.node_id() || (visit.snarl().start().node_id() && visit.snarl().end().node_id()));
+        if (visit.node_id()) {
+            // Just report the right side of this node
+            return NodeSide(visit.node_id(), !visit.backward());
+        } else if (visit.backward()) {
+            // This is a reverse visit to a snarl, so its right side is the
+            // left side of the start visit of the snarl.
+            assert(visit.snarl().start().node_id());
+            return to_left_side(visit.snarl().start());
+        } else {
+            // This is a forward visit to a snarl, so its right side is the
+            // right side of the end visit of the snarl.
+            assert(visit.snarl().end().node_id());
+            return to_right_side(visit.snarl().end());
+        }
+    }
+    
     inline Visit to_visit(const NodeTraversal& node_traversal) {
         Visit to_return;
         to_return.set_node_id(node_traversal.node->id());
         to_return.set_backward(node_traversal.backward);
+        return to_return;
+    }
+    
+    inline Visit to_visit(const Mapping& mapping) {
+        assert(mapping_is_match(mapping));
+        assert(mapping.position().offset() == 0);
+        Visit to_return;
+        to_return.set_node_id(mapping.position().node_id());
+        to_return.set_backward(mapping.position().is_reverse());
         return to_return;
     }
     
@@ -154,6 +285,32 @@ namespace vg {
         to_return.set_node_id(node_traversal.node->id());
         to_return.set_backward(!node_traversal.backward);
         return to_return;
+    }
+    
+    inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_length) {
+        // Can't have a Mapping to a snarl
+        assert(visit.node_id());
+    
+        // Make a mapping to the right place
+        Mapping mapping;
+        mapping.mutable_position()->set_node_id(visit.node_id());
+        mapping.mutable_position()->set_is_reverse(visit.backward());
+        
+        // Get the length of the node visited
+        size_t length = node_length(visit.node_id());
+        
+        // Fill the Mapping in as a perfect match of that lenght
+        Edit* match = mapping.add_edit();
+        match->set_from_length(length);
+        match->set_to_length(length);
+        
+        return mapping;
+    }
+    
+    inline Mapping to_mapping(const Visit& visit, VG& graph) {
+        return to_mapping(visit, [&](id_t id) {
+            return graph.get_node(id)->sequence().size();
+        });
     }
     
     inline void transfer_boundary_info(const Snarl& from, Snarl& to) {

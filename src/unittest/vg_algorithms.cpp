@@ -29,7 +29,7 @@ namespace vg {
             return nullptr;
         }
         
-        TEST_CASE( "Graph extraction produces expected results in an acyclic graph",
+        TEST_CASE( "Connecting graph extraction produces expected results in an acyclic graph",
                   "[algorithms]" ) {
             
             VG vg;
@@ -396,7 +396,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Graph extraction produces expected results in cyclic graphs",
+        TEST_CASE( "Connecting graph extraction produces expected results in cyclic graphs",
                   "[algorithms]" ) {
             
             SECTION( "Graph extraction can detect a loop onto the same node" ) {
@@ -1440,7 +1440,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Graph extraction options perform as expected", "[algorithms]" ) {
+        TEST_CASE( "Connecting graph extraction options perform as expected", "[algorithms]" ) {
             VG vg;
             
             Node* n0 = vg.create_node("CGA");
@@ -1934,6 +1934,214 @@ namespace vg {
                     REQUIRE(found_edge_0);
                     REQUIRE(found_edge_1);
                 }
+            }
+        }
+        
+        TEST_CASE( "Containing graph extraction algorithm produces expected results", "[algorithms]" ) {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("TGAG");
+            Node* n1 = vg.create_node("CAGATCCACCACA");
+            Node* n2 = vg.create_node("GAT");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("TGAG");
+            Node* n5 = vg.create_node("AAT");
+            Node* n6 = vg.create_node("TAAAC");
+            Node* n7 = vg.create_node("CCGTA");
+            
+            vg.create_edge(n7, n0);
+            vg.create_edge(n0, n1, false, true);
+            vg.create_edge(n2, n0, true, true);
+            vg.create_edge(n1, n2, true, false);
+            vg.create_edge(n2, n3);
+            vg.create_edge(n3, n4);
+            vg.create_edge(n4, n5, false, true);
+            vg.create_edge(n6, n4, true, true);
+            
+            SECTION( "Containing graph extraction works with a single maximum distance" ) {
+                
+                Graph g;
+                
+                size_t max_len = 3;
+                vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
+                
+                algorithms::extract_containing_graph(vg, g, positions, max_len);
+                
+                REQUIRE(g.node_size() == 6);
+                REQUIRE(g.edge_size() == 4);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                bool found_node_3 = false;
+                bool found_node_4 = false;
+                bool found_node_5 = false;
+                
+                for (int i = 0; i < g.node_size(); i++) {
+                    auto id = g.node(i).id();
+                    if (id == n0->id()) {
+                        found_node_0 = true;
+                    }
+                    else if (id == n1->id()) {
+                        found_node_1 = true;
+                    }
+                    else if (id == n2->id()) {
+                        found_node_2 = true;
+                    }
+                    else if (id == n4->id()) {
+                        found_node_3 = true;
+                    }
+                    else if (id == n5->id()) {
+                        found_node_4 = true;
+                    }
+                    else if (id == n7->id()) {
+                        found_node_5 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                REQUIRE(found_node_3);
+                REQUIRE(found_node_4);
+                REQUIRE(found_node_5);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                bool found_edge_2 = false;
+                bool found_edge_3 = false;
+                
+                for (int i = 0; i < g.edge_size(); i++) {
+                    Edge e = g.edge(i);
+                    if (((e.from() == n0->id() && e.from_start() && e.to() == n7->id() && e.to_end())
+                         ||(e.from() == n7->id() && !e.from_start() && e.to() == n0->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((e.from() == n0->id() && !e.from_start() && e.to() == n1->id() && e.to_end())
+                              ||(e.from() == n1->id() && !e.from_start() && e.to() == n0->id() && e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                    else if (((e.from() == n0->id() && !e.from_start() && e.to() == n2->id() && !e.to_end())
+                              ||(e.from() == n2->id() && e.from_start() && e.to() == n0->id() && e.to_end()))) {
+                        found_edge_2 = true;
+                    }
+                    else if (((e.from() == n4->id() && !e.from_start() && e.to() == n5->id() && e.to_end())
+                              ||(e.from() == n5->id() && !e.from_start() && e.to() == n4->id() && e.to_end()))) {
+                        found_edge_3 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+                REQUIRE(found_edge_2);
+                REQUIRE(found_edge_3);
+            }
+            
+            SECTION( "Containing graph extraction works with position specific maximum distances" ) {
+                
+                Graph g;
+                
+                vector<size_t> max_lens{2, 3};
+                vector<pos_t> positions{make_pos_t(n0->id(), false, 2), make_pos_t(n5->id(), true, 1)};
+                
+                algorithms::extract_containing_graph(vg, g, positions, max_lens);
+                
+                REQUIRE(g.node_size() == 3);
+                REQUIRE(g.edge_size() == 1);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                
+                for (int i = 0; i < g.node_size(); i++) {
+                    auto id = g.node(i).id();
+                    if (id == n0->id()) {
+                        found_node_0 = true;
+                    }
+                    else if (id == n4->id()) {
+                        found_node_1 = true;
+                    }
+                    else if (id == n5->id()) {
+                        found_node_2 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                
+                bool found_edge_0 = false;
+                
+                for (int i = 0; i < g.edge_size(); i++) {
+                    Edge e = g.edge(i);
+                    if (((e.from() == n4->id() && !e.from_start() && e.to() == n5->id() && e.to_end())
+                              ||(e.from() == n5->id() && !e.from_start() && e.to() == n4->id() && e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+            }
+            
+            
+            
+            SECTION( "Containing graph extraction works with position and orientation specific maximum distances" ) {
+                
+                Graph g;
+                
+                vector<size_t> forward_max_lens{3, 3};
+                vector<size_t> backward_max_lens{2, 3};
+                vector<pos_t> positions{make_pos_t(n0->id(), true, 2), make_pos_t(n5->id(), false, 1)};
+                
+                algorithms::extract_containing_graph(vg, g, positions, forward_max_lens, backward_max_lens);
+                                
+                REQUIRE(g.node_size() == 4);
+                REQUIRE(g.edge_size() == 2);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                bool found_node_3 = false;
+                
+                for (int i = 0; i < g.node_size(); i++) {
+                    auto id = g.node(i).id();
+                    if (id == n0->id()) {
+                        found_node_0 = true;
+                    }
+                    else if (id == n4->id()) {
+                        found_node_1 = true;
+                    }
+                    else if (id == n5->id()) {
+                        found_node_2 = true;
+                    }
+                    else if (id == n7->id()) {
+                        found_node_3 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                REQUIRE(found_node_3);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                
+                for (int i = 0; i < g.edge_size(); i++) {
+                    Edge e = g.edge(i);
+                    if (((e.from() == n0->id() && e.from_start() && e.to() == n7->id() && e.to_end())
+                         ||(e.from() == n7->id() && !e.from_start() && e.to() == n0->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((e.from() == n4->id() && !e.from_start() && e.to() == n5->id() && e.to_end())
+                         ||(e.from() == n5->id() && !e.from_start() && e.to() == n4->id() && e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
             }
         }
     }

@@ -23,6 +23,7 @@
 #include "bubbles.hpp"
 #include "distributions.hpp"
 #include "snarls.hpp"
+#include "path_index.hpp"
 
 namespace vg {
 
@@ -156,6 +157,51 @@ public:
 
 
 // And now the implementations
+
+// Represents an assertion that an element in the augmented graph results from
+// an event of a certain type.
+enum ElementCall {
+    CALL_DELETION = 'D',
+    CALL_REFERENCE = 'R',
+    CALL_UNCALLED = 'U',
+    CALL_SUBSTITUTION = 'S',
+    CALL_INSERTION = 'I'
+};
+
+/// Data structure for representing an augmented graph, with semantic hints
+/// about how it was generated and how much support each node and edge has.
+struct AugmentedGraph {
+    // This holds all the new nodes and edges
+    VG graph;
+    
+    // This holds info about where all the nodes came from
+    map<Node*, ElementCall> node_calls;
+    // And this similarly holds origin information for the edges
+    map<Edge*, ElementCall> edge_calls;
+    
+    // This holds support info for nodes. Note that we discard the "os" other
+    // support field from StrandSupport.
+    map<Node*, Support> node_supports;
+    // And for edges
+    map<Edge*, Support> edge_supports;
+    
+    // This holds the likelihood for each node.
+    // TODO: what exactly does that mean?
+    map<Node*, double> node_likelihoods;
+    // And for edges
+    map<Edge*, double> edge_likelihoods;
+    
+    // This records how each new node came from the original graph, if it's not
+    // just a straight copy. Each Translation is a single mapping for a single
+    // whole new node on the forward strand, and the piece of the single old
+    // node it came from, on the forward strand.
+    vector<Translation> translations;
+    
+    /**
+     * Clear the contents.
+     */
+    void clear();
+};
     
 class CactusUltrabubbleFinder : public SnarlFinder {
     
@@ -262,6 +308,94 @@ public:
 };
 
 /**
+ * This TraversalFinder is derived from the old vg call code, and emits at least
+ * one traversal representing every node, and one traversal representing every
+ * edge.
+ */
+class RepresentativeTraversalFinder : public TraversalFinder {
+
+protected:
+    /// The annotated, augmented graph we're finding traversals in
+    AugmentedGraph& augmented;
+    /// The SnarlManager managiung the snarls we use
+    SnarlManager& snarl_manager;
+    /// An index of the primary path in the graph, to scaffold the produced
+    /// traversals when sites are on the primary path.
+    PathIndex& primary_path_index;
+    
+    /// What DFS depth should we search to?
+    size_t max_depth;
+    /// How many search intermediates can we allow?
+    size_t max_bubble_paths;
+    
+    /**
+     * Find a Path that runs from the start of the given snarl to the end, which
+     * we can use to backend our traversals into when a snarl is off the primary
+     * path.
+     */
+    Path find_backbone(const Snarl& site);
+    
+    /**
+     * Given an edge or node in the augmented graph, look out from the edge or
+     * node in both directions to find a shortest bubble relative to the path,
+     * with a consistent orientation. The bubble may not visit the same node
+     * twice.
+     *
+     * Exactly one of edge and node must be null, and one not null.
+     *
+     * Takes a max depth for the searches producing the paths on each side.
+     * 
+     * Return the ordered and oriented nodes in the bubble, with the outer nodes
+     * being oriented forward along the named path, and with the first node
+     * coming before the last node in the reference.  Also return the minimum
+     * support found on any edge or node in the bubble (including the reference
+     * node endpoints and their edges which aren't stored in the path)
+     */
+    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge, PathIndex& index);
+        
+    /**
+     * Get the minimum support of all nodes and edges in path
+     */
+    Support min_support_in_path(const list<NodeTraversal>& path);
+        
+    /**
+     * Do a breadth-first search left from the given node traversal, and return
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path. Refuses to visit nodes with no support.
+     */
+    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
+        
+    /**
+     * Do a breadth-first search right from the given node traversal, and return
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path.
+     */
+    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
+        
+    /**
+     * Get the length of a path through nodes, in base pairs.
+     */
+    size_t bp_length(const list<NodeTraversal>& path);
+    
+public:
+
+    RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
+        PathIndex& index, size_t max_depth, size_t max_bubble_paths);
+    
+    /// Should we emit verbose debugging info?
+    bool verbose = false;
+    
+    virtual ~RepresentativeTraversalFinder() = default;
+    
+    /**
+     * Find traversals to cover the nodes and edges of the snarl. Always emits
+     * the primary path traversal first, if applicable.
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+    
+};
+
+/**
  * This genotype prior calculator has a fixed prior for homozygous genotypes and
  * a fixed prior for hets.
  */
@@ -293,6 +427,101 @@ public:
 //    virtual vcflib::Variant convert(const Locus& locus) = 0;
 //};
     
+// We also supply utility functions for working with genotyping Protobuf objects
+
+/**
+ * Get the total read support in a Support.
+ */
+double total(const Support& support);
+
+/**
+ * Get the minimum support of a pair of Supports, by taking the min in each
+ * orientation.
+ */
+Support support_min(const Support& a, const Support& b);
+
+/**
+ * Add two Support values together, accounting for strand.
+ */
+Support operator+(const Support& one, const Support& other);
+
+/**
+ * Add in a Support to another.
+ */
+Support& operator+=(Support& one, const Support& other);
+
+/**
+ * Scale a Support by a factor.
+ */
+template<typename Scalar>
+Support operator*(const Support& support, const Scalar& scale) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
+
+/**
+ * Scale a Support by a factor, the other way
+ */
+template<typename Scalar>
+Support operator*(const Scalar& scale, const Support& support) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
+/**
+ * Divide a Support by a factor.
+ */
+template<typename Scalar>
+Support operator/(const Support& support, const Scalar& scale) {
+    Support scaled;
+    
+    scaled.set_forward(support.forward() / scale);
+    scaled.set_reverse(support.reverse() / scale);
+    scaled.set_left(support.left() / scale);
+    scaled.set_right(support.right() / scale);
+    
+    // log-scaled quality can just be divided. Maybe.
+    scaled.set_quality(support.quality() / scale);
+    
+    return scaled;
+}
+
+/**
+ * Support less-than, based on total coverage.
+ */
+bool operator< (const Support& a, const Support& b);
+
+/**
+ * Support greater-than, based on total coverage.
+ */
+bool operator> (const Support& a, const Support& b);
+
+/**
+ * Allow printing a Support.
+ */
+ostream& operator<<(ostream& stream, const Support& support);
+
+/**
+ * Get a VCF-style 1/2, 1|2|3, etc. string from a Genotype.
+ */
+string to_vcf_genotype(const Genotype& gt);
     
 }
 

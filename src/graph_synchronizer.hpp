@@ -150,13 +150,13 @@ public:
         string path_name;
         
         // These can be set
-        size_t path_offset;
-        size_t context_bases;
-        bool reflect; // Should we bounce off node ends?
+        size_t path_offset = 0;
+        size_t context_bases = 0;
+        bool reflect = false; // Should we bounce off node ends?
         
         // Or these can be set
-        size_t start;
-        size_t past_end;
+        size_t start = 0;
+        size_t past_end = 0;
         
         /// This is the subgraph that got extracted during the locking procedure.
         VG subgraph;

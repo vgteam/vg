@@ -210,6 +210,11 @@ public:
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
 
+    // node start cache for fast approximate position estimates
+    vector<LRUCache<id_t, size_t>* > node_start_cache;
+    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    void init_node_start_cache(void);
+
     // match node traversals to path positions
     vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
     LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
@@ -250,6 +255,10 @@ public:
                                const map<string, double>& pos2,
                                int fragment_size_bound);
 
+    // use the fragment length annotations to assess if the pair is consistent or not
+    bool pair_consistent(const Alignment& aln1,
+                         const Alignment& aln2);
+
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
@@ -278,6 +287,14 @@ public:
     Alignment smooth_alignment(const Alignment& aln);
     // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
     int32_t score_alignment(const Alignment& aln);
+    // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
+    int32_t rescore_without_full_length_bonus(const Alignment& aln);
+    // get the graph context of a particular cluster, using a given alignment to describe the required size
+    VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // for aligning to a particular MEM cluster
+    Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // wraps align_to_graph with flipping
+    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -341,6 +358,18 @@ public:
                                int pair_window = 64,
                                bool only_top_scoring_pair = false,
                                bool retrying = false);
+
+    // align the pair's ends singly, then take the cross of possible pairs based on the fragment distribution
+    pair<vector<Alignment>, vector<Alignment>>
+        align_paired_multi_combi(const Alignment& read1,
+                                 const Alignment& read2,
+                                 bool& queued_resolve_later,
+                                 int kmer_size = 0,
+                                 int stride = 0,
+                                 int max_mem_length = 0,
+                                 int band_width = 1000,
+                                 bool only_top_scoring_pair = false,
+                                 bool retrying = false);
 
     // align the pair as a single component using MEM threading and patching on the pair simultaneously
     pair<vector<Alignment>, vector<Alignment>> 
@@ -447,6 +476,7 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
+    int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
     bool mem_threading; // whether to use the mem threading mapper or not
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
@@ -485,6 +515,7 @@ public:
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
     int8_t full_length_alignment_bonus;
+    bool simultaneous_pair_alignment;
 
 };
 

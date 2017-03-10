@@ -155,11 +155,6 @@ void Genotyper::run(VG& graph,
                     int length_override,
                     int variant_offset) {
     
-    // TODO: this maybe should be in a constructor? Or the base Aligner's
-    // constructor?
-    // Set up the mapping quality on our aligner.
-    normal_aligner.init_mapping_quality(default_gc_content);
-    
     if(ref_path_name.empty()) {
         // Guess the ref path name
         if(graph.paths.size() == 1) {
@@ -2202,68 +2197,6 @@ Locus Genotyper::genotype_site(VG& graph,
     
     // Now we've populated the genotype so return it.
     return to_return;
-}
-
-/**
- * Create the reference allele for an empty vcflib Variant, since apaprently
- * there's no method for that already. Must be called before any alt alleles are
- * added.
- */
-void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
-    // Set the ref allele
-    variant.ref = allele;
-    
-    for(size_t i = 0; i < variant.ref.size(); i++) {
-        // Look at all the bases
-        if(variant.ref[i] != 'A' && variant.ref[i] != 'C' && variant.ref[i] != 'G' && variant.ref[i] != 'T') {
-            // Correct anything bogus (like "X") to N
-            variant.ref[i] = 'N';
-        }
-    }
-    
-    // Make it 0 in the alleles-by-index list
-    variant.alleles.push_back(allele);
-    // Build the reciprocal index-by-allele mapping
-    variant.updateAlleleIndexes();
-}
-
-/**
- * Add a new alt allele to a vcflib Variant, since apaprently there's no method
- * for that already.
- *
- * If that allele already exists in the variant, does not add it again.
- *
- * Retuerns the allele number (0, 1, 2, etc.) corresponding to the given allele
- * string in the given variant. 
- */
-int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
-    // Copy the allele so we can throw out bad characters
-    std::string fixed(allele);
-    
-    for(size_t i = 0; i < fixed.size(); i++) {
-        // Look at all the bases
-        if(fixed[i] != 'A' && fixed[i] != 'C' && fixed[i] != 'G' && fixed[i] != 'T') {
-            // Correct anything bogus (like "X") to N
-            fixed[i] = 'N';
-        }
-    }
-    
-    for(int i = 0; i < variant.alleles.size(); i++) {
-        if(variant.alleles[i] == fixed) {
-            // Already exists
-            return i;
-        }
-    }
-
-    // Add it as an alt
-    variant.alt.push_back(fixed);
-    // Make it next in the alleles-by-index list
-    variant.alleles.push_back(fixed);
-    // Build the reciprocal index-by-allele mapping
-    variant.updateAlleleIndexes();
-
-    // We added it in at the end
-    return variant.alleles.size() - 1;
 }
 
 void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample_name, const std::string& contig_name, size_t contig_size) {

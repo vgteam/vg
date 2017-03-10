@@ -138,7 +138,7 @@ int main_index(int argc, char** argv) {
             {"rename", required_argument, 0, 'r'},
             {"verify-index", no_argument, 0, 'V'},
             {"forward-only", no_argument, 0, 'F'},
-            {"size-limit", no_argument, 0, 'Z'},
+            {"size-limit", required_argument, 0, 'Z'},
             {"path-only", no_argument, 0, 'O'},
             {"store-threads", no_argument, 0, 'T'},
             {"node-alignments", no_argument, 0, 'N'},
