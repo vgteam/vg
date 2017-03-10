@@ -451,8 +451,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
     //auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
-    double hang_threshold = 0.5;
-    double retry_threshold = 0.5;
+    double hang_threshold = 0.75;
+    double retry_threshold = 0.6;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
@@ -1775,7 +1775,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     //pair<vector<Alignment>, vector<Alignment> > alns;
     int multimaps = 0;
     for (auto& cluster : clusters) {
+        // stop if we have enough multimaps
         if (multimaps > total_multimaps) { break; }
+        // skip if we've got enough multimaps to get MQ and we're under the min cluster length
+        if (cluster_coverage(cluster) < min_cluster_length
+            && alns.size() > max(1, total_multimaps/2)) continue;
         // break the cluster into two pieces
         vector<MaximalExactMatch> cluster1, cluster2;
         bool seen1=false, seen2=false;
@@ -1818,13 +1822,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             if (debug) { cerr << "patch identities " << p.first.identity() << ", " << p.second.identity() << endl; }
         }
 #endif
-        /*
-        if (patch.identity() > min_identity) {
-            alns.emplace_back(patch);
-            auto& a = alns.back();
-            a.set_name(aln.name());
-        }
-        */
     }
     auto sort_and_dedup = [&](void) {
         // sort the aligned pairs
@@ -1865,12 +1862,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         for (auto& p : alns) {
             rescued |= pair_rescue(p.first, p.second);
         }
-        // if we rescued, resort and remove dups
-        /*
-        if (rescued) {
-            sort_and_dedup();
-        }
-        */
     }
     sort_and_dedup();
     
@@ -1896,10 +1887,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     }
 #endif
 
-    // TODO
-    // remove duplicates
-    // from both alns and clusters
-    
     // calculate cluster mapping quality
     if (use_cluster_mq) {
         cluster_mq = compute_cluster_mapping_quality(clusters, read1.sequence().size() + read2.sequence().size());
