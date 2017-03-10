@@ -35,8 +35,12 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                         ;
                 return set<int64_t>(ret.begin(), ret.end());
             };
-            // For each traversal
+
+
+            //create a consistency bool for each traversal (i.e. possible path / theoretical allele)
             vector<bool> consistencies(traversals.size());
+
+            // For each traversal
             for (int i = 0; i < traversals.size(); ++i){
                 SnarlTraversal trav = traversals[i];
                 // Our snarltraversals run forward (i.e. along increading node_ids)
@@ -52,7 +56,6 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 // 5. A read maps to internal nodes, but not the snarl ends
                 // A read may map to a node multiple times, or it may skip a node
                 // and put an insert there.
-                bool consistent_with_traversal = false;
                 set<int64_t> common_ids = shared_sites(read, trav);
                 bool maps_to_front = common_ids.count(trav.snarl().start().node_id());
                 bool maps_to_end = common_ids.count(trav.snarl().end().node_id());
@@ -81,6 +84,9 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                     read_path = read.path();
                 }
 
+                bool is_forward = true;
+                bool is_right = true;
+
                 if ((common_ids.size() > 1 && (maps_to_front | maps_to_end)) ||
                         common_ids.size() > 2){
                         maps_internally = true;
@@ -89,26 +95,43 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 if (maps_to_front && maps_to_end && maps_internally){
                     // The read is anchored on both ends of the Snarl. Check
                     // the internal nodes of the traversal.
+
+                    consistencies[i] = true;
                 }
                 else if (maps_to_front && maps_to_end){
                     // the read may represent a deletion,
                     // which may be in our list of traversals
+
+                    if (true){
+                    consistencies[i] = true;
+                    }
+                    else{
+                    consistencies[i] = false;
+                    }
+
                 }
                 else if (maps_to_front && maps_internally){
                     // The read maps to either the first or last node of the Snarl
                     // Check its internal nodes
 
+
+                    consistencies[i] = true;
                 }
                 else if (maps_to_end && maps_internally){
 
+
+                    consistencies[i] = true;
                 }
                 else if (maps_to_front | maps_to_end){
                     // maps to the front or end, but no internal nodes.
                     // The read cannot be informative for any snarl in this case.
+                    consistencies[i] = false;
+                    continue;
                 }
                 else{
                     // maps to neither front nor end
-                    
+                    // I think this means it doesn't map at all??
+                    consistencies[i] = false;
 
                 }
 
@@ -127,7 +150,7 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
 vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl& site,
         const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
         const vector<vector<bool>>& consistencies){
-
+            vector<Support> site_supports;
         }
 
 CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,

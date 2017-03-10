@@ -38,8 +38,3 @@ cd ~
 git clone https://github.com/lh3/bwa.git
 cd bwa && make -j 32 && sudo cp bwa /usr/local/bin/
 cd ~
-
-# get and index the reference for bwa mem ready
-wget http://hypervolu.me/~erik/tmp/hs37d5.fa.gz
-pigz -d hs37d5.fa.gz
-#bwa index hs37d5.fa

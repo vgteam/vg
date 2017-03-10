@@ -3,6 +3,8 @@
 list.of.packages <- c("tidyverse", "ggrepel")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
+require("tidyverse")
+require("ggrepel")
 
 dat <- read.table(commandArgs(TRUE)[1], header=T)
 dat$bin <- cut(dat$mq, c(-Inf,seq(0,60,1),Inf))
