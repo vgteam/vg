@@ -98,7 +98,6 @@ int main_sift(int argc, char** argv){
     bool do_reversing = false;
     bool do_interchromosomal = false;
     bool do_split_read = false;
-    bool do_unmapped = true;
     bool do_depth = false;
     bool do_percent_id = false;
     bool do_quality = false;
@@ -215,6 +214,9 @@ int main_sift(int argc, char** argv){
     omp_set_num_threads(threads);
     ff.set_inverse(inverse);
 
+    if (softclip_max >= 0){
+        ff.set_soft_clip_limit(softclip_max);
+    }
 
 
 
