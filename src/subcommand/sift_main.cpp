@@ -98,7 +98,6 @@ int main_sift(int argc, char** argv){
     bool do_reversing = false;
     bool do_interchromosomal = false;
     bool do_split_read = false;
-    bool do_unmapped = true;
     bool do_depth = false;
     bool do_percent_id = false;
     bool do_quality = false;
@@ -164,11 +163,11 @@ int main_sift(int argc, char** argv){
                 break;
             case 'q':
                 do_quality = true;
-                quality = atod(optarg);
+                quality = atof(optarg);
                 break;
             case 'd':
                 do_depth = true;
-                depth = atod(optarg);
+                depth = atof(optarg);
                 break;
             case 'R':
                 remap = true;
@@ -217,8 +216,8 @@ int main_sift(int argc, char** argv){
     Filter ff;
     ff.set_inverse(inverse);
 
-    if (soft_clip_max >= 0){
-        ff.set_soft_clip_limit(soft_clip_max);
+    if (softclip_max >= 0){
+        ff.set_soft_clip_limit(softclip_max);
     }
 
 
