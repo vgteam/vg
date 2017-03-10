@@ -4,10 +4,37 @@ namespace vg {
 
 using namespace std;
 
+
     
 
 vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& site,
         const vector<SnarlTraversal>& traversals, const Alignment& read){
+
+            std::function<set<int64_t>(Alignment a, SnarlTraversal s)> shared_sites = [&](Alignment a, SnarlTraversal s){
+                set<int64_t> aln_ids;
+                set<int64_t> trav_ids;
+                for (int i = 0; i < a.path().mapping_size(); i++){
+                    Mapping m = a.path().mapping(i);
+                    Position pos = m.position();
+                    if (pos.node_id() != 0){
+                        aln_ids.insert(pos.node_id());
+                    }
+                }
+
+                for (int i = 0; i < s.visits_size(); ++i){
+                    Visit v = s.visits(i);
+                    if (v.node_id() != 0){
+                        trav_ids.insert(v.node_id());
+                    }
+
+                }
+                vector<int64_t> ret;
+                std::set_intersection(aln_ids.begin(), aln_ids.end(),
+                        trav_ids.begin(), trav_ids.end(),
+                        std::back_inserter(ret))
+                        ;
+                return set<int64_t>(ret.begin(), ret.end());
+            };
             // For each traversal
             vector<bool> consistencies(traversals.size());
             for (int i = 0; i < traversals.size(); ++i){
@@ -16,6 +43,7 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 // Our Alignment path may run forward OR backward.
                 // We can check if an alignment is on the reverse strand and
                 // flip its path around to match our snarltraversal direction.
+
                 // Cases of consistency:
                 // 1. A read maps to either end of the snarl but no internal nodes
                 // 2. A read maps to both ends of the snarl but no internal nodes
@@ -24,6 +52,63 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 // 5. A read maps to internal nodes, but not the snarl ends
                 // A read may map to a node multiple times, or it may skip a node
                 // and put an insert there.
+                bool consistent_with_traversal = false;
+                set<int64_t> common_ids = shared_sites(read, trav);
+                bool maps_to_front = common_ids.count(trav.snarl().start().node_id());
+                bool maps_to_end = common_ids.count(trav.snarl().end().node_id());
+                bool maps_internally = false;
+
+                Path read_path;
+                std::function<Path(Path)> reverse_path = [&](Path p){
+                    Path ret;
+                    for (int i = p.mapping_size() - 1; i >= 0; i--){
+                        Mapping* new_mapping = ret.add_mapping();
+                        Position* pos = new_mapping->mutable_position();
+                        pos->set_node_id(p.mapping(i).position().node_id());
+                        int offset = p.mapping(i).position().offset();
+                        pos->set_offset(offset);
+                        pos->set_is_reverse(!p.mapping(i).position().is_reverse());
+                        for (int j = 0; j < p.mapping(i).edit_size(); j++){
+                            Edit* new_edit = new_mapping->add_edit();
+                        }
+                    }
+                    return ret;
+                };
+                if (false){
+                    read_path = reverse_path(read.path());
+                }
+                else{
+                    read_path = read.path();
+                }
+
+                if ((common_ids.size() > 1 && (maps_to_front | maps_to_end)) ||
+                        common_ids.size() > 2){
+                    maps_internally = true;
+                }
+                if (maps_to_front && maps_to_end){
+                    // The read is anchored on both ends of the Snarl. Check
+                    // the internal nodes of the traversal.
+                }
+                else if (maps_to_front | maps_to_end){
+                    // The read maps to either the first or last node of the Snarl
+                    // Check its internal nodes
+
+                }
+                else{
+                    // maps to neither front nor end
+                    
+
+                }
+
+
+                // 1. A read maps to either end of the snarl but no internal nodes
+                // 2. A read maps to both ends of the snarl but no internal nodes
+                // 3. A read maps to one end of the snarl and some internal nodes.
+                // 4. A read maps to both ends of the snarl and some internal nodes.
+                // 5. A read maps to internal nodes, but not the snarl ends
+                // A read may map to a node multiple times, or it may skip a node
+                // and put an insert there.
+
             }
 }
 

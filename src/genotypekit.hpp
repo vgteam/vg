@@ -100,6 +100,17 @@ public:
         const vector<vector<bool>>& consistencies) const = 0;
 };
 
+class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
+    // A set of traversals through the site
+    // A set of alignments to the site
+    // And a set of consistencies, one vector for each alignment,
+    //    one boolean per traversal.
+    virtual vector<Support> calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies);
+};
+
+
 // TODO: This needs to be redesigned vis a vis the Genotype object. Genotypes
 // need an accompanying Locus object in order to have the Path of the allele
 // and also they are not site tree aware.
