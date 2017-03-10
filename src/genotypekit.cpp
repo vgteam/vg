@@ -83,16 +83,28 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
 
                 if ((common_ids.size() > 1 && (maps_to_front | maps_to_end)) ||
                         common_ids.size() > 2){
-                    maps_internally = true;
+                        maps_internally = true;
                 }
-                if (maps_to_front && maps_to_end){
+
+                if (maps_to_front && maps_to_end && maps_internally){
                     // The read is anchored on both ends of the Snarl. Check
                     // the internal nodes of the traversal.
                 }
-                else if (maps_to_front | maps_to_end){
+                else if (maps_to_front && maps_to_end){
+                    // the read may represent a deletion,
+                    // which may be in our list of traversals
+                }
+                else if (maps_to_front && maps_internally){
                     // The read maps to either the first or last node of the Snarl
                     // Check its internal nodes
 
+                }
+                else if (maps_to_end && maps_internally){
+
+                }
+                else if (maps_to_front | maps_to_end){
+                    // maps to the front or end, but no internal nodes.
+                    // The read cannot be informative for any snarl in this case.
                 }
                 else{
                     // maps to neither front nor end
@@ -111,6 +123,12 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
 
             }
 }
+
+vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies){
+
+        }
 
 CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
                                                  const string& hint_path_name,
