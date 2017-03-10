@@ -109,7 +109,7 @@ is $(printf "%s\t%s\n" $paired_score $independent_score | awk '{if ($1 < $2) pri
 paired_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_paired_alignment.json| sort | rs -T | awk '{print ($2 - $1)}')
 independent_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_independent_alignment.json| sort | rs -T | awk '{print ($2 - $1)}')
 is $(printf "%s\t%s\n" $paired_range $independent_range | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent are closer together in node id space than unrestricted alignments"
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -J -M 10 | jq -r ".mapping_quality" | grep -v null | wc -l) 2 "only primary alignments have mapping quality scores"
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -J -M 10 | jq -r ".mapping_quality" | grep -v null | wc -l) 1 "only primary alignments have mapping quality scores"
 is $(vg map -r x.reads -x x.xg -g x.gcsa -k 22 -J | jq -r ".mapping_quality" | wc -l) 1000 "unpaired reads produce mapping quality scores"
 
 rm temp_paired_alignment.json temp_independent_alignment.json

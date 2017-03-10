@@ -338,13 +338,21 @@ protected:
     AugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-    /// An index of the primary path in the graph, to scaffold the produced traversals.
-    PathIndex& index;
+    /// An index of the primary path in the graph, to scaffold the produced
+    /// traversals when sites are on the primary path.
+    PathIndex& primary_path_index;
     
     /// What DFS depth should we search to?
     size_t max_depth;
-    //. How many search intermediates can we allow?
+    /// How many search intermediates can we allow?
     size_t max_bubble_paths;
+    
+    /**
+     * Find a Path that runs from the start of the given snarl to the end, which
+     * we can use to backend our traversals into when a snarl is off the primary
+     * path.
+     */
+    Path find_backbone(const Snarl& site);
     
     /**
      * Given an edge or node in the augmented graph, look out from the edge or
@@ -362,7 +370,7 @@ protected:
      * support found on any edge or node in the bubble (including the reference
      * node endpoints and their edges which aren't stored in the path)
      */
-    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge);
+    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge, PathIndex& index);
         
     /**
      * Get the minimum support of all nodes and edges in path
@@ -371,17 +379,17 @@ protected:
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the indexed
-     * reference path. Refuses to visit nodes with no support.
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path. Refuses to visit nodes with no support.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, bool stopIfVisited = false);
+    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the indexed
-     * reference path.
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, bool stopIfVisited = false);
+    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.
@@ -443,7 +451,7 @@ public:
 /**
  * Get the total read support in a Support.
  */
-int total(const Support& support);
+double total(const Support& support);
 
 /**
  * Get the minimum support of a pair of Supports, by taking the min in each
@@ -462,15 +470,77 @@ Support operator+(const Support& one, const Support& other);
 Support& operator+=(Support& one, const Support& other);
 
 /**
- * Scale a Support by an integral factor.
+ * Scale a Support by a factor.
  */
-Support operator*(const Support& support, const size_t& scale);
+template<typename Scalar>
+Support operator*(const Support& support, const Scalar& scale) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
 
 /**
- * Scale a Support by an integral factor, the other way
+ * Scale a Support by a factor, the other way
  */
-Support operator*(const size_t& scale, const Support& support);
+template<typename Scalar>
+Support operator*(const Scalar& scale, const Support& support) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
 
+/**
+ * Divide a Support by a factor.
+ */
+template<typename Scalar>
+Support operator/(const Support& support, const Scalar& scale) {
+    Support scaled;
+    
+    scaled.set_forward(support.forward() / scale);
+    scaled.set_reverse(support.reverse() / scale);
+    scaled.set_left(support.left() / scale);
+    scaled.set_right(support.right() / scale);
+    
+    // log-scaled quality can just be divided. Maybe.
+    scaled.set_quality(support.quality() / scale);
+    
+    return scaled;
+}
+
+/**
+ * Support less-than, based on total coverage.
+ */
+bool operator< (const Support& a, const Support& b);
+
+/**
+ * Support greater-than, based on total coverage.
+ */
+bool operator> (const Support& a, const Support& b);
+
+/**
+ * Allow printing a Support.
+ */
+ostream& operator<<(ostream& stream, const Support& support);
+
+/**
+ * Get a VCF-style 1/2, 1|2|3, etc. string from a Genotype.
+ */
+string to_vcf_genotype(const Genotype& gt);
     
 }
 

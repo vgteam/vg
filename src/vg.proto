@@ -291,14 +291,14 @@ message Genotype {
 message Support {
     // The overall quality of all the support, as -10 * log10(P(all support is wrong))
     double quality = 1;
-    // The number of supporting reads on the forward strand
-    int32 forward = 2;
-    // The number of supporting reads on the reverse strand
-    int32 reverse = 3;
+    // The number of supporting reads on the forward strand (which may be fractional)
+    double forward = 2;
+    // The number of supporting reads on the reverse strand (which may be fractional)
+    double reverse = 3;
     // TODO: what is this?
-    int32 left = 4;
+    double left = 4;
     // TODO: What is this?
-    int32 right = 5;
+    double right = 5;
 }
 
 // Translations map from one graph to another.
