@@ -476,6 +476,7 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
+    int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
     bool mem_threading; // whether to use the mem threading mapper or not
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm

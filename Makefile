@@ -100,6 +100,7 @@ OBJ += $(OBJ_DIR)/name_mapper.o
 OBJ += $(OBJ_DIR)/graph_synchronizer.o
 OBJ += $(OBJ_DIR)/gamsorter.o
 OBJ += $(OBJ_DIR)/vg_algorithms.o
+OBJ += $(OBJ_DIR)/nested_traversal_finder.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -273,7 +274,7 @@ $(LIB_DIR)/libhts.a:
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp $(XG_DIR)/src/xg.cpp $(XG_DIR)/src/xg.hpp $(INC_DIR)/sparsehash/sparse_hash_map 
-	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c $(XG_DIR)/src/xg.cpp -o $(CWD)/$(OBJ_DIR)/xg.o $(LD_INCLUDE_FLAGS) -I$(INC_DIR)/dynamic && ar rs $(CWD)/$(LIB_DIR)/libxg.a $(CWD)/$(OBJ_DIR)/xg.o $(CWD)/$(CPP_DIR)/vg.pb.o && cp $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)/
+	. ./source_me.sh && cd $(XG_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR) && cp src/*.hpp $(CWD)/$(INC_DIR)	
 
 $(LIB_DIR)/libvcflib.a: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) libvcflib.a && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
@@ -348,9 +349,9 @@ $(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp 
 
 $(OBJ_DIR)/banded_global_aligner.o: $(SRC_DIR)/banded_global_aligner.cpp $(SRC_DIR)/banded_global_aligner.hpp $(DEPS)
 
-$(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
+$(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(LIB_DIR)/libxg.a $(OBJ_DIR)/position.o $(DEPS)
 
-$(OBJ_DIR)/ssw_aligner.o: $(SRC_DIR)/ssw_aligner.cpp $(SRC_DIR)/ssw_aligner.hpp $(DEPS)
+$(OBJ_DIR)/ssw_aligner.o: $(SRC_DIR)/ssw_aligner.cpp $(SRC_DIR)/ssw_aligner.hpp $(DEPS) $(LIB_DIR)/libxg.a
 
 $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(DEPS)
 
@@ -364,7 +365,7 @@ $(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(SRC_DIR)/vg.hpp 
 
 $(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(DEPS)
 
-$(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/utility.hpp $(DEPS)
+$(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/utility.hpp $(DEPS) $(LIB_DIR)/libxg.a
 
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(DEPS)
 
@@ -376,15 +377,15 @@ $(OBJ_DIR)/entropy.o: $(SRC_DIR)/entropy.cpp $(SRC_DIR)/entropy.hpp $(DEPS)
 
 $(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(DEPS)
 
-$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(DEPS)
+$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
-$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/genotypekit.hpp $(DEPS)
+$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/json2pb.h $(DEPS) $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/utility.hpp
 
-$(OBJ_DIR)/genotypekit.o: $(SRC_DIR)/genotypekit.cpp $(SRC_DIR)/genotypekit.hpp $(DEPS) $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/distributions.hpp $(DEPS)
+$(OBJ_DIR)/genotypekit.o: $(SRC_DIR)/genotypekit.cpp $(SRC_DIR)/genotypekit.hpp $(DEPS) $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
-$(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(DEPS)
+$(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(DEPS) $(LIB_DIR)/libxg.a
 
 $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp
 
@@ -445,10 +446,19 @@ $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp 
 
 $(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(DEPS)
 
-$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp
+$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(CPP_DIR)/vg.pb.h $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(OBJ_DIR)/gamsorter.o: $(SRC_DIR)/gamsorter.cpp $(SRC_DIR)/gamsorter.hpp $(DEPS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
+$(OBJ_DIR)/nested_traversal_finder.o: $(SRC_DIR)/nested_traversal_finder.cpp $(SRC_DIR)/nested_traversal_finder.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
+
+$(OBJ_DIR)/gamsorter.o: $(SRC_DIR)/gamsorter.cpp $(SRC_DIR)/gamsorter.hpp $(DEPS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+### Algorithms ###
+
+$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
