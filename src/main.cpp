@@ -1357,6 +1357,8 @@ void help_msga(char** argv) {
          << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
          << "    -V, --mem-reseed N      reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
          << "                            set to -1 to estimate as 2x min mem length (default: -1/estimated)" << endl
+         << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
+         << "                            set to -1 to estimate as 2.5x min mem length (default: -1/estimated)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -1429,6 +1431,7 @@ int main_msga(int argc, char** argv) {
     int sens_step = 5;
     float chance_match = 0.05;
     int mem_reseed_length = -1;
+    int min_cluster_length = -1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1473,11 +1476,12 @@ int main_msga(int argc, char** argv) {
                 {"circularize", no_argument, 0, 'C'},
                 {"chance-match", required_argument, 0, 'F'},
                 {"mem-reseed", required_argument, 0, 'V'},
+                {"min-cluster-length", required_argument, 0, '7'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:7:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1497,6 +1501,10 @@ int main_msga(int argc, char** argv) {
 
         case 'V':
             mem_reseed_length = atoi(optarg);
+            break;
+
+        case '7':
+            min_cluster_length = atoi(optarg);
             break;
 
         case 'F':
@@ -1803,6 +1811,9 @@ int main_msga(int argc, char** argv) {
             mapper->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                          : (mem_reseed_length == 0 ? 0
                                             : round(2 * mapper->min_mem_length)));
+            mapper->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
+                                          : (min_cluster_length == 0 ? 0
+                                             : round(2.5 * mapper->min_mem_length)));
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -4955,6 +4966,8 @@ void help_map(char** argv) {
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
          << "                             set to -1 to estimate as 2x min mem length (default: -1/estimated)" << endl
+         << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
+         << "                             set to -1 to estimate as 2.5x min mem length (default: -1/estimated)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -5012,7 +5025,8 @@ int main_map(int argc, char** argv) {
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     int max_mem_length = 0;
-    int min_mem_length = 0;
+    int min_mem_length = -1;
+    int min_cluster_length = -1;
     float random_match_chance = 0.05;
     int mem_reseed_length = -1;
     bool mem_threading = true;
@@ -5087,6 +5101,7 @@ int main_map(int argc, char** argv) {
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"mem-reseed", required_argument, 0, 'V'},
+                {"min-cluster-length", required_argument, 0, '7'},
                 {"fast-reseed", no_argument, 0, '6'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
@@ -5109,7 +5124,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:456",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4567:",
                          long_options, &option_index);
 
 
@@ -5283,7 +5298,11 @@ int main_map(int argc, char** argv) {
         case 'V':
             mem_reseed_length = atoi(optarg);
             break;
-            
+
+        case '7':
+            min_cluster_length = atoi(optarg);
+            break;
+
         case '6':
             use_fast_reseed = true;
             break;
@@ -5548,9 +5567,13 @@ int main_map(int argc, char** argv) {
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                 : (mem_reseed_length == 0 ? 0
                                    : round(2 * m->min_mem_length)));
+        m->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
+                                 : (min_cluster_length == 0 ? 0
+                                    : round(2 * m->min_mem_length)));
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
-                 << ", mem_reseed_length = " << m->mem_reseed_length << endl;
+                 << ", mem_reseed_length = " << m->mem_reseed_length
+                 << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = use_fast_reseed;
         m->mem_threading = mem_threading;

@@ -59,7 +59,7 @@ Mapper::Mapper(Index* idex,
     , mem_reseed_length(0)
     , use_cluster_mq(false)
     , smooth_alignments(true)
-    , simultaneous_pair_alignment(false)
+    , simultaneous_pair_alignment(true)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -1374,13 +1374,24 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
     };
 
     score_sort_and_dedup();
+#pragma omp critical
+    if (debug) {
+        cerr << "alignment pairs" << endl;
+        for (auto& p : alns) {
+            cerr << p->bonus << " " << p->mate1->score() << " " << p->mate2->score() << " ";
+            if (p->mate1->score()) cerr << " pos1 " << p->mate1->path().mapping(0).position().node_id() << " ";
+            if (p->mate2->score()) cerr << " pos2 " << p->mate2->path().mapping(0).position().node_id() << " ";
+            if (pair_consistent(*p->mate1, *p->mate2)) cerr << "consistent";
+            cerr << endl;
+        }
+    }
     // don't rescue; TODO test enabling this
     /*
     if (fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
         for (auto& p : alns) {
-            rescued |= pair_rescue(p.mate1, p.mate2);
+            rescued |= pair_rescue(*p->mate1, *p->mate2);
         }
         // if we rescued, resort and remove dups
         if (rescued) {
@@ -1403,19 +1414,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
 
     // compute mapping qualities
     if (!results.first.empty()) {
+        compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
+        //compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
+        /*
+        compute_mapping_qualities(results.first, cluster_mq1);
+        compute_mapping_qualities(results.second, cluster_mq2);
+        */
         // do we meet the fragment size requirements
+        /*
         auto& mate1 = results.first.front();
         auto& mate2 = results.second.front();
         // if not, we downgrade the mapping quality in an ad-hoc way
         // TODO could we do this in a way that reflects this pair's specific fragment length?
         if (pair_consistent(mate1, mate2)) {
             // if the pair is consistent, compute the joint mapping quality
-            compute_mapping_qualities(results, min(cluster_mq1, cluster_mq2));
+            compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
         } else {
-            // otherwise compute mapqual separately
-            compute_mapping_qualities(results.first, cluster_mq1);
-            compute_mapping_qualities(results.second, cluster_mq2);
+            compute_mapping_qualities(results, min(cluster_mq1, cluster_mq2));
+            //compute_mapping_qualities(results.first, cluster_mq1);
+            //compute_mapping_qualities(results.second, cluster_mq2);
         }
+        */
     }
 
     // remove the extra pair used to compute mapping quality if necessary
@@ -2216,6 +2235,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (++multimaps > total_multimaps) { break; }
+        // skip this if we don't have sufficient cluster coverage and we have at least two alignments
+        // which we can use to estimate mapping quality
+        if (cluster_coverage(cluster) < min_cluster_length
+            && alns.size() > max(1, total_multimaps/2)) continue;
         // get the candidate graph
         // align to it
         Alignment candidate = align_cluster(aln, cluster);
@@ -2223,6 +2246,17 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             alns.emplace_back(candidate);
         }
     }
+
+#pragma omp critical
+    if (debug) {
+        cerr << "alignments" << endl;
+        for (auto& aln : alns) {
+            cerr << aln.score();
+            if (aln.score()) cerr << " pos1 " << aln.path().mapping(0).position().node_id() << " ";
+            cerr << endl;
+        }
+    }
+
 #ifdef debug_mapper
 #pragma omp critical
     {
@@ -3122,6 +3156,10 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             << additional_multimaps << ", " 
             << restricted_mems << ")" 
             << endl;
+        if (aln.has_path()) {
+            // if we're realigning, show in the debugging output what we start with
+            cerr << pb2json(aln) << endl;
+        }
     }
     
     // trigger a banded alignment if we need to
