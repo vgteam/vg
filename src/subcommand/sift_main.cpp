@@ -101,6 +101,7 @@ int main_sift(int argc, char** argv){
     bool do_depth = false;
     bool do_percent_id = false;
     bool do_quality = false;
+    bool do_unmapped = false;
 
 
     float insert_size = 300;
