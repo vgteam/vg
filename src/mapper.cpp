@@ -3532,9 +3532,11 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
     mems.erase(std::remove_if(mems.begin(), mems.end(),
                               [&smems_begin,
                                &min_mem_length](const MaximalExactMatch& m) {
-                                  return m.end-m.begin == 0
-                                      || m.length() < min_mem_length
-                                      || smems_begin[m.begin] != m.end;
+                                  return ( m.end-m.begin == 0
+                                           || m.length() < min_mem_length
+                                           || smems_begin[m.begin] != m.end
+                                           || m.count_Ns() > 0
+                                      );
                               }),
                mems.end());
     // return the matches in natural order
@@ -6719,6 +6721,11 @@ void MaximalExactMatch::fill_positions(Mapper* mapper) {
     for (auto& node : nodes) {
         positions = mapper->node_positions_in_paths(gcsa::Node::encode(gcsa::Node::id(node), 0, gcsa::Node::rc(node)));
     }
+}
+
+// counts Ns in the MEM
+size_t MaximalExactMatch::count_Ns(void) const {
+    return std::count(begin, end, 'N');
 }
 
 ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {

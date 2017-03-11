@@ -54,6 +54,8 @@ public:
     int length(void) const;
     // uses an xgindex to fill out the MEM positions
     void fill_positions(Mapper* mapper);
+    // tells if the MEM contains an N
+    size_t count_Ns(void) const;
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
