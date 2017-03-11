@@ -120,11 +120,27 @@ namespace vg {
     /// Visit is of a Snarl instead of a Node
     inline NodeTraversal to_rev_node_traversal(const Visit& visit, const VG& graph);
     
+    /// Converts a Visit to a NodeSide for its left side. Throws an exception if
+    /// the Visit is of a Snarl instead of a Node.
+    inline NodeSide to_left_side(const Visit& visit);
+    
+    /// Converts a Visit to a NodeSide for its right side. Throws an exception if
+    /// the Visit is of a Snarl instead of a Node.
+    inline NodeSide to_right_side(const Visit& visit);
+    
     /// Converts a NodeTraversal to a Visit.
     inline Visit to_visit(const NodeTraversal& node_traversal);
     
     /// Converts a NodeTraversal to a Visit in the opposite orientation.
     inline Visit to_rev_visit(const NodeTraversal& node_traversal);
+    
+    /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
+    /// of a Node. Uses a function to get node length.
+    inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_length);
+    
+    /// Converts a Visit to a Mapping. Throws an exception if the Visit is of a Snarl instead
+    /// of a Node. Uses a graph to get node length.
+    inline Mapping to_mapping(const Visit& visit, VG& vg);
     
     /// Copies the boundary Visits from one Snarl into another
     inline void transfer_boundary_info(const Snarl& from, Snarl& to);
@@ -153,6 +169,16 @@ namespace vg {
         return NodeTraversal(graph.get_node(visit.node_id()), !visit.backward());
     }
     
+    inline NodeSide to_left_side(const Visit& visit) {
+        assert(visit.node_id());
+        return NodeSide(visit.node_id(), visit.backward());
+    }
+    
+    inline NodeSide to_right_side(const Visit& visit) {
+        assert(visit.node_id());
+        return NodeSide(visit.node_id(), !visit.backward());
+    }
+    
     inline Visit to_visit(const NodeTraversal& node_traversal) {
         Visit to_return;
         to_return.set_node_id(node_traversal.node->id());
@@ -165,6 +191,32 @@ namespace vg {
         to_return.set_node_id(node_traversal.node->id());
         to_return.set_backward(!node_traversal.backward);
         return to_return;
+    }
+    
+    inline Mapping to_mapping(const Visit& visit, std::function<size_t(id_t)> node_length) {
+        // Can't have a Mapping to a snarl
+        assert(visit.node_id());
+    
+        // Make a mapping to the right place
+        Mapping mapping;
+        mapping.mutable_position()->set_node_id(visit.node_id());
+        mapping.mutable_position()->set_is_reverse(visit.backward());
+        
+        // Get the length of the node visited
+        size_t length = node_length(visit.node_id());
+        
+        // Fill the Mapping in as a perfect match of that lenght
+        Edit* match = mapping.add_edit();
+        match->set_from_length(length);
+        match->set_to_length(length);
+        
+        return mapping;
+    }
+    
+    inline Mapping to_mapping(const Visit& visit, VG& graph) {
+        return to_mapping(visit, [&](id_t id) {
+            return graph.get_node(id)->sequence().size();
+        });
     }
     
     inline void transfer_boundary_info(const Snarl& from, Snarl& to) {

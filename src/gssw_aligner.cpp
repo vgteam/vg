@@ -1349,7 +1349,7 @@ int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, stri
     for (auto seq_iter = seq_begin, qual_iter = base_qual_begin; seq_iter != seq_end; seq_iter++) {
         // index 5 x 5 score matrices (ACGTN)
         // always have match so that row and column index are same and can combine algebraically
-        score += adjusted_score_matrix[25 * (*qual_iter) + 6 * nt_table[*seq_iter]];
+        score += score_matrix[25 * (*qual_iter) + 6 * nt_table[*seq_iter]];
         qual_iter++;
     }
     return score;

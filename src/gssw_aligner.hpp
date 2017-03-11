@@ -225,12 +225,6 @@ namespace vg {
         
         
         void init_mapping_quality(double gc_content);
-
-        uint8_t max_qual_score;
-        int8_t scaled_gap_open;
-        int8_t scaled_gap_extension;
-        int8_t* adjusted_score_matrix;
-        
         
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,

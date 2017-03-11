@@ -29,7 +29,7 @@ namespace vg {
     public:
         MultipathClusterer(const Alignment& alignment,
                            const vector<MaximalExactMatch>& mems,
-                           const QualAdjAligner& aligner,
+                           const BaseAligner& aligner,
                            xg::XG& xgindex,
                            int8_t full_length_bonus = 0,
                            size_t num_pruning_tracebacks = 5);
@@ -48,7 +48,7 @@ namespace vg {
         struct DPScoreComparator;
         
         void init_mem_graph();
-        
+                
         /// The longest gap detectable from one side of a MEM without soft-clipping
         inline size_t longest_detectable_gap(const string::const_iterator& read_pos);
         
@@ -56,7 +56,7 @@ namespace vg {
         
         const Alignment& alignment;
         const vector<MaximalExactMatch>& mems;
-        const QualAdjAligner& aligner;
+        const BaseAligner& aligner;
         int8_t full_length_bonus;
         
     };
@@ -97,8 +97,8 @@ namespace vg {
     
     class MultipathClusterer::MPCEdge {
     public:
-        MPCEdge(size_t to_idx, int32_t weight, size_t overlap = 0) :
-                to_idx(to_idx), weight(weight), overlap(overlap) {}
+        MPCEdge(size_t to_idx, int32_t weight) :
+                to_idx(to_idx), weight(weight) {}
         MPCEdge() = default;
         ~MPCEdge() = default;
         
@@ -107,9 +107,6 @@ namespace vg {
         
         /// Weight for dynamic programming
         int32_t weight;
-        
-        /// If an overlap is required to explain this edge, how long the overlap is
-        size_t overlap;
     };
     
     struct MultipathClusterer::DPScoreComparator {
