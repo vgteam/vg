@@ -4971,12 +4971,13 @@ void help_map(char** argv) {
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
-         << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
+         << "    -8, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
          << "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
          << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
          << "                             set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
+         << "    -F, --drop-chain N       drop clusters of MEMs shorter than FLOAT fraction of the longest overlapping cluster (default: 0.5)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -5062,6 +5063,7 @@ int main_map(int argc, char** argv) {
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = false;
+    float drop_chain = 0.5;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5127,13 +5129,14 @@ int main_map(int argc, char** argv) {
                 {"fragment-sigma", required_argument, 0, '2'},
                 {"full-l-bonus", required_argument, 0, 'T'},
                 {"no-cluster-mq", no_argument, 0, '4'},
-                {"chance-match", required_argument, 0, 'F'},
+                {"chance-match", required_argument, 0, '8'},
                 {"unsmoothly", no_argument, 0, '5'},
+                {"drop-chain", required_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4567:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4567:8:",
                          long_options, &option_index);
 
 
@@ -5259,8 +5262,12 @@ int main_map(int argc, char** argv) {
             debug = true;
             break;
 
-        case 'F':
+        case '8':
             chance_match = atof(optarg);
+            break;
+
+        case 'F':
+            drop_chain = atof(optarg);
             break;
 
         case 'G':
@@ -5571,6 +5578,7 @@ int main_map(int argc, char** argv) {
         m->kmer_min = kmer_min;
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
+        m->drop_chain = drop_chain;
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
