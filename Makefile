@@ -51,7 +51,6 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
 OBJ =
-OBJ += cpp/vg.pb.o
 OBJ += $(OBJ_DIR)/gssw_aligner.o
 OBJ += $(OBJ_DIR)/vg.o 
 OBJ += $(OBJ_DIR)/index.o
