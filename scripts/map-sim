@@ -1,9 +1,9 @@
 #!/bin/bash
 
-if [ $# -ne 6 ];
+if [ $# -ne 7 ];
 then
-    echo "usage: "$(basename $0) "[output-dir] [fasta-ref] [vg-ref] [vg-pan] [threads] [sim-read-spec]"
-    echo "example: "$(basename $0) 'SGRP2/SGD_2010.fasta SGRP2/SGRP2-cerevisiae.pathonly SGRP2/SGRP2-cerevisiae 4 "-s 271 -n 50000 -e 0.01 -i 0.002 -l 100 -p 500 -v 50"'
+    echo "usage: "$(basename $0) "[output-dir] [fasta-ref] [vg-ref] [vg-pan] [threads] [sim-read-spec] [vg-map-opts]"
+    echo "example: "$(basename $0) 'SGRP2/SGD_2010.fasta SGRP2/SGRP2-cerevisiae.pathonly SGRP2/SGRP2-cerevisiae 4 "-s 271 -n 50000 -e 0.01 -i 0.002 -l 100 -p 500 -v 50" "-u 16"'
     exit
 fi
 
@@ -13,6 +13,7 @@ ref=$3
 pan=$4
 threads=$5
 read_spec=$6
+vg_map_opts=$7
 
 pan_xg=$pan.xg
 pan_gcsa=$pan.gcsa
@@ -47,18 +48,18 @@ join $output/true.pos $output/bwa_mem-se.pos | ~/vg/scripts/pos_compare.py >$out
 
 # By vg-ref:
 echo vg ref paired mapping
-time vg map -iG $output/sim.gam -x $ref_xg -g $ref_gcsa -t $threads | vg annotate -x $ref_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-ref-pe.pos
+time vg map $vg_map_opts -iG $output/sim.gam -x $ref_xg -g $ref_gcsa -t $threads | vg annotate -x $ref_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-ref-pe.pos
 join $output/true.pos $output/vg-ref-pe.pos | ~/vg/scripts/pos_compare.py >$output/vg-ref-pe.compare
 echo vg ref single mapping
-time vg map -G $output/sim.gam -x $ref_xg -g $ref_gcsa -t $threads | vg annotate -x $ref_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-ref-se.pos
+time vg map $vg_map_opts -G $output/sim.gam -x $ref_xg -g $ref_gcsa -t $threads | vg annotate -x $ref_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-ref-se.pos
 join $output/true.pos $output/vg-ref-se.pos | ~/vg/scripts/pos_compare.py >$output/vg-ref-se.compare
 
 # By vg-pan:
 echo vg pan paired mappping
-time vg map -iG $output/sim.gam -x $pan_xg -g $pan_gcsa -t $threads | vg annotate -x $pan_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-pan-pe.pos
+time vg map $vg_map_opts -iG $output/sim.gam -x $pan_xg -g $pan_gcsa -t $threads | vg annotate -x $pan_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-pan-pe.pos
 join $output/true.pos $output/vg-pan-pe.pos | ~/vg/scripts/pos_compare.py >$output/vg-pan-pe.compare
 echo vg pan single mappping
-time vg map -G $output/sim.gam -x $pan_xg -g $pan_gcsa -t $threads | vg annotate -x $pan_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-pan-se.pos
+time vg map $vg_map_opts -G $output/sim.gam -x $pan_xg -g $pan_gcsa -t $threads | vg annotate -x $pan_xg -p -a - | vg view -a - | pv -l | jq -c -r '[.name, .refpos[0].name, .refpos[0].offset, if .mapping_quality == null then 0 else .mapping_quality end ] | @tsv'  | sed s/null/0/g | sort >$output/vg-pan-se.pos
 join $output/true.pos $output/vg-pan-se.pos | ~/vg/scripts/pos_compare.py >$output/vg-pan-se.compare
 
 # Now we combine the various positions into one table
