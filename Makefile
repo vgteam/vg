@@ -185,7 +185,6 @@ DEPS += $(LIB_DIR)/libsonlib.a
 DEPS += $(LIB_DIR)/libpinchesandcacti.a
 DEPS += $(INC_DIR)/globalDefs.hpp
 DEPS += $(LIB_DIR)/libraptor2.a
-DEPS += $(INC_DIR)/sha1.hpp
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
