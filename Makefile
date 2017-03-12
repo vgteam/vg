@@ -309,7 +309,7 @@ $(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a
 $(LIB_DIR)/libraptor2.a:
 	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
-$(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
+$(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
 
 # Auto-versioning
