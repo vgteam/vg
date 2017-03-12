@@ -3850,7 +3850,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             if (fast_reseed) {
                 find_sub_mems_fast(mems,
                                    match.begin,
-                                   max(min_mem_length, (int) mem_length / 2),
+                                   max(min_mem_length, (int) mem_length / 3 * 2),
                                    sub_mems);
             }
             else {
