@@ -1356,9 +1356,9 @@ void help_msga(char** argv) {
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
          << "    -V, --mem-reseed N      reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-         << "                            set to -1 to estimate as 2x min mem length (default: -1/estimated)" << endl
+         << "                            set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
          << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
-         << "                            set to -1 to estimate as 2.5x min mem length (default: -1/estimated)" << endl
+         << "                            set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -1431,7 +1431,7 @@ int main_msga(int argc, char** argv) {
     int sens_step = 5;
     float chance_match = 0.05;
     int mem_reseed_length = -1;
-    int min_cluster_length = -1;
+    int min_cluster_length = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1810,10 +1810,10 @@ int main_msga(int argc, char** argv) {
                                       : mapper->random_match_length(chance_match));
             mapper->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                          : (mem_reseed_length == 0 ? 0
-                                            : round(2 * mapper->min_mem_length)));
+                                            : round(1.5 * mapper->min_mem_length)));
             mapper->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
                                           : (min_cluster_length == 0 ? 0
-                                             : round(2.5 * mapper->min_mem_length)));
+                                             : round(1.5 * mapper->min_mem_length)));
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -4974,9 +4974,9 @@ void help_map(char** argv) {
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-         << "                             set to -1 to estimate as 2x min mem length (default: -1/estimated)" << endl
+         << "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
          << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
-         << "                             set to -1 to estimate as 2.5x min mem length (default: -1/estimated)" << endl
+         << "                             set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -5010,7 +5010,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 100;
+    int hit_max = 512;
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 10;
@@ -5035,7 +5035,7 @@ int main_map(int argc, char** argv) {
     int softclip_threshold = 0;
     int max_mem_length = 0;
     int min_mem_length = -1;
-    int min_cluster_length = -1;
+    int min_cluster_length = 0;
     float random_match_chance = 0.05;
     int mem_reseed_length = -1;
     bool mem_threading = true;
@@ -5047,7 +5047,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 32;
+    int extra_multimaps = 64;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -5575,10 +5575,10 @@ int main_map(int argc, char** argv) {
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                 : (mem_reseed_length == 0 ? 0
-                                   : round(2 * m->min_mem_length)));
+                                   : round(1.5 * m->min_mem_length)));
         m->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
                                  : (min_cluster_length == 0 ? 0
-                                    : round(2 * m->min_mem_length)));
+                                    : round(1.5 * m->min_mem_length)));
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
                  << ", mem_reseed_length = " << m->mem_reseed_length

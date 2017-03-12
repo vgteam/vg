@@ -16,8 +16,8 @@ sudo cp jq-linux64 /usr/local/bin/jq
 sudo chmod +x /usr/local/bin/jq
 
 # get the indexes
-mkdir pan && cd pan && dx cat ekg_vg_hacking:/hs37d5.vg.index_l16St16e4k16Z6000X3.tar | tar vx && cd ~
-mkdir ref && cd ref && dx cat ekg_vg_hacking:/hs37d5.ref.vg.index_l16St16e4k16Z6000X3.tar | tar vx && cd ~
+mkdir -p pan && cd pan && dx cat ekg_vg_hacking:/hs37d5.vg.index_l16St16e4k16Z6000X3.tar | tar vx && cd ~
+mkdir -p ref && cd ref && dx cat ekg_vg_hacking:/hs37d5.ref.vg.index_l16St16e4k16Z6000X3.tar | tar vx && cd ~
 dx cat ekg_vg_hacking:/hs37d5.tar | tar vx
 
 # gcc fix
