@@ -56,11 +56,13 @@ OBJ += $(OBJ_DIR)/vg.o
 OBJ += $(OBJ_DIR)/index.o
 OBJ += $(OBJ_DIR)/mapper.o
 OBJ += $(OBJ_DIR)/region.o
+OBJ += $(OBJ_DIR)/progress_bar.o
 OBJ += $(OBJ_DIR)/vg_set.o
 OBJ += $(OBJ_DIR)/utility.o
 OBJ += $(OBJ_DIR)/path.o
 OBJ += $(OBJ_DIR)/alignment.o
 OBJ += $(OBJ_DIR)/edit.o
+OBJ += $(OBJ_DIR)/sha1.o
 OBJ += $(OBJ_DIR)/json2pb.o
 OBJ += $(OBJ_DIR)/entropy.o
 OBJ += $(OBJ_DIR)/pileup.o
@@ -167,7 +169,6 @@ DEPS += $(LIB_DIR)/libsnappy.a
 DEPS += $(LIB_DIR)/librocksdb.a
 DEPS += $(INC_DIR)/gcsa/gcsa.h
 DEPS += $(LIB_DIR)/libgcsa2.a
-DEPS += $(OBJ_DIR)/progress_bar.o
 DEPS += $(OBJ_DIR)/Fasta.o
 DEPS += $(LIB_DIR)/libhts.a
 DEPS += $(LIB_DIR)/libxg.a
@@ -185,7 +186,6 @@ DEPS += $(LIB_DIR)/libpinchesandcacti.a
 DEPS += $(INC_DIR)/globalDefs.hpp
 DEPS += $(LIB_DIR)/libraptor2.a
 DEPS += $(INC_DIR)/sha1.hpp
-DEPS += $(OBJ_DIR)/sha1.o
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -309,7 +309,6 @@ $(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a
 $(LIB_DIR)/libraptor2.a:
 	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
-$(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
 
