@@ -94,7 +94,7 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
 
                 if (maps_to_front && maps_to_end && maps_internally){
                     // The read is anchored on both ends of the Snarl. Check
-                    // the internal nodes of the traversal.
+                    // the internal nodes of the Path for matches against the SnarlTraversal..
 
                     consistencies[i] = true;
                 }
@@ -103,16 +103,16 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                     // which may be in our list of traversals
 
                     if (true){
-                    consistencies[i] = true;
+                        consistencies[i] = true;
                     }
                     else{
-                    consistencies[i] = false;
+                        consistencies[i] = false;
                     }
 
                 }
                 else if (maps_to_front && maps_internally){
                     // The read maps to either the first or last node of the Snarl
-                    // Check its internal nodes
+                    // Check its internal nodes for matches between path and snarl
 
 
                     consistencies[i] = true;
@@ -150,7 +150,28 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
 vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl& site,
         const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
         const vector<vector<bool>>& consistencies){
-            vector<Support> site_supports;
+        // Calculate the number of reads that support
+        // the Traversal, and how they support it.    
+        vector<Support> site_supports(traversals.size());
+
+        for (int i = 0; i < reads.size(); i++){
+            vector<bool> cons = consistencies[i];
+            for (int t = 0; t < traversals.size(); t++){
+                Support s;
+                if (cons[t] == true && !(reads[i]->read_on_reverse_strand())){
+                   s.set_forward(s.forward() + 1);
+                }
+                else if (cons[t] == true && reads[i]->read_on_reverse_strand()){
+                    s.set_reverse(s.reverse() + 1);
+                }
+                else{
+                    continue;
+                }
+            }
+            
+        }
+
+        return site_supports;
         }
 
 CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
