@@ -185,6 +185,7 @@ DEPS += $(LIB_DIR)/libsonlib.a
 DEPS += $(LIB_DIR)/libpinchesandcacti.a
 DEPS += $(INC_DIR)/globalDefs.hpp
 DEPS += $(LIB_DIR)/libraptor2.a
+DEPS += $(INC_DIR)/sha1.hpp
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -308,8 +309,11 @@ $(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a
 $(LIB_DIR)/libraptor2.a:
 	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
-$(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp
-	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
+$(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
+	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
+
+$(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS)
 
 # Auto-versioning
 $(INC_DIR)/vg_git_version.hpp: .git
