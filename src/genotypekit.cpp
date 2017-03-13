@@ -7,8 +7,12 @@ using namespace std;
 
     
 
+SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
+
+}
+
 vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const Alignment& read){
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const {
 
             std::function<set<int64_t>(Alignment a, SnarlTraversal s)> shared_sites = [&](Alignment a, SnarlTraversal s){
                 set<int64_t> aln_ids;
@@ -147,9 +151,13 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
             }
 }
 
+SimpleTraversalSupportCalculator::~SimpleTraversalSupportCalculator(){
+
+}
+
 vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl& site,
         const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
-        const vector<vector<bool>>& consistencies){
+        const vector<vector<bool>>& consistencies) const{
         // Calculate the number of reads that support
         // the Traversal, and how they support it.    
         vector<Support> site_supports(traversals.size());
@@ -183,6 +191,10 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
     graph.sort();
 }
 
+
+PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG graph){
+    graph = graph;
+}
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
     // Goal: enumerate traversals in the snarl supported by paths in the graph
     // that may not cover the ends of the snarl.

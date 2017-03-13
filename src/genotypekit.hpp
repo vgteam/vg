@@ -78,8 +78,9 @@ public:
 
 class SimpleConsistencyCalculator : public ConsistencyCalculator{
     public:
-    virtual vector<bool> calculate_consistency(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const Alignment& read);
+    ~SimpleConsistencyCalculator();
+    vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
 };
 
 
@@ -105,9 +106,11 @@ class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
     // A set of alignments to the site
     // And a set of consistencies, one vector for each alignment,
     //    one boolean per traversal.
-    virtual vector<Support> calculate_supports(const Snarl& site,
+    public:
+    ~SimpleTraversalSupportCalculator();
+    vector<Support> calculate_supports(const Snarl& site,
         const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
-        const vector<vector<bool>>& consistencies);
+        const vector<vector<bool>>& consistencies) const;
 };
 
 

@@ -106,13 +106,26 @@ using namespace std;
             }
             }
     };
+
+    vector<Alignment> reads;
+
+    std::function<void(Alignment& a)> grab = [&](const Alignment& a){
+            for (int i = 0; i < a.path().mapping_size(); i++){
+                if (sufficient_matches(a.path().mapping(i))){
+                    #pragma omp atomic
+                    node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+                    #pragma omp critical
+                    reads.push_back(a);
+            }
+            }
+    };
     
 
     // open our gam, count our reads, close our gam.
     if (!isIndex){
         ifstream gamstream(gamfile);
         if (gamstream.good()){
-            stream::for_each(gamstream, incr);
+            stream::for_each(gamstream, grab);
         }
         gamstream.close();
     }
@@ -127,6 +140,27 @@ using namespace std;
         cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
     #endif
 
+    SnarlFinder* finder = new CactusUltrabubbleFinder(*graph, "", true);
+    SnarlManager snarl_manager = finder->find_snarls();
+    vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+
+    TraversalFinder* pb = new PathBasedTraversalFinder(*graph);
+    
+    SimpleConsistencyCalculator* cons = new SimpleConsistencyCalculator();
+    SimpleTraversalSupportCalculator* supp = new SimpleTraversalSupportCalculator();
+
+    for (auto sn : snarl_roots){
+        vector<SnarlTraversal> travs = pb->find_traversals(*sn);
+        Alignment aln;
+        vector<Alignment*> alns;
+        vector<vector<bool> > aln_consistencies;
+        const vector<bool> trav_consistencies = cons->calculate_consistency(*sn, travs, aln);
+        aln_consistencies.push_back(trav_consistencies);
+        vector<Support> supports = supp->calculate_supports(*sn, travs, alns, aln_consistencies);
+    }
+
+
+
     for (auto it : hash_to_var){
         int32_t total_reads = 0;
         for (int i = 0; i <= it.second.alt.size(); ++i){
@@ -137,7 +171,10 @@ using namespace std;
                     total_reads += readsum;
             }
             it.second.info["AD"].push_back(std::to_string(readsum));
+
         }
+
+        vector<Support> supporties;
         for (int i = 0; i <= it.second.alt.size(); ++i){
             double av = (double) stod(it.second.info["AD"][i]) / (double) total_reads;
             it.second.info["GP"].push_back(std::to_string(av));
