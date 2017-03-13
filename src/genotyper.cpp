@@ -27,21 +27,30 @@ using namespace std;
                                 string gamfile, bool isIndex){
     // Store variant->name index
     map<string, vcflib::Variant> hash_to_var;
-    vector<int64_t> variant_nodes;
+    set<int64_t> variant_nodes;
+   
     // Store a list of node IDs each variant covers
-    map<string, vector<int64_t> > varname_to_node_id;
+    map<string, unordered_set<int64_t> > allele_name_to_node_id;
+    map<string, set<string> > allele_name_to_alignment_name;
+    unordered_map<int64_t, string> node_to_variant;
+
+
     // A dumb depth map, for each node in the graph, of substantial size
     unordered_map<int64_t, int32_t> node_id_to_depth;
     node_id_to_depth.reserve(10000);
+
     //Cache graph paths
     unordered_map<string, list<Mapping> > gpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end()  );
 
     string descrip = "";
     descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
+    descrip = "##INFO=<ID=GP,Number=1,Type=Float,Description=\"Genotype probability for genotype call.\"\\>";
     vars->addHeaderLine(descrip);
 
     cout << vars->header << endl;
 
+    
+    
     // For each variant in VCF:
     vcflib::Variant var;
     while(vars->getNextVariant(var)){
@@ -56,7 +65,9 @@ using namespace std;
             string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
             list<Mapping> x_path = gpaths[ alt_id ];
                 for (Mapping x_m : x_path){
-                    varname_to_node_id[ alt_id ].push_back(x_m.position().node_id());
+                    allele_name_to_node_id[ alt_id ].insert(x_m.position().node_id());
+                    node_to_variant[x_m.position().node_id()] = alt_id;
+                    variant_nodes.insert(x_m.position().node_id());
                 }
         }
 
@@ -66,12 +77,13 @@ using namespace std;
             string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
             list<Mapping> x_path = gpaths[ alt_id ];
                 for (Mapping x_m : x_path){
-                        variant_nodes.push_back(x_m.position().node_id());
+                        variant_nodes.insert(x_m.position().node_id());
                 }
         }
 
     }
     }
+
 
     
 
@@ -80,7 +92,7 @@ using namespace std;
         int tot_len = 0;
         for (int i = 0; i < m.edit_size(); ++i){
             Edit e = m.edit(i);
-            if (e.to_length() == e.from_length()){
+            if (e.to_length() == e.from_length() && e.sequence().empty()){
                 matches += e.to_length();
             }
             tot_len += e.to_length();
@@ -99,33 +111,29 @@ using namespace std;
         }
     };
 
+
     std::function<void(Alignment& a)> incr = [&](const Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
-                if (sufficient_matches(a.path().mapping(i))){
-                    node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
-            }
-            }
-    };
-
-    vector<Alignment> reads;
-
-    std::function<void(Alignment& a)> grab = [&](const Alignment& a){
-            for (int i = 0; i < a.path().mapping_size(); i++){
-                if (sufficient_matches(a.path().mapping(i))){
-                    #pragma omp atomic
-                    node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+                int64_t node_id = a.path().mapping(i).position().node_id();
+                if (variant_nodes.count(node_id) && sufficient_matches(a.path().mapping(i))){
                     #pragma omp critical
-                    reads.push_back(a);
+                    {
+                        // Get our variant allele hash
+                        string all_str = node_to_variant[node_id];
+                        // Add alignment to the variant's set of alignments
+                        allele_name_to_alignment_name[all_str].insert(a.name());
+                    }
+
+                    //node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
+                    
             }
             }
     };
-    
-
     // open our gam, count our reads, close our gam.
     if (!isIndex){
         ifstream gamstream(gamfile);
         if (gamstream.good()){
-            stream::for_each(gamstream, grab);
+            stream::for_each(gamstream, incr);
         }
         gamstream.close();
     }
@@ -140,6 +148,7 @@ using namespace std;
         cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
     #endif
 
+/*        
     SnarlFinder* finder = new CactusUltrabubbleFinder(*graph, "", true);
     SnarlManager snarl_manager = finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
@@ -158,39 +167,93 @@ using namespace std;
         aln_consistencies.push_back(trav_consistencies);
         vector<Support> supports = supp->calculate_supports(*sn, travs, alns, aln_consistencies);
     }
+**/
+
+        std::function<double(int)> fac = [](int t){
+           double result = 1.0;
+           for (int i = 1; i <= t; ++i){
+               result *= (double) i; 
+           }
+           return result;
+        };
+
+        // Creates a three-element vector, ref, het, alt
+        std::function<double(int, int, double)> get_binoms = [fac](int ref_count, int alt_count, double geno_prior){
+            double top_term = ( fac(alt_count + ref_count) );
+            double bottom_term = (fac(ref_count) * fac(alt_count));
+            
+            double dat_binom = top_term / bottom_term;
+            return dat_binom * pow(geno_prior, alt_count) * pow((1.0 - geno_prior), ref_count);
+        };
+    
+        std::function<pair<double, int>(int64_t, int64_t, double)> do_math = [get_binoms, fac](int64_t ref_count, int64_t alt_count, double allele_prior = 0.333){
+          
+            // Genotype priors: HOMOZYOUS REF : HET : HOMOZYGOUS ALT
+            vector<double> geno_priors {0.1, 0.4, 0.8};
+            vector<double> data_probs (geno_priors.size());
+            vector<double> geno_probs (geno_priors.size());
+            
+            if (true){
+                cerr << "Ref count " << ref_count << endl;
+                cerr << "Alt count " << alt_count << endl;
+            }
+            // calculate genotype data probs
+            for (int i = 0; i < geno_priors.size(); i++){
+               double x = get_binoms(ref_count, alt_count, geno_priors[i]) * allele_prior; 
+               cerr << "Prob: " << x << endl;
+               data_probs[i] = x;
+            }
+            double sum_data_probs = std::accumulate(data_probs.begin(), data_probs.end(), 0.0);
 
 
+            double big_prob = 0.0;
+            // 0 = ref, 1 = het, 2 = alt
+            int geno_index = -1;
+                
+
+            vector<double> prob_cache;
+            for (int i = 0; i < geno_priors.size(); ++i){
+                double tmp_binom = data_probs[i];
+                double prob = tmp_binom / sum_data_probs;
+                prob_cache.push_back(prob);
+                if (prob > big_prob ){
+                    big_prob = prob;
+                    geno_index = i;
+                }
+            }
+
+            cerr << "Big prob: " << big_prob << endl
+                <<  "geno_index " << geno_index << endl;
+
+
+            return std::make_pair(big_prob, geno_index);
+        };
 
     for (auto it : hash_to_var){
-        int32_t total_reads = 0;
+        cerr << it.second.position << " ";
+        vector<int64_t> read_counts(it.second.alt.size() + 1, 0);
         for (int i = 0; i <= it.second.alt.size(); ++i){
-            int32_t readsum = 0;
+            int64_t readsum = 0;
             string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
-            for (int i = 0; i < varname_to_node_id[ alt_id ].size(); i++){
-                    readsum += node_id_to_depth[varname_to_node_id[ alt_id ][i]];
-                    total_reads += readsum;
+            for (int j = 0; j < allele_name_to_node_id[ alt_id ].size(); j++){
+                //readsum += node_id_to_depth[allele_name_to_node_id[ alt_id ][j]];
             }
+
+            read_counts[i] = readsum;
             it.second.info["AD"].push_back(std::to_string(readsum));
 
         }
 
-        vector<Support> supporties;
-        for (int i = 0; i <= it.second.alt.size(); ++i){
-            double av = (double) stod(it.second.info["AD"][i]) / (double) total_reads;
-            it.second.info["GP"].push_back(std::to_string(av));
+        pair<double, int> prob_and_geno_index = do_math(  read_counts[0], read_counts[1], 0.333);
+
+        it.second.info["GP"].push_back(std::to_string(prob_and_geno_index.first));
+
+
+        cout << it.second << endl;
+
         }
-            cout << it.second << endl;
-        }
+
 }
-
-struct SV_Config{
-    int frag_len = -1;
-    int frag_len_sd = -1;
-    int min_mapq = -1;
-    int64_t max_bp_range = -1;
-};
-
-
 
 
 void Genotyper::run(VG& graph,
