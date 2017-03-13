@@ -1736,7 +1736,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     };
 
     // build the paired-read MEM markov model
-    MEMMarkovModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, mems1.size() + mems2.size());
+    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, mems1.size() + mems2.size());
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
 
     // now reconstruct the paired fragments from the threads
@@ -2217,7 +2217,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
     // build the model
-    MEMMarkovModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, mems.size());
+    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, mems.size());
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
 
     auto show_clusters = [&](void) {
@@ -6549,7 +6549,7 @@ bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
     return m1.begin < m2.begin && m1.end < m2.end && m1.nodes < m2.nodes;
 }
 
-MEMMarkovModel::MEMMarkovModel(
+MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     Mapper* mapper,
@@ -6566,7 +6566,7 @@ MEMMarkovModel::MEMMarkovModel(
             for (auto& node : mem.nodes) {
                 //model.emplace_back();
                 //auto m = model.back();
-                MEMMarkovModelVertex m;
+                MEMChainModelVertex m;
                 m.weight = mem.length();
                 m.prev = nullptr;
                 m.score = 0;
@@ -6580,7 +6580,7 @@ MEMMarkovModel::MEMMarkovModel(
             }
         }
     }
-    for (vector<MEMMarkovModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
+    for (vector<MEMChainModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
         // fill the nexts using banding constraints
         // banding means we stop looking along the MEMs when the score_transition function returns value/false
         // as a result changing the score function to return 0 at a given threshold induces local banding
@@ -6616,13 +6616,13 @@ MEMMarkovModel::MEMMarkovModel(
         }
         // sort the nexts to make later traversal easier
         sort(m->next_cost.begin(), m->next_cost.end(),
-             [](const pair<MEMMarkovModelVertex*, double>& x,
-                const pair<MEMMarkovModelVertex*, double>& y)
+             [](const pair<MEMChainModelVertex*, double>& x,
+                const pair<MEMChainModelVertex*, double>& y)
              { return x.second < y.second; });
     }
 }
 
-void MEMMarkovModel::score(const set<MEMMarkovModelVertex*>& exclude) {
+void MEMChainModel::score(const set<MEMChainModelVertex*>& exclude) {
     // propagate the scores in the model
     for (auto& m : model) {
         // score is equal to the max inbound + mem.weight
@@ -6645,8 +6645,8 @@ void MEMMarkovModel::score(const set<MEMMarkovModelVertex*>& exclude) {
     }
 }
 
-MEMMarkovModelVertex* MEMMarkovModel::max_vertex(void) {
-    MEMMarkovModelVertex* maxv = nullptr;
+MEMChainModelVertex* MEMChainModel::max_vertex(void) {
+    MEMChainModelVertex* maxv = nullptr;
     for (auto& m : model) {
         if (maxv == nullptr || m.score > maxv->score) {
             maxv = &m;
@@ -6655,17 +6655,17 @@ MEMMarkovModelVertex* MEMMarkovModel::max_vertex(void) {
     return maxv;
 }
 
-void MEMMarkovModel::clear_scores(void) {
+void MEMChainModel::clear_scores(void) {
     for (auto& m : model) {
         m.score = 0;
         m.prev = nullptr;
     }
 }
 
-vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool paired, bool debug) {
+vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool paired, bool debug) {
     vector<vector<MaximalExactMatch> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
-    set<MEMMarkovModelVertex*> exclude;
+    set<MEMChainModelVertex*> exclude;
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
         clear_scores();
@@ -6674,12 +6674,12 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
 #pragma omp critical
         {
             if (debug) {
-                cerr << "MEMMarkovModel::traceback " << i << endl;
+                cerr << "MEMChainModel::traceback " << i << endl;
                 display(cerr);
             }
         }
 #endif
-        vector<MEMMarkovModelVertex*> vertex_trace;
+        vector<MEMChainModelVertex*> vertex_trace;
         {
             // find the maximum score
             auto* vertex = max_vertex();
@@ -6724,7 +6724,7 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
 }
 
 // show model
-void MEMMarkovModel::display(ostream& out) {
+void MEMChainModel::display(ostream& out) {
     for (auto& vertex : model) {
         out << vertex.mem.sequence() << ":" << vertex.mem.fragment << " " << &vertex << ":" << vertex.score << "@";
         for (auto& node : vertex.mem.nodes) {
