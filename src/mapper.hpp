@@ -278,6 +278,14 @@ public:
     vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq);
     // helper for computing the number of bases in the query covered by a cluster
     int cluster_coverage(const vector<MaximalExactMatch>& cluster);
+    // helper to tell if mems are ovelapping
+    bool mems_overlap(const MaximalExactMatch& mem1,
+                      const MaximalExactMatch& mem2);
+    // helper to tell if clusters have any overlap
+    bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
+                          const vector<MaximalExactMatch>& cluster2);
+    // use mapper parameters to determine which clusters we should drop
+    set<const vector<MaximalExactMatch>* > clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters);
 
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
@@ -518,6 +526,7 @@ public:
     float perfect_pair_identity_threshold;
     int8_t full_length_alignment_bonus;
     bool simultaneous_pair_alignment;
+    float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
 
 };
 
