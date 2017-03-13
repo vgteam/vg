@@ -193,7 +193,7 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
 
 
 PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG graph){
-    graph = graph;
+    this->graph = graph;
 }
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
     // Goal: enumerate traversals in the snarl supported by paths in the graph

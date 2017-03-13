@@ -6,6 +6,7 @@
 #include <iostream>
 #include <algorithm>
 #include <functional>
+#include <numeric>
 #include <cmath>
 #include <limits>
 #include <unordered_set>

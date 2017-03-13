@@ -42,10 +42,12 @@ using namespace std;
     //Cache graph paths
     unordered_map<string, list<Mapping> > gpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end()  );
 
-    string descrip = "";
-    descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
-    descrip = "##INFO=<ID=GP,Number=1,Type=Float,Description=\"Genotype probability for genotype call.\"\\>";
-    vars->addHeaderLine(descrip);
+    string ad_descrip = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
+    string gp_descrip = "##INFO=<ID=GP,Number=1,Type=Float,Description=\"Genotype probability for genotype call.\"\\>";
+    string gt_descrip = "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\"\\>";
+    vars->addHeaderLine(ad_descrip);
+    vars->addHeaderLine(gp_descrip);
+    vars->addHeaderLine(gt_descrip);
 
     cout << vars->header << endl;
 
@@ -123,9 +125,6 @@ using namespace std;
                         // Add alignment to the variant's set of alignments
                         allele_name_to_alignment_name[all_str].insert(a.name());
                     }
-
-                    //node_id_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
-                    
             }
             }
     };
@@ -192,15 +191,17 @@ using namespace std;
             vector<double> geno_priors {0.1, 0.4, 0.8};
             vector<double> data_probs (geno_priors.size());
             vector<double> geno_probs (geno_priors.size());
-            
-            if (true){
+           
+#ifdef DEBUG
                 cerr << "Ref count " << ref_count << endl;
                 cerr << "Alt count " << alt_count << endl;
-            }
+#endif
             // calculate genotype data probs
             for (int i = 0; i < geno_priors.size(); i++){
                double x = get_binoms(ref_count, alt_count, geno_priors[i]) * allele_prior; 
+#ifdef DEBUG
                cerr << "Prob: " << x << endl;
+#endif
                data_probs[i] = x;
             }
             double sum_data_probs = std::accumulate(data_probs.begin(), data_probs.end(), 0.0);
@@ -221,30 +222,40 @@ using namespace std;
                     geno_index = i;
                 }
             }
-
+            
+#ifdef DEBUG
             cerr << "Big prob: " << big_prob << endl
                 <<  "geno_index " << geno_index << endl;
-
+#endif
 
             return std::make_pair(big_prob, geno_index);
         };
 
+    string sampleName = "Sample";
     for (auto it : hash_to_var){
         cerr << it.second.position << " ";
         vector<int64_t> read_counts(it.second.alt.size() + 1, 0);
         for (int i = 0; i <= it.second.alt.size(); ++i){
             int64_t readsum = 0;
             string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
-            for (int j = 0; j < allele_name_to_node_id[ alt_id ].size(); j++){
-                //readsum += node_id_to_depth[allele_name_to_node_id[ alt_id ][j]];
-            }
-
+            readsum = allele_name_to_alignment_name[ alt_id ].size();
             read_counts[i] = readsum;
             it.second.info["AD"].push_back(std::to_string(readsum));
-
         }
 
         pair<double, int> prob_and_geno_index = do_math(  read_counts[0], read_counts[1], 0.333);
+        if (prob_and_geno_index.second == 0){
+            it.second.samples[sampleName]["GT"].push_back("0/0");
+        }
+        else if (prob_and_geno_index.second == 1){
+            it.second.samples[sampleName]["GT"].push_back("0/1");
+        }
+        else if(prob_and_geno_index.second == 2){
+            it.second.samples[sampleName]["GT"].push_back("1/1");
+        }
+        else{
+
+        }
 
         it.second.info["GP"].push_back(std::to_string(prob_and_geno_index.first));
 
