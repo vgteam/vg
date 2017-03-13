@@ -2095,10 +2095,14 @@ bool Mapper::clusters_overlap(const vector<MaximalExactMatch>& cluster1,
 
 set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
     set<const vector<MaximalExactMatch>* > to_drop;
+    map<const vector<MaximalExactMatch>*, int> cluster_cov;
+    for (auto& cluster : clusters) {
+        cluster_cov[&cluster] = cluster_coverage(cluster);
+    }
     for (int i = 0; i < clusters.size(); ++i) {
         // establish overlaps with longer clusters for all clusters
         auto& this_cluster = clusters[i];
-        int t = cluster_coverage(this_cluster);
+        int t = cluster_cov[&this_cluster];
         int b = -1;
         int l = t;
         for (int j = i; j >= 0; --j) {
@@ -2106,7 +2110,7 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
             // are we overlapping?
             auto& other_cluster = clusters[j];
             if (clusters_overlap(this_cluster, other_cluster)) {
-                int c = cluster_coverage(other_cluster);
+                int c = cluster_cov[&other_cluster];
                 if (c > l) {
                     l = c;
                     b = j;
@@ -6551,6 +6555,7 @@ MEMMarkovModel::MEMMarkovModel(
     Mapper* mapper,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width) {
+    // get the approximate positions of the mems
     // store the MEMs in the model
     int frag_n = 0;
     for (auto& fragment : matches) {
