@@ -1634,10 +1634,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
         // set up positions for distance query
-        auto& node1 = m1.nodes.front();
-        pos_t m1_pos = make_pos_t(node1);
-        auto& node2 = m2.nodes.front();
-        pos_t m2_pos = make_pos_t(node2);
+        pos_t m1_pos = make_pos_t(m1.nodes.front());
+        pos_t m2_pos = make_pos_t(m2.nodes.front());
         double uniqueness = 2.0 / (m1.match_count + m2.match_count);
 
         // approximate distance by node lengths
@@ -1736,7 +1734,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     };
 
     // build the paired-read MEM markov model
-    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, mems1.size() + mems2.size());
+    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), (int)fragment_max));
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
 
     // now reconstruct the paired fragments from the threads
@@ -2181,7 +2179,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "approx distance " << approx_dist << endl;
+            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << "approx distance " << approx_dist << endl;
         }
 #endif
         if (approx_dist > max_length) {
@@ -2217,7 +2215,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
     // build the model
-    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, mems.size());
+    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
 
     auto show_clusters = [&](void) {
@@ -6554,8 +6552,8 @@ MEMChainModel::MEMChainModel(
     const vector<vector<MaximalExactMatch> >& matches,
     Mapper* mapper,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-    int band_width) {
-    // get the approximate positions of the mems
+    int band_width,
+    int position_depth) {
     // store the MEMs in the model
     int frag_n = 0;
     for (auto& fragment : matches) {
@@ -6570,55 +6568,69 @@ MEMChainModel::MEMChainModel(
                 m.weight = mem.length();
                 m.prev = nullptr;
                 m.score = 0;
+                m.approx_position = mapper->approx_position(make_pos_t(node));
                 m.mem = mem;
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
                 m.mem.match_count = mem.match_count;
-                //m.mem.fill_positions(mapper);
                 model.push_back(m);
             }
         }
     }
-    for (vector<MEMChainModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
-        // fill the nexts using banding constraints
-        // banding means we stop looking along the MEMs when the score_transition function returns value/false
-        // as a result changing the score function to return 0 at a given threshold induces local banding
-        auto n = m;
-        ++n;
-        int i = 0;
-        bool connected = false;
-        //cerr << "from " << m->mem << endl;
-        while (n != model.end()) {
-            //cerr << "  to " << n->mem << endl;
-            // skip past MEMs at the same position in the read
-            if (n->mem.begin == m->mem.begin) {
-                //cerr << "    skip" << endl;
-                ++n; continue;
+    // index the model with the positions
+    for (vector<MEMChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
+        approx_positions[v->approx_position].push_back(v);
+    }
+    // sort the vertexes at each approx position by their matches and trim
+    for (auto& pos : approx_positions) {
+        std::sort(pos.second.begin(), pos.second.end(), [](const vector<MEMChainModelVertex>::iterator& v1,
+                                                           const vector<MEMChainModelVertex>::iterator& v2) {
+                      return v1->mem.match_count < v2->mem.match_count;
+                  });
+        pos.second.resize(min(pos.second.size(), (size_t)position_depth));
+    }
+    // now build up the model using the positional bandwidth
+    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
+         p != approx_positions.end(); ++p) {
+        // look bandwidth before and bandwidth after in the approx positions
+        // before
+        for (auto& v1 : p->second) {
+            auto q = p;
+            if (q != approx_positions.begin()) {
+                while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
+                    for (auto& v2 : q->second) {
+                        // if this is an allowable transition, run the weighting function on it
+                        if (v1->mem.begin < v2->mem.begin) {
+                            double weight = transition_weight(v1->mem, v2->mem);
+                            if (weight > -std::numeric_limits<double>::max()) {
+                                //cerr << "    saving" << endl;
+                                // save if we got a weight
+                                v1->next_cost.push_back(make_pair((MEMChainModelVertex*)&*v2, weight));
+                                v2->prev_cost.push_back(make_pair((MEMChainModelVertex*)&*v1, weight));
+                            }
+                        }
+                    }
+                }
             }
-            // todo how do we handle MEMs at the same starting position
-            // these are duplicates which we need to introduce...
-            double weight = transition_weight(m->mem, n->mem);
-            //cerr << "    weight " << weight << endl;
-            if (++i > band_width && connected) {
-                //cerr << "    breaking" << endl;
-                break;
-            }
-            if (weight > -std::numeric_limits<double>::max()) {
-                //cerr << "    saving" << endl;
-                // save if we got a weight
-                m->next_cost.push_back(make_pair(&*n, weight));
-                n->prev_cost.push_back(make_pair(&*m, weight));
-                connected = true;
-            }
-            ++n;
-            ++i;
         }
-        // sort the nexts to make later traversal easier
-        sort(m->next_cost.begin(), m->next_cost.end(),
-             [](const pair<MEMChainModelVertex*, double>& x,
-                const pair<MEMChainModelVertex*, double>& y)
-             { return x.second < y.second; });
+        for (auto& v1 : p->second) {
+            auto q = p;
+            while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
+                for (auto& v2 : q->second) {
+                    // if this is an allowable transition, run the weighting function on it
+                    if (v1->mem.begin < v2->mem.begin) {
+                        double weight = transition_weight(v1->mem, v2->mem);
+                        if (weight > -std::numeric_limits<double>::max()) {
+                            //cerr << "    saving" << endl;
+                            // save if we got a weight
+                            v1->next_cost.push_back(make_pair(&*v2, weight));
+                            v2->prev_cost.push_back(make_pair(&*v1, weight));
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

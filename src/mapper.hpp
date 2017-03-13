@@ -78,6 +78,7 @@ public:
     vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
+    int approx_position;
     MEMChainModelVertex* prev;
     MEMChainModelVertex(void) = default;                                      // Copy constructor
     MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
@@ -90,12 +91,14 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
+    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-        int band_width = 10);
+        int band_width = 10,
+        int position_depth = 3);
     void score(const set<MEMChainModelVertex*>& exclude);
     MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
