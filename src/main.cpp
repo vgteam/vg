@@ -1400,9 +1400,9 @@ void help_msga(char** argv) {
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
          << "    -V, --mem-reseed N      reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-         << "                            set to -1 to estimate as 2x min mem length (default: -1/estimated)" << endl
+         << "                            set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
          << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
-         << "                            set to -1 to estimate as 2.5x min mem length (default: -1/estimated)" << endl
+         << "                            set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -1475,7 +1475,7 @@ int main_msga(int argc, char** argv) {
     int sens_step = 5;
     float chance_match = 0.05;
     int mem_reseed_length = -1;
-    int min_cluster_length = -1;
+    int min_cluster_length = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1854,10 +1854,10 @@ int main_msga(int argc, char** argv) {
                                       : mapper->random_match_length(chance_match));
             mapper->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                          : (mem_reseed_length == 0 ? 0
-                                            : round(2 * mapper->min_mem_length)));
+                                            : round(1.5 * mapper->min_mem_length)));
             mapper->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
                                           : (min_cluster_length == 0 ? 0
-                                             : round(2.5 * mapper->min_mem_length)));
+                                             : round(1.5 * mapper->min_mem_length)));
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
@@ -4992,7 +4992,7 @@ void help_map(char** argv) {
          << "                              max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
          << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 100)" << endl
+         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 64)" << endl
          << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
          << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
          << "generic mapping parameters:" << endl
@@ -5001,7 +5001,7 @@ void help_map(char** argv) {
          << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
          << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 10000)" << endl
+         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 512)" << endl
          << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
@@ -5015,12 +5015,13 @@ void help_map(char** argv) {
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
-         << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
+         << "    -8, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
          << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-         << "                             set to -1 to estimate as 2x min mem length (default: -1/estimated)" << endl
+         << "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
          << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
-         << "                             set to -1 to estimate as 2.5x min mem length (default: -1/estimated)" << endl
+         << "                             set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
+         << "    -F, --drop-chain N       drop clusters of MEMs shorter than FLOAT fraction of the longest overlapping cluster (default: 0.5)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -5054,7 +5055,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 100;
+    int hit_max = 512;
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 10;
@@ -5079,7 +5080,7 @@ int main_map(int argc, char** argv) {
     int softclip_threshold = 0;
     int max_mem_length = 0;
     int min_mem_length = -1;
-    int min_cluster_length = -1;
+    int min_cluster_length = 0;
     float random_match_chance = 0.05;
     int mem_reseed_length = -1;
     bool mem_threading = true;
@@ -5091,7 +5092,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 32;
+    int extra_multimaps = 64;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -5106,6 +5107,7 @@ int main_map(int argc, char** argv) {
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = false;
+    float drop_chain = 0.5;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5171,13 +5173,14 @@ int main_map(int argc, char** argv) {
                 {"fragment-sigma", required_argument, 0, '2'},
                 {"full-l-bonus", required_argument, 0, 'T'},
                 {"no-cluster-mq", no_argument, 0, '4'},
-                {"chance-match", required_argument, 0, 'F'},
+                {"chance-match", required_argument, 0, '8'},
                 {"unsmoothly", no_argument, 0, '5'},
+                {"drop-chain", required_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4567:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4567:8:",
                          long_options, &option_index);
 
 
@@ -5303,8 +5306,12 @@ int main_map(int argc, char** argv) {
             debug = true;
             break;
 
-        case 'F':
+        case '8':
             chance_match = atof(optarg);
+            break;
+
+        case 'F':
+            drop_chain = atof(optarg);
             break;
 
         case 'G':
@@ -5615,14 +5622,15 @@ int main_map(int argc, char** argv) {
         m->kmer_min = kmer_min;
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
+        m->drop_chain = drop_chain;
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
                                 : (mem_reseed_length == 0 ? 0
-                                   : round(2 * m->min_mem_length)));
+                                   : round(1.5 * m->min_mem_length)));
         m->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
                                  : (min_cluster_length == 0 ? 0
-                                    : round(2 * m->min_mem_length)));
+                                    : round(1.5 * m->min_mem_length)));
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
                  << ", mem_reseed_length = " << m->mem_reseed_length

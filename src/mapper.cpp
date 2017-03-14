@@ -60,6 +60,7 @@ Mapper::Mapper(Index* idex,
     , use_cluster_mq(false)
     , smooth_alignments(true)
     , simultaneous_pair_alignment(true)
+    , drop_chain(0.5)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -1770,11 +1771,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         }
     }
 #endif
-
+    auto to_drop = clusters_to_drop(clusters);
     vector<pair<Alignment, Alignment> > alns;
     //pair<vector<Alignment>, vector<Alignment> > alns;
     int multimaps = 0;
     for (auto& cluster : clusters) {
+        // skip if we've filtered the cluster
+        if (to_drop.count(&cluster)) continue;
         // stop if we have enough multimaps
         if (multimaps > total_multimaps) { break; }
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
@@ -2071,6 +2074,53 @@ Mapper::average_node_length(void) {
     return (double) xindex->seq_length / (double) xindex->node_count;
 }
 
+bool Mapper::mems_overlap(const MaximalExactMatch& mem1,
+                          const MaximalExactMatch& mem2) {
+    // we overlap if we are not completely separated
+    return !(mem1.end <= mem2.begin
+             || mem2.end <= mem1.begin);
+}
+
+bool Mapper::clusters_overlap(const vector<MaximalExactMatch>& cluster1,
+                              const vector<MaximalExactMatch>& cluster2) {
+    for (auto& mem1 : cluster1) {
+        for (auto& mem2 : cluster2) {
+            if (mems_overlap(mem1, mem2)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
+    set<const vector<MaximalExactMatch>* > to_drop;
+    for (int i = 0; i < clusters.size(); ++i) {
+        // establish overlaps with longer clusters for all clusters
+        auto& this_cluster = clusters[i];
+        int t = cluster_coverage(this_cluster);
+        int b = -1;
+        int l = t;
+        for (int j = i; j >= 0; --j) {
+            if (j == i) continue;
+            // are we overlapping?
+            auto& other_cluster = clusters[j];
+            if (clusters_overlap(this_cluster, other_cluster)) {
+                int c = cluster_coverage(other_cluster);
+                if (c > l) {
+                    l = c;
+                    b = j;
+                }
+            }
+        }
+        if (b >= 0 && (float) t / (float) l < drop_chain) {
+            to_drop.insert(&this_cluster);
+        }
+    }
+    return to_drop;
+}
+
+
 // returns the SMEM clusters which are consistent with the distribution of the MEMs in the read
 // provided some tolerance +/-
 // uses the exact matches to generate as much of each alignment as possible
@@ -2214,13 +2264,16 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 #endif
-    
+    auto to_drop = clusters_to_drop(clusters);
+
     // for up to our required number of multimaps
     // make the perfect-match alignment for the SMEM cluster
     // then fix it up with DP on the little bits between the alignments
     vector<Alignment> alns;
     int multimaps = 0;
     for (auto& cluster : clusters) {
+        // filtered out due to overlap with longer chain
+        if (to_drop.count(&cluster)) continue;
         if (++multimaps > total_multimaps) { break; }
         // skip this if we don't have sufficient cluster coverage and we have at least two alignments
         // which we can use to estimate mapping quality
