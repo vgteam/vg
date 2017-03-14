@@ -70,34 +70,37 @@ public:
 };
 
 
-class MEMMarkovModelVertex {
+class MEMChainModelVertex {
 public:
     MaximalExactMatch mem;
-    vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
-    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for backward
+    vector<pair<MEMChainModelVertex*, double> > next_cost; // for forward
+    vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
-    MEMMarkovModelVertex* prev;
-    MEMMarkovModelVertex(void) = default;                                      // Copy constructor
-    MEMMarkovModelVertex(const MEMMarkovModelVertex&) = default;               // Copy constructor
-    MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
-    MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
-    MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
-    virtual ~MEMMarkovModelVertex() { }                     // Destructor
+    int approx_position;
+    MEMChainModelVertex* prev;
+    MEMChainModelVertex(void) = default;                                      // Copy constructor
+    MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
+    MEMChainModelVertex(MEMChainModelVertex&&) = default;                    // Move constructor
+    MEMChainModelVertex& operator=(const MEMChainModelVertex&) & = default;  // MEMChainModelVertexopy assignment operator
+    MEMChainModelVertex& operator=(MEMChainModelVertex&&) & = default;       // Move assignment operator
+    virtual ~MEMChainModelVertex() { }                     // Destructor
 };
 
-class MEMMarkovModel {
+class MEMChainModel {
 public:
-    vector<MEMMarkovModelVertex> model;
-    MEMMarkovModel(
+    vector<MEMChainModelVertex> model;
+    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-        int band_width = 10);
-    void score(const set<MEMMarkovModelVertex*>& exclude);
-    MEMMarkovModelVertex* max_vertex(void);
+        int band_width = 10,
+        int position_depth = 3);
+    void score(const set<MEMChainModelVertex*>& exclude);
+    MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);
     void clear_scores(void);

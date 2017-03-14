@@ -60,7 +60,7 @@ Mapper::Mapper(Index* idex,
     , use_cluster_mq(false)
     , smooth_alignments(true)
     , simultaneous_pair_alignment(true)
-    , drop_chain(0.5)
+    , drop_chain(0.2)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -762,16 +762,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     };
 
     // find the MEMs for the alignments
-    vector<MaximalExactMatch> mems1 = find_mems_simple(read1.sequence().begin(),
-                                                       read1.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
-    vector<MaximalExactMatch> mems2 = find_mems_simple(read2.sequence().begin(),
-                                                       read2.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
+                                                     read1.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
+    vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
+                                                     read2.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
     //cerr << "mems before " << mems1.size() << " " << mems2.size() << endl;
     // Do the initial alignments, making sure to get some extras if we're going to check consistency.
 
@@ -1608,22 +1608,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     pair<vector<Alignment>, vector<Alignment>> results;
 
     // find the MEMs for the alignments
-    vector<MaximalExactMatch> mems1 = find_mems_simple(read1.sequence().begin(),
-                                                       read1.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
+                                                     read1.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
 #ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     }
 #endif
-    vector<MaximalExactMatch> mems2 = find_mems_simple(read2.sequence().begin(),
-                                                       read2.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
+                                                     read2.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
 #ifdef debug_mapper
 #pragma omp critical
     {
@@ -1634,10 +1634,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
         // set up positions for distance query
-        auto& node1 = m1.nodes.front();
-        pos_t m1_pos = make_pos_t(node1);
-        auto& node2 = m2.nodes.front();
-        pos_t m2_pos = make_pos_t(node2);
+        pos_t m1_pos = make_pos_t(m1.nodes.front());
+        pos_t m2_pos = make_pos_t(m2.nodes.front());
         double uniqueness = 2.0 / (m1.match_count + m2.match_count);
 
         // approximate distance by node lengths
@@ -1736,8 +1734,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     };
 
     // build the paired-read MEM markov model
-    MEMMarkovModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, 32);
-    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
+    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), (int)fragment_max));
+    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, true, debug);
 
     // now reconstruct the paired fragments from the threads
     // for each thread we accept either both pairs or one fragment or the other
@@ -1754,7 +1752,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     id_t id = gcsa::Node::id(node);
                     size_t offset = gcsa::Node::offset(node);
                     bool is_rev = gcsa::Node::rc(node);
-                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
+                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << "," << mem.fragment << ",";
                 }
                 cerr << mem.sequence() << " ";
             }
@@ -1762,7 +1760,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         }
     };
 
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) {
@@ -1770,7 +1768,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             show_clusters();
         }
     }
-#endif
+//#endif
     auto to_drop = clusters_to_drop(clusters);
     vector<pair<Alignment, Alignment> > alns;
     //pair<vector<Alignment>, vector<Alignment> > alns;
@@ -2095,10 +2093,14 @@ bool Mapper::clusters_overlap(const vector<MaximalExactMatch>& cluster1,
 
 set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
     set<const vector<MaximalExactMatch>* > to_drop;
+    map<const vector<MaximalExactMatch>*, int> cluster_cov;
+    for (auto& cluster : clusters) {
+        cluster_cov[&cluster] = cluster_coverage(cluster);
+    }
     for (int i = 0; i < clusters.size(); ++i) {
         // establish overlaps with longer clusters for all clusters
         auto& this_cluster = clusters[i];
-        int t = cluster_coverage(this_cluster);
+        int t = cluster_cov[&this_cluster];
         int b = -1;
         int l = t;
         for (int j = i; j >= 0; --j) {
@@ -2106,7 +2108,7 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
             // are we overlapping?
             auto& other_cluster = clusters[j];
             if (clusters_overlap(this_cluster, other_cluster)) {
-                int c = cluster_coverage(other_cluster);
+                int c = cluster_cov[&other_cluster];
                 if (c > l) {
                     l = c;
                     b = j;
@@ -2177,7 +2179,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "approx distance " << approx_dist << endl;
+            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << "approx distance " << approx_dist << endl;
         }
 #endif
         if (approx_dist > max_length) {
@@ -2213,7 +2215,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
     // build the model
-    MEMMarkovModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, 16);
+    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
 
     auto show_clusters = [&](void) {
@@ -3236,11 +3238,11 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, additional_multimaps_for_quality);
         }
         else {
-            vector<MaximalExactMatch> mems = find_mems_simple(aln.sequence().begin(),
-                                                              aln.sequence().end(),
-                                                              max_mem_length,
-                                                              min_mem_length,
-                                                              mem_reseed_length);
+            vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
+                                                            aln.sequence().end(),
+                                                            max_mem_length,
+                                                            min_mem_length,
+                                                            mem_reseed_length);
             // query mem hits
 
             alignments = align_mem_multi(aln, mems, cluster_mq, additional_multimaps_for_quality);
@@ -3624,11 +3626,11 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
 #pragma omp critical
                     if (debug) cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
-                    vector<MaximalExactMatch> remems = find_mems_simple(mem.begin,
-                                                                        mem.end,
-                                                                        reseed_to,
-                                                                        min_mem_length,
-                                                                        0);
+                    vector<MaximalExactMatch> remems = find_mems_deep(mem.begin,
+                                                                      mem.end,
+                                                                      reseed_to,
+                                                                      min_mem_length,
+                                                                      0);
                     reseed_to /= 2;
                     for (auto& rmem : remems) {
                         // keep if we have more than the match count of the parent
@@ -6545,12 +6547,13 @@ bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
     return m1.begin < m2.begin && m1.end < m2.end && m1.nodes < m2.nodes;
 }
 
-MEMMarkovModel::MEMMarkovModel(
+MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
     Mapper* mapper,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-    int band_width) {
+    int band_width,
+    int position_depth) {
     // store the MEMs in the model
     int frag_n = 0;
     for (auto& fragment : matches) {
@@ -6561,63 +6564,79 @@ MEMMarkovModel::MEMMarkovModel(
             for (auto& node : mem.nodes) {
                 //model.emplace_back();
                 //auto m = model.back();
-                MEMMarkovModelVertex m;
+                MEMChainModelVertex m;
                 m.weight = mem.length();
                 m.prev = nullptr;
                 m.score = 0;
+                m.approx_position = mapper->approx_position(make_pos_t(node));
                 m.mem = mem;
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
                 m.mem.match_count = mem.match_count;
-                //m.mem.fill_positions(mapper);
                 model.push_back(m);
             }
         }
     }
-    for (vector<MEMMarkovModelVertex>::iterator m = model.begin(); m != model.end(); ++m) {
-        // fill the nexts using banding constraints
-        // banding means we stop looking along the MEMs when the score_transition function returns value/false
-        // as a result changing the score function to return 0 at a given threshold induces local banding
-        auto n = m;
-        ++n;
-        int i = 0;
-        bool connected = false;
-        //cerr << "from " << m->mem << endl;
-        while (n != model.end()) {
-            //cerr << "  to " << n->mem << endl;
-            // skip past MEMs at the same position in the read
-            if (n->mem.begin == m->mem.begin) {
-                //cerr << "    skip" << endl;
-                ++n; continue;
+    // index the model with the positions
+    for (vector<MEMChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
+        approx_positions[v->approx_position].push_back(v);
+    }
+    // sort the vertexes at each approx position by their matches and trim
+    for (auto& pos : approx_positions) {
+        std::sort(pos.second.begin(), pos.second.end(), [](const vector<MEMChainModelVertex>::iterator& v1,
+                                                           const vector<MEMChainModelVertex>::iterator& v2) {
+                      return v1->mem.match_count < v2->mem.match_count;
+                  });
+        pos.second.resize(min(pos.second.size(), (size_t)position_depth));
+    }
+    // now build up the model using the positional bandwidth
+    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
+         p != approx_positions.end(); ++p) {
+        // look bandwidth before and bandwidth after in the approx positions
+        // before
+        for (auto& v1 : p->second) {
+            auto q = p;
+            if (q != approx_positions.begin()) {
+                while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
+                    for (auto& v2 : q->second) {
+                        // if this is an allowable transition, run the weighting function on it
+                        if (v1->mem.fragment != v2->mem.fragment
+                            || v1->mem.begin < v2->mem.begin) {
+                            double weight = transition_weight(v1->mem, v2->mem);
+                            if (weight > -std::numeric_limits<double>::max()) {
+                                //cerr << "    saving" << endl;
+                                // save if we got a weight
+                                v1->next_cost.push_back(make_pair((MEMChainModelVertex*)&*v2, weight));
+                                v2->prev_cost.push_back(make_pair((MEMChainModelVertex*)&*v1, weight));
+                            }
+                        }
+                    }
+                }
             }
-            // todo how do we handle MEMs at the same starting position
-            // these are duplicates which we need to introduce...
-            double weight = transition_weight(m->mem, n->mem);
-            //cerr << "    weight " << weight << endl;
-            if (++i > band_width && connected) {
-                //cerr << "    breaking" << endl;
-                break;
-            }
-            if (weight > -std::numeric_limits<double>::max()) {
-                //cerr << "    saving" << endl;
-                // save if we got a weight
-                m->next_cost.push_back(make_pair(&*n, weight));
-                n->prev_cost.push_back(make_pair(&*m, weight));
-                connected = true;
-            }
-            ++n;
-            ++i;
         }
-        // sort the nexts to make later traversal easier
-        sort(m->next_cost.begin(), m->next_cost.end(),
-             [](const pair<MEMMarkovModelVertex*, double>& x,
-                const pair<MEMMarkovModelVertex*, double>& y)
-             { return x.second < y.second; });
+        for (auto& v1 : p->second) {
+            auto q = p;
+            while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
+                for (auto& v2 : q->second) {
+                    // if this is an allowable transition, run the weighting function on it
+                    if (v1->mem.fragment != v2->mem.fragment
+                        || v1->mem.begin < v2->mem.begin) {
+                        double weight = transition_weight(v1->mem, v2->mem);
+                        if (weight > -std::numeric_limits<double>::max()) {
+                            //cerr << "    saving" << endl;
+                            // save if we got a weight
+                            v1->next_cost.push_back(make_pair(&*v2, weight));
+                            v2->prev_cost.push_back(make_pair(&*v1, weight));
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-void MEMMarkovModel::score(const set<MEMMarkovModelVertex*>& exclude) {
+void MEMChainModel::score(const set<MEMChainModelVertex*>& exclude) {
     // propagate the scores in the model
     for (auto& m : model) {
         // score is equal to the max inbound + mem.weight
@@ -6640,8 +6659,8 @@ void MEMMarkovModel::score(const set<MEMMarkovModelVertex*>& exclude) {
     }
 }
 
-MEMMarkovModelVertex* MEMMarkovModel::max_vertex(void) {
-    MEMMarkovModelVertex* maxv = nullptr;
+MEMChainModelVertex* MEMChainModel::max_vertex(void) {
+    MEMChainModelVertex* maxv = nullptr;
     for (auto& m : model) {
         if (maxv == nullptr || m.score > maxv->score) {
             maxv = &m;
@@ -6650,17 +6669,17 @@ MEMMarkovModelVertex* MEMMarkovModel::max_vertex(void) {
     return maxv;
 }
 
-void MEMMarkovModel::clear_scores(void) {
+void MEMChainModel::clear_scores(void) {
     for (auto& m : model) {
         m.score = 0;
         m.prev = nullptr;
     }
 }
 
-vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool paired, bool debug) {
+vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool paired, bool debug) {
     vector<vector<MaximalExactMatch> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
-    set<MEMMarkovModelVertex*> exclude;
+    set<MEMChainModelVertex*> exclude;
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
         clear_scores();
@@ -6669,12 +6688,12 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
 #pragma omp critical
         {
             if (debug) {
-                cerr << "MEMMarkovModel::traceback " << i << endl;
+                cerr << "MEMChainModel::traceback " << i << endl;
                 display(cerr);
             }
         }
 #endif
-        vector<MEMMarkovModelVertex*> vertex_trace;
+        vector<MEMChainModelVertex*> vertex_trace;
         {
             // find the maximum score
             auto* vertex = max_vertex();
@@ -6719,7 +6738,7 @@ vector<vector<MaximalExactMatch> > MEMMarkovModel::traceback(int alt_alns, bool 
 }
 
 // show model
-void MEMMarkovModel::display(ostream& out) {
+void MEMChainModel::display(ostream& out) {
     for (auto& vertex : model) {
         out << vertex.mem.sequence() << ":" << vertex.mem.fragment << " " << &vertex << ":" << vertex.score << "@";
         for (auto& node : vertex.mem.nodes) {

@@ -4977,7 +4977,7 @@ void help_map(char** argv) {
          << "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
          << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
          << "                             set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
-         << "    -F, --drop-chain N       drop clusters of MEMs shorter than FLOAT fraction of the longest overlapping cluster (default: 0.5)" << endl
+         << "    -F, --drop-chain N       drop clusters of MEMs shorter than FLOAT fraction of the longest overlapping cluster (default: 0.2)" << endl
          << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
          << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
          << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
@@ -5063,7 +5063,7 @@ int main_map(int argc, char** argv) {
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = false;
-    float drop_chain = 0.5;
+    float drop_chain = 0.2;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5942,7 +5942,10 @@ int main_map(int argc, char** argv) {
                  &compare_gam]
                 (Alignment& alignment) {
                 int tid = omp_get_thread_num();
+                std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
                 vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
+                std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                std::chrono::duration<double> elapsed_seconds = end-start;
                 if(alignments.empty()) {
                     alignments.push_back(alignment);
                 }
@@ -5951,7 +5954,9 @@ int main_map(int argc, char** argv) {
                     cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
                                              << "\t" << alignments.front().identity()
                                              << "\t" << alignments.front().score()
-                                             << "\t" << alignments.front().mapping_quality() << endl;
+                                             << "\t" << alignments.front().mapping_quality()
+                                             << "\t" << alignments.front().mapping_quality()
+                                             << "\t" << elapsed_seconds.count() << endl;
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);
