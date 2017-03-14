@@ -168,29 +168,34 @@ using namespace std;
     }
 **/
 
-        std::function<double(int)> fac = [](int t){
-           double result = 1.0;
-           for (int i = 1; i <= t; ++i){
+        std::function<long double(int)> fac = [](int64_t t){
+           long double result = 1.0;
+           for (int64_t i = 1; i <= t; ++i){
                result *= (double) i; 
            }
            return result;
         };
 
         // Creates a three-element vector, ref, het, alt
-        std::function<double(int, int, double)> get_binoms = [fac](int ref_count, int alt_count, double geno_prior){
-            double top_term = ( fac(alt_count + ref_count) );
-            double bottom_term = (fac(ref_count) * fac(alt_count));
+        std::function<long double(int64_t, int64_t, double)> get_binoms = [fac](int64_t ref_count, int64_t alt_count, double geno_prior){
+            /*if (ref_count == 0 && alt_count > 50){
+                ref_count = 1;
+            }
+            */
+            long double top_term = ( fac(alt_count + ref_count) );
+
+            long double bottom_term = (fac(ref_count) * fac(alt_count));
             
-            double dat_binom = top_term / bottom_term;
+            long double dat_binom = top_term / bottom_term;
             return dat_binom * pow(geno_prior, alt_count) * pow((1.0 - geno_prior), ref_count);
         };
     
-        std::function<pair<double, int>(int64_t, int64_t, double)> do_math = [get_binoms, fac](int64_t ref_count, int64_t alt_count, double allele_prior = 0.333){
+        std::function<pair<long double, int>(int64_t, int64_t, double)> do_math = [get_binoms, fac](int64_t ref_count, int64_t alt_count, double allele_prior = 0.333){
           
             // Genotype priors: HOMOZYOUS REF : HET : HOMOZYGOUS ALT
             vector<double> geno_priors {0.1, 0.4, 0.8};
             vector<double> data_probs (geno_priors.size());
-            vector<double> geno_probs (geno_priors.size());
+            vector<long double> geno_probs (geno_priors.size());
            
 #ifdef DEBUG
                 cerr << "Ref count " << ref_count << endl;
@@ -198,24 +203,24 @@ using namespace std;
 #endif
             // calculate genotype data probs
             for (int i = 0; i < geno_priors.size(); i++){
-               double x = get_binoms(ref_count, alt_count, geno_priors[i]) * allele_prior; 
+               long double x = get_binoms(ref_count, alt_count, geno_priors[i]) * allele_prior; 
 #ifdef DEBUG
                cerr << "Prob: " << x << endl;
 #endif
                data_probs[i] = x;
             }
-            double sum_data_probs = std::accumulate(data_probs.begin(), data_probs.end(), 0.0);
+            long double sum_data_probs = std::accumulate(data_probs.begin(), data_probs.end(), 0.0);
 
 
-            double big_prob = 0.0;
+            long double big_prob = 0.0;
             // 0 = ref, 1 = het, 2 = alt
             int geno_index = -1;
                 
 
             vector<double> prob_cache;
             for (int i = 0; i < geno_priors.size(); ++i){
-                double tmp_binom = data_probs[i];
-                double prob = tmp_binom / sum_data_probs;
+                long double tmp_binom = data_probs[i];
+                long double prob = tmp_binom / sum_data_probs;
                 prob_cache.push_back(prob);
                 if (prob > big_prob ){
                     big_prob = prob;
@@ -232,9 +237,16 @@ using namespace std;
         };
 
     string sampleName = "Sample";
+   // vector<string> fresh_samples;
+    //fresh_samples.push_back(sampleName);
+
     for (auto it : hash_to_var){
         cerr << it.second.position << " ";
         vector<int64_t> read_counts(it.second.alt.size() + 1, 0);
+        //it.second.format.push_back("GT");
+        string gt_str = "GT";
+        it.second.addFormatField(gt_str);
+        it.second.sampleNames.push_back(sampleName);
         for (int i = 0; i <= it.second.alt.size(); ++i){
             int64_t readsum = 0;
             string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
@@ -243,7 +255,7 @@ using namespace std;
             it.second.info["AD"].push_back(std::to_string(readsum));
         }
 
-        pair<double, int> prob_and_geno_index = do_math(  read_counts[0], read_counts[1], 0.333);
+        pair<long double, int> prob_and_geno_index = do_math(  read_counts[0], read_counts[1], 0.333);
         if (prob_and_geno_index.second == 0){
             it.second.samples[sampleName]["GT"].push_back("0/0");
         }
