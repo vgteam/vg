@@ -60,7 +60,7 @@ Mapper::Mapper(Index* idex,
     , use_cluster_mq(false)
     , smooth_alignments(true)
     , simultaneous_pair_alignment(true)
-    , drop_chain(0.5)
+    , drop_chain(0.2)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -6601,7 +6601,8 @@ MEMChainModel::MEMChainModel(
                 while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
                     for (auto& v2 : q->second) {
                         // if this is an allowable transition, run the weighting function on it
-                        if (v1->mem.begin < v2->mem.begin) {
+                        if (v1->mem.fragment != v2->mem.fragment
+                            || v1->mem.begin < v2->mem.begin) {
                             double weight = transition_weight(v1->mem, v2->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 //cerr << "    saving" << endl;
@@ -6619,7 +6620,8 @@ MEMChainModel::MEMChainModel(
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
                 for (auto& v2 : q->second) {
                     // if this is an allowable transition, run the weighting function on it
-                    if (v1->mem.begin < v2->mem.begin) {
+                    if (v1->mem.fragment != v2->mem.fragment
+                        || v1->mem.begin < v2->mem.begin) {
                         double weight = transition_weight(v1->mem, v2->mem);
                         if (weight > -std::numeric_limits<double>::max()) {
                             //cerr << "    saving" << endl;
