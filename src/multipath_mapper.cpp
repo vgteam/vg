@@ -7,42 +7,113 @@
 #include "multipath_mapper.hpp"
 
 namespace vg {
+    
+    MultipathAligner::multipath_align(const Alignment& alignment,
+                                      const vector<MaximalExactMatch>& mems){
+        
+        MultipathClusterer clusterer(alignment, mems, aligner, xgindex, full_length_bonus, max_strand_dist_probes,
+                                     max_expected_dist_approx_error);
+        
+        vector<vector<pair<MaximalExactMatch* const, pos_t>>> clusters = clusterer.clusters();
+        vector<VG*> cluster_graphs;
+        cluster_graphs.reserve(clusters.size());
+        
+        unordered_map<id_t, size_t> node_id_to_cluster;
+        
+        for (size_t i = 0; i < clusters.size(); i++) {
+            
+            vector<pair<MaximalExactMatch* const, pos_t>>& cluster = clusters[i];
+            vector<pos_t> positions;
+            vector<size_t>& forward_max_dist;
+            vector<size_t>& backward_max_dist;
+            
+            positions.reserve(cluster.size());
+            forward_max_dist.reserve(cluster.size());
+            backward_max_dist.reserve(cluster.size());
+            
+            for (auto mem_hit : cluster) {
+                positions.push_back(mem_hit.second);
+                forward_max_dist.push_back(aligner.longest_detectable_gap(alignment, mem_hit.first->end, full_length_bonus)
+                                           + (mem_hit.first->end - mem_hit.first->begin));
+                backward_max_dist.push_back(aligner.longest_detectable_gap(alignment, mem_hit.first->begin, full_length_bonus));
+            }
+            
+            Graph graph;
+            algorithms::extract_containing_graph(xgindex, graph, positions, forward_max_dist,
+                                                 backward_max_dist, &node_cache);
+            
+            // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
+            // one cluster was split into multiple clusters)
+            unordered_set<size_t> overlapping_graphs;
+            for (size_t j = 0; j < graph.node_size(); j++) {
+                id_t node_id = graph.node(j).id();
+                if (node_id_to_cluster.count(node_id)) {
+                    overlapping_graphs.insert(node_id_to_cluster[node_id]);
+                }
+                else {
+                    node_id_to_cluster[node_id] = i;
+                }
+            }
+            
+            if (overlapping_graphs.empty()) {
+                // hacky socketing into the VG constructor so I can use the move constructor and hopefully
+                // avoid reallocating the Graph
+                bool passed_graph = false;
+                auto pass_graph = [&](Graph& into) {
+                    if (passed_graph) {
+                        return false;
+                    }
+                    else {
+                        into = std::move(graph);
+                        passed_graph = true;
+                        return true;
+                    }
+                };
+                cluster_graphs.push_back(new VG(pass_graph));
+            }
+            else if (overlapping_graphs.size() == 1) {
+                // this subgraph overlaps with one other graph, so we merge it in rather than make a new one
+                cluster_graphs[*overlapping_graphs.begin()]->extend(graph);
+            }
+            else {
+                // this subgraph chains together multiple clusters, so we merge all of them into the cluster
+                // with the smallest index
+                
+                size_t min_idx_cluster = std::numeric_limits<size_t>::max();
+                for (size_t j : overlapping_graphs) {
+                    if (j < min_idx_cluster) {
+                        min_idx_cluster = j;
+                    }
+                }
+                
+                // merge in the new graph
+                cluster_graphs[min_idx_cluster]->extend(graph);
+                
+                // merge in all the other graphs it connects to and remove them from the list
+                overlapping_graphs.erase(min_idx_cluster);
+                for (size_t j : overlapping_graphs) {
+                    std::swap(cluster_graphs[j], cluster_graphs.back());
+                    cluster_graphs[min_idx_cluster]->extend(cluster_graphs.back());
+                    delete cluster_graphs.back();
+                    cluster_graphs.pop_back();
+                }
+            }
+        }
+        
+        
+        for (VG* vg : cluster_graphs) {
+            delete vg;
+        }
+    }
+    
+    
     MultipathClusterer::MultipathClusterer(const Alignment& alignment,
                                            const vector<MaximalExactMatch>& mems,
                                            const BaseAligner& aligner,
                                            xg::XG& xgindex,
                                            int8_t full_length_bonus,
-                                           size_t num_pruning_tracebacks) :
-    alignment(alignment), mems(mems), aligner(aligner), full_length_bonus(full_length_bonus)
-    {
-        
-        init_mem_graph(xgindex);
-        //    perform_dp();
-        //    // TODO: is this the right approach? I might want to limit more than to tracebacks
-        //    // overlap edges will almost always get chosen too because I'm assuming maximum score between them
-        //    // maybe I need multiple scoring strategies? also worried about backward facing dangling overlaps once
-        //    // I am doing tail alignment. Maybe would be best to keep track of overlap edges so I can treat them different
-        //    //  - if the non-overlapping edge ends up being reachable in the graph, we probably never want the
-        //    //    overlap edge because it's just going to get pulled into taking the same match
-        //    prune_to_nodes_on_tracebacks(num_pruning_tracebacks);
-        //    remerge_split_nodes
-        //    query_node_matches(alignment, xgindex, node_cache);
-        //    remove_snarls(alignment, snarl_manager, aligner);
-        //    // past this point the edge weights don't really mean anything
-        //    query_internal_edge_subgraphs(alignment, xgindex, node_cache);
-    }
-    
-    void MultipathClusterer::init_mem_graph(const xg::XG& xgindex,
-                                            size_t max_strand_dist_probes,
-                                            size_t max_expected_dist_approx_error) {
-        
-        // TODO: handle inversions -- do I just need extra paths?
-        // for now just not checking for orientation consistency and hoping it works out (but this
-        // is only likely when inversion is small so that distance is not overestimated too much)
-        auto distance = [&](pos_t& pos_1, pos_t& pos_2) {
-            return xgindex.min_approx_path_distance(vector<string>(), id(pos_1), id(pos_2))
-            - (int64_t) offset(pos_1) + (int64_t) offset(pos_2);
-        };
+                                           size_t max_strand_dist_probes,
+                                           size_t max_expected_dist_approx_error) : aligner(aligner) {
         
         // the maximum graph distances to the right and left sides detectable from each node
         vector<pair<size_t, size_t>> maximum_detectable_gaps;
@@ -54,11 +125,11 @@ namespace vg {
         for (const MaximalExactMatch& mem : mems) {
             
             // calculate the longest gaps we could detect to the left and right of this MEM
-            pair<size_t, size_t> max_gaps(longest_detectable_gap(mem.begin),
-                                          longest_detectable_gap(mem.end));
+            pair<size_t, size_t> max_gaps(aligner.longest_detectable_gap(alignment, mem.begin, full_length_bonus),
+                                          aligner.longest_detectable_gap(alignment, mem.end, full_length_bonus));
             
             for (gcsa::node_type mem_hit : mem.nodes) {
-                nodes.emplace_back(mem.begin, mem.end, make_pos_t(mem_hit), 0, mem_score);
+                nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
                 maximum_detectable_gaps.push_back(max_gaps);
             }
         }
@@ -69,7 +140,7 @@ namespace vg {
         // initialize with every hit in its own strand cluster
         vector<vector<size_t>> strand_clusters(nodes.size());
         for (size_t i = 0; i < nodes.size(); i++) {
-            strand_clusters[i].insert(i);
+            strand_clusters[i].push_back(i);
         }
         
         // for recording the distance of any pair that we check with a finite distance
@@ -83,13 +154,20 @@ namespace vg {
         // find the unmerged strand cluster any hit currently belongs to
         unordered_map<size_t, size_t> merged_strand;
         auto get_merged_strand = [&merged_strand](size_t i) {
+            vector<size_t> path;
             while (merged_strand.count(i)) {
+                path.push_back(i);
                 i = merged_strand[i];
+            }
+            // path compression (similar to union find)
+            for (size_t j : path) {
+                merged_strand[j] = i;
             }
             return i;
         }
         
         // make a randomly shuffled list of pairs of nodes to compare distances in
+        // TODO: is there a way to do this without generating all pairs?
         vector<pair<size_t, size_t>> comparisons;
         comparisons.reserve((nodes.size() * (nodes.size() - 1)) / 2);
         for (int64_t i = 1; i < nodes.size(); i++) {
@@ -194,7 +272,7 @@ namespace vg {
         }
         
         // now approximate the relative positions along the strand by traversing each tree and
-        // treating the distances we measured as transitive
+        // treating the distances we estimated as transitive
         vector<unordered_map<size_t, int64_t>> strand_relative_position;
         vector<bool> processed(nodes.size());
         for (const auto& adjacency_record : strand_distance_tree) {
@@ -240,17 +318,18 @@ namespace vg {
         // approximate MEM alignment
         
         int64_t allowance = max_expected_dist_approx_error;
-        for (unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
+        for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
             
             // sort the nodes by relative position
             vector<pair<int64_t, size_t>> sorted_pos;
             for (const pair<size_t, int64_t>& pos_record : relative_pos) {
-                sorted_pos.emplace_back(pos_record.second, pos_record.first );
+                sorted_pos.emplace_back(pos_record.second, pos_record.first);
             }
             std::sort(sorted_pos.begin(), sorted_pos.end());
             
-            // first sweep: look for MEMs that are colinear along the read and have believable
-            // distances between them
+            // find edges within each strand cluster by first identifying the interval of MEMs that meets
+            // the graph distance constrant for each MEM and then checking for read colinearity and the
+            // reverse distance constraint
             int64_t last_idx = sorted_pos.size() - 1;
             int64_t low = 0, hi = last_idx;
             for (int64_t i = 0; i < sorted_pos.size(); i++) {
@@ -258,17 +337,21 @@ namespace vg {
                 int64_t strand_pos = sorted_pos[i].first;
                 size_t pivot_idx = sorted_pos[i].second;
                 MPCNode& pivot = nodes[pivot_idx];
-                int64_t pivot_length = pivot.end - pivot.begin;
+                int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
                 
+                // the limits of how far away we might detect edges to add to the clustering graph
                 int64_t target_low_pos = strand_pos - allowance;
-                int64_t target_hi_pos = strand_pos + pivot_length + maximum_detectable_gaps[pivot_idx].second;
+                int64_t target_hi_pos = strand_pos + pivot_length + maximum_detectable_gaps[pivot_idx].second + allowance;
                 
+                // move the lower boundary of the search interval to the lowest value inside the
+                // the target interval
                 while (sorted_pos[low].first < target_low_pos) {
                     low++;
                 }
                 
-                // the upper bound of candidate edges can be in either direction since the maximum dectectable
-                // gap varies by read position
+                // move the upper boundary of the search interval to the highest value inside the
+                // the target interval (this one can move in either direction because the maximum
+                // detectable gap changes)
                 if (sorted_pos[hi].first > target_hi_pos) {
                     while (sorted_pos[hi].first > target_hi_pos) {
                         hi--;
@@ -283,20 +366,25 @@ namespace vg {
                 for (int64_t j = low; j <= hi; j++) {
                     int64_t next_idx = sorted_pos[j].second;
                     MPCNode& next = nodes[next_idx];
-                    if (next.begin <= pivot.begin || next.end <= pivot.end) {
-                        // the nodes cannot be colinear along the read (also filters out j == i)
+                    
+                    if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
+                        // the MEMs cannot be colinear along the read (also filters out j == i)
                         continue;
                     }
                     
+                    // the length of the sequence in between the MEMs (can be negative if they overlap)
+                    int64_t between_length = next.mem->begin - pivot.mem->end;
+                    // the estimated distance between the end of the pivot and the start of the next MEM in the graph
                     int64_t graph_dist = max(0, sorted_pos[j].first - strand_pos - pivot_length);
+                    // the discrepancy between the graph distance and the read distance
+                    int64_t gap_length = abs(graph_dist - between_length);
                     
-                    // is this distance believeable in the other direction?
-                    if (graph_dist > maximum_detectable_gaps[next_idx].first) {
+                    if (gap_length > maximum_detectable_gaps[next_idx].first + allowance) {
+                        // the gap between the MEMs is too long to be believable from the next node
                         continue;
                     }
                     
                     int32_t edge_score;
-                    int64_t between_length = next.begin - pivot.end;
                     if (between_length < 0) {
                         // the MEMs overlap, but this can occur in some insertions and deletions
                         // because the SMEM algorithm is "greedy" in taking up as much of the read
@@ -305,23 +393,19 @@ namespace vg {
                         // so for now we just give it the benefit of the doubt but adjust the edge
                         // score so that the matches don't get double counted
                         
-                        int64_t extra_dist = max(0, graph_dist + between_length);
+                        int64_t extra_dist = max(0, gap_length);
                         
-                        edge_score = aligner.match * between_length
+                        edge_score = -aligner.match * between_length
                                      + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
                     }
                     else if (between_length > graph_dist) {
                         // the read length in between the MEMs is longer than the distance, suggesting a read insert
-                        int64_t extra_dist = between_length - graph_dist;
-                        
-                        edge_score = -aligner.mismatch * graph_dist - (extra_dist - 1) * aligner.gap_extension
+                        edge_score = -aligner.mismatch * graph_dist - (gap_length - 1) * aligner.gap_extension
                                      - aligner.gap_open;
                     }
                     else if (between_length < graph_dist) {
                         // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-                        int64_t extra_dist = graph_dist - between_length;
-                        
-                        edge_score = -aligner.mismatch * between_length - (extra_dist - 1) * aligner.gap_extension
+                        edge_score = -aligner.mismatch * between_length - (gap_length - 1) * aligner.gap_extension
                                      - aligner.gap_open;
                     }
                     else {
@@ -329,108 +413,245 @@ namespace vg {
                         edge_score = -aligner.mismatch * between_length;
                     }
                     
-                    pivot.forward_edges_from.emplace_back(next_idx, edge_score);
-                    next.forward_edges_to.emplace_back(pivot_idx, edge_score);
+                    // add the edges in
+                    pivot.edges_from.emplace_back(next_idx, edge_score);
+                    next.edges_to.emplace_back(pivot_idx, edge_score);
                 }
             }
-            
-            // second sweep: look for MEMs that are anti-colinear along the read and have believable
-            // distances between them (for the reverse complement alignment)
-            // TODO: this code is pretty repetitive, is there an easy way unify it with the first sweep?
-            low = 0;
-            hi = last_idx;
-            for (int64_t i = 0; i < sorted_pos.size(); i++) {
-                
-                int64_t strand_pos = sorted_pos[i].first;
-                size_t pivot_idx = sorted_pos[i].second;
-                
-                MPCNode& pivot = nodes[pivot_idx];
-                
-                int64_t target_hi_pos = strand_pos + allowance;
-                int64_t target_low_pos = strand_pos - pivot_length - (int64_t) maximum_detectable_gaps[pivot_idx].first;
-                
-                while (sorted_pos[hi].first > target_hi_pos) {
-                    hi--;
-                }
-                
-                // the lower bound of candidate edges can be in either direction since the maximum dectectable
-                // gap varies by read position
-                if (sorted_pos[low].first > target_low_pos) {
-                    while (low == 0 ? false : sorted_pos[low - 1].first <= target_low_pos) {
-                        low--;
+        }
+    }
+
+    void MultipathClusterer::topological_order(vector<size_t>& order_out) {
+        
+        // initialize return value
+        order_out.clear();
+        order_out.resize(nodes.size());
+        size_t order_idx = nodes.size() - 1;
+        
+        // initialize iteration structures
+        vector<bool> enqueued = vector<bool>(nodes.size());
+        vector<size_t> edge_index = vector<size_t>(nodes.size());
+        vector<size_t> stack;
+        
+        // iterate through starting nodes
+        for (size_t init_node_idx = 0; init_node_idx < nodes.size(); init_node_idx++) {
+            if (enqueued[init_node_idx]) {
+                continue;
+            }
+            // navigate through graph with DFS
+            stack.push_back(init_node_idx);
+            enqueued[init_node_idx] = true;
+            while (!stack.empty()) {
+                size_t node_idx = stack.back();
+                if (edge_index[node_idx] < nodes[node_idx].edges_from.size()) {
+                    int64_t target_idx = nodes[node_idx].edges_from[node_idx].to_idx;
+                    if (enqueued[target_idx]) {
+                        edge_index[node_idx]++;
+                    }
+                    else {
+                        stack.push_back(target_idx);
+                        enqueued[target_idx] = true;
                     }
                 }
                 else {
-                    while (sorted_pos[low].first < target_low_pos) {
-                        low++;
-                    }
-                }
-                
-                for (int64_t j = low; j <= hi; j++) {
-                    int64_t next_idx = sorted_pos[j].second;
-                    MPCNode& next = nodes[next_idx];
-                    int64_t next_length = next.end - next.begin;
-                    
-                    if (next.begin >= pivot.begin || next.end >= pivot.end) {
-                        // the nodes cannot be anti-colinear along the read (also filters out j == i)
-                        continue;
-                    }
-                    
-                    int64_t graph_dist = max(0, strand_pos - sorted_pos[j].first - next_length);
-                    
-                    // is this distance believeable in the other direction?
-                    if (graph_dist > maximum_detectable_gaps[next_idx].second) {
-                        continue;
-                    }
-                    
-                    int32_t edge_score;
-                    int64_t between_length = pivot.begin - next.end;
-                    if (between_length < 0) {
-                        // the MEMs overlap, but this can occur in some insertions and deletions
-                        // because the SMEM algorithm is "greedy" in taking up as much of the read
-                        // as possible
-                        // we can check if this happened with the SuffixTree, but it's expensive
-                        // so for now we just give it the benefit of the doubt but adjust the edge
-                        // score so that the matches don't get double counted
-                        
-                        int64_t extra_dist = max(0, graph_dist + between_length);
-                        
-                        edge_score = aligner.match * between_length
-                                     + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
-                    }
-                    else if (between_length > graph_dist) {
-                        // the read length in between the MEMs is longer than the distance, suggesting a read insert
-                        int64_t extra_dist = between_length - graph_dist;
-                        
-                        edge_score = -aligner.mismatch * graph_dist - (extra_dist - 1) * aligner.gap_extension
-                                     - aligner.gap_open;
-                    }
-                    else if (between_length < graph_dist) {
-                        // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-                        int64_t extra_dist = graph_dist - between_length;
-                        
-                        edge_score = -aligner.mismatch * between_length - (extra_dist - 1) * aligner.gap_extension
-                                     - aligner.gap_open;
-                    }
-                    else {
-                        // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                        edge_score = -aligner.mismatch * between_length;
-                    }
-                    
-                    pivot.reverse_edges_from.emplace_back(next_idx, edge_score);
-                    next.reverse_edges_to.emplace_back(pivot_idx, edge_score);
+                    // add to topological order in reverse finishing order
+                    stack.pop_back();
+                    order_out[order_idx] = node_idx;
+                    order_idx--;
                 }
             }
         }
     }
     
-    inline size_t MultipathMEMAligner::longest_detectable_gap(const string::const_iterator& read_pos) {
+    void MultipathMEMAligner::identify_sources_and_sinks(vector<size_t>& sources_out,
+                                                         vector<size_t>& sinks_out) {
         
-        // algebraic solution for when score is > 0 assuming perfect match other than gap
-        return (min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos)
-                + full_length_bonus - aligner.gap_open) / aligner.gap_extension + 1;
+        sources_out.clear();
+        sinks_out.clear();
         
+        vector<bool> is_source(nodes.size(), true);
+        
+        for (size_t i = 0; i < nodes.size(); i++) {
+            if (nodes[i].edges_from.empty()) {
+                sinks_out.push_back(i);
+            }
+            
+            for (MultipathMEMEdge& edge : nodes[i].edges_from) {
+                is_source[edge.to_idx] = false;
+            }
+        }
+        
+        for (size_t i = 0; i < nodes.size(); i++) {
+            if (is_source[i]) {
+                sources_out.push_back(i);
+            }
+        }
     }
+    
+    
+    
+    void MultipathClusterer::connected_components(vector<vector<size_t>>& components_out) {
+        
+        components_out.clear();
+        vector<bool> enqueued(nodes.size());
+        
+        // check each node in turn to find new components
+        for (size_t dfs_start_idx = 0; dfs_start_idx < nodes.size(); dfs_start_idx++) {
+            if (enqueued[dfs_start_idx]) {
+                // we've already found this node from some component
+                continue;
+            }
+            
+            // this node belongs to a component we haven't found yet, use DFS to find the rest
+            vector<size_t> stack {dfs_start_idx};
+            enqueued[dfs_start_idx] = true;
+            components_out.emplace_back(1, dfs_start_idx);
+            
+            while (!stack.empty()) {
+                
+                MultipathMEMNode& node = nodes[stack.back()];
+                stack.pop_back();
+                
+                // search in both forward and backward directions
+                
+                for (MultipathMEMEdge& edge : node.edges_from) {
+                    
+                    if (!enqueued[edge.to_idx]) {
+                        stack.push_back(edge.to_idx);
+                        enqueued[edge.to_idx] = true;
+                        components_out.back().push_back(edge.to_idx);
+                    }
+                }
+                
+                for (MultipathMEMEdge& edge : node.edges_to) {
+                    
+                    if (!enqueued[edge.to_idx]) {
+                        stack.push_back(edge.to_idx);
+                        enqueued[edge.to_idx] = true;
+                        components_out.back().push_back(edge.to_idx);
+                    }
+                }
+            }
+        }
+    }
+    
+    void MultipathClusterer::perform_dp() {
+        
+        // as in local alignment, minimum score is the score of node itself
+        for (size_t i = 0; i < nodes.size(); i++) {
+            nodes[i].dp_score = nodes[i].score;
+        }
+        
+        vector<size_t> order;
+        topological_order(order);
+        
+        for (size_t i : order) {
+            MPCNode& node = nodes[i];
+            
+            // for each edge out of this node
+            for (MPCEdge& edge : node.edges_from) {
+                
+                // check if the path through the node out of this edge increase score of target node
+                MPCNode& target_node = nodes[edge.to_idx];
+                int32_t extend_score = node.score + edge.weight + target_node.score;
+                if (extend_score > target_node.dp_score) {
+                    target_node.dp_score = extend_score;
+                }
+            }
+        }
+    }
+    
+    int64_t MultipathClusterer::trace_read_coverage(const vector<size_t>& trace) {
+        
+        MPCNode& node = nodes[trace[0]];
+        auto curr_begin = node.mem->begin;
+        auto curr_end = node.mem->end;
+        
+        int64_t total = 0;
+        for (size_t i = 1; i < trace.size(); i++) {
+            node = nodes[trace[i]];
+            if (node.mem->begin >= curr_end) {
+                total += (curr_end - curr_begin);
+                curr_begin = node.mem->begin;
+            }
+            curr_end = node.mem->end;
+        }
+        return total + (curr_end - curr_begin);
+    }
+    
+    vector<vector<pair<MaximalExactMatch* const, pos_t>>> MultipathClusterer::clusters(int32_t max_qual_score) {
+        
+        vector<vector<MaximalExactMatch* const, pos_t>> to_return;
+        if (nodes.size() == 0) {
+            // this should only happen if we have filtered out all MEMs, so there are none to cluster
+            return to_return;
+        }
+        
+        perform_dp();
+        
+        // find the weakly connected components, which should correspond to mappings
+        vector<vector<size_t>> components;
+        connected_components(components);
+        
+        // find the node with the highest DP score in each connected component
+        vector<pair<int32_t, size_t>> component_traceback_ends(components.size(),
+                                                               pair<int32_t, size_t>(numeric_limits<int32_t>::min(), 0));
+        for (size_t i = 0; i < components.size(); i++) {
+            vector<size_t>& component = components[i];
+            pair<int32_t, size_t>& traceback_end = component_traceback_ends[i];
+            for (size_t j = 0; j < component.size(); j++) {
+                int32_t dp_score = nodes[component[i]].dp_score
+                if (dp_score > traceback_end.first) {
+                    traceback_end.first = dp_score;
+                    traceback_end.second = j;
+                }
+            }
+        }
+        
+        // sort indices in descending order by their highest traceback score
+        vector<size_t> order = range_vector(0, components.size());
+        std::sort(order.begin(), order.end() [&](const size_t i, const size_t j) {
+            return component_traceback_ends[i].first > component_traceback_ends[j].first;
+        });
+        
+        int32_t top_score = component_traceback_ends[order[0]].first;
+        
+        for (size_t i : order) {
+            // get the component and the traceback end
+            vector<size_t>& component = components[i];
+            size_t trace_idx = component[component_traceback_ends[i].second];
+            
+            // if this cluster does not look like it even affect the mapping quality of the top scoring
+            // cluster, don't bother forming it
+            // TODO: this approximation could break down sometimes, need to look into it
+            // TODO: is there a way to make the aligner do this? I don't like having this functionality outside of it
+            if (4.3429448190325183 * aligner.log_base * (top_score - traceback_end.first) > max_qual_score ) {
+                continue;
+            }
+            
+            // traceback until hitting a node that has its own score (indicates beginning of a local alignment)
+            vector<size_t> trace{trace_idx};
+            while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
+                for (MPCEdge& edge : nodes[trace_idx].edges_to) {
+                    if (nodes[edge.to_idx].dp_score + edge.weight == nodes[trace_idx].dp_score) {
+                        trace_idx = edge.to_idx;
+                        trace.push_back(trace_idx);
+                    }
+                }
+            }
+            
+            // make a cluster
+            to_return.emplace_back();
+            auto& cluster = to_return.back();
+            for (auto iter = trace.rbegin(); iter != trace.rend(); iter++) {
+                MPCNode& node = nodes[*iter];
+                cluster.emplace_back(node.mem, node.start_pos);
+            }
+        }
+        
+        return to_return;
+    }
+
 }
 
 

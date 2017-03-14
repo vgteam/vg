@@ -2,7 +2,6 @@
 //  multipath_mem_aligner.hpp
 //  
 //
-//
 
 #ifndef multipath_mem_aligner_hpp
 #define multipath_mem_aligner_hpp
@@ -224,6 +223,7 @@ namespace vg {
         const size_t from_idx;
         /// Node index that traceback goes to instead of optimal traceback
         const size_t to_idx;
-    };}
+    };
+}
 
 #endif /* multipath_mem_aligner_hpp */

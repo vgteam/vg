@@ -291,6 +291,8 @@ struct Tree {
     }
 
 };
+    
+vector<size_t> range_vector(size_t begin, size_t end);
 
 struct IncrementIter {
 public:

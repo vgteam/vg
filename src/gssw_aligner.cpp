@@ -749,6 +749,14 @@ double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
     return log_base * score;
 }
 
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos,
+                                           int8_t full_length_bonus) {
+    // algebraic solution for when score is > 0 assuming perfect match other than gap
+    return (match * min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos)
+            + full_length_bonus - gap_open) / gap_extension + 1;
+    
+}
+
 Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
                  int8_t _gap_open,

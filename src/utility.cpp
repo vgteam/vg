@@ -214,6 +214,15 @@ double median(std::vector<int> &v) {
         return 0.5*(vn+v[n-1]);
     }
 }
+    
+vector<size_t> range_vector(size_t begin, size_t end) {
+    size_t len = end - begin;
+    vector<size_t> range(len, begin);
+    for (size_t i = 1; i < len; i++) {
+        range[i] = begin + i;
+    }
+    return range;
+}
 
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {
     

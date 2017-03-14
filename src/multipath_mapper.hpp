@@ -24,75 +24,85 @@
 using namespace std;
 
 namespace vg {
-    class MultipathClusterer {
+    
+    class MultipathAligner  {
+    public:
         
+        MultipathAlignment multipath_align(const Alignment& alignment,
+                                           const vector<MaximalExactMatch>& mems);
+        
+        
+    private:
+        
+        xg::XG xgindex;
+        LRUCache<id_t, Node> node_cache;
+        
+        int8_t full_length_bonus = 0;
+        size_t max_strand_dist_probes = 2;
+        size_t max_expected_dist_approx_error = 8;
+    };
+    
+    
+    class MultipathClusterer {
     public:
         MultipathClusterer(const Alignment& alignment,
                            const vector<MaximalExactMatch>& mems,
                            const BaseAligner& aligner,
                            xg::XG& xgindex,
                            int8_t full_length_bonus = 0,
-                           size_t num_pruning_tracebacks = 5);
+                           size_t max_strand_dist_probes = 2,
+                           size_t max_expected_dist_approx_error = 8);
         
-        /// Returns a vector of clusters. Each cluster is represented by a boolean indicating whether
-        /// it is from the forward (false) or reverse complement (true) strand of the read, and a
-        /// vector of MEM hits. Each hit contains a pointer to the original MEM and the position of
-        /// that particular hit in the graph.
-        vector<pair<bool, vector<pair<const MaximalExactMatch*, pos_t>>>> clusters();
+        /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
+        /// contains a pointer to the original MEM and the position of that particular hit in the graph.
+        vector<vector<pair<MaximalExactMatch* const, pos_t>>> clusters(int32_t max_qual_score = 60);
         
     private:
         class MPCNode;
         class MPCEdge;
-        class TracebackManager;
         
-        struct DPScoreComparator;
+        /// Fills input vector with node indices of a topological sort
+        void topological_order(vector<size_t>& order_out);
         
-        void init_mem_graph();
-                
-        /// The longest gap detectable from one side of a MEM without soft-clipping
-        inline size_t longest_detectable_gap(const string::const_iterator& read_pos);
+        /// Fills input vectors with indices of source and sink nodes
+        void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out);
+        
+        /// Identify weakly connected components in the graph
+        void connected_components(vector<vector<size_t>>& components_out);
+        
+        /// Perform dynamic programming
+        void perform_dp();
+        
+        /// Computes the number of bases a traceback through the MEM graph covers
+        int64_t trace_read_coverage(const vector<size_t>& trace);
         
         vector<MPCNode> nodes;
         
-        const Alignment& alignment;
-        const vector<MaximalExactMatch>& mems;
         const BaseAligner& aligner;
-        int8_t full_length_bonus;
-        
     };
     
     class MultipathClusterer::MPCNode {
     public:
-        MPCNode(string::const_iterator begin, string::const_iterator end, pos_t start_pos,
-                int32_t score) :
-                begin(begin), end(end), start_pos(start_pos), score(score) {}
+        MPCNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) :
+                mem(&mem), start_pos(start_pos), score(score) {}
         MPCNode() = default;
         ~MPCNode() = default;
         
-        /// Beginning position on the read
-        string::const_iterator begin;
-        /// End position on the read
-        string::const_iterator end;
+        MaximalExactMatch* const mem;
+        
         /// Position of GCSA hit in the graph
         pos_t start_pos;
         /// Score of the exact match this node represents
         int32_t score;
         
         /// Score during dynamic programming
-        int32_t forward_dp_score;
-        int32_t reverse_dp_score;
+        int32_t dp_score;
         
         /// Edges from this node that are colinear with the read
-        vector<MPCEdge> forward_edges_from;
+        vector<MPCEdge> edges_from;
         
         /// Edges to this node that are colinear with the read
-        vector<MPCEdge> forward_edges_to;
-        
-        /// Edges from this node that are anti-colinear with the read
-        vector<MPCEdge> reverse_edges_from;
-        
-        /// Edges to this node that are anti-colinear with the read
-        vector<MPCEdge> reverse_edges_to;
+        vector<MPCEdge> edges_to;
     };
     
     class MultipathClusterer::MPCEdge {
@@ -112,14 +122,12 @@ namespace vg {
     struct MultipathClusterer::DPScoreComparator {
     private:
         const vector<MPCNode>& nodes;
-        bool reverse;
     public:
         DPScoreComparator() = delete;
-        DPScoreComparator(const vector<MPCNode>& nodes, bool reverse) : nodes(nodes), reverse(reverse) {}
+        DPScoreComparator(const vector<MPCNode>& nodes) : nodes(nodes) {}
         ~DPScoreComparator() {}
         inline bool operator()(const size_t i, const size_t j) {
-            return reverse ? nodes[i].reverse_dp_score < nodes[j].reverse_dp_score
-                           : nodes[i].forward_dp_score < nodes[j].forward_dp_score;
+            return nodes[i].dp_score < nodes[j].dp_score;
         }
     };
 }

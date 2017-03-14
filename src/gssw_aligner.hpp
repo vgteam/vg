@@ -64,8 +64,6 @@ namespace vg {
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
         
-        // log of the base of the logarithm underlying the log-odds interpretation of the scores
-        double log_base = 0.0;
         
     public:
         
@@ -129,6 +127,10 @@ namespace vg {
         // Requires log_base to have been set.
         double score_to_unnormalized_likelihood_ln(double score);
         
+        /// The longest gap detectable from a read position without soft-clipping
+        size_t longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos,
+                                      int8_t full_length_bonus = 0);
+        
         // members
         int8_t* nt_table = nullptr;
         int8_t* score_matrix = nullptr;
@@ -136,6 +138,9 @@ namespace vg {
         int8_t mismatch;
         int8_t gap_open;
         int8_t gap_extension;
+        
+        // log of the base of the logarithm underlying the log-odds interpretation of the scores
+        double log_base = 0.0;
         
     };
     
