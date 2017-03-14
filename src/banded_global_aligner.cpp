@@ -2573,6 +2573,7 @@ inline const list<int64_t>& BandedGlobalAligner<IntType>::AltTracebackStack::cur
 template <class IntType>
 inline bool BandedGlobalAligner<IntType>::AltTracebackStack::at_next_deflection(int64_t node_id, int64_t row_idx,
                                                                                 int64_t col_idx) {
+    assert(curr_traceback != alt_tracebacks.end());
     // taken all deflections already?
     if (curr_deflxn == get<0>(*curr_traceback).end()) {
         return false;
