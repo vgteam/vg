@@ -762,16 +762,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     };
 
     // find the MEMs for the alignments
-    vector<MaximalExactMatch> mems1 = find_mems_simple(read1.sequence().begin(),
-                                                       read1.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
-    vector<MaximalExactMatch> mems2 = find_mems_simple(read2.sequence().begin(),
-                                                       read2.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
+                                                     read1.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
+    vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
+                                                     read2.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
     //cerr << "mems before " << mems1.size() << " " << mems2.size() << endl;
     // Do the initial alignments, making sure to get some extras if we're going to check consistency.
 
@@ -1608,22 +1608,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     pair<vector<Alignment>, vector<Alignment>> results;
 
     // find the MEMs for the alignments
-    vector<MaximalExactMatch> mems1 = find_mems_simple(read1.sequence().begin(),
-                                                       read1.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
+                                                     read1.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
 #ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     }
 #endif
-    vector<MaximalExactMatch> mems2 = find_mems_simple(read2.sequence().begin(),
-                                                       read2.sequence().end(),
-                                                       max_mem_length,
-                                                       min_mem_length,
-                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
+                                                     read2.sequence().end(),
+                                                     max_mem_length,
+                                                     min_mem_length,
+                                                     mem_reseed_length);
 #ifdef debug_mapper
 #pragma omp critical
     {
@@ -3238,11 +3238,11 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, additional_multimaps_for_quality);
         }
         else {
-            vector<MaximalExactMatch> mems = find_mems_simple(aln.sequence().begin(),
-                                                              aln.sequence().end(),
-                                                              max_mem_length,
-                                                              min_mem_length,
-                                                              mem_reseed_length);
+            vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
+                                                            aln.sequence().end(),
+                                                            max_mem_length,
+                                                            min_mem_length,
+                                                            mem_reseed_length);
             // query mem hits
 
             alignments = align_mem_multi(aln, mems, cluster_mq, additional_multimaps_for_quality);
@@ -3626,11 +3626,11 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
 #pragma omp critical
                     if (debug) cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
-                    vector<MaximalExactMatch> remems = find_mems_simple(mem.begin,
-                                                                        mem.end,
-                                                                        reseed_to,
-                                                                        min_mem_length,
-                                                                        0);
+                    vector<MaximalExactMatch> remems = find_mems_deep(mem.begin,
+                                                                      mem.end,
+                                                                      reseed_to,
+                                                                      min_mem_length,
+                                                                      0);
                     reseed_to /= 2;
                     for (auto& rmem : remems) {
                         // keep if we have more than the match count of the parent
