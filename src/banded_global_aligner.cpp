@@ -2387,6 +2387,7 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
     
     // initialize the traceback trackers for the optimal traceback
     curr_traceback = alt_tracebacks.begin();
+    assert(curr_traceback != alt_tracebacks.end());
     curr_deflxn = get<0>(*curr_traceback).begin();
 }
 
