@@ -1735,7 +1735,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 
     // build the paired-read MEM markov model
     MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), (int)fragment_max));
-    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
+    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, true, debug);
 
     // now reconstruct the paired fragments from the threads
     // for each thread we accept either both pairs or one fragment or the other
@@ -1752,7 +1752,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                     id_t id = gcsa::Node::id(node);
                     size_t offset = gcsa::Node::offset(node);
                     bool is_rev = gcsa::Node::rc(node);
-                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
+                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << "," << mem.fragment << ",";
                 }
                 cerr << mem.sequence() << " ";
             }
