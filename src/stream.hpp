@@ -24,18 +24,16 @@ const size_t MAX_PROTOBUF_SIZE = 67108864;
 const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 
 /// Write objects using adaptive chunking. Takes a stream to write to, a total
-/// element count to write, and a function that, given a start element and a
-/// length, returns a Protobuf object representing that range of elements.
+/// element count to write, a guess at how manye elements should be in a chunk,
+/// and a function that, given a start element and a length, returns a Protobuf
+/// object representing that range of elements.
 ///
 /// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
 /// records are serialized.
 template <typename T>
-bool write(std::ostream& out, uint64_t element_count, const std::function<T(uint64_t, uint64_t)>& lambda) {
+bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
+    const std::function<T(uint64_t, uint64_t)>& lambda) {
 
-    // How many elements do we want to do per chunk?
-    // We update this with a clever algorithm to size chunks well.
-    size_t chunk_elements = 1;
-    
     // How many elements have we serialized so far
     size_t serialized = 0;
     
@@ -87,6 +85,9 @@ bool write(std::ostream& out, uint64_t element_count, const std::function<T(uint
                 // We were less than half the target size, so try being twice as
                 // big next time.
                 chunk_elements *= 2;
+            } else if (chunk_data.size() > TARGET_PROTOBUF_SIZE && chunk_elements > 1) {
+                // We were larger than the target size and we can be smaller
+                chunk_elements /= 2;
             }
         }
     }
@@ -187,6 +188,12 @@ void for_each(std::istream& in,
             
             // the messages are prefixed by their size
             handle(coded_in.ReadVarint32(&msgSize));
+            
+            if (msgSize > MAX_PROTOBUF_SIZE) {
+                throw std::runtime_error("[stream::for_each] protobuf message of " +
+                    std::to_string(msgSize) + " bytes is too long");
+            }
+            
             if (msgSize) {
                 handle(coded_in.ReadString(&s, msgSize));
                 T object;
@@ -261,6 +268,12 @@ void __for_each_parallel_impl(std::istream& in,
                 uint32_t msgSize = 0;
                 // the messages are prefixed by their size
                 handle(coded_in.ReadVarint32(&msgSize));
+                
+                if (msgSize > MAX_PROTOBUF_SIZE) {
+                    throw std::runtime_error("[stream::for_each] protobuf message of " +
+                        std::to_string(msgSize) + " bytes is too long");
+                }
+                
                 if (msgSize) {
                     // pick off the message (serialized protobuf object)
                     std::string s;
