@@ -70,10 +70,10 @@ echo combining results
   cat $output/vg-ref-pe.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.ref.pe" }' ;
   cat $output/vg-ref-se.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.ref.se" }' ;
   cat $output/vg-pan-pe.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.pan.pe" }' ;
-  cat $output/vg-pan-se.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.pan.se" }') >$output/results-$id.tsv
+  cat $output/vg-pan-se.compare | awk 'BEGIN { OFS="\t"} { print $2, $3, "vg.pan.se" }') | gzip >$output/results-$id.tsv.gz
 
 # This can then be rendered using scripts in the vg repo
 echo rendering ROC
-~/vg/scripts/roc.R $output/results-$id.tsv $output/roc-$id.pdf
+~/vg/scripts/roc.R $output/results-$id.tsv.gz $output/roc-$id.pdf
 echo rendering QQ
-~/vg/scripts/qq.R $output/results-$id.tsv $output/qq-$id.pdf
+~/vg/scripts/qq.R $output/results-$id.tsv.gz $output/qq-$id.pdf
