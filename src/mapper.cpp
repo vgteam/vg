@@ -3626,11 +3626,11 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
 #pragma omp critical
                     if (debug) cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
-                    vector<MaximalExactMatch> remems = find_mems_deep(mem.begin,
-                                                                      mem.end,
-                                                                      reseed_to,
-                                                                      min_mem_length,
-                                                                      0);
+                    vector<MaximalExactMatch> remems = find_mems_simple(mem.begin,
+                                                                        mem.end,
+                                                                        reseed_to,
+                                                                        min_mem_length,
+                                                                        0);
                     reseed_to /= 2;
                     for (auto& rmem : remems) {
                         // keep if we have more than the match count of the parent
