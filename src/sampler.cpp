@@ -303,6 +303,9 @@ Alignment Sampler::alignment(size_t length) {
     // we do something wildly inefficient but conceptually clean
     // for each position in the mapping we add a mapping
     // at the end we will simplify the alignment, merging redundant mappings
+    auto allowed_seq = [&](const string& seq) {
+        return !(seq.size() < length || (no_Ns && seq.find('N') != string::npos));
+    };
     do {
         // add in the char for the current position
         seq += c;
@@ -324,7 +327,7 @@ Alignment Sampler::alignment(size_t length) {
         pos = nextp.at(next_dist(rng));
         // update our char
         c = nextc[pos];
-    } while (seq.size() < length);
+    } while (!allowed_seq(seq));
     // save our sequence in the alignment
     aln.set_sequence(seq);
     // Simplify the alignment to merge redundant mappings. There are no deletions to get removed.

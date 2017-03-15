@@ -34,7 +34,17 @@ public:
     // If set, only sample positions/start reads on the forward strands of their
     // nodes.
     bool forward_only;
-    Sampler(xg::XG* x, int seed = 0, bool forward_only = false) : xgidx(x), node_cache(100), forward_only(forward_only), nonce(0) {
+    // A flag that we set if we don't want to generate sequences with Ns (on by dfault)
+    bool no_Ns;
+    Sampler(xg::XG* x,
+            int seed = 0,
+            bool forward_only = false,
+            bool allow_Ns = false)
+        : xgidx(x),
+          node_cache(100),
+          forward_only(forward_only),
+          no_Ns(!allow_Ns),
+          nonce(0) {
         if (!seed) {
             seed = time(NULL);
         }
