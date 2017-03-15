@@ -356,11 +356,13 @@ Alignment Sampler::alignment_with_error(size_t length,
             aln = mutate(
                 alignment(length + 2 * ((double) length * indel_error)),
                 base_error, indel_error);
-            if (aln.sequence().size() == length) {
-                break;
-            } else if (aln.sequence().size() > length) {
-                aln = strip_from_end(aln, aln.sequence().size() - length);
-                break;
+            if (!(no_Ns && aln.sequence().find('N') != string::npos)) {
+                if (aln.sequence().size() == length) {
+                    break;
+                } else if (aln.sequence().size() > length) {
+                    aln = strip_from_end(aln, aln.sequence().size() - length);
+                    break;
+                }
             }
         }
     } else {

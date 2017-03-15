@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 8
+plan tests 9
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -32,5 +32,7 @@ vg index -x n.xg n.vg
 is $(vg sim -s 3145 -n 1000 -l 20 -x n.xg | grep N | wc -l) 0 "sim does not emit reads with Ns"
 
 is $(vg sim -s 3145 -N -n 1000 -l 20 -x n.xg | grep N | wc -l) 377 "sim can emit reads with Ns when asked to"
+
+is $(vg sim -s 3145 -n 1000 -l 2 -p 5 -e 0.1 -x n.xg | grep N | wc -l) 0 "sim doesn't emit Ns even with pair and errors"
 
 rm -f x.vg x.xg n.vg n.fa n.xg
