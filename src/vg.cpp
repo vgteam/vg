@@ -86,18 +86,16 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     // This makes sure mapping ranks are updated to reflect their actual
     // positions along their paths.
     sync_paths();
-
-    // save the number of the messages to be serialized into the output file
-    uint64_t count = graph.node_size() / chunk_size + 1;
-    create_progress("saving graph", count);
-    // partition the graph into a number of chunks (required by format)
-    // constructing subgraphs and writing them to the stream
-    function<Graph(uint64_t)> lambda =
-        [this, chunk_size](uint64_t i) -> Graph {
+    
+    create_progress("saving graph", graph.node_size());
+    
+    // Have a function to grab the chunk for the given range of nodes
+    function<Graph(uint64_t, uint64_t)> lambda = [this](uint64_t element_start, uint64_t element_length) -> Graph {
+    
         VG g;
         map<string, map<size_t, Mapping*> > sorted_paths;
-        for (id_t j = i * chunk_size;
-             j < (i+1)*chunk_size && j < graph.node_size();
+        for (size_t j = element_start;
+             j < element_start + element_length && j < graph.node_size();
              ++j) {
             Node* node = graph.mutable_node(j);
             // Grab the node and only the edges where it has the lower ID.
@@ -119,13 +117,13 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
             auto& name = p.first;
             auto& path = p.second;
             // now sorted in ascending order by rank
-            // we could also assert that we have a contiguous path here
+            // May not be contiguous because other chunks may contain nodes between the nodes in this one
             for (auto& m : path) {
                 g.paths.append_mapping(name, *m.second);
             }
         }
 
-        if (i == 0) {
+        if (element_start == 0) {
             // The first chunk will always include all the 0-length paths.
             // TODO: if there are too many, this chunk may grow too large!
             paths.for_each_name([&](const string& name) {
@@ -139,15 +137,18 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
 
         // record our circular paths
         g.paths.circular = this->paths.circular;
-        // but this is broken as our paths have been reordered as
+        // TODO: but this is broken as our paths have been reordered as
         // the nodes they cross are stored in graph.nodes
         g.paths.to_graph(g.graph);
 
-        update_progress(i);
+        update_progress(element_start);
         return g.graph;
+    
     };
 
-    stream::write(out, count, lambda);
+    // Write all the dynamically sized chunks, starting with our selected chunk
+    // size as a guess.
+    stream::write(out, graph.node_size(), chunk_size, lambda);
 
     destroy_progress();
 }
