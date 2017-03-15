@@ -77,6 +77,6 @@ echo combining results
 
 # This can then be rendered using scripts in the vg repo
 echo rendering ROC
-~/vg/scripts/roc.R $output/results-$id.tsv.gz $output/roc-$id.pdf
+plot-roc.R $output/results-$id.tsv.gz $output/roc-$id.pdf
 echo rendering QQ
-~/vg/scripts/qq.R $output/results-$id.tsv.gz $output/qq-$id.pdf
+plot-qq.R $output/results-$id.tsv.gz $output/qq-$id.pdf
