@@ -2538,6 +2538,7 @@ void help_sim(char** argv) {
          << "    -f, --forward-only    don't simulate from the reverse strand" << endl
          << "    -p, --frag-len N      make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev N  use this standard deviation for fragment length estimation" << endl
+         << "    -N, --allow-Ns        allow reads to be sampled from the graph with Ns in them" << endl
          << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
          << "    -J, --json-out        write alignments in json" << endl;
 }
@@ -2575,6 +2576,7 @@ int main_sim(int argc, char** argv) {
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
+            {"allow-Ns", no_argument, 0, 'N'},
             {"base-error", required_argument, 0, 'e'},
             {"indel-error", required_argument, 0, 'i'},
             {"frag-len", required_argument, 0, 'p'},
@@ -2583,7 +2585,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:N",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2628,6 +2630,10 @@ int main_sim(int argc, char** argv) {
         case 'J':
             json_out = true;
             align_out = true;
+            break;
+
+        case 'N':
+            reads_may_contain_Ns = true;
             break;
 
         case 'p':

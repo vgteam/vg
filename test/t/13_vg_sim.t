@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 6
+plan tests 8
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -26,4 +26,11 @@ is $(vg sim -l 100 -n 100 -x x.xg -aJ | jq 'select(.path.mapping[0].is_reverse)'
 
 is $(vg sim -n 10 -i 0.005 -l 10 -p 50 -v 50 -s 42 -x x.xg -J | wc -l) 20 "pairs simulated even when fragments overlap"
 
-rm -f x.vg x.xg
+cat tiny/tiny.fa | sed s/GCTTGGA/GCNTGGA/ >n.fa
+vg construct -r n.fa >n.vg
+vg index -x n.xg n.vg
+is $(vg sim -s 3145 -n 1000 -l 20 -x n.xg | grep N | wc -l) 0 "sim does not emit reads with Ns"
+
+is $(vg sim -s 3145 -N -n 1000 -l 20 -x n.xg | grep N | wc -l) 377 "sim can emit reads with Ns when asked to"
+
+rm -f x.vg x.xg n.vg n.fa n.xg
