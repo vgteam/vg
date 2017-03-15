@@ -26,18 +26,21 @@ mkdir -p $output
 id=$(vg version | cut -f 3 -d- | tail -c 8 | head -c 7)
 echo testing vg-$id
 
-# Generate 500k read pairs (1M reads) and their "true" positions from the vg graph:
-echo generating simulated reads
-# -s 271 -n $num_reads -e 0.01 -i 0.002 -l 150 -p 500 -v 50
-time vg sim $read_spec -x $pan_xg -a | tee $output/sim.gam | vg annotate -p -x $pan_xg -a - | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >$output/true.pos
+# generate the simulated reads if we haven't already
+if [ ! -e $output/true.pos ];
+then
+    # Generate 500k read pairs (1M reads) and their "true" positions from the vg graph:
+    echo generating simulated reads
+    # -s 271 -n $num_reads -e 0.01 -i 0.002 -l 150 -p 500 -v 50
+    time vg sim $read_spec -x $pan_xg -a | tee $output/sim.gam | vg annotate -p -x $pan_xg -a - | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >$output/true.pos
+    # split the file into the mates
+    vg view -a $output/sim.gam | jq -cr 'select(.name | test("_1$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_1$// | gzip >$output/sim_1.fq.gz
+    vg view -a $output/sim.gam | jq -cr 'select(.name | test("_2$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_2$// | gzip >$output/sim_2.fq.gz
+fi
 
 # This can then be mapped six ways.
 
 # By bwa:
-# first split the file into the mates
-vg view -a $output/sim.gam | jq -cr 'select(.name | test("_1$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_1$// | gzip >$output/sim_1.fq.gz
-vg view -a $output/sim.gam | jq -cr 'select(.name | test("_2$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_2$// | gzip >$output/sim_2.fq.gz
-# then map, correcting the names so they match vg's
 echo bwa mem paired mapping
 time bwa mem -t $threads $fasta $output/sim_1.fq.gz $output/sim_2.fq.gz | grep -v ^@ | perl -ne '@val = split("\t", $_); print @val[0] . "_" . (@val[1] & 64 ? "1" : @val[1] & 128 ? "2" : "?"), "\t" . @val[2] . "\t" . @val[3] . "\t" . @val[4] . "\n";' | pv -l | sort >$output/bwa_mem-pe.pos
 join $output/true.pos $output/bwa_mem-pe.pos | ~/vg/scripts/pos_compare.py >$output/bwa-pe.compare
