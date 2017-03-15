@@ -1779,8 +1779,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         // stop if we have enough multimaps
         if (multimaps > total_multimaps) { break; }
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        if (cluster_coverage(cluster) < min_cluster_length
-            && alns.size() > max(1, total_multimaps/2)) continue;
+        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         // break the cluster into two pieces
         vector<MaximalExactMatch> cluster1, cluster2;
         bool seen1=false, seen2=false;
@@ -2280,8 +2279,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         if (++multimaps > total_multimaps) { break; }
         // skip this if we don't have sufficient cluster coverage and we have at least two alignments
         // which we can use to estimate mapping quality
-        if (cluster_coverage(cluster) < min_cluster_length
-            && alns.size() > max(1, total_multimaps/2)) continue;
+        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         // get the candidate graph
         // align to it
         Alignment candidate = align_cluster(aln, cluster);
