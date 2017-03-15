@@ -380,8 +380,10 @@ void Call2Vcf::call(
         const Snarl* site = move(site_queue.front());
         site_queue.pop_front();
         
-        if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
-            // This site is on the primary path
+        if (site->type() == ULTRABUBBLE &&
+            index.by_id.count(site->start().node_id()) &&
+            index.by_id.count(site->end().node_id())) {
+            // This site is an ultrabubble on the primary path
         
             // Where does the variable region start and end on the reference?
             size_t ref_start = index.by_id.at(site->start().node_id()).first +
@@ -433,15 +435,16 @@ void Call2Vcf::call(
                 // Throw it in the final vector of sites we're going to process.
                 sites.push_back(site);
             }        
-        } else if (!convert_to_vcf) {
-            // The site is not on the primary path, but we can handle it anyway.
+        } else if (site->type() == ULTRABUBBLE && !convert_to_vcf) {
+            // This site is an ultrabubble and we can handle things off the
+            // primary path.
             
             // TODO: enforce a max size or something?
             sites.push_back(site);
             
         } else {
-            // The site is not on the primary path, but maybe the primary path
-            // is inside it somewhere and one of its children might be on it.
+            // The site is not on the primary path or isn't an ultrabubble, but
+            // maybe one of its children will meet our requirements.
             
             size_t child_count = site_manager.children_of(site).size();
             
