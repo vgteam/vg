@@ -2075,7 +2075,8 @@ Mapper::average_node_length(void) {
 bool Mapper::mems_overlap(const MaximalExactMatch& mem1,
                           const MaximalExactMatch& mem2) {
     // we overlap if we are not completely separated
-    return !(mem1.end <= mem2.begin
+    return mem1.fragment == mem2.fragment
+        && !(mem1.end <= mem2.begin
              || mem2.end <= mem1.begin);
 }
 
