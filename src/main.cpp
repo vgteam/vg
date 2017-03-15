@@ -2559,6 +2559,7 @@ int main_sim(int argc, char** argv) {
     bool json_out = false;
     int fragment_length = 0;
     double fragment_std_dev = 0;
+    bool reads_may_contain_Ns = false;
     string xg_name;
 
     int c;
@@ -2666,7 +2667,7 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    Sampler sampler(xgidx, seed_val, forward_only);
+    Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
     size_t max_iter = 1000;
     int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
