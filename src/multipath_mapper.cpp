@@ -22,6 +22,8 @@ namespace vg {
         
         for (size_t i = 0; i < clusters.size(); i++) {
             
+            // gather the parameters for subgraph extraction from the MEM hits
+            
             vector<pair<MaximalExactMatch* const, pos_t>>& cluster = clusters[i];
             vector<pos_t> positions;
             vector<size_t>& forward_max_dist;
@@ -32,11 +34,15 @@ namespace vg {
             backward_max_dist.reserve(cluster.size());
             
             for (auto mem_hit : cluster) {
+                // get the start position of the MEM
                 positions.push_back(mem_hit.second);
+                // search far enough away to get any hit detectable without soft clipping
                 forward_max_dist.push_back(aligner.longest_detectable_gap(alignment, mem_hit.first->end, full_length_bonus)
                                            + (mem_hit.first->end - mem_hit.first->begin));
                 backward_max_dist.push_back(aligner.longest_detectable_gap(alignment, mem_hit.first->begin, full_length_bonus));
             }
+            
+            // extract the subgraph within the search distance
             
             Graph graph;
             algorithms::extract_containing_graph(xgindex, graph, positions, forward_max_dist,
@@ -56,6 +62,8 @@ namespace vg {
             }
             
             if (overlapping_graphs.empty()) {
+                // there is no overlap with any other graph, suggesting a new unique hit
+                
                 // hacky socketing into the VG constructor so I can use the move constructor and hopefully
                 // avoid reallocating the Graph
                 bool passed_graph = false;
@@ -100,6 +108,51 @@ namespace vg {
             }
         }
         
+        
+        size_t target_length = aligner.longest_detectable_gap(alignment,
+                                                              alignment.sequence().begin() + (alignment.sequence().size() / 2),
+                                                              full_length_bonus);
+        
+        for (VG* vg : cluster_graphs) {
+            
+            VG* align_graph = vg;
+            VG unfolded;
+            VG dagified;
+            
+            bool is_acyclic = vg->is_acyclic();
+            map<id_t, pair<id_t, bool>> trans;
+            
+            if (!is_acyclic) {
+                
+                if (align_graph->has_inverting_edges()) {
+                    unfolded = align_graph->unfold(target_length, trans);
+                    align_graph = &unfolded;
+                }
+                
+            }
+            else {
+                
+                map<id_t, pair<id_t, bool>> unfold_trans;
+                if (align_graph->has_inverting_edges()) {
+                    unfolded = align_graph->unfold(target_length, unfold_trans);
+                    align_graph = &unfolded;
+                }
+                
+                dagified = align_graph->dagify(target_length, trans, target_length);
+                align_graph = &dagified;
+                
+                if (!unfold_trans.empty()) {
+                    for (pair<id_t, pair<id_t, bool>>& trans_record : trans) {
+                        pair<id_t, bool>& unfolded_node = unfold_trans[trans_record.second.first];
+                        trans[trans_record.first] = make_pair(unfolded_node.first,
+                                                              trans_record.second.second != unfolded_node.second);
+                    }
+                }
+            }
+            
+            align_graph->s
+            
+        }
         
         for (VG* vg : cluster_graphs) {
             delete vg;
