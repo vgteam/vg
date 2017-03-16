@@ -4954,7 +4954,7 @@ void help_map(char** argv) {
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -J, --quality STR       Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
-         << "    -Q, --seq-name STR      name the sequence using this value (for graph modification with new named paths)" << endl
+         << "    -V, --seq-name STR      name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -T, --reads FILE        take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE    align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -G, --gam-input FILE    realign GAM input" << endl
@@ -4967,18 +4967,10 @@ void help_map(char** argv) {
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
          << "    -B, --compare           realign GAM input (-G), writing: name, overlap with input, identity, score, mq, time" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
-         << "    -M, --max-multimaps INT produce up to N alignments for each read (default: 1)" << endl
+         << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
+         << "    -Q, --mq-max INT        cap the mapping quality at INT [60]" << endl
          << "    -D, --debug             print debugging information about alignment to stderr" << endl;
 
-
-        //<< "maximal exact match (MEM) mapper:" << endl
-        //<< "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
-
-// reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-        //<< "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
-
-        //<< "    -6, --fast-reseed        use fast SMEM reseeding" << endl
-        // << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-chaining" << endl TODO remove this code
 }
 
 int main_map(int argc, char** argv) {
@@ -5054,7 +5046,7 @@ int main_map(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
                 {"quality", required_argument, 0, 'J'},
-                {"seq-name", required_argument, 0, 'Q'},
+                {"seq-name", required_argument, 0, 'V'},
                 {"base-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa-name", required_argument, 0, 'g'},
@@ -5094,11 +5086,12 @@ int main_map(int argc, char** argv) {
                 {"chance-match", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-method", required_argument, 0, 'v'},
+                {"mq-max", required_argument, 0, 'Q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:",
                          long_options, &option_index);
 
 
@@ -5128,7 +5121,7 @@ int main_map(int argc, char** argv) {
             gcsa_name = optarg;
             break;
 
-        case 'Q':
+        case 'V':
             seq_name = optarg;
             break;
 
@@ -5138,6 +5131,10 @@ int main_map(int argc, char** argv) {
 
         case 'M':
             max_multimaps = atoi(optarg);
+            break;
+
+        case 'Q':
+            max_mapping_quality = atoi(optarg);
             break;
 
         case 'l':

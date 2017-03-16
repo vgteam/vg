@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 31
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -88,10 +88,11 @@ is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCG
 rm -Rf g.idx
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg
-vg index -x x.xg -g x.gcsa -k 11 x.vg
-vg sim -s 1337 -n 1000 -x x.vg.idx >x.reads
-is $(vg map -T x.reads -x x.vg.idx -g x.vg.gcsa -j -t 1 | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
+vg index -x x.xg -g x.gcsa -k 16 x.vg
+vg sim -s 1337 -n 1000 -x x.xg >x.reads
+is $(vg map -T x.reads -d x -j -t 1 | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
+
+is $(vg map -T <(head -1 x.reads) -d x -j -t 1 -Q 30 | jq .mapping_quality) 30 "the mapping quality may be capped"
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
