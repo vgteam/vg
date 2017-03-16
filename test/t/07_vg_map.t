@@ -9,7 +9,6 @@ plan tests 33
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
-vg index -sk 11 -d x.idx x.vg
 
 is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -J - | jq '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
 
@@ -21,7 +20,7 @@ is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcs
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
 
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa >/dev/null
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -d x >/dev/null
 is $? 0 "vg map takes -d as input without a variant graph"
 
 is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -J | jq . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
@@ -77,11 +76,11 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp
 # I was having a problem when updating an edge due to a flipped end node made it
 # identical to an already existing edge that hadn't yet been updated. This makes
 # sure that that isn't happening.
-vg index -s -k10 -d e.idx cyclic/orient_must_swap_edges.vg
-vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e.idx >/dev/null
+vg index -x e.xg -g e.gcsa -k 10 cyclic/orient_must_swap_edges.vg
+vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e >/dev/null
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"
 
-rm -Rf e.idx
+rm -Rf e.xg e.gcsa
 
 vg index -s -k10 -d g.idx graphs/multimap.vg
 is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d g.idx -J | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"

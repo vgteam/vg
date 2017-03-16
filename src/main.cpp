@@ -4922,8 +4922,7 @@ int main_align(int argc, char** argv) {
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
-         << "    -d, --db-name DIR     use this db (defaults to <graph>.vg.index/)" << endl
-         << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
+         << "    -d, --base-name BASE  use BASE.xg and BASE.gcsa as the input index pair" << endl
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "input:" << endl
@@ -5083,7 +5082,7 @@ int main_map(int argc, char** argv) {
                 {"sequence", required_argument, 0, 's'},
                 {"quality", required_argument, 0, 'I'},
                 {"seq-name", required_argument, 0, 'Q'},
-                {"db-name", required_argument, 0, 'd'},
+                {"base-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa-name", required_argument, 0, 'g'},
                 {"kmer-stride", required_argument, 0, 'j'},
@@ -5470,8 +5469,9 @@ int main_map(int argc, char** argv) {
         xg_name = file_name + ".xg";
     }
 
-    if (db_name.empty() && !file_name.empty()) {
-        db_name = file_name + ".index";
+    if (!db_name.empty()) {
+        xg_name = db_name + ".xg";
+        gcsa_name = db_name + gcsa::GCSA::EXTENSION;
     }
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -5516,17 +5516,6 @@ int main_map(int argc, char** argv) {
         lcp->load(lcp_stream);
     }
 
-    Index* idx = nullptr;
-
-    if(!xindex || !gcsa) {
-        // We only need a Rocksdb index if we don't have the others.
-        if(debug) {
-            cerr << "Loading RocksDB index " << db_name << "..." << endl;
-        }
-        idx = new Index();
-        idx->open_read_only(db_name);
-    }
-
     thread_count = get_thread_count();
 
     vector<Mapper*> mapper;
@@ -5565,9 +5554,6 @@ int main_map(int argc, char** argv) {
         if(xindex && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
             m = new Mapper(xindex, gcsa, lcp);
-        } else {
-            // Use the Rocksdb index and maybe the GCSA one
-            m = new Mapper(idx, gcsa);
         }
         m->best_clusters = best_clusters;
         m->hit_max = hit_max;
@@ -5983,10 +5969,6 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if(idx)  {
-        delete idx;
-        idx = nullptr;
-    }
     if(gcsa) {
         delete gcsa;
         gcsa = nullptr;
