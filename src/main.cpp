@@ -1819,7 +1819,7 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
-            mapper->mem_threading = use_mem_threader;
+            mapper->mem_chaining = use_mem_threader;
 
             // set up the multi-threaded alignment interface
             mapper->set_alignment_threads(alignment_threads);
@@ -4920,79 +4920,65 @@ int main_align(int argc, char** argv) {
 }
 
 void help_map(char** argv) {
-    cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
-         << "options:" << endl
-         << "    -d, --base-name BASE  use BASE.xg and BASE.gcsa as the input index pair" << endl
-         << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.vg.xg)" << endl
-         << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+    cerr << "usage: " << argv[0] << " map [options] -d idxbase -f in1.fq [-f in2.fq] >aln.gam" << endl
+         << "Align reads to a graph." << endl
+         << endl
+         << "graph/index:" << endl
+         << "    -d, --base-name BASE    use BASE.xg and BASE.gcsa as the input index pair" << endl
+         << "    -x, --xg-name FILE      use this xg index (defaults to <graph>.vg.xg)" << endl
+         << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "algorithm:" << endl
+         << "    -t, --threads N         number of compute threads to use" << endl
+         << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index (default: 16384)" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
+         << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
+         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl // TODO
+         << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
+         << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
+         << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl  //TODO Fix
+         << "    -w, --band-width INT    band width for long read alignment [256]" << endl // TODO change default
+         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [1e4:0:0:0:1]" << endl // TOOD
+         << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
+         << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl // TODO
+         << "scoring:" << endl
+         << "    -q, --match INT         use this match score [1]" << endl
+         << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
+         << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
+         << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
+         << "    -l, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -I, --quality STR     Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
-         << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
-         << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
-         << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
-         << "    -G, --gam-input FILE  realign GAM input" << endl
-         << "    -K, --keep-secondary  produce alignments for secondary input alignments in addition to primary ones" << endl
-         << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
-         << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
-         << "    -N, --sample NAME     for --reads input, add this sample" << endl
-         << "    -R, --read-group NAME for --reads input, add this read group" << endl
+         << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -J, --quality STR       Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
+         << "    -Q, --seq-name STR      name the sequence using this value (for graph modification with new named paths)" << endl
+         << "    -T, --reads FILE        take reads (one per line) from FILE, write alignments to stdout" << endl
+         << "    -b, --hts-input FILE    align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
+         << "    -G, --gam-input FILE    realign GAM input" << endl
+         << "    -f, --fastq FILE        input fastq (possibly compressed), two are allowed, one for each mate" << endl
+         << "    -i, --interleaved       fastq is interleaved paired-ended" << endl
+         << "    -N, --sample NAME       for --reads input, add this sample" << endl
+         << "    -R, --read-group NAME   for --reads input, add this read group" << endl
          << "output:" << endl
-         << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
-         << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --compare         consider GAM input (-G) as truth, table of name, overlap with truth, identity, score, mapqual" << endl
-         << "    -D, --debug           print debugging information about alignment to stderr" << endl
-         << "local alignment parameters:" << endl
-         << "    -q, --match N         use this match score (default: 1)" << endl
-         << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
-         << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
-         << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "    -T, --full-l-bonus N  the full-length alignment bonus (default: 5)" << endl
-         << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
-         << "paired end alignment parameters:" << endl
-         << "    -W, --fragment m:μ:σ:o:d  fragment length distribution specification to use in paired mapping (default: 1e4:0:0:0:1)" << endl
-         << "                              max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
-         << "    -2, --fragment-sigma N    calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10e)" << endl
-         << "    -p, --pair-window N       maximum distance between properly paired reads in node ID space" << endl
-         << "    -u, --extra-multimaps N   examine N extra mappings looking for a consistent read pairing (default: 64)" << endl
-         << "    -U, --always-rescue       rescue each imperfectly-mapped read in a pair off the other" << endl
-         << "    -O, --top-pairs-only      only produce paired alignments if both sides of the pair are top-scoring individually" << endl
-         << "generic mapping parameters:" << endl
-         << "    -B, --band-width N        for very long sequences, align in chunks then merge paths, no mapping quality (default 1000bp)" << endl
-         << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
-         << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
-         << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
-         << "    -3, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 512)" << endl
-         << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
-         << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
-         << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
-         << "    -e, --thread-ex N         grab this many nodes in id space around each thread for alignment (default: 10)" << endl
-         << "    -t, --threads N           number of threads to use" << endl
-         << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
-         << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
-         << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
-         << "    -4, --no-cluster-mq       exclude the cluster-based component of the mapping quality" << endl
-         << "    -S, --sens-step N         decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 0/off)" << endl
-         << "maximal exact match (MEM) mapper:" << endl
-         << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
-         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: estimated minimum where [-F] of hits are by chance)" << endl
-         << "    -8, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
-         << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -V, --mem-reseed N       reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-         << "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
-         << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
-         << "                             set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
-         << "    -F, --drop-chain N       drop clusters of MEMs shorter than FLOAT fraction of the longest overlapping cluster (default: 0.2)" << endl
-         << "    -6, --fast-reseed        use fast SMEM reseeding" << endl
-         << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-threading" << endl
-         << "    -5, --unsmoothly         don't smooth alignments after patching" << endl
-         << "kmer-based mapper:" << endl
-         << "  This algorithm is used  when --kmer-size is specified or a rocksdb index is given" << endl
-         << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
-         << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
-         << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
-         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl;
+         << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
+         << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
+         << "    -B, --compare           realign GAM input (-G), writing: name, overlap with input, identity, score, mq, time" << endl
+         << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
+         << "    -M, --max-multimaps INT produce up to N alignments for each read (default: 1)" << endl
+         << "    -D, --debug             print debugging information about alignment to stderr" << endl;
+
+
+        //<< "maximal exact match (MEM) mapper:" << endl
+        //<< "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
+
+// reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
+        //<< "                             set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
+
+        //<< "    -6, --fast-reseed        use fast SMEM reseeding" << endl
+        // << "    -a, --id-clustering      use id clustering to drive the mapper, rather than MEM-chaining" << endl TODO remove this code
 }
 
 int main_map(int argc, char** argv) {
@@ -5008,44 +4994,28 @@ int main_map(int argc, char** argv) {
     string db_name;
     string xg_name;
     string gcsa_name;
-    int kmer_size = 0;
-    int kmer_stride = 0;
-    int sens_step = 0;
-    int best_clusters = 0;
-    int cluster_min = 1;
-    int max_attempts = 7;
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 512;
+    int hit_max = 65536;
     int max_multimaps = 1;
     int thread_count = 1;
-    int thread_ex = 10;
-    int context_depth = 7;
     bool output_json = false;
     bool debug = false;
-    bool prefer_forward = false;
-    bool greedy_accept = false;
     float min_score = 0;
     string sample_name;
     string read_group;
     string fastq1, fastq2;
     bool interleaved_input = false;
-    int pair_window = 64; // ~11bp/node
-    int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
-    bool try_both_mates_first = false;
+    int band_width = 256;
     bool always_rescue = false;
     bool top_pairs_only = false;
-    float min_kmer_entropy = 0;
-    float accept_identity = 0;
-    size_t kmer_min = 8;
-    int softclip_threshold = 0;
     int max_mem_length = 0;
     int min_mem_length = -1;
     int min_cluster_length = 0;
     float random_match_chance = 0.05;
-    int mem_reseed_length = -1;
-    bool mem_threading = true;
+    float mem_reseed_factor = 1.5;
+    bool mem_chaining = true;
     int max_target_factor = 100;
     int buffer_size = 100;
     int match = 1;
@@ -5054,7 +5024,7 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     int full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 64;
+    int extra_multimaps = 512;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -5065,11 +5035,14 @@ int main_map(int argc, char** argv) {
     double fragment_sigma = 10;
     bool fragment_orientation = false;
     bool fragment_direction = true;
-    bool use_cluster_mq = true;
+    bool use_cluster_mq = false;
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = false;
-    float drop_chain = 0.2;
+    float drop_chain = 0.4;
+    int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
+    int kmer_stride = 0;
+    int pair_window = 64; // unused
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5080,45 +5053,30 @@ int main_map(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
-                {"quality", required_argument, 0, 'I'},
+                {"quality", required_argument, 0, 'J'},
                 {"seq-name", required_argument, 0, 'Q'},
                 {"base-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"gcsa-name", required_argument, 0, 'g'},
-                {"kmer-stride", required_argument, 0, 'j'},
-                {"kmer-size", required_argument, 0, 'k'},
-                {"min-kmer-entropy", required_argument, 0, 'E'},
-                {"clusters", required_argument, 0, 'c'},
-                {"cluster-min", required_argument, 0, 'C'},
-                {"max-attempts", required_argument, 0, 'A'},
-                {"reads", required_argument, 0, 'r'},
+                {"reads", required_argument, 0, 'T'},
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
-                {"hit-max", required_argument, 0, 'm'},
+                {"hit-max", required_argument, 0, 'c'},
                 {"max-multimaps", required_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
                 {"gam-input", required_argument, 0, 'G'},
-                {"accept-identity", required_argument, 0, 'X'},
-                {"sens-step", required_argument, 0, 'S'},
-                {"thread-ex", required_argument, 0, 'e'},
-                {"context-depth", required_argument, 0, 'n'},
-                {"output-json", no_argument, 0, 'J'},
+                {"output-json", no_argument, 0, 'j'},
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
                 {"fastq", required_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
-                {"pair-window", required_argument, 0, 'p'},
-                {"band-width", required_argument, 0, 'B'},
+                {"band-width", required_argument, 0, 'w'},
                 {"min-identity", required_argument, 0, 'P'},
-                {"always-rescue", no_argument, 0, 'U'},
-                {"top-pairs-only", no_argument, 0, 'O'},
-                {"kmer-min", required_argument, 0, 'l'},
-                {"softclip-trig", required_argument, 0, '3'},
                 {"debug", no_argument, 0, 'D'},
-                {"min-mem-length", required_argument, 0, 'L'},
-                {"max-mem-length", required_argument, 0, 'Y'},
-                {"mem-reseed", required_argument, 0, 'V'},
-                {"min-cluster-length", required_argument, 0, '7'},
+                {"min-seed", required_argument, 0, 'k'},
+                {"max-seed", required_argument, 0, 'Y'},
+                {"reseed-x", required_argument, 0, 'r'},
+                {"min-chain", required_argument, 0, 'W'},
                 {"fast-reseed", no_argument, 0, '6'},
                 {"id-clustering", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
@@ -5127,22 +5085,20 @@ int main_map(int argc, char** argv) {
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
-                {"qual-adjust", no_argument, 0, '1'},
-                {"extra-multimaps", required_argument, 0, 'u'},
-                {"map-qual-method", required_argument, 0, 'v'},
-                {"compare", no_argument, 0, 'w'},
-                {"fragment", required_argument, 0, 'W'},
-                {"fragment-sigma", required_argument, 0, '2'},
-                {"full-l-bonus", required_argument, 0, 'T'},
-                {"no-cluster-mq", no_argument, 0, '4'},
-                {"chance-match", required_argument, 0, '8'},
-                {"unsmoothly", no_argument, 0, '5'},
-                {"drop-chain", required_argument, 0, 'F'},
+                {"qual-adjust", no_argument, 0, 'A'},
+                {"try-up-to", required_argument, 0, 'u'},
+                {"compare", no_argument, 0, 'B'},
+                {"fragment", required_argument, 0, 'I'},
+                {"fragment-sigma", required_argument, 0, 'S'},
+                {"full-l-bonus", required_argument, 0, 'l'},
+                {"chance-match", required_argument, 0, 'e'},
+                {"drop-chain", required_argument, 0, 'C'},
+                {"mq-method", required_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:F:S:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:UOl:e:T:L:Y:H:Z:q:z:o:y:1u:v:wW:a2:3:V:4567:8:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:",
                          long_options, &option_index);
 
 
@@ -5156,7 +5112,7 @@ int main_map(int argc, char** argv) {
             seq = optarg;
             break;
 
-        case 'I':
+        case 'J':
             qual = string_quality_char_to_short(string(optarg));
                 break;
 
@@ -5172,61 +5128,23 @@ int main_map(int argc, char** argv) {
             gcsa_name = optarg;
             break;
 
-        case 'j':
-            kmer_stride = atoi(optarg);
-            break;
-
         case 'Q':
             seq_name = optarg;
             break;
 
-        case 'S':
-            sens_step = atoi(optarg);
-            break;
-
         case 'c':
-            best_clusters = atoi(optarg);
-            break;
-
-        case 'C':
-            cluster_min = atoi(optarg);
-            break;
-
-        case 'E':
-            min_kmer_entropy = atof(optarg);
-            break;
-
-        case 'A':
-            max_attempts = atoi(optarg);
-            break;
-        case 'm':
             hit_max = atoi(optarg);
             break;
 
         case 'M':
             max_multimaps = atoi(optarg);
             break;
-        case 'k':
-            kmer_size = atoi(optarg);
-            break;
 
-        case 'e':
-            thread_ex = atoi(optarg);
-            break;
-
-        case 'n':
-            context_depth = atoi(optarg);
-            break;
-
-        case 'T':
+        case 'l':
             full_length_bonus = atoi(optarg);
             break;
 
-        case '3':
-            softclip_threshold = atoi(optarg);
-            break;
-
-        case 'r':
+        case 'T':
             read_file = optarg;
             break;
 
@@ -5256,10 +5174,6 @@ int main_map(int argc, char** argv) {
             interleaved_input = true;
             break;
 
-        case 'p':
-            pair_window = atoi(optarg);
-            break;
-
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
@@ -5268,7 +5182,7 @@ int main_map(int argc, char** argv) {
             debug = true;
             break;
 
-        case '8':
+        case 'e':
             chance_match = atof(optarg);
             break;
 
@@ -5280,16 +5194,11 @@ int main_map(int argc, char** argv) {
             gam_input = optarg;
             break;
 
-        case 'X':
-            accept_identity = atof(optarg);
-            greedy_accept = true;
-            break;
-
-        case 'J':
+        case 'j':
             output_json = true;
             break;
 
-        case 'B':
+        case 'w':
             band_width = atoi(optarg);
             break;
 
@@ -5297,19 +5206,7 @@ int main_map(int argc, char** argv) {
             min_score = atof(optarg);
             break;
 
-        case 'U':
-            always_rescue = true;
-            break;
-
-        case 'O':
-            top_pairs_only = true;
-            break;            
-            
-        case 'l':
-            kmer_min = atoi(optarg);
-            break;
-
-        case 'L':
+        case 'k':
             min_mem_length = atoi(optarg);
             break;
 
@@ -5317,20 +5214,12 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
-        case 'V':
-            mem_reseed_length = atoi(optarg);
+        case 'r':
+            mem_reseed_factor = atof(optarg);
             break;
 
-        case '7':
+        case 'W':
             min_cluster_length = atoi(optarg);
-            break;
-
-        case '6':
-            use_fast_reseed = true;
-            break;
-
-        case 'a':
-            mem_threading = false;
             break;
 
         case 'H':
@@ -5357,7 +5246,7 @@ int main_map(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
 
-        case '1':
+        case 'A':
             qual_adjust_alignments = true;
             break;
 
@@ -5365,24 +5254,16 @@ int main_map(int argc, char** argv) {
             extra_multimaps = atoi(optarg);
             break;
 
-        case '4':
-            use_cluster_mq = false;
-            break;
-
-        case '5':
-            smooth_alignments = false;
-            break;
-
         case 'v':
             method_code = atoi(optarg);
             break;
 
-        case 'w':
+        case 'B':
             compare_gam = true;
             output_json = true;
             break;
 
-        case 'W':
+        case 'I':
         {
             vector<string> parts = split_delims(string(optarg), ":");
             if (parts.size() == 1) {
@@ -5400,7 +5281,7 @@ int main_map(int argc, char** argv) {
         }
         break;
 
-        case '2':
+        case 'S':
             fragment_sigma = atof(optarg);
             break;
 
@@ -5436,7 +5317,7 @@ int main_map(int argc, char** argv) {
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
-    if (use_fast_reseed && !mem_reseed_length) {
+    if (use_fast_reseed && !mem_reseed_factor) {
         cerr << "warning:[vg map] Fast MEM reseed option is ignored when reseeding is turned off. Use --mem-reseed to turn on reseeding." << endl;
     }
     
@@ -5555,38 +5436,22 @@ int main_map(int argc, char** argv) {
             // We have the xg and GCSA indexes, so use them
             m = new Mapper(xindex, gcsa, lcp);
         }
-        m->best_clusters = best_clusters;
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->debug = debug;
-        m->accept_identity = accept_identity;
-        m->kmer_sensitivity_step = sens_step;
-        m->prefer_forward = prefer_forward;
-        m->greedy_accept = greedy_accept;
-        m->thread_extension = thread_ex;
-        m->cluster_min = cluster_min;
-        m->context_depth = context_depth;
-        m->max_attempts = max_attempts;
-        m->min_kmer_entropy = min_kmer_entropy;
-        m->kmer_min = kmer_min;
         m->min_identity = min_score;
-        m->softclip_threshold = softclip_threshold;
         m->drop_chain = drop_chain;
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
-        m->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
-                                : (mem_reseed_length == 0 ? 0
-                                   : round(1.5 * m->min_mem_length)));
-        m->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
-                                 : (min_cluster_length == 0 ? 0
-                                    : round(1.5 * m->min_mem_length)));
+        m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
+        m->min_cluster_length = min_cluster_length;
         if (debug && i == 0) {
             cerr << "[vg map] : min_mem_length = " << m->min_mem_length
                  << ", mem_reseed_length = " << m->mem_reseed_length
                  << ", min_cluster_length = " << m->min_cluster_length << endl;
         }
         m->fast_reseed = use_fast_reseed;
-        m->mem_threading = mem_threading;
+        m->mem_chaining = mem_chaining;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;

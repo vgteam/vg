@@ -16,7 +16,7 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | 
 is $(vg mod -o graphs/orphans.vg | vg view - | wc -l) 8 "orphan edge removal works"
 
 vg construct -r tiny/tiny.fa >t.vg
-vg index -s -k 11 -d t.idx t.vg
+vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
 
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
 
@@ -28,7 +28,7 @@ is $(vg map -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
 
 rm t.vg
-rm -rf t.idx
+rm -rf t.idx.xg t.idx.gcsa
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') ce5d5ffaa71fea6a25cb4a5b836ccb89 "graph complexity reduction works as expected"
 
@@ -138,4 +138,3 @@ rm -f x.vg x.sample.vg
 is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "315" "bluntifying overlaps results in a graph with duplicated overlapping bases removed"
 
 is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "335" "bluntifying overlaps works in a more complex graph"
-
