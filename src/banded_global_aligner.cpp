@@ -273,6 +273,10 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8
      * that is not represented in the matrix (this requires a number of edge cases)
      */
     
+    if (!band_size) {
+        return;
+    }
+    
     int64_t idx, up_idx, diag_idx, left_idx;
     
     // rows in the rectangularized band corresponding to diagonals
@@ -474,7 +478,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8
     }
     
     // POA into left hand column from the seeds
-    if (treat_as_source && node->sequence().length() != 0) {
+    if (treat_as_source && ncols > 0) {
         if (cumulative_seq_len != 0) {
             cerr << "error:[BandedGlobalAligner] banded alignment has no node predecessor for node in middle of path" << endl;
             assert(0);
@@ -536,7 +540,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(int8_t* score_mat, int8
         // fix the final insert column value, which actually would have been inserting from outside the band
         insert_col[idx] = min_inf;
     }
-    else {
+    else if (ncols > 0){
         // compute the insert row scores without any cases for lead gaps (these can be safely computed after
         // the POA iterations since they do not cross node boundaries)
         for (int64_t i = iter_start + 1; i < iter_stop; i++) {
@@ -704,8 +708,6 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
 #ifdef debug_banded_aligner_traceback
     cerr << "[BAMatrix::traceback_internal] starting traceback back through node " << node->id() << " from rectangular coordinates (" << start_row << ", " << start_col << "), currently " << (in_lead_gap ? "" : "not ") << "in a lead gap" << endl;
 #endif
-    
-    //cerr << "node " << node->id() << endl;
     
     const string& read = alignment.sequence();
     const string& base_quality = alignment.quality();
@@ -1927,7 +1929,6 @@ BandedGlobalAligner<IntType>::~BandedGlobalAligner() {
             delete banded_matrix;
         }
     }
-    
 }
 
 // fills a vector with vectors ids that have edges to/from each node
@@ -2387,7 +2388,9 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
     
     // initialize the traceback trackers for the optimal traceback
     curr_traceback = alt_tracebacks.begin();
-    curr_deflxn = get<0>(*curr_traceback).begin();
+    if (curr_traceback != alt_tracebacks.end()) {
+        curr_deflxn = get<0>(*curr_traceback).begin();
+    }
 }
 
 template <class IntType>
@@ -2434,7 +2437,7 @@ inline void BandedGlobalAligner<IntType>::AltTracebackStack::next_traceback_alig
 
 template <class IntType>
 inline bool BandedGlobalAligner<IntType>::AltTracebackStack::next_is_empty()  {
-    return empty_score >= get<1>(*curr_traceback) && !empty_full_paths.empty();
+    return curr_traceback == alt_tracebacks.end() ? true : empty_score >= get<1>(*curr_traceback) && !empty_full_paths.empty();
 }
 
 template <class IntType>
