@@ -34,7 +34,7 @@ Mapper::Mapper(Index* idex,
     , debug(false)
     , alignment_threads(1)
     , min_mem_length(0)
-    , mem_threading(false)
+    , mem_chaining(false)
     , fast_reseed(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
@@ -247,7 +247,6 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                  bool pin_left,
                                  int8_t full_length_bonus,
                                  bool banded_global) {
-    //cerr << "align_to_graph " << pb2json(aln) << endl << pb2json(vg.graph) << endl;
     // check if we have a cached aligner for this thread
     if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
         Aligner* aligner = get_regular_aligner();
@@ -687,7 +686,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool retrying) {
 
     // use mem threading if requested and we have not need to band (not implemented)
-    if (mem_threading && read1.sequence().size() < band_width) {
+    if (mem_chaining && read1.sequence().size() < band_width) {
         if (simultaneous_pair_alignment) {
             return align_paired_multi_simul(read1,
                                             read2,
@@ -822,7 +821,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
     for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
 
-    //bool rescue = !mem_threading && fragment_size != 0; // don't try to rescue if we have a defined fragment size
+    //bool rescue = !mem_chaining && fragment_size != 0; // don't try to rescue if we have a defined fragment size
     bool rescue = fragment_size != 0;
 
     // Rescue only if the top alignment on one side has no mappings
@@ -5526,7 +5525,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         exit(1);
     }
 
-    if (mem_threading) {
+    if (mem_chaining) {
         return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps, cluster_mq);
     } else {
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
