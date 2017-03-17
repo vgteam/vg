@@ -76,5 +76,15 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
 
 }
 
+namespace std {
+    /// hash function for NodeTraversals
+    template<>
+    struct hash<const vg::NodeTraversal> {
+        size_t operator()(const vg::NodeTraversal& trav) const {
+            return hash<pair<Node*, bool > >(trav.node, trav.backward);
+        }
+    };
+}
+
 
 #endif
