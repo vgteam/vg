@@ -2426,9 +2426,7 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
                            false, // don't use steps (use length)
                            true,  // go forward
                            true); // go backward
-    xindex->expand_context(graph.graph, 1, false, true); // go one more step
     graph.rebuild_indexes();
-
     return graph;
 }
 
