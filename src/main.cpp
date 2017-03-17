@@ -5063,7 +5063,7 @@ int main_map(int argc, char** argv) {
                 {"fastq", required_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"band-width", required_argument, 0, 'w'},
-                {"min-identity", required_argument, 0, 'P'},
+                {"min-ident", required_argument, 0, 'P'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-seed", required_argument, 0, 'k'},
                 {"max-seed", required_argument, 0, 'Y'},
@@ -5183,7 +5183,7 @@ int main_map(int argc, char** argv) {
             chance_match = atof(optarg);
             break;
 
-        case 'F':
+        case 'C':
             drop_chain = atof(optarg);
             break;
 
