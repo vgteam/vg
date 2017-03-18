@@ -396,7 +396,7 @@ char Sampler::pos_char(pos_t pos) {
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    return xg_cached_next_pos_chars(pos, xgidx, node_cache);
+    return xg_cached_next_pos_chars(pos, xgidx, node_cache, edge_cache);
 }
 
 bool Sampler::is_valid(const Alignment& aln) {

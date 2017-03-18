@@ -66,6 +66,7 @@ Mapper::Mapper(Index* idex,
     init_node_cache();
     init_node_start_cache();
     init_node_pos_cache();
+    init_edge_cache();
 }
 
 Mapper::Mapper(Index* idex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(idex, nullptr, g, a)
@@ -163,6 +164,7 @@ void Mapper::set_alignment_threads(int new_thread_count) {
     init_node_cache();
     init_node_start_cache();
     init_node_pos_cache();
+    init_edge_cache();
 }
 
 void Mapper::init_node_cache(void) {
@@ -192,6 +194,16 @@ void Mapper::init_node_pos_cache(void) {
     node_pos_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
         node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(4096));
+    }
+}
+
+void Mapper::init_edge_cache(void) {
+    for (auto& ec : edge_cache) {
+        delete ec;
+    }
+    edge_cache.clear();
+    for (int i = 0; i < alignment_threads; ++i) {
+        edge_cache.push_back(new LRUCache<id_t, vector<Edge> >(4096));
     }
 }
 
@@ -3080,6 +3092,11 @@ LRUCache<gcsa::node_type, map<string, vector<size_t> > >& Mapper::get_node_pos_c
     return *node_pos_cache[tid];
 }
 
+LRUCache<id_t, vector<Edge> >& Mapper::get_edge_cache(void) {
+    int tid = edge_cache.size() > 1 ? omp_get_thread_num() : 0;
+    return *edge_cache[tid];
+}
+
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq) {
     if (alns.empty()) return;
 
@@ -4552,11 +4569,11 @@ char Mapper::pos_char(pos_t pos) {
 }
 
 map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
-    return xg_cached_next_pos_chars(pos, xindex, get_node_cache());
+    return xg_cached_next_pos_chars(pos, xindex, get_node_cache(), get_edge_cache());
 }
 
 int Mapper::graph_distance(pos_t pos1, pos_t pos2, int maximum) {
-    return xg_cached_distance(pos1, pos2, xindex, get_node_cache(), maximum);
+    return xg_cached_distance(pos1, pos2, maximum, xindex, get_node_cache(), get_edge_cache());
 }
 
 int Mapper::approx_position(pos_t pos) {
@@ -4605,7 +4622,7 @@ id_t Mapper::node_approximately_at(int approx_pos) {
 }
 
 set<pos_t> Mapper::positions_bp_from(pos_t pos, int distance, bool rev) {
-    return xg_cached_positions_bp_from(pos, distance, rev, xindex, get_node_cache());
+    return xg_cached_positions_bp_from(pos, distance, rev, xindex, get_node_cache(), get_edge_cache());
 }
 
 // use LRU caching to get the most-recent node positions

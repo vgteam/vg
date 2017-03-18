@@ -29,6 +29,7 @@ public:
     // We need this so we don't re-load the node for every character we visit in
     // it.
     LRUCache<id_t, Node> node_cache;
+    LRUCache<id_t, vector<Edge> > edge_cache;
     mt19937 rng;
     int64_t nonce;
     // If set, only sample positions/start reads on the forward strands of their
@@ -42,6 +43,7 @@ public:
             bool allow_Ns = false)
         : xgidx(x),
           node_cache(100),
+          edge_cache(100),
           forward_only(forward_only),
           no_Ns(!allow_Ns),
           nonce(0) {

@@ -226,6 +226,10 @@ public:
     void init_node_pos_cache(void);
     map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
 
+    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
+    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
+    void init_edge_cache(void);
+
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
