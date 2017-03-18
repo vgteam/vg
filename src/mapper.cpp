@@ -2419,16 +2419,14 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     for (auto& id : nodes) {
         *graph.graph.add_node() = xindex->node(id);
     }
-    int get_at_least = aln.sequence().size();
+    int get_at_least = aln.sequence().size()*2 - cluster_coverage(mems);
     xindex->expand_context(graph.graph,
                            get_at_least,
                            false, // don't add paths
                            false, // don't use steps (use length)
                            true,  // go forward
                            true); // go backward
-    xindex->expand_context(graph.graph, 1, false, true); // go one more step
     graph.rebuild_indexes();
-
     return graph;
 }
 
