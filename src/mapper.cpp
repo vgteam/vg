@@ -2362,7 +2362,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) 
                          pinned_reverse,
                          full_length_alignment_bonus,
                          banded_global);
-    aln.set_score(score_alignment(aln));
+    aln.set_score(rescore_without_full_length_bonus(aln));
     if (flip) {
         aln = reverse_complement_alignment(
             aln,
