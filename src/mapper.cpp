@@ -514,21 +514,19 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     VG graph;
-    //auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    int get_at_least = mate1.sequence().size()*4;
+    // should cover ~99.8% of the distribution
+    int get_at_least = cached_fragment_length_stdev * 6;
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
     //cerr << "got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
-    //bool flip = !cached_fragment_orientation;
     if (rescue_off_first) {
         Alignment aln2;
         bool flip = !mate1.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate1.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
         // do we expect the alignment to be on the reverse strand?
-        //
         if (flip) {
             aln2.set_sequence(reverse_complement(mate2.sequence()));
             if (!mate2.quality().empty()) {
