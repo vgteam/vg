@@ -86,6 +86,27 @@ ostream& operator<<(ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
 }
 
+Node xg_cached_node(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    pair<Node, bool> cached = node_cache.retrieve(id);
+    if(!cached.second) {
+        cached.first = xgidx->node(id);
+        node_cache.put(id, cached.first);
+    }
+    Node& node = cached.first;
+    return node;
+}
+
+vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
+    pair<vector<Edge>, bool> cached = edge_cache.retrieve(id);
+    if(!cached.second) {
+        for (auto& edge : xgidx->edges_of(id)) {
+            cached.first.push_back(edge);
+        }
+        edge_cache.put(id, cached.first);
+    }
+    return cached.first;
+}
+
 string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
     if(!cached.second) {
@@ -199,8 +220,7 @@ map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_
     return nexts;
 }
 
-set<pos_t> xg_cached_next_pos(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
-
+set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     set<pos_t> nexts;
     // See if the node is cached (did we just visit it?)
     pair<Node, bool> cached = node_cache.retrieve(id(pos));
@@ -211,7 +231,7 @@ set<pos_t> xg_cached_next_pos(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& no
     }
     Node& node = cached.first;
     // if we are still in the node, return the next position and character
-    if (offset(pos) < node.sequence().size()-1) {
+    if (!whole_node && offset(pos) < node.sequence().size()-1) {
         ++get_offset(pos);
         nexts.insert(pos);
     } else {
@@ -261,14 +281,12 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCa
     if (pos1 == pos2) return 0;
     int adj = (offset(pos1) == xg_cached_node_length(id(pos1), xgidx, node_cache) ? 0 : 1);
     set<pos_t> seen;
-    set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache, edge_cache);
+    set<pos_t> nexts = xg_cached_next_pos(pos1, false, xgidx, node_cache, edge_cache);
     int distance = 0;
     while (!nexts.empty()) {
         set<pos_t> todo;
         for (auto& next : nexts) {
-            //cerr << "looking at " << next << endl;
             if (!seen.count(next)) {
-                //cerr << "not seen" << endl;
                 seen.insert(next);
                 if (next == pos2) {
                     return distance+adj;
@@ -277,21 +295,17 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCa
                 if (make_pos_t(id(next), is_rev(next), offset(next)+1) == pos2) {
                     return distance+adj+1;
                 }
-                for (auto& x : xg_cached_next_pos(next, xgidx, node_cache, edge_cache)) {
+                for (auto& x : xg_cached_next_pos(next, false, xgidx, node_cache, edge_cache)) {
                     todo.insert(x);
                 }
             }
         }
         if (distance == maximum) {
-            //cerr << "distance is max!" << endl;
-            // reached maximum and didn't find the second position
             break;
         }
         nexts = todo;
         ++distance;
-        //cerr << "distance " << distance << endl;
     }
-
     return maximum;
 }
 
@@ -307,7 +321,7 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
         //return positions;
     } else {
         set<pos_t> seen;
-        set<pos_t> nexts = xg_cached_next_pos(pos, xgidx, node_cache, edge_cache);
+        set<pos_t> nexts = xg_cached_next_pos(pos, false, xgidx, node_cache, edge_cache);
         int walked = 0;
         while (!nexts.empty()) {
             if (walked+1 == distance) {
@@ -320,7 +334,7 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
             for (auto& next : nexts) {
                 if (!seen.count(next)) {
                     seen.insert(next);
-                    for (auto& x : xg_cached_next_pos(next, xgidx, node_cache, edge_cache)) {
+                    for (auto& x : xg_cached_next_pos(next, false, xgidx, node_cache, edge_cache)) {
                         todo.insert(x);
                     }
                 }
@@ -339,5 +353,6 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
         return positions;
     }
 }
+
 
 }

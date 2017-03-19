@@ -308,6 +308,8 @@ public:
     int32_t rescore_without_full_length_bonus(const Alignment& aln);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // helper to cluster subgraph
+    void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
@@ -534,6 +536,7 @@ public:
     int8_t full_length_alignment_bonus;
     bool simultaneous_pair_alignment;
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
+    int cache_size;
 
 };
 

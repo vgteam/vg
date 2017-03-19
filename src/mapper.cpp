@@ -61,6 +61,7 @@ Mapper::Mapper(Index* idex,
     , smooth_alignments(true)
     , simultaneous_pair_alignment(true)
     , drop_chain(0.2)
+    , cache_size(128)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -173,7 +174,7 @@ void Mapper::init_node_cache(void) {
     }
     node_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_cache.push_back(new LRUCache<id_t, Node>(4096));
+        node_cache.push_back(new LRUCache<id_t, Node>(cache_size));
     }
 }
 
@@ -183,7 +184,7 @@ void Mapper::init_node_start_cache(void) {
     }
     node_start_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_start_cache.push_back(new LRUCache<id_t, size_t>(4096));
+        node_start_cache.push_back(new LRUCache<id_t, size_t>(cache_size));
     }
 }
 
@@ -193,7 +194,7 @@ void Mapper::init_node_pos_cache(void) {
     }
     node_pos_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(4096));
+        node_pos_cache.push_back(new LRUCache<gcsa::node_type, map<string, vector<size_t> > >(cache_size));
     }
 }
 
@@ -203,7 +204,7 @@ void Mapper::init_edge_cache(void) {
     }
     edge_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        edge_cache.push_back(new LRUCache<id_t, vector<Edge> >(4096));
+        edge_cache.push_back(new LRUCache<id_t, vector<Edge> >(cache_size));
     }
 }
 
@@ -464,7 +465,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     if (!fragment_size) return false;
     //auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     double hang_threshold = 0.75;
-    double retry_threshold = 0.6;
+    double retry_threshold = 0.75;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
@@ -505,23 +506,18 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     }
 #ifdef debug_mapper
 #pragma omp critical
-        {
-            if (debug) cerr << "aiming for " << mate_pos << endl;
-        }
+    {
+        if (debug) cerr << "aiming for " << mate_pos << endl;
+    }
 #endif
+    auto& node_cache = get_node_cache();
+    auto& edge_cache = get_edge_cache();
     VG graph;
-    int get_at_least = mate1.sequence().size()*3;
-    bool go_forward = true;
-    bool go_backward = true;
-    id_t id_from = id(mate_pos);
-    xindex->get_id_range(id_from, id_from, graph.graph);
-    xindex->expand_context(graph.graph,
-                           get_at_least,
-                           false, // don't add paths
-                           false, // don't use steps (use length)
-                           go_forward,
-                           go_backward);
-    graph.rebuild_indexes();
+    //auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
+    int get_at_least = mate1.sequence().size()*4;
+    cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
+    cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
+    graph.remove_orphan_edges();
     //cerr << "got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
@@ -2422,23 +2418,70 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
 }
 
+void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+    // walk the graph from this position forward
+    // adding the nodes we run into to the graph
+    set<pos_t> seen;
+    set<pos_t> nexts;
+    nexts.insert(pos);
+    int distance = -offset(pos); // don't count what we won't traverse
+    while (!nexts.empty()) {
+        set<pos_t> todo;
+        int nextd = 0;
+        for (auto& next : nexts) {
+            if (!seen.count(next)) {
+                seen.insert(next);
+                // add the node and its edges to the graph
+                Node node = xg_cached_node(id(next), xindex, node_cache);
+                nextd = nextd == 0 ? node.sequence().size() : min(nextd, (int)node.sequence().size());
+                //distance += node.sequence().size();
+                graph.add_node(node);
+                for (auto& edge : xg_cached_edges_of(id(next), xindex, edge_cache)) {
+                    graph.add_edge(edge);
+                }
+                // where to next
+                for (auto& x : xg_cached_next_pos(next, true, xindex, node_cache, edge_cache)) {
+                    todo.insert(x);
+                }
+            }
+        }
+        distance += nextd;
+        if (distance > length) {
+            break;
+        }
+        nexts = todo;
+    }
+    return;
+}
+
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
-    set<id_t> nodes;
+    //int get_at_least = aln.sequence().size()*2 - cluster_coverage(mems);
+    auto& node_cache = get_node_cache();
+    auto& edge_cache = get_edge_cache();
+    // try to get the distances between the mems and the distance
+    //for (auto& mem : mems) {
+    // go backwards from the start to the beginning of the alignment
+    assert(mems.size());
+    auto& start_mem = mems.front();
+    auto start_pos = make_pos_t(start_mem.nodes.front());
+    auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
+    //float expansion = 2;
+    int get_before = (int)(start_mem.begin - aln.sequence().begin());
     VG graph;
-    for (auto& mem : mems) {
-        nodes.insert(gcsa::Node::id(mem.nodes.front()));
+    if (get_before) {
+        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
     }
-    for (auto& id : nodes) {
-        *graph.graph.add_node() = xindex->node(id);
+    //if (debug) cerr << "got before " << rev_start_pos << " " << start_mem << " " << get_before << endl;
+    for (int i = 0; i < mems.size(); ++i) {
+        auto& mem = mems[i];
+        auto pos = make_pos_t(mem.nodes.front());
+        int get_after = (i+1 == mems.size() ? aln.sequence().end() - mem.begin
+                         : max(mem.length(), (int)(mems[i+1].begin - mem.begin)));
+        //if (debug) cerr << pos << " " << mem << " getting after " << get_after << endl;
+        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
     }
-    int get_at_least = aln.sequence().size()*2 - cluster_coverage(mems);
-    xindex->expand_context(graph.graph,
-                           get_at_least,
-                           false, // don't add paths
-                           false, // don't use steps (use length)
-                           true,  // go forward
-                           true); // go backward
-    graph.rebuild_indexes();
+    graph.remove_orphan_edges();
+    //if (debug) cerr << "graph " << pb2json(graph.graph) << endl;
     return graph;
 }
 
@@ -2660,20 +2703,9 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 // We need a function to get the lengths of nodes, in case we need to
 // reverse an Alignment, including all its Mappings and Positions.
 int64_t Mapper::get_node_length(int64_t node_id) {
-    if(xindex) {
-        // Grab the node sequence only from the XG index and get its size.
-        // Make sure to use the cache
-        return xg_cached_node_length(node_id, xindex, get_node_cache());
-    } else if(index) {
-        // Get a 1-element range from the index and then use that.
-        VG one_node_graph;
-        index->get_range(node_id, node_id, one_node_graph);
-        return one_node_graph.get_node(node_id)->sequence().size();
-    } else {
-        // Complain we don;t have the right indices.
-        // This should be caught before here.
-        throw runtime_error("No index to get nodes from.");
-    }
+    // Grab the node sequence only from the XG index and get its size.
+    // Make sure to use the cache
+    return xg_cached_node_length(node_id, xindex, get_node_cache());
 }
 
 bool Mapper::check_alignment(const Alignment& aln) {
