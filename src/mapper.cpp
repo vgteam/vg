@@ -466,7 +466,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     if (!fragment_size) return false;
     //auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     double hang_threshold = 0.75;
-    double retry_threshold = 0.75;
+    double retry_threshold = 0.6;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
@@ -514,8 +514,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     VG graph;
-    // should cover ~99.8% of the distribution
-    int get_at_least = cached_fragment_length_stdev * 6;
+    int get_at_least = cached_fragment_length_stdev * 6 + mate1.sequence().size();
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
@@ -2464,8 +2463,8 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
     auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    //float expansion = 2;
-    int get_before = (int)(start_mem.begin - aln.sequence().begin());
+    float expansion = 1.61803;
+    int get_before = (int)(start_mem.begin - aln.sequence().begin()) * expansion;
     VG graph;
     if (get_before) {
         cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
@@ -2474,8 +2473,8 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         auto pos = make_pos_t(mem.nodes.front());
-        int get_after = (i+1 == mems.size() ? aln.sequence().end() - mem.begin
-                         : max(mem.length(), (int)(mems[i+1].begin - mem.begin)));
+        int get_after = expansion * (i+1 == mems.size() ? aln.sequence().end() - mem.begin
+                                     : max(mem.length(), (int)(mems[i+1].begin - mem.begin)));
         //if (debug) cerr << pos << " " << mem << " getting after " << get_after << endl;
         cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
     }
