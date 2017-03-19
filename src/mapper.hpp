@@ -537,6 +537,7 @@ public:
     bool simultaneous_pair_alignment;
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     int cache_size;
+    int mate_rescues;
 
 };
 

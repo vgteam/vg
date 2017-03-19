@@ -62,6 +62,7 @@ Mapper::Mapper(Index* idex,
     , simultaneous_pair_alignment(true)
     , drop_chain(0.2)
     , cache_size(128)
+    , mate_rescues(32)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -1861,13 +1862,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 }),
             alns.end());
     };
-
-    //sort_and_dedup();
     if (fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
+        int j = 0;
         for (auto& p : alns) {
             rescued |= pair_rescue(p.first, p.second);
+            if (++j == mate_rescues) break;
         }
     }
     sort_and_dedup();
