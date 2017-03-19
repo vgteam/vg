@@ -4936,14 +4936,15 @@ void help_map(char** argv) {
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl // TODO
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl  //TODO Fix
-         << "    -w, --band-width INT    band width for long read alignment [256]" << endl // TODO change default
-         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [1e4:0:0:0:1]" << endl // TOOD
+         << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
+         << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [1e4:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
-         << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl // TODO
+         << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
+         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -5035,6 +5036,7 @@ int main_map(int argc, char** argv) {
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
+    int mate_rescues = 64;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5081,17 +5083,18 @@ int main_map(int argc, char** argv) {
                 {"try-up-to", required_argument, 0, 'u'},
                 {"compare", no_argument, 0, 'B'},
                 {"fragment", required_argument, 0, 'I'},
-                {"fragment-sigma", required_argument, 0, 'S'},
+                {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'l'},
                 {"chance-match", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
+                {"mate-rescues", required_argument, 0, 'O'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:",
                          long_options, &option_index);
 
 
@@ -5282,6 +5285,10 @@ int main_map(int argc, char** argv) {
             fragment_sigma = atof(optarg);
             break;
 
+        case 'O':
+            mate_rescues = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -5468,6 +5475,7 @@ int main_map(int argc, char** argv) {
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
         m->smooth_alignments = smooth_alignments;
+        m->mate_rescues = mate_rescues;
         mapper[i] = m;
     }
 
