@@ -61,9 +61,13 @@ size_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, size_t>& node
 /// Get the character at a position in an xg::XG index, with cacheing of deserialized nodes.
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the characters at positions after the given position from an xg::XG index, with cacheing of deserialized nodes.
-map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
-int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum);
-set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+//void xg_cached_graph_context(VG& graph, const pos_t& pos, int length, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+Node xg_cached_node(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache);
 
 }
 

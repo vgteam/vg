@@ -178,7 +178,7 @@ int main_mod(int argc, char** argv) {
             {"unreverse-edges", required_argument, 0, 'E'},
             {"cactus", no_argument, 0, 'a'},
             {"sample-vcf", required_argument, 0, 'v'},
-            {"sample-fraph", required_argument, 0, 'G'},
+            {"sample-graph", required_argument, 0, 'G'},
             {0, 0, 0, 0}
         };
 

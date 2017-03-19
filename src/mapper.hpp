@@ -70,34 +70,37 @@ public:
 };
 
 
-class MEMMarkovModelVertex {
+class MEMChainModelVertex {
 public:
     MaximalExactMatch mem;
-    vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
-    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for backward
+    vector<pair<MEMChainModelVertex*, double> > next_cost; // for forward
+    vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
-    MEMMarkovModelVertex* prev;
-    MEMMarkovModelVertex(void) = default;                                      // Copy constructor
-    MEMMarkovModelVertex(const MEMMarkovModelVertex&) = default;               // Copy constructor
-    MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
-    MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
-    MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
-    virtual ~MEMMarkovModelVertex() { }                     // Destructor
+    int approx_position;
+    MEMChainModelVertex* prev;
+    MEMChainModelVertex(void) = default;                                      // Copy constructor
+    MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
+    MEMChainModelVertex(MEMChainModelVertex&&) = default;                    // Move constructor
+    MEMChainModelVertex& operator=(const MEMChainModelVertex&) & = default;  // MEMChainModelVertexopy assignment operator
+    MEMChainModelVertex& operator=(MEMChainModelVertex&&) & = default;       // Move assignment operator
+    virtual ~MEMChainModelVertex() { }                     // Destructor
 };
 
-class MEMMarkovModel {
+class MEMChainModel {
 public:
-    vector<MEMMarkovModelVertex> model;
-    MEMMarkovModel(
+    vector<MEMChainModelVertex> model;
+    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-        int band_width = 10);
-    void score(const set<MEMMarkovModelVertex*>& exclude);
-    MEMMarkovModelVertex* max_vertex(void);
+        int band_width = 10,
+        int position_depth = 3);
+    void score(const set<MEMChainModelVertex*>& exclude);
+    MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);
     void clear_scores(void);
@@ -223,6 +226,10 @@ public:
     void init_node_pos_cache(void);
     map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
 
+    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
+    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
+    void init_edge_cache(void);
+
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
@@ -301,6 +308,8 @@ public:
     int32_t rescore_without_full_length_bonus(const Alignment& aln);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // helper to cluster subgraph
+    void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
@@ -487,7 +496,7 @@ public:
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
     int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
-    bool mem_threading; // whether to use the mem threading mapper or not
+    bool mem_chaining; // whether to use the mem threading mapper or not
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
 
@@ -527,6 +536,8 @@ public:
     int8_t full_length_alignment_bonus;
     bool simultaneous_pair_alignment;
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
+    int cache_size;
+    int mate_rescues;
 
 };
 
