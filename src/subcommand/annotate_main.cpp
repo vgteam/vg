@@ -36,6 +36,11 @@ int main_annotate(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
         {
+            {"gam", required_argument, 0, 'a'},
+            {"gcsa", required_argument, 0, 'g'},
+            {"positions", no_argument, 0, 'p'},
+            {"vg", required_argument, 0, 'v'},
+            {"xg-name", required_argument, 0, 'x'},
             {"db-name", required_argument, 0, 'd'},
             {0, 0, 0, 0}
         };
