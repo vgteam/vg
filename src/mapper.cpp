@@ -514,7 +514,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     VG graph;
-    int get_at_least = cached_fragment_length_stdev * 6 + mate1.sequence().size();
+    int get_at_least = cached_fragment_length_stdev * 6 + mate1.sequence().size() * 2;
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
