@@ -26,7 +26,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-#define DEBUG
 
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl

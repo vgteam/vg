@@ -296,7 +296,7 @@ $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp
 	+cd $(DEP_DIR)/gfakluge && $(MAKE) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
 
 $(INC_DIR)/gfakluge.hpp:
-	cp $(DEP_DIR)/gfakluge/gfakluge.hpp $(CWD)/$(INC_DIR)/
+	cp $(DEP_DIR)/gfakluge/src/gfakluge.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a $(INC_DIR)/globalDefs.hpp
 	+. ./source_me.sh && cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/

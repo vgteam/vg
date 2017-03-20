@@ -11,6 +11,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "vg.pb.h"
 #include "../genotypekit.hpp"
 
 
