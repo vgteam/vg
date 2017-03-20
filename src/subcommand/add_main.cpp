@@ -71,7 +71,7 @@ int main_add(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:n:ipt:h?",
+        c = getopt_long (argc, argv, "v:n:r:f:ipt:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
