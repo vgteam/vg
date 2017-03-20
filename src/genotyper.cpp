@@ -82,7 +82,11 @@ namespace vg {
         stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
         stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+        stream << "##FORMAT=<ID=GP,Number=1,Type=String,Description=\"Genotype Probability\">" << endl;
         stream << "##INFO=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
+        stream << "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"SV length\">" << endl;
+        stream << "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"SV Type\">" << endl;
+        stream << "##INFO=<ID=END,Number=1,Type=Integer,Description=\"SV End\">" << endl;
         stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
         stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << endl;
         stream << "##FORMAT=<ID=AL,Number=.,Type=Float,Description=\"Allelic likelihoods for the ref and alt alleles in the order listed\">" << endl;
@@ -180,10 +184,26 @@ namespace vg {
             return result;
         };
 
+
+        std::function<long double(int64_t)> big_fac = [](int64_t t){
+            long double result = 1.0;
+            int64_t to_calc = t;
+            if (t > 15){
+                // Screw calculating anything and return a big number.
+                to_calc = 15;
+            }
+            for (int64_t i = 1; i <= to_calc; ++i){
+                result *= (long double) i; 
+            }
+            return result;
+        };
+
+
+
         // Creates a three-element vector, ref, het, alt
-        std::function<long double(int64_t, int64_t, double)> get_binoms = [fac](int64_t ref_count, int64_t alt_count, long double geno_prior){
-            long double top_term = ( fac(alt_count + ref_count) );
-            long double bottom_term = (fac(ref_count) * fac(alt_count));
+        std::function<long double(int64_t, int64_t, double)> get_binoms = [fac, big_fac](int64_t ref_count, int64_t alt_count, long double geno_prior){
+            long double top_term = ( big_fac(alt_count + ref_count) );
+            long double bottom_term = (big_fac(ref_count) * big_fac(alt_count));
 
             long double dat_binom = top_term / bottom_term;
             return dat_binom * pow(geno_prior, alt_count) * pow((1.0 - geno_prior), ref_count);
@@ -197,7 +217,7 @@ namespace vg {
             vector<long double> geno_probs (geno_priors.size());
 
 #ifdef DEBUG
-            cerr << "Ref count " << ref_count << endl;
+cerr << "Ref count " << ref_count << endl;
             cerr << "Alt count " << alt_count << endl;
 #endif
             // calculate genotype data probs
@@ -227,6 +247,8 @@ namespace vg {
                 }
                 else if (prob == big_prob){
                     cerr << "EQUAL PROBABILITIES OF GENOTYPES." << endl;
+                    geno_index = -1;
+                    break;
                 }
             }
 
