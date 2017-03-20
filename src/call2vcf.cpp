@@ -580,23 +580,26 @@ void Call2Vcf::call(
                 
                 // How much support do we have for visiting this node?
                 Support node_support = augmented.node_supports.at(node);
-                // Grab the edge we're traversing into the node
+                
+                // Grab the support for the edge we're traversing into the node
                 Edge* in_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(prev)),
                                                                    to_left_side(to_visit(here))));
-                // If there's less support on the in edge than on the node,
-                // knock it down. We do this separately in each dimension.
-                node_support = support_min(node_support, augmented.edge_supports.at(in_edge));
+                auto& in_support = augmented.edge_supports.at(in_edge);
                 
                 // Ditto for the edge we're traversing out of the node
                 Edge* out_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(here)),
                                                                     to_left_side(to_visit(next))));
-                node_support = support_min(node_support, augmented.edge_supports.at(out_edge));
+                auto& out_support = augmented.edge_supports.at(out_edge);
                 
-                
-                // Add support in to the total support for the alt. Scale by node length.
+                // Add node's support in to the total support for the alt. Scale by node length.
+                // TODO: should the edges count here?
                 total_support += node->sequence().size() * node_support;
+                
+                // Get the min support for the node and its edges
+                auto node_min_support = support_min(node_support, support_min(in_support, out_support));
+                
                 // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
-                min_support = (i == 1 ? node_support : support_min(min_support, node_support));
+                min_support = (i == 1 ? node_min_support : support_min(min_support, node_min_support));
 
                 // Update minimum likelihood in the alt path
                 min_likelihood = min(min_likelihood, augmented.node_likelihoods.at(node));
@@ -617,7 +620,6 @@ void Call2Vcf::call(
                 
                 // And the likelihood on the edge
                 min_likelihood = augmented.edge_likelihoods.at(edge);
-                
             }
             
             // Calculate the min and average Supports
@@ -736,17 +738,20 @@ void Call2Vcf::call(
             // everything is homozygous ref by default in VCF, any downstream filters
             // will effectively reset these calls back to homozygous ref. 
             double bias_limit = (best_allele == 0) ? maxRefHetBias : maxHetBias;
-            
 #ifdef debug
             cerr << best_allele << ", " << best_support << " and "
                 << second_best_allele << ", " << second_best_support << endl;
+            
+            if (total(second_best_support) > 0) {
+                cerr << "Bias: (limit " << bias_limit * bias_multiple << "):"
+                    << total(best_support)/total(second_best_support) << endl;
+            }
             
             cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
                 << total(best_support) << endl;
                 
             cerr << total(second_best_support) << " vs " << minTotalSupportForCall << endl;
 #endif
-            
             if(second_best_allele != -1 &&
                 bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
                 total(best_support) >= minTotalSupportForCall &&
