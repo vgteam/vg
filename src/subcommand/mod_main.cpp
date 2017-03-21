@@ -672,18 +672,18 @@ int main_mod(int argc, char** argv) {
     }
 
     if (dagify_steps) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
     }
 
     if (unfold_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->unfold(unfold_to, node_translation);
     }
 

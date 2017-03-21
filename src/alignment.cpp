@@ -848,7 +848,7 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
     return a3;
 }
 
-void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
+void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
     Path* path = a.mutable_path();
     for(size_t i = 0; i < path->mapping_size(); i++) {
         // Grab each mapping (includes its position)
