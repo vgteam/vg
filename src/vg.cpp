@@ -8626,6 +8626,45 @@ void VG::fill_empty_path_mappings(void) {
             }
         });
 }
+    
+VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
+    
+    VG split;
+    
+    unordered_map<id_t, id_t> forward_node;
+    unordered_map<id_t, id_t> reverse_node;
+    for (int64_t i = 0; i < graph.node_size(); i++) {
+        const Node& node = graph.node(i);
+        Node* fwd_node = split.create_node(node.sequence());
+        Node* rev_node = split.create_node(reverse_complement(node.sequence()));
+        forward_node[node.id()] = fwd_node->id();
+        reverse_node[node.id()] = rev_node->id();
+        node_translation[fwd_node->id()] = make_pair(node.id(), false);
+        node_translation[rev_node->id()] = make_pair(node.id(), true);
+    }
+    
+    for (int64_t i = 0; i < graph.edge_size(); i++) {
+        const Edge& edge = graph.edge(i);
+        if (!edge.from_start() && !edge.to_end()) {
+            split.create_edge(forward_node[edge.from()], forward_node[edge.to()]);
+            split.create_edge(reverse_node[edge.to()], reverse_node[edge.from()]);
+        }
+        else if (edge.from_start() && edge.to_end()) {
+            split.create_edge(reverse_node[edge.from()], reverse_node[edge.to()]);
+            split.create_edge(forward_node[edge.to()], forward_node[edge.from()]);
+        }
+        else if (edge.from_start()) {
+            split.create_edge(reverse_node[edge.from()], forward_node[edge.to()]);
+            split.create_edge(reverse_node[edge.to()], forward_node[edge.from()]);
+        }
+        else {
+            split.create_edge(forward_node[edge.from()], reverse_node[edge.to()]);
+            split.create_edge(forward_node[edge.to()], reverse_node[edge.from()]);
+        }
+    }
+    
+    return split;
+}
 
 VG VG::unfold(uint32_t max_length,
               unordered_map<id_t, pair<id_t, bool> >& node_translation) {
@@ -8688,11 +8727,7 @@ VG VG::unfold(uint32_t max_length,
                     else if (!forward_edges.count(trav_edge)) {
                         // we've never traversed this edge to this node, so add the edge and move on
                         forward_edges.insert(trav_edge);
-                        
-                        Edge edge;
-                        edge.set_from(oriented_trav.first);
-                        edge.set_to(oriented_next.first);
-                        unfolded.add_edge(edge);
+                        unfolded.create_edge(oriented_trav.first, oriented_next.first);
                     }
                 }
                 else {
@@ -8706,11 +8741,7 @@ VG VG::unfold(uint32_t max_length,
                     
                     // also copy the edge
                     forward_edges.insert(get_edge(trav, next));
-                    
-                    Edge edge;
-                    edge.set_from(oriented_trav.first);
-                    edge.set_to(new_node->id());
-                    unfolded.add_edge(edge);
+                    unfolded.create_edge(oriented_trav.first, new_node->id());
                     
                     // add to stack to continue traversal
                     stack.push_back(next);
@@ -8735,11 +8766,7 @@ VG VG::unfold(uint32_t max_length,
                     else if (!forward_edges.count(trav_edge)) {
                         // we've never traversed this edge to this node, so add the edge and move on
                         forward_edges.insert(trav_edge);
-                        
-                        Edge edge;
-                        edge.set_from(oriented_prev.first);
-                        edge.set_to(oriented_trav.first);
-                        unfolded.add_edge(edge);
+                        unfolded.create_edge(oriented_prev.first, oriented_trav.first);
                     }
                 }
                 else {
@@ -8754,11 +8781,7 @@ VG VG::unfold(uint32_t max_length,
                     
                     // also copy the edge
                     forward_edges.insert(get_edge(prev, trav));
-                    
-                    Edge edge;
-                    edge.set_from(new_node->id());
-                    edge.set_to(oriented_trav.first);
-                    unfolded.add_edge(edge);
+                    unfolded.create_edge(new_node->id(), oriented_trav.first);
                     
                     // add to stack to continue traversal
                     stack.push_back(prev);
@@ -8809,16 +8832,12 @@ VG VG::unfold(uint32_t max_length,
             reversed_nodes[init_next.node->id()] = rev_init_node->id();
         }
         
-        Edge edge;
         if (init_trav.backward == main_orientation[init_trav.node->id()].second) {
-            edge.set_from(main_orientation[init_trav.node->id()].first);
-            edge.set_to(reversed_nodes[init_next.node->id()]);
+            unfolded.create_edge(main_orientation[init_trav.node->id()].first, reversed_nodes[init_next.node->id()]);
         }
         else {
-            edge.set_from(reversed_nodes[init_next.node->id()]);
-            edge.set_to(main_orientation[init_trav.node->id()].first);
+            unfolded.create_edge(reversed_nodes[init_next.node->id()], main_orientation[init_trav.node->id()].first);
         }
-        unfolded.add_edge(edge);
 #ifdef debug
         cerr << "[unfold] adding edge to unfold graph as " << pb2json(edge) << endl;
 #endif
@@ -8876,16 +8895,12 @@ VG VG::unfold(uint32_t max_length,
                 
                 // we haven't traversed this edge and it stays on the reverse strand
                 if (!reversed_edges.count(edge)) {
-                    Edge new_edge;
                     if (dist_trav.trav.backward == main_orientation[dist_trav.trav.node->id()].second) {
-                        new_edge.set_from(reversed_nodes[next.node->id()]);
-                        new_edge.set_to(reversed_nodes[dist_trav.trav.node->id()]);
+                        unfolded.create_edge(reversed_nodes[next.node->id()], reversed_nodes[dist_trav.trav.node->id()]);
                     }
                     else {
-                        new_edge.set_from(reversed_nodes[dist_trav.trav.node->id()]);
-                        new_edge.set_to(reversed_nodes[next.node->id()]);
+                        unfolded.create_edge(reversed_nodes[dist_trav.trav.node->id()], reversed_nodes[next.node->id()]);
                     }
-                    unfolded.add_edge(new_edge);
                     reversed_edges.insert(edge);
 #ifdef debug
                     cerr << "[unfold] edge has not been observed on reverse strand, adding reverse edge " << pb2json(new_edge) << endl;

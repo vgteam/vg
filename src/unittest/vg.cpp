@@ -144,6 +144,126 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
         REQUIRE(graph.is_acyclic() == true);
     }
 }
+    TEST_CASE("split_strands() should properly split the forward and reverse strands", "[vg][split]") {
+        const string graph_json = R"(
+        {
+            "node": [
+                     {"sequence": "ATA","id": 1},
+                     {"sequence": "CT","id": 2},
+                     {"sequence": "TGA","id": 3}
+                     ],
+            "edge": [
+                     {"from": 1,"to": 2},
+                     {"from": 3,"to": 2, "to_end": true, "from_start": true},
+                     {"from": 1,"to": 2, "to_end": true},
+                     {"from": 2,"to": 3, "from_start": true}
+                     ]
+        }
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        
+        unordered_map<id_t, pair<id_t, bool> > node_translation;
+        VG split = graph.split_strands(node_translation);
+        
+        Graph& g = split.graph;
+                
+        REQUIRE(g.node_size() == 6);
+        REQUIRE(g.edge_size() == 8);
+        
+        int64_t node_1 = 0;
+        int64_t node_2 = 0;
+        int64_t node_3 = 0;
+        int64_t node_4 = 0;
+        int64_t node_5 = 0;
+        int64_t node_6 = 0;
+        
+        for (int i = 0; i < g.node_size(); i++) {
+            const Node& n = g.node(i);
+            int64_t orig_id = node_translation[n.id()].first;
+            bool flipped =  node_translation[n.id()].second;
+            if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_1 = n.id();
+            }
+            else if (orig_id == 1 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_2 = n.id();
+            }
+            else if (orig_id == 2 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_3 = n.id();
+            }
+            else if (orig_id == 2 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_4 = n.id();
+            }
+            else if (orig_id == 3 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                node_5 = n.id();
+            }
+            else if (orig_id == 3 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                node_6 = n.id();
+            }
+        }
+        
+        REQUIRE(node_1 != 0);
+        REQUIRE(node_2 != 0);
+        REQUIRE(node_3 != 0);
+        REQUIRE(node_4 != 0);
+        REQUIRE(node_5 != 0);
+        REQUIRE(node_6 != 0);
+        
+        bool found_edge_1 = false;
+        bool found_edge_2 = false;
+        bool found_edge_3 = false;
+        bool found_edge_4 = false;
+        bool found_edge_5 = false;
+        bool found_edge_6 = false;
+        bool found_edge_7 = false;
+        bool found_edge_8 = false;
+        
+        for (int i = 0; i < g.edge_size(); i++) {
+            const Edge& e = g.edge(i);
+            if ((e.from() == node_1 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                (e.from() == node_3 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                found_edge_1 = true;
+            }
+            else if ((e.from() == node_1 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_4 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                found_edge_2 = true;
+            }
+            else if ((e.from() == node_6 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_3 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                found_edge_3 = true;
+            }
+            else if ((e.from() == node_6 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_4 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                found_edge_4 = true;
+            }
+            else if ((e.from() == node_3 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_5 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                found_edge_5 = true;
+            }
+            else if ((e.from() == node_3 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_2 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                found_edge_6 = true;
+            }
+            else if ((e.from() == node_4 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_5 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                found_edge_7 = true;
+            }
+            else if ((e.from() == node_4 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                     (e.from() == node_2 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                found_edge_8 = true;
+            }
+        }
+        
+        REQUIRE(found_edge_1);
+        REQUIRE(found_edge_2);
+        REQUIRE(found_edge_3);
+        REQUIRE(found_edge_4);
+        REQUIRE(found_edge_5);
+        REQUIRE(found_edge_6);
+        REQUIRE(found_edge_7);
+        REQUIRE(found_edge_8);
+    }
+    
 
 TEST_CASE("unfold() should properly unfold a graph out to the requested length", "[vg][unfold]") {
 

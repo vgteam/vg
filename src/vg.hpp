@@ -232,9 +232,16 @@ public:
     /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
                            unordered_map<id_t, pair<id_t, bool> >& node_translation);
-    /// Represent the whole graph up to max_length across an inversion on the forward strand.
+    /// Ensure that all traversals up to max_length are represented as a path on one strand or the other
+    /// without taking an inverting edge. All inverting edges are converted to non-inverting edges to
+    /// reverse complement nodes. If no inverting edges are present, the strandedness of all nodes is
+    /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
               unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
+    /// edges into non-inverting edges.
+    VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    
     /// Assume two node translations, the over is based on the under; merge them.
     unordered_map<id_t, pair<id_t, bool> > overlay_node_translations(const unordered_map<id_t, pair<id_t, bool> >& over,
                                                                      const unordered_map<id_t, pair<id_t, bool> >& under);
