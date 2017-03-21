@@ -15,7 +15,7 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 
 This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed.
 
-![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/example.png)
+![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
 
 ## Usage
 
