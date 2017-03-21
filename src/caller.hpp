@@ -349,6 +349,29 @@ public:
     Call2Vcf() = default;
     
     /**
+     * We use this to represent a contig in the primary path, with its index and coverage info.
+     */
+    struct PrimaryPath {
+    
+        /**
+         * Index the given path in the given augmented graph, and compute all
+         * the coverage bin information.
+         */
+        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name); 
+    
+        /// This holds the index for this path
+        PathIndex index;
+        
+        /// How wide is each coverage bin along the path?
+        size_t ref_bin_size;
+        
+        /// What's the expected in each bin along the path? Coverage gets split
+        /// evenly over both strands.
+        vector<Support> binned_support;
+    };
+    
+    
+    /**
      * Produce calls for the given annotated augmented graph. If a
      * pileupFilename is provided, the pileup is loaded again and used to add
      * comments describing variants
@@ -378,7 +401,7 @@ public:
     size_t locus_buffer_size = 1000;
     
     // What's the name of the reference path in the graph?
-    string refPathName = "";
+    string ref_path_name = "";
     // What name should we give the contig in the VCF file?
     string contigName = "";
     // What name should we use for the sample in the VCF file?
@@ -411,7 +434,7 @@ public:
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize = 250;
+    size_t ref_bin_size = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
     size_t expCoverage = 0;

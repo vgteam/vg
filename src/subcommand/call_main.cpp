@@ -171,7 +171,7 @@ int main_call(int argc, char** argv) {
         // old glenn2vcf opts start here
         case 'r':
             // Set the reference path name
-            call2vcf.refPathName = optarg;
+            call2vcf.ref_path_name = optarg;
             break;
         case 'c':
             // Set the contig name
@@ -224,7 +224,7 @@ int main_call(int argc, char** argv) {
             break;
         case 'B':
             // Set the reference bin size
-            call2vcf.refBinSize = std::stoll(optarg);
+            call2vcf.ref_bin_size = std::stoll(optarg);
             break;
         case 'C':
             // Override expected coverage

@@ -217,27 +217,27 @@ void Call2Vcf::call(
     augmented.graph.paths.sort_by_mapping_rank();
     augmented.graph.paths.rebuild_mapping_aux();
     
-    if(refPathName.empty()) {
+    if(ref_path_name.empty()) {
         if (verbose) {
           std:cerr << "Graph has " << augmented.graph.paths.size() << " paths to choose from."
                    << endl;
         }
         if(augmented.graph.paths.size() == 1) {
             // Autodetect the reference path name as the name of the only path
-            refPathName = (*augmented.graph.paths._paths.begin()).first;
+            ref_path_name = (*augmented.graph.paths._paths.begin()).first;
         } else {
-            refPathName = "ref";
+            ref_path_name = "ref";
         }
 
         if (verbose) {
-            cerr << "Guessed reference path name of " << refPathName
+            cerr << "Guessed reference path name of " << ref_path_name
                       << endl;
         }
     }
     
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    PathIndex index(augmented.graph, refPathName, true);
+    PathIndex index(augmented.graph, ref_path_name, true);
 
     if (index.sequence.size() == 0) {
         // No empty reference paths allowed
@@ -246,8 +246,8 @@ void Call2Vcf::call(
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
-    refBinSize = min(refBinSize, index.sequence.size());
-    if (refBinSize <= 0) {
+    ref_bin_size = min(ref_bin_size, index.sequence.size());
+    if (ref_bin_size <= 0) {
         // No zero-sized bins allowed
         throw runtime_error("Reference bin size must be 1 or larger");
     }
@@ -255,7 +255,7 @@ void Call2Vcf::call(
     Support base_support;
     base_support.set_forward(expCoverage / 2);
     base_support.set_reverse(expCoverage / 2);
-    vector<Support> binnedSupport(max(1, int(index.sequence.size() / refBinSize)), base_support);
+    vector<Support> binned_support(max(1, int(index.sequence.size() / ref_bin_size)), base_support);
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
@@ -267,11 +267,11 @@ void Call2Vcf::call(
             
             // We also update the total for the appropriate bin
             if (expCoverage == 0) {
-                int bin = index.by_id[pointerAndSupport.first->id()].first / refBinSize;
-                if (bin == binnedSupport.size()) {
+                int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+                if (bin == binned_support.size()) {
                     --bin;
                 }
-                binnedSupport[bin] = binnedSupport[bin] + 
+                binned_support[bin] = binned_support[bin] + 
                     pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             }
         }
@@ -282,26 +282,26 @@ void Call2Vcf::call(
     // Average out the support bins too (in place)
     int minBin = -1;
     int maxBin = -1;
-    for (int i = 0; i < binnedSupport.size(); ++i) {
+    for (int i = 0; i < binned_support.size(); ++i) {
         if (expCoverage == 0) {
-            binnedSupport[i] = binnedSupport[i] / (
-                i < binnedSupport.size() - 1 ? (double)refBinSize :
-                (double)(refBinSize + index.sequence.size() % refBinSize));
+            binned_support[i] = binned_support[i] / (
+                i < binned_support.size() - 1 ? (double)ref_bin_size :
+                (double)(ref_bin_size + index.sequence.size() % ref_bin_size));
         }
-        if (minBin == -1 || binnedSupport[i] < binnedSupport[minBin]) {
+        if (minBin == -1 || binned_support[i] < binned_support[minBin]) {
             minBin = i;
         }
-        if (maxBin == -1 || binnedSupport[i] > binnedSupport[maxBin]) {
+        if (maxBin == -1 || binned_support[i] > binned_support[maxBin]) {
             maxBin = i;
         }
     }
 
     if (verbose) {
         cerr << "Primary path average/off-path assumed coverage: " << primaryPathAverageSupport << endl;
-        cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
-                  << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
-        cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
-                  << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+        cerr << "Mininimum binned average coverage: " << binned_support[minBin] << " (bin "
+                  << (minBin + 1) << " / " << binned_support.size() << ")" << endl;
+        cerr << "Maxinimum binned average coverage: " << binned_support[maxBin] << " (bin "
+                  << (maxBin + 1) << " / " << binned_support.size() << ")" << endl;
     }
     
     // If applicable, load the pileup.
@@ -359,7 +359,7 @@ void Call2Vcf::call(
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     
-    CactusUltrabubbleFinder finder(augmented.graph, refPathName);
+    CactusUltrabubbleFinder finder(augmented.graph, ref_path_name);
     SnarlManager site_manager = finder.find_snarls();
     
     site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
@@ -678,11 +678,11 @@ void Call2Vcf::call(
                                      + augmented.graph.get_node(site->start().node_id())->sequence().size();
             
             // Find which coordinate bin the variation start is in, so we can get the typical local support
-            int bin = variation_start / refBinSize;
-            if (bin == binnedSupport.size()) {
+            int bin = variation_start / ref_bin_size;
+            if (bin == binned_support.size()) {
                 --bin;
             }
-            baseline_support = binnedSupport[bin];
+            baseline_support = binned_support[bin];
             
         } else {
             // Just use the primary path's average support
