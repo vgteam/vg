@@ -351,32 +351,87 @@ public:
     /**
      * We use this to represent a contig in the primary path, with its index and coverage info.
      */
-    struct PrimaryPath {
-    
+    class PrimaryPath {
+    public:
         /**
          * Index the given path in the given augmented graph, and compute all
-         * the coverage bin information.
+         * the coverage bin information with the given bin size.
          */
-        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name); 
+        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size); 
     
-        /// This holds the index for this path
-        PathIndex index;
+        /**
+         * Get the support at the bin appropriate for the given primary path
+         * offset.
+         */
+        const Support& get_support_at(size_t primary_path_offset);
         
+        /**
+         * Get the index of the bin that the given path position falls in.
+         */
+        size_t get_bin_index(size_t primary_path_offset);
+    
+        /**
+         * Get the bin with minimal coverage.
+         */
+        size_t get_min_bin();
+    
+        /**
+         * Get the bin with maximal coverage.
+         */
+        size_t get_max_bin();
+    
+        /**
+         * Get the support in the given bin.
+         */
+        const Support& get_bin(size_t bin);
+        
+        /**
+         * Get the total number of bins that the path is divided into.
+         */
+        size_t get_total_bins();
+        
+        /**
+         * Get the average support over the path.
+         */
+        const Support get_average_support();
+        
+        /**
+         * Get the total support for the path.
+         */
+        const Support get_total_support();
+    
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        PathIndex& get_index();
+    
+    protected:
         /// How wide is each coverage bin along the path?
         size_t ref_bin_size;
+        
+        /// This holds the index for this path
+        PathIndex index;
         
         /// What's the expected in each bin along the path? Coverage gets split
         /// evenly over both strands.
         vector<Support> binned_support;
+        
+        /// Which bin has min support?
+        size_t min_bin;
+        /// Which bin has max support?
+        size_t max_bin;
+        
+        /// What's the total Support over every bin?
+        Support total_support;
     };
     
     
     /**
      * Produce calls for the given annotated augmented graph. If a
-     * pileupFilename is provided, the pileup is loaded again and used to add
+     * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(AugmentedGraph& augmented, string pileupFilename = "");
+    void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph
@@ -437,7 +492,7 @@ public:
     size_t ref_bin_size = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    size_t expCoverage = 0;
+    double expCoverage = 0.0;
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
     bool suppress_overlaps = false;

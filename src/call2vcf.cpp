@@ -162,7 +162,7 @@ bool mapping_is_perfect_match(const Mapping& mapping) {
  *
  * TODO: VCF comments aren't really a thing.
  */
-string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
+string get_pileup_line(const map<int64_t, NodePileup>& node_pileups,
     const set<pair<int64_t, size_t>>& refCrossreferences,
     const set<pair<int64_t, size_t>>& altCrossreferences) {
     // We'll make a stringstream to write to.
@@ -172,9 +172,9 @@ string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
     
     for(const auto& xref : refCrossreferences) {
         // For every cross-reference
-        if(nodePileups.count(xref.first) && nodePileups.at(xref.first).base_pileup_size() > xref.second) {
+        if(node_pileups.count(xref.first) && node_pileups.at(xref.first).base_pileup_size() > xref.second) {
             // If we have that base pileup, grab it
-            auto basePileup = nodePileups.at(xref.first).base_pileup(xref.second);
+            auto basePileup = node_pileups.at(xref.first).base_pileup(xref.second);
             
             out << xref.first << ":" << xref.second << " (ref) " << basePileup.bases() << "\t";
         }
@@ -184,9 +184,9 @@ string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
     
     for(const auto& xref : altCrossreferences) {
         // For every cross-reference
-        if(nodePileups.count(xref.first) && nodePileups.at(xref.first).base_pileup_size() > xref.second) {
+        if(node_pileups.count(xref.first) && node_pileups.at(xref.first).base_pileup_size() > xref.second) {
             // If we have that base pileup, grab it
-            auto basePileup = nodePileups.at(xref.first).base_pileup(xref.second);
+            auto basePileup = node_pileups.at(xref.first).base_pileup(xref.second);
             
             out << xref.first << ":" << xref.second << " (alt) " << basePileup.bases() << "\t";
         }
@@ -205,13 +205,114 @@ string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
     }
 }
 
+Call2Vcf::PrimaryPath::PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
+    ref_bin_size(ref_bin_size), index(augmented.graph, ref_path_name, true)  {
+
+    // Follow the reference path and extract indexes we need: index by node ID,
+    // index by node start, and the reconstructed path sequence.
+    PathIndex index(augmented.graph, ref_path_name, true);
+
+    if (index.sequence.size() == 0) {
+        // No empty reference paths allowed
+        throw runtime_error("Reference path cannot be empty");
+    }
+
+    // Store support binned along reference path;
+    // Last bin extended to include remainder
+    ref_bin_size = min(ref_bin_size, index.sequence.size());
+    if (ref_bin_size <= 0) {
+        // No zero-sized bins allowed
+        throw runtime_error("Reference bin size must be 1 or larger");
+    }
+    // Start out all the bins empty.
+    binned_support = vector<Support>(max(1, int(index.sequence.size() / ref_bin_size)), Support());
+    
+    // Crunch the numbers on the reference and its read support. How much read
+    // support in total (node length * aligned reads) does the primary path get?
+    total_support = Support();
+    for(auto& pointerAndSupport : augmented.node_supports) {
+        if(index.by_id.count(pointerAndSupport.first->id())) {
+            // This is a primary path node. Add in the total read bases supporting it
+            total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            
+            // We also update the total for the appropriate bin
+            int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            if (bin == binned_support.size()) {
+                --bin;
+            }
+            binned_support[bin] = binned_support[bin] + 
+                pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+        }
+    }
+    
+    // Average out the support bins too (in place)
+    min_bin = 0;
+    max_bin = 0;
+    for (int i = 0; i < binned_support.size(); ++i) {
+        // Compute the average over the bin's actual size
+        binned_support[i] = binned_support[i] / (
+            i < binned_support.size() - 1 ? (double)ref_bin_size :
+            (double)(ref_bin_size + index.sequence.size() % ref_bin_size));
+            
+        // See if it's a min or max
+        if (binned_support[i] < binned_support[min_bin]) {
+            min_bin = i;
+        }
+        if (binned_support[i] > binned_support[max_bin]) {
+            max_bin = i;
+        }
+    }
+
+}
+
+const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset) {
+    return get_bin(get_bin_index(primary_path_offset));
+}
+        
+size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) {
+    // Find which coordinate bin the position is in
+    int bin = primary_path_offset / ref_bin_size;
+    if (bin == get_total_bins()) {
+        --bin;
+    }
+    return bin;
+}
+    
+size_t Call2Vcf::PrimaryPath::get_min_bin() {
+    return min_bin;
+}
+    
+size_t Call2Vcf::PrimaryPath::get_max_bin() {
+    return max_bin;
+}
+    
+const Support& Call2Vcf::PrimaryPath::get_bin(size_t bin) {
+    return binned_support[bin];
+}
+        
+size_t Call2Vcf::PrimaryPath::get_total_bins() {
+    return binned_support.size();
+}
+        
+const Support Call2Vcf::PrimaryPath::get_average_support() {
+    return get_total_support() / get_index().sequence.size();
+}
+        
+const Support Call2Vcf::PrimaryPath::get_total_support() {
+    return total_support;
+}
+    
+PathIndex& Call2Vcf::PrimaryPath::get_index() {
+    return index;
+}
+
 // this was main() in glenn2vcf
 void Call2Vcf::call(
     // Augmented graph
     AugmentedGraph& augmented,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
-    string pileupFilename) {
+    string pileup_filename) {
     
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();
@@ -235,93 +336,38 @@ void Call2Vcf::call(
         }
     }
     
-    // Follow the reference path and extract indexes we need: index by node ID,
-    // index by node start, and the reconstructed path sequence.
-    PathIndex index(augmented.graph, ref_path_name, true);
-
-    if (index.sequence.size() == 0) {
-        // No empty reference paths allowed
-        throw runtime_error("Reference path cannot be empty");
-    }
-
-    // Store support binned along reference path;
-    // Last bin extended to include remainder
-    ref_bin_size = min(ref_bin_size, index.sequence.size());
-    if (ref_bin_size <= 0) {
-        // No zero-sized bins allowed
-        throw runtime_error("Reference bin size must be 1 or larger");
-    }
-    // Start out all the bins with the expected coverage override, split evenly across strands.
-    Support base_support;
-    base_support.set_forward(expCoverage / 2);
-    base_support.set_reverse(expCoverage / 2);
-    vector<Support> binned_support(max(1, int(index.sequence.size() / ref_bin_size)), base_support);
+    // Index the primary path and compute the binned supports
+    PrimaryPath primary_path(augmented, ref_path_name, ref_bin_size);
     
-    // Crunch the numbers on the reference and its read support. How much read
-    // support in total (node length * aligned reads) does the primary path get?
-    Support primaryPathTotalSupport = Support();
-    for(auto& pointerAndSupport : augmented.node_supports) {
-        if(index.by_id.count(pointerAndSupport.first->id())) {
-            // This is a primary path node. Add in the total read bases supporting it
-            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
-            
-            // We also update the total for the appropriate bin
-            if (expCoverage == 0) {
-                int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
-                if (bin == binned_support.size()) {
-                    --bin;
-                }
-                binned_support[bin] = binned_support[bin] + 
-                    pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
-            }
-        }
-    }
-    // Calculate average support in reads per base
-    auto primaryPathAverageSupport = primaryPathTotalSupport / index.sequence.size();
-    
-    // Average out the support bins too (in place)
-    int minBin = -1;
-    int maxBin = -1;
-    for (int i = 0; i < binned_support.size(); ++i) {
-        if (expCoverage == 0) {
-            binned_support[i] = binned_support[i] / (
-                i < binned_support.size() - 1 ? (double)ref_bin_size :
-                (double)(ref_bin_size + index.sequence.size() % ref_bin_size));
-        }
-        if (minBin == -1 || binned_support[i] < binned_support[minBin]) {
-            minBin = i;
-        }
-        if (maxBin == -1 || binned_support[i] > binned_support[maxBin]) {
-            maxBin = i;
-        }
-    }
-
     if (verbose) {
-        cerr << "Primary path average/off-path assumed coverage: " << primaryPathAverageSupport << endl;
-        cerr << "Mininimum binned average coverage: " << binned_support[minBin] << " (bin "
-                  << (minBin + 1) << " / " << binned_support.size() << ")" << endl;
-        cerr << "Maxinimum binned average coverage: " << binned_support[maxBin] << " (bin "
-                  << (maxBin + 1) << " / " << binned_support.size() << ")" << endl;
+        cerr << "Primary path average/off-path assumed coverage: " << primary_path.get_average_support() << endl;
+        cerr << "Mininimum binned average coverage: " << primary_path.get_bin(primary_path.get_min_bin()) << " (bin "
+                  << (primary_path.get_min_bin() + 1) << " / " << primary_path.get_total_bins() << ")" << endl;
+        cerr << "Maxinimum binned average coverage: " << primary_path.get_bin(primary_path.get_max_bin()) << " (bin "
+                  << (primary_path.get_max_bin() + 1) << " / " << primary_path.get_total_bins() << ")" << endl;
     }
+    
+    // Grab the index out, since we use it so much.
+    PathIndex& index = primary_path.get_index();
     
     // If applicable, load the pileup.
     // This will hold pileup records by node ID.
-    map<int64_t, NodePileup> nodePileups;
+    map<int64_t, NodePileup> node_pileups;
     
-    function<void(Pileup&)> handlePileup = [&](Pileup& p) { 
+    function<void(Pileup&)> handle_pileup = [&](Pileup& p) { 
         // Handle each pileup chunk
         for(size_t i = 0; i < p.node_pileups_size(); i++) {
             // Pull out every node pileup
             auto& pileup = p.node_pileups(i);
             // Save the pileup under its node's pointer.
-            nodePileups[pileup.node_id()] = pileup;
+            node_pileups[pileup.node_id()] = pileup;
         }
     };
-    if(!pileupFilename.empty()) {
+    if(!pileup_filename.empty()) {
         // We have to load some pileups
         ifstream in;
-        in.open(pileupFilename.c_str());
-        stream::for_each(in, handlePileup);
+        in.open(pileup_filename.c_str());
+        stream::for_each(in, handle_pileup);
     }
     
     // Make a VCF because we need it in scope later, if we are outputting VCF.
@@ -670,23 +716,23 @@ void Call2Vcf::call(
         // We need to figure out how much support a site ought to have
         Support baseline_support;
         
-        if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
+        if (expCoverage != 0.0) {
+            // Use the specified coverage override
+            baseline_support.set_forward(expCoverage / 2);
+            baseline_support.set_reverse(expCoverage / 2);
+        } if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
             // We're on the primary path, so we can find the appropriate bin
         
             // Since the variable part of the site is after the first anchoring node, where does it start?
             size_t variation_start = index.by_id.at(site->start().node_id()).first
                                      + augmented.graph.get_node(site->start().node_id())->sequence().size();
             
-            // Find which coordinate bin the variation start is in, so we can get the typical local support
-            int bin = variation_start / ref_bin_size;
-            if (bin == binned_support.size()) {
-                --bin;
-            }
-            baseline_support = binned_support[bin];
+            // Look in the bins for the primary path to get the support there.
+            baseline_support = primary_path.get_support_at(variation_start);
             
         } else {
             // Just use the primary path's average support
-            baseline_support = primaryPathAverageSupport;
+            baseline_support = primary_path.get_average_support();
         }
 
         // Decide if we're an indel. We're an indel if the sequence lengths
@@ -1071,11 +1117,11 @@ void Call2Vcf::call(
             Genotype gt;
             
             // TODO: use the coverage bins
-            if (total(locus.support(0)) > total(primaryPathAverageSupport) * 0.25) {
+            if (total(locus.support(0)) > total(primary_path.get_average_support()) * 0.25) {
                 // We're closer to 1 copy than 0 copies
                 gt.add_allele(0);
                 
-                if (total(locus.support(0)) > total(primaryPathAverageSupport) * 0.75) {
+                if (total(locus.support(0)) > total(primary_path.get_average_support()) * 0.75) {
                     // We're closer to 2 copies than 1 copy
                     gt.add_allele(0);
                 }
