@@ -53,7 +53,6 @@ void help_call(char** argv) {
          << "    -C, --exp-coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no-overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use-avg-support      use average instead of minimum support" << endl
-         << "    -I, --singleallelic        disable support for multiallelic sites" << endl
          << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
