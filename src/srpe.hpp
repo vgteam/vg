@@ -26,41 +26,8 @@ namespace vg{
  *          Translocations: Distant read pairs
  */
 
-//  class BPDepthMap{
-//     public:
-//         // A whole bunch of pointers
-//         // node_id -> bp -> int4_t
-//         uint8_t** bp_depths;
-//         uint64_t size;
-//         inline BPDepthMap(int64_t sz) {bp_depths = new uint8_t**[sz]};
-
-//  };
-           
+          
     
-    struct LongVariantAffinity{
-        bool consistent_enough = true;
-        double affinity = 0.0;
-        bool is_reverse = false;
-        double score = 0.0;
-        double likelihood_ln = 0.0;
-        LongVariantAffinity() = default;
-    };
-
-
-struct Flags{
-    /**
-    * 1 = mapped
-    * 2 = mate_unmapped
-    * 3 = read is soft-clipped
-    * 4 = read is split
-    * 5 = discordant orientation
-    * 6 = discordant insert length
-    * 7 = 
-    * 8 = 
-    */
-    bool* flags;
-};
-
 class DepthMap {
     /**
     *  Map <node_id : depth>

@@ -410,8 +410,6 @@ cerr << "Ref count " << ref_count << endl;
         // Set up our genotypekit members.
         SnarlFinder* snarl_finder;
 
-
-
         // Find all the sites in either the main graph or the subset
         vector<Genotyper::Site> sites;
 

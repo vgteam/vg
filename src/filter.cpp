@@ -175,94 +175,6 @@ namespace vg{
 
     }
 
-    // std::pair<Alignment, Alignment> Filter::path_length_filter(Alignment& aln_first, Alignment& aln_second){
-    //     Alignment x = path_length_filter(aln_first);
-    //     Alignment y = path_length_filter(aln_second);
-    //     if (x.name().empty() || y.name().empty()){
-    //         return inverse ? make_pair(x, y) : make_pair(Alignment(), Alignment());
-    //     }
-    //     else{
-    //         return  inverse ? make_pair(Alignment(), Alignment()) : make_pair(x, y);
-    //     }
-    // }
-
-
-
-
-    // pair<Alignment, Alignment> Filter::depth_filter(Alignment& aln_first, Alignment& aln_second){
-    //     aln_first = depth_filter(aln_first);
-    //     aln_second = depth_filter(aln_second);
-    //     if (!(aln_first.name() == "") && !(aln_first.name() == "")){
-    //         return inverse ? make_pair(aln_first, aln_second) : make_pair(Alignment(), Alignment());
-    //     }
-    //     else{
-    //         return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second);
-    //     }
-    // }
-    // pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second){
-
-
-    //     if (aln_first.name() == "" || aln_first.name() == ""){
-    //         return make_pair(Alignment(), Alignment());
-    //     }
-    //     else{
-    //         return make_pair(aln_first, aln_second);
-    //     }
-
-    // }
-    // pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second){
-
-
-    //     if (aln_first.name() == "" || aln_first.name() == ""){
-    //         return make_pair(Alignment(), Alignment());
-    //     }
-    //     else{
-    //         return make_pair(aln_first, aln_second);
-    //     }
-
-    // }
-    // pair<Alignment, Alignment> Filter::soft_clip_filter(Alignment& aln_first, Alignment& aln_second){
-    //     Alignment a_check = soft_clip_filter(aln_first);
-    //     Alignment b_check = soft_clip_filter(aln_second);
-
-    //     if (a_check.name() == "" || b_check.name() == ""){
-    //         return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second) ;
-    //     }
-    //     else{
-    //         return inverse ? make_pair(aln_first, aln_second) : make_pair(Alignment(), Alignment()) ;
-    //     }
-
-    // }
-    // pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second){
-    //     Alignment first = split_read_filter(aln_first);
-    //     Alignment second = split_read_filter(aln_second);
-    //     if (aln_first.name() == "" ||
-    //         aln_second.name() == ""){
-    //             return make_pair(aln_first, aln_second);
-    //         }
-    //     else{
-    //         return make_pair(Alignment(), Alignment());
-    //     }
-    // }
-    // pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second){
-    //     Alignment first = reversing_filter(aln_first);
-    //     Alignment second = reversing_filter(aln_second);
-    //     if (first.name() == "" ||
-    //         second.name() == ""){
-    //             return make_pair(aln_first, aln_second);
-    //         }
-
-    // }
-    // pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second){
-    //     Alignment first = reversing_filter(aln);
-    //     Alignment second = reversing_filter(alln_second);
-    //     if (first.name() == "" ||
-    //         second.name() == ""){
-    //             return make_pair(aln, aln_second);
-    //         }
-    // }
-
-
     /* PE functions using fragment_prev and fragment_next */
     Alignment Filter::one_end_anchored_filter(Alignment& aln){
         if (aln.fragment_prev().name() != ""){
@@ -341,9 +253,16 @@ namespace vg{
     }
 
     pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
-        // TODO: gret positions from aln_first and aln_second
-        int distance = my_xg_index->approx_path_distance(aln_first.path().name(), 1, 1);
-        if (distance > my_max_distance){
+
+        double zed;
+        if (aln_first.fragment(0).length() != 0){
+            zed = (double) aln_first.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        }
+        else if (aln_second.fragment(0).length() != 0){
+
+            zed = (double) aln_second.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        }
+        if (zed >= 2.95 || zed <= -2.95){
             return std::make_pair(aln_first, aln_second);
         }
         else{
