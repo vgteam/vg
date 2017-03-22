@@ -189,7 +189,11 @@ public:
     // TODO: map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
     map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
 
-    map<string, vector<SnarlTraversal> > variant_to_traversals;
+    // This index stores the same info as alt_paths, but allows us to annotate nodes
+    // that flank the variant nodes and variant paths containing no nodes (e.g. deletion edges).
+    // The SnarlTraversals are named identically to alt_paths. They have their parent snarl filled in
+    // as well.
+    map<string, SnarlTraversal> variant_to_traversal;
                        
                        
     /// Chop up the nodes.

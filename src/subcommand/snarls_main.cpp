@@ -26,7 +26,7 @@ void help_snarl(char** argv) {
          << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
          << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
          << "traversals:" << endl
-         << "    -p, --pathnames       output variant paths as SnarlTraversals" << endl
+         << "    -p, --pathnames       output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
@@ -120,6 +120,9 @@ int main_snarl(int argc, char** argv) {
         case 's':
             sort_snarls = true;
             break;
+        case 'p':
+            fill_path_names = true;
+            break;
             
         case 'h':
         case '?':
@@ -187,6 +190,18 @@ int main_snarl(int argc, char** argv) {
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+    if (fill_path_names){
+        //delete trav_finder;
+       TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+        for (const Snarl* snarl : snarl_roots ){
+           vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+           stream::write_buffered(cout, travs, 0);
+        }
+
+        exit(0);
+    }
+
+
     TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
     
     // Sort the top level Snarls
@@ -213,14 +228,7 @@ int main_snarl(int argc, char** argv) {
         });
     }
 
-    if (fill_path_names){
-        delete trav_finder;
-        trav_finder = new PathBasedTraversalFinder(*graph);
-        for (const Snarl* snarl : snarl_roots ){
-            trav_finder->find_traversals(*snarl);
-        }
-    }
-
+  
 
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;
