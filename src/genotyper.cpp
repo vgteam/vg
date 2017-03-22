@@ -532,53 +532,53 @@ namespace vg {
             }
 
             // Unfold/unroll, find the superbubbles, and translate back.
-            // sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-            // : find_sites_with_supbub(graph);
+            sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+            : find_sites_with_supbub(graph);
 
-            graph.sort();
+             graph.sort();
 
-            bool filter_trivials = true;
-            snarl_finder =  new CactusUltrabubbleFinder(graph, "", filter_trivials);
+//             bool filter_trivials = true;
+//             snarl_finder =  new CactusUltrabubbleFinder(graph, "", filter_trivials);
 
-            // Get our snarls.
-            SnarlManager snarl_manager = snarl_finder->find_snarls();
-            vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+//             // Get our snarls.
+//             SnarlManager snarl_manager = snarl_finder->find_snarls();
+//             vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
 
-            // Enumerate traversals through our snarls
-            // TODO : handle reversing sites in sites
-            TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(graph, snarl_manager);
-            for (auto x : snarl_roots){
-                vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
-                Site current;
-                current.start.node = graph.get_node(x->start().node_id());
-                current.end.node = graph.get_node(x->end().node_id());
-                set<id_t> contents;
-                for (auto tr : site_traversals){
-                    for (auto v : tr.visits()){
-                        contents.insert(v.node_id());
-                    }
-                }
-                current.contents = contents;
-                sites.push_back(current);
-            }
-        }
+//             // Enumerate traversals through our snarls
+//             // TODO : handle reversing sites in sites
+//             TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(graph, snarl_manager);
+//             for (auto x : snarl_roots){
+//                 vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
+//                 Site current;
+//                 current.start.node = graph.get_node(x->start().node_id());
+//                 current.end.node = graph.get_node(x->end().node_id());
+//                 set<id_t> contents;
+//                 for (auto tr : site_traversals){
+//                     for (auto v : tr.visits()){
+//                         contents.insert(v.node_id());
+//                     }
+//                 }
+//                 current.contents = contents;
+//                 sites.push_back(current);
+//             }
+//         }
 
-        if(show_progress) {
-#pragma omp critical (cerr)
-            {
-                cerr << "Found " << sites.size() << " superbubbles" << endl;
-                // for (auto x : sites){
-                //     cout << x.start.node->id() << " ";
-                //     for (auto y : x.contents){
-                //         cout << y << " ";
-                //     }
-                //     cout << x.end.node->id() << endl;
-                // }
+//         if(show_progress) {
+// #pragma omp critical (cerr)
+//             {
+//                 cerr << "Found " << sites.size() << " superbubbles" << endl;
+//                 for (auto x : sites){
+//                     cout << x.start.node->id() << " ";
+//                     for (auto y : x.contents){
+//                         cout << y << " ";
+//                     }
+//                     cout << x.end.node->id() << endl;
+//                 }
 
-                // exit(1);
-            }
+//                 exit(1);
+//             }
 
-        }
+         }
 
         // We're going to count up all the affinities we compute
         size_t total_affinities = 0;
