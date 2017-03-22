@@ -67,9 +67,9 @@ namespace vg{
 		  VG* my_vg;
           xg::XG* my_xg;
           map<pair<id_t, id_t>, vector<id_t> > my_sbs;
-          map<id_t, pair<id_t, bool> > my_translation;
-          map<id_t, pair<id_t, bool> > my_unroll_translation;
-          map<id_t, pair<id_t, bool> > my_dagify_translation;
+          unordered_map<id_t, pair<id_t, bool> > my_translation;
+          unordered_map<id_t, pair<id_t, bool> > my_unroll_translation;
+          unordered_map<id_t, pair<id_t, bool> > my_dagify_translation;
           map<id_t, SuperBubble> id_to_bub; 
 
           vector<id_t> reverse_topo_order;

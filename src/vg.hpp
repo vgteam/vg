@@ -232,18 +232,25 @@ public:
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
     VG dagify(uint32_t expand_scc_steps,
-              map<id_t, pair<id_t, bool> >& node_translation,
+              unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
               size_t component_length_max = 0);
     /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
-                           map<id_t, pair<id_t, bool> >& node_translation);
-    /// Represent the whole graph up to max_length across an inversion on the forward strand.
+                           unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    /// Ensure that all traversals up to max_length are represented as a path on one strand or the other
+    /// without taking an inverting edge. All inverting edges are converted to non-inverting edges to
+    /// reverse complement nodes. If no inverting edges are present, the strandedness of all nodes is
+    /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
-              map<id_t, pair<id_t, bool> >& node_translation);
+              unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
+    /// edges into non-inverting edges.
+    VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    
     /// Assume two node translations, the over is based on the under; merge them.
-    map<id_t, pair<id_t, bool> > overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
-                                                           const map<id_t, pair<id_t, bool> >& under);
+    unordered_map<id_t, pair<id_t, bool> > overlay_node_translations(const unordered_map<id_t, pair<id_t, bool> >& over,
+                                                                     const unordered_map<id_t, pair<id_t, bool> >& under);
     /// Use our topological sort to quickly break cycles in the graph, return the edges which are removed.
     /// Very non-optimal, but fast.
     vector<Edge> break_cycles(void);

@@ -978,7 +978,7 @@ namespace vg {
         // Unfold the graph
         // Copy the graph and unfold the copy. We need to hold this translation
         // table from new node ID to old node and relative orientation.
-        map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
+        unordered_map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
         auto transformed = graph.unfold(unfold_max_length, unfold_translation);
 
         // Fix up any doubly reversed edges
@@ -986,11 +986,11 @@ namespace vg {
 
         // Now dagify the graph. We need to hold this translation table from new
         // node ID to old node and relative orientation.
-        map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
+        unordered_map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
         transformed = transformed.dagify(dagify_steps, dag_translation);
 
         // Compose the complete translation
-        map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
+        unordered_map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
         dag_translation.clear();
         unfold_translation.clear();
 
@@ -2017,8 +2017,8 @@ namespace vg {
             cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
                 << reverse_count << " reverse (P=" << logprob_to_prob(logprob) << ")" << endl;
 #endif
-
             strands_as_specified += logprob;
+
 
         }
 
