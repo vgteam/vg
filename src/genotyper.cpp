@@ -217,14 +217,14 @@ namespace vg {
             vector<long double> geno_probs (geno_priors.size());
 
 #ifdef DEBUG
-cerr << "Ref count " << ref_count << endl;
-            cerr << "Alt count " << alt_count << endl;
+//cerr << "Ref count " << ref_count << endl;
+ //           cerr << "Alt count " << alt_count << endl;
 #endif
             // calculate genotype data probs
             for (int i = 0; i < geno_priors.size(); i++){
                 long double x = get_binoms(ref_count, alt_count, geno_priors[i]) * allele_prior; 
 #ifdef DEBUG
-                cerr << "Prob: " << x << endl;
+//                cerr << "Prob: " << x << endl;
 #endif
                 data_probs[i] = x;
             }
@@ -253,8 +253,8 @@ cerr << "Ref count " << ref_count << endl;
             }
 
 #ifdef DEBUG
-            cerr << "Big prob: " << big_prob << endl
-                <<  "geno_index " << geno_index << endl;
+  //          cerr << "Big prob: " << big_prob << endl
+   //             <<  "geno_index " << geno_index << endl;
 #endif
 
             return std::make_pair(big_prob, geno_index);
