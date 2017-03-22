@@ -7,25 +7,6 @@
 using namespace std;
 using namespace vg;
 
-/**
-vector<Alignment> GAMSorter::merge(vector<vector<Alignment> > a){
-    vector<Alignment> ret;
-    vector<int> a_tracker(a.size());
-    
-
-
-    return ret;
-}
-
-void GAMSorter::merge(map<int, vector<Alignment> > m, map<int, int> split_to_sz){
-    
-}
-
-void GAMSorter::merge(vector<string> sorted_tmp_filenames){
-
-}
-
-**/
 
 class AlnSorter{
     bool invert = false;

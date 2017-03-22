@@ -226,7 +226,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     set<string> var_path_names;
     regex front ("(_alt_)(.*)");
     regex alt_str ("(_alt_)");
-    regex back ("_[0-9]*_");
+    regex back ("(_[0-9]*)");
 
     map<string, list<Mapping> > gpaths = graph.paths._paths;
     set<string> gpath_names;
