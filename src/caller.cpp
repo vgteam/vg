@@ -124,9 +124,10 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
         double log_likelihood = 0;
         
         for (int i = 0; i < pileup.num_reads(); ++i) {
-            char qual = pileup.qualities().length() >= 0 ? pileup.qualities()[i]  : _default_quality;
+            char qual = !pileup.qualities().empty() ? pileup.qualities().at(i) : _default_quality;
             double perr = phred_to_prob(qual);
             log_likelihood += safe_log(1. - perr);
+            assert(!std::isnan(log_likelihood));
         }
         
         Edge edge = pileup.edge(); // gcc not happy about passing directly
