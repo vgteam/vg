@@ -2,7 +2,7 @@
 #define VG_NODETRAVERSAL_HPP
 
 #include "vg.pb.h"
-
+#include "hash_map.hpp"
 
 
 namespace vg {
@@ -74,6 +74,16 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
     return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t)0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
 }
 
+}
+
+namespace std {
+    /// hash function for NodeTraversals
+    template<>
+    struct hash<vg::NodeTraversal> {
+        size_t operator()(const vg::NodeTraversal& trav) const {
+            return hash<pair<vg::Node*, bool > >()(make_pair(trav.node, trav.backward));
+        }
+    };
 }
 
 

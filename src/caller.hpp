@@ -349,18 +349,114 @@ public:
     Call2Vcf() = default;
     
     /**
+     * We use this to represent a contig in the primary path, with its index and coverage info.
+     */
+    class PrimaryPath {
+    public:
+        /**
+         * Index the given path in the given augmented graph, and compute all
+         * the coverage bin information with the given bin size.
+         */
+        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size); 
+    
+        /**
+         * Get the support at the bin appropriate for the given primary path
+         * offset.
+         */
+        const Support& get_support_at(size_t primary_path_offset) const;
+        
+        /**
+         * Get the index of the bin that the given path position falls in.
+         */
+        size_t get_bin_index(size_t primary_path_offset) const;
+    
+        /**
+         * Get the bin with minimal coverage.
+         */
+        size_t get_min_bin() const;
+    
+        /**
+         * Get the bin with maximal coverage.
+         */
+        size_t get_max_bin() const;
+    
+        /**
+         * Get the support in the given bin.
+         */
+        const Support& get_bin(size_t bin) const;
+        
+        /**
+         * Get the total number of bins that the path is divided into.
+         */
+        size_t get_total_bins() const;
+        
+        /**
+         * Get the average support over the path.
+         */
+        Support get_average_support() const;
+        
+        /**
+         * Get the average support over a collection of paths.
+         */
+        static Support get_average_support(const map<string, PrimaryPath>& paths);
+        
+        /**
+         * Get the total support for the path.
+         */
+        Support get_total_support() const;
+    
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        PathIndex& get_index();
+        
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        const PathIndex& get_index() const;
+        
+        /**
+         * Gets the path name we are representing.
+         */
+        const string& get_name() const;
+        
+    protected:
+        /// How wide is each coverage bin along the path?
+        size_t ref_bin_size;
+        
+        /// This holds the index for this path
+        PathIndex index;
+        
+        /// This holds the name of the path
+        string name;
+        
+        /// What's the expected in each bin along the path? Coverage gets split
+        /// evenly over both strands.
+        vector<Support> binned_support;
+        
+        /// Which bin has min support?
+        size_t min_bin;
+        /// Which bin has max support?
+        size_t max_bin;
+        
+        /// What's the total Support over every bin?
+        Support total_support;
+    };
+    
+    
+    /**
      * Produce calls for the given annotated augmented graph. If a
-     * pileupFilename is provided, the pileup is loaded again and used to add
+     * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(AugmentedGraph& augmented, string pileupFilename = "");
+    void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph
      * (true), or if it represents a novel variant (false).
      *
-     * Looks at the nodes in the traversal that aren't along the primary path,
-     * and sees if their calls are CALL_REFERENCE or not.
+     * Looks at the nodes in the traversal, and sees if their calls are
+     * CALL_REFERENCE or not.
      *
      * Specially handles single-edge traversals.
      *
@@ -368,7 +464,14 @@ public:
      * reference, because it assumes the caller will never pass it the all-
      * primary-path reference traversal.
      */
-    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path);
+    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented);
+    
+    /**
+     * Find the primary path, if any, that the given site is threaded onto.
+     *
+     * TODO: can only work by brute-force search.
+     */
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
     
     // Option variables
     
@@ -377,20 +480,23 @@ public:
     // How big should our output buffer be?
     size_t locus_buffer_size = 1000;
     
-    // What's the name of the reference path in the graph?
-    string refPathName = "";
-    // What name should we give the contig in the VCF file?
-    string contigName = "";
+    // What are the names of the reference paths, if any, in the graph?
+    vector<string> ref_path_names;
+    // What name should we give each contig in the VCF file? Autodetected from
+    // path names if empty or too short.
+    vector<string> contig_name_overrides;
+    // What should the total sequence length reported in the VCF header be for
+    // each contig? Autodetected from path lengths if empty or too short.
+    vector<size_t> length_overrides;
     // What name should we use for the sample in the VCF file?
-    string sampleName = "SAMPLE";
+    string sample_name = "SAMPLE";
     // How far should we offset positions of variants?
     int64_t variantOffset = 0;
     // How many nodes should we be willing to look at on our path back to the
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
     int64_t maxDepth = 10;
-    // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride = -1;
+    
     
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
     // Default to 0 because vg call is still applying depth thresholding
@@ -411,10 +517,10 @@ public:
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize = 250;
+    size_t ref_bin_size = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    size_t expCoverage = 0;
+    double expCoverage = 0.0;
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
     bool suppress_overlaps = false;

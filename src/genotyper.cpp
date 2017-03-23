@@ -651,7 +651,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
     // Unfold the graph
     // Copy the graph and unfold the copy. We need to hold this translation
     // table from new node ID to old node and relative orientation.
-    map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
+    unordered_map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
     auto transformed = graph.unfold(unfold_max_length, unfold_translation);
     
     // Fix up any doubly reversed edges
@@ -659,11 +659,11 @@ vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
 
     // Now dagify the graph. We need to hold this translation table from new
     // node ID to old node and relative orientation.
-    map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
+    unordered_map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
     transformed = transformed.dagify(dagify_steps, dag_translation);
     
     // Compose the complete translation
-    map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
+    unordered_map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
     dag_translation.clear();
     unfold_translation.clear();
     
