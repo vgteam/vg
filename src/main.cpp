@@ -4930,8 +4930,7 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max INT       ignore kmers or MEMs who have >N hits in our index [16384]" << endl
-         << "    -X, --chain-max INT     do not attempt to align when there are more than INT total hits [32768]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [65536]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
@@ -4939,7 +4938,7 @@ void help_map(char** argv) {
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
-         << "    -H, --max-target-x INT  skip cluster subgraphs with length > N*read_length [100]" << endl
+         << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [1e4:0:0:0:1]" << endl
@@ -4991,8 +4990,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 16384;
-    int chain_max = 32768;
+    int hit_max = 65536;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -5058,7 +5056,6 @@ int main_map(int argc, char** argv) {
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
                 {"hit-max", required_argument, 0, 'c'},
-                {"chain-max", required_argument, 0, 'X'},
                 {"max-multimaps", required_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
                 {"gam-input", required_argument, 0, 'G'},
@@ -5097,7 +5094,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:X:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:",
                          long_options, &option_index);
 
 
@@ -5133,10 +5130,6 @@ int main_map(int argc, char** argv) {
 
         case 'c':
             hit_max = atoi(optarg);
-            break;
-
-        case 'X':
-            chain_max = atoi(optarg);
             break;
 
         case 'M':
@@ -5448,7 +5441,6 @@ int main_map(int argc, char** argv) {
             m = new Mapper(xindex, gcsa, lcp);
         }
         m->hit_max = hit_max;
-        m->chain_model_max = chain_max;
         m->max_multimaps = max_multimaps;
         m->debug = debug;
         m->min_identity = min_score;
