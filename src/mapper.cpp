@@ -16,6 +16,7 @@ Mapper::Mapper(Index* idex,
     , best_clusters(0)
     , cluster_min(1)
     , hit_max(0)
+    , chain_model_max(0)
     , hit_size_threshold(512)
     , kmer_min(0)
     , kmer_sensitivity_step(5)
@@ -1740,7 +1741,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     };
 
     // build the paired-read MEM markov model
-    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), (int)fragment_max));
+    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), (int)fragment_max), chain_model_max);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, true, debug);
 
     // now reconstruct the paired fragments from the threads
@@ -2222,7 +2223,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
     // build the model
-    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
+    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size(), chain_model_max);
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
 
     auto show_clusters = [&](void) {
@@ -6598,9 +6599,16 @@ MEMChainModel::MEMChainModel(
     Mapper* mapper,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
-    int position_depth,
-    int max_connections) {
+    int max_size,
+    int position_depth) {
     // store the MEMs in the model
+    int vertex_count = 0;
+    for (auto& fragment : matches) {
+        for (auto& mem : fragment) {
+            vertex_count += mem.nodes.size();
+        }
+    }
+    if (vertex_count > max_size) return;
     int frag_n = 0;
     for (auto& fragment : matches) {
         ++frag_n;
@@ -6647,10 +6655,8 @@ MEMChainModel::MEMChainModel(
                 while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
                     for (auto& v2 : q->second) {
                         // if this is an allowable transition, run the weighting function on it
-                        if (v1->next_cost.size() < max_connections
-                            && v2->prev_cost.size() < max_connections
-                            && (v1->mem.fragment != v2->mem.fragment
-                                || v1->mem.begin < v2->mem.begin)) {
+                        if (v1->mem.fragment != v2->mem.fragment
+                            || v1->mem.begin < v2->mem.begin) {
                             double weight = transition_weight(v1->mem, v2->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 //cerr << "    saving" << endl;
@@ -6669,10 +6675,8 @@ MEMChainModel::MEMChainModel(
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
                 for (auto& v2 : q->second) {
                     // if this is an allowable transition, run the weighting function on it
-                    if (v1->next_cost.size() < max_connections
-                        && v2->prev_cost.size() < max_connections
-                        && (v1->mem.fragment != v2->mem.fragment
-                            || v1->mem.begin < v2->mem.begin)) {
+                    if (v1->mem.fragment != v2->mem.fragment
+                        || v1->mem.begin < v2->mem.begin) {
                         double weight = transition_weight(v1->mem, v2->mem);
                         if (weight > -std::numeric_limits<double>::max()) {
                             //cerr << "    saving" << endl;
