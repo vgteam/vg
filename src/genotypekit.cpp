@@ -197,7 +197,8 @@ PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g) : graph(g){
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
     // Goal: enumerate traversals in the snarl supported by paths in the graph
     // that may not cover the ends of the snarl.
-    // Label the Snarl's name as the name of the paths, if they exist.
+    // Label the Snarl's name as tthe hash of the variant and the SnarlTraversal's name
+    // as the name of the alt_path (i.e. "_alt_[a-z0-9]*_[0-9]*")s
     vector<SnarlTraversal> ret;
 
     // If the snarl is not an ultrabubble, just return an empty set of traversals.
@@ -227,7 +228,6 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     regex front ("(_alt_)(.*)");
     regex alt_str ("(_alt_)");
     regex back ("(_[0-9]*)");
-
     map<string, list<Mapping> > gpaths = graph.paths._paths;
     set<string> gpath_names;
     for (auto x : gpaths){

@@ -76,13 +76,6 @@ public:
         const vector<SnarlTraversal>& traversals, const Alignment& read) const = 0;
 };
 
-class SimpleConsistencyCalculator : public ConsistencyCalculator{
-    public:
-    ~SimpleConsistencyCalculator();
-    vector<bool> calculate_consistency(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
-};
-
 
 /**
  * Represents a strategy for calculating Supports for SnarlTraversals.
@@ -101,17 +94,6 @@ public:
         const vector<vector<bool>>& consistencies) const = 0;
 };
 
-class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
-    // A set of traversals through the site
-    // A set of alignments to the site
-    // And a set of consistencies, one vector for each alignment,
-    //    one boolean per traversal.
-    public:
-    ~SimpleTraversalSupportCalculator();
-    vector<Support> calculate_supports(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
-        const vector<vector<bool>>& consistencies) const;
-};
 
 
 // TODO: This needs to be redesigned vis a vis the Genotype object. Genotypes
@@ -227,6 +209,16 @@ struct AugmentedGraph {
     void clear();
 };
     
+
+
+class SimpleConsistencyCalculator : public ConsistencyCalculator{
+    public:
+    ~SimpleConsistencyCalculator();
+    vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
+};
+
+
 class CactusUltrabubbleFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
@@ -441,6 +433,19 @@ public:
 
     virtual ~FixedGenotypePriorCalculator() = default;
     virtual double calculate_log_prior(const Genotype& genotype);
+};
+
+
+class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
+    // A set of traversals through the site
+    // A set of alignments to the site
+    // And a set of consistencies, one vector for each alignment,
+    //    one boolean per traversal.
+    public:
+    ~SimpleTraversalSupportCalculator();
+    vector<Support> calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies) const;
 };
 
 /**

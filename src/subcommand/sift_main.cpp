@@ -26,50 +26,31 @@ using namespace vg::subcommand;
 //Max path len should be TODO s > avg_p_len + 3*sigma
 //and there should be min path len, essentially discordant path lengths
 
-/*
- *
- 
-bool is_significant(double zed, double cutoff){
-    if (zed > cutoff || -1.0 * zed > cutoff){
-        return true;
-    }
-    return false;
-}
-double zed_score(double mu, double sigma, double val){
-    return (val - mu) / sigma;
-}
-
-double reservoir_avg(int sz, vector<double> vals){
-
-}
-
-*/
-
 void help_sift(char** argv){
     cerr << "Usage: " << argv[0] << " sift [options] <alignments.gam>" << endl
         << "Sift through a GAM and select / remove reads with particular properties." << endl
         << "General Options: " << endl
-        << "    -t / --threads" << endl
-        << "    -v / --inverse" << endl
-        << "    -x / --xg" << endl
-        << "    -p / --paired" << endl
-        << "    -R / --remap" << endl
+        << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
+        << "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
+        << "    -x / --xg  <MYXG>   An XG index (for realignment of split reads)" << endl
+        << "    -p / --paired       Input reads are paired-end" << endl
+        << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
         << "    -o / --output <PREFIX>" << endl
         << "Paired-end options:" << endl
-        << "    -I / --insert-size <INSRTSZ>" << endl
-        << "    -W / --insert-size-sigma <SIGMA>" << endl
-        << "    -O / --one-end-anchored" << endl
-        << "    -C / --interchromosomal" << endl
-        << "    -D / --discordant-orientation" << endl
+        << "    -I / --insert-size <INSRTSZ>        Insert size mean. Flag reads where ((I - insrtsz) / W) > 2.95" << endl
+        << "    -W / --insert-size-sigma <SIGMA>    Standard deviation of insert size." << endl
+        << "    -O / --one-end-anchored             Flag reads where one read of the pair is mapped and the other is unmapped." << endl
+        << "    -C / --interchromosomal             Flag reads mapping to two distinct Paths" << endl
+        << "    -D / --discordant-orientation       Flag reads that do not have the expected --> <-- orientation." << endl
         << "Single-end / individual read options:" << endl
-        << "    -c / --softclip <MAXCLIPLEN>" << endl
-        << "    -s / --split-read <SPLITLEN>" << endl
-        << "    -q / --quality <QUAL> " << endl
-        << "    -d / --depth <DEPTH> " << endl
-        << "    -i / --percent-identity <PCTID>" << endl
-        << "    -a / --average" << endl
-        << "    -w / --window <WINDOWLEN>" << endl
-        << "    -r / --reversing" << endl
+        << "    -c / --softclip <MAXCLIPLEN>        Flag reads with softclipped sections longer than MAXCLIPLEN" << endl
+        << "    -s / --split-read <SPLITLEN>        Flag reads with softclips that map independently of the anchored portion (requires -x, -g)." << endl
+        << "    -q / --quality <QUAL>               Flag reads with a single base quality below <QUAL>" << endl
+        << "    -d / --depth <DEPTH>                Flag reads which have a low-depth Pos+Edit combo." << endl
+        << "    -i / --percent-identity <PCTID>     Flag reads with percent identity to their primary path beliw <PCTID>" << endl
+        //<< "    -a / --average" << endl
+        //<< "    -w / --window <WINDOWLEN>" << endl
+        << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|--> )" << endl
         << endl;
 }
 
@@ -161,38 +142,48 @@ int main_sift(int argc, char** argv){
                 break;
             case 's':
                 do_split_read = true;
+                do_all = false;
                 break;
             case 'q':
                 do_quality = true;
+                do_all = false;
                 quality = atof(optarg);
                 break;
             case 'd':
                 do_depth = true;
+                do_all = false;
                 depth = atof(optarg);
                 break;
             case 'R':
                 remap = true;
+                do_all = false;
                 break;
             case 'r':
                 do_reversing = true;
+                do_all = false;
                 break;
             case 'p':
                 is_paired = true;
                 break;
             case 'C':
                 do_interchromosomal = true;
+                do_all = false;
                 break;
             case 'I':
                 insert_size = atof(optarg);
+                do_all = false;
                 break;
             case 'W':
                 insert_size_sigma = atof(optarg);
+                do_all = false;
                 break;
             case 'O':
                 do_oea = true;
+                do_all = false;
                 break;
             case 'D':
                 do_orientation = true;
+                do_all = false;
                 break;
             default:
                 help_sift(argv);
@@ -220,6 +211,20 @@ int main_sift(int argc, char** argv){
     }
 
 
+    if (do_all){
+    do_orientation = true;
+    do_oea = true;
+    do_insert_size = true;
+    do_softclip = true;
+    do_reversing = true;
+    do_interchromosomal = true;
+    do_split_read = true;
+    do_depth = true;
+    do_percent_id = true;
+    do_quality = true;
+    do_unmapped = true;
+
+    }
 
     vector<Alignment> buffer;
     
@@ -234,7 +239,10 @@ int main_sift(int argc, char** argv){
         return true;
     };
 
-    vector<Alignment> orphaned_selected;
+    //vector<Alignment> orphaned_selected;
+    vector<Alignment> just_fine;
+    vector<Alignment> perfect;
+    vector<Alignment> simple_mismatch;
     vector<Alignment> discordant_selected;
     vector<Alignment> split_selected;
     vector<Alignment> reversing_selected;
@@ -250,8 +258,8 @@ int main_sift(int argc, char** argv){
     string discordant_fn = alignment_file + ".discordant";
     string split_fn = alignment_file + ".split";
     string reversing_fn = alignment_file +  ".reversing";
-    string oea_fn = alignment_file + ".oea";
-    string clipped_fn = alignment_file + ".clipped";
+    string oea_fn = alignment_file + ".one_end_anchored";
+    string clipped_fn = alignment_file + ".softclipped";
     string insert_fn = alignment_file + ".insert_size";
     string quality_fn = alignment_file + ".quality";
     string depth_fn = alignment_file + ".depth";
@@ -439,6 +447,6 @@ else{
 return 0;
 }
 
-static Subcommand vg_sift("sift", "GAM filter", main_sift);
+static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", main_sift);
 
 
