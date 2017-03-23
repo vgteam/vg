@@ -6688,13 +6688,7 @@ void MEMChainModel::score(const set<MEMChainModelVertex*>& exclude) {
         if (exclude.count(&m)) continue; // skip if vertex was whole cluster
         m.score = m.weight;
         for (auto& p : m.prev_cost) {
-            vector<int> common;
-            std::set_intersection(m.traces.begin(), m.traces.end(),
-                                  p.first->traces.begin(), p.first->traces.end(),
-                                  std::back_inserter(common));
-            if (!common.empty()) {
-                continue;
-            }
+            if (p.first == nullptr) continue; // this transition is masked out
             double proposal = m.weight + p.second + p.first->score;
             if (proposal > m.score) {
                 m.prev = p.first;
@@ -6768,13 +6762,14 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
         auto& mem_trace = traces.back();
         for (auto v = vertex_trace.rbegin(); v != vertex_trace.rend(); ++v) {
             auto& vertex = **v;
-            auto& v_traces = vertex.traces;
-            v_traces.push_back(i);
             if (!paired) exclude.insert(&vertex);
-            if (v_traces.size() > 1) {
-                std::sort(v_traces.begin(), v_traces.end());
-                v_traces.erase(std::unique(v_traces.begin(), v_traces.end()),
-                               v_traces.end());
+            if (v != vertex_trace.rbegin()) {
+                auto y = v - 1;
+                MEMChainModelVertex* prev = *y;
+                // mask out used transitions
+                for (auto& p : vertex.prev_cost) {
+                    if (p.first == prev) p.first = nullptr;
+                }
             }
             mem_trace.push_back(vertex.mem);
         }

@@ -75,7 +75,6 @@ public:
     MaximalExactMatch mem;
     vector<pair<MEMChainModelVertex*, double> > next_cost; // for forward
     vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
-    vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
     int approx_position;
