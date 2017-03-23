@@ -988,11 +988,86 @@ void Call2Vcf::call(
             size_t variation_start = primary_path.get_index().by_id.at(site->start().node_id()).first
                 + augmented.graph.get_node(site->start().node_id())->sequence().size();
         
+            // Keep track of the alleles that actually need to go in the VCF:
+            // ref, best, and second-best (if any), some of which may overlap.
+            set<int> used_alleles;
+            used_alleles.insert(0);
+            used_alleles.insert(best_allele);
+            if(second_best_allele != -1) {
+                used_alleles.insert(second_best_allele);
+            }
+        
+            // Rewrite the sequences and variation_start to just represent the
+            // actually variable part, by dropping any common prefix and common
+            // suffix. We just do the whole thing in place, modifying the used
+            // entries in sequences.
+            
+            auto shared_prefix_length = [&](bool backward) {
+                size_t shortest_prefix = std::numeric_limits<size_t>::max();
+                
+                auto here = used_alleles.begin();
+                if (here != used_alleles.end()) {
+                    auto next = here;
+                    next++;
+                    while (next != used_alleles.end()) {
+                        // Consider each allele and the next one after it, as
+                        // long as we have both.
+                    
+                        // Figure out the shorter and the longer string
+                        string* shorter = &sequences.at(*here);
+                        string* longer = &sequences.at(*next);
+                        if (shorter->size() > longer->size()) {
+                            swap(shorter, longer);
+                        }
+                    
+                        // Calculate the match length for this pair
+                        size_t match_length;
+                        if (backward) {
+                            // Find out how far in from the right the first mismatch is.
+                            auto mismatch_places = std::mismatch(shorter->rbegin(), shorter->rend(), longer->rbegin());
+                            match_length = std::distance(shorter->rbegin(), mismatch_places.first);
+                        } else {
+                            // Find out how far in from the left the first mismatch is.
+                            auto mismatch_places = std::mismatch(shorter->begin(), shorter->end(), longer->begin());
+                            match_length = std::distance(shorter->begin(), mismatch_places.first);
+                        }
+                        
+                        // The shared prefix of these strings limits the longest
+                        // prefix shared by all strings.
+                        shortest_prefix = min(shortest_prefix, match_length);
+                    
+                        here = next;
+                        ++next;
+                    }
+                    
+                    // Return the shortest universally shared prefix
+                    return shortest_prefix;
+                    
+                } else {
+                    // Only one string. Say no prefix is in common...
+                    return (size_t) 0;
+                }
+            };
+            // Trim off the shared prefix
+            size_t shared_prefix = shared_prefix_length(false);
+            for (auto allele : used_alleles) {
+                sequences[allele] = sequences[allele].substr(shared_prefix);
+            }
+            // Add it onto the start coordinate
+            variation_start += shared_prefix;
+            
+            // Then find and trim off the shared suffix
+            size_t shared_suffix = shared_prefix_length(true);
+            for (auto allele : used_alleles) {
+                sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
+            }
+            
             // Make a Variant
             vcflib::Variant variant;
             variant.sequenceName = contig_names_by_path_name.at(primary_path.get_name());
             variant.setVariantCallFile(vcf);
             variant.quality = 0;
+            // Position should be 1-based and offset with our offset option.
             variant.position = variation_start + 1 + variantOffset;
             
             // Set the ID based on the IDs of the involved nodes. Note that the best
