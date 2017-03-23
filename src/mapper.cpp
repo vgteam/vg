@@ -1860,6 +1860,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 }),
             alns.end());
     };
+    sort_and_dedup();
     if (fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
@@ -1868,8 +1869,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             rescued |= pair_rescue(p.first, p.second);
             if (++j == mate_rescues) break;
         }
+        if (rescued) sort_and_dedup();
     }
-    sort_and_dedup();
     
 #ifdef debug_mapper
 #pragma omp critical

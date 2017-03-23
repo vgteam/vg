@@ -344,9 +344,11 @@ protected:
     AugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-    /// An index of the primary path in the graph, to scaffold the produced
-    /// traversals when sites are on the primary path.
-    PathIndex& primary_path_index;
+    
+    /// We keep around a function that can be used to get an index for the
+    /// appropriate path to use to scaffold a given site, or null if no
+    /// appropriate index exists.
+    function<PathIndex*(const Snarl&)> get_index;
     
     /// What DFS depth should we search to?
     size_t max_depth;
@@ -405,7 +407,8 @@ protected:
 public:
 
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        PathIndex& index, size_t max_depth, size_t max_bubble_paths);
+        size_t max_depth, size_t max_bubble_paths,
+        function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?
     bool verbose = false;

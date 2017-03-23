@@ -96,10 +96,13 @@ string char_to_string(const char& letter) {
 }
 
 /**
- * Write a minimal VCF header for a single-sample file.
+ * Write a minimal VCF header for a file with the given samples, and the given
+ * contigs with the given lengths.
  */
-void write_vcf_header(ostream& stream, string& sample_name, string& contig_name, size_t contig_size,
-                      int min_mad_for_filter) {
+void write_vcf_header(ostream& stream, const vector<string>& sample_names,
+    const vector<string>& contig_names, const vector<size_t>& contig_sizes,
+    int min_mad_for_filter) {
+    
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
@@ -114,11 +117,19 @@ void write_vcf_header(ostream& stream, string& sample_name, string& contig_name,
     stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << endl;
     stream << "##FORMAT=<ID=AL,Number=.,Type=Float,Description=\"Allelic likelihoods for the ref and alt alleles in the order listed\">" << endl;
     
-    if(!contig_name.empty()) {
-        // Announce the contig as well.
-        stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << endl;
+    for(size_t i = 0; i < contig_names.size(); i++) {
+        // Announce the contigs as well.
+        stream << "##contig=<ID=" << contig_names.at(i) << ",length=" << contig_sizes.at(i) << ">" << endl;
     }
-    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << endl;
+    
+    // Now the column header line
+    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
+    for (auto& sample_name : sample_names) {
+        // Append columns for all the samples
+        stream << "\t" << sample_name;
+    }
+    // End the column header line
+    stream << endl;
 }
 
 /**
@@ -162,7 +173,7 @@ bool mapping_is_perfect_match(const Mapping& mapping) {
  *
  * TODO: VCF comments aren't really a thing.
  */
-string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
+string get_pileup_line(const map<int64_t, NodePileup>& node_pileups,
     const set<pair<int64_t, size_t>>& refCrossreferences,
     const set<pair<int64_t, size_t>>& altCrossreferences) {
     // We'll make a stringstream to write to.
@@ -172,9 +183,9 @@ string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
     
     for(const auto& xref : refCrossreferences) {
         // For every cross-reference
-        if(nodePileups.count(xref.first) && nodePileups.at(xref.first).base_pileup_size() > xref.second) {
+        if(node_pileups.count(xref.first) && node_pileups.at(xref.first).base_pileup_size() > xref.second) {
             // If we have that base pileup, grab it
-            auto basePileup = nodePileups.at(xref.first).base_pileup(xref.second);
+            auto basePileup = node_pileups.at(xref.first).base_pileup(xref.second);
             
             out << xref.first << ":" << xref.second << " (ref) " << basePileup.bases() << "\t";
         }
@@ -184,9 +195,9 @@ string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
     
     for(const auto& xref : altCrossreferences) {
         // For every cross-reference
-        if(nodePileups.count(xref.first) && nodePileups.at(xref.first).base_pileup_size() > xref.second) {
+        if(node_pileups.count(xref.first) && node_pileups.at(xref.first).base_pileup_size() > xref.second) {
             // If we have that base pileup, grab it
-            auto basePileup = nodePileups.at(xref.first).base_pileup(xref.second);
+            auto basePileup = node_pileups.at(xref.first).base_pileup(xref.second);
             
             out << xref.first << ":" << xref.second << " (alt) " << basePileup.bases() << "\t";
         }
@@ -205,39 +216,12 @@ string get_pileup_line(const map<int64_t, NodePileup>& nodePileups,
     }
 }
 
-// this was main() in glenn2vcf
-void Call2Vcf::call(
-    // Augmented graph
-    AugmentedGraph& augmented,
-    // Should we load a pileup and print out pileup info as comments after
-    // variants?
-    string pileupFilename) {
-    
-    // Set up the graph's paths properly after augmentation modified them.
-    augmented.graph.paths.sort_by_mapping_rank();
-    augmented.graph.paths.rebuild_mapping_aux();
-    
-    if(refPathName.empty()) {
-        if (verbose) {
-          std:cerr << "Graph has " << augmented.graph.paths.size() << " paths to choose from."
-                   << endl;
-        }
-        if(augmented.graph.paths.size() == 1) {
-            // Autodetect the reference path name as the name of the only path
-            refPathName = (*augmented.graph.paths._paths.begin()).first;
-        } else {
-            refPathName = "ref";
-        }
+Call2Vcf::PrimaryPath::PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
+    ref_bin_size(ref_bin_size), index(augmented.graph, ref_path_name, true), name(ref_path_name)  {
 
-        if (verbose) {
-            cerr << "Guessed reference path name of " << refPathName
-                      << endl;
-        }
-    }
-    
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    PathIndex index(augmented.graph, refPathName, true);
+    PathIndex index(augmented.graph, ref_path_name, true);
 
     if (index.sequence.size() == 0) {
         // No empty reference paths allowed
@@ -246,120 +230,271 @@ void Call2Vcf::call(
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
-    refBinSize = min(refBinSize, index.sequence.size());
-    if (refBinSize <= 0) {
+    ref_bin_size = min(ref_bin_size, index.sequence.size());
+    if (ref_bin_size <= 0) {
         // No zero-sized bins allowed
         throw runtime_error("Reference bin size must be 1 or larger");
     }
-    // Start out all the bins with the expected coverage override, split evenly across strands.
-    Support base_support;
-    base_support.set_forward(expCoverage / 2);
-    base_support.set_reverse(expCoverage / 2);
-    vector<Support> binnedSupport(max(1, int(index.sequence.size() / refBinSize)), base_support);
+    // Start out all the bins empty.
+    binned_support = vector<Support>(max(1, int(index.sequence.size() / ref_bin_size)), Support());
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
-    Support primaryPathTotalSupport = Support();
+    total_support = Support();
     for(auto& pointerAndSupport : augmented.node_supports) {
         if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
-            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
-            if (expCoverage == 0) {
-                int bin = index.by_id[pointerAndSupport.first->id()].first / refBinSize;
-                if (bin == binnedSupport.size()) {
-                    --bin;
-                }
-                binnedSupport[bin] = binnedSupport[bin] + 
-                    pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            if (bin == binned_support.size()) {
+                --bin;
             }
+            binned_support[bin] = binned_support[bin] + 
+                pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
         }
     }
-    // Calculate average support in reads per base
-    auto primaryPathAverageSupport = primaryPathTotalSupport / index.sequence.size();
     
     // Average out the support bins too (in place)
-    int minBin = -1;
-    int maxBin = -1;
-    for (int i = 0; i < binnedSupport.size(); ++i) {
-        if (expCoverage == 0) {
-            binnedSupport[i] = binnedSupport[i] / (
-                i < binnedSupport.size() - 1 ? (double)refBinSize :
-                (double)(refBinSize + index.sequence.size() % refBinSize));
+    min_bin = 0;
+    max_bin = 0;
+    for (int i = 0; i < binned_support.size(); ++i) {
+        // Compute the average over the bin's actual size
+        binned_support[i] = binned_support[i] / (
+            i < binned_support.size() - 1 ? (double)ref_bin_size :
+            (double)(ref_bin_size + index.sequence.size() % ref_bin_size));
+            
+        // See if it's a min or max
+        if (binned_support[i] < binned_support[min_bin]) {
+            min_bin = i;
         }
-        if (minBin == -1 || binnedSupport[i] < binnedSupport[minBin]) {
-            minBin = i;
-        }
-        if (maxBin == -1 || binnedSupport[i] > binnedSupport[maxBin]) {
-            maxBin = i;
+        if (binned_support[i] > binned_support[max_bin]) {
+            max_bin = i;
         }
     }
 
-    if (verbose) {
-        cerr << "Primary path average/off-path assumed coverage: " << primaryPathAverageSupport << endl;
-        cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
-                  << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
-        cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
-                  << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+}
+
+const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset) const {
+    return get_bin(get_bin_index(primary_path_offset));
+}
+        
+size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
+    // Find which coordinate bin the position is in
+    int bin = primary_path_offset / ref_bin_size;
+    if (bin == get_total_bins()) {
+        --bin;
+    }
+    return bin;
+}
+    
+size_t Call2Vcf::PrimaryPath::get_min_bin() const {
+    return min_bin;
+}
+    
+size_t Call2Vcf::PrimaryPath::get_max_bin() const {
+    return max_bin;
+}
+    
+const Support& Call2Vcf::PrimaryPath::get_bin(size_t bin) const {
+    return binned_support[bin];
+}
+        
+size_t Call2Vcf::PrimaryPath::get_total_bins() const {
+    return binned_support.size();
+}
+        
+Support Call2Vcf::PrimaryPath::get_average_support() const {
+    return get_total_support() / get_index().sequence.size();
+}
+
+Support Call2Vcf::PrimaryPath::get_average_support(const map<string, PrimaryPath>& paths) {
+    // Track the total support overall
+    Support total;
+    // And the total number of bases
+    size_t bases;
+    
+    for (auto& kv : paths) {
+        // Sum over all paths
+        total += kv.second.get_total_support();
+        bases += kv.second.get_index().sequence.size();
+    }
+    
+    // Then divide
+    return total / bases;
+}
+        
+Support Call2Vcf::PrimaryPath::get_total_support() const {
+    return total_support;
+}
+  
+PathIndex& Call2Vcf::PrimaryPath::get_index() {
+    return index;
+}
+    
+const PathIndex& Call2Vcf::PrimaryPath::get_index() const {
+    return index;
+}
+
+const string& Call2Vcf::PrimaryPath::get_name() const {
+    return name;
+}
+
+map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
+    for(auto i = primary_paths.begin(); i != primary_paths.end(); ++i) {
+        // Scan the whole map with an iterator
+        
+        if (i->second.get_index().by_id.count(site.start().node_id()) &&
+            i->second.get_index().by_id.count(site.end().node_id())) {
+            // This path threads through this site
+            return i;
+        }
+    }
+    // Otherwise we hit the end and found no path that this site can be strung
+    // on.
+    return primary_paths.end();
+}
+
+// this was main() in glenn2vcf
+void Call2Vcf::call(
+    // Augmented graph
+    AugmentedGraph& augmented,
+    // Should we load a pileup and print out pileup info as comments after
+    // variants?
+    string pileup_filename) {
+    
+    // Set up the graph's paths properly after augmentation modified them.
+    augmented.graph.paths.sort_by_mapping_rank();
+    augmented.graph.paths.rebuild_mapping_aux();
+    
+    // Make a list of the specified or autodetected primary reference paths.
+    vector<string> primary_path_names = ref_path_names;
+    if (primary_path_names.empty()) {
+        // Try and guess reference path names for VCF conversion or coverage measurement.
+        if (verbose) {
+          std:cerr << "Graph has " << augmented.graph.paths.size() << " paths to choose from."
+                   << endl;
+        }
+        if(augmented.graph.paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            primary_path_names.push_back((*augmented.graph.paths._paths.begin()).first);
+        } else if (augmented.graph.paths.has_path("ref")) {
+            // Take any "ref" path.
+            primary_path_names.push_back("ref");
+        }
+
+        if (verbose && !primary_path_names.empty()) {
+            cerr << "Guessed reference path name of " << primary_path_names.front() << endl;
+        }
+        
+    }
+    
+    // We'll fill this in with a PrimaryPath for every primary reference path
+    // that is specified or detected.
+    map<string, PrimaryPath> primary_paths;
+    for (auto& name : primary_path_names) {
+        // Make a PrimaryPath for every primary path we have.
+        // Index the primary path and compute the binned supports.   
+        primary_paths.emplace(std::piecewise_construct,
+            std::forward_as_tuple(name),
+            std::forward_as_tuple(augmented, name, ref_bin_size));
+    
+        auto& primary_path = primary_paths.at(name);
+    
+        if (verbose) {
+            cerr << "Primary path " << name << " average/off-path assumed coverage: "
+                << primary_path.get_average_support() << endl;
+            cerr << "Mininimum binned average coverage: " << primary_path.get_bin(primary_path.get_min_bin()) << " (bin "
+                << (primary_path.get_min_bin() + 1) << " / " << primary_path.get_total_bins() << ")" << endl;
+            cerr << "Maxinimum binned average coverage: " << primary_path.get_bin(primary_path.get_max_bin()) << " (bin "
+                << (primary_path.get_max_bin() + 1) << " / " << primary_path.get_total_bins() << ")" << endl;
+        }
     }
     
     // If applicable, load the pileup.
     // This will hold pileup records by node ID.
-    map<int64_t, NodePileup> nodePileups;
+    map<int64_t, NodePileup> node_pileups;
     
-    function<void(Pileup&)> handlePileup = [&](Pileup& p) { 
+    function<void(Pileup&)> handle_pileup = [&](Pileup& p) { 
         // Handle each pileup chunk
         for(size_t i = 0; i < p.node_pileups_size(); i++) {
             // Pull out every node pileup
             auto& pileup = p.node_pileups(i);
             // Save the pileup under its node's pointer.
-            nodePileups[pileup.node_id()] = pileup;
+            node_pileups[pileup.node_id()] = pileup;
         }
     };
-    if(!pileupFilename.empty()) {
+    if(!pileup_filename.empty()) {
         // We have to load some pileups
         ifstream in;
-        in.open(pileupFilename.c_str());
-        stream::for_each(in, handlePileup);
+        in.open(pileup_filename.c_str());
+        stream::for_each(in, handle_pileup);
     }
     
     // Make a VCF because we need it in scope later, if we are outputting VCF.
     vcflib::VariantCallFile vcf;
     
+    // We also might need to fillin this contig names by path name map
+    map<string, string> contig_names_by_path_name;
+    
     if (convert_to_vcf) {
+        // Do initial setup for VCF output
+        
+        // Decide on names and lengths for all the primary paths.
+        vector<size_t> contig_lengths;
+        vector<string> contig_names;
+        
+        for (size_t i = 0; i < primary_path_names.size(); i++) {
+            if (i < contig_name_overrides.size()) {
+                // Override this name
+                contig_names.push_back(contig_name_overrides.at(i));
+            } else {
+                // Keep the path name from the graph
+                contig_names.push_back(primary_path_names.at(i));
+            }
+            
+            // Allow looking up the assigned contig name later
+            contig_names_by_path_name[primary_path_names.at(i)] = contig_names.back();
+            
+            if (i < length_overrides.size()) {
+                // Override this length
+                contig_lengths.push_back(length_overrides.at(i));
+            } else {
+                // Grab the length from the index
+                contig_lengths.push_back(primary_paths.at(primary_path_names.at(i)).get_index().sequence.size());
+            }
+            
+            // TODO: is this fall-through-style logic smart, or will we just
+            // neglect to warn people that they forgot options by parsing what
+            // they said when they provide too few overrides?
+        }
+    
         // Generate a vcf header. We can't make Variant records without a
         // VariantCallFile, because the variants need to know which of their
-        // available info fields or whatever are defined in the file's header, so
-        // they know what to output.
-        // Handle length override if specified.
-        stringstream headerStream;
-        write_vcf_header(headerStream, sampleName, contigName,
-                         lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
-                         min_mad_for_filter);
+        // available info fields or whatever are defined in the file's header,
+        // so they know what to output.
+        stringstream header_stream;
+        write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths, min_mad_for_filter);
         
         // Load the headers into a the VCF file object
-        string headerString = headerStream.str();
-        assert(vcf.openForOutput(headerString));
+        string header_string = header_stream.str();
+        assert(vcf.openForOutput(header_string));
         
         // Spit out the header
-        cout << headerStream.str();
+        cout << header_stream.str();
     }
     
     // Then go through it from the graph's point of view: first over alt nodes
     // backending into the reference (creating things occupying ranges to which
     // we can attribute copy number) and then over reference nodes.
 
-    // We need to track the bases lost.
-    size_t basesLost = 0;
-    
-    
     // Do the new thing where we support multiple alleles
 
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     
-    CactusUltrabubbleFinder finder(augmented.graph, refPathName);
+    CactusUltrabubbleFinder finder(augmented.graph);
     SnarlManager site_manager = finder.find_snarls();
     
     site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
@@ -380,15 +515,24 @@ void Call2Vcf::call(
         const Snarl* site = move(site_queue.front());
         site_queue.pop_front();
         
-        if (site->type() == ULTRABUBBLE &&
-            index.by_id.count(site->start().node_id()) &&
-            index.by_id.count(site->end().node_id())) {
-            // This site is an ultrabubble on the primary path
+        // If the site is strung on any of the primary paths, find the
+        // corresponding PrimaryPath object. Otherwise, leave this null.
+        PrimaryPath* primary_path = nullptr;
+        {
+            auto found = find_path(*site, primary_paths);
+            if (found != primary_paths.end()) {
+                primary_path = &found->second;
+            }
+        }
+        
+        
+        if (site->type() == ULTRABUBBLE && primary_path != nullptr) {
+            // This site is an ultrabubble on a primary path
         
             // Where does the variable region start and end on the reference?
-            size_t ref_start = index.by_id.at(site->start().node_id()).first +
+            size_t ref_start = primary_path->get_index().by_id.at(site->start().node_id()).first +
                 augmented.graph.get_node(site->start().node_id())->sequence().size();
-            size_t ref_end = index.by_id.at(site->end().node_id()).first;
+            size_t ref_end = primary_path->get_index().by_id.at(site->end().node_id()).first;
             
             if(ref_start > ref_end) {
                 // Make sure it's the right way around (it will get set straight
@@ -427,7 +571,8 @@ void Call2Vcf::call(
                 }
                 
                 // Make sure start and end are front-ways relative to the ref path.
-                if(index.by_id.at(site->start().node_id()).first > index.by_id.at(site->end().node_id()).first) {
+                if(primary_path->get_index().by_id.at(site->start().node_id()).first >
+                    primary_path->get_index().by_id.at(site->end().node_id()).first) {
                     // The site's end happens before its start, flip it around
                     site_manager.flip(site);
                 }
@@ -470,8 +615,18 @@ void Call2Vcf::call(
         cerr << "Found " << sites.size() << " sites" << endl;
     }
     
-    // Now start looking for traversals of the sites
-    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, index, maxDepth, max_bubble_paths);
+    // Now start looking for traversals of the sites.
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, maxDepth, max_bubble_paths,
+        [&] (const Snarl& site) -> PathIndex* {
+        
+        // When the TraversalFinder needs an index for a site, it can look it up with this function.
+        auto found = find_path(site, primary_paths);
+        if (found != primary_paths.end()) {
+            return &found->second.get_index();
+        } else {
+            return nullptr;
+        }
+    });
     
     // We're going to remember what nodes and edges are covered by sites, so we
     // will know which nodes/edges aren't in any sites and may need generic
@@ -513,7 +668,7 @@ void Call2Vcf::call(
             *path->add_mapping() = to_mapping(site->end(), augmented.graph);
             
             // Save the traversal's reference status
-            is_ref.push_back(is_reference(traversal, augmented, index));
+            is_ref.push_back(is_reference(traversal, augmented));
         }
         
         // Collect sequences for all the paths
@@ -667,26 +822,28 @@ void Call2Vcf::call(
             continue;
         }
         
+        // See if the site is on a primary path, so we can use binned support.
+        map<string, PrimaryPath>::iterator found_path = find_path(*site, primary_paths);
+        
         // We need to figure out how much support a site ought to have
         Support baseline_support;
-        
-        if (index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
-            // We're on the primary path, so we can find the appropriate bin
+        if (expCoverage != 0.0) {
+            // Use the specified coverage override
+            baseline_support.set_forward(expCoverage / 2);
+            baseline_support.set_reverse(expCoverage / 2);
+        } else if (found_path != primary_paths.end()) {
+            // We're on a primary path, so we can find the appropriate bin
         
             // Since the variable part of the site is after the first anchoring node, where does it start?
-            size_t variation_start = index.by_id.at(site->start().node_id()).first
-                                     + augmented.graph.get_node(site->start().node_id())->sequence().size();
+            size_t variation_start = found_path->second.get_index().by_id.at(site->start().node_id()).first
+                + augmented.graph.get_node(site->start().node_id())->sequence().size();
             
-            // Find which coordinate bin the variation start is in, so we can get the typical local support
-            int bin = variation_start / refBinSize;
-            if (bin == binnedSupport.size()) {
-                --bin;
-            }
-            baseline_support = binnedSupport[bin];
+            // Look in the bins for the primary path to get the support there.
+            baseline_support = found_path->second.get_support_at(variation_start);
             
         } else {
-            // Just use the primary path's average support
-            baseline_support = primaryPathAverageSupport;
+            // Just use the primary paths' average support, which may be 0 if there are none.
+            baseline_support = PrimaryPath::get_average_support(primary_paths);
         }
 
         // Decide if we're an indel. We're an indel if the sequence lengths
@@ -823,16 +980,17 @@ void Call2Vcf::call(
         // Save support
         *locus.mutable_overall_support() = locus_support;
         
-        auto emit_variant = [&](const Locus& locus) {
+        // This function emits the given variant on the given primary path, as VCF.
+        auto emit_variant = [&](const Locus& locus, PrimaryPath& primary_path) {
         
             // Since the variable part of the site is after the first anchoring node, where does it start?
             // TODO: we calculate this twice...
-            size_t variation_start = index.by_id.at(site->start().node_id()).first
-                                     + augmented.graph.get_node(site->start().node_id())->sequence().size();
+            size_t variation_start = primary_path.get_index().by_id.at(site->start().node_id()).first
+                + augmented.graph.get_node(site->start().node_id())->sequence().size();
         
             // Make a Variant
             vcflib::Variant variant;
-            variant.sequenceName = contigName;
+            variant.sequenceName = contig_names_by_path_name.at(primary_path.get_name());
             variant.setVariantCallFile(vcf);
             variant.quality = 0;
             variant.position = variation_start + 1 + variantOffset;
@@ -855,7 +1013,7 @@ void Call2Vcf::call(
                 // We need to grab the character before the variable part of the
                 // site in the reference.
                 assert(variation_start > 0);
-                string extra_base = char_to_string(index.sequence.at(variation_start - 1));
+                string extra_base = char_to_string(primary_path.get_index().sequence.at(variation_start - 1));
                 
                 for(auto& seq : sequences) {
                     // Stick it on the front of all the allele sequences
@@ -878,7 +1036,7 @@ void Call2Vcf::call(
             
             // Say we're going to spit out the genotype for this sample.        
             variant.format.push_back("GT");
-            auto& genotype_vector = variant.samples[sampleName]["GT"];
+            auto& genotype_vector = variant.samples[sample_name]["GT"];
 
             if (locus.genotype_size() > 0) {
                 // We actually made a call. Emit the first genotype, which is the call.
@@ -937,32 +1095,32 @@ void Call2Vcf::call(
             }
             string depth_string = to_string((int64_t)round(total(total_support)));
             variant.format.push_back("DP");
-            variant.samples[sampleName]["DP"].push_back(depth_string);
+            variant.samples[sample_name]["DP"].push_back(depth_string);
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
             
             // Also allelic depths
             variant.format.push_back("AD");
-            variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(ref_support))));
+            variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(ref_support))));
             // And strand biases
             variant.format.push_back("SB");
-            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.forward())));
-            variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(ref_support.reverse())));
+            variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(ref_support.forward())));
+            variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(ref_support.reverse())));
             // Also allelic likelihoods (from minimum values found on their paths)
             variant.format.push_back("AL");
-            variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
+            variant.samples[sample_name]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
             if(best_allele != 0) {
                 // If our best allele isn't ref, it comes next.
-                variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(best_support))));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.forward())));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(best_support.reverse())));
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
+                variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(best_support))));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(best_support.forward())));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(best_support.reverse())));
+                variant.samples[sample_name]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
             }
             if(second_best_allele != -1 && second_best_allele != 0) {
                 // If our second best allele is real and not ref, it comes next.
-                variant.samples[sampleName]["AD"].push_back(to_string((int64_t)round(total(second_best_support))));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.forward())));
-                variant.samples[sampleName]["SB"].push_back(to_string((int64_t)round(second_best_support.reverse())));
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
+                variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(second_best_support))));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(second_best_support.forward())));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(second_best_support.reverse())));
+                variant.samples[sample_name]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
             }
             
             // And total alt allele depth for the alt alleles
@@ -974,7 +1132,7 @@ void Call2Vcf::call(
                 alt_support += second_best_support;
             }
             variant.format.push_back("XAAD");
-            variant.samples[sampleName]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
+            variant.samples[sample_name]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
 
             // Copy over the quality value
             variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
@@ -991,20 +1149,18 @@ void Call2Vcf::call(
                 if (verbose) {
                     cerr << "Variant is too large" << endl;
                 }
-                // TODO: account for the 1 base we added extra if it was a pure
-                // insert.
-                basesLost += sequences.at(best_allele).size();
+                // TODO: track bases lost again
             }
             
         };
         
         if (convert_to_vcf) {
             // We want to emit VCF
-            if(index.by_id.count(site->start().node_id()) && index.by_id.count(site->end().node_id())) {
-                // And this site is on the primery path
+            if(found_path != primary_paths.end()) {
+                // And this site is on a primary path
                 
                 // Emit the variant for this Locus
-                emit_variant(locus);
+                emit_variant(locus, found_path->second);
             }
             // Otherwise discard it as off-path
             // TODO: update bases lost
@@ -1071,11 +1227,11 @@ void Call2Vcf::call(
             Genotype gt;
             
             // TODO: use the coverage bins
-            if (total(locus.support(0)) > total(primaryPathAverageSupport) * 0.25) {
+            if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.25) {
                 // We're closer to 1 copy than 0 copies
                 gt.add_allele(0);
                 
-                if (total(locus.support(0)) > total(primaryPathAverageSupport) * 0.75) {
+                if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.75) {
                     // We're closer to 2 copies than 1 copy
                     gt.add_allele(0);
                 }
@@ -1102,13 +1258,9 @@ void Call2Vcf::call(
         
     }
     
-    // Announce how much we can't show.
-    if (verbose) {
-        cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << endl;
-    }
 }
 
-bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path) {
+bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
     
     // Keep track of the previous NodeSide
     NodeSide previous;

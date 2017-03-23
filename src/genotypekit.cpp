@@ -930,9 +930,9 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
-    SnarlManager& snarl_manager, PathIndex& primary_path_index, size_t max_depth,
-    size_t max_bubble_paths) : augmented(augmented), snarl_manager(snarl_manager),
-    primary_path_index(primary_path_index), max_depth(max_depth), max_bubble_paths(max_bubble_paths) {
+    SnarlManager& snarl_manager, size_t max_depth, size_t max_bubble_paths,
+    function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
+    max_depth(max_depth), max_bubble_paths(max_bubble_paths), get_index(get_index) {
     
     // Nothing to do!
 
@@ -972,7 +972,13 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     // on the primary path.
     unique_ptr<PathIndex> backbone_index;
     
-    if (!primary_path_index.by_id.count(site.start().node_id()) || !primary_path_index.by_id.count(site.end().node_id())) {
+    // See what the index for the appropriate primary path, if any, is. If we
+    // get something non-null the site must be threaded on it.
+    PathIndex* primary_path_index = get_index(site);
+    
+    if (primary_path_index == nullptr ||
+        !primary_path_index->by_id.count(site.start().node_id()) ||
+        !primary_path_index->by_id.count(site.end().node_id())) {
         // This site is not strung along the primary path, so we will need to
         // generate a backbone traversal of it to structure our search for
         // representative traversals (because they always want to come back to
@@ -988,7 +994,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     // Determnine what path will be the path we use to scaffold the traversals:
     // the primary path index by default, or the backbone index if we needed one.
-    PathIndex& index = (backbone_index.get() != nullptr ? *backbone_index : primary_path_index);
+    PathIndex& index = (backbone_index.get() != nullptr ? *backbone_index : *primary_path_index);
     
     // Get the site's nodes and edges (including all child sites)
     pair<unordered_set<Node*>, unordered_set<Edge*>> contents = snarl_manager.deep_contents(&site, augmented.graph, true);
