@@ -6598,7 +6598,8 @@ MEMChainModel::MEMChainModel(
     Mapper* mapper,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
-    int position_depth) {
+    int position_depth,
+    int max_connections) {
     // store the MEMs in the model
     int frag_n = 0;
     for (auto& fragment : matches) {
@@ -6646,8 +6647,10 @@ MEMChainModel::MEMChainModel(
                 while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
                     for (auto& v2 : q->second) {
                         // if this is an allowable transition, run the weighting function on it
-                        if (v1->mem.fragment != v2->mem.fragment
-                            || v1->mem.begin < v2->mem.begin) {
+                        if (v1->next_cost.size() < max_connections
+                            && v2->prev_cost.size() < max_connections
+                            && (v1->mem.fragment != v2->mem.fragment
+                                || v1->mem.begin < v2->mem.begin)) {
                             double weight = transition_weight(v1->mem, v2->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 //cerr << "    saving" << endl;
@@ -6660,13 +6663,16 @@ MEMChainModel::MEMChainModel(
                 }
             }
         }
+        // after
         for (auto& v1 : p->second) {
             auto q = p;
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
                 for (auto& v2 : q->second) {
                     // if this is an allowable transition, run the weighting function on it
-                    if (v1->mem.fragment != v2->mem.fragment
-                        || v1->mem.begin < v2->mem.begin) {
+                    if (v1->next_cost.size() < max_connections
+                        && v2->prev_cost.size() < max_connections
+                        && (v1->mem.fragment != v2->mem.fragment
+                            || v1->mem.begin < v2->mem.begin)) {
                         double weight = transition_weight(v1->mem, v2->mem);
                         if (weight > -std::numeric_limits<double>::max()) {
                             //cerr << "    saving" << endl;
