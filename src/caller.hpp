@@ -15,6 +15,7 @@
 #include "pileup.hpp"
 #include "path_index.hpp"
 #include "genotypekit.hpp"
+#include "option.hpp"
 
 namespace vg {
 
@@ -339,7 +340,7 @@ ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
  * Call2Vcf: take an augmented graph from a Caller and produce actual calls in a
  * VCF.
  */
-class Call2Vcf {
+class Call2Vcf : public Configurable {
 
 public:
 
@@ -528,7 +529,9 @@ public:
     bool useAverageSupport = false;
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
-    size_t max_ref_length = 100;
+    Option<size_t> max_ref_length{this, "max-ref-length", "mMrRlL", 100,
+        "max length of a site to genotype as a whole instead of splitting"};
+    
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
     size_t max_bubble_paths = 100;

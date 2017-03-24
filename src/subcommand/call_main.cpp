@@ -12,6 +12,8 @@
 
 #include "subcommand.hpp"
 
+#include "../option.hpp"
+
 #include "../vg.hpp"
 #include "../caller.hpp"
 
@@ -21,7 +23,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-void help_call(char** argv) {
+void help_call(char** argv, ConfigurableParser& parser) {
     cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > output.vcf" << endl
          << "Output variant calls in VCF or Loci format given a graph and pileup" << endl
          << endl
@@ -58,14 +60,12 @@ void help_call(char** argv) {
          << "    -p, --progress             show progress" << endl
          << "    -v, --verbose              print information and warnings about vcf generation" << endl
          << "    -t, --threads N            number of threads to use" << endl;
+     
+     // Then report more options
+     parser.print_help(cerr);
 }
 
 int main_call(int argc, char** argv) {
-
-    if (argc <= 3) {
-        help_call(argv);
-        return 1;
-    }
 
     double het_prior = Caller::Default_het_prior;
     int min_depth = Caller::Default_min_depth;
@@ -92,53 +92,46 @@ int main_call(int argc, char** argv) {
     bool show_progress = false;
     int thread_count = 1;
 
-    int c;
+    static const struct option long_options[] = {
+        {"no-vcf", no_argument, 0, 'V'},
+        {"min-depth", required_argument, 0, 'd'},
+        {"max-depth", required_argument, 0, 'e'},
+        {"min-support", required_argument, 0, 's'},
+        {"min-frac", required_argument, 0, 'f'},
+        {"default-read-qual", required_argument, 0, 'q'},
+        {"max-strand-bias", required_argument, 0, 'b'},
+        {"aug-graph", required_argument, 0, 'A'},
+        {"link-alts", no_argument, 0, 'a'},
+        {"progress", no_argument, 0, 'p'},
+        {"verbose", no_argument, 0, 'v'},
+        {"threads", required_argument, 0, 't'},
+        {"ref", required_argument, 0, 'r'},
+        {"contig", required_argument, 0, 'c'},
+        {"sample", required_argument, 0, 'S'},
+        {"offset", required_argument, 0, 'o'},
+        {"depth", required_argument, 0, 'D'},
+        {"length", required_argument, 0, 'l'},
+        {"subgraph", no_argument, 0, 'U'},
+        {"pileup", no_argument, 0, 'P'},
+        {"min-cov-frac", required_argument, 0, 'F'},
+        {"max-het-bias", required_argument, 0, 'H'},
+        {"max-ref-bias", required_argument, 0, 'R'},
+        {"bias-mult", required_argument, 0, 'M'},
+        {"min-count", required_argument, 0, 'n'},
+        {"bin-size", required_argument, 0, 'B'},
+        {"avg-coverage", required_argument, 0, 'C'},
+        {"no-overlap", no_argument, 0, 'O'},
+        {"use-avg-support", no_argument, 0, 'u'},
+        {"min-mad", required_argument, 0, 'E'},
+        {"help", no_argument, 0, 'h'},
+        {0, 0, 0, 0}
+    };
+    static const char* short_options = "Vd:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h";
     optind = 2; // force optind past command positional arguments
-    while (true) {
-        static struct option long_options[] =
-            {
-                {"no-vcf", no_argument, 0, 'V'},
-                {"min-depth", required_argument, 0, 'd'},
-                {"max-depth", required_argument, 0, 'e'},
-                {"min-support", required_argument, 0, 's'},
-                {"min-frac", required_argument, 0, 'f'},
-                {"default-read-qual", required_argument, 0, 'q'},
-                {"max-strand-bias", required_argument, 0, 'b'},
-                {"aug-graph", required_argument, 0, 'A'},
-                {"link-alts", no_argument, 0, 'a'},
-                {"progress", no_argument, 0, 'p'},
-                {"verbose", no_argument, 0, 'v'},
-                {"threads", required_argument, 0, 't'},
-                {"ref", required_argument, 0, 'r'},
-                {"contig", required_argument, 0, 'c'},
-                {"sample", required_argument, 0, 'S'},
-                {"offset", required_argument, 0, 'o'},
-                {"depth", required_argument, 0, 'D'},
-                {"length", required_argument, 0, 'l'},
-                {"subgraph", no_argument, 0, 'U'},
-                {"pileup", no_argument, 0, 'P'},
-                {"min-cov-frac", required_argument, 0, 'F'},
-                {"max-het-bias", required_argument, 0, 'H'},
-                {"max-ref-bias", required_argument, 0, 'R'},
-                {"bias-mult", required_argument, 0, 'M'},
-                {"min-count", required_argument, 0, 'n'},
-                {"bin-size", required_argument, 0, 'B'},
-                {"avg-coverage", required_argument, 0, 'C'},
-                {"no-overlap", no_argument, 0, 'O'},
-                {"use-avg-support", no_argument, 0, 'u'},
-                {"min-mad", required_argument, 0, 'E'},
-                {"help", no_argument, 0, 'h'},
-                {0, 0, 0, 0}
-            };
 
-        int option_index = 0;
-        c = getopt_long (argc, argv, "Vd:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h",
-                         long_options, &option_index);
-
-        /* Detect the end of the options. */
-        if (c == -1)
-            break;
-
+    // This is our command-line parser
+    ConfigurableParser parser(short_options, long_options, [&](int c) {
+        // Parse all the options we have defined here.
         switch (c)
         {
         case 'V':
@@ -254,24 +247,36 @@ int main_call(int argc, char** argv) {
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
-            help_call(argv);
+            help_call(argv, parser);
             exit(1);
             break;
         default:
           abort ();
         }
+    });
+    // Register the call2vcf converter for configuring with its options.
+    parser.register_configurable(&call2vcf);
+
+    if (argc <= 3) {
+        help_call(argv, parser);
+        return 1;
     }
+    
+    // Parse the command line options, updating optind.
+    parser.parse(argc, argv);
+
+    // Set up threading according to info parsed from the options.
     omp_set_num_threads(thread_count);
     thread_count = get_thread_count();
 
     // Parse the arguments
     if (optind >= argc) {
-        help_call(argv);
+        help_call(argv, parser);
         return 1;
     }
     string graph_file_name = get_input_file_name(optind, argc, argv);
     if (optind >= argc) {
-        help_call(argv);
+        help_call(argv, parser);
         return 1;
     }
     string pileup_file_name = get_input_file_name(optind, argc, argv);
