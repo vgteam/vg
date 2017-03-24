@@ -105,6 +105,7 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 else if (maps_to_front && maps_to_end){
                     // the read may represent a deletion,
                     // which may be in our list of traversals
+                    // Either way, it's consistent with a valid traversal
 
                     if (true){
                         consistencies[i] = true;
@@ -128,25 +129,18 @@ vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& sit
                 }
                 else if (maps_to_front | maps_to_end){
                     // maps to the front or end, but no internal nodes.
-                    // The read cannot be informative for any snarl in this case.
+                    // The read cannot be informative for any SnarlTraversal in this case.
                     consistencies[i] = false;
                     continue;
                 }
                 else{
                     // maps to neither front nor end
-                    // I think this means it doesn't map at all??
+                    // The read could map internally, or not at all.
+                    // Unless we know that the internal sequence is unique we can't guaratee that
+                    // the mapping is consistent.
                     consistencies[i] = false;
 
                 }
-
-
-                // 1. A read maps to either end of the snarl but no internal nodes
-                // 2. A read maps to both ends of the snarl but no internal nodes
-                // 3. A read maps to one end of the snarl and some internal nodes.
-                // 4. A read maps to both ends of the snarl and some internal nodes.
-                // 5. A read maps to internal nodes, but not the snarl ends
-                // A read may map to a node multiple times, or it may skip a node
-                // and put an insert there.
 
             }
 }

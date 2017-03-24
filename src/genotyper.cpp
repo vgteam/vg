@@ -28,11 +28,17 @@ namespace vg {
         map<string, vcflib::Variant> hash_to_var;
         set<int64_t> variant_nodes;
 
+        bool use_snarls = true;
+
         // Store a list of node IDs each variant covers
         map<string, unordered_set<int64_t> > allele_name_to_node_id;
-        map<string, set<string> > allele_name_to_alignment_name;
+        
         unordered_map<int64_t, string> node_to_variant;
 
+        
+
+        map<string, set<string> > allele_name_to_alignment_name;
+        
 
         // A dumb depth map, for each node in the graph, of substantial size
         unordered_map<int64_t, int32_t> node_id_to_depth;
@@ -43,18 +49,34 @@ namespace vg {
 
         // To allow non-flat alleles, we want to use SnarlTraversals rather than
         // paths.
+        unordered_map<string, set<int64_t> > snarl_name_to_node_set;
+        map<string, set<string> > traversal_name_to_alignment_names;
         unordered_map<string, SnarlTraversal> name_to_traversal;
+        map<string, Snarl> name_to_snarl;
+        map<string, vector<SnarlTraversal> > snarl_name_to_traversals;
 
-        SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", true);
-        SnarlManager snarl_manager = snarl_finder->find_snarls();
-        vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
-        TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
-        for (const Snarl* snarl : snarl_roots ){
-           vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-           for (auto x : travs){
-               name_to_traversal[x.name()] = x;
-           }
+        if (use_snarls){
+            SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", true);
+            SnarlManager snarl_manager = snarl_finder->find_snarls();
+            vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+            SimpleConsistencyCalculator scc;
+            TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+            for (const Snarl* snarl : snarl_roots ){
+                vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+                snarl_name_to_traversals[ snarl->name() ] = travs;
+                name_to_snarl[snarl->name()] = *snarl;
+                for (auto x : travs){
+                    name_to_traversal[x.name()] = x;
+                    snarl_name_to_node_set[x.snarl().name()].insert( x.snarl().start().node_id() );
+                    snarl_name_to_node_set[x.snarl().name()].insert( x.snarl().end().node_id() );
+                    for (int i = 0; i < x.visits_size(); i++){
+                        snarl_name_to_node_set[x.snarl().name()].insert( x.visits(i).node_id());
+                    }    
+                }
+            }
+            cerr << "Snarls processed, this many: " << snarl_name_to_node_set.size() << endl;
         }
+        
 
         // For each variant in VCF:
         vcflib::Variant var;
@@ -83,7 +105,8 @@ namespace vg {
 
             }
             else{
-                // We're using 
+                // We're using a GAM index, so we have to just get all alignments mapping
+                // to a set of nodes.
                 for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
                     string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
                     list<Mapping> x_path = gpaths[ alt_id ];
@@ -155,6 +178,42 @@ namespace vg {
                 }
             }
         };
+
+        SimpleConsistencyCalculator scc;
+        std::function<void(Alignment&)> count_traversal_supports = [&](const Alignment& a){
+            vector<int64_t> node_list;
+            for (int i = 0; i < a.path().mapping_size(); i++){
+                int64_t node_id = a.path().mapping(i).position().node_id();
+                if (sufficient_matches(a.path().mapping(i))){
+                    node_list.push_back(node_id);
+                }
+            }
+            std::sort(node_list.begin(), node_list.end());
+            for (auto n_to_s : name_to_snarl){
+                std::vector<int64_t>::iterator intersection_begin;
+                std::vector<int64_t>::iterator intersection_end = set_intersection(node_list.begin(), node_list.end(),
+                                     snarl_name_to_node_set[n_to_s.first].begin(),
+                                     snarl_name_to_node_set[n_to_s.first].end(),
+                                     intersection_begin);
+                vector<int64_t> inter (intersection_begin, intersection_end);
+                if (inter.size() != 0){
+                    vector<bool> consistencies = scc.calculate_consistency(n_to_s.second,
+                                snarl_name_to_traversals[n_to_s.first], a);
+                    for (int c = 0; c < consistencies.size(); c++){
+                        
+                        if (consistencies[c]){
+                            SnarlTraversal st = snarl_name_to_traversals[n_to_s.first][c];
+                            traversal_name_to_alignment_names[st.name()].insert(a.name()); 
+                        }
+                    }
+                    
+                } 
+                
+            
+            }
+            
+            
+        };
         // open our gam, count our reads, close our gam.
         if (!isIndex){
             ifstream gamstream(gamfile);
@@ -163,37 +222,18 @@ namespace vg {
             }
             gamstream.close();
         }
+        else if (use_snarls && !isIndex){
+            ifstream gamstream(gamfile);
+            if (gamstream.good()){
+                stream::for_each(gamstream, count_traversal_supports);
+            }
+            gamstream.close();
+        }
         else{
             Index gamindex;
             gamindex.open_read_only(gamfile);
             //gamindex.for_alignment_to_nodes(variant_nodes, incr);
         }
-
-
-#ifdef DEBUG
-//cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
-#endif
-
-        /*        
-                  SnarlFinder* finder = new CactusUltrabubbleFinder(*graph, "", true);
-                  SnarlManager snarl_manager = finder->find_snarls();
-                  vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
-
-                  TraversalFinder* pb = new PathBasedTraversalFinder(*graph);
-
-                  SimpleConsistencyCalculator* cons = new SimpleConsistencyCalculator();
-                  SimpleTraversalSupportCalculator* supp = new SimpleTraversalSupportCalculator();
-
-                  for (auto sn : snarl_roots){
-                  vector<SnarlTraversal> travs = pb->find_traversals(*sn);
-                  Alignment aln;
-                  vector<Alignment*> alns;
-                  vector<vector<bool> > aln_consistencies;
-                  const vector<bool> trav_consistencies = cons->calculate_consistency(*sn, travs, aln);
-                  aln_consistencies.push_back(trav_consistencies);
-                  vector<Support> supports = supp->calculate_supports(*sn, travs, alns, aln_consistencies);
-                  }
-         **/
 
         std::function<long double(int64_t)> fac = [](int64_t t){
             long double result = 1.0;
@@ -289,7 +329,12 @@ namespace vg {
             for (int i = 0; i <= it.second.alt.size(); ++i){
                 int64_t readsum = 0;
                 string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
-                readsum = allele_name_to_alignment_name[ alt_id ].size();
+                if (!use_snarls){
+                    readsum = allele_name_to_alignment_name[ alt_id ].size();
+                }
+                else{
+                    readsum = traversal_name_to_alignment_names[ alt_id ].size();
+                }
                 read_counts[i] = readsum;
                 it.second.info["AD"].push_back(std::to_string(readsum));
             }
