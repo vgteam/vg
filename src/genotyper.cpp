@@ -1,7 +1,6 @@
 #include <cstdint>
 #include "genotyper.hpp"
-#include "bubbles.hpp"
-#include "distributions.hpp"
+
 
 namespace vg {
 
@@ -42,10 +41,26 @@ namespace vg {
         //Cache graph paths
         unordered_map<string, list<Mapping> > gpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end()  );
 
+        // To allow non-flat alleles, we want to use SnarlTraversals rather than
+        // paths.
+        unordered_map<string, SnarlTraversal> name_to_traversal;
+
+        SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, "", true);
+        SnarlManager snarl_manager = snarl_finder->find_snarls();
+        vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+        TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+        for (const Snarl* snarl : snarl_roots ){
+           vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+           for (auto x : travs){
+               name_to_traversal[x.name()] = x;
+           }
+        }
 
         // For each variant in VCF:
         vcflib::Variant var;
         while(vars->getNextVariant(var)){
+            // Adjust the position offset, canonicalize any structural variants,
+            // and get the sha1 hash of the variant and store that in a map for later.
             var.position -= 1;
             var.canonicalize_sv(*ref_genome, insertions, -1);
             string var_id = make_variant_id(var);
@@ -53,6 +68,9 @@ namespace vg {
             hash_to_var[ var_id ] = var;
 
             if (!isIndex){
+                // If we're just using the GAM, build a map Node -> variant and
+                // a map alt_path_id (i.e. "allele name") -> NodeID. We'll use these to count
+                // mappings to nodes later.
                 for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
                     string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
                     list<Mapping> x_path = gpaths[ alt_id ];
@@ -65,6 +83,7 @@ namespace vg {
 
             }
             else{
+                // We're using 
                 for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
                     string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
                     list<Mapping> x_path = gpaths[ alt_id ];
