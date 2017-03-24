@@ -2017,7 +2017,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 }
 
 // rank the clusters by the number of unique read bases they cover
-int Mapper::cluster_coverage(const vector<MaximalExactMatch>& cluster) {
+int cluster_coverage(const vector<MaximalExactMatch>& cluster) {
     set<string::const_iterator> seen;
     for (auto& mem : cluster) {
         string::const_iterator c = mem.begin;
@@ -2078,7 +2078,7 @@ Mapper::average_node_length(void) {
     return (double) xindex->seq_length / (double) xindex->node_count;
 }
 
-bool Mapper::mems_overlap(const MaximalExactMatch& mem1,
+bool mems_overlap(const MaximalExactMatch& mem1,
                           const MaximalExactMatch& mem2) {
     // we overlap if we are not completely separated
     return mem1.fragment == mem2.fragment
@@ -2086,8 +2086,30 @@ bool Mapper::mems_overlap(const MaximalExactMatch& mem1,
              || mem2.end <= mem1.begin);
 }
 
-bool Mapper::clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                              const vector<MaximalExactMatch>& cluster2) {
+int mems_overlap_length(const MaximalExactMatch& mem1,
+                        const MaximalExactMatch& mem2) {
+    if (!mems_overlap(mem1, mem2)) {
+        return 0;
+    } else {
+        // overlap is length from min to max end/begin
+        if (mem1.begin < mem2.begin) {
+            if (mem1.end < mem2.end) {
+                return mem2.end - mem1.begin;
+            } else {
+                return mem1.end - mem1.begin;
+            }
+        } else {
+            if (mem2.end < mem1.end) {
+                return mem1.end - mem2.begin;
+            } else {
+                return mem2.end - mem2.begin;
+            }
+        }
+    }
+}
+
+bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
+                      const vector<MaximalExactMatch>& cluster2) {
     for (auto& mem1 : cluster1) {
         for (auto& mem2 : cluster2) {
             if (mems_overlap(mem1, mem2)) {
@@ -6636,16 +6658,46 @@ MEMChainModel::MEMChainModel(
                   });
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
     }
+    set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     // now build up the model using the positional bandwidth
     for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         // look bandwidth before and bandwidth after in the approx positions
+        // after
+        for (auto& v1 : p->second) {
+            if (redundant_vertexes.count(v1)) continue;
+            auto q = p;
+            while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
+                for (auto& v2 : q->second) {
+                    if (redundant_vertexes.count(v2)) continue;
+                    if (mems_overlap(v1->mem, v2->mem)) {
+                        redundant_vertexes.insert(v2);
+                    }
+                    // if this is an allowable transition, run the weighting function on it
+                    if (v1->next_cost.size() < max_connections
+                        && v2->prev_cost.size() < max_connections
+                        && (v1->mem.fragment != v2->mem.fragment
+                            || v1->mem.begin < v2->mem.begin)) {
+                        double weight = transition_weight(v1->mem, v2->mem);
+                        if (weight > -std::numeric_limits<double>::max()) {
+                            //cerr << "    saving" << endl;
+                            // save if we got a weight
+                            v1->next_cost.push_back(make_pair(&*v2, weight));
+                            v2->prev_cost.push_back(make_pair(&*v1, weight));
+                        }
+                    }
+                }
+            }
+        }
         // before
         for (auto& v1 : p->second) {
+            if (redundant_vertexes.count(v1)) continue;
             auto q = p;
             if (q != approx_positions.begin()) {
                 while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
                     for (auto& v2 : q->second) {
+                        if (redundant_vertexes.count(v2)) continue;
+                        // check if the vertex is redundant to the current one
                         // if this is an allowable transition, run the weighting function on it
                         if (v1->next_cost.size() < max_connections
                             && v2->prev_cost.size() < max_connections
@@ -6658,27 +6710,6 @@ MEMChainModel::MEMChainModel(
                                 v1->next_cost.push_back(make_pair((MEMChainModelVertex*)&*v2, weight));
                                 v2->prev_cost.push_back(make_pair((MEMChainModelVertex*)&*v1, weight));
                             }
-                        }
-                    }
-                }
-            }
-        }
-        // after
-        for (auto& v1 : p->second) {
-            auto q = p;
-            while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
-                for (auto& v2 : q->second) {
-                    // if this is an allowable transition, run the weighting function on it
-                    if (v1->next_cost.size() < max_connections
-                        && v2->prev_cost.size() < max_connections
-                        && (v1->mem.fragment != v2->mem.fragment
-                            || v1->mem.begin < v2->mem.begin)) {
-                        double weight = transition_weight(v1->mem, v2->mem);
-                        if (weight > -std::numeric_limits<double>::max()) {
-                            //cerr << "    saving" << endl;
-                            // save if we got a weight
-                            v1->next_cost.push_back(make_pair(&*v2, weight));
-                            v2->prev_cost.push_back(make_pair(&*v1, weight));
                         }
                     }
                 }

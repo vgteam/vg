@@ -283,14 +283,6 @@ public:
 
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
     vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq);
-    // helper for computing the number of bases in the query covered by a cluster
-    int cluster_coverage(const vector<MaximalExactMatch>& cluster);
-    // helper to tell if mems are ovelapping
-    bool mems_overlap(const MaximalExactMatch& mem1,
-                      const MaximalExactMatch& mem2);
-    // helper to tell if clusters have any overlap
-    bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                          const vector<MaximalExactMatch>& cluster2);
     // use mapper parameters to determine which clusters we should drop
     set<const vector<MaximalExactMatch>* > clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters);
 
@@ -545,6 +537,18 @@ public:
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 const string mems_to_json(const vector<MaximalExactMatch>& mems);
 set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes);
+// helper for computing the number of bases in the query covered by a cluster
+int cluster_coverage(const vector<MaximalExactMatch>& cluster);
+// helper to tell if mems are ovelapping
+bool mems_overlap(const MaximalExactMatch& mem1,
+                  const MaximalExactMatch& mem2);
+// distance of overlap, or 0 if there is no overlap
+int mems_overlap_length(const MaximalExactMatch& mem1,
+                        const MaximalExactMatch& mem2);
+// helper to tell if clusters have any overlap
+bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
+                      const vector<MaximalExactMatch>& cluster2);
+
 
 }
 
