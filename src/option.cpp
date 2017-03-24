@@ -7,18 +7,18 @@ namespace vg {
 
 using namespace std;
 
-void Configurable::register_option(BaseOption* option) {
+void Configurable::register_option(OptionInterface* option) {
     // Turn into an offset from this
     ptrdiff_t offset = (ptrdiff_t) option - (ptrdiff_t) this;
     option_offsets.push_back(offset);
 }
 
-vector<BaseOption*> Configurable::get_options() {
-    vector<BaseOption*> reconstructed;
+vector<OptionInterface*> Configurable::get_options() {
+    vector<OptionInterface*> reconstructed;
     
     for (ptrdiff_t offset : option_offsets) {
         // Convert each offset back to a pointer
-        BaseOption* option = (BaseOption*)((ptrdiff_t) this + offset);
+        OptionInterface* option = (OptionInterface*)((ptrdiff_t) this + offset);
         reconstructed.push_back(option);
     }
     
@@ -82,7 +82,7 @@ void ConfigurableParser::register_configurable(Configurable* configurable) {
     // Remember that we have options for this thing.
     configurables.push_back(configurable);
 
-    for (BaseOption* option : configurable->get_options()) {
+    for (OptionInterface* option : configurable->get_options()) {
         // For each option...
         
         // Try and assign it a short option character.
@@ -134,7 +134,7 @@ void ConfigurableParser::print_help(ostream& out) const {
         // Give it a header
         out << "configurable component options:" << endl;
         
-        for (BaseOption* option : component->get_options()) {
+        for (OptionInterface* option : component->get_options()) {
             // For each option, find its code.
             // TODO: we assume each option actually gets assigned a code.
             auto& code = codes_by_option.at(option);
@@ -193,7 +193,7 @@ void ConfigurableParser::parse(int argc, char** argv) {
         // Otherwise, see if the code is associated with an option object.
         if (options_by_code.count(c)) {
             // If so, dispatch to that option
-            BaseOption* option = options_by_code.at(c);
+            OptionInterface* option = options_by_code.at(c);
             
             if (option->has_argument()) {
                 // Parse with the option's argument

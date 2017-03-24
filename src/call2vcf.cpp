@@ -616,7 +616,7 @@ void Call2Vcf::call(
     }
     
     // Now start looking for traversals of the sites.
-    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, maxDepth, max_bubble_paths,
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_bubble_paths,
         [&] (const Snarl& site) -> PathIndex* {
         
         // When the TraversalFinder needs an index for a site, it can look it up with this function.
@@ -1068,7 +1068,7 @@ void Call2Vcf::call(
             variant.setVariantCallFile(vcf);
             variant.quality = 0;
             // Position should be 1-based and offset with our offset option.
-            variant.position = variation_start + 1 + variantOffset;
+            variant.position = variation_start + 1 + variant_offset;
             
             // Set the ID based on the IDs of the involved nodes. Note that the best
             // allele may have no nodes (because it's a pure edge)

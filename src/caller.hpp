@@ -477,26 +477,33 @@ public:
     // Option variables
     
     // Should we output in VCF (true) or Protobuf Locus (false) format?
-    bool convert_to_vcf = true;
+    Option<bool> convert_to_vcf{this, "no-vcf", "V", true,
+        "output variants in binary Loci format instead of text VCF format"};
     // How big should our output buffer be?
     size_t locus_buffer_size = 1000;
     
     // What are the names of the reference paths, if any, in the graph?
-    vector<string> ref_path_names;
+    Option<vector<string>> ref_path_names{this, "ref", "r", {},
+        "use the path with the given name as a reference path (can repeat)"};
     // What name should we give each contig in the VCF file? Autodetected from
     // path names if empty or too short.
-    vector<string> contig_name_overrides;
+    Option<vector<string>> contig_name_overrides{this, "contig", "c", {},
+        "use the given name as the VCF name for the corresponding reference path"};
     // What should the total sequence length reported in the VCF header be for
     // each contig? Autodetected from path lengths if empty or too short.
-    vector<size_t> length_overrides;
+    Option<vector<size_t>> length_overrides{this, "length", "l", {},
+        "override total sequence length in VCF for the corresponding reference path"};
     // What name should we use for the sample in the VCF file?
-    string sample_name = "SAMPLE";
+    Option<string> sample_name{this, "sample", "S", "SAMPLE",
+        "name the sample in the VCF with the given name"};
     // How far should we offset positions of variants?
-    int64_t variantOffset = 0;
+    Option<int64_t> variant_offset{this, "offset", "o", 0,
+        "offset variant positions by this amount in VCF"};
     // How many nodes should we be willing to look at on our path back to the
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
-    int64_t maxDepth = 10;
+    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 10,
+        "maximum depth for path search"};
     
     
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?

@@ -28,7 +28,6 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "Output variant calls in VCF or Loci format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -V, --no-vcf               output variants in binary Loci format instead of text VCF format" << endl
          << "    -d, --min-depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
          << "    -e, --max-depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
          << "    -s, --min-support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
@@ -38,14 +37,8 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "    -b, --max-strand-bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
          << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
          << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
-         << "    -r, --ref PATH             use the path with the given name as a reference path (can repeat)" << endl
-         << "    -c, --contig NAME          use the given name as the VCF name for the corresponding reference path" << endl
-         << "    -S, --sample NAME          name the sample in the VCF with the given name [SAMPLE]" << endl
-         << "    -o, --offset INT           offset variant positions by this amount in VCF [0]" << endl
-         << "    -l, --length INT           override total sequence length in VCF for the corresponding reference path" << endl
          << "    -U, --subgraph             expect a subgraph and ignore extra pileup entries outside it" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
-         << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
          << "    -F, --min-cov-frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
          << "    -H, --max-het-bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max-ref-bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
@@ -93,7 +86,6 @@ int main_call(int argc, char** argv) {
     int thread_count = 1;
 
     static const struct option long_options[] = {
-        {"no-vcf", no_argument, 0, 'V'},
         {"min-depth", required_argument, 0, 'd'},
         {"max-depth", required_argument, 0, 'e'},
         {"min-support", required_argument, 0, 's'},
@@ -105,12 +97,6 @@ int main_call(int argc, char** argv) {
         {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
-        {"ref", required_argument, 0, 'r'},
-        {"contig", required_argument, 0, 'c'},
-        {"sample", required_argument, 0, 'S'},
-        {"offset", required_argument, 0, 'o'},
-        {"depth", required_argument, 0, 'D'},
-        {"length", required_argument, 0, 'l'},
         {"subgraph", no_argument, 0, 'U'},
         {"pileup", no_argument, 0, 'P'},
         {"min-cov-frac", required_argument, 0, 'F'},
@@ -126,7 +112,7 @@ int main_call(int argc, char** argv) {
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "Vd:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h";
+    static const char* short_options = "d:e:s:f:q:b:A:apvt:UPF:H:R:M:n:B:C:OuE:h";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -134,9 +120,6 @@ int main_call(int argc, char** argv) {
         // Parse all the options we have defined here.
         switch (c)
         {
-        case 'V':
-            call2vcf.convert_to_vcf = false;
-            break;
         case 'd':
             min_depth = atoi(optarg);
             break;
@@ -162,30 +145,6 @@ int main_call(int argc, char** argv) {
             bridge_alts = true;
             break;
         // old glenn2vcf opts start here
-        case 'r':
-            // Remember each reference path name
-            call2vcf.ref_path_names.push_back(optarg);
-            break;
-        case 'c':
-            // Remember each contig name
-            call2vcf.contig_name_overrides.push_back(optarg);
-            break;
-        case 'S':
-            // Set the sample name
-            call2vcf.sample_name = optarg;
-            break;
-        case 'o':
-            // Offset variants
-            call2vcf.variantOffset = std::stoll(optarg);
-            break;
-        case 'D':
-            // Limit max depth for pathing to primary path
-            call2vcf.maxDepth = std::stoll(optarg);
-            break;
-        case 'l':
-            // Remember a length override for the correspondig contig
-            call2vcf.length_overrides.push_back(std::stoll(optarg));
-            break;
         case 'U':
             expectSubgraph = true;
             break;

@@ -24,7 +24,7 @@ using namespace std;
  * All of the option templates inherit from this base class, which the command-
  * line parser uses to feed them strings.
  */
-class BaseOption {
+class OptionInterface {
 public:
     /**
      * Get the long oiption text without --, like "foos-to-bar".
@@ -68,7 +68,7 @@ public:
     /**
      * Everyone needs a virtual destructor!
      */
-    virtual ~BaseOption() = default;
+    virtual ~OptionInterface() = default;
 };
 
 /**
@@ -80,13 +80,13 @@ public:
     /**
      * Each option will call this on construction and register with its owner.
      */
-    virtual void register_option(BaseOption* option);
+    virtual void register_option(OptionInterface* option);
     
     /**
      * Get all the options for this class. These pointers are only valid unless
      * or until the underlying Configurable object moves or is assigned to.
      */
-    virtual vector<BaseOption*> get_options();
+    virtual vector<OptionInterface*> get_options();
     
 private:
     /// We really should be using something like CRTP and pointer-to-members on
@@ -150,11 +150,11 @@ private:
     string short_options;
     
     /// Keep a map from assigned character to actual option.
-    map<int, BaseOption*> options_by_code;
+    map<int, OptionInterface*> options_by_code;
     
     /// And a reverse map for when we look up assigned codes for printing.
     /// TODO: No forgery!
-    map<BaseOption*, int> codes_by_option;
+    map<OptionInterface*, int> codes_by_option;
     
     /// And a vector of Configurables in the order registered so we can
     /// interrogate them and group their options when printing help.
@@ -182,26 +182,24 @@ public:
     /**
      * Parse from no argument, but a default value.
      */
-    static Value parse_default(const Value& default_value) {
+    static void parse_default(const Value& default_value, Value& value) {
         throw runtime_error("Argument required for option!");
     }
     
     /**
      * Parse from an argument.
      */
-    static Value parse(const string& arg) {
+    static void parse(const string& arg, Value& value) {
         stringstream s(arg);
-        Value v;
-        s >> v;
-        return v;
+        s >> value;
     }
     
     /**
      * Stringify a default value.
      */
-    static string unparse(const Value& v) {
+    static string unparse(const Value& value) {
         stringstream s;
-        s << v;
+        s << value;
         return s.str();
     }
 };
@@ -218,23 +216,75 @@ inline bool OptionValueParser<bool>::has_argument() {
 }
 
 /**
- * When someone gives a bool option they mean to invert it.
+ * When someone gives a bool option they mean to invert its default value.
  */
 template<>
-inline bool OptionValueParser<bool>::parse_default(const bool& default_value) {
-    return !default_value;
+inline void OptionValueParser<bool>::parse_default(const bool& default_value, bool& value) {
+    value = !default_value;
 }
 
 /**
  * If someone gives an option to a bool, explode.
  */
 template<>
-inline bool OptionValueParser<bool>::parse(const string& arg) {
+inline void OptionValueParser<bool>::parse(const string& arg, bool& value) {
     throw runtime_error("Boolean options should not take arguments.");
 }
 
+/**
+ * For vector options, we recurse.
+ */
+template <typename Item>
+class OptionValueParser<vector<Item>> {
+public:
+    
+    /**
+     * Return true if we need an argument and false otherwise.
+     */
+    static bool has_argument() {
+        return true;
+    }
+    
+    /**
+     * Parse from no argument, but a default value.
+     */
+    static void parse_default(const vector<Item>& default_value, vector<Item>& value) {
+        throw runtime_error("Argument required for option!");
+    }
+    
+    /**
+     * Parse from an argument.
+     */
+    static void parse(const string& arg, vector<Item>& value) {
+        Item entry;
+        OptionValueParser<Item>::parse(arg, entry);
+        value.push_back(entry);
+    }
+    
+    /**
+     * Stringify a default value.
+     */
+    static string unparse(const vector<Item>& value) {
+        stringstream s;
+        // Enclose the vector in braces
+        s << "{";
+        for (size_t i = 0; i < value.size(); i++) {
+            // Put every item
+            s << OptionValueParser<Item>::unparse(value[i]);
+            if (i + 1 < value.size()) {
+                // Add comma separators
+                s << ",";
+            }
+        }
+        s << "}";
+        return s.str();
+    }
+};
 
 /**
+ * The correct user entry point is one of the Option<> specializations, not this
+ * class.
+ *
  * Represents a configurable parameter for a class that we might want to expose
  * on the command line.
  *
@@ -259,28 +309,29 @@ inline bool OptionValueParser<bool>::parse(const string& arg) {
  *
  * We wrap all the type-specific parsing into a parser template. You could
  * specify your own if you want custom parsing logic for like a map or
- * something...
+ * something.
+ *
  */
 template<typename Value, typename Parser = OptionValueParser<Value>>
-class Option : public BaseOption {
+class BaseOption : public OptionInterface {
 
 public:
 
     /**
      * No default constructor.
      */
-    Option() = delete;
+    BaseOption() = delete;
     
     /**
      * Default destructor.
      */
-    virtual ~Option() = default;
+    virtual ~BaseOption() = default;
 
     /**
-     * Make a new Option that lives in a class, with the given name, short
+     * Make a new BaseOption that lives in a class, with the given name, short
      * option characters, and default value.
      */
-    Option(Configurable* owner, const string& long_opt, const string& short_opts, const Value& default_value,
+    BaseOption(Configurable* owner, const string& long_opt, const string& short_opts, const Value& default_value,
         const string& description) : long_opt(long_opt), short_opts(short_opts), description(description),
         default_value(default_value), value(default_value) {
         
@@ -291,12 +342,12 @@ public:
     /**
      * Assignment from an Option of the correct type.
      */
-    Option<Value, Parser>& operator=(const Option<Value, Parser>& other) = default;
+    BaseOption<Value, Parser>& operator=(const BaseOption<Value, Parser>& other) = default;
     
     /**
      * Assignment from an unwrapped value.
      */
-    Option<Value, Parser>& operator=(const Value& other) {
+    BaseOption<Value, Parser>& operator=(const Value& other) {
         // Just use the value type's assignment operator.
         value = other;
         return *this;
@@ -352,7 +403,7 @@ public:
      * Called for no-argument options when the parser encounters them.
      */
     virtual void parse() {
-        value = Parser::parse_default(default_value);
+        Parser::parse_default(default_value, value);
     }
     
     /**
@@ -361,10 +412,10 @@ public:
      * should make a copy.
      */
     virtual void parse(const string& arg) {
-        value = Parser::parse(arg);
+        Parser::parse(arg, value);
     }
     
-private:
+protected:
     /// What is the options's long option name
     string long_opt;
     /// What is the option's short option name
@@ -381,6 +432,72 @@ private:
     
 
 };
+
+/**
+ * Represents an option for a type with no extra methods.
+ */
+template<typename Value, typename Parser = OptionValueParser<Value>>
+class Option : public BaseOption<Value, Parser> {
+public:
+    // Inherit constructor and stuff
+    using BaseOption<Value, Parser>::BaseOption;
+    
+    Option() = delete;
+    virtual ~Option() = default;
+    
+};
+
+/**
+ * Specialize and add vector methods.
+ * TODO: magically autodetect if a container type has things and expose them.
+ * TODO: switch to operator* and operator->.
+ */
+template<typename Item, typename Parser>
+class Option<vector<Item>, Parser> : public BaseOption<vector<Item>, Parser> {
+public:
+    using Value = vector<Item>;
+    
+    // Inherit constructor and stuff
+    using BaseOption<Value, Parser>::BaseOption;
+    
+    Option() = delete;
+    virtual ~Option() = default;
+    
+    size_t size() const {
+        return this->value.size();
+    }
+    
+    bool empty() const {
+        return this->value.empty();
+    }
+    
+    typename Value::value_type& at(size_t i) {
+        return this->value.at(i);
+    }
+    
+    const typename Value::value_type& at(size_t i) const {
+        return this->value.at(i);
+    }
+    
+    typename Value::iterator begin() {
+        return this->value.begin();
+    }
+    
+    typename Value::iterator end() {
+        return this->value.end();
+    }
+    
+    typename Value::const_iterator begin() const {
+        return this->value.begin();
+    }
+    
+    typename Value::const_iterator end() const {
+        return this->value.end();
+    }
+    
+};
+
+
 
 }
 
