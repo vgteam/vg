@@ -70,16 +70,6 @@ class Filter{
         pair<Alignment, Alignment> pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
 
         // pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
-        
-        // // Pair-ified single end functions>
-        // pair<Alignment, Alignment> depth_filter(Alignment& aln1, Alignment& aln2);
-        // pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second);
-        // pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second);
-        // pair<Alignment, Alignment> soft_clip_filter(Alignment& aln_first, Alignment& aln_second);
-        // pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second);
-        // pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second);
-        // pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second);
-
 
         // SV filters
         // Take in paired GAM and return Locus records

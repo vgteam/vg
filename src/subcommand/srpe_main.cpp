@@ -273,25 +273,6 @@ int main_srpe(int argc, char** argv){
         gamind.for_alignment_to_nodes(variant_nodes, incr);
 
 
-        // vector<Genotype> genotypes;
-        // vector<Locus> loci;
-        // //vector<Genotyper::Affinity> affinities;
-        // // TODO : calculate genotype likelihoods
-        // map<Alignment*, vector<Genotyper::Affinity>> affinities;
-        // std::function<void(vector<Alignment>&, vg::VG* graph, Path p)> calc_affins = [&](vector<Alignment>& alignments,
-        // vg::VG* graph,
-        // Path p){
-        //     string p_str = path_to_string(p);
-        //     for (auto x : alignments){
-        //         Genotyper::Affinity af;
-        //         Genotyper::Site s;
-        //         list<NodeTraversal> read_traversal = gg.get_traversal_of_site(*graph, s, x.path());
-        //     }
-        // };
-
-        
-
-
         for (auto it : hash_to_var){
             int32_t total_reads = 0;
             // for (int i = 0; i <= it.second.alt.size(); i++){

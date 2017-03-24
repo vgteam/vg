@@ -218,13 +218,13 @@ namespace vg {
 
 #ifdef DEBUG
 //cerr << "Ref count " << ref_count << endl;
-//            cerr << "Alt count " << alt_count << endl;
+ //           cerr << "Alt count " << alt_count << endl;
 #endif
             // calculate genotype data probs
             for (int i = 0; i < geno_priors.size(); i++){
                 long double x = get_binoms(ref_count, alt_count, geno_priors[i]) * allele_prior; 
 #ifdef DEBUG
-                //cerr << "Prob: " << x << endl;
+//                cerr << "Prob: " << x << endl;
 #endif
                 data_probs[i] = x;
             }
@@ -253,10 +253,8 @@ namespace vg {
             }
 
 #ifdef DEBUG
-            {
-            //cerr << "Big prob: " << big_prob << endl
-            //    <<  "geno_index " << geno_index << endl;
-            }
+  //          cerr << "Big prob: " << big_prob << endl
+   //             <<  "geno_index " << geno_index << endl;
 #endif
 
             return std::make_pair(big_prob, geno_index);
@@ -412,8 +410,6 @@ namespace vg {
         // Set up our genotypekit members.
         SnarlFinder* snarl_finder;
 
-
-
         // Find all the sites in either the main graph or the subset
         vector<Genotyper::Site> sites;
 
@@ -536,36 +532,39 @@ namespace vg {
             }
 
             // Unfold/unroll, find the superbubbles, and translate back.
-            // sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-            // : find_sites_with_supbub(graph);
-
             graph.sort();
+            sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+            : find_sites_with_supbub(graph);
 
-            bool filter_trivials = true;
-            snarl_finder =  new CactusUltrabubbleFinder(graph, "", filter_trivials);
 
-            // Get our snarls.
-            SnarlManager snarl_manager = snarl_finder->find_snarls();
-            vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
 
-            // Enumerate traversals through our snarls
-            // TODO : handle reversing sites in sites
-            TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(graph, snarl_manager);
-            for (auto x : snarl_roots){
-                vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
-                Site current;
-                current.start.node = graph.get_node(x->start().node_id());
-                current.end.node = graph.get_node(x->end().node_id());
-                set<id_t> contents;
-                for (auto tr : site_traversals){
-                    for (auto v : tr.visits()){
-                        contents.insert(v.node_id());
-                    }
-                }
-                current.contents = contents;
-                sites.push_back(current);
-            }
-        }
+//             bool filter_trivials = true;
+//             snarl_finder =  new CactusUltrabubbleFinder(graph, "", filter_trivials);
+
+//             // Get our snarls.
+//             SnarlManager snarl_manager = snarl_finder->find_snarls();
+//             vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+
+//             // Enumerate traversals through our snarls
+//             // TODO : handle reversing sites in sites
+            // TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(graph, snarl_manager);
+            // for (auto x : snarl_roots){
+            //     vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
+            //     Site current;
+            //     current.start.node = graph.get_node(x->start().node_id());
+            //     current.end.node = graph.get_node(x->end().node_id());
+            //     set<id_t> contents;
+            //     for (auto tr : site_traversals){
+            //         for (auto v : tr.visits()){
+            //             contents.insert(v.node_id());
+            //         }
+            //     }
+            //     current.contents = contents;
+            //     sites.push_back(current);
+            // }
+
+
+         }
 
         if(show_progress) {
 #pragma omp critical (cerr)
@@ -582,7 +581,7 @@ namespace vg {
                 // exit(1);
             }
 
-        }
+    }
 
         // We're going to count up all the affinities we compute
         size_t total_affinities = 0;
@@ -982,7 +981,7 @@ namespace vg {
         // Unfold the graph
         // Copy the graph and unfold the copy. We need to hold this translation
         // table from new node ID to old node and relative orientation.
-        map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
+        unordered_map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
         auto transformed = graph.unfold(unfold_max_length, unfold_translation);
 
         // Fix up any doubly reversed edges
@@ -990,11 +989,11 @@ namespace vg {
 
         // Now dagify the graph. We need to hold this translation table from new
         // node ID to old node and relative orientation.
-        map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
+        unordered_map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
         transformed = transformed.dagify(dagify_steps, dag_translation);
 
         // Compose the complete translation
-        map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
+        unordered_map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
         dag_translation.clear();
         unfold_translation.clear();
 
@@ -2021,8 +2020,8 @@ namespace vg {
             cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
                 << reverse_count << " reverse (P=" << logprob_to_prob(logprob) << ")" << endl;
 #endif
-
             strands_as_specified += logprob;
+
 
         }
 

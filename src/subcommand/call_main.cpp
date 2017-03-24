@@ -36,11 +36,11 @@ void help_call(char** argv) {
          << "    -b, --max-strand-bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
          << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
          << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
-         << "    -r, --ref PATH             use the given path name as the reference path" << endl
-         << "    -c, --contig NAME          use the given name as the VCF contig name" << endl
+         << "    -r, --ref PATH             use the path with the given name as a reference path (can repeat)" << endl
+         << "    -c, --contig NAME          use the given name as the VCF name for the corresponding reference path" << endl
          << "    -S, --sample NAME          name the sample in the VCF with the given name [SAMPLE]" << endl
          << "    -o, --offset INT           offset variant positions by this amount in VCF [0]" << endl
-         << "    -l, --length INT           override total sequence length in VCF" << endl
+         << "    -l, --length INT           override total sequence length in VCF for the corresponding reference path" << endl
          << "    -U, --subgraph             expect a subgraph and ignore extra pileup entries outside it" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
@@ -53,7 +53,6 @@ void help_call(char** argv) {
          << "    -C, --exp-coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no-overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use-avg-support      use average instead of minimum support" << endl
-         << "    -I, --singleallelic        disable support for multiallelic sites" << endl
          << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
@@ -171,16 +170,16 @@ int main_call(int argc, char** argv) {
             break;
         // old glenn2vcf opts start here
         case 'r':
-            // Set the reference path name
-            call2vcf.refPathName = optarg;
+            // Remember each reference path name
+            call2vcf.ref_path_names.push_back(optarg);
             break;
         case 'c':
-            // Set the contig name
-            call2vcf.contigName = optarg;
+            // Remember each contig name
+            call2vcf.contig_name_overrides.push_back(optarg);
             break;
         case 'S':
             // Set the sample name
-            call2vcf.sampleName = optarg;
+            call2vcf.sample_name = optarg;
             break;
         case 'o':
             // Offset variants
@@ -191,8 +190,8 @@ int main_call(int argc, char** argv) {
             call2vcf.maxDepth = std::stoll(optarg);
             break;
         case 'l':
-            // Set a length override
-            call2vcf.lengthOverride = std::stoll(optarg);
+            // Remember a length override for the correspondig contig
+            call2vcf.length_overrides.push_back(std::stoll(optarg));
             break;
         case 'U':
             expectSubgraph = true;
@@ -225,7 +224,7 @@ int main_call(int argc, char** argv) {
             break;
         case 'B':
             // Set the reference bin size
-            call2vcf.refBinSize = std::stoll(optarg);
+            call2vcf.ref_bin_size = std::stoll(optarg);
             break;
         case 'C':
             // Override expected coverage

@@ -76,13 +76,6 @@ public:
         const vector<SnarlTraversal>& traversals, const Alignment& read) const = 0;
 };
 
-class SimpleConsistencyCalculator : public ConsistencyCalculator{
-    public:
-    ~SimpleConsistencyCalculator();
-    vector<bool> calculate_consistency(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
-};
-
 
 /**
  * Represents a strategy for calculating Supports for SnarlTraversals.
@@ -101,17 +94,6 @@ public:
         const vector<vector<bool>>& consistencies) const = 0;
 };
 
-class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
-    // A set of traversals through the site
-    // A set of alignments to the site
-    // And a set of consistencies, one vector for each alignment,
-    //    one boolean per traversal.
-    public:
-    ~SimpleTraversalSupportCalculator();
-    vector<Support> calculate_supports(const Snarl& site,
-        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
-        const vector<vector<bool>>& consistencies) const;
-};
 
 
 // TODO: This needs to be redesigned vis a vis the Genotype object. Genotypes
@@ -227,6 +209,16 @@ struct AugmentedGraph {
     void clear();
 };
     
+
+
+class SimpleConsistencyCalculator : public ConsistencyCalculator{
+    public:
+    ~SimpleConsistencyCalculator();
+    vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
+};
+
+
 class CactusUltrabubbleFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
@@ -310,9 +302,9 @@ public:
 };
 
 class PathBasedTraversalFinder : public TraversalFinder{
-    vg::VG graph;
+    vg::VG& graph;
     public:
-    PathBasedTraversalFinder(vg::VG graph);
+    PathBasedTraversalFinder(vg::VG& graph);
     virtual ~PathBasedTraversalFinder() = default;
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
@@ -352,9 +344,11 @@ protected:
     AugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-    /// An index of the primary path in the graph, to scaffold the produced
-    /// traversals when sites are on the primary path.
-    PathIndex& primary_path_index;
+    
+    /// We keep around a function that can be used to get an index for the
+    /// appropriate path to use to scaffold a given site, or null if no
+    /// appropriate index exists.
+    function<PathIndex*(const Snarl&)> get_index;
     
     /// What DFS depth should we search to?
     size_t max_depth;
@@ -413,7 +407,8 @@ protected:
 public:
 
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        PathIndex& index, size_t max_depth, size_t max_bubble_paths);
+        size_t max_depth, size_t max_bubble_paths,
+        function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?
     bool verbose = false;
@@ -441,6 +436,19 @@ public:
 
     virtual ~FixedGenotypePriorCalculator() = default;
     virtual double calculate_log_prior(const Genotype& genotype);
+};
+
+
+class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
+    // A set of traversals through the site
+    // A set of alignments to the site
+    // And a set of consistencies, one vector for each alignment,
+    //    one boolean per traversal.
+    public:
+    ~SimpleTraversalSupportCalculator();
+    vector<Support> calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies) const;
 };
 
 /**

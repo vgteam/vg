@@ -192,90 +192,136 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
 }
 
 
-PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG graph){
-    this->graph = graph;
+PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g) : graph(g){
 }
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
     // Goal: enumerate traversals in the snarl supported by paths in the graph
     // that may not cover the ends of the snarl.
-    // Label the Snarl's name as the name of the paths, if they exist.
-    vector<Path> paths;
-    vector<int64_t> snarl_node_ids;
-    
-    // BFS through the site to get relevant node snarl_node_ids
-    vector<Node*> q;
-    q.push_back(graph.get_node(site.start().node_id()));
-    while (!q.empty() && !(q.front()->id() == site.end().node_id()) ){
-        vector<Edge*> edges = graph.edges_from(q.front());
+    // Label the Snarl's name as tthe hash of the variant and the SnarlTraversal's name
+    // as the name of the alt_path (i.e. "_alt_[a-z0-9]*_[0-9]*")s
+    vector<SnarlTraversal> ret;
+
+    // If the snarl is not an ultrabubble, just return an empty set of traversals.
+    if (!site.type() == ULTRABUBBLE){
+        return ret;
+    }
+
+    set<int64_t> snarl_node_ids;
+    // Get the Snarl's nodes
+    queue<Node*> node_q;
+    node_q.push(graph.get_node(site.start().node_id()));
+    while (!node_q.empty()){
+        Node* n = node_q.front();
+        node_q.pop();
+        if (n->id() == site.end().node_id()){
+            break;
+        }
+        vector<Edge*> edges = graph.edges_from(n);
         for (auto e : edges){
-            Node* n = graph.get_node( e->to() );
-            q.push_back(n);
-            snarl_node_ids.push_back(n->id());
+            snarl_node_ids.insert(e->to());
+            node_q.push(graph.get_node(e->to()));
         }
     }
 
-    regex front ("_alt_");
-    regex back ("_[0-9]*_");
-    
-    auto path_to_traversal = [&](Path p, Snarl snarl){
-        SnarlTraversal s;
-        Node* start_node = graph.get_node( snarl.start().node_id() );
-        Node* end_node = graph.get_node( snarl.end().node_id() );
+    // Get the variant paths at the snarl nodes.
+    set<string> var_path_names;
+    regex front ("(_alt_)(.*)");
+    regex alt_str ("(_alt_)");
+    regex back ("(_[0-9]*)");
+    map<string, list<Mapping> > gpaths = graph.paths._paths;
+    set<string> gpath_names;
+    for (auto x : gpaths){
+        gpath_names.insert(x.first);
+    }
+    map<string, set<string> > basename_to_pathnames;
+    map<string, bool> path_processed;
 
-        if (start_node->id() > end_node->id()){
-            // Site is reversed.
-            Visit* v = s.add_visits();
-            v->set_node_id( end_node->id() );
-            v->set_backward(true);
-        }
-        else{
-            Visit* v = s.add_visits();
-            v->set_node_id( start_node->id() );
-            v->set_backward(false);
-        }
 
-        for (int i = 0; i < p.mapping_size(); i++){
-            Visit* v = s.add_visits();
-            Mapping m = p.mapping(i);
-            Position pos = m.position();
-            v->set_node_id(pos.node_id());
-            v->set_backward(pos.is_reverse());
-        }
-        
-        if (start_node->id() > end_node->id()){
-            // Site is reversed.
-            Visit* v = s.add_visits();
-            v->set_node_id( start_node->id() );
-            v->set_backward(true);
-        }
-        else{
-            Visit* v = s.add_visits();
-            v->set_node_id( end_node->id() );
-            v->set_backward(false);
-        }
-
-        return s;
-    };
-
-    set<string> npaths;
+   // Collect our paths which cross our snarl's nodes.
     for (auto id : snarl_node_ids){
-        if (graph.paths.has_node_mapping(id)){
-            map<string, set<Mapping*> > name_to_mappings = graph.paths.get_node_mapping(id);
-            for (auto it : name_to_mappings){
-                if (std::regex_match(it.first, front)){
-                    // TODO modify path name to chop off alt_ and [0-9]_
-                    string new_name = std::regex_replace(it.first, front, "");
-                    new_name = std::regex_replace(new_name, back, "");
-                    // We have alt paths for this node.
-                    // Generate snarl traversals for our paths
-                    SnarlTraversal st = path_to_traversal( graph.paths.path(it.first), site);
+        //cerr << "Processing node " << id << endl;
+        set<string> p_of_n = graph.paths.of_node(id);
 
+        for (auto pn : p_of_n){
+            if (!std::regex_match(pn, front)){
+                // don't include reference paths
+                continue;
+            }
+            string variant_hash = std::regex_replace(pn, alt_str, "");
+            variant_hash = std::regex_replace(variant_hash, back, "");
+            //cerr << variant_hash << endl;
+            regex varbase(variant_hash);
+
+            path_processed[pn] = false;
+            basename_to_pathnames[variant_hash].insert(pn);
+            var_path_names.insert(pn);
+            for (auto g : gpath_names){
+                if (std::regex_search(g, varbase)){
+                    basename_to_pathnames[variant_hash].insert(g);
+                    path_processed[g] = false;
+                    var_path_names.insert(g);
                 }
             }
         }
     }
+    // for (auto p : var_path_names){
+    //     cerr << p << endl;
+    // }
+    // exit(1);
+    for (auto cpath : var_path_names){
 
+        //cerr << "Working on path " << cpath << endl;
+        if (!std::regex_match(cpath, front) || path_processed[cpath]){
+            cerr << "Path already processed " << cpath << endl;
+            continue;
+        }
 
+        if (std::regex_match(cpath, front)){
+            // We found an alt path at this location
+            // We need to check if it has any paths in the graph with no paths.
+            string variant_hash = std::regex_replace(cpath, alt_str, "");
+            variant_hash = std::regex_replace(variant_hash, back, "");
+            set<string> allele_path_names = basename_to_pathnames[variant_hash];
+            for (auto a : allele_path_names){
+                //cerr << "Processing path " << a << endl;
+                // for each allele, generate a traversal
+                SnarlTraversal fresh_trav;
+                fresh_trav.set_name(a);
+                // fill in our snarl field(s)
+                Snarl* t_sn = fresh_trav.mutable_snarl();
+                t_sn->set_name(variant_hash);
+                t_sn->mutable_start()->set_node_id(site.start().node_id());
+                t_sn->mutable_start()->set_backward(site.start().backward());
+                t_sn->mutable_end()->set_node_id(site.end().node_id());
+                t_sn->mutable_end()->set_backward(site.end().backward());
+
+                // Fill in our traversal
+                list<Mapping> ms = gpaths[a];
+                for (auto m : ms){
+                    int64_t n_id = m.position().node_id();
+                    bool backward = m.position().is_reverse();
+                    Visit* v = fresh_trav.add_visits();
+                    v->set_node_id(n_id);
+                    v->set_backward(backward);
+                }
+                ret.push_back(fresh_trav);
+                //cerr << "Finished path: " << a << endl;
+                path_processed[a] = true;
+            }
+
+        }
+    }
+        
+
+    // Check to make sure we got all our paths
+    for (auto p : path_processed){
+        if (!path_processed[p.first]){
+            cerr << "VARIANT PATH MISSED: " << p.first << endl;
+            exit(1617);
+        }
+    }
+
+    return ret;
 }
 
 SnarlManager CactusUltrabubbleFinder::find_snarls() {
@@ -884,9 +930,9 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 }
 
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
-    SnarlManager& snarl_manager, PathIndex& primary_path_index, size_t max_depth,
-    size_t max_bubble_paths) : augmented(augmented), snarl_manager(snarl_manager),
-    primary_path_index(primary_path_index), max_depth(max_depth), max_bubble_paths(max_bubble_paths) {
+    SnarlManager& snarl_manager, size_t max_depth, size_t max_bubble_paths,
+    function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
+    max_depth(max_depth), max_bubble_paths(max_bubble_paths), get_index(get_index) {
     
     // Nothing to do!
 
@@ -926,7 +972,13 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     // on the primary path.
     unique_ptr<PathIndex> backbone_index;
     
-    if (!primary_path_index.by_id.count(site.start().node_id()) || !primary_path_index.by_id.count(site.end().node_id())) {
+    // See what the index for the appropriate primary path, if any, is. If we
+    // get something non-null the site must be threaded on it.
+    PathIndex* primary_path_index = get_index(site);
+    
+    if (primary_path_index == nullptr ||
+        !primary_path_index->by_id.count(site.start().node_id()) ||
+        !primary_path_index->by_id.count(site.end().node_id())) {
         // This site is not strung along the primary path, so we will need to
         // generate a backbone traversal of it to structure our search for
         // representative traversals (because they always want to come back to
@@ -942,7 +994,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     // Determnine what path will be the path we use to scaffold the traversals:
     // the primary path index by default, or the backbone index if we needed one.
-    PathIndex& index = (backbone_index.get() != nullptr ? *backbone_index : primary_path_index);
+    PathIndex& index = (backbone_index.get() != nullptr ? *backbone_index : *primary_path_index);
     
     // Get the site's nodes and edges (including all child sites)
     pair<unordered_set<Node*>, unordered_set<Edge*>> contents = snarl_manager.deep_contents(&site, augmented.graph, true);

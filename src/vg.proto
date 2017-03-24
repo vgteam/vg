@@ -257,6 +257,7 @@ message SnarlTraversal {
 
     // A Snarl with the start and end Visits filled in to label which Snarl these traverse.
     Snarl snarl = 2;
+    string name = 3;
 }
 
 // Describes a genetic locus with multiple possible alleles, a genotype, and observational support.
