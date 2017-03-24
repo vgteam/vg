@@ -171,7 +171,7 @@ namespace vg {
 
 
 #ifdef DEBUG
-        cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
+//cerr << node_id_to_depth.size() << " nodes in node-to-depth map." << endl;
 #endif
 
         /*        
