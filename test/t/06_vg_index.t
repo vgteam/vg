@@ -70,7 +70,7 @@ vg index -a x1337.gam -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using sequential invocations; next_nonce persistence"
 
 vg map -T <(vg sim -s 1337 -n 100 -x x.xg) -d x | vg index -m - -d x.vg.map
-is $(vg index -D -d x.vg.map | wc -l) 1475 "index stores all mappings"
+is $(vg index -D -d x.vg.map | wc -l) 1477 "index stores all mappings"
 
 rm -rf x.idx x.vg.map x.vg.aln x1337.gam
 
