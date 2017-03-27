@@ -28,31 +28,21 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "Output variant calls in VCF or Loci format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -d, --min-depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
-         << "    -e, --max-depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
-         << "    -s, --min-support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
-         << "    -f, --min-frac FLOAT       minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
-         << "    -q, --default-read-qual N  phred quality score to use if none found in the pileup ["
+         << "    -d, --min-depth INT         minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
+         << "    -e, --max-depth INT         maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
+         << "    -s, --min-support INT       minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
+         << "    -f, --min-frac FLOAT        minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
+         << "    -q, --default-read-qual N   phred quality score to use if none found in the pileup ["
          << (int)Caller::Default_default_quality << "]" << endl
          << "    -b, --max-strand-bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
-         << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
-         << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
-         << "    -U, --subgraph             expect a subgraph and ignore extra pileup entries outside it" << endl
-         << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
-         << "    -F, --min-cov-frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
-         << "    -H, --max-het-bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
-         << "    -R, --max-ref-bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
-         << "    -M, --bias-mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
-         << "    -n, --min-count INT        min total supporting read count to call a variant [1]" << endl
-         << "    -B, --bin-size  INT        bin size used for counting coverage [250]" << endl
-         << "    -C, --exp-coverage INT     specify expected coverage (instead of computing on reference)" << endl
-         << "    -O, --no-overlap           don't emit new variants that overlap old ones" << endl
-         << "    -u, --use-avg-support      use average instead of minimum support" << endl
-         << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
-         << "    -h, --help                 print this help message" << endl
-         << "    -p, --progress             show progress" << endl
-         << "    -v, --verbose              print information and warnings about vcf generation" << endl
-         << "    -t, --threads N            number of threads to use" << endl;
+         << "    -a, --link-alts             add all possible edges between adjacent alts" << endl
+         << "    -A, --aug-graph FILE        write out the agumented graph in vg format" << endl
+         << "    -U, --subgraph              expect a subgraph and ignore extra pileup entries outside it" << endl
+         << "    -P, --pileup                write pileup under VCF lines (for debugging, output not valid VCF)" << endl
+         << "    -h, --help                  print this help message" << endl
+         << "    -p, --progress              show progress" << endl
+         << "    -v, --verbose               print information and warnings about vcf generation" << endl
+         << "    -t, --threads N             number of threads to use" << endl;
      
      // Then report more options
      parser.print_help(cerr);
@@ -73,10 +63,10 @@ int main_call(int argc, char** argv) {
     
     
     // Should we expect a subgraph and ignore pileups for missing nodes/edges?
-    bool expectSubgraph = false;
+    bool expect_subgraph = false;
     
     // Should we annotate the VCF with pileup info?
-    bool pileupAnnotate = false;
+    bool pileup_annotate = false;
 
     // This manages conversion from an augmented graph to a VCF, and makes the
     // actual calls.
@@ -99,20 +89,10 @@ int main_call(int argc, char** argv) {
         {"threads", required_argument, 0, 't'},
         {"subgraph", no_argument, 0, 'U'},
         {"pileup", no_argument, 0, 'P'},
-        {"min-cov-frac", required_argument, 0, 'F'},
-        {"max-het-bias", required_argument, 0, 'H'},
-        {"max-ref-bias", required_argument, 0, 'R'},
-        {"bias-mult", required_argument, 0, 'M'},
-        {"min-count", required_argument, 0, 'n'},
-        {"bin-size", required_argument, 0, 'B'},
-        {"avg-coverage", required_argument, 0, 'C'},
-        {"no-overlap", no_argument, 0, 'O'},
-        {"use-avg-support", no_argument, 0, 'u'},
-        {"min-mad", required_argument, 0, 'E'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "d:e:s:f:q:b:A:apvt:UPF:H:R:M:n:B:C:OuE:h";
+    static const char* short_options = "d:e:s:f:q:b:A:apvt:UPh";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -144,55 +124,12 @@ int main_call(int argc, char** argv) {
         case 'a':
             bridge_alts = true;
             break;
-        // old glenn2vcf opts start here
         case 'U':
-            expectSubgraph = true;
+            expect_subgraph = true;
             break;
+        // old glenn2vcf opts start here
         case 'P':
-            pileupAnnotate = true;
-            break;
-        case 'F':
-            // Set min fraction of average coverage for a call
-            call2vcf.minFractionForCall = std::stod(optarg);
-            break;
-        case 'H':
-            // Set max factor between reads on one alt and reads on the other
-            // alt for calling a het.
-            call2vcf.maxHetBias = std::stod(optarg);
-            break;
-        case 'R':
-            // Set max factor between reads on ref and reads on the other
-            // alt for calling a homo ref.
-            call2vcf.maxRefHetBias = std::stod(optarg);
-            break;
-        case 'M':
-            // Set multiplier for bias limits for indels
-            call2vcf.indelBiasMultiple = std::stod(optarg);
-            break;
-        case 'n':
-            // How many reads need to touch an allele before we are willing to
-            // call it?
-            call2vcf.minTotalSupportForCall = std::stoll(optarg);
-            break;
-        case 'B':
-            // Set the reference bin size
-            call2vcf.ref_bin_size = std::stoll(optarg);
-            break;
-        case 'C':
-            // Override expected coverage
-            call2vcf.expCoverage = std::stoll(optarg);
-            break;
-        case 'O':
-            // Suppress variants that overlap others
-            call2vcf.suppress_overlaps = true;
-            break;
-        case 'u':
-            // Average (isntead of min) support
-            call2vcf.useAverageSupport = true;
-            break;
-        case 'E':
-            // Minimum min-allele-depth required to give Filter column a PASS
-            call2vcf.min_mad_for_filter = std::stoi(optarg);
+            pileup_annotate = true;
             break;
         case 'p':
             show_progress = true;
@@ -269,7 +206,7 @@ int main_call(int argc, char** argv) {
             for (int i = 0; i < pileup.node_pileups_size(); ++i) {
                 if (!graph->has_node(pileup.node_pileups(i).node_id())) {
                     // This pileup doesn't belong in this graph
-                    if(!expectSubgraph) {
+                    if(!expect_subgraph) {
                         throw runtime_error("Found pileup for nonexistent node " + to_string(pileup.node_pileups(i).node_id()));
                     }
                     // If that's expected, just skip it
@@ -281,7 +218,7 @@ int main_call(int argc, char** argv) {
             for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
                 if (!graph->has_edge(pileup.edge_pileups(i).edge())) {
                     // This pileup doesn't belong in this graph
-                    if(!expectSubgraph) {
+                    if(!expect_subgraph) {
                         throw runtime_error("Found pileup for nonexistent edge " + pb2json(pileup.edge_pileups(i).edge()));
                     }
                     // If that's expected, just skip it
@@ -322,7 +259,7 @@ int main_call(int argc, char** argv) {
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.
     call2vcf.call(caller._augmented_graph,
-        pileupAnnotate ? pileup_file_name : string());
+        pileup_annotate ? pileup_file_name : string());
 
     return 0;
 }

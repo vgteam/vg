@@ -786,7 +786,7 @@ void Call2Vcf::call(
                 total_support);
             
             // Fill in the support for this allele in the Locus
-            *locus.add_support() = useAverageSupport ? average_supports.back() : min_supports.back();
+            *locus.add_support() = use_average_support ? average_supports.back() : min_supports.back();
             
             // Fill in the other vectors
             // TODO: add this info to Locus? Or calculate later when emitting VCF?
@@ -798,7 +798,7 @@ void Call2Vcf::call(
         // TODO: complain if multiple copies of the same string exist???
         
         // Decide which support vector we use to actually decide
-        vector<Support>& supports = useAverageSupport ? average_supports : min_supports;
+        vector<Support>& supports = use_average_support ? average_supports : min_supports;
         
         // Now look at all the paths for the site and pick the top 2.
         int best_allele = -1;
@@ -827,10 +827,10 @@ void Call2Vcf::call(
         
         // We need to figure out how much support a site ought to have
         Support baseline_support;
-        if (expCoverage != 0.0) {
+        if (expected_coverage != 0.0) {
             // Use the specified coverage override
-            baseline_support.set_forward(expCoverage / 2);
-            baseline_support.set_reverse(expCoverage / 2);
+            baseline_support.set_forward(expected_coverage / 2);
+            baseline_support.set_reverse(expected_coverage / 2);
         } else if (found_path != primary_paths.end()) {
             // We're on a primary path, so we can find the appropriate bin
         
@@ -853,7 +853,7 @@ void Call2Vcf::call(
             (second_best_allele == -1 || sequences.front().size() == sequences[second_best_allele].size());
 
         // We need to decide what to scale the bias limits by. We scale them up if this is an indel.
-        double bias_multiple = is_indel ? indelBiasMultiple : 1.0;
+        double bias_multiple = is_indel ? indel_bias_multiple : 1.0;
         
         // How much support do we have for the top two alleles?
         Support site_support = supports.at(best_allele);
@@ -882,7 +882,7 @@ void Call2Vcf::call(
         
         // We're going to make some really bad calls at low depth. We can
         // pull them out with a depth filter, but for now just elide them.
-        if(total(site_support) >= total(baseline_support) * minFractionForCall) {
+        if(total(site_support) >= total(baseline_support) * min_fraction_for_call) {
             // We have enough to emit a call here.
             
             // If best and second best are close enough to be het, we call het.
@@ -890,11 +890,11 @@ void Call2Vcf::call(
             
             // We decide closeness differently depending on whether best is ref or not.
             // In practice, we use this to slightly penalize homozygous ref calls
-            // (by setting maxRefHetBias higher than maxHetBias) and rather make a less
+            // (by setting max_ref_het_bias higher than max_het_bias) and rather make a less
             // supported alt call instead.  This boost max sensitivity, and because
             // everything is homozygous ref by default in VCF, any downstream filters
             // will effectively reset these calls back to homozygous ref. 
-            double bias_limit = (best_allele == 0) ? maxRefHetBias : maxHetBias;
+            double bias_limit = (best_allele == 0) ? max_ref_het_bias : max_het_bias;
 #ifdef debug
             cerr << best_allele << ", " << best_support << " and "
                 << second_best_allele << ", " << second_best_support << endl;
@@ -907,12 +907,12 @@ void Call2Vcf::call(
             cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
                 << total(best_support) << endl;
                 
-            cerr << total(second_best_support) << " vs " << minTotalSupportForCall << endl;
+            cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
             if(second_best_allele != -1 &&
                 bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
-                total(best_support) >= minTotalSupportForCall &&
-                total(second_best_support) >= minTotalSupportForCall) {
+                total(best_support) >= min_total_support_for_call &&
+                total(second_best_support) >= min_total_support_for_call) {
                 // There's a second best allele, and it's not too biased to
                 // call, and both alleles exceed the minimum to call them
                 // present.
@@ -937,7 +937,7 @@ void Call2Vcf::call(
                 // Make the call
                 *locus.add_genotype() = genotype;
                 
-            } else if(total(best_support) >= minTotalSupportForCall) {
+            } else if(total(best_support) >= min_total_support_for_call) {
                 // The second best allele isn't present or isn't good enough,
                 // but the best allele has enough coverage that we can just call
                 // two of it.

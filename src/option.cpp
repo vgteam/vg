@@ -1,3 +1,7 @@
+#include <typeinfo>
+#include <cxxabi.h>
+#include <cassert>
+
 #include "option.hpp"
 
 /// \file option.cpp: Definitions for our thing-doer-class-attached option
@@ -23,6 +27,42 @@ vector<OptionInterface*> Configurable::get_options() {
     }
     
     return reconstructed;
+}
+
+string Configurable::get_name() {
+    // We'll fill this in
+    string to_return;
+
+    // Grab the mangled name
+    // TODO: On some compilers this isn;t actually mangled.
+    auto type_name = typeid(*this).name();
+    
+    int demangle_error = 0;
+    char* demangled = abi::__cxa_demangle(type_name, 0, 0, &demangle_error);
+    
+    if (demangle_error != 0) {
+        // Demangling failed
+        if (demangled != nullptr) {
+            free(demangled);
+        }
+        // Use just the original mangled name
+        to_return = type_name;
+    } else {
+        // Demangling succeeded
+        assert(demangled != nullptr);
+        // Copy name to a string
+        string demangled_str(demangled);
+        free(demangled);
+        // Use the demangled name
+        to_return = demangled_str;
+    }
+    
+    if (to_return.size() >= 4 && to_return.substr(0, 4) == "vg::") {
+        // Drop any leading vg
+        to_return = to_return.substr(4);
+    }
+    
+    return to_return;
 }
 
 ConfigurableParser::ConfigurableParser(const char* base_short_options, const struct option* base_long_options,
@@ -85,6 +125,14 @@ void ConfigurableParser::register_configurable(Configurable* configurable) {
     for (OptionInterface* option : configurable->get_options()) {
         // For each option...
         
+        if (long_options_used.count(option->get_long_option())) {
+            // TODO: we should try and reassign long options or something if
+            // there are collisions.
+            throw runtime_error("Duplicate long option: --" +
+                option->get_long_option());
+        }
+        long_options_used.insert(option->get_long_option());
+        
         // Try and assign it a short option character.
         char assigned = 0;
         for (char wanted : option->get_short_options()) {
@@ -132,7 +180,25 @@ void ConfigurableParser::print_help(ostream& out) const {
         // For each thing that has options
         
         // Give it a header
-        out << "configurable component options:" << endl;
+        out << component->get_name() << " options:" << endl;
+        
+        // Determine the padding we need to use to get the option descriptions
+        // to line up.
+        size_t padding_length = 0;
+        for (OptionInterface* option : component->get_options()) {
+            // Count the option text
+            size_t option_text_length = option->get_long_option().size();
+            if (option->has_argument()) {
+                // And any argument placeholder
+                option_text_length += 4;
+            }
+            
+            // We need to pad to the longest option's length
+            padding_length = max(padding_length, option_text_length);
+        }
+        // Add a couple spaces for visual separation, and so the longest option
+        // doesn't run into its description.
+        padding_length += 2;
         
         for (OptionInterface* option : component->get_options()) {
             // For each option, find its code.
@@ -156,17 +222,28 @@ void ConfigurableParser::print_help(ostream& out) const {
                 out << " ARG";
             }
             
-            // Then some spaces.
-            // TODO: how many?
-            for (size_t i = 0; i < 4; i++) {
+            // Calculate how long this option's text bit is
+            size_t option_text_length = option->get_long_option().size();
+            if (option->has_argument()) {
+                // And any argument placeholder
+                option_text_length += 4;
+            }
+            
+            // Then some spaces to pad to the required padding length
+            for (size_t i = 0; i < (padding_length - option_text_length); i++) {
                 out << " ";
             }
             
             // Then the description
             out << option->get_description();
             
-            // Finish up with the default value
-            out << " [" << option->get_default_value() << "]" << endl;
+            // Finish up with the default value, if the option has an argument.
+            // Otherwise it must just be a flag; you can't specify an argument.
+            if (option->has_argument()) {
+                out << " [" << option->get_default_value() << "]";
+            }
+            
+            out << endl;
         }
         
     }

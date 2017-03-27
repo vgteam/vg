@@ -88,6 +88,11 @@ public:
      */
     virtual vector<OptionInterface*> get_options();
     
+    /**
+     * Get the name of the thing being configured, for titling the help section.
+     */
+    virtual string get_name();
+    
 private:
     /// We really should be using something like CRTP and pointer-to-members on
     /// the actual class that's configurable, but for now we'll just exploit
@@ -155,6 +160,9 @@ private:
     /// And a reverse map for when we look up assigned codes for printing.
     /// TODO: No forgery!
     map<OptionInterface*, int> codes_by_option;
+    
+    /// And a set of long options used so we can detect collisions
+    set<string> long_options_used;
     
     /// And a vector of Configurables in the order registered so we can
     /// interrogate them and group their options when printing help.
@@ -224,11 +232,23 @@ inline void OptionValueParser<bool>::parse_default(const bool& default_value, bo
 }
 
 /**
- * If someone gives an option to a bool, explode.
+ * If someone gives a value to a bool, explode.
  */
 template<>
 inline void OptionValueParser<bool>::parse(const string& arg, bool& value) {
     throw runtime_error("Boolean options should not take arguments.");
+}
+
+/**
+ * Represent default values for bools as true and false.
+ */
+template<>
+inline string OptionValueParser<bool>::unparse(const bool& value) {
+    if (value) {
+        return "TRUE";
+    } else {
+        return "FALSE";
+    }
 }
 
 /**

@@ -508,32 +508,41 @@ public:
     
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
     // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall = 0;
+    Option<double> min_fraction_for_call{this, "min-cov-frac", "F", 0,
+        "min fraction of average coverage at which to call"};
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
-    double maxHetBias = 3;
+    Option<double> max_het_bias{this, "max-het-bias", "H", 3,
+        "max imbalance factor between alts to call heterozygous"};
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias = 4;
+    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4,
+        "max imbalance factor between ref and alts to call heterozygous ref"};
     // How much should we multiply the bias limits for indels?
-    double indelBiasMultiple = 1;
+    Option<double> indel_bias_multiple{this, "bias-mult", "M", 1,
+        "multiplier for bias limits for indels as opposed to substitutions"};
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 1;
+    Option<size_t> min_total_support_for_call{this, "min-count", "n", 1, 
+        "min total supporting read count to call a variant"};
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t ref_bin_size = 250;
+    Option<size_t> ref_bin_size{this, "bin-size", "B", 250,
+        "bin size used for counting coverage"};
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    double expCoverage = 0.0;
+    Option<double> expected_coverage{this, "avg-coverage", "C", 0.0,
+        "specify expected coverage (instead of computing on reference)"};
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps = false;
+    Option<bool> suppress_overlaps{this, "no-overlap", "O", false,
+        "don't emit new variants that overlap old ones"};
     // Should we use average support instead of minimum support for our calculations?
-    bool useAverageSupport = false;
+    Option<bool> use_average_support{this, "use-avg-support", "u", false,
+        "use average instead of minimum support"};
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
     Option<size_t> max_ref_length{this, "max-ref-length", "mMrRlL", 100,
@@ -544,7 +553,8 @@ public:
     size_t max_bubble_paths = 100;
     // what's the minimum minimum allele depth to give a PASS in the filter column
     // (anything below gets FAIL)    
-    size_t min_mad_for_filter = 5;
+    Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
+        "min. minimum allele depth required to PASS filter"};
     // print warnings etc. to stderr
     bool verbose = false;
     
