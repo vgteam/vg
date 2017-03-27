@@ -28,7 +28,7 @@ namespace vg {
         map<string, vcflib::Variant> hash_to_var;
         set<int64_t> variant_nodes;
 
-        bool use_snarls = true;
+        bool use_snarls = false;
 
         // Store a list of node IDs each variant covers
         map<string, unordered_set<int64_t> > allele_name_to_node_id;
@@ -167,7 +167,7 @@ namespace vg {
         std::function<void(Alignment& a)> incr = [&](const Alignment& a){
             for (int i = 0; i < a.path().mapping_size(); i++){
                 int64_t node_id = a.path().mapping(i).position().node_id();
-                if (variant_nodes.count(node_id) && sufficient_matches(a.path().mapping(i))){
+                if (variant_nodes.count(node_id) && a.mapping_quality() > 20 && sufficient_matches(a.path().mapping(i))){
 #pragma omp critical
                     {
                         // Get our variant allele hash
