@@ -531,7 +531,7 @@ size_t Paths::size(void) const {
 }
 
 bool Paths::empty(void) const {
-    return _paths.size() == 0;
+    return _paths.empty();
 }
 
 void Paths::clear(void) {
