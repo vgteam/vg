@@ -616,7 +616,7 @@ void Call2Vcf::call(
     }
     
     // Now start looking for traversals of the sites.
-    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, maxDepth, max_bubble_paths,
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_bubble_paths,
         [&] (const Snarl& site) -> PathIndex* {
         
         // When the TraversalFinder needs an index for a site, it can look it up with this function.
@@ -786,7 +786,7 @@ void Call2Vcf::call(
                 total_support);
             
             // Fill in the support for this allele in the Locus
-            *locus.add_support() = useAverageSupport ? average_supports.back() : min_supports.back();
+            *locus.add_support() = use_average_support ? average_supports.back() : min_supports.back();
             
             // Fill in the other vectors
             // TODO: add this info to Locus? Or calculate later when emitting VCF?
@@ -798,7 +798,7 @@ void Call2Vcf::call(
         // TODO: complain if multiple copies of the same string exist???
         
         // Decide which support vector we use to actually decide
-        vector<Support>& supports = useAverageSupport ? average_supports : min_supports;
+        vector<Support>& supports = use_average_support ? average_supports : min_supports;
         
         // Now look at all the paths for the site and pick the top 2.
         int best_allele = -1;
@@ -827,10 +827,10 @@ void Call2Vcf::call(
         
         // We need to figure out how much support a site ought to have
         Support baseline_support;
-        if (expCoverage != 0.0) {
+        if (expected_coverage != 0.0) {
             // Use the specified coverage override
-            baseline_support.set_forward(expCoverage / 2);
-            baseline_support.set_reverse(expCoverage / 2);
+            baseline_support.set_forward(expected_coverage / 2);
+            baseline_support.set_reverse(expected_coverage / 2);
         } else if (found_path != primary_paths.end()) {
             // We're on a primary path, so we can find the appropriate bin
         
@@ -853,7 +853,7 @@ void Call2Vcf::call(
             (second_best_allele == -1 || sequences.front().size() == sequences[second_best_allele].size());
 
         // We need to decide what to scale the bias limits by. We scale them up if this is an indel.
-        double bias_multiple = is_indel ? indelBiasMultiple : 1.0;
+        double bias_multiple = is_indel ? indel_bias_multiple : 1.0;
         
         // How much support do we have for the top two alleles?
         Support site_support = supports.at(best_allele);
@@ -882,7 +882,7 @@ void Call2Vcf::call(
         
         // We're going to make some really bad calls at low depth. We can
         // pull them out with a depth filter, but for now just elide them.
-        if(total(site_support) >= total(baseline_support) * minFractionForCall) {
+        if(total(site_support) >= total(baseline_support) * min_fraction_for_call) {
             // We have enough to emit a call here.
             
             // If best and second best are close enough to be het, we call het.
@@ -890,11 +890,11 @@ void Call2Vcf::call(
             
             // We decide closeness differently depending on whether best is ref or not.
             // In practice, we use this to slightly penalize homozygous ref calls
-            // (by setting maxRefHetBias higher than maxHetBias) and rather make a less
+            // (by setting max_ref_het_bias higher than max_het_bias) and rather make a less
             // supported alt call instead.  This boost max sensitivity, and because
             // everything is homozygous ref by default in VCF, any downstream filters
             // will effectively reset these calls back to homozygous ref. 
-            double bias_limit = (best_allele == 0) ? maxRefHetBias : maxHetBias;
+            double bias_limit = (best_allele == 0) ? max_ref_het_bias : max_het_bias;
 #ifdef debug
             cerr << best_allele << ", " << best_support << " and "
                 << second_best_allele << ", " << second_best_support << endl;
@@ -907,12 +907,12 @@ void Call2Vcf::call(
             cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
                 << total(best_support) << endl;
                 
-            cerr << total(second_best_support) << " vs " << minTotalSupportForCall << endl;
+            cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
             if(second_best_allele != -1 &&
                 bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
-                total(best_support) >= minTotalSupportForCall &&
-                total(second_best_support) >= minTotalSupportForCall) {
+                total(best_support) >= min_total_support_for_call &&
+                total(second_best_support) >= min_total_support_for_call) {
                 // There's a second best allele, and it's not too biased to
                 // call, and both alleles exceed the minimum to call them
                 // present.
@@ -937,7 +937,7 @@ void Call2Vcf::call(
                 // Make the call
                 *locus.add_genotype() = genotype;
                 
-            } else if(total(best_support) >= minTotalSupportForCall) {
+            } else if(total(best_support) >= min_total_support_for_call) {
                 // The second best allele isn't present or isn't good enough,
                 // but the best allele has enough coverage that we can just call
                 // two of it.
@@ -988,12 +988,87 @@ void Call2Vcf::call(
             size_t variation_start = primary_path.get_index().by_id.at(site->start().node_id()).first
                 + augmented.graph.get_node(site->start().node_id())->sequence().size();
         
+            // Keep track of the alleles that actually need to go in the VCF:
+            // ref, best, and second-best (if any), some of which may overlap.
+            set<int> used_alleles;
+            used_alleles.insert(0);
+            used_alleles.insert(best_allele);
+            if(second_best_allele != -1) {
+                used_alleles.insert(second_best_allele);
+            }
+        
+            // Rewrite the sequences and variation_start to just represent the
+            // actually variable part, by dropping any common prefix and common
+            // suffix. We just do the whole thing in place, modifying the used
+            // entries in sequences.
+            
+            auto shared_prefix_length = [&](bool backward) {
+                size_t shortest_prefix = std::numeric_limits<size_t>::max();
+                
+                auto here = used_alleles.begin();
+                if (here != used_alleles.end()) {
+                    auto next = here;
+                    next++;
+                    while (next != used_alleles.end()) {
+                        // Consider each allele and the next one after it, as
+                        // long as we have both.
+                    
+                        // Figure out the shorter and the longer string
+                        string* shorter = &sequences.at(*here);
+                        string* longer = &sequences.at(*next);
+                        if (shorter->size() > longer->size()) {
+                            swap(shorter, longer);
+                        }
+                    
+                        // Calculate the match length for this pair
+                        size_t match_length;
+                        if (backward) {
+                            // Find out how far in from the right the first mismatch is.
+                            auto mismatch_places = std::mismatch(shorter->rbegin(), shorter->rend(), longer->rbegin());
+                            match_length = std::distance(shorter->rbegin(), mismatch_places.first);
+                        } else {
+                            // Find out how far in from the left the first mismatch is.
+                            auto mismatch_places = std::mismatch(shorter->begin(), shorter->end(), longer->begin());
+                            match_length = std::distance(shorter->begin(), mismatch_places.first);
+                        }
+                        
+                        // The shared prefix of these strings limits the longest
+                        // prefix shared by all strings.
+                        shortest_prefix = min(shortest_prefix, match_length);
+                    
+                        here = next;
+                        ++next;
+                    }
+                    
+                    // Return the shortest universally shared prefix
+                    return shortest_prefix;
+                    
+                } else {
+                    // Only one string. Say no prefix is in common...
+                    return (size_t) 0;
+                }
+            };
+            // Trim off the shared prefix
+            size_t shared_prefix = shared_prefix_length(false);
+            for (auto allele : used_alleles) {
+                sequences[allele] = sequences[allele].substr(shared_prefix);
+            }
+            // Add it onto the start coordinate
+            variation_start += shared_prefix;
+            
+            // Then find and trim off the shared suffix
+            size_t shared_suffix = shared_prefix_length(true);
+            for (auto allele : used_alleles) {
+                sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
+            }
+            
             // Make a Variant
             vcflib::Variant variant;
             variant.sequenceName = contig_names_by_path_name.at(primary_path.get_name());
             variant.setVariantCallFile(vcf);
             variant.quality = 0;
-            variant.position = variation_start + 1 + variantOffset;
+            // Position should be 1-based and offset with our offset option.
+            variant.position = variation_start + 1 + variant_offset;
             
             // Set the ID based on the IDs of the involved nodes. Note that the best
             // allele may have no nodes (because it's a pure edge)
