@@ -507,26 +507,53 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
 
     // tie-breaker heuristic:
     // reference > transition > transversion > delete > insert > N
-    function<int(const string&)> base_priority = [&ref_base](const string& base) {
-        if (base == ".") {
-            return 6; // Ref: 6 Points
-        } else if (base == "-" || base == "") {
-            return 0; // Uncalled: 0 Points
-        } // Transition: 5 points.  Transversion: 4 points 
-        else if (base == "A" || base == "t") {
-            return ref_base == "G" ? 5 : 4;
-        } else if (base == "C" || base == "g") {
-            return ref_base == "T" ? 5 : 4;
-        } else if (base == "G" || base == "c") {
-            return ref_base == "A" ? 5 : 4;
-        } else if (base == "T" || base == "a") {
-            return ref_base == "C" ? 5 : 4;
-        } else if (base[0] == '-') {
-            return 3; // Deletion: 3 Points
-        } else if (base[0] == '+') {
-            return 2; // Insertion: 2 Points
+    function<unsigned char(const string&)> base_priority = [&ref_base](const string& base) {
+        size_t n = base.length();
+        if(n == 0) {
+            // base == '' -> Uncalled: 0 Points
+            return 0;
         }
-        // Anything else (N?): 1 Point
+        else if(n == 1)
+        {
+            char cbase = base[0];
+            
+            switch(cbase) {
+                case '.':// Ref: 6 Points
+                    return 6;
+                break;
+                case '-': // Uncalled: 0 Points
+                    return 0;
+                break;
+                
+                // Transition: 5 points.  Transversion: 4 points 
+                case 'A':
+                case 't':
+                    return cbase == 'G' ? 5 : 4;
+                break;
+                
+                case 'C':
+                case 'g':
+                    return cbase == 'T' ? 5 : 4;
+                break;
+                
+                case 'G':
+                case 'c':
+                    return cbase == 'A' ? 5 : 4;
+                break;
+                
+                case 'T':
+                case 'a':
+                    return cbase == 'C' ? 5 : 4;
+                break;
+            }
+        }
+        else { // n > 1
+            if (base[0] == '-') {
+                return 3; // Deletion: 3 Points
+            } else if (base[0] == '+') {
+                return 2; // Insertion: 2 Points
+            }
+        }
         return 1;
     };
 
@@ -535,8 +562,8 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     function<bool(const string&, int, const string&, int)> base_greater = [&base_priority] (
         const string& base1, int count1, const string& base2, int count2) {
         if (count1 == count2) {
-            int p1 = base_priority(base1);
-            int p2 = base_priority(base2);
+            unsigned char p1 = base_priority(base1);
+            unsigned char p2 = base_priority(base2);
             if (p1 == p2) {
                 return base1 > base2;
             } else {
