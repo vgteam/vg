@@ -5171,10 +5171,13 @@ int main_map(int argc, char** argv) {
     };
 
     for (int i = 0; i < thread_count; ++i) {
-        Mapper* m;
+        Mapper* m = nullptr;
         if(xindex && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
             m = new Mapper(xindex, gcsa, lcp);
+        } else {
+            // Can't continue with null
+            throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;

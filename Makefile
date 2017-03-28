@@ -99,6 +99,7 @@ OBJ += $(OBJ_DIR)/name_mapper.o
 OBJ += $(OBJ_DIR)/graph_synchronizer.o
 OBJ += $(OBJ_DIR)/vg_algorithms.o
 OBJ += $(OBJ_DIR)/nested_traversal_finder.o
+OBJ += $(OBJ_DIR)/option.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -378,9 +379,9 @@ $(OBJ_DIR)/entropy.o: $(SRC_DIR)/entropy.cpp $(SRC_DIR)/entropy.hpp $(DEPS)
 
 $(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(DEPS)
 
-$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
+$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/option.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
-$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
+$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/option.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/json2pb.h $(DEPS) $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/utility.hpp
 
@@ -448,6 +449,8 @@ $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp 
 $(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(DEPS)
 
 $(OBJ_DIR)/nested_traversal_finder.o: $(SRC_DIR)/nested_traversal_finder.cpp $(SRC_DIR)/nested_traversal_finder.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
+
+$(OBJ_DIR)/option.o: $(SRC_DIR)/option.cpp $(SRC_DIR)/option.hpp $(DEPS)
 
 ### Algorithms ###
 
@@ -536,7 +539,7 @@ $(SUBCOMMAND_OBJ_DIR)/snarls_main.o: $(SUBCOMMAND_SRC_DIR)/snarls_main.cpp $(SUB
 
 $(SUBCOMMAND_OBJ_DIR)/explode_main.o: $(SUBCOMMAND_SRC_DIR)/explode_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/call_main.o: $(SUBCOMMAND_SRC_DIR)/call_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/call_main.o: $(SUBCOMMAND_SRC_DIR)/call_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/option.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/genotype_main.o: $(SUBCOMMAND_SRC_DIR)/genotype_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
