@@ -530,7 +530,7 @@ size_t Paths::size(void) const {
     return _paths.size();
 }
 
-bool Paths::empty(void) const {
+inline bool Paths::empty(void) const {
     return _paths.empty();
 }
 
