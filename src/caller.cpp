@@ -513,45 +513,51 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
             // base == '' -> Uncalled: 0 Points
             return 0;
         }
-        else if(n == 1)
+        else
         {
             char cbase = base[0];
             
-            switch(cbase) {
-                case '.':// Ref: 6 Points
-                    return 6;
-                break;
-                case '-': // Uncalled: 0 Points
-                    return 0;
-                break;
-                
-                // Transition: 5 points.  Transversion: 4 points 
-                case 'A':
-                case 't':
-                    return cbase == 'G' ? 5 : 4;
-                break;
-                
-                case 'C':
-                case 'g':
-                    return cbase == 'T' ? 5 : 4;
-                break;
-                
-                case 'G':
-                case 'c':
-                    return cbase == 'A' ? 5 : 4;
-                break;
-                
-                case 'T':
-                case 'a':
-                    return cbase == 'C' ? 5 : 4;
-                break;
+             if(n == 1)
+             {
+                switch(cbase) {
+                    case '.':// Ref: 6 Points
+                        return 6;
+                    break;
+                    case '-': // Uncalled: 0 Points
+                        return 0;
+                    break;
+                    
+                    // Transition: 5 points.  Transversion: 4 points 
+                    case 'A':
+                    case 't':
+                        return cbase == 'G' ? 5 : 4;
+                    break;
+                    
+                    case 'C':
+                    case 'g':
+                        return cbase == 'T' ? 5 : 4;
+                    break;
+                    
+                    case 'G':
+                    case 'c':
+                        return cbase == 'A' ? 5 : 4;
+                    break;
+                    
+                    case 'T':
+                    case 'a':
+                        return cbase == 'C' ? 5 : 4;
+                    break;
+                }
             }
-        }
-        else { // n > 1
-            if (base[0] == '-') {
-                return 3; // Deletion: 3 Points
-            } else if (base[0] == '+') {
-                return 2; // Insertion: 2 Points
+            
+            // need to happen in any other case - i.e. also for n > 1
+            switch(cbase) {
+                case '-':
+                    return 3; // Deletion: 3 Points
+                break;
+                case '+':
+                    return 2; // Insertion: 2 Points
+                break;
             }
         }
         return 1;
