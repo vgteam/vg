@@ -5011,11 +5011,11 @@ int main_map(int argc, char** argv) {
     bool mem_chaining = true;
     int max_target_factor = 100;
     int buffer_size = 100;
-    int match = 1;
-    int mismatch = 4;
-    int gap_open = 6;
-    int gap_extend = 1;
-    int full_length_bonus = 5;
+    int8_t match = 1;
+    int8_t mismatch = 4;
+    int8_t gap_open = 6;
+    int8_t gap_extend = 1;
+    int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
     int max_mapping_quality = 60;

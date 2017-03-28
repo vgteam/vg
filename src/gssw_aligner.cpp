@@ -664,7 +664,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
-    
+
     double max_weight = scaled_scores[max_idx];
     int max_count = 0;
     for (auto& score : scaled_scores) if (score == max_weight) ++max_count;
@@ -759,7 +759,6 @@ Aligner::Aligner(int8_t _match,
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
-    
     // these are used when setting up the nodes
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);

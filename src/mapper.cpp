@@ -53,7 +53,6 @@ Mapper::Mapper(Index* idex,
     , perfect_pair_identity_threshold(0.95)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
-    , full_length_alignment_bonus(5)
     , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
     , mem_reseed_length(0)
@@ -63,8 +62,13 @@ Mapper::Mapper(Index* idex,
     , drop_chain(0.2)
     , cache_size(128)
     , mate_rescues(32)
+    , alignment_match(1)
+    , alignment_mismatch(4)
+    , alignment_gap_open(6)
+    , alignment_gap_extension(1)
+    , full_length_alignment_bonus(5)
 {
-    init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
+    init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
     init_node_start_cache();
     init_node_pos_cache();
@@ -162,7 +166,7 @@ double Mapper::graph_entropy(void) {
 void Mapper::set_alignment_threads(int new_thread_count) {
     alignment_threads = new_thread_count;
     clear_aligners(); // number of aligners per mapper depends on thread count
-    init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
+    init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
     init_node_start_cache();
     init_node_pos_cache();
@@ -220,26 +224,30 @@ void Mapper::clear_aligners(void) {
     regular_aligners.clear();
 }
 
-void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
+void Mapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend) {
     // hacky, find max score so that scaling doesn't change score
-    int32_t max_score = match;
+    int8_t max_score = match;
     if (mismatch > max_score) max_score = mismatch;
     if (gap_open > max_score) max_score = gap_open;
     if (gap_extend > max_score) max_score = gap_extend;
     
     double gc_content = estimate_gc_content();
 
-    qual_adj_aligners.resize(alignment_threads);
-    regular_aligners.resize(alignment_threads);
+    //qual_adj_aligners.resize(alignment_threads);
+    //regular_aligners.resize(alignment_threads);
     for (int i = 0; i < alignment_threads; ++i) {
-        qual_adj_aligners[i] = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
-                                         255, gc_content);
-        regular_aligners[i] = new Aligner(match, mismatch, gap_open, gap_extend);
+        qual_adj_aligners.push_back(new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score, 255, gc_content));
+        regular_aligners.push_back(new Aligner(match, mismatch, gap_open, gap_extend));
     }
 }
 
-void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
-    if (!qual_adj_aligners.empty()) {
+void Mapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend) {
+    alignment_match = match;
+    alignment_mismatch = mismatch;
+    alignment_gap_open = gap_open;
+    alignment_gap_extension = gap_extend;
+    if (!qual_adj_aligners.empty()
+        && !regular_aligners.empty()) {
         auto aligner = regular_aligners.front();
         // we've already set the right score
         if (match == aligner->match && mismatch == aligner->mismatch &&
@@ -1700,7 +1708,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             int max_length = 2 * (m1.length() + m2.length());
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
-            int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+            //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+            int unique_coverage = m1.length() + m2.length() - mems_overlap_length(m1, m2);
             int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
             approx_dist = abs(approx_dist);
 #ifdef debug_mapper
@@ -1713,7 +1722,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 // too far
                 return -std::numeric_limits<double>::max();
             } else {
-                int distance = graph_distance(m1_pos, m2_pos, max_length);
+                //int distance = graph_distance(m1_pos, m2_pos, max_length);
+                int distance = approx_dist;
 #ifdef debug_mapper
 #pragma omp critical
                 {
@@ -1723,15 +1733,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 if (distance == max_length) {
                     return -std::numeric_limits<double>::max();
                 }
-                double jump = (m2.begin - m1.begin) - distance;
                 if (is_rev(m1_pos) != is_rev(m2_pos)) {
                     // disable inversions
                     return -std::numeric_limits<double>::max();
                 } else {
                     // accepted transition
-                    jump = abs(jump);
+                    double jump = abs((m2.begin - m1.begin) - distance);
                     if (jump) {
-                        return (double) ((unique_coverage * match) - (gap_open + jump * gap_extension)) * uniqueness;
+                        return (double) unique_coverage * match * uniqueness - (gap_open + jump * gap_extension);
                     } else {
                         return (double) unique_coverage * match * uniqueness;
                     }
@@ -2167,23 +2176,19 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
 }
 
 
-// returns the SMEM clusters which are consistent with the distribution of the MEMs in the read
-// provided some tolerance +/-
-// uses the exact matches to generate as much of each alignment as possible
-// then local dynamic programming to fill in the gaps
 vector<Alignment>
 Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
 
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "mems for read " << mems_to_json(mems) << endl;
     }
-#endif
+//#endif
     
-    int8_t match;
-    int8_t gap_extension;
-    int8_t gap_open;
+    int match;
+    int gap_extension;
+    int gap_open;
     if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
         auto aligner =  get_regular_aligner();
         match = aligner->match;
@@ -2206,8 +2211,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
         // find the difference in m1.end and m2.begin
         // find the positional difference in the graph between m1.end and m2.begin
-        int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
-        int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
+        //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+        int unique_coverage = m1.length() + m2.length() - mems_overlap_length(m1, m2);
+        //cerr << "unique coverage " << unique_coverage << endl;
+        //int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         double uniqueness = 2.0 / (m1.match_count + m2.match_count);
@@ -2220,37 +2227,37 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         //double approx_distance = (double)abs(xindex->node_start(id(m1_pos))+offset(m1_pos) -
         int approx_dist = abs(approx_distance(m1_pos, m2_pos));
         
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << "approx distance " << approx_dist << endl;
         }
-#endif
+//#endif
         if (approx_dist > max_length) {
             // too far
             return -std::numeric_limits<double>::max();
         } else {
-            int distance = graph_distance(m1_pos, m2_pos, max_length);
-#ifdef debug_mapper
+            //int distance = graph_distance(m1_pos, m2_pos, max_length);
+            int distance = approx_dist;
+//#ifdef debug_mapper
 #pragma omp critical
             {
                 if (debug) cerr << "actual distance " << distance << endl;
             }
-#endif
+//#endif
             if (distance == max_length) {
                 // couldn't find distance
                 //distance = approx_dist;
                 return -std::numeric_limits<double>::max();
             }
-            double jump = (m2.begin - m1.begin) - distance;
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
                 // disable inversions
                 return -std::numeric_limits<double>::max();
             } else {
                 // accepted transition
-                jump = abs(jump);
+                double jump = abs((m2.begin - m1.begin) - distance);
                 if (jump) {
-                    return (double) ((unique_coverage * match) - (gap_open + jump * gap_extension)) * uniqueness;
+                    return (double) unique_coverage * match * uniqueness - (gap_open + jump * gap_extension);
                 } else {
                     return (double) unique_coverage * match * uniqueness;
                 }
@@ -6668,7 +6675,7 @@ MEMChainModel::MEMChainModel(
                   });
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
     }
-    // for each vertex merge if we go forward in the positional space and forward in the read to the next position
+    // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
     // scan forward
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
@@ -6680,7 +6687,7 @@ MEMChainModel::MEMChainModel(
                 for (auto& v2 : q->second) {
                     if (redundant_vertexes.count(v2)) continue;
                     if (mems_overlap(v1->mem, v2->mem)
-                        && v2->mem.begin - v1->mem.begin == q->first - p->first) {
+                        && abs(v2->mem.begin - v1->mem.begin) == q->first - p->first) {
                         v1->mem.end = v2->mem.end;
                         v1->weight = v1->mem.length();
                         redundant_vertexes.insert(v2);
@@ -6721,35 +6728,20 @@ MEMChainModel::MEMChainModel(
                     if (redundant_vertexes.count(v2)) continue;
                     // if this is an allowable transition, run the weighting function on it
                     if (v1->next_cost.size() < max_connections
-                        && v2->prev_cost.size() < max_connections
-                        && (v1->mem.fragment != v2->mem.fragment
-                            || v1->mem.begin < v2->mem.begin)) {
-                        double weight = transition_weight(v1->mem, v2->mem);
-                        if (weight > -std::numeric_limits<double>::max()) {
-                            v1->next_cost.push_back(make_pair(&*v2, weight));
-                            v2->prev_cost.push_back(make_pair(&*v1, weight));
-                        }
-                    }
-                }
-            }
-        }
-        // before
-        for (auto& v1 : p->second) {
-            if (redundant_vertexes.count(v1)) continue;
-            auto q = p;
-            if (q != approx_positions.begin()) {
-                while (--q != approx_positions.begin() && abs(p->first - q->first) < band_width) {
-                    for (auto& v2 : q->second) {
-                        if (redundant_vertexes.count(v2)) continue;
-                        // if this is an allowable transition, run the weighting function on it
-                        if (v1->next_cost.size() < max_connections
-                            && v2->prev_cost.size() < max_connections
-                            && (v1->mem.fragment != v2->mem.fragment
-                                || v1->mem.begin < v2->mem.begin)) {
+                        && v2->prev_cost.size() < max_connections) {
+                        if (v1->mem.fragment < v2->mem.fragment
+                            || v1->mem.begin < v2->mem.begin) {
                             double weight = transition_weight(v1->mem, v2->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v1->next_cost.push_back(make_pair(&*v2, weight));
                                 v2->prev_cost.push_back(make_pair(&*v1, weight));
+                            }
+                        } else if (v1->mem.fragment > v2->mem.fragment
+                                   || v1->mem.begin > v2->mem.begin) {
+                            double weight = transition_weight(v2->mem, v1->mem);
+                            if (weight > -std::numeric_limits<double>::max()) {
+                                v2->next_cost.push_back(make_pair(&*v1, weight));
+                                v1->prev_cost.push_back(make_pair(&*v2, weight));
                             }
                         }
                     }

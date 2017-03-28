@@ -253,8 +253,8 @@ public:
     double estimate_gc_content(void);
     int random_match_length(double chance_random);
     double graph_entropy(void);
-    void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
-    void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend);
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
@@ -525,11 +525,15 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
-    int8_t full_length_alignment_bonus;
     bool simultaneous_pair_alignment;
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     int cache_size;
     int mate_rescues;
+    int8_t alignment_match;
+    int8_t alignment_mismatch;
+    int8_t alignment_gap_open;
+    int8_t alignment_gap_extension;
+    int8_t full_length_alignment_bonus;
 
 };
 
