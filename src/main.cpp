@@ -5401,6 +5401,19 @@ int main_map(int argc, char** argv) {
         lcp->load(lcp_stream);
     }
 
+    if(!xindex) {
+        throw std::invalid_argument("One of the required indices is missing or incorrect (-x)\n");
+    }
+
+    if(!gcsa) {
+        throw std::invalid_argument("One of the required indices is missing or incorrect (-g)\n");
+    }
+
+    if(!lcp) {
+        throw std::invalid_argument("One of the required indices is missing or incorrect (-g); lcp array\n");
+    }
+
+
     thread_count = get_thread_count();
 
     vector<Mapper*> mapper;
@@ -5434,12 +5447,9 @@ int main_map(int argc, char** argv) {
         }
     };
 
+    Mapper* m;
     for (int i = 0; i < thread_count; ++i) {
-        Mapper* m;
-        if(xindex && gcsa && lcp) {
-            // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xindex, gcsa, lcp);
-        }
+        m = new Mapper(xindex, gcsa, lcp);
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->debug = debug;
