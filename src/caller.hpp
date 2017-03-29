@@ -453,6 +453,25 @@ public:
     void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
+     * For the given snarl, find the best traversal, and the second-best
+     * traversal, recursively.
+     *
+     * For a site with no children, the best traversal is the one with the
+     * highest (minumum or average) coverage, and the second-best traversal is
+     * the one with the second-highest (minimum or average) coverage. Traversals
+     * are found with the given leaf traversal finder.
+     *
+     * For a site with children, the best traversal is formed by plugging
+     * together the best traversals of children, and the second-best traversal
+     * is formed by plugging together the second-best traversals of children.
+     *
+     * Not all children (and sometimes no children at all) will appear in the
+     * best and second-best traversals.
+     */
+    vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
+        SnarlManager& snarl_manager, TraversalFinder* leaf_finder, const Snarl& site);
+    
+    /**
      * Decide if the given SnarlTraversal is included in the original base graph
      * (true), or if it represents a novel variant (false).
      *
@@ -536,10 +555,6 @@ public:
     // parallel paths.  Allow overriding here
     Option<double> expected_coverage{this, "avg-coverage", "C", 0.0,
         "specify expected coverage (instead of computing on reference)"};
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    Option<bool> suppress_overlaps{this, "no-overlap", "O", false,
-        "don't emit new variants that overlap old ones"};
     // Should we use average support instead of minimum support for our calculations?
     Option<bool> use_average_support{this, "use-avg-support", "u", false,
         "use average instead of minimum support"};

@@ -378,31 +378,31 @@ protected:
      * support found on any edge or node in the bubble (including the reference
      * node endpoints and their edges which aren't stored in the path)
      */
-    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge, PathIndex& index);
+    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, PathIndex& index);
         
     /**
      * Get the minimum support of all nodes and edges in path
      */
-    Support min_support_in_path(const list<NodeTraversal>& path);
+    Support min_support_in_path(const list<Visit>& path);
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the given
      * indexed path. Refuses to visit nodes with no support.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the given
      * indexed path.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.
      */
-    size_t bp_length(const list<NodeTraversal>& path);
+    size_t bp_length(const list<Visit>& path);
     
 public:
 

@@ -356,6 +356,28 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
     return primary_paths.end();
 }
 
+vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
+    SnarlManager& snarl_manager, TraversalFinder* leaf_finder, const Snarl& site) {
+
+    // Look up the children
+    auto children = snarl_manager.children_of(&site);
+    
+    // We'll fill this in with fully-populated node-resolution SnarlTraversals,
+    // which need to be sorted and clipped into best and second best.
+    vector<SnarlTraversal> found;
+    
+    if (children.empty()) {
+        // This is a leaf, so do the base case
+        found = leaf_finder->find_traversals(site);
+    } else {
+        // Make up some traversals composed of nodes in this site and child sites we encounter.
+        // Be sure to represent all the nodes, edges, and child sites.
+    }
+    
+    return found;
+
+}
+
 // this was main() in glenn2vcf
 void Call2Vcf::call(
     // Augmented graph
@@ -485,12 +507,16 @@ void Call2Vcf::call(
         cout << header_stream.str();
     }
     
-    // Then go through it from the graph's point of view: first over alt nodes
-    // backending into the reference (creating things occupying ranges to which
-    // we can attribute copy number) and then over reference nodes.
-
-    // Do the new thing where we support multiple alleles
-
+    // Loop over all the top-level snarls
+    
+    // For each, recurse down into child snarls
+    
+    // Then return back up with best and second best paths
+    
+    // Then decide on calls at the top
+    
+    // Then recurse back down
+    
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     

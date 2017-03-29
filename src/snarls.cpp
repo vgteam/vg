@@ -531,6 +531,18 @@ namespace vg {
         }        
     }
     
+    ostream& operator<<(ostream& out, const Visit& visit) {
+        if (!visit.has_snarl()) {
+            // Use the node ID
+            out << visit.node_id();
+        } else {
+            // Use the two defining visits
+            out << visit.snarl().start() << "-" << visit.snarl().end();
+        }
+        out << " " << (visit.backward() ? "rev" : "fwd");
+        return out;
+    }
+    
     bool operator==(const SnarlTraversal& a, const SnarlTraversal& b) {
         if (a.snarl() != b.snarl()) {
             return false;

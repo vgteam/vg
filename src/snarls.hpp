@@ -135,6 +135,12 @@ namespace vg {
     /// Converts a Mapping to a Visit. The mapping must represent a full node match.
     inline Visit to_visit(const Mapping& mapping);
     
+    /// Make a Visit from a node ID and an orientation
+    inline Visit to_visit(id_t node_id, bool is_reverse);
+    
+    /// Get the reversed version of a visit
+    inline Visit reverse(const Visit& visit);
+    
     /// Converts a NodeTraversal to a Visit in the opposite orientation.
     inline Visit to_rev_visit(const NodeTraversal& node_traversal);
     
@@ -167,6 +173,11 @@ namespace vg {
      * backward.
      */
     bool operator<(const Visit& a, const Visit& b);
+    
+    /**
+     * A Visit can be printed.
+     */
+    ostream& operator<<(ostream& out, const Visit& visit);
     
     // And some operators for SnarlTraversals
     
@@ -202,7 +213,6 @@ namespace vg {
      * Visit is smaller, or its end Visit is smaller, or its parent is smaller.
      */
     bool operator<(const Snarl& a, const Snarl& b);
-    
     
     /****
      * Template and Inlines:
@@ -277,6 +287,21 @@ namespace vg {
         Visit to_return;
         to_return.set_node_id(mapping.position().node_id());
         to_return.set_backward(mapping.position().is_reverse());
+        return to_return;
+    }
+    
+    inline Visit to_visit(id_t node_id, bool is_reverse) {
+        Visit to_return;
+        to_return.set_node_id(node_id);
+        to_return.set_backward(is_reverse);
+        return to_return;
+    }
+    
+    inline Visit reverse(const Visit& visit) {
+        // Copy the visit
+        Visit to_return = visit;
+        // And flip its orientation bit
+        to_return.set_backward(!visit.backward());
         return to_return;
     }
     
