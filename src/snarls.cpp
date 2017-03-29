@@ -503,8 +503,16 @@ namespace vg {
         Visit reversed = visit;
         reversed.set_backward(!reversed.backward());
         
-        // Return everything right of the reversed version
-        return visits_right(reversed, graph, child_boundary_index);
+        // Get everything right of the reversed version
+        vector<Visit> to_return = visits_right(reversed, graph, child_boundary_index);
+        
+        // Un-reverse them so they are in the correct orientation to be seen
+        // left of here.
+        for (auto& v : to_return) {
+            v = reverse(v);
+        }
+        
+        return to_return;
         
     }
     
