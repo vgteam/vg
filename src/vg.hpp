@@ -188,6 +188,12 @@ public:
     /// for inversions/transversions/breakpoints?).
     // TODO: map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
     map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+
+    // This index stores the same info as alt_paths, but allows us to annotate nodes
+    // that flank the variant nodes and variant paths containing no nodes (e.g. deletion edges).
+    // The SnarlTraversals are named identically to alt_paths (_alt_[a-z0-9]*_[0-9]*). They have their parent snarl filled in
+    // as well, which contains the start and end nodes.
+    map<string, SnarlTraversal> variant_to_traversal;
                        
                        
     /// Chop up the nodes.

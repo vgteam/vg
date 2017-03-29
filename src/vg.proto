@@ -120,6 +120,16 @@ message Alignment {
     repeated Path fragment = 17; // An estimate of the length of the fragment, if this Alignment is paired.
     repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
     repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph
+
+    // SAMTools-style flags
+    bool read_paired = 20;
+    bool read_mapped = 21;
+    bool mate_unmapped = 22;
+    bool read_on_reverse_strand = 23;
+    bool mate_on_reverse_strand = 24;
+    bool soft_clipped = 25;
+    bool discordant_insert_size = 26;
+    
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
@@ -218,6 +228,8 @@ message Snarl {
     // If this Snarl is nested in another, this field should be filled in with a Snarl
     // that has the start and end visits filled in (other information is optional/extraneous)
     Snarl parent = 4;
+    // Allows snarls to be named, e.g. by the hash of the VCF variant they come from.
+    string name = 5;
 }
 
 // Describes a step of a walk through a Snarl either on a node or through a child Snarl
@@ -245,6 +257,7 @@ message SnarlTraversal {
 
     // A Snarl with the start and end Visits filled in to label which Snarl these traverse.
     Snarl snarl = 2;
+    string name = 3;
 }
 
 // Describes a genetic locus with multiple possible alleles, a genotype, and observational support.

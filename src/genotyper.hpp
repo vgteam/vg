@@ -6,9 +6,13 @@
 #include <iostream>
 #include <algorithm>
 #include <functional>
+#include <numeric>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
+#include <unordered_map>
+#include <regex>
+#include <vector>
 #include <list>
 #include "vg.pb.h"
 #include "vg.hpp"
@@ -18,6 +22,9 @@
 #include "types.hpp"
 #include "genotypekit.hpp"
 #include "path_index.hpp"
+#include "index.hpp"
+#include "bubbles.hpp"
+#include "distributions.hpp"
 
 namespace vg {
 
@@ -66,6 +73,8 @@ public:
         }
         
     };
+
+
 
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     size_t max_path_search_steps = 100;
@@ -129,6 +138,12 @@ public:
     Aligner normal_aligner;
     QualAdjAligner quality_aligner;
 
+    // Genotype known variants from a VCF file.
+    void variant_recall(VG* graph,
+                                vcflib::VariantCallFile* vars,
+                                FastaReference* ref_genome,
+                                vector<FastaReference*> insertions,
+                                string gamfile, bool isIndex = false);
     // Process and write output
     void run(VG& graph,
              vector<Alignment>& alignments,
@@ -230,7 +245,7 @@ public:
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths);
+        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, bool allow_internal_alignments = false);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.

@@ -58,6 +58,41 @@ namespace vg{
         inverse = do_inv;
     }
 
+    bool Filter::perfect_filter(Alignment& aln){
+        for (int i = 0; i < aln.path().mapping_size(); i++){
+            Mapping m = aln.path().mapping(i);
+            for (int j = 0; j < m.edit_size(); j++){
+                Edit e = m.edit(j);
+                if (e.to_length() != e.from_length() || !e.sequence().empty()){
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    bool Filter::simple_filter(Alignment& aln){
+        int min_match_len = 10;
+        if (aln.path().mapping_size() > 2){
+            return false;
+        }
+        Mapping map_end = aln.path().mapping( aln.path().mapping_size() - 1);
+        Edit front = aln.path().mapping(0).edit(0);
+        Edit back = map_end.edit( map_end.edit_size() - 1);
+
+        bool valid = true;
+        if (front.to_length() != front.from_length() ||
+             front.to_length() < min_match_len ||
+             !front.sequence().empty()){
+                valid = false;
+        }
+        if (back.to_length() != back.from_length() ||
+             back.to_length() < min_match_len ||
+             !back.sequence().empty()){
+                valid = false;
+        }
+        return valid;
+    }
+
     Alignment Filter::depth_filter(Alignment& aln){
         if (use_avg && window_length != 0){
 
@@ -140,75 +175,6 @@ namespace vg{
 
     }
 
-    std::pair<Alignment, Alignment> Filter::path_length_filter(Alignment& aln_first, Alignment& aln_second){
-        Alignment x = path_length_filter(aln_first);
-        Alignment y = path_length_filter(aln_second);
-        if (x.name().empty() || y.name().empty()){
-            return inverse ? make_pair(x, y) : make_pair(Alignment(), Alignment());
-        }
-        else{
-            return  inverse ? make_pair(Alignment(), Alignment()) : make_pair(x, y);
-        }
-    }
-
-
-
-
-    pair<Alignment, Alignment> Filter::depth_filter(Alignment& aln_first, Alignment& aln_second){
-        aln_first = depth_filter(aln_first);
-        aln_second = depth_filter(aln_second);
-        if (!(aln_first.name() == "") && !(aln_first.name() == "")){
-            return inverse ? make_pair(aln_first, aln_second) : make_pair(Alignment(), Alignment());
-        }
-        else{
-            return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second);
-        }
-    }
-    pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second){
-
-
-        if (aln_first.name() == "" || aln_first.name() == ""){
-            return make_pair(Alignment(), Alignment());
-        }
-        else{
-            return make_pair(aln_first, aln_second);
-        }
-
-    }
-    pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second){
-
-
-        if (aln_first.name() == "" || aln_first.name() == ""){
-            return make_pair(Alignment(), Alignment());
-        }
-        else{
-            return make_pair(aln_first, aln_second);
-        }
-
-    }
-    pair<Alignment, Alignment> Filter::soft_clip_filter(Alignment& aln_first, Alignment& aln_second){
-        Alignment a_check = soft_clip_filter(aln_first);
-        Alignment b_check = soft_clip_filter(aln_second);
-
-        if (a_check.name() == "" || b_check.name() == ""){
-            return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second) ;
-        }
-        else{
-            return inverse ? make_pair(aln_first, aln_second) : make_pair(Alignment(), Alignment()) ;
-        }
-
-    }
-    pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second){
-
-    }
-    pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second){
-
-    }
-    pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second){
-
-    }
-
-
     /* PE functions using fragment_prev and fragment_next */
     Alignment Filter::one_end_anchored_filter(Alignment& aln){
         if (aln.fragment_prev().name() != ""){
@@ -287,9 +253,16 @@ namespace vg{
     }
 
     pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
-        // TODO: gret positions from aln_first and aln_second
-        int distance = my_xg_index->approx_path_distance(aln_first.path().name(), 1, 1);
-        if (distance > my_max_distance){
+
+        double zed;
+        if (aln_first.fragment(0).length() != 0){
+            zed = (double) aln_first.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        }
+        else if (aln_second.fragment(0).length() != 0){
+
+            zed = (double) aln_second.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        }
+        if (zed >= 2.95 || zed <= -2.95){
             return std::make_pair(aln_first, aln_second);
         }
         else{
@@ -297,8 +270,15 @@ namespace vg{
         }
     }
 
-    pair<Alignment, Alignment> Filter::orientation_filter(Alignment& aln_first, Alignment& aln_second){
+    pair<Alignment, Alignment> Filter::pair_orientation_filter(Alignment& aln_first, Alignment& aln_second){
 
+        // TODO need to check the innie/outie case
+        // --->    <--- normal
+        // and
+        // <---    ---> not so normal
+        // plus the reversing edge
+        // -->  -->
+        // <--  <--
         bool f_rev = false;
         bool s_rev = false;
         Path f_path = aln_first.path();
@@ -315,13 +295,14 @@ namespace vg{
             }
         }
 
-
-
-        if (!s_rev != !f_rev){
-            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
+        if (f_rev == s_rev){
+            return make_pair(aln_first, aln_second);
+        }
+        else if (f_rev == true && s_rev == false){
+            return make_pair(aln_first, aln_second);
         }
         else{
-            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
+
         }
 
     }
@@ -329,17 +310,17 @@ namespace vg{
     pair<Alignment, Alignment> Filter::deletion_filter(Alignment& aln_first, Alignment& aln_second){
         // path_length, split read
         // REFINE USING SOFT CLIPS
-        pair<Alignment, Alignment> ret_alns = path_length_filter(aln_first, aln_second);
+        //pair<Alignment, Alignment> ret_alns = path_length_filter(aln_first, aln_second);
         //pair<Alignment, Alignment> x_alns = split_read_filter(ret_alns.first, ret_alns.second);
         
         bool found = false;
-        if (inverse | (ret_alns.first.name() != "" || ret_alns.second.name() != "")){
-            found = true;
-        }
+        //if (inverse | (ret_alns.first.name() != "" || ret_alns.second.name() != "")){
+        //    found = true;
+        //}
 
         
         if (found){
-            return ret_alns;
+            //return ret_alns;
         }
         else {
             return make_pair(Alignment(), Alignment());
@@ -347,15 +328,40 @@ namespace vg{
 
     }
 
+    /**
+    * Filters insertion-characterizing reads based upon 
+    * discordant pairs (fragment length too short)
+    * one-end anchored / softclipped portions
+    * and read depth, one day
+    */
     pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second){
-
+        
     }
+
+    /**
+    * Find reads that support duplications
+    *
+    */
     pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
+
+    /**
+    * Find reads that support inversions
+    * split reads
+    * discordant insert size
+    * bad orientation
+    * instead of ---->    <-----
+    * we'll see  <----    <----- or ---->    ----->
+    */
     pair<Locus, Locus> Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
+
+    /**
+    * split reads or discordant reads/insert size may indicate a breakend but not a clean SV type
+    * we'd like to report all possible breakends, even if that don't match an SV type very well.
+    */
     pair<Locus, Locus> Filter::breakend_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
