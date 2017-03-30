@@ -901,6 +901,19 @@ int softclip_end(const Alignment& alignment) {
     return 0;
 }
 
+int query_overlap(const Alignment& aln1, const Alignment& aln2) {
+    if (!aln1.path().mapping_size() || !aln2.path().mapping_size()
+        || aln1.sequence().size() != aln2.sequence().size()) {
+        return 0;
+    }
+    int qb1 = softclip_start(aln1);
+    int qe1 = softclip_end(aln1);
+    int qb2 = softclip_start(aln2);
+    int qe2 = softclip_end(aln2);
+    int l = aln1.sequence().size();
+    return l - ((qe1 > qe2 ? qe1 : qe2) + (qb1 > qb2 ? qb1 : qb2));
+}
+
 int edit_count(const Alignment& alignment) {
     int i = 0;
     auto& path = alignment.path();

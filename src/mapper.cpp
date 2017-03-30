@@ -60,6 +60,7 @@ Mapper::Mapper(Index* idex,
     , smooth_alignments(true)
     , simultaneous_pair_alignment(true)
     , drop_chain(0.2)
+    , mq_overlap(0.2)
     , cache_size(128)
     , mate_rescues(32)
     , alignment_match(1)
@@ -474,7 +475,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     if (!fragment_size) return false;
     //auto aligner = (mate1.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     double hang_threshold = 0.9;
-    double retry_threshold = 0.6;
+    double retry_threshold = 0.7;
     //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
@@ -777,16 +778,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     };
 
     // find the MEMs for the alignments
-    vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
-                                                     read1.sequence().end(),
-                                                     max_mem_length,
-                                                     min_mem_length,
-                                                     mem_reseed_length);
-    vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
-                                                     read2.sequence().end(),
-                                                     max_mem_length,
-                                                     min_mem_length,
-                                                     mem_reseed_length);
+    vector<MaximalExactMatch> mems1 = find_mems_simple(read1.sequence().begin(),
+                                                       read1.sequence().end(),
+                                                       max_mem_length,
+                                                       min_mem_length,
+                                                       mem_reseed_length);
+    vector<MaximalExactMatch> mems2 = find_mems_simple(read2.sequence().begin(),
+                                                       read2.sequence().end(),
+                                                       max_mem_length,
+                                                       min_mem_length,
+                                                       mem_reseed_length);
     //cerr << "mems before " << mems1.size() << " " << mems2.size() << endl;
     // Do the initial alignments, making sure to get some extras if we're going to check consistency.
 
@@ -1623,22 +1624,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     pair<vector<Alignment>, vector<Alignment>> results;
 
     // find the MEMs for the alignments
-    vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
-                                                     read1.sequence().end(),
-                                                     max_mem_length,
-                                                     min_mem_length,
-                                                     mem_reseed_length);
+    vector<MaximalExactMatch> mems1 = find_mems_simple(read1.sequence().begin(),
+                                                       read1.sequence().end(),
+                                                       max_mem_length,
+                                                       min_mem_length,
+                                                       mem_reseed_length);
 //#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "mems for read 1 " << mems_to_json(mems1) << endl;
     }
 //#endif
-    vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
-                                                     read2.sequence().end(),
-                                                     max_mem_length,
-                                                     min_mem_length,
-                                                     mem_reseed_length);
+    vector<MaximalExactMatch> mems2 = find_mems_simple(read2.sequence().begin(),
+                                                       read2.sequence().end(),
+                                                       max_mem_length,
+                                                       min_mem_length,
+                                                       mem_reseed_length);
 //#ifdef debug_mapper
 #pragma omp critical
     {
@@ -1752,6 +1753,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     // build the paired-read MEM markov model
     MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), (int)fragment_max));
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, true, debug);
+
+    // don't attempt to align if we reach the maximum number of multimaps
+    //if (clusters.size() == total_multimaps) clusters.clear();
 
     // now reconstruct the paired fragments from the threads
     // for each thread we accept either both pairs or one fragment or the other
@@ -2144,6 +2148,23 @@ bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
     return false;
 }
 
+int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction) {
+    // take the first
+    // now look at the rest and measure overlap
+    if (alns.empty()) return 0;
+    auto& aln1 = alns.front();
+    int seq_len = aln1.sequence().size();
+    int overlaps = 0;
+    for (int i = 1; i < alns.size(); ++i) {
+        auto& aln2 = alns[i];
+        // where the overlap is greater than overlap_fraction
+        if ((double)query_overlap(aln1, aln2)/seq_len >= overlap_fraction) {
+            ++overlaps;
+        }
+    }
+    return overlaps;
+}
+
 set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters) {
     set<const vector<MaximalExactMatch>* > to_drop;
     map<const vector<MaximalExactMatch>*, int> cluster_cov;
@@ -2174,7 +2195,6 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
     }
     return to_drop;
 }
-
 
 vector<Alignment>
 Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq) {
@@ -2268,6 +2288,9 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // build the model
     MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
     vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
+
+    // don't attempt to align if we reach the maximum number of multimaps
+    //if (clusters.size() == total_multimaps) clusters.clear();
 
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
@@ -2425,6 +2448,24 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) 
     return aln;
 }
 
+double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    // compute the per-base copy number of the alignment based on the MEMs in the cluster
+    vector<int> v; v.resize(aln.sequence().size());
+    auto aln_begin = aln.sequence().begin();
+    for (auto& mem : mems) {
+        // from the beginning to the end of the mem in the read
+        // add the count of hits to each position
+        for (int i = mem.begin - aln_begin; i < mem.end - aln_begin; ++i) {
+            v[i] += mem.match_count;
+        }
+    }
+    // what is the fraction of the cluster that is in repetitive mems
+    // we calculate the uniqueness metric as the average number of hits for bases in the read covered by any MEM
+    double repeated = std::accumulate(v.begin(), v.end(), 0.0,
+                                      [](const int& a, const int& b) { return b > 1 ? a + 1 : a; });
+    return repeated / aln.sequence().length();
+}
+
 Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
     // poll the mems to see if we should flip
     int count_fwd = 0, count_rev = 0;
@@ -2455,9 +2496,11 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         return result;
     } else if (aln_rev.score() > aln_fwd.score()) {
         // reverse won
+        aln_rev.set_uniqueness(compute_uniqueness(aln, mems));
         return aln_rev;
     } else {
         // forward won
+        aln_fwd.set_uniqueness(compute_uniqueness(aln, mems));
         return aln_fwd;
     }
 }
@@ -3172,12 +3215,13 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     if (alns.empty()) return;
 
     auto aligner = (alns.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
+    int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, true, cluster_mq, use_cluster_mq, sub_overlaps);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mapping_quality, false, cluster_mq, use_cluster_mq);
+            aligner->compute_mapping_quality(alns, max_mapping_quality, false, cluster_mq, use_cluster_mq, sub_overlaps);
             break;
         default: // None
             break;
@@ -3187,12 +3231,14 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     auto aligner = (pair_alns.first.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
+    int sub_overlaps1 = sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
+    int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true, cluster_mq, use_cluster_mq);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, false, cluster_mq, use_cluster_mq);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mapping_quality, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2);
             break;
         default: // None
             break;
@@ -3322,11 +3368,11 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, additional_multimaps_for_quality);
         }
         else {
-            vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
-                                                            aln.sequence().end(),
-                                                            max_mem_length,
-                                                            min_mem_length,
-                                                            mem_reseed_length);
+            vector<MaximalExactMatch> mems = find_mems_simple(aln.sequence().begin(),
+                                                              aln.sequence().end(),
+                                                              max_mem_length,
+                                                              min_mem_length,
+                                                              mem_reseed_length);
             // query mem hits
 
             alignments = align_mem_multi(aln, mems, cluster_mq, additional_multimaps_for_quality);
@@ -6828,6 +6874,9 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
         if (paired && vertex_trace.size() == 1) {
             exclude.insert(vertex_trace.front());
         }
+        // fill this out when we're paired to help mask out in-fragment transitions
+        set<MEMChainModelVertex*> chain_members;
+        if (paired) for (auto v : vertex_trace) chain_members.insert(v);
         traces.emplace_back();
         auto& mem_trace = traces.back();
         for (auto v = vertex_trace.rbegin(); v != vertex_trace.rend(); ++v) {
@@ -6838,7 +6887,13 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
                 MEMChainModelVertex* prev = *y;
                 // mask out used transitions
                 for (auto& p : vertex.prev_cost) {
-                    if (p.first == prev) p.first = nullptr;
+                    if (p.first == prev) {
+                        p.first = nullptr;
+                    } else if (paired && p.first != nullptr
+                               && p.first->mem.fragment != vertex.mem.fragment
+                               && chain_members.count(p.first)) {
+                        p.first = nullptr;
+                    }
                 }
             }
             mem_trace.push_back(vertex.mem);

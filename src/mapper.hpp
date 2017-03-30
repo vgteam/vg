@@ -304,6 +304,8 @@ public:
     void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // compute the uniqueness metric based on the MEMs in the cluster
+    double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
     Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip);
 
@@ -527,6 +529,7 @@ public:
     float perfect_pair_identity_threshold;
     bool simultaneous_pair_alignment;
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
+    float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int cache_size;
     int mate_rescues;
     int8_t alignment_match;
@@ -553,6 +556,7 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
 bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
                       const vector<MaximalExactMatch>& cluster2);
 
+int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction);
 
 }
 

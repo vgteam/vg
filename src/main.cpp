@@ -4937,6 +4937,7 @@ void help_map(char** argv) {
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -L, --mq-overlap FLOAT   scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
@@ -5033,6 +5034,7 @@ int main_map(int argc, char** argv) {
     bool smooth_alignments = true;
     bool use_fast_reseed = false;
     float drop_chain = 0.4;
+    float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
@@ -5087,6 +5089,7 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'l'},
                 {"chance-match", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
+                {"mq-overlap", required_argument, 0, 'L'},
                 {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
@@ -5094,7 +5097,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:",
                          long_options, &option_index);
 
 
@@ -5188,6 +5191,10 @@ int main_map(int argc, char** argv) {
 
         case 'C':
             drop_chain = atof(optarg);
+            break;
+
+        case 'L':
+            mq_overlap = atof(optarg);
             break;
 
         case 'G':
@@ -5445,6 +5452,7 @@ int main_map(int argc, char** argv) {
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
+        m->mq_overlap = mq_overlap;
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
@@ -6686,7 +6694,7 @@ int main_locify(int argc, char** argv){
             }
             // for position in mapping
             map<pos_t, int> ref_positions;
-            map<int, Edit> edits;
+            map<pos_t, Edit> edits;
             decompose(allele, ref_positions, edits);
             // warning: uses only reference positions!!!
             for (auto& pos : ref_positions) {

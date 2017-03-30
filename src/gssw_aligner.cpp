@@ -638,7 +638,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           int max_mapping_quality,
                                           bool fast_approximation,
                                           double cluster_mq,
-                                          bool use_cluster_mq) {
+                                          bool use_cluster_mq,
+                                          int overlap_count) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -672,23 +673,35 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         double best_chance = prob_to_phred(1.0-(1.0/max_count));
         mapping_quality = max(best_chance, mapping_quality);
     }
+
+    double identity = alignments[max_idx].identity();
+    mapping_quality *= pow(identity, 4);
+
+    if (overlap_count) {
+        mapping_quality -= quality_scale_factor * log(overlap_count);
+    }
     
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    // to match bwa mem, after taking the max, scale by a seed uniqueness metric
+    mapping_quality *= 1 - alignments[max_idx].uniqueness();
     
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
     }
-    
-    alignments[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
+
+    alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                                  int max_mapping_quality,
                                                  bool fast_approximation,
                                                  double cluster_mq,
-                                                 bool use_cluster_mq) {
+                                                 bool use_cluster_mq,
+                                                 int overlap_count1,
+                                                 int overlap_count2) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -729,16 +742,36 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
-    
-    // scale mapping quality by half to match bwa mem
+
     mapping_quality /= 2;
+
+    double mapping_quality1 = mapping_quality;
+    double mapping_quality2 = mapping_quality;
     
-    if (mapping_quality > max_mapping_quality) {
-        mapping_quality = max_mapping_quality;
+    double identity1 = alignment_pairs.first[max_idx].identity();
+    mapping_quality1 *= pow(identity1, 4);
+    double identity2 = alignment_pairs.second[max_idx].identity();
+    mapping_quality2 *= pow(identity2, 4);
+
+    if (overlap_count1) {
+        mapping_quality1 -= quality_scale_factor * log(overlap_count1);
     }
+    if (overlap_count2) {
+        mapping_quality2 -= quality_scale_factor * log(overlap_count2);
+    }
+
+    mapping_quality1 *= 1 - alignment_pairs.first[max_idx].uniqueness();
+    mapping_quality2 *= 1 - alignment_pairs.second[max_idx].uniqueness();
     
-    alignment_pairs.first[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
-    alignment_pairs.second[max_idx].set_mapping_quality((int32_t) round(mapping_quality));
+    if (mapping_quality1 > max_mapping_quality) {
+        mapping_quality1 = max_mapping_quality;
+    }
+    if (mapping_quality2 > max_mapping_quality) {
+        mapping_quality2 = max_mapping_quality;
+    }
+
+    alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
+    alignment_pairs.second[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality2)));
 }
 
 double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
