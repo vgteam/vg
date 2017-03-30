@@ -454,22 +454,21 @@ public:
     
     /**
      * For the given snarl, find the best traversal, and the second-best
-     * traversal, recursively.
+     * traversal, recursively, if any exist. These traversals will be fully
+     * filled in with nodes.
      *
-     * For a site with no children, the best traversal is the one with the
-     * highest (minumum or average) coverage, and the second-best traversal is
-     * the one with the second-highest (minimum or average) coverage. Traversals
-     * are found with the given leaf traversal finder.
+     * Will not return more than copy_budget SnarlTraversals, and will return
+     * less if some copies are called as having the same traversal.
      *
-     * For a site with children, the best traversal is formed by plugging
-     * together the best traversals of children, and the second-best traversal
-     * is formed by plugging together the second-best traversals of children.
+     * Uses the given copy number allowance, and emits a Locus for this Snarl
+     * and any child Snarls.
      *
-     * Not all children (and sometimes no children at all) will appear in the
-     * best and second-best traversals.
+     * If no path through the Snarl can be found, emits no Locus and returns no
+     * SnarlTraversals.
      */
     vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
-        SnarlManager& snarl_manager, TraversalFinder* leaf_finder, const Snarl& site);
+        SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
+        size_t copy_budget, function<void(Locus)> emit_locus);
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph

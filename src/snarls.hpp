@@ -82,6 +82,10 @@ namespace vg {
         /// Execute a function on all top level sites in parallel
         void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda);
         
+        /// Given a Snarl that we don't own (like from a Visit), find the
+        /// pointer to the managed copy of that Snarl.
+        const Snarl* manage(const Snarl& not_owned);
+        
     private:
         
         /// Master list of the snarls in the graph

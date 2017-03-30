@@ -442,6 +442,22 @@ namespace vg {
         return to_return;
     }
     
+    const Snarl* SnarlManager::manage(const Snarl& not_owned) {
+        // TODO: keep the Snarls in some kind of sorted order to make lookup
+        // efficient. We could also have a map<Snarl, Snarl*> but that would be
+        // a tremendous waste of space.
+        
+        // Right now we're stuck with O(n) search and it's horrible
+        for(auto& owned : snarls) {
+            if (owned == not_owned) {
+                return &owned;
+            }
+        }
+        
+        // If we get here it doesn't exist.
+        throw runtime_error("Unable to find snarl in SnarlManager");
+    }
+    
     vector<Visit> visits_right(const Visit& visit, VG& graph,
         const map<NodeTraversal, const Snarl*>& child_boundary_index) {
         

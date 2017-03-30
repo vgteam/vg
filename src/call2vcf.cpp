@@ -357,24 +357,141 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 }
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
-    SnarlManager& snarl_manager, TraversalFinder* leaf_finder, const Snarl& site) {
+        SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
+        size_t copy_budget, function<void(Locus)> emit_locus) {
 
-    // Look up the children
-    auto children = snarl_manager.children_of(&site);
+    // Get traversals of this Snarl
+    vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
     
-    // We'll fill this in with fully-populated node-resolution SnarlTraversals,
-    // which need to be sorted and clipped into best and second best.
-    vector<SnarlTraversal> found;
+    // Pick the best and second-best using coverage
     
-    if (children.empty()) {
-        // This is a leaf, so do the base case
-        found = leaf_finder->find_traversals(site);
-    } else {
-        // Make up some traversals composed of nodes in this site and child sites we encounter.
-        // Be sure to represent all the nodes, edges, and child sites.
+    // Make a Locus to hold all our stats for the different traversals
+    // available.
+    Locus locus;
+    
+    // Keep around a vector of is_reference statuses for all the traversals.
+    vector<bool> is_ref;
+    
+    // Calculate average and min support for all the traversals of this snarl.
+    vector<Support> min_supports;
+    vector<Support> average_supports;
+    // And the min likelihood along each path
+    vector<double> min_likelihoods;
+    for(auto& traversal : here_traversals) {
+        // Go through all the SnarlTraversals for this Snarl
+        
+        // What's the total support for this traversal?
+        Support total_support;
+        
+        // And the min support?
+        Support min_support;
+        
+        // Also, what's the min likelihood
+        double min_likelihood = INFINITY;
+                        
+        for(int64_t i = 0; i < traversal.visits_size(); i++) {
+            // For all the (internal) visits...
+            auto& visit = traversal.visits(i);
+            
+            // Get the support for this thing
+            Support here_support;
+            // And its base pair length
+            size_t here_size;
+            if (visit.node_id() != 0) {
+                // Find the node
+                Node* node = augmented.graph.get_node(visit.node_id());
+            
+                // Grab this node's support
+                here_support = augmented.get_support(node);
+                // And its size
+                here_size = node->sequence().size();
+                
+                // Update minimum likelihood in the alt path
+                min_likelihood = min(min_likelihood, augmented.node_likelihoods.at(node));
+            } else {
+                // This is a snarl, so get its total support and size for all its nodes, going all the way down.
+                // TODO: Does this make sense?
+                // TODO: Won't this repeat a lot of summing if there's a lot if nesting?
+                for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(visit.snarl()),
+                    augmented.graph, true).first) {
+                    // For every child node, add the coverage and support
+                    // TODO: can I just use a path through the snarl somehow?
+                    here_support += augmented.get_support(node);
+                    here_size += node->sequence().size();
+                }
+                // A snarl can't be compeltely empty
+                assert(here_size != 0);
+                
+                // TODO: likelihood?
+            }
+            
+            // And for the edge in (if we're the first one)
+            Support in_support;
+            
+            // And for the edge out
+            Support out_support;
+            
+            
+            // For a node, add support into total support scaled by bases
+            
+            // Edges and nested sites don't count for total support (???)
+            
+            // For min support, just min everything
+            
+            
+            // Add this visit's support in to the total support for the alt.
+            // TODO: should the edges count here?
+            total_support += here_support;
+            
+            // Get the min support for the node and its edges
+            auto here_min_support = support_min(here_support, support_min(in_support, out_support));
+            
+            // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
+            min_support = (i == 0 ? here_min_support : support_min(min_support, here_min_support));
+
+            // TODO: use edge likelihood here too?
+            
+            // TODO: child snarl likelihoods?
+                
+        }
+        
+        if(traversal.visits_size() == 0) {
+            // We just have the anchoring nodes and the edge between them.
+            // Look at that edge specially.
+            Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(site.start()),
+                                                            to_left_side(site.end())));
+            
+            // Only use the support on the edge
+            total_support = augmented.get_support(edge);
+            min_support = total_support;
+            
+            // And the likelihood on the edge
+            min_likelihood = augmented.edge_likelihoods.at(edge);
+        }
+        
+        // Add average and min supports to vectors
+        
     }
+
+    // Make a genotype call at this site
     
-    return found;
+    // Figure out what child snarls are touched by them and how much copy number
+    // each should get.
+
+    // Bail if any of the children aren't ultrabubbles
+    
+    // Recurse and get traversals for children
+    
+    // Bail if any of the children have no traversals
+    
+    // Put the best traversal for each child in our traversals that visit it
+    // (even if that contradicts the calls on the child)
+    
+    // Populate a Locus with those traversals
+    
+    // Emit the locus
+    
+    // Return the traversals we called, best first
 
 }
 
@@ -506,16 +623,6 @@ void Call2Vcf::call(
         // Spit out the header
         cout << header_stream.str();
     }
-    
-    // Loop over all the top-level snarls
-    
-    // For each, recurse down into child snarls
-    
-    // Then return back up with best and second best paths
-    
-    // Then decide on calls at the top
-    
-    // Then recurse back down
     
     // Find all the top-level sites
     list<const Snarl*> site_queue;
