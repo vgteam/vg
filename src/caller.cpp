@@ -507,7 +507,7 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
 
     // tie-breaker heuristic:
     // reference > transition > transversion > delete > insert > N
-    function<unsigned char(const string&)> base_priority = [&ref_base](const string& base) {
+    function<int(const string&)> base_priority = [&ref_base](const string& base) {
         size_t n = base.length();
         if(n == 0) {
             // base == '' -> Uncalled: 0 Points
@@ -515,7 +515,7 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
         }
         else
         {
-            char cbase = base[0];
+             char cbase = base[0];
             
              if(n == 1)
              {
@@ -568,8 +568,8 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     function<bool(const string&, int, const string&, int)> base_greater = [&base_priority] (
         const string& base1, int count1, const string& base2, int count2) {
         if (count1 == count2) {
-            unsigned char p1 = base_priority(base1);
-            unsigned char p2 = base_priority(base2);
+            int p1 = base_priority(base1);
+            int p2 = base_priority(base2);
             if (p1 == p2) {
                 return base1 > base2;
             } else {
