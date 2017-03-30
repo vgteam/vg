@@ -5,6 +5,17 @@ namespace vg {
 using namespace std;
 
 
+bool AugmentedGraph::has_supports() {
+    return !node_supports.empty() || !edge_supports.empty();
+}
+
+Support AugmentedGraph::get_support(Node* node) {
+    return node_supports.count(node) ? node_supports.at(node) : Support();
+}
+
+Support AugmentedGraph::get_support(Edge* edge) {
+    return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
+}
     
 
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
@@ -923,6 +934,7 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
     return to_return;
 }
 
+
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
     SnarlManager& snarl_manager, size_t max_depth, size_t max_bubble_paths,
     function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
@@ -1141,7 +1153,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     for(Node* node : contents.first) {
         // Find the bubble for each node
         
-        if(total(augmented.node_supports.at(node)) == 0) {
+        if(augmented.has_supports() && total(augmented.get_support(node)) == 0) {
             // Don't bother with unsupported nodes
             continue;
         }
@@ -1175,6 +1187,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     for(Edge* edge : contents.second) {
         // Go through all the edges
+        
+        if(augmented.has_supports() && total(augmented.get_support(edge)) == 0) {
+            // Don't bother with unsupported edges
+            continue;
+        }
         
         if(!index.by_id.count(edge->from()) || !index.by_id.count(edge->to())) {
             // Edge doesn't touch backbone at both ends. Don't use it
@@ -1420,8 +1437,12 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
                         cerr << "\t" << visit << endl;
                     }                    
 #endif
-                    // update our best path by seeing if we've found one with higher min support
-                    if (total(minFullSupport) > total(bestBubblePath.first)) {
+                    // Update our best path by seeing if we've found one with
+                    // higher min support. Make sure to replace the empty path
+                    // even if we only find a traversal with 0 support (because
+                    // maybe we have no support data at all).
+                    if (total(minFullSupport) > total(bestBubblePath.first) ||
+                        (total(minFullSupport) == total(bestBubblePath.first) && bestBubblePath.second.empty())) {
                         bestBubblePath.first = minFullSupport;
                         bestBubblePath.second = fullPath;
                     }
@@ -1464,19 +1485,17 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     auto cur = path.begin();
     auto next = path.begin();
     ++next;
-    Support minSupport = augmented.node_supports.count(augmented.graph.get_node(cur->node_id())) ?
-        augmented.node_supports.at(augmented.graph.get_node(cur->node_id())) : Support();
+    Support minSupport = augmented.get_support(augmented.graph.get_node(cur->node_id()));
     for (; next != path.end(); ++cur, ++next) {
         // check the node support
-        Support support = augmented.node_supports.count(augmented.graph.get_node(next->node_id())) ?
-            augmented.node_supports.at(augmented.graph.get_node(next->node_id())) : Support();
+        Support support = augmented.get_support(augmented.graph.get_node(next->node_id()));
         minSupport = support_min(minSupport, support);
         
         // check the edge support
         Edge* edge = augmented.graph.get_edge(to_node_traversal(*cur, augmented.graph),
             to_node_traversal(*next, augmented.graph));
         assert(edge != NULL);
-        Support edgeSupport = augmented.edge_supports.count(edge) ? augmented.edge_supports.at(edge) : Support();
+        Support edgeSupport = augmented.get_support(edge);
         minSupport = support_min(minSupport, edgeSupport);
     }
 
@@ -1560,13 +1579,10 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
                 // Fetch the actual node
                 Node* prevNode = augmented.graph.get_node(prevVisit.node_id());
                 
-                if((!augmented.node_supports.empty() && (!augmented.node_supports.count(prevNode) ||
-                    total(augmented.node_supports.at(prevNode)) == 0)) ||
-                   (!augmented.edge_supports.empty() && (!augmented.edge_supports.count(edge) ||
-                    total(augmented.edge_supports.at(edge)) == 0))) {
-                    
-                    // We have no support at all for visiting this node (but we
-                    // do have some node read support data)
+                if(augmented.has_supports() && 
+                    (total(augmented.get_support(prevNode)) == 0 || total(augmented.get_support(edge)) == 0)) {
+                    // We have no support at all for visiting this node by this
+                    // edge (but we do have some read support data)
                     continue;
                 }
                 

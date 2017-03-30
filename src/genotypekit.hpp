@@ -204,6 +204,21 @@ struct AugmentedGraph {
     vector<Translation> translations;
     
     /**
+     * Return true if we have support information, and false otherwise.
+     */
+    bool has_supports();
+    
+    /**
+     * Get the Support for a given Node, or 0 if it has no recorded support.
+     */
+    Support get_support(Node* node);
+    
+    /**
+     * Get the Support for a given Edge, or 0 if it has no recorded support.
+     */
+    Support get_support(Edge* edge);
+    
+    /**
      * Clear the contents.
      */
     void clear();
