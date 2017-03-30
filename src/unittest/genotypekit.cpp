@@ -567,6 +567,30 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
             vector<SnarlTraversal> traversals = finder.find_traversals(*parent);
 
             REQUIRE(traversals.size() == 2);
+            
+            SECTION("one should be empty") {
+                bool found = false;
+                for (auto traversal : traversals) {
+                    if (traversal.visits_size() == 0) {
+                        found = true;
+                    }
+                }
+                REQUIRE(found);
+            }
+            
+            SECTION("one should visit just the child site") {
+                bool found = false;
+                for (auto traversal : traversals) {
+                    if (traversal.visits_size() == 1) {
+                        auto& visit = traversal.visits(0);
+                        
+                        if(visit.node_id() == 0 && visit.snarl() == *child) {
+                            found = true;
+                        }
+                    }
+                }
+                REQUIRE(found);
+            }
                 
         }
     }

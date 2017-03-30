@@ -379,21 +379,26 @@ protected:
     
     /**
      * Given an edge or node in the augmented graph, look out from the edge or
-     * node in both directions to find a shortest bubble relative to the path,
-     * with a consistent orientation. The bubble may not visit the same node
-     * twice.
+     * node or snarl in both directions to find a shortest bubble relative to
+     * the path, with a consistent orientation. The bubble may not visit the
+     * same node twice.
      *
-     * Exactly one of edge and node must be null, and one not null.
+     * Exactly one of edge and node and snarl must be not null.
      *
      * Takes a max depth for the searches producing the paths on each side.
      * 
      * Return the ordered and oriented nodes in the bubble, with the outer nodes
-     * being oriented forward along the named path, and with the first node
-     * coming before the last node in the reference.  Also return the minimum
-     * support found on any edge or node in the bubble (including the reference
-     * node endpoints and their edges which aren't stored in the path)
+     * being oriented forward along the path for which an index is provided, and
+     * with the first node coming before the last node in the reference.  Also
+     * return the minimum support found on any edge or node in the bubble
+     * (including the reference node endpoints and their edges which aren't
+     * stored in the path).
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, PathIndex& index);
+    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index);
         
     /**
      * Get the minimum support of all nodes and edges in path
@@ -403,16 +408,26 @@ protected:
     /**
      * Do a breadth-first search left from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the given
-     * indexed path. Refuses to visit nodes with no support.
+     * indexed path. Refuses to visit nodes with no support, if support data is
+     * available in the augmented graph.
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the given
-     * indexed path.
+     * indexed path. Refuses to visit nodes with no support, if support data is
+     * available in the augmented graph.
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.

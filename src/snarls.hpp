@@ -138,6 +138,9 @@ namespace vg {
     /// Make a Visit from a node ID and an orientation
     inline Visit to_visit(id_t node_id, bool is_reverse);
     
+    /// Make a Visit from a snarl to traverse
+    inline Visit to_visit(const Snarl& snarl);
+    
     /// Get the reversed version of a visit
     inline Visit reverse(const Visit& visit);
     
@@ -213,6 +216,11 @@ namespace vg {
      * Visit is smaller, or its end Visit is smaller, or its parent is smaller.
      */
     bool operator<(const Snarl& a, const Snarl& b);
+    
+    /**
+     * A Snarl can be printed.
+     */
+    ostream& operator<<(ostream& out, const Snarl& snarl);
     
     /****
      * Template and Inlines:
@@ -294,6 +302,12 @@ namespace vg {
         Visit to_return;
         to_return.set_node_id(node_id);
         to_return.set_backward(is_reverse);
+        return to_return;
+    }
+    
+    inline Visit to_visit(const Snarl& snarl) {
+        Visit to_return;
+        *to_return.mutable_snarl() = snarl;
         return to_return;
     }
     

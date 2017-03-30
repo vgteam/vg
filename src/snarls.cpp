@@ -445,6 +445,14 @@ namespace vg {
     vector<Visit> visits_right(const Visit& visit, VG& graph,
         const map<NodeTraversal, const Snarl*>& child_boundary_index) {
         
+#ifdef debug
+        cerr << "Look right from " << visit << endl;
+        cerr << "\tChild index:" << endl;
+        for (auto& kv : child_boundary_index) {
+            cerr << "\t\t" << kv.first << " -> " << *kv.second << endl;
+        }
+#endif
+        
         // We'll populate this
         vector<Visit> to_return;
         
@@ -457,11 +465,19 @@ namespace vg {
             // Make it a NodeTraversal reading away from that side
             NodeTraversal attached_traversal(graph.get_node(attached.node), attached.is_end);
             
+#ifdef debug
+            cerr << "\tFind NodeTraversal " << attached_traversal << endl;
+#endif
+            
             if (child_boundary_index.count(attached_traversal)) {
                 // We're reading into a child
                 
                 // Which child is it?
                 const Snarl* child = child_boundary_index.at(attached_traversal);
+                
+#ifdef debug
+                cerr << "\t\tGoes to Snarl " << *child << endl;
+#endif
                 
                 if (attached.node == child->start().node_id()) {
                     // We're reading into the start of the child
@@ -469,6 +485,10 @@ namespace vg {
                     // Make a visit to the child snarl
                     Visit child_visit;
                     transfer_boundary_info(*child, *child_visit.mutable_snarl());
+                    
+#ifdef debug
+                    cerr << "\t\tProduces Visit " << child_visit << endl;
+#endif
                     
                     // Put it in in the forward orientation
                     to_return.push_back(child_visit);
@@ -480,6 +500,10 @@ namespace vg {
                     transfer_boundary_info(*child, *child_visit.mutable_snarl());
                     child_visit.set_backward(true);
                     
+#ifdef debug
+                    cerr << "\t\tProduces Visit " << child_visit << endl;
+#endif
+                    
                     // Put it in in the reverse orientation
                     to_return.push_back(child_visit);
                 } else {
@@ -489,6 +513,11 @@ namespace vg {
             } else {
                 // We just go into a normal node
                 to_return.push_back(to_visit(attached_traversal));
+            
+#ifdef debug
+                cerr << "\t\tProduces Visit " << to_return.back() << endl;
+#endif
+                
             }
         }
         
@@ -544,8 +573,8 @@ namespace vg {
             // Use the node ID
             out << visit.node_id();
         } else {
-            // Use the two defining visits
-            out << visit.snarl().start() << "-" << visit.snarl().end();
+            // Use the snarl
+            out << visit.snarl();
         }
         out << " " << (visit.backward() ? "rev" : "fwd");
         return out;
@@ -623,6 +652,10 @@ namespace vg {
             // Compare with parent
             return make_tuple(a.type(), a.start(), a.end(), a.parent()) < make_tuple(b.type(), b.start(), b.end(), b.parent());
         }
+    }
+    
+    ostream& operator<<(ostream& out, const Snarl& snarl) {
+        return out << snarl.start() << "-" << snarl.end();
     }
 }
 
