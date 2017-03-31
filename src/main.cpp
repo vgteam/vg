@@ -4937,7 +4937,7 @@ void help_map(char** argv) {
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
-         << "    -L, --mq-overlap FLOAT   scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
+         << "    -L, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl

@@ -685,9 +685,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    // to match bwa mem, after taking the max, scale by a seed uniqueness metric
-    mapping_quality *= 1 - alignments[max_idx].uniqueness();
-    
+    mapping_quality += quality_scale_factor * log(1 - alignments[max_idx].uniqueness());
+
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
     }
@@ -760,8 +759,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality2 -= quality_scale_factor * log(overlap_count2);
     }
 
-    mapping_quality1 *= 1 - alignment_pairs.first[max_idx].uniqueness();
-    mapping_quality2 *= 1 - alignment_pairs.second[max_idx].uniqueness();
+    mapping_quality1 += quality_scale_factor * log(1 - alignment_pairs.first[max_idx].uniqueness());
+    mapping_quality2 += quality_scale_factor * log(1 - alignment_pairs.second[max_idx].uniqueness());
     
     if (mapping_quality1 > max_mapping_quality) {
         mapping_quality1 = max_mapping_quality;
