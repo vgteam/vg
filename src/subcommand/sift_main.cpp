@@ -274,6 +274,8 @@ int main_sift(int argc, char** argv){
     ofstream quality_stream;
     ofstream depth_stream;
 
+    unmapped_stream.open(unmapped_fn);
+
     std::function<void()> write_all = [&](){
 
     };
@@ -387,6 +389,8 @@ int main_sift(int argc, char** argv){
                 }
         }
 
+        stream::write_buffered(unmapped_stream, unmapped_selected, 100);
+
 
     };
 
@@ -417,6 +421,8 @@ int main_sift(int argc, char** argv){
 
 if (alignment_file == "-"){
     stream::for_each_interleaved_pair_parallel(cin, pair_filters);
+    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
+    stream::write_buffered(oea_stream, one_end_anchored, 0);
 }
 else{
     ifstream in;
