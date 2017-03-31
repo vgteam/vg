@@ -219,6 +219,18 @@ struct AugmentedGraph {
     Support get_support(Edge* edge);
     
     /**
+     * Get the likelihood for a given node, or 0 if it has no recorded
+     * likelihood.
+     */
+    double get_likelihood(Node* node);
+    
+    /**
+     * Get the likelihood for a edge node, or 0 if it has no recorded
+     * likelihood.
+     */
+    double get_likelihood(Edge* edge);
+    
+    /**
      * Clear the contents.
      */
     void clear();

@@ -16,6 +16,14 @@ Support AugmentedGraph::get_support(Node* node) {
 Support AugmentedGraph::get_support(Edge* edge) {
     return edge_supports.count(edge) ? edge_supports.at(edge) : Support();
 }
+
+double AugmentedGraph::get_likelihood(Node* node) {
+    return node_likelihoods.count(node) ? node_likelihoods.at(node) : 0;
+}
+
+double AugmentedGraph::get_likelihood(Edge* edge) {
+    return edge_likelihoods.count(edge) ? edge_likelihoods.at(edge) : 0;
+}
     
 
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){

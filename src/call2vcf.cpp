@@ -358,12 +358,14 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        size_t copy_budget, function<void(Locus)> emit_locus) {
+        const Support& baseline_support, size_t copy_budget, function<void(Locus)> emit_locus) {
 
-    // Get traversals of this Snarl
+    // We need to be an ultrabubble for the traversal finder to work right.
+    // TODO: generalize it
+    assert(site.type() == ULTRABUBBLE);
+
+    // Get traversals of this Snarl, with Visits to child Snarls
     vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
-    
-    // Pick the best and second-best using coverage
     
     // Make a Locus to hold all our stats for the different traversals
     // available.
@@ -383,6 +385,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // What's the total support for this traversal?
         Support total_support;
         
+        // And the length over which we have it (for averaging)
+        size_t total_size;
+        
         // And the min support?
         Support min_support;
         
@@ -393,7 +398,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // For all the (internal) visits...
             auto& visit = traversal.visits(i);
             
-            // Get the support for this thing
+            // Get the support for this thing, in read-bases
             Support here_support;
             // And its base pair length
             size_t here_size;
@@ -401,13 +406,13 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // Find the node
                 Node* node = augmented.graph.get_node(visit.node_id());
             
-                // Grab this node's support
-                here_support = augmented.get_support(node);
+                // Grab this node's average support along its length
+                here_support = augmented.get_support(node) * node->sequence().size();
                 // And its size
                 here_size = node->sequence().size();
                 
                 // Update minimum likelihood in the alt path
-                min_likelihood = min(min_likelihood, augmented.node_likelihoods.at(node));
+                min_likelihood = min(min_likelihood, augmented.get_likelihood(node));
             } else {
                 // This is a snarl, so get its total support and size for all its nodes, going all the way down.
                 // TODO: Does this make sense?
@@ -416,43 +421,61 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                     augmented.graph, true).first) {
                     // For every child node, add the coverage and support
                     // TODO: can I just use a path through the snarl somehow?
-                    here_support += augmented.get_support(node);
+                    here_support += augmented.get_support(node) * node->sequence().size();
                     here_size += node->sequence().size();
                 }
                 // A snarl can't be compeltely empty
                 assert(here_size != 0);
                 
-                // TODO: likelihood?
+                // TODO: child snarl likelihoods?
             }
             
-            // And for the edge in (if we're the first one)
-            Support in_support;
+            // This gets filled in with the min of our support for this visit
+            // and our support for the edges in and out. Denominated in reads,
+            // not read-bases.
+            auto here_min_support = here_support / here_size;
             
-            // And for the edge out
-            Support out_support;
+            // Account for the support for the edge out
+            if (i + 1 < traversal.visits_size()) {
+                // There's a next visit
+                auto& next_visit = traversal.visits(i + 1);
+                
+                // Get the edge to it
+                Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(next_visit));
+                assert(next_edge != nullptr);
+                // Min in its support
+                here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
+                // And use its likelihood in the min
+                min_likelihood = min(min_likelihood, augmented.get_likelihood(next_edge));
+            } else {
+                // Get the edge to the end of the snarl.
+                Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(site.end()));
+                assert(next_edge != nullptr);
+                // Min in its support
+                here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
+                // And use its likelihood in the min
+                min_likelihood = min(min_likelihood, augmented.get_likelihood(next_edge));
+            }
             
+            // And for the edge in, if necessary
+            if (i == 0) {
+                // This is the first visit, so we need to connect to the left end of the snarl.
+                Edge* last_edge = augmented.graph.get_edge(to_right_side(site.start()), to_left_side(visit));
+                assert(last_edge != nullptr);
+                // Min in its support
+                here_min_support = support_min(here_min_support, augmented.get_support(last_edge));
+                min_likelihood = min(min_likelihood, augmented.get_likelihood(last_edge));
+            }
             
-            // For a node, add support into total support scaled by bases
+            // For a node or nested site, add total read-bases into total support.
+            total_support += here_support; 
+            total_size += here_size;
             
-            // Edges and nested sites don't count for total support (???)
-            
-            // For min support, just min everything
-            
-            
-            // Add this visit's support in to the total support for the alt.
-            // TODO: should the edges count here?
-            total_support += here_support;
-            
-            // Get the min support for the node and its edges
-            auto here_min_support = support_min(here_support, support_min(in_support, out_support));
+            // Edges don't count for total support
             
             // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
             min_support = (i == 0 ? here_min_support : support_min(min_support, here_min_support));
 
-            // TODO: use edge likelihood here too?
-            
-            // TODO: child snarl likelihoods?
-                
         }
         
         if(traversal.visits_size() == 0) {
@@ -464,34 +487,309 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // Only use the support on the edge
             total_support = augmented.get_support(edge);
             min_support = total_support;
+            total_size = 1;
             
             // And the likelihood on the edge
             min_likelihood = augmented.edge_likelihoods.at(edge);
         }
         
-        // Add average and min supports to vectors
+        // Add average and min supports to vectors. Note that average support
+        // ignores edges.
+        min_supports.push_back(min_support);
+        average_supports.push_back(total_support / total_size);
         
     }
+    
+    
+    // Decide which support vector we use to actually decide
+    vector<Support>& supports = use_average_support ? average_supports : min_supports;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // Now look at all the paths for the site and pick the top 2.
+    int best_allele = -1;
+    int second_best_allele = -1;
+    for(size_t i = 0; i < supports.size(); i++) {
+        if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
+            // We have a new best. Demote the old best.
+            second_best_allele = best_allele;
+            best_allele = i;
+        } else if(second_best_allele == -1 || total(supports[second_best_allele]) <= total(supports[i])) {
+            // We're not better than the best, but we can demote the second best.
+            second_best_allele = i;
+        }
+    }
+    
+    // We should always have a best allele; we may sometimes have a second best.
+    assert(best_allele != -1);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // Now make a genotype call at this site, up to the allowed copy number
+    
+    // TODO: Work out how to detect indels when there are nested sites and
+    // enable the indel bias multiple again.
+    double bias_multiple = 1.0;
+    
+    // How much support do we have for the top two alleles?
+    Support site_support = supports.at(best_allele);
+    if(second_best_allele != -1) {
+        site_support += supports.at(second_best_allele);
+    }
+    
+    // Pull out the different supports. Some of them may be the same.
+    Support best_support = supports.at(best_allele);
+    Support second_best_support; // Defaults to 0
+    if(second_best_allele != -1) {
+        second_best_support = supports.at(second_best_allele);
+    }
+    
+    // As we do the genotype, we also compute the likelihood. Holds
+    // likelihood log 10. Starts out at "completely wrong".
+    double gen_likelihood = -1 * INFINITY;
 
-    // Make a genotype call at this site
+    // Minimum allele depth of called alleles
+    double min_site_support = 0;
     
-    // Figure out what child snarls are touched by them and how much copy number
-    // each should get.
+    // This is where we'll put the genotype. We only actually add it to the
+    // Locus if we are confident enough to actually call.
+    Genotype genotype;
+    
+    // We're going to make some really bad calls at low depth. We can
+    // pull them out with a depth filter, but for now just elide them.
+    if (total(site_support) >= total(baseline_support) * min_fraction_for_call * ((double) copy_budget) / 2) {
+        // We have enough to emit a call here.
+        
+        // If best and second best are close enough to be het, we call het.
+        // Otherwise, we call hom best.
+        
+        // We decide closeness differently depending on whether best is ref or not.
+        // In practice, we use this to slightly penalize homozygous ref calls
+        // (by setting max_ref_het_bias higher than max_het_bias) and rather make a less
+        // supported alt call instead.  This boost max sensitivity, and because
+        // everything is homozygous ref by default in VCF, any downstream filters
+        // will effectively reset these calls back to homozygous ref.
+        // TODO: This shouldn't apply when off the primary path! 
+        double bias_limit = (best_allele == 0) ? max_ref_het_bias : max_het_bias;
 
-    // Bail if any of the children aren't ultrabubbles
+#ifdef debug
+        cerr << best_allele << ", " << best_support << " and "
+            << second_best_allele << ", " << second_best_support << endl;
+        
+        if (total(second_best_support) > 0) {
+            cerr << "Bias: (limit " << bias_limit * bias_multiple << "):"
+                << total(best_support)/total(second_best_support) << endl;
+        }
+        
+        cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
+            << total(best_support) << endl;
+            
+        cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
+#endif
+
+        if (copy_budget >= 2 &&
+            second_best_allele != -1 &&
+            bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
+            total(best_support) >= min_total_support_for_call &&
+            total(second_best_support) >= min_total_support_for_call) {
+            // There's a second best allele, and it's not too biased to
+            // call, and both alleles exceed the minimum to call them
+            // present.
+            
+            // Say both are present
+            genotype.add_allele(best_allele);
+            genotype.add_allele(second_best_allele);
+            
+            // Compute the likelihood for a best/second best het
+            // Quick quality: combine likelihood and depth, using poisson for latter
+            // TODO: revize which depth (cur: avg) / likelihood (cur: min) pair to use
+            gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), 0.5 * total(baseline_support))) +
+                ln_to_log10(poisson_prob_ln(total(second_best_support), 0.5 * total(baseline_support)));
+            gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
+            
+            // Save the likelihood in the Genotype
+            genotype.set_likelihood(log10_to_ln(gen_likelihood));
+            
+            // Get minimum support for filter (not assuming it's second_best just to be sure)
+            min_site_support = min(total(second_best_support), total(best_support));
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+            
+        } else if (copy_budget >= 2 && total(best_support) >= min_total_support_for_call) {
+            // The second best allele isn't present or isn't good enough,
+            // but the best allele has enough coverage that we can just call
+            // two of it.
+            
+            // Say the best is present twice
+            genotype.add_allele(best_allele);
+            genotype.add_allele(best_allele);
+            
+            // Compute the likelihood for hom best allele
+            gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support)));
+            gen_likelihood += min_likelihoods.at(best_allele);
+
+            // Save the likelihood in the Genotype
+            genotype.set_likelihood(log10_to_ln(gen_likelihood));
+
+            // Get minimum support for filter
+            min_site_support = total(best_support);
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+
+        } else if (copy_budget >= 1 && total(best_support) >= min_total_support_for_call) {
+            // We're only supposed to have one copy, and the best allele is good enough to call
+            
+            // Say the best is present once
+            genotype.add_allele(best_allele);
+            
+            // Compute the likelihood for hom best allele, 1 copy
+            gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support) / 2));
+            gen_likelihood += min_likelihoods.at(best_allele);
+
+            // Save the likelihood in the Genotype
+            genotype.set_likelihood(log10_to_ln(gen_likelihood));
+
+            // Get minimum support for filter
+            min_site_support = total(best_support);
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+        } else {
+            // Either coverage is too low, or we aren't allowed any copies.
+            // We can't really call this as anything.
+            
+            // Don't add the genotype to the locus
+        }
+    } else {
+        // Depth too low. Say we have no idea.
+        // TODO: elide variant?
+        
+        // Don't add the genotype to the locus
+    }
     
-    // Recurse and get traversals for children
+    // Find the total support for the Locus across all alleles
+    Support locus_support;
+    for (auto& s : supports) {
+        // Sum up all the Supports form all alleles (even the non-best/second-best).
+        locus_support += s;
+    }
+    // Save support
+    *locus.mutable_overall_support() = locus_support;
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Figure out what child snarls are touched by the paths we have called and
+    // how much copy number each should get.
+    map<const Snarl*, size_t> child_usage_counts;
+    for (size_t i = 0; i < genotype.allele_size(); i++) {
+        // For each copy we call as present, find the SnarlTraversal we're
+        // asserting
+        SnarlTraversal& traversal = here_traversals.at(genotype.allele(i));
+        
+        for (size_t j = 0; j < traversal.visits_size(); j++) {
+            // For each visit to a child snarl
+            auto& visit = traversal.visits(j);
+            if (visit.node_id() != 0) {
+                continue;
+            }
+        
+            // Find the child snarl pointer for the snarl we visit
+            const Snarl* child = snarl_manager.manage(visit.snarl());
+        
+            // Say it's used one more time
+            child_usage_counts[child]++;
+            
+        }
+    }
+
+    // Recurse and get traversals for children. We do this for all our children,
+    // even the ones called as CN 0, because we need the fully-specified
+    // traversals to build our Locus (which needs the alleles we rejected as
+    // having no copies).
+    map<const Snarl*, vector<SnarlTraversal>> child_traversals;
+    for (const Snarl* child : snarl_manager.children_of(&site)) {
+        // Recurse on each child, giving a copy number budget according to the
+        // usage count call at this site. This produces fully realized
+        // traversals with no Visits to Snarls.
+        child_traversals[child] = find_best_traversals(augmented, snarl_manager,
+            finder, *child, baseline_support, child_usage_counts[child], emit_locus);
+    }
     
-    // Bail if any of the children have no traversals
+    for (auto kv : child_traversals) {
+        // All children must have at least one traversal.
+        assert(!kv.second.empty());
+    }
     
     // Put the best traversal for each child in our traversals that visit it
     // (even if that contradicts the calls on the child)
+    vector<SnarlTraversal> concrete_traversals;
+    for (auto& abstract_traversal : here_traversals) {
+        // Make a "concrete", node-level traversal for every abstract, Snarl-
+        // visiting traversal.
+        concrete_traversals.emplace_back();
+        auto& concrete_traversal = concrete_traversals.back();
+        
+        // Copy over the snarl info
+        *concrete_traversal.mutable_snarl() = abstract_traversal.snarl();
+        
+        for (size_t i = 0; i < abstract_traversal.visits_size(); i++) {
+            // Go through all the visits in the abstract traversal
+            auto& abstract_visit = abstract_traversal.visits(i);
+            
+            if (abstract_visit.node_id() != 0) {
+                // If they're fully realized, just take them
+                *concrete_traversal.add_visits() = abstract_visit;
+            } else {
+                // If they're visits to children, look up the child
+                const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
+                
+                // Then blit the child's best path over
+                auto& child_traversal = child_traversals.at(child).at(0);
+                // First the entry node
+                *concrete_traversal.add_visits() = child->start();
+                for (size_t j = 0; j < child_traversal.visits_size(); j++) {
+                    // All the internal visits
+                    *concrete_traversal.add_visits() = child_traversal.visits(j);
+                }
+                // And last the exit node
+                *concrete_traversal.add_visits() = child->end();
+            }
+        }
+    }
     
-    // Populate a Locus with those traversals
+    for (auto& concrete_traversal : concrete_traversals) {
+        // Populate the Locus with those traversals by converting to paths
+        Path* converted = locus.add_allele();
+        
+        for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
+            // Convert all the visits to Mappings and stick them in the Locus's Paths
+            *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
+        }
+    }
     
-    // Emit the locus
+    if (locus.genotype_size() > 0) {
+        // Emit the locus if we have a call
+        emit_locus(locus);
+    }
     
-    // Return the traversals we called, best first
+    // Return the traversals, best and second-best first, but having at least
+    // one.
+    assert(concrete_traversals.size() >= 1);
+    // Move the best allele first
+    swap(concrete_traversals[0], concrete_traversals[best_allele]);
+    if (second_best_allele != -1 && concrete_traversals.size() >= 2) {
+        // We want to put the second best allele second
+        if (second_best_allele == 0) {
+            // We moved it already
+            second_best_allele = best_allele;
+        }
+        swap(concrete_traversals[1], concrete_traversals[second_best_allele]);
+    }
+    
+    // Return all the concrete traversals we created
+    return concrete_traversals;
 
 }
 

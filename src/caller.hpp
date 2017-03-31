@@ -457,6 +457,10 @@ public:
      * traversal, recursively, if any exist. These traversals will be fully
      * filled in with nodes.
      *
+     * Only snarls which are ultrabubbles can be called.
+     *
+     * Expects the given baseline support for a diploid call.
+     *
      * Will not return more than copy_budget SnarlTraversals, and will return
      * less if some copies are called as having the same traversal.
      *
@@ -468,7 +472,7 @@ public:
      */
     vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        size_t copy_budget, function<void(Locus)> emit_locus);
+        const Support& baseline_support, size_t copy_budget, function<void(Locus)> emit_locus);
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph
