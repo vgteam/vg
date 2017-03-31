@@ -2494,7 +2494,7 @@ void VG::from_gfa(istream& in, bool showp) {
         }
     }
     if (reduce_overlaps) {
-        //bluntify();
+        bluntify();
     }
 }
 
