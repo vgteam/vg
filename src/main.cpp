@@ -4930,13 +4930,13 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [65536]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [32]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.2]" << endl
          << "    -L, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -4991,7 +4991,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 65536;
+    int hit_max = 512;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -5018,7 +5018,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 512;
+    int extra_multimaps = 32;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -5033,7 +5033,7 @@ int main_map(int argc, char** argv) {
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = false;
-    float drop_chain = 0.4;
+    float drop_chain = 0.2;
     float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
