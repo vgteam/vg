@@ -6183,20 +6183,21 @@ void VG::to_gfa(ostream& out) {
         s_elem.sequence = n->sequence();
         gg.add_sequence(s_elem);
     }
-
-    for (int p_ind = 0; p_ind < graph.path_size(); ++p_ind){
-        Path p = graph.path(p_ind);
+    
+    map<string, list<Mapping> > pathmap = this->paths._paths;
+    for (auto p : pathmap){
         path_elem p_elem;
-        p_elem.name = p.name();
-        for (int m_ind = 0; m_ind < p.mapping_size(); ++m_ind){
-            p_elem.segment_names.push_back( std::to_string(p.mapping(m_ind).position().node_id()) );
-            p_elem.orientations.push_back( (p.mapping(m_ind).position().is_reverse() ? "-" : "+") );
-            Node* n = get_node( p.mapping(m_ind).position().node_id() );
+        p_elem.name = p.first;
+        for (auto m : p.second){
+            p_elem.segment_names.push_back( std::to_string(m.position().node_id()) );
+            p_elem.orientations.push_back( m.position().is_reverse() );
+            Node* n = get_node( m.position().node_id() );
             stringstream cigaro;
             //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
-            cigaro << n->sequence().size() << (p.mapping(m_ind).position().is_reverse() ? "M" : "M");
+            cigaro << n->sequence().size() << (m.position().is_reverse() ? "M" : "M");
             p_elem.overlaps.push_back( cigaro.str() );
         }
+        gg.add_path(p_elem.name, p_elem);
     }
 
     for (int i = 0; i < graph.edge_size(); ++i) {

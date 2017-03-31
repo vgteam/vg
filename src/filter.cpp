@@ -175,63 +175,6 @@ namespace vg{
 
     }
 
-    /* PE functions using fragment_prev and fragment_next */
-    Alignment Filter::one_end_anchored_filter(Alignment& aln){
-        if (aln.fragment_prev().name() != ""){
-            if (aln.path().name() == "" || aln.fragment_prev().path().name() == ""){
-                inverse ? Alignment() : aln;
-            }
-            else{
-                inverse ? aln : Alignment();
-            }
-        }
-        else{
-            return inverse ? aln : Alignment();
-        }
-    }
-
-    Alignment Filter::interchromosomal_filter(Alignment& aln){
-        bool fails = aln.path().name() != aln.fragment_prev().path().name();
-        if (fails){
-            return inverse ? Alignment() : aln;
-        }
-        else{
-            return inverse ? aln : Alignment();
-        }
-    }
-
-    Alignment Filter::insert_size_filter(Alignment& aln){
-        // Get mapping distance from XG index
-        // between last node in aln and first node in aln.fragment_prev
-
-    }
-
-    Alignment Filter::orientation_filter(Alignment& aln){
-        bool f_rev = false;
-        bool s_rev = false;
-        Path f_path = aln.path();
-        Path s_path = aln.fragment_prev().path();
-        for (int i = 0; i < f_path.mapping_size(); i++){
-            if (f_path.mapping(i).position().is_reverse()){
-                f_rev = true;
-            }
-        }
-
-        for (int j = 0; j < s_path.mapping_size(); j++){
-            if (s_path.mapping(j).position().is_reverse()){
-                s_rev = true;
-            }
-        }
-
-        if (f_rev & s_rev){
-            return inverse ? Alignment() : aln;
-        }
-        else{
-            return inverse ? aln : Alignment();
-        }
-    }
-
-
 
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
@@ -244,7 +187,7 @@ namespace vg{
     }
 
     pair<Alignment, Alignment> Filter::interchromosomal_filter(Alignment& aln_first, Alignment& aln_second){
-        if (aln_first.path().name() != aln_second.path().name()){
+        if (aln_first.path().name() != aln_second.path().name() && !aln_first.path().name().empty() && !aln_second.path().name().empty()){
             return std::make_pair(aln_first, aln_second);
         }
         else{

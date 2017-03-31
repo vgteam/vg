@@ -107,7 +107,7 @@ rm -rf x.idx q.vg.index qx.vg.gcsa qx.vg.gcsa.lcp
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -d x.idx x.vg
-is $(vg index -D -d x.idx | grep +g | grep +p | wc -l) $(vg view x.vg | grep ^P | wc -l) "correct number of elements in path index"
+is $(vg index -D -d x.idx | grep +g | grep +p | wc -l) $(vg view x.vg | grep ^P | wc -l) 1 "correct number of elements in path index"
 is $(vg index -D -d x.idx | grep +path_id | wc -l) 1 "path id recorded"
 is $(vg index -D -d x.idx | grep +path_name | wc -l) 1 "path name recorded"
 rm -rf x.idx x.vg
@@ -117,6 +117,7 @@ vg construct -v small/x.vcf.gz -r small/x.fa | vg view - | sed s/x/y/ | vg view 
 vg ids -j x.vg y.vg
 
 vg index -s -d q.idx x.vg y.vg
+## Seems this can sometimes be -420... is that a permissible value?
 is $(vg index -L -d q.idx | tail -1 | awk '{ print $3 }' ) 420 "end of the second path found correctly"
 
 rm -rf q.idx x.vg y.vg
