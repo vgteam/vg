@@ -2,7 +2,6 @@
 #define VG_DISTRIBUTIONS_H
 
 // distributions.hpp: contains functions for probability distributions used in genotyping.
-// Also includes a fancy cacheing factorial system from Freebayes
 
 
 #include <map>
@@ -73,6 +72,14 @@ inline real_t pow_ln(real_t m, int n) {
  */
 inline real_t choose_ln(int n, int k) {
     return factorial_ln(n) - (factorial_ln(k) + factorial_ln(n - k));
+}
+
+/**
+ * Compute the log probability of a Poisson-distributed process: observed events
+ * in an interval where expected events happen on average.
+ */
+inline real_t poisson_prob_ln(int observed, real_t expected) {
+    return log(expected) * (real_t) observed - expected - factorial_ln(observed);
 }
 
 /**

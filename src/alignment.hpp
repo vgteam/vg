@@ -32,7 +32,6 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda);
 size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda);
-void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
@@ -99,19 +98,22 @@ Alignment reverse_complement_alignment(const Alignment& aln, const function<int6
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);
+int edit_count(const Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
 size_t from_length_before_pos(const Alignment& aln, const Position& pos);
 
 // project the alignment's path back into a different ID space
-void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
+void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
 
 // Invert the orientation in the alignment of all the nodes whose IDs are
 // listed. It needs a callback to ask the length of any given node.
 void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
-// simplifies the path in the alignment
+/// Simplifies the Path in the Alignment. Note that this removes deletions at
+/// the start and end of Mappings, so code that handles simplified Alignments
+/// needs to handle offsets on internal Mappings.
 Alignment simplify(const Alignment& a);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 

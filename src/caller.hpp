@@ -13,6 +13,9 @@
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "pileup.hpp"
+#include "path_index.hpp"
+#include "genotypekit.hpp"
+#include "option.hpp"
 
 namespace vg {
 
@@ -130,14 +133,14 @@ struct NodeDivider {
 ostream& operator<<(ostream& os, const NodeDivider::NodeMap& nm);
 ostream& operator<<(ostream& os, NodeDivider::Entry entry);
 
-// Super simple variant caller, for now written to get bakeoff evaluation bootstrapped.
-// Idea: Idependently process Pileup records, using simple model to make calls that
-//       take into account read errors with diploid assumption.  Edges and node positions
-//       are called independently for now.  
-// Outputs either a sample graph (only called nodes and edges) or augmented graph
-// (include uncalled nodes and edges too).
-// The augmented graph (leave_uncalled), with optional text annotation output (text_calls)
-// is required to convert calls to VCF. 
+/**
+ * Super simple graph augmentor/caller.
+ * Idea: Idependently process Pileup records, using simple model to make calls that
+ *       take into account read errors with diploid assumption.  Edges and node positions
+ *       are called independently for now.  
+ * Outputs either a sample graph (only called nodes and edges) or augmented graph
+ * (include uncalled nodes and edges too).
+ */
 class Caller {
 public:
 
@@ -167,20 +170,16 @@ public:
            int min_support = Default_min_support,
            double min_frac = Default_min_frac,
            double min_log_likelihood = Default_min_log_likelihood, 
-           bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
-           ostream* text_calls = NULL,
            bool bridge_alts = false);
     ~Caller();
     void clear();
 
     // input graph
     VG* _graph;
-    // output called graph
-    VG _call_graph;
-    // optional text file of calls
-    ostream* _text_calls;
+    // Output augmented graph with annotations
+    AugmentedGraph _augmented_graph;
 
     // buffer for base calls for each position in the node
     // . = reference
@@ -241,9 +240,6 @@ public:
     double _min_frac;
     // minimum log likelihood for a snp to be called
     double _min_log_likelihood;
-    // don't erase positions that aren't aligned to. so ouput will be original
-    // graph plus snps. 
-    bool _leave_uncalled;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
     // min deviation from .5 in proportion of negative strand reads
@@ -256,8 +252,8 @@ public:
     // pairs of consecutive alts). 
     bool _bridge_alts;
 
-    // write the call graph
-    void write_call_graph(ostream& out, bool json);
+    // write the augmented graph
+    void write_augmented_graph(ostream& out, bool json);
 
     // call every position in the node pileup
     void call_node_pileup(const NodePileup& pileup);
@@ -265,9 +261,9 @@ public:
     // call an edge.  remembering it in a table for the whole graph
     void call_edge_pileup(const EdgePileup& pileup);
 
-    // fill in edges in the call graph (those that are incident to 2 call nodes)
-    // and add uncalled nodes (optionally)
-    void update_call_graph();
+    // fill in edges in the augmented graph (those that are incident to 2 call
+    // nodes) and add uncalled nodes (optionally)
+    void update_augmented_graph();
 
     // map paths from input graph into called graph
     void map_paths();
@@ -306,10 +302,10 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
                                StrandSupport support);
 
-    // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
-    void write_edge_tsv(Edge* edge, char call, StrandSupport support);
-    void write_nd_tsv();
+    // Annotate nodes and edges in the augmented graph with call info.
+    void annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
+    void annotate_augmented_edge(Edge* edge, char call, StrandSupport support);
+    void annotate_augmented_nd();
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {
@@ -339,75 +335,230 @@ public:
 };
 
 ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
-}
 
-namespace glenn2vcf {
-// old glenn2vcf interface
-// todo: integrate more smoothly into caller class
-int call2vcf(
-    // Augmented graph
-    vg::VG& vg,
-    // "glennfile" as string (relic from old pipeline)
-    const string& glennfile,
+/**
+ * Call2Vcf: take an augmented graph from a Caller and produce actual calls in a
+ * VCF.
+ */
+class Call2Vcf : public Configurable {
+
+public:
+
+    /**
+     * Set up to call with default parameters.
+     */
+    Call2Vcf() = default;
+    
+    /**
+     * We use this to represent a contig in the primary path, with its index and coverage info.
+     */
+    class PrimaryPath {
+    public:
+        /**
+         * Index the given path in the given augmented graph, and compute all
+         * the coverage bin information with the given bin size.
+         */
+        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size); 
+    
+        /**
+         * Get the support at the bin appropriate for the given primary path
+         * offset.
+         */
+        const Support& get_support_at(size_t primary_path_offset) const;
+        
+        /**
+         * Get the index of the bin that the given path position falls in.
+         */
+        size_t get_bin_index(size_t primary_path_offset) const;
+    
+        /**
+         * Get the bin with minimal coverage.
+         */
+        size_t get_min_bin() const;
+    
+        /**
+         * Get the bin with maximal coverage.
+         */
+        size_t get_max_bin() const;
+    
+        /**
+         * Get the support in the given bin.
+         */
+        const Support& get_bin(size_t bin) const;
+        
+        /**
+         * Get the total number of bins that the path is divided into.
+         */
+        size_t get_total_bins() const;
+        
+        /**
+         * Get the average support over the path.
+         */
+        Support get_average_support() const;
+        
+        /**
+         * Get the average support over a collection of paths.
+         */
+        static Support get_average_support(const map<string, PrimaryPath>& paths);
+        
+        /**
+         * Get the total support for the path.
+         */
+        Support get_total_support() const;
+    
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        PathIndex& get_index();
+        
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        const PathIndex& get_index() const;
+        
+        /**
+         * Gets the path name we are representing.
+         */
+        const string& get_name() const;
+        
+    protected:
+        /// How wide is each coverage bin along the path?
+        size_t ref_bin_size;
+        
+        /// This holds the index for this path
+        PathIndex index;
+        
+        /// This holds the name of the path
+        string name;
+        
+        /// What's the expected in each bin along the path? Coverage gets split
+        /// evenly over both strands.
+        vector<Support> binned_support;
+        
+        /// Which bin has min support?
+        size_t min_bin;
+        /// Which bin has max support?
+        size_t max_bin;
+        
+        /// What's the total Support over every bin?
+        Support total_support;
+    };
+    
+    
+    /**
+     * Produce calls for the given annotated augmented graph. If a
+     * pileup_filename is provided, the pileup is loaded again and used to add
+     * comments describing variants
+     */
+    void call(AugmentedGraph& augmented, string pileup_filename = "");
+    
+    /**
+     * Decide if the given SnarlTraversal is included in the original base graph
+     * (true), or if it represents a novel variant (false).
+     *
+     * Looks at the nodes in the traversal, and sees if their calls are
+     * CALL_REFERENCE or not.
+     *
+     * Specially handles single-edge traversals.
+     *
+     * If given a traversal that's all primary path nodes, it assumes it is non-
+     * reference, because it assumes the caller will never pass it the all-
+     * primary-path reference traversal.
+     */
+    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented);
+    
+    /**
+     * Find the primary path, if any, that the given site is threaded onto.
+     *
+     * TODO: can only work by brute-force search.
+     */
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+    
     // Option variables
-    // What's the name of the reference path in the graph?
-    string refPathName,
-    // What name should we give the contig in the VCF file?
-    string contigName,
+    
+    // Should we output in VCF (true) or Protobuf Locus (false) format?
+    Option<bool> convert_to_vcf{this, "no-vcf", "V", true,
+        "output variants in binary Loci format instead of text VCF format"};
+    // How big should our output buffer be?
+    size_t locus_buffer_size = 1000;
+    
+    // What are the names of the reference paths, if any, in the graph?
+    Option<vector<string>> ref_path_names{this, "ref", "r", {},
+        "use the path with the given name as a reference path (can repeat)"};
+    // What name should we give each contig in the VCF file? Autodetected from
+    // path names if empty or too short.
+    Option<vector<string>> contig_name_overrides{this, "contig", "c", {},
+        "use the given name as the VCF name for the corresponding reference path"};
+    // What should the total sequence length reported in the VCF header be for
+    // each contig? Autodetected from path lengths if empty or too short.
+    Option<vector<size_t>> length_overrides{this, "length", "l", {},
+        "override total sequence length in VCF for the corresponding reference path"};
     // What name should we use for the sample in the VCF file?
-    string sampleName,
+    Option<string> sample_name{this, "sample", "S", "SAMPLE",
+        "name the sample in the VCF with the given name"};
     // How far should we offset positions of variants?
-    int64_t variantOffset,
+    Option<int64_t> variant_offset{this, "offset", "o", 0,
+        "offset variant positions by this amount in VCF"};
     // How many nodes should we be willing to look at on our path back to the
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
-    int64_t maxDepth,
-    // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride,
-    // Should we load a pileup and print out pileup info as comments after
-    // variants?
-    string pileupFilename,
+    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 10,
+        "maximum depth for path search"};
+    
+    
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
     // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall,
+    Option<double> min_fraction_for_call{this, "min-cov-frac", "F", 0,
+        "min fraction of average coverage at which to call"};
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
-    double maxHetBias,
+    Option<double> max_het_bias{this, "max-het-bias", "H", 3,
+        "max imbalance factor between alts to call heterozygous"};
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias,
+    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4,
+        "max imbalance factor between ref and alts to call heterozygous ref"};
     // How much should we multiply the bias limits for indels?
-    double indelBiasMultiple,
+    Option<double> indel_bias_multiple{this, "bias-mult", "M", 1,
+        "multiplier for bias limits for indels as opposed to substitutions"};
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall,
+    Option<size_t> min_total_support_for_call{this, "min-count", "n", 1, 
+        "min total supporting read count to call a variant"};
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize,
+    Option<size_t> ref_bin_size{this, "bin-size", "B", 250,
+        "bin size used for counting coverage"};
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    size_t expCoverage,
+    Option<double> expected_coverage{this, "avg-coverage", "C", 0.0,
+        "specify expected coverage (instead of computing on reference)"};
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps,
-    // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport,
-    // Should we use the site finder and multiallelic support?
-    bool multiallelic_support,
+    Option<bool> suppress_overlaps{this, "no-overlap", "O", false,
+        "don't emit new variants that overlap old ones"};
+    // Should we use average support instead of minimum support for our calculations?
+    Option<bool> use_average_support{this, "use-avg-support", "u", false,
+        "use average instead of minimum support"};
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
-    size_t max_ref_length,
+    Option<size_t> max_ref_length{this, "max-ref-length", "mMrRlL", 100,
+        "max length of a site to genotype as a whole instead of splitting"};
+    
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
-    size_t max_bubble_paths,
+    size_t max_bubble_paths = 100;
     // what's the minimum minimum allele depth to give a PASS in the filter column
     // (anything below gets FAIL)    
-    size_t min_mad_for_filter,
+    Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
+        "min. minimum allele depth required to PASS filter"};
     // print warnings etc. to stderr
-    bool verbose);
+    bool verbose = false;
+    
+};
 
 }
 

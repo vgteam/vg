@@ -17,6 +17,10 @@ namespace vg {
 
 using namespace std;
 
+/**
+ * Generate Alignments (with or without mutations, and in pairs or alone) from
+ * an XG index.
+ */
 class Sampler {
 
 public:
@@ -25,12 +29,24 @@ public:
     // We need this so we don't re-load the node for every character we visit in
     // it.
     LRUCache<id_t, Node> node_cache;
+    LRUCache<id_t, vector<Edge> > edge_cache;
     mt19937 rng;
     int64_t nonce;
     // If set, only sample positions/start reads on the forward strands of their
     // nodes.
     bool forward_only;
-    Sampler(xg::XG* x, int seed = 0, bool forward_only = false) : xgidx(x), node_cache(100), forward_only(forward_only), nonce(0) {
+    // A flag that we set if we don't want to generate sequences with Ns (on by dfault)
+    bool no_Ns;
+    Sampler(xg::XG* x,
+            int seed = 0,
+            bool forward_only = false,
+            bool allow_Ns = false)
+        : xgidx(x),
+          node_cache(100),
+          edge_cache(100),
+          forward_only(forward_only),
+          no_Ns(!allow_Ns),
+          nonce(0) {
         if (!seed) {
             seed = time(NULL);
         }
@@ -56,6 +72,11 @@ public:
                      double base_error,
                      double indel_error);
 
+    /**
+     * Mutate the given edit, producing a vector of edits that should replace
+     * it. Position is the position of the start of the edit, and is updated to
+     * point to the next base after the mutated edit.
+     */
     vector<Edit> mutate_edit(const Edit& edit,
                              const pos_t& position,
                              double base_error,
@@ -65,6 +86,13 @@ public:
                              uniform_int_distribution<int>& rbase);
 
     string alignment_seq(const Alignment& aln);
+    
+    /// Return true if the alignment is semantically valid against the XG index
+    /// we wrap, and false otherwise. Checks from_lengths on mappings to make
+    /// sure all node bases are accounted for. Won't accept alignments with
+    /// internal jumps between graph locations or regions; all skipped bases
+    /// need to be accounted for by deletions.
+    bool is_valid(const Alignment& aln);
 
 };
 

@@ -1,6 +1,7 @@
 #ifndef STREAM_H
 #define STREAM_H
 
+// de/serialization of protobuf objects from/to a length-prefixed, gzipped binary stream
 // from http://www.mail-archive.com/protobuf@googlegroups.com/msg03417.html
 
 #include <cassert>
@@ -17,6 +18,84 @@
 
 namespace stream {
 
+/// Protobuf will refuse to read messages longer than this size.
+const size_t MAX_PROTOBUF_SIZE = 67108864;
+/// We aim to generate messages that are this size
+const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
+
+/// Write objects using adaptive chunking. Takes a stream to write to, a total
+/// element count to write, a guess at how manye elements should be in a chunk,
+/// and a function that, given a start element and a length, returns a Protobuf
+/// object representing that range of elements.
+///
+/// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
+/// records are serialized.
+template <typename T>
+bool write(std::ostream& out, uint64_t element_count, uint64_t chunk_elements,
+    const std::function<T(uint64_t, uint64_t)>& lambda) {
+
+    // How many elements have we serialized so far
+    size_t serialized = 0;
+    
+    ::google::protobuf::io::OstreamOutputStream raw_out(&out);
+    ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+    ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
+
+    auto handle = [](bool ok) {
+        if (!ok) throw std::runtime_error("stream::write: I/O error writing protobuf");
+    };
+    
+    while (serialized < element_count) {
+    
+        // Work out how many elements can go in this chunk, accounting for the total element count
+        chunk_elements = std::min(chunk_elements, element_count - serialized);
+    
+        // Serialize a chunk
+        std::string chunk_data;
+        handle(lambda(serialized, chunk_elements).SerializeToString(&chunk_data));
+    
+        if (chunk_data.size() > MAX_PROTOBUF_SIZE) {
+            // This is too big!
+            
+            if (chunk_elements > 1) {
+                // But we can make it smaller. Try again at half this size.
+                chunk_elements = chunk_elements / 2;
+                continue;
+            } else {
+                // This single element is too large
+                throw std::runtime_error("stream::write: message for element " +
+                    std::to_string(serialized) + " too large error writing protobuf");
+            }
+        } else {
+            // We can send this message
+            
+            // Say we have a group of a single message
+            coded_out.WriteVarint64(1);
+            handle(!coded_out.HadError());
+            // and prefix each object with its size
+            coded_out.WriteVarint32(chunk_data.size());
+            handle(!coded_out.HadError());
+            coded_out.WriteRaw(chunk_data.data(), chunk_data.size());
+            handle(!coded_out.HadError());
+            
+            // Remember how far we've serialized now
+            serialized += chunk_elements;
+            
+            if (chunk_data.size() < TARGET_PROTOBUF_SIZE/2) {
+                // We were less than half the target size, so try being twice as
+                // big next time.
+                chunk_elements *= 2;
+            } else if (chunk_data.size() > TARGET_PROTOBUF_SIZE && chunk_elements > 1) {
+                // We were larger than the target size and we can be smaller
+                chunk_elements /= 2;
+            }
+        }
+    }
+    
+    
+
+}
+
 // write objects
 // count should be equal to the number of objects to write
 // count is written before the objects, but if it is 0, it is not written
@@ -24,37 +103,36 @@ namespace stream {
 template <typename T>
 bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& lambda) {
 
-    ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
-          new ::google::protobuf::io::OstreamOutputStream(&out);
-    ::google::protobuf::io::GzipOutputStream *gzip_out =
-          new ::google::protobuf::io::GzipOutputStream(raw_out);
-    ::google::protobuf::io::CodedOutputStream *coded_out =
-          new ::google::protobuf::io::CodedOutputStream(gzip_out);
+    // Make all our streams on the stack, in case of error.
+    ::google::protobuf::io::OstreamOutputStream raw_out(&out);
+    ::google::protobuf::io::GzipOutputStream gzip_out(&raw_out);
+    ::google::protobuf::io::CodedOutputStream coded_out(&gzip_out);
 
     auto handle = [](bool ok) {
-        if (!ok) throw std::runtime_error("stream::write: I/O error writing protobuf");
+        if (!ok) {
+            throw std::runtime_error("stream::write: I/O error writing protobuf");
+        }
     };
 
     // prefix the chunk with the number of objects, if any objects are to be written
     if(count > 0) {
-        coded_out->WriteVarint64(count);
-        handle(!coded_out->HadError());
+        coded_out.WriteVarint64(count);
+        handle(!coded_out.HadError());
     }
 
     std::string s;
     uint64_t written = 0;
     for (uint64_t n = 0; n < count; ++n, ++written) {
         handle(lambda(n).SerializeToString(&s));
+        if (s.size() > MAX_PROTOBUF_SIZE) {
+            throw std::runtime_error("stream::write: message too large error writing protobuf");
+        }
         // and prefix each object with its size
-        coded_out->WriteVarint32(s.size());
-        handle(!coded_out->HadError());
-        coded_out->WriteRaw(s.data(), s.size());
-        handle(!coded_out->HadError());
+        coded_out.WriteVarint32(s.size());
+        handle(!coded_out.HadError());
+        coded_out.WriteRaw(s.data(), s.size());
+        handle(!coded_out.HadError());
     }
-
-    delete coded_out;
-    delete gzip_out;
-    delete raw_out;
 
     return !count || written == count;
 }
@@ -80,12 +158,9 @@ void for_each(std::istream& in,
               const std::function<void(T&)>& lambda,
               const std::function<void(uint64_t)>& handle_count) {
 
-    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-          new ::google::protobuf::io::IstreamInputStream(&in);
-    ::google::protobuf::io::GzipInputStream *gzip_in =
-          new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
+    ::google::protobuf::io::IstreamInputStream raw_in(&in);
+    ::google::protobuf::io::GzipInputStream gzip_in(&raw_in);
+    ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
 
     auto handle = [](bool ok) {
         if (!ok) {
@@ -96,29 +171,37 @@ void for_each(std::istream& in,
     uint64_t count;
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    while (coded_in->ReadVarint64((::google::protobuf::uint64*) &count)) {
+    while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
 
         handle_count(count);
 
         std::string s;
         for (uint64_t i = 0; i < count; ++i) {
             uint32_t msgSize = 0;
-            delete coded_in;
-            coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
+            // Reconstruct the CodedInputStream in place to reset its maximum-
+            // bytes-ever-read counter, because it thinks it's reading a single
+            // message.
+            coded_in.~CodedInputStream();
+            new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
+            // Alot space for size, and for reading next chunk's length
+            coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+            
             // the messages are prefixed by their size
-            handle(coded_in->ReadVarint32(&msgSize));
+            handle(coded_in.ReadVarint32(&msgSize));
+            
+            if (msgSize > MAX_PROTOBUF_SIZE) {
+                throw std::runtime_error("[stream::for_each] protobuf message of " +
+                    std::to_string(msgSize) + " bytes is too long");
+            }
+            
             if (msgSize) {
-                handle(coded_in->ReadString(&s, msgSize));
+                handle(coded_in.ReadString(&s, msgSize));
                 T object;
                 handle(object.ParseFromString(s));
                 lambda(object);
             }
         }
     }
-
-    delete coded_in;
-    delete gzip_in;
-    delete raw_in;
 }
 
 template <typename T>
@@ -128,97 +211,22 @@ void for_each(std::istream& in,
     for_each(in, lambda, noop);
 }
 
+// Parallelized versions of for_each
+
+// First, an internal implementation underlying several variants below.
+// lambda2 is invoked on interleaved pairs of elements from the stream. The
+// elements of each pair are in order, but the overall order in which lambda2
+// is invoked on pairs is undefined (concurrent). lambda1 is invoked on an odd
+// last element of the stream, if any.
 template <typename T>
-void for_each_parallel(std::istream& in,
-                       const std::function<void(T&)>& lambda,
-                       const std::function<void(uint64_t)>& handle_count) {
-
-    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-          new ::google::protobuf::io::IstreamInputStream(&in);
-    ::google::protobuf::io::GzipInputStream *gzip_in =
-          new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
-
-    uint64_t count;
-    bool more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
-    bool more_objects = false;
-    // this loop handles a chunked file with many pieces
-    // such as we might write in a multithreaded process
-    std::list<T> objects;
-    int64_t object_count = 0;
-    int64_t read_threshold = 5000;
-#pragma omp parallel shared(more_input, more_objects, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
-    while (more_input || more_objects) {
-
-        bool has_object = false;
-        T object;
-#pragma omp critical (objects)
-        {
-            if (!objects.empty()) {
-                object = objects.back();
-                objects.pop_back();
-                --object_count;
-                has_object = true;
-            }
-        }
-        if (has_object) {
-            lambda(object);
-        }
-
-#pragma omp master
-        {
-            while (more_input && object_count < read_threshold) {
-                handle_count(count);
-                std::string s;
-                for (uint64_t i = 0; i < count; ++i) {
-                    uint32_t msgSize = 0;
-                    // the messages are prefixed by their size
-                    delete coded_in;
-                    coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
-                    coded_in->ReadVarint32(&msgSize);
-                    if ((msgSize > 0) &&
-                        (coded_in->ReadString(&s, msgSize))) {
-                        T object;
-                        object.ParseFromString(s);
-#pragma omp critical (objects)
-                        {
-                            objects.push_front(object);
-                            ++object_count;
-                        }
-                    }
-                }
-                more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
-            }
-            
-            // TODO: Between when the master announces there is no more input,
-            // and when it says there are again more objects to process, the
-            // other threads can all quit out, leaving it alone to finish up.
-            
-        }
-#pragma omp critical (objects)
-        more_objects = (object_count > 0);
-    }
-
-    delete coded_in;
-    delete gzip_in;
-    delete raw_in;
-}
-
-template <typename T>
-void for_each_parallel(std::istream& in,
-              const std::function<void(T&)>& lambda) {
-    std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each_parallel(in, lambda, noop);
-}
-
-template <typename T>
-void for_each_parallel_batched(std::istream& in,
-                               const std::function<void(T&)>& lambda,
-                               const std::function<void(uint64_t)>& handle_count) {
+void __for_each_parallel_impl(std::istream& in,
+                              const std::function<void(T&,T&)>& lambda2,
+                              const std::function<void(T&)>& lambda1,
+                              const std::function<void(uint64_t)>& handle_count) {
 
     // objects will be handed off to worker threads in batches of this many
-    const uint64_t batch_size = 1024;
+    const uint64_t batch_size = 256;
+    static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
     const uint64_t max_batches_outstanding = 256;
     // number of batches currently being processed
@@ -226,42 +234,54 @@ void for_each_parallel_batched(std::istream& in,
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda, handle_count, batches_outstanding)
+    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
             if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
         };
 
-        ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-            new ::google::protobuf::io::IstreamInputStream(&in);
-        ::google::protobuf::io::GzipInputStream *gzip_in =
-            new ::google::protobuf::io::GzipInputStream(raw_in);
-        ::google::protobuf::io::CodedInputStream *coded_in =
-            new ::google::protobuf::io::CodedInputStream(gzip_in);
+        ::google::protobuf::io::IstreamInputStream raw_in(&in);
+        ::google::protobuf::io::GzipInputStream gzip_in(&raw_in);
+        ::google::protobuf::io::CodedInputStream coded_in(&gzip_in);
 
         std::vector<std::string> *batch = nullptr;
 
         // process chunks prefixed by message count
         uint64_t count;
-        while (coded_in->ReadVarint64((::google::protobuf::uint64*) &count)) {
+        while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
             handle_count(count);
             for (uint64_t i = 0; i < count; ++i) {
                 if (!batch) {
                      batch = new std::vector<std::string>();
                      batch->reserve(batch_size);
                 }
+                
+                // Reconstruct the CodedInputStream in place to reset its maximum-
+                // bytes-ever-read counter, because it thinks it's reading a single
+                // message.
+                coded_in.~CodedInputStream();
+                new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
+                // Alot space for size, and for reading next chunk's length
+                coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+                
                 uint32_t msgSize = 0;
                 // the messages are prefixed by their size
-                handle(coded_in->ReadVarint32(&msgSize));
+                handle(coded_in.ReadVarint32(&msgSize));
+                
+                if (msgSize > MAX_PROTOBUF_SIZE) {
+                    throw std::runtime_error("[stream::for_each] protobuf message of " +
+                        std::to_string(msgSize) + " bytes is too long");
+                }
+                
                 if (msgSize) {
                     // pick off the message (serialized protobuf object)
                     std::string s;
-                    handle(coded_in->ReadString(&s, msgSize));
+                    handle(coded_in.ReadString(&s, msgSize));
                     batch->push_back(std::move(s));
                 }
 
-                if (batch->size() >= batch_size) {
+                if (batch->size() == batch_size) {
                     // time to enqueue this batch for processing. first, block if
                     // we've hit max_batches_outstanding.
                     uint64_t b;
@@ -273,16 +293,17 @@ void for_each_parallel_batched(std::istream& in,
                         b = batches_outstanding;
                     }
                     // spawn task to process this batch
-                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle)
+                    #pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle)
                     {
                         {
-                            T object;
-                            for (const std::string& s_j : *batch) {
-                                // parse protobuf object and invoke lambda on it
-                                handle(object.ParseFromString(s_j));
-                                lambda(object);
+                            T obj1, obj2;
+                            for (int i = 0; i<batch_size; i+=2) {
+                                // parse protobuf objects and invoke lambda on the pair
+                                handle(obj1.ParseFromString(batch->at(i)));
+                                handle(obj2.ParseFromString(batch->at(i+1)));
+                                lambda2(obj1,obj2);
                             }
-                        } // scope object
+                        } // scope obj1 & obj2
                         delete batch;
                         #pragma omp atomic update
                         batches_outstanding--;
@@ -290,36 +311,54 @@ void for_each_parallel_batched(std::istream& in,
 
                     batch = nullptr;
                 }
-
-                // recycle the CodedInputStream in order to avoid its byte limit
-                delete coded_in;
-                coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
             }
         }
 
+        #pragma omp taskwait
         // process final batch
         if (batch) {
             {
-                T object;
-                for (const std::string& s_j : *batch) {
-                    handle(object.ParseFromString(s_j));
-                    lambda(object);
+                T obj1, obj2;
+                int i = 0;
+                for (; i < batch->size()-1; i+=2) {
+                    handle(obj1.ParseFromString(batch->at(i)));
+                    handle(obj2.ParseFromString(batch->at(i+1)));
+                    lambda2(obj1, obj2);
                 }
-            } // scope object
+                if (i == batch->size()-1) { // odd last object
+                    handle(obj1.ParseFromString(batch->at(i)));
+                    lambda1(obj1);
+                }
+            } // scope obj1 & obj2
             delete batch;
         }
-
-        delete coded_in;
-        delete gzip_in;
-        delete raw_in;
     }
 }
 
+// parallel iteration over interleaved pairs of elements; error out if there's an odd number of elements
 template <typename T>
-void for_each_parallel_batched(std::istream& in,
-                               const std::function<void(T&)>& lambda) {
+void for_each_interleaved_pair_parallel(std::istream& in,
+                                        const std::function<void(T&,T&)>& lambda2) {
+    std::function<void(T&)> err1 = [](T&){
+        throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
+    };
+    __for_each_parallel_impl(in, lambda2, err1, [](uint64_t) { });
+}
+
+// parallelized for each individual element
+template <typename T>
+void for_each_parallel(std::istream& in,
+                       const std::function<void(T&)>& lambda1,
+                       const std::function<void(uint64_t)>& handle_count) {
+    std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
+    __for_each_parallel_impl(in, lambda2, lambda1, handle_count);
+}
+
+template <typename T>
+void for_each_parallel(std::istream& in,
+              const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each_parallel_batched(in, lambda, noop);
+    for_each_parallel(in, lambda, noop);
 }
 
 }

@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "genotypekit.hpp"
+#include "snarls.hpp"
 
 namespace Catch {
 
@@ -104,41 +105,41 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
     json2pb(chunk, graph_json.c_str(), graph_json.size());
     graph.merge(chunk);
     
-    // Make a CactusSiteFinder
-    SiteFinder* finder = new CactusSiteFinder(graph, "hint");
+    // Make a CactusUltrabubbleFinder
+    SnarlFinder* finder = new CactusUltrabubbleFinder(graph, "hint");
     
-    SECTION("CactusSiteFinder should find two top-level sites") {
-        vector<NestedSite> sites;
-        finder->for_each_site_parallel([&](const NestedSite& site) {
-            // Just sum up the top-level sites
-            #pragma omp crirical (sites)
-            sites.push_back(site);
-        });
+    SECTION("CactusUltrabubbleFinder should find two top-level sites") {
+        
+        SnarlManager manager = finder->find_snarls();
+        
+        auto sites = manager.top_level_snarls();
         
         REQUIRE(sites.size() == 2);
         
-        // Now sort them
-        sort(sites.begin(), sites.end(), [](const NestedSite& a, const NestedSite& b) {
-            // TODO: add a comparison to NestedSite.
-            return make_pair(a.start, a.end) < make_pair(b.start, b.end);
-        });
+        // Order them
+        const Snarl* site_1 = sites[0]->start().node_id() > sites[1]->start().node_id() ? sites[1] : sites[0];
+        const Snarl* site_2 = sites[0]->start().node_id() > sites[1]->start().node_id() ? sites[0] : sites[1];
         
         SECTION("the first site should be 1 fwd to 6 fwd") {
-            REQUIRE(sites[0].start.node->id() == 1);
-            REQUIRE(sites[0].start.backward == false);
-            REQUIRE(sites[0].end.node->id() == 6);
-            REQUIRE(sites[0].end.backward == false);
+            REQUIRE(site_1->start().node_id() == 1);
+            REQUIRE(site_1->start().backward() == false);
+            REQUIRE(site_1->end().node_id() == 6);
+            REQUIRE(site_1->end().backward() == false);
             
             SECTION("and should contain exactly nodes 1 through 6") {
-                auto& nodes = sites[0].nodes;
+                auto nodes = manager.deep_contents(site_1, graph, true).first;
                 set<Node*> correct{graph.get_node(1), graph.get_node(2),
                         graph.get_node(3), graph.get_node(4),
                         graph.get_node(5), graph.get_node(6)};
-                REQUIRE(nodes == correct);
+                
+                REQUIRE(nodes.size() == correct.size());
+                for (Node* node : nodes) {
+                    REQUIRE(correct.count(node));
+                }
             }
             
             SECTION("and should contain exactly edges 1->6, 1->2, 2->3, 2->4, 3->5, 4->5, 5->6") {
-                auto& edges = sites[0].edges;
+                auto edges = manager.deep_contents(site_1, graph, true).second;
                 set<Edge*> correct{
                     graph.get_edge(NodeSide(1, true), NodeSide(6)),
                     graph.get_edge(NodeSide(1, true), NodeSide(2)),
@@ -148,39 +149,36 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
                     graph.get_edge(NodeSide(4, true), NodeSide(5)),
                     graph.get_edge(NodeSide(5, true), NodeSide(6))
                 };
-                REQUIRE(edges == correct);
+                
+                REQUIRE(edges.size() == correct.size());
+                for (Edge* edge : edges) {
+                    REQUIRE(correct.count(edge));
+                }
             }
             
             SECTION("and should contain one child") {
-                REQUIRE(sites[0].children.size() == 1);
+                REQUIRE(manager.children_of(site_1).size() == 1);
                 
-                auto& child = sites[0].children[0];
+                auto& child = manager.children_of(site_1)[0];
                 
                 SECTION("that child should be 2 fwd to 5 fwd") {
-                    REQUIRE(child.start.node->id() == 2);
-                    REQUIRE(child.start.backward == false);
-                    REQUIRE(child.end.node->id() == 5);
-                    REQUIRE(child.end.backward == false);
-                }
-                
-                SECTION("the child's ends should be properly registered in the parent") {
-                    REQUIRE(sites[0].child_border_index.count(child.start));
-                    REQUIRE(sites[0].child_border_index.at(child.start) == 0);
-                    REQUIRE(sites[0].child_border_index.count(child.end.reverse()));
-                    REQUIRE(sites[0].child_border_index.at(child.end.reverse()) == 0);
+                    REQUIRE(child->start().node_id() == 2);
+                    REQUIRE(child->start().backward() == false);
+                    REQUIRE(child->end().node_id() == 5);
+                    REQUIRE(child->end().backward() == false);
                 }
             }
             
         }
         
         SECTION("the second site should be 6 fwd to 9 fwd") {
-            REQUIRE(sites[1].start.node->id() == 6);
-            REQUIRE(sites[1].start.backward == false);
-            REQUIRE(sites[1].end.node->id() == 9);
-            REQUIRE(sites[1].end.backward == false);
+            REQUIRE(site_2->start().node_id() == 6);
+            REQUIRE(site_2->start().backward() == false);
+            REQUIRE(site_2->end().node_id() == 9);
+            REQUIRE(site_2->end().backward() == false);
             
             SECTION("and should contain no children") {
-                REQUIRE(sites[1].children.size() == 0);
+                REQUIRE(manager.children_of(site_2).size() == 0);
             }
         }
         
@@ -287,19 +285,10 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
     graph.merge(chunk);
     
     // Make a site
-    NestedSite site;
-    
-    // Put the 2,3,4,5 replacement in
-    site.nodes.insert(graph.get_node(2));
-    site.nodes.insert(graph.get_node(3));
-    site.nodes.insert(graph.get_node(4));
-    site.nodes.insert(graph.get_node(5));
-    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(3)));
-    site.edges.insert(graph.get_edge(NodeSide(2, true), NodeSide(4)));
-    site.edges.insert(graph.get_edge(NodeSide(3, true), NodeSide(5)));
-    site.edges.insert(graph.get_edge(NodeSide(4, true), NodeSide(5)));
-    site.start = NodeTraversal(graph.get_node(2));
-    site.end = NodeTraversal(graph.get_node(5));
+    Snarl site;
+    site.mutable_start()->set_node_id(2);
+    site.mutable_end()->set_node_id(5);
+    site.set_type(ULTRABUBBLE);
     
     // Make the TraversalFinder
     TraversalFinder* finder = new TrivialTraversalFinder(graph);
@@ -309,27 +298,167 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
         
         REQUIRE(!site_traversals.empty());
         
-        SECTION("the path must visit 3 nodes to span the site") {
-            REQUIRE(site_traversals.front().visits.size() == 3);
+        SECTION("the path must visit 1 node to span the site") {
+            REQUIRE(site_traversals.front().visits_size() == 1);
             
-            SECTION("the path must start at the start") {
-                auto& visit = site_traversals.front().visits.front();
-                REQUIRE(visit.node == site.start.node);
-                REQUIRE(visit.backward == site.start.backward);
-                REQUIRE(visit.child == nullptr);
-            }
-            
-            SECTION("the path must end at the end") {
-                auto& visit = site_traversals.front().visits.back();
-                REQUIRE(visit.node == site.end.node);
-                REQUIRE(visit.backward == site.end.backward);
-                REQUIRE(visit.child == nullptr);
+            SECTION("the site must follow one of the two paths in the correct orientation") {
+                bool followed_path_1 = site_traversals.front().visits(0).node_id() == 3 &&
+                                       site_traversals.front().visits(0).backward() == false;
+                
+                bool followed_path_2 = site_traversals.front().visits(0).node_id() == 4 &&
+                                       site_traversals.front().visits(0).backward() == false;
+                
+                REQUIRE(followed_path_1 != followed_path_2);
             }
         }
     }
     
     delete finder;
     
+
+}
+    
+TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverted node", "[genotype]") {
+    VG graph;
+    Node* n0 = graph.create_node("A");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("G");
+    Node* n3 = graph.create_node("T");
+    graph.create_edge(n0, n1, false, true);
+    graph.create_edge(n0, n2, false, false);
+    graph.create_edge(n3, n1, true, false);
+    graph.create_edge(n2, n3, false, false);
+    
+    Snarl site;
+    site.mutable_start()->set_node_id(n0->id());
+    site.mutable_end()->set_node_id(n3->id());
+    site.set_type(ULTRABUBBLE);
+    
+    list<Snarl> snarls{site};
+    
+    SnarlManager manager(snarls.begin(), snarls.end());
+    
+    ExhaustiveTraversalFinder finder(graph, manager);
+    
+    bool found_trav_1 = false;
+    bool found_trav_2 = false;
+    
+    for (auto snarl : manager.top_level_snarls()) {
+        auto travs = finder.find_traversals(*snarl);
+        for (SnarlTraversal trav : travs) {
+            if (trav.visits_size() == 1) {
+                if (trav.visits(0).node_id() == n1->id() && trav.visits(0).backward()) {
+                    found_trav_1 = true;
+                }
+                else if (trav.visits(0).node_id() == n2->id() && !trav.visits(0).backward()) {
+                    found_trav_2 = true;
+                }
+            }
+        }
+    }
+    
+    REQUIRE(found_trav_1);
+    REQUIRE(found_trav_2);
+}
+
+TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") {
+
+    SECTION("Directed cycle does not count as ultrabubble") {
+    
+        // Build a toy graph
+        const string graph_json = R"(
+    
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 3, "to": 4},
+            {"from": 1, "to": 4, "to_end": true},
+            {"from": 4, "to": 5}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        CactusUltrabubbleFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+            swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 5) == true);
+        REQUIRE(snarl->type() != ULTRABUBBLE);
+    }
+
+    SECTION("Ultrabubble flagged as ultrabubble") {
+    
+        // Build a toy graph
+        const string graph_json = R"(
+    
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"},
+            {"id": 6, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2, "to_end": true},
+            {"from": 2, "to": 4, "from_start": true},
+            {"from": 2, "to": 5, "from_start": true},
+            {"from": 4, "to": 6, "to_end": true},
+            {"from": 3, "to": 1, "from_start": true, "to_end": true},
+            {"from": 4, "to": 3, "from_start": true, "to_end": true},
+            {"from": 5, "to": 3, "from_start": true, "to_end": true},
+            {"from": 6, "to": 5, "to_end": true},
+            {"from": 1, "to": 6, "from_start": true}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        CactusUltrabubbleFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // Make sure we have one non-ultrabubble start at 1-5
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* snarl = snarl_roots[0];
+        int64_t start = snarl->start().node_id();
+        int64_t end = snarl->end().node_id();
+        if (start > end) {
+            swap(start, end);
+        }
+        REQUIRE((start == 1 && end == 6) == true);
+        REQUIRE(snarl->type() == ULTRABUBBLE);
+    }
 
 }
 

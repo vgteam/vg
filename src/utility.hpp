@@ -46,6 +46,29 @@ double stdev(const T& v) {
     return std::sqrt(sq_sum / v.size());
 }
 
+// Φ is the normal cumulative distribution function
+// https://en.wikipedia.org/wiki/Cumulative_distribution_function
+double phi(double x1, double x2);
+
+inline double add_log(double log_x, double log_y) {
+    return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
+
+}
+ 
+/**
+ * Convert a number ln to the same number log 10.
+ */   
+inline double ln_to_log10(double ln) {
+    return ln / log(10);
+}
+
+/**
+ * Convert a number log 10 to the same number ln.
+ */   
+inline double log10_to_ln(double l10) {
+    return l10 * log(10);
+}
+    
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
     return log(prob);
@@ -72,8 +95,8 @@ inline double phred_to_prob(int phred) {
 }
 
 // Convert probability of wrongness to integer Phred quality score.
-inline int prob_to_phred(double prob) {
-    return round(-10.0 * log10(prob));
+inline double prob_to_phred(double prob) {
+    return -10.0 * log10(prob);
 }
 
 // Convert a Phred quality score directly to a natural log probability of wrongness.
@@ -82,8 +105,28 @@ inline double phred_to_logprob(int phred) {
 }
 
 // Convert a natural log probability of wrongness directly to a Phred quality score.
-inline int logprob_to_phred(double logprob ) {
-    return round(-10.0 * logprob * log10(exp(1.0)));
+inline double logprob_to_phred(double logprob ) {
+    return -10.0 * logprob * log10(exp(1.0));
+}
+
+// Take the geometric mean of two logprobs
+inline double logprob_geometric_mean(double lnprob1, double lnprob2) {
+    return log(sqrt(exp(lnprob1 + lnprob2)));
+}
+
+// Same thing in phred
+inline double phred_geometric_mean(double phred1, double phred2) {
+    return prob_to_phred(sqrt(phred_to_prob(phred1 + phred2)));
+}
+
+// normal pdf, from http://stackoverflow.com/a/10848293/238609
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+    static const T inv_sqrt_2pi = 0.3989422804014327;
+    T a = (x - m) / s;
+
+    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
 
 template<typename T, typename V>
@@ -185,12 +228,39 @@ typename Collection::value_type logprob_sum(const Collection& collection) {
     return pulled_out + prob_to_logprob(total);
 }
 
+/// Find the system temp directory using defaults and environment variables
+string find_temp_dir();
+
+/// Create a temporary file starting with the given base name
 string tmpfilename(const string& base);
+
+/// Create a temporary file in the appropriate system temporary directory
+string tmpfilename();
 
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
 // one.
 string get_or_make_variant_id(const vcflib::Variant& variant);
 string make_variant_id(const vcflib::Variant& variant);
+
+// TODO: move these to genotypekit on a VCF emitter?
+
+/**
+ * Create the reference allele for an empty vcflib Variant, since apaprently
+ * there's no method for that already. Must be called before any alt alleles are
+ * added.
+ */
+void create_ref_allele(vcflib::Variant& variant, const std::string& allele);
+
+/**
+ * Add a new alt allele to a vcflib Variant, since apaprently there's no method
+ * for that already.
+ *
+ * If that allele already exists in the variant, does not add it again.
+ *
+ * Retuerns the allele number (0, 1, 2, etc.) corresponding to the given allele
+ * string in the given variant. 
+ */
+int add_alt_allele(vcflib::Variant& variant, const std::string& allele);
 
 // Simple little tree
 template<typename T>
@@ -240,11 +310,15 @@ void get_input_file(int& optind, int argc, char** argv, function<void(istream&)>
 // throw an error. File name must be nonempty, but may be "-" or may not exist.
 string get_input_file_name(int& optind, int argc, char** argv);
 
+// Parse out the name of an output file (i.e. the next positional argument), or
+// throw an error. File name must be nonempty.
+string get_output_file_name(int& optind, int argc, char** argv);
+
 // Get a callback with an istream& to an open file. Handles "-" as a filename as
 // indicating standard input. The reference passed is guaranteed to be valid
 // only until the callback returns.
 void get_input_file(const string& file_name, function<void(istream&)> callback);
-    
+
 }
 
 #endif

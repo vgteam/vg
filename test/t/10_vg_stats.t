@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 15
+plan tests 9
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -34,29 +34,10 @@ vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 is $(vg stats -n 13 -d t.vg | cut -f 2) 38 "distance to head is correct"
 is $(vg stats -n 13 -t t.vg | cut -f 2) 11 "distance to tail is correct"
 
-is $(vg stats -b t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a superbubble's internal nodes are correctly reported"
-is $(vg stats -u t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a ultrabubble's internal nodes are correctly reported"
-rm -f t.vg
-
-is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -b - | grep 79,80,81,299, | wc -l) 1 "superbubbles are detected even when the graph initially has reversing edges"
-is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -u - | grep 79,80,81,299, | wc -l) 1 "ultrabubbles are detected even when the graph initially has reversing edges"
-
-vg stats z.vg -b > sb.txt
-vg stats z.vg -u > cb.txt
-is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for 1mb1kgp"
-rm -f z.vg sb.txt cb.txt
-
-vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg mod -X 1 - > tiny.vg
-vg stats tiny.vg -b > sb.txt
-vg stats tiny.vg -u > cb.txt
-is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for atomized tiny"
-
-rm sb.txt cb.txt tiny.vg
-
 vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -x x.xg >x.reads
-vg map -x x.xg -g x.gcsa -r x.reads >x.gam
+vg map -x x.xg -g x.gcsa -T x.reads >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"
 rm -f x.vg x.xg x.gcsa x.gam x.reads
 

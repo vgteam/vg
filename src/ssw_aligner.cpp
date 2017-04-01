@@ -48,6 +48,7 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
         Edit* edit;
         //cerr << e->length << e->type << endl;
         switch (type[0]) {
+	case '=':
         case 'M':
         case 'X':
         case 'N': {

@@ -15,7 +15,7 @@
 #include "../stream.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
-#include "../pathindex.hpp"
+#include "../path_index.hpp"
 
 #include "gcsa/gcsa.h"
 #include "gcsa/algorithms.h"
@@ -52,6 +52,7 @@ void help_index(char** argv) {
          << "    -p, --progress         show progress" << endl
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options (ignored with -g):" << endl
+         << "    -d, --db-name  <X>     store the database in <X>" << endl
          << "    -s, --store-graph      store graph as xg" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
@@ -115,6 +116,7 @@ int main_index(int argc, char** argv) {
             //{"verbose", no_argument,       &verbose_flag, 1},
             {"db-name", required_argument, 0, 'd'},
             {"kmer-size", required_argument, 0, 'k'},
+            {"doubling-steps", required_argument, 0, 'X'},
             {"edge-max", required_argument, 0, 'e'},
             {"kmer-stride", required_argument, 0, 'j'},
             {"store-graph", no_argument, 0, 's'},
@@ -136,7 +138,7 @@ int main_index(int argc, char** argv) {
             {"rename", required_argument, 0, 'r'},
             {"verify-index", no_argument, 0, 'V'},
             {"forward-only", no_argument, 0, 'F'},
-            {"size-limit", no_argument, 0, 'Z'},
+            {"size-limit", required_argument, 0, 'Z'},
             {"path-only", no_argument, 0, 'O'},
             {"store-threads", no_argument, 0, 'T'},
             {"node-alignments", no_argument, 0, 'N'},
@@ -847,6 +849,9 @@ int main_index(int argc, char** argv) {
 
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if (!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        
+        // Configure its temp directory to the system temp directory
+        gcsa::TempFile::setDirectory(find_temp_dir());
 
         // Load up the graphs
         vector<string> tmpfiles;

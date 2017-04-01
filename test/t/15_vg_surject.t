@@ -25,7 +25,7 @@ is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surjec
 is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -s - | grep -v ^@ | wc -l) \
     100 "vg surject produces valid SAM output"
     
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg -J | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -x x.xg - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
+is $(vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg -j | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -x x.xg - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
     100 "vg surject retains read names"
 
 # These sequences have edits in them, so we can test CIGAR reversal as well

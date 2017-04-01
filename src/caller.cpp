@@ -30,10 +30,8 @@ Caller::Caller(VG* graph,
                int min_support,
                double min_frac,
                double min_log_likelihood, 
-               bool leave_uncalled,
                int default_quality,
                double max_strand_bias,
-               ostream* text_calls,
                bool bridge_alts):
     _graph(graph),
     _het_log_prior(safe_log(het_prior)),
@@ -43,10 +41,8 @@ Caller::Caller(VG* graph,
     _min_support(min_support),
     _min_frac(min_frac),
     _min_log_likelihood(min_log_likelihood),
-    _leave_uncalled(leave_uncalled),
     _default_quality(default_quality),
     _max_strand_bias(max_strand_bias),
-    _text_calls(text_calls),
     _bridge_alts(bridge_alts) {
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
@@ -62,7 +58,7 @@ void Caller::clear() {
     _node_supports.clear();
     _insert_calls.clear();
     _insert_supports.clear();
-    _call_graph = VG();
+    _augmented_graph.clear();
     _node_divider.clear();
     _visited_nodes.clear();
     _called_edges.clear();
@@ -70,12 +66,12 @@ void Caller::clear() {
     _inserted_nodes.clear();
 }
 
-void Caller::write_call_graph(ostream& out, bool json) {
+void Caller::write_augmented_graph(ostream& out, bool json) {
     if (json) {
-        _call_graph.paths.to_graph(_call_graph.graph);
-        out << pb2json(_call_graph.graph);
+        _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);
+        out << pb2json(_augmented_graph.graph.graph);
     } else {
-        _call_graph.serialize_to_ostream(out);
+        _augmented_graph.graph.serialize_to_ostream(out);
     }
 }
 
@@ -128,9 +124,10 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
         double log_likelihood = 0;
         
         for (int i = 0; i < pileup.num_reads(); ++i) {
-            char qual = pileup.qualities().length() >= 0 ? pileup.qualities()[i]  : _default_quality;
+            char qual = !pileup.qualities().empty() ? pileup.qualities().at(i) : _default_quality;
             double perr = phred_to_prob(qual);
             log_likelihood += safe_log(1. - perr);
+            assert(!std::isnan(log_likelihood));
         }
         
         Edge edge = pileup.edge(); // gcc not happy about passing directly
@@ -142,19 +139,17 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
     }
 }
 
-void Caller::update_call_graph() {
+void Caller::update_augmented_graph() {
     
-    // if we're leaving uncalled nodes, add'em:
-    if (_leave_uncalled) {
-        function<void(Node*)> add_node = [&](Node* node) {
-            if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
-                Node* call_node = _call_graph.create_node(node->sequence(), node->id());
-                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref,
-                                           vector<StrandSupport>());
-            }
-        };
-        _graph->for_each_node(add_node);
-    }
+    // Add nodes we don't think necessarily exist.
+    function<void(Node*)> add_node = [&](Node* node) {
+        if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
+            Node* call_node = _augmented_graph.graph.create_node(node->sequence(), node->id());
+            _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref,
+                                       vector<StrandSupport>());
+        }
+    };
+    _graph->for_each_node(add_node);
 
     // map every edge in the original graph to equivalent sides
     // in the call graph. if both sides exist, make an edge in the call graph
@@ -163,9 +158,7 @@ void Caller::update_call_graph() {
         // skip uncalled edges if not writing augmented graph
         auto called_it = _called_edges.find(sides);
         bool called = called_it != _called_edges.end();
-        if (!_leave_uncalled && !called) {
-            return;
-        }
+        
         StrandSupport support = called ? called_it->second : StrandSupport();
         assert(support.fs >= 0 && support.rs >= 0);
         
@@ -194,7 +187,7 @@ void Caller::update_call_graph() {
                 // snp or isnert node -- need to get from call grpah
                 // note : that we should never break these as they aren't in
                 // the divider structure (will be caught down the road)
-                node1 = _call_graph.get_node(os1.first.node);
+                node1 = _augmented_graph.graph.get_node(os1.first.node);
                 aug1 = false;
             }
             int from_offset = os1.second;
@@ -207,7 +200,7 @@ void Caller::update_call_graph() {
                 aug2 = true;
             } else {
                 // snp or insert node -- need to get from call graph
-                node2 = _call_graph.get_node(os2.first.node);
+                node2 = _augmented_graph.graph.get_node(os2.first.node);
                 aug2 = false;
             }
             // only need to pass support for here insertions, other cases handled elsewhere
@@ -229,8 +222,8 @@ void Caller::update_call_graph() {
             if (!pass1) {
               create_augmented_edge(node1, from_offset, left1, aug1,  node2, to_offset, left2, aug2, cat, support);
             } else {
-                _node_divider.break_end(node1, &_call_graph, from_offset, left1);
-                _node_divider.break_end(node2, &_call_graph, to_offset, left2);
+                _node_divider.break_end(node1, &_augmented_graph.graph, from_offset, left1);
+                _node_divider.break_end(node2, &_augmented_graph.graph, to_offset, left2);
             }
         }
     };
@@ -241,24 +234,20 @@ void Caller::update_call_graph() {
     _graph->for_each_edge(map_edge);
     process_augmented_edges(false);
 
-    // write out all the nodes in the divider structure to tsv
-    if (_text_calls != NULL) {
-        write_nd_tsv();
-        // add on the inserted nodes
-        for (auto i : _inserted_nodes) {
-            auto& n = i.second; 
-            write_node_tsv(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
-        }
-    }    
+    // Annotate all the nodes in the divider structure in the AugmentedGraph
+    annotate_augmented_nd();
+    // add on the inserted nodes
+    for (auto i : _inserted_nodes) {
+        auto& n = i.second; 
+        annotate_augmented_node(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
+    }
 }
 
 
 void Caller::map_paths() {
-    // if we don't leave uncalled nodes (ie make augmented graph),
-    // then the paths may get disconnected, which we don't support for now
-    assert(_leave_uncalled == true);
+    // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
-        list<Mapping>& call_path = _call_graph.paths.create_path(path.name());
+        list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
         int last_rank = -1;
         int last_call_rank = 0;
         int running_len = 0;
@@ -278,7 +267,7 @@ void Caller::map_paths() {
                      << " because ranks out of order or non-trivial edits." << endl;
                 set<string> s;
                 s.insert(path.name());
-                _call_graph.paths.remove_paths(s);
+                _augmented_graph.graph.paths.remove_paths(s);
                 return;
             }
             int node_id = mapping.position().node_id();
@@ -305,9 +294,9 @@ void Caller::map_paths() {
     _graph->paths.for_each(lambda);
 
     // make sure paths are saved
-    _call_graph.paths.rebuild_node_mapping();
-    _call_graph.paths.rebuild_mapping_aux();
-    _call_graph.paths.to_graph(_call_graph.graph);    
+    _augmented_graph.graph.paths.rebuild_node_mapping();
+    _augmented_graph.graph.paths.rebuild_mapping_aux();
+    _augmented_graph.graph.paths.to_graph(_augmented_graph.graph.graph);    
 }
 
 void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
@@ -331,7 +320,7 @@ void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
     }
     string call_string;
     for (auto& m : call_path) {
-        call_string += lambda(&_call_graph, m);
+        call_string += lambda(&_augmented_graph.graph, m);
     }
 
     assert(in_string == call_string);
@@ -345,13 +334,13 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
     NodeDivider::Entry call_sides2;
 
     if (aug1) {
-        call_sides1 = _node_divider.break_end(node1, &_call_graph, from_offset,
+        call_sides1 = _node_divider.break_end(node1, &_augmented_graph.graph, from_offset,
                                               left_side1);
     } else {
         call_sides1 = NodeDivider::Entry(node1, vector<StrandSupport>(1, support));
     }
     if (aug2) {
-        call_sides2 = _node_divider.break_end(node2, &_call_graph, to_offset,
+        call_sides2 = _node_divider.break_end(node2, &_augmented_graph.graph, to_offset,
                                               left_side2);
     } else {
         call_sides2 = NodeDivider::Entry(node2, vector<StrandSupport>(1, support));
@@ -375,8 +364,8 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                      cat != 'L')) {                    
                     NodeSide side1(call_sides1[i]->id(), !left_side1);
                     NodeSide side2(call_sides2[j]->id(), !left_side2);
-                    if (!_call_graph.has_edge(side1, side2)) {
-                        Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
+                    if (!_augmented_graph.graph.has_edge(side1, side2)) {
+                        Edge* edge = _augmented_graph.graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
                         StrandSupport edge_support = support >= StrandSupport() ? support :
                             min(avgSup(call_sides1.sup(i)), avgSup(call_sides2.sup(j)));
@@ -393,12 +382,10 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         if (is_it != _insertion_supports.end()) {
                             edge_support = edge_support - is_it->second;
                         }                        
-                        // can edges be written more than once with different cats?
-                        // if so, first one will prevail. should check if this
-                        // can impact vcf converter...
-                        if (_text_calls != NULL) {
-                            write_edge_tsv(edge, cat, edge_support);
-                        }
+                        // TODO: can edges be annotated more than once with
+                        // different cats? if so, last one will prevail. should
+                        // check if this can impact vcf converter...
+                        annotate_augmented_edge(edge, cat, edge_support);
                     }
                 }
             }
@@ -660,10 +647,7 @@ void Caller::create_node_calls(const NodePileup& np) {
         if (cat == 2 || cat != next_cat ||
             _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
 
-            if (cat == 0 && !_leave_uncalled) {
-                // uncalled: do nothing (unless writing augmented graph)
-            }        
-            else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
+            if (cat == 0 || cat == 1) {
                 // add reference
                 vector<StrandSupport> sup;
                 if (_node_calls[cur].first == ".") {
@@ -678,7 +662,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     }
                 }
                 string new_seq = seq.substr(cur, next - cur);
-                Node* node = _call_graph.create_node(new_seq, ++_max_id);
+                Node* node = _augmented_graph.graph.create_node(new_seq, ++_max_id);
                 _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, sup);
                 // bridge to node
                 NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
@@ -696,12 +680,12 @@ void Caller::create_node_calls(const NodePileup& np) {
                 function<void(string&, StrandSupport, string&, NodeDivider::EntryCat)>  call_het =
                     [&](string& call1, StrandSupport support1, string& call2, NodeDivider::EntryCat altCat) {
                 
-                    if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
+                    if (call1 == "." || (altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
                         StrandSupport sup = call1 == "." ? support1 : StrandSupport();
                         assert(call2 != "."); // should be handled above
                         string new_seq = seq.substr(cur, 1);
-                        Node* node = _call_graph.create_node(new_seq, ++_max_id);
+                        Node* node = _augmented_graph.graph.create_node(new_seq, ++_max_id);
                         _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref,
                                                    vector<StrandSupport>(1, sup));
                         // bridge to node
@@ -719,7 +703,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                         StrandSupport sup = support1;
                         // snp base
                         string new_seq = call1;
-                        Node* node = _call_graph.create_node(new_seq, ++_max_id);
+                        Node* node = _augmented_graph.graph.create_node(new_seq, ++_max_id);
                         _node_divider.add_fragment(_node, cur, node, altCat,
                                                    vector<StrandSupport>(1, sup));
                         // bridge to node
@@ -798,7 +782,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     bool ins_rev;
                     Pileups::parse_insert(ins_call1, ins_len, ins_seq, ins_rev);
                     // todo: check reverse?
-                    Node* node = _call_graph.create_node(ins_seq, ++_max_id);
+                    Node* node = _augmented_graph.graph.create_node(ins_seq, ++_max_id);
                     StrandSupport sup = ins_support1;
                     InsertionRecord ins_rec = {node, sup, _node->id(), next-1};
                     _inserted_nodes[node->id()] = ins_rec;
@@ -828,7 +812,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                         vector<pair<id_t, bool>> next_nodes = _graph->edges_end(_node->id());
                         NodeOffSide no3 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
                         for (auto nn : next_nodes) {
-                            NodeOffSide no4 = NodeOffSide(NodeSide(nn.first, nn.second), 0);
+                            int64_t offset4 = !nn.second ? 0 : _graph->get_node(nn.first)->sequence().length() - 1;
+                            NodeOffSide no4 = NodeOffSide(NodeSide(nn.first, nn.second), offset4);
                             _augmented_edges[make_pair(no3, no4)] = 'I';
                             // bridge across insert
                             _augmented_edges[make_pair(no1, no4)] = 'R';
@@ -858,22 +843,44 @@ void Caller::create_node_calls(const NodePileup& np) {
     }
 }
 
-void Caller::write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
-{
-    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << support.fs << "\t"
-                 << support.rs << "\t" << support.os << "\t" << support.likelihood << "\t"
-                 << orig_id << "\t" << orig_offset << endl;
+void AugmentedGraph::clear() {
+    // Reset to default state
+    *this = AugmentedGraph();
 }
 
-void Caller::write_edge_tsv(Edge* edge, char call, StrandSupport support)
+void Caller::annotate_augmented_node(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
-    *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
-                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support.fs
-                 << "\t" << support.rs << "\t" << support.os << "\t" << support.likelihood
-                 << "\t.\t." << endl;
+    _augmented_graph.node_calls[node] = (ElementCall) call;
+    _augmented_graph.node_supports[node].set_forward(support.fs);
+    _augmented_graph.node_supports[node].set_reverse(support.rs);
+    _augmented_graph.node_likelihoods[node] = support.likelihood;
+    
+    if (orig_id != 0 && call != 'S' && call != 'I') {
+        // Add translations for preserved parts
+        Translation trans;
+        auto* new_mapping = trans.mutable_to()->add_mapping();
+        new_mapping->mutable_position()->set_node_id(node->id());
+        auto* new_edit = new_mapping->add_edit();
+        new_edit->set_from_length(node->sequence().size());
+        new_edit->set_to_length(node->sequence().size());
+        auto* old_mapping = trans.mutable_from()->add_mapping();
+        old_mapping->mutable_position()->set_node_id(orig_id);
+        old_mapping->mutable_position()->set_offset(orig_offset);
+        auto* old_edit = old_mapping->add_edit();
+        old_edit->set_from_length(node->sequence().size());
+        old_edit->set_to_length(node->sequence().size());
+    }
 }
 
-void Caller::write_nd_tsv()
+void Caller::annotate_augmented_edge(Edge* edge, char call, StrandSupport support)
+{
+    _augmented_graph.edge_calls[edge] = (ElementCall) call;
+    _augmented_graph.edge_supports[edge].set_forward(support.fs);
+    _augmented_graph.edge_supports[edge].set_reverse(support.rs);
+    _augmented_graph.edge_likelihoods[edge] = support.likelihood;
+}
+
+void Caller::annotate_augmented_nd()
 {
     for (auto& i : _node_divider.index) {
         int64_t orig_node_id = i.first;
@@ -881,12 +888,12 @@ void Caller::write_nd_tsv()
             int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
             char call = entry.sup_ref.empty() || avgSup(entry.sup_ref) == StrandSupport() ? 'U' : 'R';
-            write_node_tsv(entry.ref, call, avgSup(entry.sup_ref), orig_node_id, orig_node_offset);
+            annotate_augmented_node(entry.ref, call, avgSup(entry.sup_ref), orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
-                write_node_tsv(entry.alt1, 'S', avgSup(entry.sup_alt1), orig_node_id, orig_node_offset);
+                annotate_augmented_node(entry.alt1, 'S', avgSup(entry.sup_alt1), orig_node_id, orig_node_offset);
             }
             if (entry.alt2 != NULL) {
-                write_node_tsv(entry.alt2, 'S', avgSup(entry.sup_alt2), orig_node_id, orig_node_offset);
+                annotate_augmented_node(entry.alt2, 'S', avgSup(entry.sup_alt2), orig_node_id, orig_node_offset);
             }
         }
     }

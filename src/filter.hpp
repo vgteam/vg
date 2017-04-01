@@ -1,5 +1,5 @@
-#ifndef VG_FILTER_HPP
-#define VG_FILTER_HPP
+#ifndef VG_FILTER
+#define VG_FILTER
 
 #include <vector>
 #include <cstdlib>
@@ -19,10 +19,21 @@
  *
  */
 namespace vg{
+
+struct SV_EVIDENCE{
+    int INS_EV = 0;
+    int DEL_EV = 0;
+    int INV_EV = 0;
+    int DUP_EV = 0;
+    int COMPLEX_EV = 0;
+
+};
+
 class Filter{
     public:
         Filter();
         ~Filter();
+        // map<string, interval> sv-to-interval
          /* Filter functions.
          * Take an Alignment and walk it.
          * Perform the desired summary statistics.
@@ -31,6 +42,8 @@ class Filter{
          * an empty Alignment if the alignment fails and we don't allow
          * modified alignments.
          */
+        bool perfect_filter(Alignment& aln);
+        bool simple_filter(Alignment& aln);
         Alignment depth_filter(Alignment& aln);
         Alignment qual_filter(Alignment& aln);
         Alignment coverage_filter(Alignment& aln);
@@ -40,50 +53,64 @@ class Filter{
         Alignment split_read_filter(Alignment& aln);
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
-        Alignment kmer_filter(Alignment& aln);
+
+        Alignment path_length_filter(Alignment& aln);
+
+        /*PE Functions*/
+        pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
+        
+        // // TODO should give this one an insert size arg
+        pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Alignment, Alignment> pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
+
+        // pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
+
+        // SV filters
+        // Take in paired GAM and return Locus records
+        pair<Alignment, Alignment> deletion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> insertion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> duplication_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> inversion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> breakend_filter(Alignment& aln_first, Alignment& aln_second);
+
         void set_min_depth(int depth);
         //void set_min_kmer_depth(int d);
+
         void set_min_qual(int qual);
         void set_min_percent_identity(double pct_id);
-        void set_avg_qual(double avg_qual);
+        void set_avg(bool do_avg);
         void set_filter_matches(bool fm);
         void set_remove_failing_edits(bool fm);
         void set_soft_clip_limit(int max_clip);
         void set_split_read_limit(int split_limit);
-        void set_reversing(bool do_reversing_filter);
-        void set_path_divergence(bool do_path_divergence);
         void set_window_length(int window_length);
         void set_my_vg(vg::VG* vg);
         void set_my_xg_idx(xg::XG* xg_idx);
         void set_inverse(bool do_inv);
 
-        int get_min_depth();
-        int get_min_qual();
-        int get_window_length();
-        int get_soft_clip_limit();
-        int get_split_read_limit();
-        double get_min_percent_identity();
-        double get_min_avg_qual();
-        bool get_inverse();
-        bool get_filter_matches();
-        bool get_remove_failing_edits();
-        bool get_do_path_divergence();
-        bool get_do_reversing();
-
-
     private:
         vg::VG* my_vg;
-        xg::XG* my_xg_idx;
+        xg::XG* my_xg_index;
+        gcsa::GCSA* gcsa_ind;
+        gcsa::LCPArray * lcp_ind;
+ 
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?
         unordered_map<string, unordered_map<string, int> > pos_to_edit_to_depth;
         unordered_map<int, int> pos_to_qual;
+
+        // Map position/interval to locus
+        // map Locus to SV evidence, so that we can augment
+        // it with each additional read
+    public:
+        // we really need a reservoir sampling method /
+        // some way to effectively calculate less-biased moving averages.
         bool inverse = false;
         bool remove_failing_edits = false;
         bool filter_matches = false;
-        bool do_path_divergence;
-        bool do_reversing;
+        bool use_avg = false;;
         int min_depth = 0;
         int min_qual = 0;
         int min_cov = 0;
@@ -93,6 +120,16 @@ class Filter{
         int split_read_limit = -1;
         double min_percent_identity = 0.0;
         double min_avg_qual = 0.0;
+
+        int max_path_length = 0;
+
+        int my_max_distance = 1000;
+
+        float insert_mean = 1000;
+        float insert_sd = 100;
+
+
         };
 }
+
 #endif
