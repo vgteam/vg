@@ -191,7 +191,7 @@ struct AugmentedGraph {
     // And for edges
     map<Edge*, Support> edge_supports;
     
-    // This holds the likelihood for each node.
+    // This holds the log10 likelihood for each node.
     // TODO: what exactly does that mean?
     map<Node*, double> node_likelihoods;
     // And for edges
@@ -219,16 +219,28 @@ struct AugmentedGraph {
     Support get_support(Edge* edge);
     
     /**
-     * Get the likelihood for a given node, or 0 if it has no recorded
+     * Get the log10 likelihood for a given node, or 0 if it has no recorded
      * likelihood.
      */
     double get_likelihood(Node* node);
     
     /**
-     * Get the likelihood for a edge node, or 0 if it has no recorded
+     * Get the log10 likelihood for a edge node, or 0 if it has no recorded
      * likelihood.
      */
     double get_likelihood(Edge* edge);
+    
+    /**
+     * Get the call for a given node, or CALL_UNCALLED if it has no associated
+     * call.
+     */
+    ElementCall get_call(Node* node);
+    
+    /**
+     * Get the call for a given edge, or CALL_UNCALLED if it has no associated
+     * call.
+     */
+    ElementCall get_call(Edge* edge);
     
     /**
      * Clear the contents.

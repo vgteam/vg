@@ -358,7 +358,7 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        const Support& baseline_support, size_t copy_budget, function<void(Locus)> emit_locus) {
+        const Support& baseline_support, size_t copy_budget, function<void(const Locus&)> emit_locus) {
 
     // We need to be an ultrabubble for the traversal finder to work right.
     // TODO: generalize it
@@ -377,8 +377,6 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
     vector<Support> average_supports;
-    // And the min likelihood along each path
-    vector<double> min_likelihoods;
     for(auto& traversal : here_traversals) {
         // Go through all the SnarlTraversals for this Snarl
         
@@ -392,6 +390,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         Support min_support;
         
         // Also, what's the min likelihood
+        // Really this is already logged base 10.
         double min_likelihood = INFINITY;
                         
         for(int64_t i = 0; i < traversal.visits_size(); i++) {
@@ -498,6 +497,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         min_supports.push_back(min_support);
         average_supports.push_back(total_support / total_size);
         
+        // Copy the likelihood over to the locus. Convert from log10 which it
+        // comes in as from the caller to ln.
+        locus.add_allele_log_likelihood(log10_to_ln(min_likelihood));
     }
     
     
@@ -605,7 +607,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // TODO: revize which depth (cur: avg) / likelihood (cur: min) pair to use
             gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), 0.5 * total(baseline_support))) +
                 ln_to_log10(poisson_prob_ln(total(second_best_support), 0.5 * total(baseline_support)));
-            gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
+            gen_likelihood += ln_to_log10(locus.allele_log_likelihood(best_allele)) +
+                ln_to_log10(locus.allele_log_likelihood(second_best_allele));
             
             // Save the likelihood in the Genotype
             genotype.set_likelihood(log10_to_ln(gen_likelihood));
@@ -627,7 +630,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             
             // Compute the likelihood for hom best allele
             gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support)));
-            gen_likelihood += min_likelihoods.at(best_allele);
+            gen_likelihood += ln_to_log10(locus.allele_log_likelihood(best_allele));
 
             // Save the likelihood in the Genotype
             genotype.set_likelihood(log10_to_ln(gen_likelihood));
@@ -646,10 +649,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             
             // Compute the likelihood for hom best allele, 1 copy
             gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support) / 2));
-            gen_likelihood += min_likelihoods.at(best_allele);
+            gen_likelihood += ln_to_log10(locus.allele_log_likelihood(best_allele));
 
-            // Save the likelihood in the Genotype
-            genotype.set_likelihood(log10_to_ln(gen_likelihood));
+            // Save the log likelihood in the Genotype
+            genotype.set_log_likelihood(log10_to_ln(gen_likelihood));
 
             // Get minimum support for filter
             min_site_support = total(best_support);
@@ -934,11 +937,10 @@ void Call2Vcf::call(
         site_queue.emplace_back(site);
     });
     
-    // We're going to run through all the top-level sites and break up the
-    // huge ones and throw out the ones not on the reference, leaving only
-    // manageably-sized sites on the ref path. We won't be able to genotype
-    // huge translocations or deletions, but we can save those for the
-    // proper nested-site-aware genotyper.
+    // We're going to run through all the top-level sites and keep just what we
+    // can use. If we're converting to VCF it's only stuff on a primary path,
+    // and we will break top-level sites to find things on a primary path.
+    // Otherwise it's everything.
     vector<const Snarl*> sites;
     
     while(!site_queue.empty()) {
@@ -960,62 +962,20 @@ void Call2Vcf::call(
         if (site->type() == ULTRABUBBLE && primary_path != nullptr) {
             // This site is an ultrabubble on a primary path
         
-            // Where does the variable region start and end on the reference?
-            size_t ref_start = primary_path->get_index().by_id.at(site->start().node_id()).first +
-                augmented.graph.get_node(site->start().node_id())->sequence().size();
-            size_t ref_end = primary_path->get_index().by_id.at(site->end().node_id()).first;
-            
-            if(ref_start > ref_end) {
-                // Make sure it's the right way around (it will get set straight
-                // in the site when we do the bubbling-up).
-                swap(ref_start, ref_end);
+            // Make sure start and end are front-ways relative to the ref path.
+            if(primary_path->get_index().by_id.at(site->start().node_id()).first >
+                primary_path->get_index().by_id.at(site->end().node_id()).first) {
+                // The site's end happens before its start, flip it around
+                site_manager.flip(site);
             }
             
-            if(!site_manager.is_leaf(site) && ref_end > ref_start + max_ref_length) {
-                // Site is too big and has children. Split it up and do the
-                // children.
-                for(const Snarl* child : site_manager.children_of(site)) {
-                    // Dump all the children into the queue for separate
-                    // processing.
-                    site_queue.emplace_back(child);
-                }
-
-                if (verbose) {
-                    cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                              << site_manager.children_of(site).size() << " children" << endl;
-                }
-                
-            } else {
-                // With no children, site may still be huge, but it doesn't
-                // matter because there's nothing to nest in it, so we can
-                // genotype it just fine.
-                
-                // With children, it's practical to just include the child
-                // genotypes in the site genotype.
-                
-                if(ref_end > ref_start + max_ref_length) {
-                    // This site is big but we left it anyway.
-                    if (verbose) {
-                        cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                                  << site_manager.children_of(site).size() << " children" << endl;
-                    }
-                }
-                
-                // Make sure start and end are front-ways relative to the ref path.
-                if(primary_path->get_index().by_id.at(site->start().node_id()).first >
-                    primary_path->get_index().by_id.at(site->end().node_id()).first) {
-                    // The site's end happens before its start, flip it around
-                    site_manager.flip(site);
-                }
-                
-                // Throw it in the final vector of sites we're going to process.
-                sites.push_back(site);
-            }        
+            // Throw it in the final vector of sites we're going to process.
+            sites.push_back(site);
         } else if (site->type() == ULTRABUBBLE && !convert_to_vcf) {
             // This site is an ultrabubble and we can handle things off the
             // primary path.
             
-            // TODO: enforce a max size or something?
+            // Throw it in the final vector of sites we're going to process.
             sites.push_back(site);
             
         } else {
@@ -1050,11 +1010,13 @@ void Call2Vcf::call(
     RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_bubble_paths,
         [&] (const Snarl& site) -> PathIndex* {
         
-        // When the TraversalFinder needs an index for a site, it can look it up with this function.
+        // When the TraversalFinder needs a primary path index for a site, it can look it up with this function.
         auto found = find_path(site, primary_paths);
         if (found != primary_paths.end()) {
+            // It's on a path
             return &found->second.get_index();
         } else {
+            // It's not on a known primary path, so the TraversalFinder should make its own backbone path
             return nullptr;
         }
     });
@@ -1072,186 +1034,7 @@ void Call2Vcf::call(
     size_t called_loci = 0;
     
     for(const Snarl* site : sites) {
-        // For every site, we're going to make a variant
-        
-        // Get the traversals. The ref traversal is the first one. They are all
-        // in site orientation, which may oppose primary path orientation.
-        vector<SnarlTraversal> traversals = traversal_finder.find_traversals(*site);
-        
-        // Make a Locus to represent this site, with all the Paths of the
-        // different alleles.
-        Locus locus;
-        
-        // And keep around a vector of is_reference statuses for all the alleles
-        vector<bool> is_ref;
-        
-        for (auto& traversal : traversals) {
-            // Convert each traversal to a path
-            Path* path = locus.add_allele();
-        
-            // Start at the start of the site
-            *path->add_mapping() = to_mapping(site->start(), augmented.graph);
-            for (size_t i = 0; i < traversal.visits_size(); i++) {
-                // Then visit each node in turn
-                *path->add_mapping() = to_mapping(traversal.visits(i), augmented.graph);
-            }
-            // Finish up with the site's end
-            *path->add_mapping() = to_mapping(site->end(), augmented.graph);
-            
-            // Save the traversal's reference status
-            is_ref.push_back(is_reference(traversal, augmented));
-        }
-        
-        // Collect sequences for all the paths
-        vector<string> sequences;
-        // And the lists of involved IDs that we use for variant IDs
-        vector<string> id_lists;
-        // Calculate average and min support for all the alts. These both need
-        // to be the same type, so they are interchangeable in a reference and
-        // we can pick one to use.
-        vector<Support> min_supports;
-        vector<Support> average_supports;
-        // And the min likelihood along each path
-        vector<double> min_likelihoods;
-        for(size_t i = 0; i < locus.allele_size(); i++) {
-            // Go through all the Paths in the Locus
-            const Path& path = locus.allele(i);
-            
-            // We use this to construct the allele sequence
-            stringstream sequence_stream;
-            
-            // And this to compose the allele's name in terms of node IDs
-            stringstream id_stream;
-            
-            // What's the total support for this path?
-            Support total_support;
-            
-            // And the min
-            Support min_support;
-            
-            // Also, what's the min likelihood
-            double min_likelihood = INFINITY;
-                            
-            for(int64_t i = 1; i + 1 < path.mapping_size(); i++) {
-                // For all but the first and last nodes (which are anchors)...
-                
-                // Grab the mapping
-                const Mapping& here = path.mapping(i);
-                
-                // Look up the node ID we're visiting
-                id_t node_id = path.mapping(i).position().node_id();
-                // And the Node* in the graph
-                Node* node = augmented.graph.get_node(node_id);
-                
-                // Grab the node sequence in the correct orientation.
-                string added_sequence = node->sequence();
-                if(path.mapping(i).position().is_reverse()) {
-                    // If the node is traversed backward, we need to flip its sequence.
-                    added_sequence = reverse_complement(added_sequence);
-                }
-                
-                // Stick the sequence
-                sequence_stream << added_sequence;
-                
-                // Record ID
-                id_stream << to_string(node_id);
-                if(i + 2 != path.mapping_size()) {
-                    // If this is not the last mapping we're going to do, add a separator.
-                    id_stream << "_";
-                }
-                
-                // Peek at the next and previous Mappings
-                const Mapping& prev = path.mapping(i - 1);
-                const Mapping& next = path.mapping(i + 1);
-                
-                // How much support do we have for visiting this node?
-                Support node_support = augmented.node_supports.at(node);
-                
-                // Grab the support for the edge we're traversing into the node
-                Edge* in_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(prev)),
-                                                                   to_left_side(to_visit(here))));
-                auto& in_support = augmented.edge_supports.at(in_edge);
-                
-                // Ditto for the edge we're traversing out of the node
-                Edge* out_edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(here)),
-                                                                    to_left_side(to_visit(next))));
-                auto& out_support = augmented.edge_supports.at(out_edge);
-                
-                // Add node's support in to the total support for the alt. Scale by node length.
-                // TODO: should the edges count here?
-                total_support += node->sequence().size() * node_support;
-                
-                // Get the min support for the node and its edges
-                auto node_min_support = support_min(node_support, support_min(in_support, out_support));
-                
-                // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
-                min_support = (i == 1 ? node_min_support : support_min(min_support, node_min_support));
-
-                // Update minimum likelihood in the alt path
-                min_likelihood = min(min_likelihood, augmented.node_likelihoods.at(node));
-                
-                // TODO: use edge likelihood here too?
-                    
-            }
-            
-            if(path.mapping_size() == 2) {
-                // We just have the anchoring nodes and the edge between them.
-                // Look at that edge specially.
-                Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(to_visit(path.mapping(0))),
-                                                                to_left_side(to_visit(path.mapping(1)))));
-                
-                // Only use the support on the edge
-                total_support = augmented.edge_supports.at(edge);
-                min_support = total_support;
-                
-                // And the likelihood on the edge
-                min_likelihood = augmented.edge_likelihoods.at(edge);
-            }
-            
-            // Calculate the min and average Supports
-            min_supports.push_back(min_support);
-            // The support needs to get divided by bases, unless we're just a
-            // single edge empty allele, in which case we're special.
-            average_supports.push_back(sequence_stream.str().size() > 0 ? 
-                total_support / sequence_stream.str().size() : 
-                total_support);
-            
-            // Fill in the support for this allele in the Locus
-            *locus.add_support() = use_average_support ? average_supports.back() : min_supports.back();
-            
-            // Fill in the other vectors
-            // TODO: add this info to Locus? Or calculate later when emitting VCF?
-            sequences.push_back(sequence_stream.str());
-            id_lists.push_back(id_stream.str());
-            min_likelihoods.push_back(min_likelihood);
-        }
-        
-        // TODO: complain if multiple copies of the same string exist???
-        
-        // Decide which support vector we use to actually decide
-        vector<Support>& supports = use_average_support ? average_supports : min_supports;
-        
-        // Now look at all the paths for the site and pick the top 2.
-        int best_allele = -1;
-        int second_best_allele = -1;
-        for(size_t i = 0; i < locus.allele_size(); i++) {
-            if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
-                // We have a new best. Demote the old best.
-                second_best_allele = best_allele;
-                best_allele = i;
-            } else if(second_best_allele == -1 || total(supports[second_best_allele]) <= total(supports[i])) {
-                // We're not better than the best, but we can demote the second best.
-                second_best_allele = i;
-            }
-        }
-        
-        // We should always have a best allele; we may sometimes have a second best.
-        assert(best_allele != -1);
-        
-        if(best_allele == 0 && second_best_allele == -1) {
-            // This site isn't variable; don't bother with it.
-            continue;
-        }
+        // For every site, we're going to make a bunch of Locus objects
         
         // See if the site is on a primary path, so we can use binned support.
         map<string, PrimaryPath>::iterator found_path = find_path(*site, primary_paths);
@@ -1276,144 +1059,61 @@ void Call2Vcf::call(
             // Just use the primary paths' average support, which may be 0 if there are none.
             baseline_support = PrimaryPath::get_average_support(primary_paths);
         }
-
-        // Decide if we're an indel. We're an indel if the sequence lengths
-        // aren't all equal between the ref and the alleles we're going to call.
-        // TODO: is this backwards?
-        bool is_indel = sequences.front().size() == sequences[best_allele].size() &&
-            (second_best_allele == -1 || sequences.front().size() == sequences[second_best_allele].size());
-
-        // We need to decide what to scale the bias limits by. We scale them up if this is an indel.
-        double bias_multiple = is_indel ? indel_bias_multiple : 1.0;
-        
-        // How much support do we have for the top two alleles?
-        Support site_support = supports.at(best_allele);
-        if(second_best_allele != -1) {
-            site_support += supports.at(second_best_allele);
-        }
-        
-        // Pull out the different supports. Some of them may be the same.
-        Support ref_support = supports.at(0);
-        Support best_support = supports.at(best_allele);
-        Support second_best_support; // Defaults to 0
-        if(second_best_allele != -1) {
-            second_best_support = supports.at(second_best_allele);
-        }
-        
-        // As we do the genotype, we also compute the likelihood. Holds
-        // likelihood log 10. Starts out at "completely wrong".
-        double gen_likelihood = -1 * INFINITY;
-
-        // Minimum allele depth of called alleles
-        double min_site_support = 0;
-        
-        // This is where we'll put the genotype. We only actually add it to the
-        // Locus if we are confident enough to actually call.
-        Genotype genotype;
-        
-        // We're going to make some really bad calls at low depth. We can
-        // pull them out with a depth filter, but for now just elide them.
-        if(total(site_support) >= total(baseline_support) * min_fraction_for_call) {
-            // We have enough to emit a call here.
-            
-            // If best and second best are close enough to be het, we call het.
-            // Otherwise, we call hom best.
-            
-            // We decide closeness differently depending on whether best is ref or not.
-            // In practice, we use this to slightly penalize homozygous ref calls
-            // (by setting max_ref_het_bias higher than max_het_bias) and rather make a less
-            // supported alt call instead.  This boost max sensitivity, and because
-            // everything is homozygous ref by default in VCF, any downstream filters
-            // will effectively reset these calls back to homozygous ref. 
-            double bias_limit = (best_allele == 0) ? max_ref_het_bias : max_het_bias;
-#ifdef debug
-            cerr << best_allele << ", " << best_support << " and "
-                << second_best_allele << ", " << second_best_support << endl;
-            
-            if (total(second_best_support) > 0) {
-                cerr << "Bias: (limit " << bias_limit * bias_multiple << "):"
-                    << total(best_support)/total(second_best_support) << endl;
-            }
-            
-            cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
-                << total(best_support) << endl;
-                
-            cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
-#endif
-            if(second_best_allele != -1 &&
-                bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
-                total(best_support) >= min_total_support_for_call &&
-                total(second_best_support) >= min_total_support_for_call) {
-                // There's a second best allele, and it's not too biased to
-                // call, and both alleles exceed the minimum to call them
-                // present.
-                
-                // Say both are present
-                genotype.add_allele(best_allele);
-                genotype.add_allele(second_best_allele);
-                
-                // Compute the likelihood for a best/second best het
-                // Quick quality: combine likelihood and depth, using poisson for latter
-                // TODO: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-                gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), 0.5 * total(baseline_support))) +
-                    ln_to_log10(poisson_prob_ln(total(second_best_support), 0.5 * total(baseline_support)));
-                gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
-                
-                // Save the likelihood in the Genotype
-                genotype.set_likelihood(log10_to_ln(gen_likelihood));
-                
-                // Get minimum support for filter (not assuming it's second_best just to be sure)
-                min_site_support = min(total(second_best_support), total(best_support));
-                
-                // Make the call
-                *locus.add_genotype() = genotype;
-                
-            } else if(total(best_support) >= min_total_support_for_call) {
-                // The second best allele isn't present or isn't good enough,
-                // but the best allele has enough coverage that we can just call
-                // two of it.
-                
-                // Say the best is present twice
-                genotype.add_allele(best_allele);
-                genotype.add_allele(best_allele);
-                
-                // Compute the likelihood for hom best allele
-                gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support)));
-                gen_likelihood += min_likelihoods.at(best_allele);
-
-                // Save the likelihood in the Genotype
-                genotype.set_likelihood(log10_to_ln(gen_likelihood));
-
-                // Get minimum support for filter
-                min_site_support = total(best_support);
-                
-                // Make the call
-                *locus.add_genotype() = genotype;
-
-            } else {
-                // We can't really call this as anything.
-                
-                // Don't add the genotype to the locus
-            }
-        } else {
-            // Depth too low. Say we have no idea.
-            // TODO: elide variant?
-            
-            // Don't add the genotype to the locus
-        }
-        
-        // Find the total support for the Locus across all alleles
-        Support locus_support;
-        for (auto& s : supports) {
-            // Sum up all the Supports form all alleles (even the non-best/second-best).
-            locus_support += s;
-        }
-        // Save support
-        *locus.mutable_overall_support() = locus_support;
         
         // This function emits the given variant on the given primary path, as VCF.
-        auto emit_variant = [&](const Locus& locus, PrimaryPath& primary_path) {
+        auto emit_variant = [&site, &contig_names_by_path_name, &vcf, &augmented, this](const Locus& locus, PrimaryPath& primary_path) {
         
+            // Unpack the genotype back into best and second-best allele
+            auto& genotype = locus.genotype(0);
+            int best_allele = genotype.allele(0);
+            // If we called a single allele, we've lost the second-best allele info. But we won't need it, so we can just say -1.
+            int second_best_allele = (genotype.allele_size() >= 2 && genotype.allele(0) != genotype.allele(1)) ?
+                genotype.allele(1) :
+                -1;
+                
+            // Calculate the ID and sequence strings for all the alleles.
+            // TODO: we only use some of these
+            vector<string> sequences;
+            vector<string> id_lists;
+            // Also the flags for whether alts are reference (i.e. known)
+            vector<bool> is_ref;
+            
+            for (size_t i = 0; i < locus.allele_size(); i++) {
+                // For each allele path in the Locus
+                auto& path = locus.allele(i);
+                
+                // Make a stream for the sequence of the path
+                stringstream sequence_stream;
+                // And for the description of involved IDs
+                stringstream id_stream;
+                
+                for (size_t j = 0; j < path.mapping_size(); j++) {
+                    // For each mapping along the path
+                    auto& mapping = path.mapping(i);
+                    
+                    // Record the sequence
+                    string node_sequence = augmented.graph.get_node(mapping.position().node_id())->sequence();
+                    if (mapping.position().is_reverse()) {
+                        node_sequence = reverse_complement(node_sequence);
+                    }
+                    sequence_stream << node_sequence;
+                    
+                    if (j != 0) {
+                        // Add a separator
+                        id_stream << "_";
+                    }
+                    // Record the ID
+                    id_stream << mapping.position().node_id();
+                    
+                }
+                
+                // Remember the descriptions of the alleles
+                sequences.push_back(sequence_stream.str());
+                id_lists.push_back(id_stream.str());
+                // And whether they're reference or not
+                is_ref.push_back(is_reference(path, augmented));
+            }
+
             // Since the variable part of the site is after the first anchoring node, where does it start?
             // TODO: we calculate this twice...
             size_t variation_start = primary_path.get_index().by_id.at(site->start().node_id()).first
@@ -1421,11 +1121,14 @@ void Call2Vcf::call(
         
             // Keep track of the alleles that actually need to go in the VCF:
             // ref, best, and second-best (if any), some of which may overlap.
-            set<int> used_alleles;
-            used_alleles.insert(0);
-            used_alleles.insert(best_allele);
-            if(second_best_allele != -1) {
-                used_alleles.insert(second_best_allele);
+            // This is the order they will show up in the variant.
+            vector<int> used_alleles;
+            used_alleles.push_back(0);
+            if (best_allele != 0) {
+                used_alleles.push_back(best_allele);
+            }
+            if(second_best_allele != -1 && second_best_allele != 0) {
+                used_alleles.push_back(second_best_allele);
             }
         
             // Rewrite the sequences and variation_start to just represent the
@@ -1589,59 +1292,57 @@ void Call2Vcf::call(
                 variant.infoFlags["XREF"] = true;
             }
             
-            // Add depth for the variant and the samples
-            Support total_support = ref_support;
-            if(best_allele != 0) {
-                // Add in the depth from the best allele, which is not already counted
-                total_support += best_support;
-            }
-            if(second_best_allele != -1 && second_best_allele != 0) {
-                // Add in the depth from the second allele
-                total_support += second_best_support;
-            }
-            string depth_string = to_string((int64_t)round(total(total_support)));
+            // Set up the depth format field
             variant.format.push_back("DP");
+            // And allelic depth
+            variant.format.push_back("AD");
+            // And strand bias
+            variant.format.push_back("SB");
+            // Also allelic likelihoods (from minimum values found on their paths)
+            variant.format.push_back("AL");
+            // Also the alt allele depth
+            variant.format.push_back("XAAD");
+            
+            // Compute the total support for all the alts that will be appearing
+            Support total_support;
+            // And total alt allele depth for the alt alleles
+            Support alt_support;
+            for (int allele : used_alleles) {
+                // For all the alleles we are using, look at the support.
+                auto& support = locus.support(allele);
+                
+                // Set up allele-specific stats for the allele
+                variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(support))));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.forward())));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.reverse())));
+                variant.samples[sample_name]["AL"].push_back(to_string_ss(ln_to_log10(locus.allele_log_likelihood(allele))));
+                
+                // Sum up into total depth
+                total_support += support;
+                
+                if (allele != 0) {
+                    // It's not the primary reference allele
+                    alt_support += support;
+                }
+            }
+            
+            // Find the min total support of anything called
+            double min_site_support = INFINITY;
+            for (size_t i = 0; i < genotype.allele_size(); i++) {
+                // Min all the total supports from the alleles called as present
+                min_site_support = min(min_site_support, total(locus.support(genotype.allele(i))));
+            }
+
+            // Set the variant's total depth            
+            string depth_string = to_string((int64_t)round(total(total_support)));
             variant.samples[sample_name]["DP"].push_back(depth_string);
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
             
-            // Also allelic depths
-            variant.format.push_back("AD");
-            variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(ref_support))));
-            // And strand biases
-            variant.format.push_back("SB");
-            variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(ref_support.forward())));
-            variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(ref_support.reverse())));
-            // Also allelic likelihoods (from minimum values found on their paths)
-            variant.format.push_back("AL");
-            variant.samples[sample_name]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
-            if(best_allele != 0) {
-                // If our best allele isn't ref, it comes next.
-                variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(best_support))));
-                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(best_support.forward())));
-                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(best_support.reverse())));
-                variant.samples[sample_name]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
-            }
-            if(second_best_allele != -1 && second_best_allele != 0) {
-                // If our second best allele is real and not ref, it comes next.
-                variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(second_best_support))));
-                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(second_best_support.forward())));
-                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(second_best_support.reverse())));
-                variant.samples[sample_name]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
-            }
-            
-            // And total alt allele depth for the alt alleles
-            Support alt_support; // Defaults to 0
-            if(best_allele != 0) {
-                alt_support += best_support;
-            }
-            if(second_best_allele != -1 && second_best_allele != 0) {
-                alt_support += second_best_support;
-            }
-            variant.format.push_back("XAAD");
+            // And its depth of non-0 alleles
             variant.samples[sample_name]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
 
-            // Copy over the quality value
-            variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
+            // Phred-ify the likelihood into a quality
+            variant.quality = -10. * log10(1. - pow(10, ln_to_log10(genotype.log_likelihood())));
 
             // Apply Min Allele Depth cutoff and store result in Filter column
             variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
@@ -1660,33 +1361,38 @@ void Call2Vcf::call(
             
         };
         
-        if (convert_to_vcf) {
-            // We want to emit VCF
-            if(found_path != primary_paths.end()) {
-                // And this site is on a primary path
-                
-                // Emit the variant for this Locus
-                emit_variant(locus, found_path->second);
+        // Recursively type the site, using that support and an assumption of a diploid sample.
+        find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2, [&](const Locus& locus) {
+            // Now we have the Locus with call information
+        
+            if (convert_to_vcf) {
+                // We want to emit VCF
+                if(found_path != primary_paths.end()) {
+                    // And this site is on a primary path
+                    
+                    // Emit the variant for this Locus
+                    emit_variant(locus, found_path->second);
+                }
+                // Otherwise discard it as off-path
+                // TODO: update bases lost
+            } else {
+                // Emit the locus itself
+                locus_buffer.push_back(locus);
+                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
             }
-            // Otherwise discard it as off-path
-            // TODO: update bases lost
-        } else {
-            // Emit the locus itself
-            locus_buffer.push_back(locus);
-            stream::write_buffered(cout, locus_buffer, locus_buffer_size);
-        }
-        
-        // We called a site
-        called_loci++;
-        
-        // Mark all the nodes and edges in the site as covered
-        auto contents = site_manager.deep_contents(site, augmented.graph, true);
-        for (auto* node : contents.first) {
-            covered_nodes.insert(node);
-        }
-        for (auto* edge : contents.second) {
-            covered_edges.insert(edge);
-        }
+            
+            // We called a site
+            called_loci++;
+            
+            // Mark all the nodes and edges in the site as covered
+            auto contents = site_manager.deep_contents(site, augmented.graph, true);
+            for (auto* node : contents.first) {
+                covered_nodes.insert(node);
+            }
+            for (auto* edge : contents.second) {
+                covered_edges.insert(edge);
+            }
+        });
     }
     
     if (verbose) {
@@ -1820,6 +1526,38 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
     // And if we make it through it's a reference traversal.
     return true;
         
+}
+
+bool Call2Vcf::is_reference(const Path& path, AugmentedGraph& augmented) {
+    
+    // The path can't be empty because it's not clear if an empty path should be
+    // reference or not.
+    assert(path.mapping_size() != 0);
+    
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        // Check each mapping
+        auto& mapping = path.mapping(i);
+        
+        if (augmented.get_call(augmented.graph.get_node(mapping.position().node_id())) != CALL_REFERENCE) {
+            // We use a novel node
+            return false;
+        }
+        
+        if (i + 1 < path.mapping_size()) {
+            // Also look at the next mapping
+            auto& next_mapping = path.mapping(i + 1);
+            
+            // And see about the edge to it
+            Edge* edge = augmented.graph.get_edge(to_right_side(to_visit(mapping)), to_left_side(to_visit(next_mapping)));
+            if (augmented.get_call(edge) != CALL_REFERENCE) {
+                // We used a novel edge
+                return false;
+            }
+        }
+    }
+    
+    // If we get through everything it's reference.
+    return true;
 }
 
 }

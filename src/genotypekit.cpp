@@ -24,6 +24,14 @@ double AugmentedGraph::get_likelihood(Node* node) {
 double AugmentedGraph::get_likelihood(Edge* edge) {
     return edge_likelihoods.count(edge) ? edge_likelihoods.at(edge) : 0;
 }
+
+ElementCall AugmentedGraph::get_call(Node* node) {
+    return node_calls.count(node) ? node_calls.at(node) : CALL_UNCALLED;
+}
+
+ElementCall AugmentedGraph::get_call(Edge* edge) {
+    return edge_calls.count(edge) ? edge_calls.at(edge) : CALL_UNCALLED;
+}
     
 
 SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
