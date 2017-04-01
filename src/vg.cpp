@@ -2490,7 +2490,7 @@ void VG::from_gfa(istream& in, bool showp) {
     map<string, path_elem> n_to_p = gg.get_name_to_path();
     for (auto name_path : n_to_p){
         for (int np = 0; np < name_path.second.segment_names.size(); np++){
-            paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, name_path.second.orientations[np]);
+            paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
         }
     }
     if (reduce_overlaps) {
