@@ -506,6 +506,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // Decide which support vector we use to actually decide
     vector<Support>& supports = use_average_support ? average_supports : min_supports;
     
+    for (auto& support : supports) {
+        // Blit supports over to the locus
+        *locus.add_support() = support;
+    }
+    
     ////////////////////////////////////////////////////////////////////////////
     
     // Now look at all the paths for the site and pick the top 2.
@@ -766,10 +771,14 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // Populate the Locus with those traversals by converting to paths
         Path* converted = locus.add_allele();
         
+        // Start with the start mapping
+        *converted->add_mapping() = to_mapping(site.start(), augmented.graph);
         for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
             // Convert all the visits to Mappings and stick them in the Locus's Paths
             *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
         }
+        // Finish with the end
+        *converted->add_mapping() = to_mapping(site.end(), augmented.graph);
     }
     
     if (locus.genotype_size() > 0) {
@@ -1140,47 +1149,53 @@ void Call2Vcf::call(
                 size_t shortest_prefix = std::numeric_limits<size_t>::max();
                 
                 auto here = used_alleles.begin();
-                if (here != used_alleles.end()) {
-                    auto next = here;
-                    next++;
-                    while (next != used_alleles.end()) {
-                        // Consider each allele and the next one after it, as
-                        // long as we have both.
-                    
-                        // Figure out the shorter and the longer string
-                        string* shorter = &sequences.at(*here);
-                        string* longer = &sequences.at(*next);
-                        if (shorter->size() > longer->size()) {
-                            swap(shorter, longer);
-                        }
-                    
-                        // Calculate the match length for this pair
-                        size_t match_length;
-                        if (backward) {
-                            // Find out how far in from the right the first mismatch is.
-                            auto mismatch_places = std::mismatch(shorter->rbegin(), shorter->rend(), longer->rbegin());
-                            match_length = std::distance(shorter->rbegin(), mismatch_places.first);
-                        } else {
-                            // Find out how far in from the left the first mismatch is.
-                            auto mismatch_places = std::mismatch(shorter->begin(), shorter->end(), longer->begin());
-                            match_length = std::distance(shorter->begin(), mismatch_places.first);
-                        }
-                        
-                        // The shared prefix of these strings limits the longest
-                        // prefix shared by all strings.
-                        shortest_prefix = min(shortest_prefix, match_length);
-                    
-                        here = next;
-                        ++next;
-                    }
-                    
-                    // Return the shortest universally shared prefix
-                    return shortest_prefix;
-                    
-                } else {
-                    // Only one string. Say no prefix is in common...
+                if (here == used_alleles.end()) {
+                    // No strings.
+                    // Say no prefix is in common...
                     return (size_t) 0;
                 }
+                auto next = here;
+                next++;
+                
+                if (next == used_alleles.end()) {
+                    // Only one string.
+                    // Say no prefix is in common...
+                    return (size_t) 0;
+                }
+                
+                while (next != used_alleles.end()) {
+                    // Consider each allele and the next one after it, as
+                    // long as we have both.
+                
+                    // Figure out the shorter and the longer string
+                    string* shorter = &sequences.at(*here);
+                    string* longer = &sequences.at(*next);
+                    if (shorter->size() > longer->size()) {
+                        swap(shorter, longer);
+                    }
+                
+                    // Calculate the match length for this pair
+                    size_t match_length;
+                    if (backward) {
+                        // Find out how far in from the right the first mismatch is.
+                        auto mismatch_places = std::mismatch(shorter->rbegin(), shorter->rend(), longer->rbegin());
+                        match_length = std::distance(shorter->rbegin(), mismatch_places.first);
+                    } else {
+                        // Find out how far in from the left the first mismatch is.
+                        auto mismatch_places = std::mismatch(shorter->begin(), shorter->end(), longer->begin());
+                        match_length = std::distance(shorter->begin(), mismatch_places.first);
+                    }
+                    
+                    // The shared prefix of these strings limits the longest
+                    // prefix shared by all strings.
+                    shortest_prefix = min(shortest_prefix, match_length);
+                
+                    here = next;
+                    ++next;
+                }
+                
+                // Return the shortest universally shared prefix
+                return shortest_prefix;
             };
             // Trim off the shared prefix
             size_t shared_prefix = shared_prefix_length(false);
