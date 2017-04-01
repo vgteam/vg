@@ -161,32 +161,35 @@ DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
+# Dependencies that go into libvg's archive
+LIB_DEPS =
+LIB_DEPS += $(LIB_DIR)/libprotobuf.a
+LIB_DEPS += $(LIB_DIR)/libsdsl.a
+LIB_DEPS += $(LIB_DIR)/libssw.a
+LIB_DEPS += $(LIB_DIR)/libsnappy.a
+LIB_DEPS += $(LIB_DIR)/librocksdb.a
+LIB_DEPS += $(LIB_DIR)/libgcsa2.a
+LIB_DEPS += $(OBJ_DIR)/Fasta.o
+LIB_DEPS += $(LIB_DIR)/libhts.a
+LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libvcflib.a
+LIB_DEPS += $(LIB_DIR)/libgssw.a
+LIB_DEPS += $(LIB_DIR)/libvcfh.a
+LIB_DEPS += $(LIB_DIR)/libgfakluge.a
+LIB_DEPS += $(LIB_DIR)/libsupbub.a
+LIB_DEPS += $(LIB_DIR)/libsonlib.a
+LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
+LIB_DEPS += $(LIB_DIR)/libraptor2.a
+
 # common dependencies to build before all vg src files
-DEPS = 
-DEPS += $(LIB_DIR)/libprotobuf.a
+DEPS = $(LIB_DEPS)
 DEPS += $(CPP_DIR)/vg.pb.h
-DEPS += $(LIB_DIR)/libsdsl.a
-DEPS += $(LIB_DIR)/libssw.a
-DEPS += $(LIB_DIR)/libsnappy.a
-DEPS += $(LIB_DIR)/librocksdb.a
 DEPS += $(INC_DIR)/gcsa/gcsa.h
-DEPS += $(LIB_DIR)/libgcsa2.a
-DEPS += $(OBJ_DIR)/Fasta.o
-DEPS += $(LIB_DIR)/libhts.a
-DEPS += $(LIB_DIR)/libxg.a
-DEPS += $(LIB_DIR)/libvcflib.a
-DEPS += $(LIB_DIR)/libgssw.a
 DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
-DEPS += $(LIB_DIR)/libvcfh.a
-DEPS += $(LIB_DIR)/libgfakluge.a
 DEPS += $(INC_DIR)/gfakluge.hpp
-DEPS += $(LIB_DIR)/libsupbub.a
-DEPS += $(LIB_DIR)/libsonlib.a
-DEPS += $(LIB_DIR)/libpinchesandcacti.a
 DEPS += $(INC_DIR)/globalDefs.hpp
-DEPS += $(LIB_DIR)/libraptor2.a
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 
@@ -207,7 +210,7 @@ static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(LIB_DIR)/libvg.a: $(OBJ) $(DEPS)
-	ar rs $@ $^
+	ar rs $@ $(OBJ) $(LIB_DEPS)
 
 get-deps:
 	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev
