@@ -21,11 +21,11 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ### building
 
-Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need jq and bc.
+Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc curl unzip redland-utils librdf-dev bison flex
+                         jq bc rs curl unzip redland-utils librdf-dev bison flex
 
 You can also run `make get-deps`.
 
