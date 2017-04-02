@@ -234,8 +234,6 @@ void Mapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t
     
     double gc_content = estimate_gc_content();
 
-    //qual_adj_aligners.resize(alignment_threads);
-    //regular_aligners.resize(alignment_threads);
     for (int i = 0; i < alignment_threads; ++i) {
         qual_adj_aligners.push_back(new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score, 255, gc_content));
         regular_aligners.push_back(new Aligner(match, mismatch, gap_open, gap_extend));
@@ -1582,19 +1580,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     int total_multimaps = max_multimaps + extra_multimaps;
     double cluster_mq = 0;
 
-    /*
-#pragma omp critical
-    {
-        cerr << "aligning " << read1.name() << " + " << read2.name() << "\t"
-             << fragment_max << ":"
-             << fragment_size << ":"
-             << cached_fragment_length_mean << ":"
-             << cached_fragment_length_stdev << ":"
-             << cached_fragment_orientation << ":"
-             << cached_fragment_direction << endl;
-    }
-    */
-
     if(debug) {
         cerr << "align_paired_multi_simul "
              << "with " << read1.name() << " and "
@@ -1610,13 +1595,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
              << cached_fragment_orientation << ", "
              << cached_fragment_direction << ", "
              << since_last_fragment_length_estimate << ", " << endl;
-        /*
-             << endl
-             << total_multimaps << ", "
-             << max_mem_length << ", "
-             << only_top_scoring_pair  << ", "
-             << endl;
-        */
     }
 
     pair<vector<Alignment>, vector<Alignment>> results;
@@ -1659,8 +1637,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         // are the two mems in a different fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
-            //int unique_coverage = m1.length() + m2.length();
-            //int max_length = min(fragment_max, (fragment_size ? fragment_size : fragment_max));
             int max_length = fragment_max;
             int dist = abs(approx_dist);
 #ifdef debug_mapper
@@ -1684,14 +1660,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 if (dist >= max_length) {
                     return -std::numeric_limits<double>::max();
                 } else if (fragment_size) {
-                    //return fragment_length_pdf(dist); // * unique_coverage;
                     // exclude cases that don't match our model
                     if (!cached_fragment_orientation
                         && is_rev(m1_pos) == is_rev(m2_pos)
                         || cached_fragment_orientation
                         && is_rev(m1_pos) != is_rev(m2_pos)
                         || dist > fragment_size) {
-                        //|| relative_direction != cached_fragment_direction) {
                         return -std::numeric_limits<double>::max();
                     } else {
                         return fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
@@ -1703,11 +1677,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
             return -std::numeric_limits<double>::max();
-        } else { //if (m1.fragment == m2.fragment) {
+        } else {
             int max_length = 2 * (m1.length() + m2.length());
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
-            //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
             int unique_coverage = m1.length() + m2.length() - mems_overlap_length(m1, m2);
             approx_dist = abs(approx_dist);
 #ifdef debug_mapper
@@ -1720,7 +1693,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 // too far
                 return -std::numeric_limits<double>::max();
             } else {
-                //int distance = graph_distance(m1_pos, m2_pos, max_length);
+                // we may want to switch back to exact measurement, although the approximate metric is simpler and more reliable despite being less precise
+                // int distance = graph_distance(m1_pos, m2_pos, max_length); // enable for exact distance calculation
                 int distance = approx_dist;
 #ifdef debug_mapper
 #pragma omp critical
@@ -1753,11 +1727,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 
     // don't attempt to align if we reach the maximum number of multimaps
     //if (clusters.size() == total_multimaps) clusters.clear();
-
-    // now reconstruct the paired fragments from the threads
-    // for each thread we accept either both pairs or one fragment or the other
-    //
-    //  
+    // disabled as this seems to cause serious problems at low cluster sizes
 
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
@@ -2004,9 +1974,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             } else if (!fragment_size) {
                 imperfect_pair = true;
             }
-            //cerr << "aln\t" << aln1.name() << "\t" << aln2.name() << "\t" << j.first << "\t" << j.second << "\t"
-            //     << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl;
-            //<< fragment_length_mean() << "\t" << fragment_length_stdev() << "\t" 
         }
     }
 
