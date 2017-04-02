@@ -5024,6 +5024,7 @@ int main_map(int argc, char** argv) {
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;
+    int fragment_size = 0;
     double fragment_mean = 0;
     double fragment_stdev = 0;
     double fragment_sigma = 10;
@@ -5032,7 +5033,7 @@ int main_map(int argc, char** argv) {
     bool use_cluster_mq = false;
     float chance_match = 0.05;
     bool smooth_alignments = true;
-    bool use_fast_reseed = false;
+    bool use_fast_reseed = true;
     float drop_chain = 0.2;
     float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
@@ -5276,7 +5277,7 @@ int main_map(int argc, char** argv) {
             if (parts.size() == 1) {
                 convert(parts[0], fragment_max);
             } else if (parts.size() == 5) {
-                convert(parts[0], fragment_max);
+                convert(parts[0], fragment_size);
                 convert(parts[1], fragment_mean);
                 convert(parts[2], fragment_stdev);
                 convert(parts[3], fragment_orientation);
@@ -5473,7 +5474,7 @@ int main_map(int argc, char** argv) {
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
         if (fragment_mean) {
-            m->fragment_size = fragment_max;
+            m->fragment_size = fragment_size;
             m->cached_fragment_length_mean = fragment_mean;
             m->cached_fragment_length_stdev = fragment_stdev;
             m->cached_fragment_orientation = fragment_orientation;
@@ -5825,7 +5826,6 @@ int main_map(int argc, char** argv) {
                     cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
                                              << "\t" << alignments.front().identity()
                                              << "\t" << alignments.front().score()
-                                             << "\t" << alignments.front().mapping_quality()
                                              << "\t" << alignments.front().mapping_quality()
                                              << "\t" << elapsed_seconds.count() << endl;
                 } else {
