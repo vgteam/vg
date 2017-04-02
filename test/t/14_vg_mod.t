@@ -9,7 +9,7 @@ export LC_ALL="C" # force a consistent sort order
 
 plan tests 41
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]*" |  wc -l) \
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |  wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^S" | wc -l) \
     "vg mod yields a graph with only a particular path"
 
@@ -54,8 +54,8 @@ is $(vg view -Fv graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cu
 
 # shows that after mod we have == numbers of path annotations and nodes
 # in this one-path graph
-is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^P | cut -f 3 | grep -o "[0-9]*" |wc -l) \
-   $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
+is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |wc -l) \
+   $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep "^S" | wc -l) \
    "vg mod removes non-path nodes and edge"
 
 set -o pipefail

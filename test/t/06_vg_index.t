@@ -107,7 +107,7 @@ rm -rf x.idx q.vg.index qx.vg.gcsa qx.vg.gcsa.lcp
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -d x.idx x.vg
-is $(vg index -D -d x.idx | grep +g | grep +p | wc -l) $(vg view x.vg | grep ^P | cut -f 3 | grep -o "[0-9]*" | wc -l) "correct number of elements in path index"
+is $(vg index -D -d x.idx | grep +g | grep +p | wc -l) $(vg view x.vg | grep ^P | cut -f 3 | grep -o "[0-9]\+" | wc -l) "correct number of elements in path index"
 is $(vg index -D -d x.idx | grep +path_id | wc -l) 1 "path id recorded"
 is $(vg index -D -d x.idx | grep +path_name | wc -l) 1 "path name recorded"
 rm -rf x.idx x.vg
