@@ -4,7 +4,178 @@ namespace vg {
 
 using namespace std;
 
+
     
+
+SimpleConsistencyCalculator::~SimpleConsistencyCalculator(){
+
+}
+
+vector<bool> SimpleConsistencyCalculator::calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const {
+
+            std::function<set<int64_t>(Alignment a, SnarlTraversal s)> shared_sites = [&](Alignment a, SnarlTraversal s){
+                set<int64_t> aln_ids;
+                set<int64_t> trav_ids;
+                for (int i = 0; i < a.path().mapping_size(); i++){
+                    Mapping m = a.path().mapping(i);
+                    Position pos = m.position();
+                    if (pos.node_id() != 0){
+                        aln_ids.insert(pos.node_id());
+                    }
+                }
+
+                for (int i = 0; i < s.visits_size(); ++i){
+                    Visit v = s.visits(i);
+                    if (v.node_id() != 0){
+                        trav_ids.insert(v.node_id());
+                    }
+
+                }
+                vector<int64_t> ret;
+                std::set_intersection(aln_ids.begin(), aln_ids.end(),
+                        trav_ids.begin(), trav_ids.end(),
+                        std::back_inserter(ret))
+                        ;
+                return set<int64_t>(ret.begin(), ret.end());
+            };
+
+
+            //create a consistency bool for each traversal (i.e. possible path / theoretical allele)
+            vector<bool> consistencies(traversals.size());
+
+            // For each traversal
+            for (int i = 0; i < traversals.size(); ++i){
+                SnarlTraversal trav = traversals[i];
+                // Our snarltraversals run forward (i.e. along increading node_ids)
+                // Our Alignment path may run forward OR backward.
+                // We can check if an alignment is on the reverse strand and
+                // flip its path around to match our snarltraversal direction.
+
+                // Cases of consistency:
+                // 1. A read maps to either end of the snarl but no internal nodes
+                // 2. A read maps to both ends of the snarl but no internal nodes
+                // 3. A read maps to one end of the snarl and some internal nodes.
+                // 4. A read maps to both ends of the snarl and some internal nodes.
+                // 5. A read maps to internal nodes, but not the snarl ends
+                // A read may map to a node multiple times, or it may skip a node
+                // and put an insert there.
+                set<int64_t> common_ids = shared_sites(read, trav);
+                bool maps_to_front = common_ids.count(trav.snarl().start().node_id());
+                bool maps_to_end = common_ids.count(trav.snarl().end().node_id());
+                bool maps_internally = false;
+
+                Path read_path;
+                std::function<Path(Path)> reverse_path = [&](Path p){
+                    Path ret;
+                    for (int i = p.mapping_size() - 1; i >= 0; i--){
+                        Mapping* new_mapping = ret.add_mapping();
+                        Position* pos = new_mapping->mutable_position();
+                        pos->set_node_id(p.mapping(i).position().node_id());
+                        int offset = p.mapping(i).position().offset();
+                        pos->set_offset(offset);
+                        pos->set_is_reverse(!p.mapping(i).position().is_reverse());
+                        for (int j = 0; j < p.mapping(i).edit_size(); j++){
+                            Edit* new_edit = new_mapping->add_edit();
+                        }
+                    }
+                    return ret;
+                };
+                if (false){
+                    read_path = reverse_path(read.path());
+                }
+                else{
+                    read_path = read.path();
+                }
+
+                bool is_forward = true;
+                bool is_right = true;
+
+                if ((common_ids.size() > 1 && (maps_to_front | maps_to_end)) ||
+                        common_ids.size() > 2){
+                        maps_internally = true;
+                }
+
+                if (maps_to_front && maps_to_end && maps_internally){
+                    // The read is anchored on both ends of the Snarl. Check
+                    // the internal nodes of the Path for matches against the SnarlTraversal..
+
+                    consistencies[i] = true;
+                }
+                else if (maps_to_front && maps_to_end){
+                    // the read may represent a deletion,
+                    // which may be in our list of traversals
+                    // Either way, it's consistent with a valid traversal
+
+                    if (true){
+                        consistencies[i] = true;
+                    }
+                    else{
+                        consistencies[i] = false;
+                    }
+
+                }
+                else if (maps_to_front && maps_internally){
+                    // The read maps to either the first or last node of the Snarl
+                    // Check its internal nodes for matches between path and snarl
+
+
+                    consistencies[i] = true;
+                }
+                else if (maps_to_end && maps_internally){
+
+
+                    consistencies[i] = true;
+                }
+                else if (maps_to_front | maps_to_end){
+                    // maps to the front or end, but no internal nodes.
+                    // The read cannot be informative for any SnarlTraversal in this case.
+                    consistencies[i] = false;
+                    continue;
+                }
+                else{
+                    // maps to neither front nor end
+                    // The read could map internally, or not at all.
+                    // Unless we know that the internal sequence is unique we can't guaratee that
+                    // the mapping is consistent.
+                    consistencies[i] = false;
+
+                }
+
+            }
+}
+
+SimpleTraversalSupportCalculator::~SimpleTraversalSupportCalculator(){
+
+}
+
+vector<Support> SimpleTraversalSupportCalculator::calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies) const{
+        // Calculate the number of reads that support
+        // the Traversal, and how they support it.    
+        vector<Support> site_supports(traversals.size());
+
+        for (int i = 0; i < reads.size(); i++){
+            vector<bool> cons = consistencies[i];
+            for (int t = 0; t < traversals.size(); t++){
+                Support s;
+                if (cons[t] == true && !(reads[i]->read_on_reverse_strand())){
+                   s.set_forward(s.forward() + 1);
+                }
+                else if (cons[t] == true && reads[i]->read_on_reverse_strand()){
+                    s.set_reverse(s.reverse() + 1);
+                }
+                else{
+                    continue;
+                }
+            }
+            
+        }
+
+        return site_supports;
+        }
+
 CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
                                                  const string& hint_path_name,
                                                  bool filter_trivial_bubbles) :
@@ -12,6 +183,139 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
     // Make sure the graph is sorted.
     // cactus needs the nodes to be sorted in order to find a source and sink.
     graph.sort();
+}
+
+
+PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g) : graph(g){
+}
+vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
+    // Goal: enumerate traversals in the snarl supported by paths in the graph
+    // that may not cover the ends of the snarl.
+    // Label the Snarl's name as tthe hash of the variant and the SnarlTraversal's name
+    // as the name of the alt_path (i.e. "_alt_[a-z0-9]*_[0-9]*")s
+    vector<SnarlTraversal> ret;
+
+    // If the snarl is not an ultrabubble, just return an empty set of traversals.
+    if (!site.type() == ULTRABUBBLE){
+        return ret;
+    }
+
+    set<int64_t> snarl_node_ids;
+    // Get the Snarl's nodes
+    queue<Node*> node_q;
+    node_q.push(graph.get_node(site.start().node_id()));
+    while (!node_q.empty()){
+        Node* n = node_q.front();
+        node_q.pop();
+        if (n->id() == site.end().node_id()){
+            break;
+        }
+        vector<Edge*> edges = graph.edges_from(n);
+        for (auto e : edges){
+            snarl_node_ids.insert(e->to());
+            node_q.push(graph.get_node(e->to()));
+        }
+    }
+
+    // Get the variant paths at the snarl nodes.
+    set<string> var_path_names;
+    regex front ("(_alt_)(.*)");
+    regex alt_str ("(_alt_)");
+    regex back ("(_[0-9]*)");
+    map<string, list<Mapping> > gpaths = graph.paths._paths;
+    set<string> gpath_names;
+    for (auto x : gpaths){
+        gpath_names.insert(x.first);
+    }
+    map<string, set<string> > basename_to_pathnames;
+    map<string, bool> path_processed;
+
+
+   // Collect our paths which cross our snarl's nodes.
+    for (auto id : snarl_node_ids){
+        //cerr << "Processing node " << id << endl;
+        set<string> p_of_n = graph.paths.of_node(id);
+
+        for (auto pn : p_of_n){
+            if (!std::regex_match(pn, front)){
+                // don't include reference paths
+                continue;
+            }
+            string variant_hash = std::regex_replace(pn, alt_str, "");
+            variant_hash = std::regex_replace(variant_hash, back, "");
+            //cerr << variant_hash << endl;
+            regex varbase(variant_hash);
+
+            path_processed[pn] = false;
+            basename_to_pathnames[variant_hash].insert(pn);
+            var_path_names.insert(pn);
+            for (auto g : gpath_names){
+                if (std::regex_search(g, varbase)){
+                    basename_to_pathnames[variant_hash].insert(g);
+                    path_processed[g] = false;
+                    var_path_names.insert(g);
+                }
+            }
+        }
+    }
+    // for (auto p : var_path_names){
+    //     cerr << p << endl;
+    // }
+    // exit(1);
+    for (auto cpath : var_path_names){
+
+        //cerr << "Working on path " << cpath << endl;
+        if (!std::regex_match(cpath, front) || path_processed[cpath]){
+            cerr << "Path already processed " << cpath << endl;
+            continue;
+        }
+
+        if (std::regex_match(cpath, front)){
+            // We found an alt path at this location
+            // We need to check if it has any paths in the graph with no paths.
+            string variant_hash = std::regex_replace(cpath, alt_str, "");
+            variant_hash = std::regex_replace(variant_hash, back, "");
+            set<string> allele_path_names = basename_to_pathnames[variant_hash];
+            for (auto a : allele_path_names){
+                //cerr << "Processing path " << a << endl;
+                // for each allele, generate a traversal
+                SnarlTraversal fresh_trav;
+                fresh_trav.set_name(a);
+                // fill in our snarl field(s)
+                Snarl* t_sn = fresh_trav.mutable_snarl();
+                t_sn->set_name(variant_hash);
+                t_sn->mutable_start()->set_node_id(site.start().node_id());
+                t_sn->mutable_start()->set_backward(site.start().backward());
+                t_sn->mutable_end()->set_node_id(site.end().node_id());
+                t_sn->mutable_end()->set_backward(site.end().backward());
+
+                // Fill in our traversal
+                list<Mapping> ms = gpaths[a];
+                for (auto m : ms){
+                    int64_t n_id = m.position().node_id();
+                    bool backward = m.position().is_reverse();
+                    Visit* v = fresh_trav.add_visits();
+                    v->set_node_id(n_id);
+                    v->set_backward(backward);
+                }
+                ret.push_back(fresh_trav);
+                //cerr << "Finished path: " << a << endl;
+                path_processed[a] = true;
+            }
+
+        }
+    }
+        
+
+    // Check to make sure we got all our paths
+    for (auto p : path_processed){
+        if (!path_processed[p.first]){
+            cerr << "VARIANT PATH MISSED: " << p.first << endl;
+            exit(1617);
+        }
+    }
+
+    return ret;
 }
 
 SnarlManager CactusUltrabubbleFinder::find_snarls() {

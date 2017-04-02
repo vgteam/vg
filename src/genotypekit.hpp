@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <functional>
 #include <cmath>
+#include <regex>
 #include <limits>
 #include <unordered_set>
 #include <unordered_map>
@@ -55,8 +56,7 @@ public:
     
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
 };
-    
-    
+
 
 /**
  * Represents a strategy for computing consistency between Alignments and
@@ -76,6 +76,7 @@ public:
         const vector<SnarlTraversal>& traversals, const Alignment& read) const = 0;
 };
 
+
 /**
  * Represents a strategy for calculating Supports for SnarlTraversals.
  * Polymorphic base class/interface.
@@ -92,6 +93,8 @@ public:
         const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
         const vector<vector<bool>>& consistencies) const = 0;
 };
+
+
 
 // TODO: This needs to be redesigned vis a vis the Genotype object. Genotypes
 // need an accompanying Locus object in order to have the Path of the allele
@@ -156,7 +159,10 @@ public:
 };
 
 
-// And now the implementations
+
+/////////////////////////////////
+// And now the implementations //
+/////////////////////////////////
 
 // Represents an assertion that an element in the augmented graph results from
 // an event of a certain type.
@@ -203,6 +209,16 @@ struct AugmentedGraph {
     void clear();
 };
     
+
+
+class SimpleConsistencyCalculator : public ConsistencyCalculator{
+    public:
+    ~SimpleConsistencyCalculator();
+    vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
+};
+
+
 class CactusUltrabubbleFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
@@ -283,6 +299,15 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
+};
+
+class PathBasedTraversalFinder : public TraversalFinder{
+    vg::VG& graph;
+    public:
+    PathBasedTraversalFinder(vg::VG& graph);
+    virtual ~PathBasedTraversalFinder() = default;
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
 };
 
 /**
@@ -413,22 +438,35 @@ public:
     virtual double calculate_log_prior(const Genotype& genotype);
 };
 
+
+class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
+    // A set of traversals through the site
+    // A set of alignments to the site
+    // And a set of consistencies, one vector for each alignment,
+    //    one boolean per traversal.
+    public:
+    ~SimpleTraversalSupportCalculator();
+    vector<Support> calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies) const;
+};
+
 /**
  * TBD
  *
  */
-//class StandardVcfRecordConverter {
-//private:
+// class StandardVcfRecordConverter {
+// private:
 //    const ReferenceIndex& index;
 //    vcflib::VariantCallFile& vcf;
 //    const string& sample_name;
-//    
-//public:
+   
+// public:
 //    StandardVcfRecordConverter();
 //    virtual ~StandardVcfRecordConverter() = default;
-//    
+   
 //    virtual vcflib::Variant convert(const Locus& locus) = 0;
-//};
+// };
     
 // We also supply utility functions for working with genotyping Protobuf objects
 
