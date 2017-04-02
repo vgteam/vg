@@ -2438,7 +2438,6 @@ void VG::from_gfa(istream& in, bool showp) {
 
     map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
     map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
-    map<string, vector<path_elem> > seq_to_paths = gg.get_seq_to_paths();
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
@@ -2483,13 +2482,19 @@ void VG::from_gfa(istream& in, bool showp) {
             }
             add_edge(e);
         }
-        for (path_elem p: seq_to_paths[(it->second).name]){
-            paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
-        }
+        // for (path_elem p: seq_to_paths[(it->second).name]){
+        //     paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
+        // }
         // remove overlapping sequences from the graph
     }
+    map<string, path_elem> n_to_p = gg.get_name_to_path();
+    for (auto name_path : n_to_p){
+        for (int np = 0; np < name_path.second.segment_names.size(); np++){
+            paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
+        }
+    }
     if (reduce_overlaps) {
-        //bluntify();
+        bluntify();
     }
 }
 
@@ -6166,7 +6171,7 @@ void VG::to_dot(ostream& out,
 
 void VG::to_gfa(ostream& out) {
   GFAKluge gg;
-  gg.set_version();
+  gg.set_version(1.0);
 
     // TODO moving to GFAKluge
     // problem: protobuf longs don't easily go to strings....
@@ -6177,37 +6182,22 @@ void VG::to_gfa(ostream& out) {
         s_elem.name = to_string(n->id());
         s_elem.sequence = n->sequence();
         gg.add_sequence(s_elem);
-
-            auto& node_mapping = paths.get_node_mapping(n->id());
-            set<Mapping*> seen;
-            for (auto& p : node_mapping) {
-                for (auto* m : p.second) {
-                    if (seen.count(m)) continue;
-                    else seen.insert(m);
-                    const Mapping& mapping = *m;
-                    string cigar;
-                    if (mapping.edit_size() > 0) {
-                        vector<pair<int, char> > cigarv;
-                        mapping_cigar(mapping, cigarv);
-                        cigar = cigar_string(cigarv);
-                    } else {
-                        // empty mapping edit implies perfect match
-                        stringstream cigarss;
-                        cigarss << n->sequence().size() << "M";
-                        cigar = cigarss.str();
-                    }
-                    bool orientation = mapping.position().is_reverse();
-                    path_elem p_elem;
-                    p_elem.name = p.first;
-                    p_elem.source_name = to_string(n->id());
-                    p_elem.rank = mapping.rank();
-                    p_elem.is_reverse = orientation;
-                    p_elem.cigar = cigar;
-
-                    gg.add_path(p_elem.source_name, p_elem);
-                }
-            }
-
+    }
+    
+    map<string, list<Mapping> > pathmap = this->paths._paths;
+    for (auto p : pathmap){
+        path_elem p_elem;
+        p_elem.name = p.first;
+        for (auto m : p.second){
+            p_elem.segment_names.push_back( std::to_string(m.position().node_id()) );
+            p_elem.orientations.push_back( m.position().is_reverse() );
+            Node* n = get_node( m.position().node_id() );
+            stringstream cigaro;
+            //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
+            cigaro << n->sequence().size() << (m.position().is_reverse() ? "M" : "M");
+            p_elem.overlaps.push_back( cigaro.str() );
+        }
+        gg.add_path(p_elem.name, p_elem);
     }
 
     for (int i = 0; i < graph.edge_size(); ++i) {
@@ -6221,54 +6211,6 @@ void VG::to_gfa(ostream& out) {
         gg.add_link(l.source_name, l);
     }
     out << gg;
-
-
-    // map<id_t, vector<string> > sorted_output;
-    // out << "H" << "\t" << "HVN:Z:1.0" << endl;
-    // for (int i = 0; i < graph.node_size(); ++i) {
-    //     Node* n = graph.mutable_node(i);
-    //     stringstream s;
-    //     s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
-    //     auto& node_mapping = paths.get_node_mapping(n->id());
-    //     set<Mapping*> seen;
-    //     for (auto& p : node_mapping) {
-    //         for (auto* m : p.second) {
-    //             if (seen.count(m)) continue;
-    //             else seen.insert(m);
-    //             const Mapping& mapping = *m;
-    //             string cigar;
-    //             if (mapping.edit_size() > 0) {
-    //                 vector<pair<int, char> > cigarv;
-    //                 mapping_cigar(mapping, cigarv);
-    //                 cigar = cigar_string(cigarv);
-    //             } else {
-    //                 // empty mapping edit implies perfect match
-    //                 stringstream cigarss;
-    //                 cigarss << n->sequence().size() << "M";
-    //                 cigar = cigarss.str();
-    //             }
-    //             string orientation = mapping.position().is_reverse() ? "-" : "+";
-    //             s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-    //               << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
-    //         }
-    //     }
-    //     sorted_output[n->id()].push_back(s.str());
-    // }
-    // for (int i = 0; i < graph.edge_size(); ++i) {
-    //     Edge* e = graph.mutable_edge(i);
-    //     stringstream s;
-    //     s << "L" << "\t" << e->from() << "\t"
-    //       << (e->from_start() ? "-" : "+") << "\t"
-    //       << e->to() << "\t"
-    //       << (e->to_end() ? "-" : "+") << "\t"
-    //       << "0M" << endl;
-    //     sorted_output[e->from()].push_back(s.str());
-    // }
-    // for (auto& chunk : sorted_output) {
-    //     for (auto& line : chunk.second) {
-    //         out << line;
-    //     }
-    // }
 }
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {

@@ -12,7 +12,7 @@ vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
 vg sim -a -s 1337 -n 100 -x tiny.vg.xg -l 30 > reads.gam
 vg map -G reads.gam -x tiny.vg.xg -g tiny.vg.gcsa > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
-vg genotype tiny.vg tiny.gam.index >tiny.loci
+vg genotype tiny.vg tiny.gam.index > tiny.loci
 is $(vg locify -g tiny.gam.index -x tiny.vg.xg -l tiny.loci -f -n -s loci.sorted | vg view -a - | wc -l) 100 "locify produces output for each input alignment"
 is $(cat loci.sorted | wc -l) 6 "the sorted list of loci is the right length"
 is $(head -1 loci.sorted) "1+0_1+0" "the first locus is as expected"

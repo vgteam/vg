@@ -56,11 +56,6 @@ class Filter{
 
         Alignment path_length_filter(Alignment& aln);
 
-        Alignment one_end_anchored_filter(Alignment& aln);
-        Alignment interchromosomal_filter(Alignment& aln);
-        Alignment insert_size_filter(Alignment& aln);
-        Alignment orientation_filter(Alignment& aln);
-
         /*PE Functions*/
         pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);

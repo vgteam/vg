@@ -257,6 +257,9 @@ message SnarlTraversal {
 
     // A Snarl with the start and end Visits filled in to label which Snarl these traverse.
     Snarl snarl = 2;
+    // The name of the traversal can be used for a variant allele id (e.g. <parentSnarlHash>_0, <parentSnarlHash>_1...
+    // or by some other arbitrary annotation , unique or non-unique, e.g. deleteterious, gain_of_function, etc., though these
+    // will be lost in any indices).
     string name = 3;
 }
 
