@@ -6715,64 +6715,6 @@ int main_deconstruct(int argc, char** argv){
             }
 
         }
-
-    VG* graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new VG(in);
-    });
-
-    Deconstructor decon = Deconstructor(graph);
-    if (!xg_name.empty()){
-        ifstream xg_stream(xg_name);
-        if(!xg_stream) {
-            cerr << "Unable to open xg index: " << xg_name << endl;
-            exit(1);
-        }
-
-        xg::XG* xindex = new  xg::XG(xg_stream);
-        decon.set_xg(xindex);
-    }
-
-		if (unroll_steps > 0){
-			cerr << "Unrolling " << unroll_steps << " steps..." << endl;
-            decon.unroll_my_vg(unroll_steps);
-			cerr << "Done." << endl;
-		}
-
-        if (dagify){
-            int dagify_steps = 3;
-            cerr << "DAGifying..." << endl;
-            decon.dagify_my_vg(dagify_steps);
-            cerr << "Done." << endl;
-        }
-
-
-
-    // At this point, we can detect the superbubbles
-
-    map<pair<vg::id_t, vg::id_t>, vector<vg::id_t> > sbs = decon.get_all_superbubbles();
-
-
-    if (compact_steps > 0){
-        cerr << "Compacting superbubbles of graph " << compact_steps << " steps..." << endl;
-        decon.compact(compact_steps);
-        cerr << "Done." << endl;
-    }
-    if (print_sbs){
-        for (auto s: sbs){
-            cout << s.first.first << "\t";
-            cout << "\t" << s.first.second << endl;
-        }
-    }
-    else{
-        if (xg_name.empty()){
-            cerr << "An xg index must be provided for full deconstruction." << endl;
-            exit(1);
-        }
-        decon.sb2vcf( outfile);
-    }
-    /* Find superbubbles */
-
     return 0;
 }
 
