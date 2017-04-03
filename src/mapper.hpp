@@ -75,7 +75,6 @@ public:
     MaximalExactMatch mem;
     vector<pair<MEMChainModelVertex*, double> > next_cost; // for forward
     vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
-    vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
     int approx_position;
@@ -98,7 +97,8 @@ public:
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
-        int position_depth = 3);
+        int position_depth = 3,
+        int max_connections = 10);
     void score(const set<MEMChainModelVertex*>& exclude);
     MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
@@ -253,8 +253,8 @@ public:
     double estimate_gc_content(void);
     int random_match_length(double chance_random);
     double graph_entropy(void);
-    void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
-    void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend);
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
@@ -283,14 +283,6 @@ public:
 
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
     vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq);
-    // helper for computing the number of bases in the query covered by a cluster
-    int cluster_coverage(const vector<MaximalExactMatch>& cluster);
-    // helper to tell if mems are ovelapping
-    bool mems_overlap(const MaximalExactMatch& mem1,
-                      const MaximalExactMatch& mem2);
-    // helper to tell if clusters have any overlap
-    bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                          const vector<MaximalExactMatch>& cluster2);
     // use mapper parameters to determine which clusters we should drop
     set<const vector<MaximalExactMatch>* > clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters);
 
@@ -312,6 +304,8 @@ public:
     void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // compute the uniqueness metric based on the MEMs in the cluster
+    double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
     Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip);
 
@@ -533,11 +527,16 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
-    int8_t full_length_alignment_bonus;
     bool simultaneous_pair_alignment;
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
+    float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int cache_size;
     int mate_rescues;
+    int8_t alignment_match;
+    int8_t alignment_mismatch;
+    int8_t alignment_gap_open;
+    int8_t alignment_gap_extension;
+    int8_t full_length_alignment_bonus;
 
 };
 
@@ -545,6 +544,19 @@ public:
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 const string mems_to_json(const vector<MaximalExactMatch>& mems);
 set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes);
+// helper for computing the number of bases in the query covered by a cluster
+int cluster_coverage(const vector<MaximalExactMatch>& cluster);
+// helper to tell if mems are ovelapping
+bool mems_overlap(const MaximalExactMatch& mem1,
+                  const MaximalExactMatch& mem2);
+// distance of overlap, or 0 if there is no overlap
+int mems_overlap_length(const MaximalExactMatch& mem1,
+                        const MaximalExactMatch& mem2);
+// helper to tell if clusters have any overlap
+bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
+                      const vector<MaximalExactMatch>& cluster2);
+
+int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction);
 
 }
 
