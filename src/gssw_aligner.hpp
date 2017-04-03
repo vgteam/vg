@@ -117,13 +117,16 @@ namespace vg {
                                      int max_mapping_quality,
                                      bool fast_approximation,
                                      double cluster_mq,
-                                     bool use_cluster_mq);
+                                     bool use_cluster_mq,
+                                     int overlap_count);
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             int max_mapping_quality,
                                             bool fast_approximation,
                                             double cluster_mq,
-                                            bool use_cluster_mq);
+                                            bool use_cluster_mq,
+                                            int overlap_count1,
+                                            int overlap_count2);
         
         // Convert a score to an unnormalized log likelihood for the sequence.
         // Requires log_base to have been set.

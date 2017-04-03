@@ -4666,13 +4666,14 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [65536]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [32]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.2]" << endl
+         << "    -L, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
@@ -4726,7 +4727,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     string hts_file;
     bool keep_secondary = false;
-    int hit_max = 65536;
+    int hit_max = 512;
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
@@ -4747,18 +4748,19 @@ int main_map(int argc, char** argv) {
     bool mem_chaining = true;
     int max_target_factor = 100;
     int buffer_size = 100;
-    int match = 1;
-    int mismatch = 4;
-    int gap_open = 6;
-    int gap_extend = 1;
-    int full_length_bonus = 5;
+    int8_t match = 1;
+    int8_t mismatch = 4;
+    int8_t gap_open = 6;
+    int8_t gap_extend = 1;
+    int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 512;
+    int extra_multimaps = 32;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;
+    int fragment_size = 0;
     double fragment_mean = 0;
     double fragment_stdev = 0;
     double fragment_sigma = 10;
@@ -4767,8 +4769,9 @@ int main_map(int argc, char** argv) {
     bool use_cluster_mq = false;
     float chance_match = 0.05;
     bool smooth_alignments = true;
-    bool use_fast_reseed = false;
-    float drop_chain = 0.4;
+    bool use_fast_reseed = true;
+    float drop_chain = 0.2;
+    float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
@@ -4823,6 +4826,7 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'l'},
                 {"chance-match", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
+                {"mq-overlap", required_argument, 0, 'L'},
                 {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
@@ -4830,7 +4834,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:",
                          long_options, &option_index);
 
 
@@ -4926,6 +4930,10 @@ int main_map(int argc, char** argv) {
             drop_chain = atof(optarg);
             break;
 
+        case 'L':
+            mq_overlap = atof(optarg);
+            break;
+
         case 'G':
             gam_input = optarg;
             break;
@@ -5005,7 +5013,7 @@ int main_map(int argc, char** argv) {
             if (parts.size() == 1) {
                 convert(parts[0], fragment_max);
             } else if (parts.size() == 5) {
-                convert(parts[0], fragment_max);
+                convert(parts[0], fragment_size);
                 convert(parts[1], fragment_mean);
                 convert(parts[2], fragment_stdev);
                 convert(parts[3], fragment_orientation);
@@ -5184,6 +5192,7 @@ int main_map(int argc, char** argv) {
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
+        m->mq_overlap = mq_overlap;
         m->min_mem_length = (min_mem_length > 0 ? min_mem_length
                              : m->random_match_length(chance_match));
         m->mem_reseed_length = round(mem_reseed_factor * m->min_mem_length);
@@ -5204,7 +5213,7 @@ int main_map(int argc, char** argv) {
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
         if (fragment_mean) {
-            m->fragment_size = fragment_max;
+            m->fragment_size = fragment_size;
             m->cached_fragment_length_mean = fragment_mean;
             m->cached_fragment_length_stdev = fragment_stdev;
             m->cached_fragment_orientation = fragment_orientation;
@@ -5556,7 +5565,6 @@ int main_map(int argc, char** argv) {
                     cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
                                              << "\t" << alignments.front().identity()
                                              << "\t" << alignments.front().score()
-                                             << "\t" << alignments.front().mapping_quality()
                                              << "\t" << alignments.front().mapping_quality()
                                              << "\t" << elapsed_seconds.count() << endl;
                 } else {
@@ -6425,7 +6433,7 @@ int main_locify(int argc, char** argv){
             }
             // for position in mapping
             map<pos_t, int> ref_positions;
-            map<int, Edit> edits;
+            map<pos_t, Edit> edits;
             decompose(allele, ref_positions, edits);
             // warning: uses only reference positions!!!
             for (auto& pos : ref_positions) {
