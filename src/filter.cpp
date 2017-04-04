@@ -224,8 +224,20 @@ namespace vg{
         // <--  <--
         bool f_rev = false;
         bool s_rev = false;
+        
+        if (! (aln_first.mapping_quality() > 0 && aln_second.mapping_quality() > 0)){
+            return std::make_pair(Alignment(), Alignment());
+        }
+
         Path f_path = aln_first.path();
         Path s_path = aln_second.path();
+        // for (int i = 0; i < aln_first.fragment_size(); i++){
+        //     cerr << aln_first.name() << " " << aln_first.fragment(i).length() << endl;
+        // }
+        // for (int i = 0; i < aln_second.fragment_size(); i++){
+        //     cerr << aln_second.name() << " " << aln_second.fragment(i).length() << endl;
+        // }
+        // bool flipped = (aln_first.fragment(0).length());
         for (int i = 0; i < f_path.mapping_size(); i++){
             if (f_path.mapping(i).position().is_reverse()){
                 f_rev = true;
@@ -241,11 +253,11 @@ namespace vg{
         if (f_rev == s_rev){
             return make_pair(aln_first, aln_second);
         }
-        else if (f_rev == true && s_rev == false){
-            return make_pair(aln_first, aln_second);
-        }
+        //else if (f_rev == true && s_rev == false){
+        //    return make_pair(aln_first, aln_second);
+       // }
         else{
-
+            return make_pair(Alignment(), Alignment());
         }
 
     }

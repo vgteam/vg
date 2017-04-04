@@ -12,14 +12,9 @@ namespace unittest
 
 using namespace std;
 
-TEST_CASE("paired-end reads that are one-end anchored are correctly reported.", "[scrub]")
+TEST_CASE("paired-end reads that are one-end anchored are correctly reported.", "[sift]")
 {
 
-    // Make some deletion reads
-
-    // make some insertion reads
-
-    // make some inversion reads
     Filter ff;
     const string oea_one_json = R"(
                 {

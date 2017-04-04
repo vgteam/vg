@@ -70,7 +70,7 @@ int main_sift(int argc, char** argv){
     bool remap = false;
 
 
-    bool do_all = true;
+    bool do_all = false;
 
     bool do_orientation = false;
     bool do_oea = false;
@@ -114,7 +114,7 @@ int main_sift(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "ht:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r",
+        c = getopt_long (argc, argv, "hut:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -230,15 +230,6 @@ int main_sift(int argc, char** argv){
     
     
 
-    function<bool(Alignment&)> single_diff = [&](Alignment& aln){
-        bool anchored = false;
-        for (int i = 0; i < aln.path().mapping_size(); ++i){
-            // check if anchored on both sides
-            // check for small mismatches (to/from len diff or sequence)
-        }
-        return true;
-    };
-
     //vector<Alignment> orphaned_selected;
     vector<Alignment> just_fine;
     vector<Alignment> perfect;
@@ -275,27 +266,44 @@ int main_sift(int argc, char** argv){
     ofstream depth_stream;
 
     unmapped_stream.open(unmapped_fn);
+    discordant_stream.open(discordant_fn);
 
-    std::function<void()> write_all = [&](){
-
-    };
 
 
 
 
     std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
         pair<Alignment, Alignment> ret;
-        if (do_orientation){
+        bool flagged = false;
+
+        if (do_unmapped && !flagged){
+            if (alns_first.mapping_quality() == 0 ||
+                alns_second.mapping_quality() == 0){
+
+                    #pragma omp critical (unmapped_selected)
+                    {
+                        flagged = true;
+                        unmapped_selected.push_back(alns_first);
+                        unmapped_selected.push_back(alns_second);
+                    }
+                }
+        }
+
+        if (do_orientation && !flagged){
             
             ret = ff.pair_orientation_filter(alns_first, alns_second);
-            #pragma omp critical (discordant_selected)
+            if (ret.first.name() != "" || ret.first.name() != ""){
+                #pragma omp critical (discordant_selected)
             {
+                flagged = true;
                 discordant_selected.push_back(alns_first);
                 discordant_selected.push_back(alns_second);
             }
+            }
+            
 
         }
-        if (do_oea){
+        if (do_oea && !flagged){
             ret = ff.one_end_anchored_filter(alns_first, alns_second);
             #pragma omp critical (oea_selected)
             {
@@ -304,7 +312,7 @@ int main_sift(int argc, char** argv){
             }
 
         }
-        if (do_insert_size){
+        if (do_insert_size && !flagged){
 
             #pragma omp critial (insert_selected)
             {
@@ -314,7 +322,7 @@ int main_sift(int argc, char** argv){
 
 
         }
-        if (do_split_read){
+        if (do_split_read && !flagged){
             // first check softclip with a default size of 15
             // then get the position of the clip start
             // then remap the clipped/unclipped portions if required.
@@ -333,21 +341,21 @@ int main_sift(int argc, char** argv){
             }
 
         }
-        if (do_reversing){
-            Alignment x = ff.reversing_filter(alns_first);
-            Alignment y = ff.reversing_filter(alns_second);
-            if (x.name() != "" || y.name() != ""){
-            #pragma omp critical (reversing_selected)
-            {
-                reversing_selected.push_back(alns_first);
-                reversing_selected.push_back(alns_second);
-            }
-            }
+        if (do_reversing && !flagged){
+            //Alignment x = ff.reversing_filter(alns_first);
+            //Alignment y = ff.reversing_filter(alns_second);
+           // if (x.name() != "" || y.name() != ""){
+            // #pragma omp critical (reversing_selected)
+            // {
+            //     reversing_selected.push_back(alns_first);
+            //     reversing_selected.push_back(alns_second);
+            // }
+            // }
        
 
 
         }
-        if (do_softclip){
+        if (do_softclip && !flagged){
 
             Alignment x = ff.soft_clip_filter(alns_first);
             Alignment y = ff.soft_clip_filter(alns_second);
@@ -359,7 +367,7 @@ int main_sift(int argc, char** argv){
             }
 
         }
-        if (do_quality){
+        if (do_quality && !flagged){
 
             #pragma omp critical (quality_selected)
             {
@@ -368,7 +376,7 @@ int main_sift(int argc, char** argv){
             }
 
         }
-        if (do_depth){
+        if (do_depth && !flagged){
 
             #pragma omp critical (depth_selected)
             {
@@ -377,19 +385,10 @@ int main_sift(int argc, char** argv){
             }
             
         }
-        if (do_unmapped){
-            if (alns_first.path().mapping_size() == 0 ||
-                alns_second.path().mapping_size() == 0){
-
-                    #pragma omp critical (unmapped_selected)
-                    {
-                        unmapped_selected.push_back(alns_first);
-                        unmapped_selected.push_back(alns_second);
-                    }
-                }
-        }
+        
 
         stream::write_buffered(unmapped_stream, unmapped_selected, 100);
+        stream::write_buffered(discordant_stream, discordant_selected, 100);
 
 
     };
@@ -405,7 +404,7 @@ int main_sift(int argc, char** argv){
            if (!ff.soft_clip_filter(aln).name().empty()){
                 clipped_selected.push_back(aln);
            }
-           stream::write_buffered(clipped_stream, clipped_selected, 1000);
+           //stream::write_buffered(clipped_stream, clipped_selected, 1000);
 
         }
         if (do_quality){
@@ -421,8 +420,7 @@ int main_sift(int argc, char** argv){
 
 if (alignment_file == "-"){
     stream::for_each_interleaved_pair_parallel(cin, pair_filters);
-    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
-    stream::write_buffered(oea_stream, one_end_anchored, 0);
+    //stream::write_buffered(oea_stream, one_end_anchored, 0);
 }
 else{
     ifstream in;
@@ -443,6 +441,9 @@ else{
         help_sift(argv);
     }
 }
+stream::write_buffered(unmapped_stream, unmapped_selected, 0);
+stream::write_buffered(discordant_stream, discordant_selected, 0);
+
 
 
     buffer.clear();
