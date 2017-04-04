@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 45
+plan tests 46
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
@@ -82,6 +82,12 @@ xg -i x.xg -x > part.vg
 is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 4 "the gPBWT contains the expected number of threads"
 
 rm -f x.vg x.xg part.vg x.gcsa
+
+vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
+vg index -x x.xg -v small/x.vcf.gz -H haps.bin x.vg
+is $(du -b haps.bin | cut -f 1) 2264 "threads may be exported to binary for use in GBWT construction"
+
+rm -f x.vg x.xg part.vg x.gcsa haps.bin
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
@@ -188,3 +194,5 @@ rm -f big.vg
 
 rm -f t.gcsa
 rm -f x.vg
+
+rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg

@@ -35,6 +35,7 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
+         << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
@@ -68,6 +69,22 @@ void help_index(char** argv) {
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
+
+bool write_phase_threads(const vector<xg::XG::thread_t>& phase_threads, const string& output_filename) {
+    ofstream output(output_filename, std::ios::binary);
+    if (!output.is_open()) return false;
+    for (auto& thread : phase_threads) {
+        for (const xg::XG::ThreadMapping& mapping : thread) {
+            int64_t i = mapping.node_id;
+            if (mapping.is_reverse) i *= -1;
+            output.write((const char*)&i, sizeof(int64_t));
+        }
+        int64_t j = 0;
+        output.write((const char*)&j, sizeof(int64_t));
+    }
+    return true;
+}
+
 #define debug
 int main_index(int argc, char** argv) {
 
@@ -107,6 +124,7 @@ int main_index(int argc, char** argv) {
     size_t size_limit = 200; // in gigabytes
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
+    string binary_haplotype_output;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -144,11 +162,12 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"write-haps", required_argument, 0, 'H'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoH:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -167,6 +186,10 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+
+        case 'H':
+            binary_haplotype_output = optarg;
             break;
             
         case 'r':
@@ -829,7 +852,14 @@ int main_index(int argc, char** argv) {
 
             // Now insert all the threads in a batch into the known-DAG VCF-
             // derived graph.
-            index.insert_threads_into_dag(all_phase_threads);
+            if (!binary_haplotype_output.empty()) {
+                if (!write_phase_threads(all_phase_threads, binary_haplotype_output)) {
+                    cerr << "could not write binary haplotypes to " << binary_haplotype_output << endl;
+                    return 1;
+                }
+            } else {
+                index.insert_threads_into_dag(all_phase_threads);
+            }
             all_phase_threads.clear();
 
         }
