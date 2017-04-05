@@ -584,7 +584,8 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
                     if (traversal.visits_size() == 1) {
                         auto& visit = traversal.visits(0);
                         
-                        if(visit.node_id() == 0 && visit.snarl() == *child) {
+                        if(visit.node_id() == 0 && visit.snarl().start() == child->start() &&
+                            visit.snarl().end() == child->end()) {
                             found = true;
                         }
                     }
