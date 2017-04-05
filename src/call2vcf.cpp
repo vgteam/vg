@@ -444,20 +444,29 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // There's a next visit
                 auto& next_visit = traversal.visits(i + 1);
                 
-                // Get the edge to it
-                Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(next_visit));
-                if (next_edge == nullptr) {
-                    cerr << "Missing edge from " << pb2json(visit) << " to " << pb2json(next_visit) << endl;
-                    cerr << "Traversal: " << endl;
-                    for (size_t j = 0; j < traversal.visits_size(); j++) {
-                        cerr << "\t" << pb2json(traversal.visits(j)) << endl;
+                if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+                    to_right_side(visit).flip() == to_left_side(next_visit)) {
+                    
+                    // These are two back-to-back child snarl visits, which
+                    // share a node and have no connecting edge.
+                    cerr << "No edge needed for back-to-back child snarls" << endl;
+                    
+                } else {
+                    // Get the edge to it
+                    Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(next_visit));
+                    if (next_edge == nullptr) {
+                        cerr << "Missing edge from " << pb2json(visit) << " to " << pb2json(next_visit) << endl;
+                        cerr << "Traversal: " << endl;
+                        for (size_t j = 0; j < traversal.visits_size(); j++) {
+                            cerr << "\t" << pb2json(traversal.visits(j)) << endl;
+                        }
                     }
+                    assert(next_edge != nullptr);
+                    // Min in its support
+                    here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
+                    // And use its likelihood in the min
+                    min_likelihood = min(min_likelihood, augmented.get_likelihood(next_edge));
                 }
-                assert(next_edge != nullptr);
-                // Min in its support
-                here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
-                // And use its likelihood in the min
-                min_likelihood = min(min_likelihood, augmented.get_likelihood(next_edge));
             } else {
                 // Get the edge to the end of the snarl.
                 Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(site.end()));
@@ -767,8 +776,22 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 
                 // Then blit the child's best path over
                 auto& child_traversal = child_traversals.at(child).at(0);
-                // First the entry node
-                *concrete_traversal.add_visits() = child->start();
+                
+                if (i != 0) {
+                    // There was a previous visit. It may have been a previous
+                    // back-to-back snarl.
+                    auto& last_visit = abstract_traversal.visits(i - 1);
+                    if (last_visit.node_id() == 0 && to_right_side(last_visit).flip() == to_left_side(abstract_visit)) {
+                        // It was indeed a previous back to back site. Don't add the entry node!
+                        cerr << "Skip entry node for back-to-back sites" << endl;
+                    } else {
+                        // First the entry node
+                        *concrete_traversal.add_visits() = child->start();
+                    }
+                } else {
+                    // First the entry node
+                    *concrete_traversal.add_visits() = child->start();
+                }
                 for (size_t j = 0; j < child_traversal.visits_size(); j++) {
                     // All the internal visits
                     *concrete_traversal.add_visits() = child_traversal.visits(j);

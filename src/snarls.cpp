@@ -476,6 +476,37 @@ namespace vg {
         // Find the right side of the visit we're on
         NodeSide right_side = to_right_side(visit);
         
+        if (visit.node_id() == 0) {
+            // We're leaving a child snarl, so we are going to need to check if
+            // another child snarl shares this boundary node in the direction
+            // we're going.
+            
+            // Make a node traversal for going towards that right side
+            NodeTraversal out_of_child(graph.get_node(right_side.node), !right_side.is_end);
+            
+            if (child_boundary_index.count(out_of_child)) {
+                // We leave the one child and immediately enter another!
+                
+                // Make a visit to it
+                Visit child_visit;
+                transfer_boundary_info(*child_boundary_index.at(out_of_child), *child_visit.mutable_snarl());
+                
+                if (right_side.node == child_visit.snarl().end().node_id()) {
+                    // We came in its end
+                    child_visit.set_backward(true);
+                } else {
+                    // We should have come in its start
+                    assert(right_side.node == child_visit.snarl().start().node_id());
+                }
+                
+                // Bail right now, so we don'ttry to explore inside this child snarl.
+                to_return.push_back(child_visit);
+                return to_return;
+                
+            }
+            
+        }
+        
         for (auto attached : graph.sides_of(right_side)) {
             // For every NodeSide attached to the right side of this visit
             
