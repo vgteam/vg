@@ -1036,7 +1036,6 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     size_t site_start = index.by_id.at(site.start().node_id()).first;
     size_t site_end = index.by_id.at(site.end().node_id()).first;
     
-#define debug    
 #ifdef debug
     cerr << "Site starts with " << to_node_traversal(site.start(), augmented.graph)
         << " at " << site_start
@@ -1047,7 +1046,6 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         cerr << "\tContains node " << node->id() << endl;
     }
 #endif
-#undef debug
 
     // The primary path may go through the site backward. So get the primary min and max coords
     size_t primary_min = min(site_start, site_end);
@@ -1063,11 +1061,13 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         if(found == index.by_start.end()) {
             throw runtime_error("No backbone node found when tracing through site!");
         }
+#ifdef debug
         cerr << "Ref node: " << found->second << " at " << ref_node_start << "/" << primary_max << endl;
+#endif
         if((*found).first > primary_max) {
             // The next reference node we can find is out of the space
             // being replaced. We're done.
-            if (verbose || true) {
+            if (verbose) {
                 cerr << "Stopping for out-of-bounds node" << endl;
             }
             break;
@@ -1125,8 +1125,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                     found_visit = found->second.to_visit();
                     here = augmented.graph.get_node(found_visit.node_id());
                 } else {
-                    // It's also the start node of another child snarl, so loop on it again
+                    // It's also the start node of another child snarl, so loop
+                    // on it again. Do nothing here.
+#ifdef debug
                     cerr << "Back-to-back child snarls!" << endl;
+#endif
                 }
             }
             
@@ -1150,7 +1153,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             ref_node_start = found->first + visited_node->sequence().size();
         }
         
-        cerr << "Added visit: " << pb2json(ref_path_for_site.back()) << endl;        
+#ifdef debug
+        cerr << "Added visit: " << pb2json(ref_path_for_site.back()) << endl; 
+#endif   
     }
     
     // We leave the ref path in backbone-relative forward orientation, because
@@ -1186,7 +1191,6 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Splice the ref path through the site and the bubble's path
         // through the site together.
         vector<Visit> extended_path;
-#define debug
 #ifdef debug
         cerr << "Input path: " << endl;
 #endif
@@ -1200,7 +1204,6 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 cerr << "\tPath member " << visit << " does not live on backbone" << endl;
             }
 #endif
-#undef debug
         
         }
         
@@ -1218,12 +1221,16 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
             // Collect NodeTraversals from the ref path until we hit the one
             // at which the bubble path starts.
+#ifdef debug
             cerr << "Before path: " << pb2json(ref_path_for_site[ref_path_index]) << endl;
+#endif
             extended_path.push_back(ref_path_for_site[ref_path_index++]);
         }
         while(bubble_path_index < path.size()) {
             // Then take the whole bubble path
+#ifdef debug
             cerr << "In path: " << pb2json(path[bubble_path_index]) << endl;
+#endif
             extended_path.push_back(path[bubble_path_index++]);
         }
         while(ref_path_index < ref_path_for_site.size()) {
@@ -1242,8 +1249,10 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
             // Otherwise this ref visit isn't the right one to match up with our
             // bubble's traversal.
+#ifdef debug
             cerr << "Skip ref: " << pb2json(ref_path_for_site[ref_path_index]) << endl;
             cerr << "\tWant: " << pb2json(path.back()) << endl;
+#endif
             ref_path_index++;
         }
         if(ref_path_index == ref_path_for_site.size()) {
@@ -1269,14 +1278,18 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         ref_path_index++;
         while(ref_path_index < ref_path_for_site.size()) {
             // Then take the entier rest of the ref path
+#ifdef debug
             cerr << "After path: " << pb2json(ref_path_for_site[ref_path_index]) << endl;
+#endif
             extended_path.push_back(ref_path_for_site[ref_path_index++]);
         }
         
+#ifdef debug
         cerr << "Output path: " << endl;
         for (auto& v : extended_path) {
             cerr << "\t" << pb2json(v) << endl;
         }
+#endif
         
         // Now add it to the set
         site_traversal_set.insert(extended_path);
@@ -1301,7 +1314,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             continue;
         }
         
+#ifdef debug
         cerr << "Base path on " << node->id() << endl;
+#endif
         
         // Find bubbles that backend into the backbone path
         pair<Support, vector<Visit>> sup_path = find_bubble(node, nullptr, nullptr, index, child_boundary_index);
@@ -1330,7 +1345,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         
         if(augmented.has_supports() && total(augmented.get_support(edge)) == 0) {
             // Don't bother with unsupported edges
+#ifdef debug
             cerr << "Skip unsupported edge " << edge->from() << " -> " << edge->to() << endl;
+#endif
             continue;
         }
         
@@ -1338,11 +1355,15 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             // Edge doesn't touch backbone at both ends. Don't use it
             // because for some reason it makes performance worse
             // overall.
+#ifdef debug
             cerr << "Skip off-backbone edge " << edge->from() << " -> " << edge->to() << endl;
+#endif
             continue;
         }
         
+#ifdef debug
         cerr << "Base path on " << edge->from() << " -> " << edge->to() << endl;
+#endif
         
         // Find a path based around this edge
         pair<Support, vector<Visit>> sup_path = find_bubble(nullptr, edge, nullptr, index, child_boundary_index);
@@ -1372,7 +1393,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     for (const Snarl* child : snarl_manager.children_of(&site)) {
         // Go through all the child snarls
         
+#ifdef debug
         cerr << "Base path on " << *child << endl;
+#endif
         
         // Find a path based around this child snarl
         pair<Support, vector<Visit>> sup_path = find_bubble(nullptr, nullptr, child, index, child_boundary_index);
@@ -1402,10 +1425,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Make it into this SnarlTraversal
         SnarlTraversal trav;
         
+#ifdef debug
         cerr << "Unique traversal's visits:" << endl;
         for(auto& visit : visits) {
             cerr << "\t" << visit << endl;
         }
+#endif
         
         // Label traversal with the snarl
         // TODO: use special copy ends function
@@ -1436,7 +1461,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             
         }
         
+#ifdef debug
         cerr << "Unique traversal: " << pb2json(trav) << endl;
+#endif
 
         // Save the SnarlTraversal
         unique_traversals.push_back(trav);
@@ -1503,7 +1530,9 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
             // Use the snarl visit instead of the visit to the exiting node.
             left_visit = left_child_visit;
         }
+#ifdef debug
         cerr << "Edge becomes " << left_visit << " -> " << right_visit << endl;
+#endif
         
     } else if (node != nullptr) {
         // Be node-based. TODO: we trust the caller not to feed us nodes that

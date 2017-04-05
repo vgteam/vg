@@ -380,10 +380,12 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     for(auto& traversal : here_traversals) {
         // Go through all the SnarlTraversals for this Snarl
         
+#ifdef debug
         cerr << "Evaluate traversal: " << endl;
         for (size_t j = 0; j < traversal.visits_size(); j++) {
             cerr << "\t" << pb2json(traversal.visits(j)) << endl;
         }
+#endif
         
         // What's the total support for this traversal?
         Support total_support;
@@ -449,7 +451,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                     
                     // These are two back-to-back child snarl visits, which
                     // share a node and have no connecting edge.
+#ifdef debug
                     cerr << "No edge needed for back-to-back child snarls" << endl;
+#endif
                     
                 } else {
                     // Get the edge to it
@@ -784,7 +788,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                     auto& last_visit = abstract_traversal.visits(i - 1);
                     if (last_visit.node_id() == 0 && to_right_side(last_visit).flip() == to_left_side(abstract_visit)) {
                         // It was indeed a previous back to back site. Don't add the entry node!
+#ifdef debug
                         cerr << "Skip entry node for back-to-back sites" << endl;
+#endif
                     } else {
                         
                         *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
