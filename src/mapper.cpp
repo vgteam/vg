@@ -1336,12 +1336,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
             // see if we should compute a pair matching bonus
             if (alnpair.score) {
                 int dist = approx_fragment_length(*alnpair.mate1, *alnpair.mate2);
-                if (fragment_size) {
+                if (fragment_size && dist >= 0) {
                     if (pair_consistent(*alnpair.mate1, *alnpair.mate2)) {
                         alnpair.bonus = alnpair.score * fragment_length_pdf(dist)/fragment_length_pdf(cached_fragment_length_mean);
                     }
                 } else {
-                    if (dist > 0) {
+                    if (dist >= 0) {
                         if (dist < fragment_max) {
                             alnpair.bonus = alnpair.score;
                         }
@@ -1353,11 +1353,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         std::sort(alns.begin(), alns.end(),
                   [&](const AlignmentPair* pair1,
                       const AlignmentPair* pair2) {
-                      if (pair1->bonus || pair2->bonus) {
-                          return pair1->bonus > pair2->bonus;
-                      } else {
-                          return pair1->score > pair2->score;
-                      }
+                      return pair1->bonus + pair1->score > pair2->bonus + pair2->score;
                   });
         // remove duplicates (same score and same start position of both pairs)
         alns.erase(
@@ -1399,7 +1395,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
         }
     }
     // don't rescue; TODO test enabling this
-    /*
     if (fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
@@ -1411,7 +1406,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
             score_sort_and_dedup();
         }
     }
-    */
 
     pair<vector<Alignment>, vector<Alignment>> results;
 
@@ -1723,8 +1717,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     };
 
     // build the paired-read MEM markov model
-    MEMChainModel markov_model({ read1.sequence().size(), read2.sequence().size() }, { mems1, mems2 }, this, transition_weight, max((int)(read1.sequence().size() + read2.sequence().size()), fragment_max));//(int)(fragment_size ? fragment_size : fragment_max)));
-    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, true, debug);
+    MEMChainModel chainer({ read1.sequence().size(), read2.sequence().size() },
+                          { mems1, mems2 }, this,
+                          transition_weight,
+                          max((int)(read1.sequence().size() + read2.sequence().size()),
+                              (int)(fragment_size ? fragment_size : fragment_max)));
+    vector<vector<MaximalExactMatch> > clusters = chainer.traceback(total_multimaps, true, debug);
 
     // don't attempt to align if we reach the maximum number of multimaps
     //if (clusters.size() == total_multimaps) clusters.clear();
@@ -1756,14 +1754,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         }
     }
 
-    vector<vector<MaximalExactMatch> > clusters1;
-    vector<vector<MaximalExactMatch> > clusters2;
+    auto to_drop = clusters_to_drop(clusters);
+    vector<pair<Alignment, Alignment> > alns;
+    //pair<vector<Alignment>, vector<Alignment> > alns;
+    int multimaps = 0;
     for (auto& cluster : clusters) {
-        clusters1.emplace_back();
-        clusters2.emplace_back();
-        auto& cluster1 = clusters1.back();
-        auto& cluster2 = clusters2.back();
+        // skip if we've filtered the cluster
+        if (to_drop.count(&cluster)) continue;
+        // stop if we have enough multimaps
+        if (multimaps > total_multimaps) { break; }
+        // skip if we've got enough multimaps to get MQ and we're under the min cluster length
+        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         // break the cluster into two pieces
+        vector<MaximalExactMatch> cluster1, cluster2;
         bool seen1=false, seen2=false;
         for (auto& mem : cluster) {
             if (!seen2 && mem.fragment == 1) {
@@ -1777,26 +1780,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                 assert(false);
             }
         }
-    }
-    auto to_drop1 = clusters_to_drop(clusters1);
-    auto to_drop2 = clusters_to_drop(clusters2);
-    vector<pair<Alignment, Alignment> > alns;
-    int multimaps = 0;
-    for (int i = 0; i < clusters1.size(); ++i) {
-        auto& cluster1 = clusters1[i];
-        auto& cluster2 = clusters2[i];
-        // skip if we've filtered the cluster
-        if ((cluster1.empty() || to_drop1.count(&cluster1))
-            && (cluster2.empty() || to_drop2.count(&cluster2))) {
-            continue;
-        }
-        // stop if we have enough multimaps
-        if (multimaps > total_multimaps) { break; }
-        // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        if (min_cluster_length
-            && cluster_coverage(cluster1) + cluster_coverage(cluster2)
-            < min_cluster_length
-            && alns.size() > 1) continue;
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
@@ -1817,7 +1800,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         }
 
         ++multimaps;
-        
+
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -1825,6 +1808,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         }
 #endif
     }
+
     auto sort_and_dedup = [&](void) {
         // sort the aligned pairs
         std::sort(alns.begin(), alns.end(),
@@ -2263,8 +2247,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
     // build the model
-    MEMChainModel markov_model({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
-    vector<vector<MaximalExactMatch> > clusters = markov_model.traceback(total_multimaps, false, debug);
+    MEMChainModel chainer({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
+    vector<vector<MaximalExactMatch> > clusters = chainer.traceback(total_multimaps, false, debug);
 
     // don't attempt to align if we reach the maximum number of multimaps
     //if (clusters.size() == total_multimaps) clusters.clear();
@@ -6741,14 +6725,14 @@ MEMChainModel::MEMChainModel(
                     if (v1->next_cost.size() < max_connections
                         && v2->prev_cost.size() < max_connections) {
                         if (v1->mem.fragment < v2->mem.fragment
-                            || v1->mem.begin < v2->mem.begin) {
+                            || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
                             double weight = transition_weight(v1->mem, v2->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v1->next_cost.push_back(make_pair(&*v2, weight));
                                 v2->prev_cost.push_back(make_pair(&*v1, weight));
                             }
                         } else if (v1->mem.fragment > v2->mem.fragment
-                                   || v1->mem.begin > v2->mem.begin) {
+                                   || v1->mem.fragment == v2->mem.fragment && v1->mem.begin > v2->mem.begin) {
                             double weight = transition_weight(v2->mem, v1->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v2->next_cost.push_back(make_pair(&*v1, weight));
