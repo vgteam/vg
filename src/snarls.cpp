@@ -449,13 +449,14 @@ namespace vg {
         
         // Right now we're stuck with O(n) search and it's horrible
         for(auto& owned : snarls) {
-            if (owned == not_owned) {
+            // Only compare start and end visits, because we may get snarls with
+            // only those set from visits.
+            if (owned.start() == not_owned.start() && owned.end() == not_owned.end()) {
                 return &owned;
             }
         }
-        
         // If we get here it doesn't exist.
-        throw runtime_error("Unable to find snarl in SnarlManager");
+        throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
     }
     
     vector<Visit> visits_right(const Visit& visit, VG& graph,

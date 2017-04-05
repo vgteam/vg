@@ -311,7 +311,9 @@ namespace vg {
     
     inline Visit to_visit(const Snarl& snarl) {
         Visit to_return;
-        *to_return.mutable_snarl() = snarl;
+        // Only copy necessary fields
+        *to_return.mutable_snarl()->mutable_start() = snarl.start();
+        *to_return.mutable_snarl()->mutable_end() = snarl.end();
         return to_return;
     }
     

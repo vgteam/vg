@@ -380,6 +380,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     for(auto& traversal : here_traversals) {
         // Go through all the SnarlTraversals for this Snarl
         
+        cerr << "Evaluate traversal: " << endl;
+        for (size_t j = 0; j < traversal.visits_size(); j++) {
+            cerr << "\t" << pb2json(traversal.visits(j)) << endl;
+        }
+        
         // What's the total support for this traversal?
         Support total_support;
         
@@ -441,6 +446,13 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 
                 // Get the edge to it
                 Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(next_visit));
+                if (next_edge == nullptr) {
+                    cerr << "Missing edge from " << pb2json(visit) << " to " << pb2json(next_visit) << endl;
+                    cerr << "Traversal: " << endl;
+                    for (size_t j = 0; j < traversal.visits_size(); j++) {
+                        cerr << "\t" << pb2json(traversal.visits(j)) << endl;
+                    }
+                }
                 assert(next_edge != nullptr);
                 // Min in its support
                 here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
@@ -1098,7 +1110,7 @@ void Call2Vcf::call(
                 
                 for (size_t j = 0; j < path.mapping_size(); j++) {
                     // For each mapping along the path
-                    auto& mapping = path.mapping(i);
+                    auto& mapping = path.mapping(j);
                     
                     // Record the sequence
                     string node_sequence = augmented.graph.get_node(mapping.position().node_id())->sequence();
