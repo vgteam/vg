@@ -1239,19 +1239,6 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 // continuing from here.
                 break;
             }
-            /*
-            if (!ref_visit.backward() && ref_visit.end() == path.back()) {
-                // We must be exiting this visit on its local right (from the
-                // snarl's end). Put the after-the-bubble visits continuing from
-                // here.
-                break;
-            }
-            if (ref_visit.backward() && reverse(ref_visit.start()) == path.back()) {
-                // We must be exiting this visit on its local right (from the
-                // snarl's start). Put the after-the-bubble visits continuing
-                // from here.
-                break;
-            }*/
             
             // Otherwise this ref visit isn't the right one to match up with our
             // bubble's traversal.
@@ -1414,16 +1401,6 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     auto emit_traversal = [&](vector<Visit> visits) {
         // Make it into this SnarlTraversal
         SnarlTraversal trav;
-        
-        if (primary_min == site_end) {
-            // The backbone is backward relative to the site, so all the
-            // traversals we have been working with are too. Flip them to be
-            // forward relative to the site.
-            std::reverse(visits.begin(), visits.end());
-            for (auto& v : visits) {
-                v.set_backward(!v.backward());
-            }
-        }
         
         cerr << "Unique traversal's visits:" << endl;
         for(auto& visit : visits) {

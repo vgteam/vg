@@ -774,7 +774,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // If they're visits to children, look up the child
                 const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
                 
-                // Then blit the child's best path over
+                // Then blit the child's best path over.
+                // Keep in mind that we may be going through the child backward.
                 auto& child_traversal = child_traversals.at(child).at(0);
                 
                 if (i != 0) {
@@ -785,19 +786,21 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                         // It was indeed a previous back to back site. Don't add the entry node!
                         cerr << "Skip entry node for back-to-back sites" << endl;
                     } else {
-                        // First the entry node
-                        *concrete_traversal.add_visits() = child->start();
+                        
+                        *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
                     }
                 } else {
-                    // First the entry node
-                    *concrete_traversal.add_visits() = child->start();
+                    // First the entry node (in the correct order and orientation)
+                    *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
                 }
                 for (size_t j = 0; j < child_traversal.visits_size(); j++) {
-                    // All the internal visits
-                    *concrete_traversal.add_visits() = child_traversal.visits(j);
+                    // All the internal visits, in the correct order 
+                    *concrete_traversal.add_visits() = abstract_visit.backward() ?
+                        reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
+                        child_traversal.visits(j);
                 }
-                // And last the exit node
-                *concrete_traversal.add_visits() = child->end();
+                // And last the exit node (in the correct order and orientation)
+                *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->start()) : child->end();
             }
         }
     }
@@ -1019,13 +1022,6 @@ void Call2Vcf::call(
         if (site->type() == ULTRABUBBLE && primary_path != nullptr) {
             // This site is an ultrabubble on a primary path
         
-            // Make sure start and end are front-ways relative to the ref path.
-            if(primary_path->get_index().by_id.at(site->start().node_id()).first >
-                primary_path->get_index().by_id.at(site->end().node_id()).first) {
-                // The site's end happens before its start, flip it around
-                site_manager.flip(site);
-            }
-            
             // Throw it in the final vector of sites we're going to process.
             sites.push_back(site);
         } else if (site->type() == ULTRABUBBLE && !convert_to_vcf) {
@@ -1106,8 +1102,11 @@ void Call2Vcf::call(
             // We're on a primary path, so we can find the appropriate bin
         
             // Since the variable part of the site is after the first anchoring node, where does it start?
-            size_t variation_start = found_path->second.get_index().by_id.at(site->start().node_id()).first
-                + augmented.graph.get_node(site->start().node_id())->sequence().size();
+            // Account for the site possibly being backward on the path.
+            size_t variation_start = min(found_path->second.get_index().by_id.at(site->start().node_id()).first
+                    + augmented.graph.get_node(site->start().node_id())->sequence().size(),
+                found_path->second.get_index().by_id.at(site->end().node_id()).first
+                    + augmented.graph.get_node(site->end().node_id())->sequence().size());
             
             // Look in the bins for the primary path to get the support there.
             baseline_support = found_path->second.get_support_at(variation_start);
@@ -1119,6 +1118,11 @@ void Call2Vcf::call(
         
         // This function emits the given variant on the given primary path, as VCF.
         auto emit_variant = [&site, &contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path) {
+        
+            // Note that the locus paths will traverse our site forward, which
+            // may make them backward along the primary path.
+            bool site_backward = (primary_path.get_index().by_id.at(site->start().node_id()).first >
+                primary_path.get_index().by_id.at(site->end().node_id()).first);
         
             // Unpack the genotype back into best and second-best allele
             auto& genotype = locus.genotype(0);
@@ -1173,7 +1177,11 @@ void Call2Vcf::call(
                 }
                 
                 // Remember the descriptions of the alleles
-                sequences.push_back(sequence_stream.str());
+                if (site_backward) {
+                    sequences.push_back(reverse_complement(sequence_stream.str()));
+                } else {
+                    sequences.push_back(sequence_stream.str());
+                }
                 id_lists.push_back(id_stream.str());
                 // And whether they're reference or not
                 is_ref.push_back(is_reference(path, augmented));
