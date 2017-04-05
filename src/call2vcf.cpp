@@ -928,7 +928,6 @@ void Call2Vcf::call(
         // Store the old source position under the new node ID.
         original_positions[new_mapping.position().node_id()] = make_pos_t(old_mapping.position());
     }
-    assert(!original_positions.empty());
     
     // Make a VCF because we need it in scope later, if we are outputting VCF.
     vcflib::VariantCallFile vcf;
@@ -1180,10 +1179,11 @@ void Call2Vcf::call(
                 is_ref.push_back(is_reference(path, augmented));
             }
             
-            // Since the variable part of the site is after the first anchoring node, where does it start?
-            // TODO: we calculate this twice...
-            size_t variation_start = primary_path.get_index().by_id.at(site->start().node_id()).first
-                + augmented.graph.get_node(site->start().node_id())->sequence().size();
+            // Start off declaring the variable part to start at the start of
+            // the first anchoring node. We'll clip it back later to just what's
+            // after the shared prefix.
+            size_t variation_start = min(primary_path.get_index().by_id.at(site->start().node_id()).first,
+                primary_path.get_index().by_id.at(site->end().node_id()).first);
         
             // Keep track of the alleles that actually need to go in the VCF:
             // ref, best, and second-best (if any), some of which may overlap.

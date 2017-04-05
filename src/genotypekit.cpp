@@ -1153,6 +1153,10 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         cerr << "Added visit: " << pb2json(ref_path_for_site.back()) << endl;        
     }
     
+    // We leave the ref path in backbone-relative forward orientation, because
+    // all our bubbles we find will also be in backbone-relative forward
+    // orientation.
+    
     for(auto node : nodes_left) {
         // Make sure none of the nodes in the site that we didn't visit
         // while tracing along the ref path are on the ref path.
@@ -1411,12 +1415,23 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         // Make it into this SnarlTraversal
         SnarlTraversal trav;
         
+        if (primary_min == site_end) {
+            // The backbone is backward relative to the site, so all the
+            // traversals we have been working with are too. Flip them to be
+            // forward relative to the site.
+            std::reverse(visits.begin(), visits.end());
+            for (auto& v : visits) {
+                v.set_backward(!v.backward());
+            }
+        }
+        
         cerr << "Unique traversal's visits:" << endl;
         for(auto& visit : visits) {
             cerr << "\t" << visit << endl;
         }
         
         // Label traversal with the snarl
+        // TODO: use special copy ends function
         *trav.mutable_snarl()->mutable_start() = site.start();
         *trav.mutable_snarl()->mutable_end() = site.end();
         
