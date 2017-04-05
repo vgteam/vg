@@ -916,6 +916,20 @@ void Call2Vcf::call(
         stream::for_each(in, handle_pileup);
     }
     
+    // Parse the translation so we know what original node and offset, if any,
+    // each new node came from.
+    map<id_t, pos_t> original_positions;
+    for (auto& translation : augmented.translations) {
+        // TODO: we assume every translation is exactly one old mapping to
+        // exactly one new full-node mapping
+        auto& new_mapping = translation.to().mapping(0);
+        auto& old_mapping = translation.from().mapping(0);
+        
+        // Store the old source position under the new node ID.
+        original_positions[new_mapping.position().node_id()] = make_pos_t(old_mapping.position());
+    }
+    assert(!original_positions.empty());
+    
     // Make a VCF because we need it in scope later, if we are outputting VCF.
     vcflib::VariantCallFile vcf;
     
@@ -1105,7 +1119,7 @@ void Call2Vcf::call(
         }
         
         // This function emits the given variant on the given primary path, as VCF.
-        auto emit_variant = [&site, &contig_names_by_path_name, &vcf, &augmented, this](const Locus& locus, PrimaryPath& primary_path) {
+        auto emit_variant = [&site, &contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path) {
         
             // Unpack the genotype back into best and second-best allele
             auto& genotype = locus.genotype(0);
@@ -1114,6 +1128,9 @@ void Call2Vcf::call(
             int second_best_allele = (genotype.allele_size() >= 2 && genotype.allele(0) != genotype.allele(1)) ?
                 genotype.allele(1) :
                 -1;
+                
+            // Populate this with original node IDs, from before augmentation.
+            set<id_t> original_nodes;
                 
             // Calculate the ID and sequence strings for all the alleles.
             // TODO: we only use some of these
@@ -1149,6 +1166,11 @@ void Call2Vcf::call(
                     // Record the ID
                     id_stream << mapping.position().node_id();
                     
+                    if (original_positions.count(mapping.position().node_id())) {
+                        // This node is derived from an original graph node. Remember it.
+                        original_nodes.insert(id(original_positions[mapping.position().node_id()]));
+                    }
+                    
                 }
                 
                 // Remember the descriptions of the alleles
@@ -1157,7 +1179,7 @@ void Call2Vcf::call(
                 // And whether they're reference or not
                 is_ref.push_back(is_reference(path, augmented));
             }
-
+            
             // Since the variable part of the site is after the first anchoring node, where does it start?
             // TODO: we calculate this twice...
             size_t variation_start = primary_path.get_index().by_id.at(site->start().node_id()).first
@@ -1342,6 +1364,11 @@ void Call2Vcf::call(
                 variant.infoFlags["XREF"] = true;
             }
             
+            for (auto id : original_nodes) {
+                // Add references to the relevant original nodes
+                variant.info["XSEE"].push_back(to_string(id));
+            }
+            
             // Set up the depth format field
             variant.format.push_back("DP");
             // And allelic depth
@@ -1402,6 +1429,7 @@ void Call2Vcf::call(
                 
                 // Output the created VCF variant.
                 cout << variant << endl;
+                
             } else {
                 if (verbose) {
                     cerr << "Variant is too large" << endl;

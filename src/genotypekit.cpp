@@ -1771,16 +1771,19 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     
         // check the edge support
         Edge* edge = augmented.graph.get_edge(to_right_side(*cur), to_left_side(*next));
-        assert(edge != NULL);
-        Support edgeSupport = augmented.get_support(edge);
         
-        if (supportFound) {
-            // Min it against existing support
-            minSupport = support_min(minSupport, edgeSupport);
-        } else {
-            // Take as the found support
-            minSupport = edgeSupport;
-            supportFound = true;
+        if (edge != nullptr) {
+            // The edge exists (because we aren't back-to-back child snarls)
+            Support edgeSupport = augmented.get_support(edge);
+            
+            if (supportFound) {
+                // Min it against existing support
+                minSupport = support_min(minSupport, edgeSupport);
+            } else {
+                // Take as the found support
+                minSupport = edgeSupport;
+                supportFound = true;
+            }
         }
     }
 
@@ -1875,12 +1878,13 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
             for (auto prevVisit : prevVisits) {
                 // For each node we can get to
                 
-                // Make sure the edge is real
-                Edge* edge = augmented.graph.get_edge(to_right_side(prevVisit), to_left_side(path.front()));
-                assert(edge != NULL);
-                
                 if (prevVisit.node_id() != 0) {
                     // This is a visit to a node
+                    
+                    // Make sure the edge is real, since it can't be a back-to-
+                    // back site
+                    Edge* edge = augmented.graph.get_edge(to_right_side(prevVisit), to_left_side(path.front()));
+                    assert(edge != NULL);
                 
                     // Fetch the actual node
                     Node* prevNode = augmented.graph.get_node(prevVisit.node_id());
