@@ -145,13 +145,8 @@ namespace vg {
     pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
                                                                                      bool include_boundary_nodes) {
         
-        // construct maps that lets us "skip over" child snarls
-        map<Node*, const Snarl*> child_snarl_starts;
-        map<Node*, const Snarl*> child_snarl_ends;
-        for (const Snarl* subsnarl : children_of(snarl)) {
-            child_snarl_starts.insert(make_pair(graph.get_node(subsnarl->start().node_id()), subsnarl));
-            child_snarl_ends.insert(make_pair(graph.get_node(subsnarl->end().node_id()), subsnarl));
-        }
+        // construct the map that lets us skip over child snarls
+        map<NodeTraversal, const Snarl*> child_index = child_boundary_index(snarl, graph);
         
         pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
         
@@ -249,38 +244,36 @@ namespace vg {
             bool forward_is_snarl = false;
             bool backward_is_snarl = false;
             
-            if (child_snarl_starts.count(node)) {
-                // this node is the start node of a snarl
-                const Snarl* snarl = child_snarl_starts[node];
-                if (snarl->start().backward()) {
-                    backward_is_snarl = true;
-                }
-                else {
-                    forward_is_snarl = true;
-                }
+            if (child_index.count(NodeTraversal(node, false))) {
+                // this node forward reads into a snarl
+                forward_is_snarl = true;
+                
+                const Snarl* snarl = child_index[NodeTraversal(node, false)];
+                
+                // What's on the other side of the snarl?
+                id_t other_id = snarl->start().node_id() == node->id() ? snarl->end().node_id(): snarl->start().node_id();
                 
                 // stack up the node on the opposite side of the snarl
                 // rather than traversing it
-                Node* opposite_node = graph.get_node(snarl->end().node_id());
+                Node* opposite_node = graph.get_node(other_id);
                 if (!already_stacked.count(opposite_node)) {
                     stack.push_back(opposite_node);
                     already_stacked.insert(opposite_node);
                 }
             }
             
-            if (child_snarl_ends.count(node)) {
-                // this node the end node of a snarl
-                const Snarl* snarl = child_snarl_ends[node];
-                if (snarl->end().backward()) {
-                    forward_is_snarl = true;
-                }
-                else {
-                    backward_is_snarl = true;
-                }
+            if (child_index.count(NodeTraversal(node, true))) {
+                // this node reverse reads into a snarl
+                backward_is_snarl = true;
+                
+                const Snarl* snarl = child_index[NodeTraversal(node, true)];
+                
+                // What's on the other side of the snarl?
+                id_t other_id = snarl->end().node_id() == node->id() ? snarl->start().node_id(): snarl->end().node_id();
                 
                 // stack up the node on the opposite side of the snarl
                 // rather than traversing it
-                Node* opposite_node = graph.get_node(snarl->start().node_id());
+                Node* opposite_node = graph.get_node(other_id);
                 if (!already_stacked.count(opposite_node)) {
                     stack.push_back(opposite_node);
                     already_stacked.insert(opposite_node);
