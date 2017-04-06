@@ -87,6 +87,9 @@ namespace vg {
         const Snarl* manage(const Snarl& not_owned);
         
     private:
+    
+        /// Define the key type
+        using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
         
         /// Master list of the snarls in the graph
         vector<Snarl> snarls;
@@ -95,14 +98,18 @@ namespace vg {
         vector<const Snarl*> roots;
         
         /// Map of snarls to the child snarls they contain
-        unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, vector<const Snarl*> > children;
-        unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, const Snarl*> parent;
+        unordered_map<key_t, vector<const Snarl*>> children;
+        unordered_map<key_t, const Snarl*> parent;
+        
+        /// Map of snarl keys to the indexes in the snarl array
+        // TODO: should we switch to just pointers here and save an indirection?
+        unordered_map<key_t, size_t> index_of;
         
         /// Converts Snarl to the form used as keys in internal data structures
-        inline pair<pair<int64_t, bool>, pair<int64_t, bool> > key_form(const Snarl* snarl);
+        inline key_t key_form(const Snarl* snarl);
         
         /// Builds tree indices after Snarls have been added
-        void build_trees();
+        void build_indexes();
     };
     
     /**
@@ -236,8 +243,8 @@ namespace vg {
         for (auto iter = begin; iter != end; iter++) {
             snarls.push_back(*iter);
         }
-        // record the tree structure
-        build_trees();
+        // record the tree structure and build the other indexes
+        build_indexes();
     }
     
     inline NodeTraversal to_node_traversal(const Visit& visit, VG& graph) {

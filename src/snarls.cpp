@@ -75,6 +75,10 @@ namespace vg {
         // update children index
         children[key_form(snarl)] = std::move(children[old_key]);
         children.erase(old_key);
+        
+        // Update index index
+        index_of[key_form(snarl)] = std::move(index_of[old_key]);
+        index_of.erase(old_key);
     }
     
     map<NodeTraversal, const Snarl*> SnarlManager::child_boundary_index(const Snarl* snarl, VG& graph) {
@@ -103,14 +107,19 @@ namespace vg {
     }
     
     // can include definition of inline function apart from forward declaration b/c only used in this file
-    inline pair<pair<int64_t, bool>, pair<int64_t, bool> > SnarlManager::key_form(const Snarl* snarl) {
+    inline SnarlManager::key_t SnarlManager::key_form(const Snarl* snarl) {
         return make_pair(make_pair(snarl->start().node_id(), snarl->start().backward()),
                          make_pair(snarl->end().node_id(), snarl->end().backward()));
     }
     
-    void SnarlManager::build_trees() {
+    void SnarlManager::build_indexes() {
         
-        for (Snarl& snarl : snarls) {
+        for (size_t i = 0; i < snarls.size(); i++) {
+            Snarl& snarl = snarls[i];
+            
+            // Remember where each snarl is
+            index_of[key_form(&snarl)] = i;
+        
             // is this a top-level snarl?
             if (snarl.has_parent()) {
                 // add this snarl to the parent-to-children index
@@ -440,16 +449,20 @@ namespace vg {
         // efficient. We could also have a map<Snarl, Snarl*> but that would be
         // a tremendous waste of space.
         
-        // Right now we're stuck with O(n) search and it's horrible
-        for(auto& owned : snarls) {
-            // Only compare start and end visits, because we may get snarls with
-            // only those set from visits.
-            if (owned.start() == not_owned.start() && owned.end() == not_owned.end()) {
-                return &owned;
-            }
+        // Work out the key for the snarl
+        key_t key = key_form(&not_owned);
+        
+        // Get the index of the snarl with that key.
+        auto it = index_of.find(key);
+        
+        if (it == index_of.end()) {
+            // It's not there. Someone is trying to manage a snarl we don't
+            // really own. Complain.
+            throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
         }
-        // If we get here it doesn't exist.
-        throw runtime_error("Unable to find snarl " +  pb2json(not_owned) + " in SnarlManager");
+        
+        // Return the official copy of that snarl
+        return &snarls.at(it->second);
     }
     
     vector<Visit> visits_right(const Visit& visit, VG& graph,
