@@ -563,6 +563,145 @@ namespace vg {
                 REQUIRE(contents.first.size() == 2);
                 REQUIRE(contents.second.size() == 1);
                 
+            }
+            
+            SECTION( "SnarlManager does not include child snarls' edges in parent snarls") {
+                
+                // This graph is 3 nodes in a row, with two anchoring nodes on
+                // the end, and an edge deleting the three in the middle and
+                // just linking the anchoring nodes.
+                string graph_json = R"(
+                {
+                  "node": [
+                    {
+                      "sequence": "A",
+                      "id": 178895
+                    },
+                    {
+                      "sequence": "G",
+                      "id": 178896
+                    },
+                    {
+                      "sequence": "A",
+                      "id": 187209
+                    },
+                    {
+                      "sequence": "TCTCAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                      "id": 178894
+                    },
+                    {
+                      "sequence": "AATGTGTCTTCCTGGGT",
+                      "id": 187208
+                    }
+                  ],
+                  "edge": [
+                    {
+                      "from": 187209,
+                      "to": 178895
+                    },
+                    {
+                      "from": 178895,
+                      "to": 178896
+                    },
+                    {
+                      "from": 178896,
+                      "to": 187208
+                    },
+                    {
+                      "from": 178894,
+                      "to": 187209
+                    },
+                    {
+                      "from": 178894,
+                      "to": 187208
+                    }
+                  ],
+                  "path": [
+                    {
+                      "name": "5",
+                      "mapping": [
+                        {
+                          "position": {
+                            "node_id": 178894
+                          },
+                          "rank": 98372
+                        },
+                        {
+                          "position": {
+                            "node_id": 187209
+                          },
+                          "rank": 98373
+                        },
+                        {
+                          "position": {
+                            "node_id": 178895
+                          },
+                          "rank": 98374
+                        },
+                        {
+                          "position": {
+                            "node_id": 178896
+                          },
+                          "rank": 98375
+                        },
+                        {
+                          "position": {
+                            "node_id": 187208
+                          },
+                          "rank": 98376
+                        }
+                      ]
+                    }
+                  ]
+                }
+                )";
+                
+                // We have one parent snarl for the deletion, with two back-to-back trivial child snarls.
+                string snarl1_json = R"({"type": 1, "end": {"node_id": 187208}, "start": {"node_id": 178894}})";
+                string snarl2_json = R"({"type": 1, "end": {"node_id": 187209, "backward": true}, "start": {"node_id": 178895, "backward": true}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
+                string snarl3_json = R"({"type": 1, "end": {"node_id": 178896}, "start": {"node_id": 178895}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
+                
+                VG graph;
+                
+                // Load up the graph
+                Graph g;
+                json2pb(g, graph_json.c_str(), graph_json.size());
+                graph.extend(g);
+                
+                // Load the snarls
+                Snarl snarl1, snarl2, snarl3;
+                json2pb(snarl1, snarl1_json.c_str(), snarl1_json.size());
+                json2pb(snarl2, snarl2_json.c_str(), snarl2_json.size());
+                json2pb(snarl3, snarl3_json.c_str(), snarl3_json.size());
+                
+                // Put them in a list
+                list<Snarl> snarls;
+                snarls.push_back(snarl1);
+                snarls.push_back(snarl2);
+                snarls.push_back(snarl3);
+                
+                SnarlManager snarl_manager(snarls.begin(), snarls.end());
+                
+                // Find the root snarl again
+                const Snarl* snarl = snarl_manager.manage(snarl1);
+                
+                // Get its contents
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+                
+                // We need the right snarl
+                REQUIRE(snarl->start().node_id() == 178894);
+                REQUIRE(!snarl->start().backward());
+                REQUIRE(snarl->end().node_id() == 187208);
+                REQUIRE(!snarl->end().backward());
+                
+                SECTION("The top-level snarl contains all 5 nodes") {
+                    REQUIRE(contents.first.size() == 5);
+                }
+                
+                SECTION("The top-level snarl only contains the three edges not in any child snarl") {
+                    REQUIRE(contents.second.size() == 3);
+                }
+                
             }  
         }
     }
