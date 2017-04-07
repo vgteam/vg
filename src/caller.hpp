@@ -472,7 +472,8 @@ public:
      */
     vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        const Support& baseline_support, size_t copy_budget, function<void(const Locus&)> emit_locus);
+        const Support& baseline_support, size_t copy_budget,
+        function<void(const Locus&, const Snarl*)> emit_locus);
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph

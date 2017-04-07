@@ -359,7 +359,7 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        const Support& baseline_support, size_t copy_budget, function<void(const Locus&)> emit_locus) {
+        const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
 
     // We need to be an ultrabubble for the traversal finder to work right.
     // TODO: generalize it
@@ -849,7 +849,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     if (locus.genotype_size() > 0) {
         // Emit the locus if we have a call
-        emit_locus(locus);
+        emit_locus(locus, &site);
     }
     
     // Return the traversals, best and second-best first, but having at least
@@ -1144,8 +1144,10 @@ void Call2Vcf::call(
             baseline_support = PrimaryPath::get_average_support(primary_paths);
         }
         
-        // This function emits the given variant on the given primary path, as VCF.
-        auto emit_variant = [&site, &contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path) {
+        // This function emits the given variant on the given primary path, as
+        // VCF. It needs to take the site as an argument because it may be
+        // called for children of the site we're working on right now.
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
         
             // Note that the locus paths will traverse our site forward, which
             // may make them backward along the primary path.
@@ -1484,16 +1486,24 @@ void Call2Vcf::call(
         };
         
         // Recursively type the site, using that support and an assumption of a diploid sample.
-        find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2, [&](const Locus& locus) {
-            // Now we have the Locus with call information
+        find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2,
+            [&locus_buffer, &emit_variant, &site_manager, &called_loci, &primary_paths, &augmented,
+            &covered_nodes, &covered_edges, this](const Locus& locus, const Snarl* site) {
+            
+            // Now we have the Locus with call information, and the site (either
+            // the root snarl we passed in or a child snarl) that the call is
+            // for. We need to output the call.
         
             if (convert_to_vcf) {
                 // We want to emit VCF
+                
+                // Look up the path this child site lives on. (TODO: just capture and use the path the parent lives on?)
+                auto found_path = find_path(*site, primary_paths);
                 if(found_path != primary_paths.end()) {
                     // And this site is on a primary path
                     
                     // Emit the variant for this Locus
-                    emit_variant(locus, found_path->second);
+                    emit_variant(locus, found_path->second, site);
                 }
                 // Otherwise discard it as off-path
                 // TODO: update bases lost
