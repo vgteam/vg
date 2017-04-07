@@ -108,6 +108,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
+    stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
@@ -391,7 +392,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         Support total_support;
         
         // And the length over which we have it (for averaging)
-        size_t total_size;
+        size_t total_size = 0;
         
         // And the min support?
         Support min_support;
@@ -527,6 +528,16 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         locus.add_allele_log_likelihood(log10_to_ln(min_likelihood));
     }
     
+#ifdef debug
+    cerr << "Min vs. average" << endl;
+#endif
+    for (size_t i = 0; i < average_supports.size(); i++) {
+#ifdef debug
+        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
+#endif
+        // We should always have a higher average support than minumum support
+        assert(total(average_supports.at(i)) >= total(min_supports.at(i)));
+    }
     
     // Decide which support vector we use to actually decide
     vector<Support>& supports = use_average_support ? average_supports : min_supports;
@@ -1381,6 +1392,14 @@ void Call2Vcf::call(
             for (auto id : original_nodes) {
                 // Add references to the relevant original nodes
                 variant.info["XSEE"].push_back(to_string(id));
+            }
+            
+            for (size_t i = 1; i < variant.alleles.size(); i++) {
+                // Claculate the SVLEN for this non-reference allele
+                int64_t svlen = (int64_t) variant.alleles.at(i).size() - (int64_t) variant.alleles.at(0).size();
+                
+                // Add it in
+                variant.info["SVLEN"].push_back(to_string(svlen));
             }
             
             // Set up the depth format field
