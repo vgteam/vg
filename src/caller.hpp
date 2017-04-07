@@ -453,19 +453,49 @@ public:
     void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
+     * For the given snarl, find the best traversal, and the second-best
+     * traversal, recursively, if any exist. These traversals will be fully
+     * filled in with nodes.
+     *
+     * Only snarls which are ultrabubbles can be called.
+     *
+     * Expects the given baseline support for a diploid call.
+     *
+     * Will not return more than copy_budget SnarlTraversals, and will return
+     * less if some copies are called as having the same traversal.
+     *
+     * Uses the given copy number allowance, and emits a Locus for this Snarl
+     * and any child Snarls.
+     *
+     * If no path through the Snarl can be found, emits no Locus and returns no
+     * SnarlTraversals.
+     */
+    vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
+        SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
+        const Support& baseline_support, size_t copy_budget, function<void(const Locus&)> emit_locus);
+    
+    /**
      * Decide if the given SnarlTraversal is included in the original base graph
      * (true), or if it represents a novel variant (false).
      *
      * Looks at the nodes in the traversal, and sees if their calls are
      * CALL_REFERENCE or not.
      *
-     * Specially handles single-edge traversals.
+     * Handles single-edge traversals.
      *
-     * If given a traversal that's all primary path nodes, it assumes it is non-
-     * reference, because it assumes the caller will never pass it the all-
-     * primary-path reference traversal.
      */
     bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented);
+    
+    /**
+     * Decide if the given Path is included in the original base graph (true) or
+     * if it represents a novel variant (false).
+     *
+     * Looks at the nodes, and sees if their calls are CALL_REFERENCE or not.
+     *
+     * The path can't be empty; it has to be anchored to something (probably the
+     * start and end of the snarl it came from).
+     */
+    bool is_reference(const Path& path, AugmentedGraph& augmented);
     
     /**
      * Find the primary path, if any, that the given site is threaded onto.
@@ -519,9 +549,6 @@ public:
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
     Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4,
         "max imbalance factor between ref and alts to call heterozygous ref"};
-    // How much should we multiply the bias limits for indels?
-    Option<double> indel_bias_multiple{this, "bias-mult", "M", 1,
-        "multiplier for bias limits for indels as opposed to substitutions"};
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
@@ -536,17 +563,9 @@ public:
     // parallel paths.  Allow overriding here
     Option<double> expected_coverage{this, "avg-coverage", "C", 0.0,
         "specify expected coverage (instead of computing on reference)"};
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    Option<bool> suppress_overlaps{this, "no-overlap", "O", false,
-        "don't emit new variants that overlap old ones"};
     // Should we use average support instead of minimum support for our calculations?
     Option<bool> use_average_support{this, "use-avg-support", "u", false,
         "use average instead of minimum support"};
-    // What's the max ref length of a site that we genotype as a whole instead
-    // of splitting?
-    Option<size_t> max_ref_length{this, "max-ref-length", "mMrRlL", 100,
-        "max length of a site to genotype as a whole instead of splitting"};
     
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?

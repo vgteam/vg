@@ -902,6 +902,8 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
         auto* old_edit = old_mapping->add_edit();
         old_edit->set_from_length(node->sequence().size());
         old_edit->set_to_length(node->sequence().size());
+        
+        _augmented_graph.translations.push_back(trans);
     }
 }
 
