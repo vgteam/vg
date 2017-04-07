@@ -567,6 +567,12 @@ public:
     // Should we use average support instead of minimum support for our calculations?
     Option<bool> use_average_support{this, "use-avg-support", "u", false,
         "use average instead of minimum support"};
+    // Max traversal length threshold at which we switch from minimum support to
+    // average support (so we don't use average support on pairs of adjacent
+    // errors and miscall them, but we do use it on long runs of reference
+    // inside a deletion where the min support might not be representative.
+    Option<size_t> average_support_switch_threshold{this, "use-avg-support-above", "uUaAtT", 100,
+        "use average instead of minimum support for sites this long or longer"};
     
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?

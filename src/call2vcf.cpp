@@ -372,6 +372,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // available.
     Locus locus;
     
+    // How long is the longest traversal?
+    // Sort of approximate because of the way nested site sizes are estimated.
+    size_t longest_traversal_length = 0;
+    
     // Keep around a vector of is_reference statuses for all the traversals.
     vector<bool> is_ref;
    
@@ -534,6 +538,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #ifdef debug
         cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
 #endif
+
+        // Remember a new longesttraversal length
+        longest_traversal_length = max(longest_traversal_length, total_size);
         
         // Copy the likelihood over to the locus. Convert from log10 which it
         // comes in as from the caller to ln.
@@ -550,8 +557,12 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // We should always have a higher average support than minumum support
         assert(total(average_supports.at(i)) >= total(min_supports.at(i)));
     }
-    // Decide which support vector we use to actually decide
-    vector<Support>& supports = use_average_support ? average_supports : min_supports;
+
+    // Decide which support vector we use to actually decide.
+    // Use average support for long sites where dropout might be expected, and min support otherwise.
+    vector<Support>& supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        average_supports :
+        min_supports;
     
     for (auto& support : supports) {
         // Blit supports over to the locus
