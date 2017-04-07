@@ -374,7 +374,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     // Keep around a vector of is_reference statuses for all the traversals.
     vector<bool> is_ref;
-    
+   
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
     vector<Support> average_supports;
@@ -408,7 +408,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // Get the support for this thing, in read-bases
             Support here_support;
             // And its base pair length
-            size_t here_size;
+            size_t here_size = 0;
             if (visit.node_id() != 0) {
                 // Find the node
                 Node* node = augmented.graph.get_node(visit.node_id());
@@ -428,11 +428,19 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                     augmented.graph, true).first) {
                     // For every child node, add the coverage and support
                     // TODO: can I just use a path through the snarl somehow?
-                    here_support += augmented.get_support(node) * node->sequence().size();
+                    here_support += (augmented.get_support(node) * node->sequence().size());
                     here_size += node->sequence().size();
+                    
+#ifdef debug
+                    cerr << "From child snarl node get " << (augmented.get_support(node) * node->sequence().size()) << "/" << node->sequence().size() << endl;
+#endif
                 }
                 // A snarl can't be compeltely empty
                 assert(here_size != 0);
+                
+#ifdef debug
+                cerr << "Current average " << here_support << "/" << here_size << " = " << (here_support / here_size) << endl;
+#endif
                 
                 // TODO: child snarl likelihoods?
             }
@@ -523,6 +531,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         min_supports.push_back(min_support);
         average_supports.push_back(total_support / total_size);
         
+#ifdef debug
+        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
+#endif
+        
         // Copy the likelihood over to the locus. Convert from log10 which it
         // comes in as from the caller to ln.
         locus.add_allele_log_likelihood(log10_to_ln(min_likelihood));
@@ -538,7 +550,6 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // We should always have a higher average support than minumum support
         assert(total(average_supports.at(i)) >= total(min_supports.at(i)));
     }
-    
     // Decide which support vector we use to actually decide
     vector<Support>& supports = use_average_support ? average_supports : min_supports;
     
