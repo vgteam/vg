@@ -27,7 +27,6 @@ namespace vg{
  */
 
           
-    
 class DepthMap {
     /**
     *  Map <node_id : depth>

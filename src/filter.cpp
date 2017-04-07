@@ -179,10 +179,10 @@ namespace vg{
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
         if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
-            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
+            return std::make_pair(aln_first, aln_second);
         }
         else{
-            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
+            return std::make_pair(Alignment(), Alignment());
         }
     }
 
