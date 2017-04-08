@@ -404,7 +404,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // Also, what's the min likelihood
         // Really this is already logged base 10.
         double min_likelihood = INFINITY;
-                        
+        
+        // Don't count nodes shared between child snarls more than once.
+        set<Node*> coverage_counted;
+        
         for(int64_t i = 0; i < traversal.visits_size(); i++) {
             // For all the (internal) visits...
             auto& visit = traversal.visits(i);
@@ -425,25 +428,40 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // Update minimum likelihood in the alt path
                 min_likelihood = min(min_likelihood, augmented.get_likelihood(node));
             } else {
-                // This is a snarl, so get its total support and size for all its nodes, going all the way down.
-                // TODO: Does this make sense?
-                // TODO: Won't this repeat a lot of summing if there's a lot if nesting?
+                // This is a snarl, so get its max support.
+                Support child_max;
+                size_t child_size = 0;
                 for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(visit.snarl()),
                     augmented.graph, true).first) {
-                    // For every child node, add the coverage and support
-                    // TODO: can I just use a path through the snarl somehow?
-                    here_support += (augmented.get_support(node) * node->sequence().size());
-                    here_size += node->sequence().size();
+                    
+                    if (coverage_counted.count(node)) {
+                        // Already used by another child snarl on this traversal
+                        continue;
+                    }
+                    // Claim this node for this child.
+                    coverage_counted.insert(node);
+                    
+                    // How many distinct reads must use the child, given the distinct reads on this node?
+                    child_max = support_max(child_max, augmented.get_support(node));
+                    
+                    // Add in the node's size to the child
+                    child_size += node->sequence().size();
                     
 #ifdef debug
-                    cerr << "From child snarl node get " << (augmented.get_support(node) * node->sequence().size()) << "/" << node->sequence().size() << endl;
+                    cerr << "From child snarl node " << node->id() << " get "
+                        << augmented.get_support(node) << " for distinct " << child_max << endl;
 #endif
                 }
+                
+                // Smoosh support over the whole child
+                here_support += child_max * child_size;
+                here_size += child_size;
+                
                 // A snarl can't be compeltely empty
                 assert(here_size != 0);
                 
 #ifdef debug
-                cerr << "Current average " << here_support << "/" << here_size << " = " << (here_support / here_size) << endl;
+                cerr << "Average " << here_support << "/" << here_size << " = " << (here_support / here_size) << endl;
 #endif
                 
                 // TODO: child snarl likelihoods?

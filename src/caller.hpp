@@ -64,6 +64,12 @@ inline StrandSupport minSup(vector<StrandSupport>& s) {
     }
     return *min_element(s.begin(), s.end());
 }
+inline StrandSupport maxSup(vector<StrandSupport>& s) {
+    if (s.empty()) {
+        return StrandSupport();
+    }
+    return *max_element(s.begin(), s.end());
+}
 inline StrandSupport avgSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
@@ -78,6 +84,19 @@ inline StrandSupport avgSup(vector<StrandSupport>& s) {
         ret.rs /= s.size();
         ret.os /= s.size();
         ret.likelihood /= s.size();
+    }
+    return ret;
+}
+inline StrandSupport totalSup(vector<StrandSupport>& s) {
+    StrandSupport ret;
+    if (!s.empty()) {
+        ret.likelihood = 0;
+        for (auto sup : s) {
+            ret.fs += sup.fs;
+            ret.rs += sup.rs;
+            ret.os += sup.os;
+            ret.likelihood += sup.likelihood;
+        }
     }
     return ret;
 }
