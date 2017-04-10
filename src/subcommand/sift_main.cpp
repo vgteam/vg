@@ -173,10 +173,13 @@ int main_sift(int argc, char** argv){
                 break;
             case 'I':
                 insert_size = atof(optarg);
+                ff.insert_mean = insert_size;
                 do_all = false;
+                do_insert_size = true;
                 break;
             case 'W':
                 insert_size_sigma = atof(optarg);
+                ff.insert_sd = insert_size_sigma;
                 do_all = false;
                 break;
             case 'O':
@@ -282,7 +285,9 @@ int main_sift(int argc, char** argv){
     if (do_split_read){
         split_stream.open(split_fn);
     }
-
+    if (do_insert_size){
+        insert_stream.open(insert_fn);
+    }
 
     std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b){
         bool a_forward = true;

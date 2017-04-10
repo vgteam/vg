@@ -204,7 +204,10 @@ namespace vg{
         else if (aln_second.fragment(0).length() != 0){
 
             zed = (double) aln_second.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        }else{
+            return make_pair(Alignment(), Alignment());
         }
+
         if (zed >= 2.95 || zed <= -2.95){
             return std::make_pair(aln_first, aln_second);
         }
