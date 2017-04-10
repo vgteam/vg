@@ -375,6 +375,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // Keep around a vector of is_reference statuses for all the traversals.
     vector<bool> is_ref;
    
+#ifdef debug
+    cerr << "Site " << site << endl;
+#endif
+   
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
     vector<Support> average_supports;
@@ -650,6 +654,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // call, and both alleles exceed the minimum to call them
             // present.
             
+#ifdef debug
+            cerr << "Call as best/second best" << endl;
+#endif
+            
             // Say both are present
             genotype.add_allele(best_allele);
             genotype.add_allele(second_best_allele);
@@ -676,6 +684,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // but the best allele has enough coverage that we can just call
             // two of it.
             
+#ifdef debug
+            cerr << "Call as best/best" << endl;
+#endif
+            
             // Say the best is present twice
             genotype.add_allele(best_allele);
             genotype.add_allele(best_allele);
@@ -696,6 +708,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         } else if (copy_budget >= 1 && total(best_support) >= min_total_support_for_call) {
             // We're only supposed to have one copy, and the best allele is good enough to call
             
+#ifdef debug
+            cerr << "Call as best" << endl;
+#endif
+            
             // Say the best is present once
             genotype.add_allele(best_allele);
             
@@ -714,6 +730,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         } else {
             // Either coverage is too low, or we aren't allowed any copies.
             // We can't really call this as anything.
+            
+#ifdef debug
+            cerr << "Do not call" << endl;
+#endif
             
             // Don't add the genotype to the locus
         }
