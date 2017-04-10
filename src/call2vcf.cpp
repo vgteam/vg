@@ -108,7 +108,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-    stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
+    //stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
@@ -1263,6 +1263,11 @@ void Call2Vcf::call(
             if(second_best_allele != -1 && second_best_allele != 0) {
                 used_alleles.push_back(second_best_allele);
             }
+            
+            if (used_alleles.size() == 1) {
+                // We only have the reference. Don't emit the allele.
+                //return;
+            }
         
             // Rewrite the sequences and variation_start to just represent the
             // actually variable part, by dropping any common prefix and common
@@ -1441,7 +1446,7 @@ void Call2Vcf::call(
                 int64_t svlen = (int64_t) variant.alleles.at(i).size() - (int64_t) variant.alleles.at(0).size();
                 
                 // Add it in
-                variant.info["SVLEN"].push_back(to_string(svlen));
+                //variant.info["SVLEN"].push_back(to_string(svlen));
             }
             
             // Set up the depth format field
