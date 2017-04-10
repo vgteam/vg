@@ -198,12 +198,20 @@ namespace vg{
     pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
 
         double zed;
-        if (aln_first.fragment(0).length() != 0){
-            zed = (double) aln_first.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        bool check_first = true;
+        bool check_second = true;
+        if (aln_first.fragment_size() < 1){
+            check_first = false;
         }
-        else if (aln_second.fragment(0).length() != 0){
+        if (aln_second.fragment_size() < 1){
+            check_second = false;
+        }
 
-            zed = (double) aln_second.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        if (check_first && !check_second){
+            zed = ((double) aln_first.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
+        }
+        else if (check_second){
+            zed = ((double) aln_second.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
         }else{
             return make_pair(Alignment(), Alignment());
         }

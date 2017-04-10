@@ -86,6 +86,8 @@ int main_sift(int argc, char** argv){
     bool do_quality = false;
     bool do_unmapped = false;
 
+    bool just_calc_insert = false;
+
 
     float insert_size = 300;
     float insert_size_sigma = 50;
@@ -116,7 +118,7 @@ int main_sift(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hut:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r",
+        c = getopt_long (argc, argv, "hut:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r1",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -189,6 +191,9 @@ int main_sift(int argc, char** argv){
             case 'D':
                 do_orientation = true;
                 do_all = false;
+                break;
+            case '1':
+                just_calc_insert = true;
                 break;
             default:
                 help_sift(argv);
@@ -434,6 +439,7 @@ int main_sift(int argc, char** argv){
         stream::write_buffered(unmapped_stream, unmapped_selected, 100);
         stream::write_buffered(discordant_stream, discordant_selected, 100);
         stream::write_buffered(oea_stream, one_end_anchored, 100);
+        stream::write_buffered(insert_stream, insert_selected, 100);
 
 
     };
@@ -461,6 +467,22 @@ int main_sift(int argc, char** argv){
 
     };
 
+    double curr_insert = 0.0;
+    double insert_tot = 0.0;
+    int insert_count = 0;
+    double curr_sigma = 0.0;
+    std::function<void(Alignment&, Alignment&)> calc_insert = [&](Alignment& a, Alignment& b){
+        if (a.fragment_size() > 1){
+            insert_count += 1;
+            insert_tot += (double) a.fragment(0).length();   
+        }
+        else if (b.fragment_size() > 1){
+
+        }
+    };
+
+
+
 
 
 if (alignment_file == "-"){
@@ -471,6 +493,11 @@ else{
     ifstream in;
     in.open(alignment_file);
     if (in.good()){
+
+        if (just_calc_insert){
+            stream::for_each_interleaved_pair_parallel(in, calc_insert);
+            exit(0);
+        }
 
         if (is_paired){
             cerr << "Processing..." << endl;
@@ -489,7 +516,7 @@ else{
 stream::write_buffered(unmapped_stream, unmapped_selected, 0);
 stream::write_buffered(discordant_stream, discordant_selected, 0);
 stream::write_buffered(oea_stream, one_end_anchored, 0);
-
+stream::write_buffered(insert_stream, insert_selected, 0);
 
 
     buffer.clear();
