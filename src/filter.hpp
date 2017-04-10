@@ -21,11 +21,9 @@
 namespace vg{
 
 struct SV_EVIDENCE{
-    int INS_EV = 0;
-    int DEL_EV = 0;
-    int INV_EV = 0;
-    int DUP_EV = 0;
-    int COMPLEX_EV = 0;
+    int SR = 0;
+    int PE = 0;
+    bool PRECISE = false;
 
 };
 

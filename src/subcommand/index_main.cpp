@@ -82,6 +82,7 @@ bool write_phase_threads(const vector<xg::XG::thread_t>& phase_threads, const st
         int64_t j = 0;
         output.write((const char*)&j, sizeof(int64_t));
     }
+    output.close();
     return true;
 }
 

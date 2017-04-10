@@ -51,6 +51,8 @@ void help_sift(char** argv){
         //<< "    -a / --average" << endl
         //<< "    -w / --window <WINDOWLEN>" << endl
         << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|--> )" << endl
+        << "Helpful helpers: " << endl
+        << "    -1 / --calc-insert                  Calculate and print the insert size mean / sd every 1000 reads." << endl
         << endl;
 }
 
@@ -171,10 +173,13 @@ int main_sift(int argc, char** argv){
                 break;
             case 'I':
                 insert_size = atof(optarg);
+                ff.insert_mean = insert_size;
                 do_all = false;
+                do_insert_size = true;
                 break;
             case 'W':
                 insert_size_sigma = atof(optarg);
+                ff.insert_sd = insert_size_sigma;
                 do_all = false;
                 break;
             case 'O':
@@ -265,11 +270,40 @@ int main_sift(int argc, char** argv){
     ofstream quality_stream;
     ofstream depth_stream;
 
-    unmapped_stream.open(unmapped_fn);
-    discordant_stream.open(discordant_fn);
+    if (do_unmapped){
+        unmapped_stream.open(unmapped_fn);
+    }
 
+    if (do_orientation){
+        discordant_stream.open(discordant_fn);
+    }
 
+    if (do_oea){
+        oea_stream.open(oea_fn);
+    }
 
+    if (do_split_read){
+        split_stream.open(split_fn);
+    }
+    if (do_insert_size){
+        insert_stream.open(insert_fn);
+    }
+
+    std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b){
+        bool a_forward = true;
+        bool b_reverse = false;
+        for (int i = 0; i < a.path().mapping_size(); i++){
+            if (a.path().mapping(i).position().is_reverse()){
+                a_forward = false;
+            }
+        }
+        for (int i = 0; i < b.path().mapping_size(); i++){
+            if (b.path().mapping(i).position().is_reverse()){
+                b_reverse = true;
+            }
+        }
+        return (a_forward != b_reverse);
+    };
 
 
     std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
@@ -277,7 +311,7 @@ int main_sift(int argc, char** argv){
         bool flagged = false;
 
         if (do_unmapped && !flagged){
-            if (alns_first.mapping_quality() == 0 ||
+            if (alns_first.mapping_quality() == 0 &&
                 alns_second.mapping_quality() == 0){
 
                     #pragma omp critical (unmapped_selected)
@@ -305,20 +339,27 @@ int main_sift(int argc, char** argv){
         }
         if (do_oea && !flagged){
             ret = ff.one_end_anchored_filter(alns_first, alns_second);
-            #pragma omp critical (oea_selected)
-            {
-                one_end_anchored.push_back(alns_first);
-                one_end_anchored.push_back(alns_second);
+            if (ret.first.name() != "" && ret.second.name() != ""){
+                #pragma omp critical (oea_selected)
+                {
+                    one_end_anchored.push_back(alns_first);
+                    one_end_anchored.push_back(alns_second);
+                }
             }
+            
 
         }
         if (do_insert_size && !flagged){
-
-            #pragma omp critial (insert_selected)
-            {
-                insert_selected.push_back(alns_first);
-                insert_selected.push_back(alns_second);
+            
+            ret = ff.insert_size_filter(alns_first, alns_second);
+            if (ret.first.name() != "" && ret.second.name() != ""){
+                #pragma omp critial (insert_selected)
+                {
+                    insert_selected.push_back(alns_first);
+                    insert_selected.push_back(alns_second);
+                }
             }
+            
 
 
         }
@@ -333,12 +374,15 @@ int main_sift(int argc, char** argv){
 
             }
 
-            
-            #pragma omp critical (split_selected)
-            {
-                split_selected.push_back(alns_first);
-                split_selected.push_back(alns_second);
+            if (ff.split_read_filter(alns_first).name() != ""
+                || ff.split_read_filter(alns_second).name() != ""){
+                #pragma omp critical (split_selected)
+                {
+                    split_selected.push_back(alns_first);
+                    split_selected.push_back(alns_second);
+                }
             }
+            
 
         }
         if (do_reversing && !flagged){
@@ -389,6 +433,7 @@ int main_sift(int argc, char** argv){
 
         stream::write_buffered(unmapped_stream, unmapped_selected, 100);
         stream::write_buffered(discordant_stream, discordant_selected, 100);
+        stream::write_buffered(oea_stream, one_end_anchored, 100);
 
 
     };
@@ -443,6 +488,7 @@ else{
 }
 stream::write_buffered(unmapped_stream, unmapped_selected, 0);
 stream::write_buffered(discordant_stream, discordant_selected, 0);
+stream::write_buffered(oea_stream, one_end_anchored, 0);
 
 
 
