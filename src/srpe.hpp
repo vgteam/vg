@@ -104,6 +104,7 @@ public:
 
     class SRPE{
 
+
             // Looks like locus_to_vcf, but handles the SVTYPE /SVLEN info fields
             // vcflib::Variant locus_to_sv_vcf(Locus ll);
             // vcflib::Variant locus_to_vcf(Locus ll);
@@ -118,18 +119,6 @@ public:
             // void regenerate_depth_map(pair<Alignment, Alignment> alns);
 
             // void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);
-
-            // Use Filter to locate read-pair signatures
-            // void detect_paired_signatures(vector<Alignment>& in_alns, vector<Alignment>& out_alns);
-
-            // Use Filter to detect paired-read signatures
-            // void detect_split_read_signatures(Alignment& aln);
-
-            // std::pair<int,int> calculate_insert_size_bounds(vector<pair<Alignment, Alignment> > alns);
-            // std::pair<double, double> calculate_insert_size_sigma(vector<pair<Alignment, Alignment> alns);
-
-            // check if our insert size for a given set of alignments falls within our expected range.
-            // bool reasonable_insert_size(pair<Alignment, Alignment> mates);
 
             // void normalize_pairs(vector<pair<Alignment&, Alignment&> > alns, vector<pair<Alignment, Alignment> > normals);
             // void normalize_singles(vector<Alignment&> alns, vector<Alignment&> normals);
@@ -160,13 +149,12 @@ public:
             DepthMap depth;
             vg::Filter ff;
 
-            // Mapper mapper;
-
             // A graph (or subgraph) for the region this SRPE is handling.
             vg::VG* vg;
 
             // Cap the total coverage at a given position
-            // int max_reads = 125;
+            int max_reads = 125;
+
 
 
 };

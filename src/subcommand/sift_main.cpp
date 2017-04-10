@@ -279,6 +279,10 @@ int main_sift(int argc, char** argv){
         oea_stream.open(oea_fn);
     }
 
+    if (do_split_read){
+        split_stream.open(split_fn);
+    }
+
 
     std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b){
         bool a_forward = true;
@@ -365,12 +369,15 @@ int main_sift(int argc, char** argv){
 
             }
 
-            
-            #pragma omp critical (split_selected)
-            {
-                split_selected.push_back(alns_first);
-                split_selected.push_back(alns_second);
+            if (ff.split_read_filter(alns_first).name() != ""
+                || ff.split_read_filter(alns_second).name() != ""){
+                #pragma omp critical (split_selected)
+                {
+                    split_selected.push_back(alns_first);
+                    split_selected.push_back(alns_second);
+                }
             }
+            
 
         }
         if (do_reversing && !flagged){
