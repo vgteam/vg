@@ -1987,6 +1987,13 @@ Support support_min(const Support& a, const Support& b) {
     return to_return;
 }
 
+Support support_max(const Support& a, const Support& b) {
+    Support to_return;
+    to_return.set_forward(max(a.forward(), b.forward()));
+    to_return.set_reverse(max(a.reverse(), b.reverse()));
+    return to_return;
+}
+
 Support operator+(const Support& one, const Support& other) {
     Support sum;
     sum.set_forward(one.forward() + other.forward());

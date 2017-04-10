@@ -108,6 +108,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
+    //stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
@@ -358,7 +359,7 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        const Support& baseline_support, size_t copy_budget, function<void(const Locus&)> emit_locus) {
+        const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
 
     // We need to be an ultrabubble for the traversal finder to work right.
     // TODO: generalize it
@@ -371,9 +372,17 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // available.
     Locus locus;
     
+    // How long is the longest traversal?
+    // Sort of approximate because of the way nested site sizes are estimated.
+    size_t longest_traversal_length = 0;
+    
     // Keep around a vector of is_reference statuses for all the traversals.
     vector<bool> is_ref;
-    
+   
+#ifdef debug
+    cerr << "Site " << site << endl;
+#endif
+   
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
     vector<Support> average_supports;
@@ -391,7 +400,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         Support total_support;
         
         // And the length over which we have it (for averaging)
-        size_t total_size;
+        size_t total_size = 0;
         
         // And the min support?
         Support min_support;
@@ -399,7 +408,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // Also, what's the min likelihood
         // Really this is already logged base 10.
         double min_likelihood = INFINITY;
-                        
+        
+        // Don't count nodes shared between child snarls more than once.
+        set<Node*> coverage_counted;
+        
         for(int64_t i = 0; i < traversal.visits_size(); i++) {
             // For all the (internal) visits...
             auto& visit = traversal.visits(i);
@@ -407,7 +419,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // Get the support for this thing, in read-bases
             Support here_support;
             // And its base pair length
-            size_t here_size;
+            size_t here_size = 0;
             if (visit.node_id() != 0) {
                 // Find the node
                 Node* node = augmented.graph.get_node(visit.node_id());
@@ -420,18 +432,41 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // Update minimum likelihood in the alt path
                 min_likelihood = min(min_likelihood, augmented.get_likelihood(node));
             } else {
-                // This is a snarl, so get its total support and size for all its nodes, going all the way down.
-                // TODO: Does this make sense?
-                // TODO: Won't this repeat a lot of summing if there's a lot if nesting?
+                // This is a snarl, so get its max support.
+                Support child_max;
+                size_t child_size = 0;
                 for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(visit.snarl()),
                     augmented.graph, true).first) {
-                    // For every child node, add the coverage and support
-                    // TODO: can I just use a path through the snarl somehow?
-                    here_support += augmented.get_support(node) * node->sequence().size();
-                    here_size += node->sequence().size();
+                    
+                    if (coverage_counted.count(node)) {
+                        // Already used by another child snarl on this traversal
+                        continue;
+                    }
+                    // Claim this node for this child.
+                    coverage_counted.insert(node);
+                    
+                    // How many distinct reads must use the child, given the distinct reads on this node?
+                    child_max = support_max(child_max, augmented.get_support(node));
+                    
+                    // Add in the node's size to the child
+                    child_size += node->sequence().size();
+                    
+#ifdef debug
+                    cerr << "From child snarl node " << node->id() << " get "
+                        << augmented.get_support(node) << " for distinct " << child_max << endl;
+#endif
                 }
+                
+                // Smoosh support over the whole child
+                here_support += child_max * child_size;
+                here_size += child_size;
+                
                 // A snarl can't be compeltely empty
                 assert(here_size != 0);
+                
+#ifdef debug
+                cerr << "Average " << here_support << "/" << here_size << " = " << (here_support / here_size) << endl;
+#endif
                 
                 // TODO: child snarl likelihoods?
             }
@@ -522,14 +557,34 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         min_supports.push_back(min_support);
         average_supports.push_back(total_support / total_size);
         
+#ifdef debug
+        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
+#endif
+
+        // Remember a new longesttraversal length
+        longest_traversal_length = max(longest_traversal_length, total_size);
+        
         // Copy the likelihood over to the locus. Convert from log10 which it
         // comes in as from the caller to ln.
         locus.add_allele_log_likelihood(log10_to_ln(min_likelihood));
     }
     
-    
-    // Decide which support vector we use to actually decide
-    vector<Support>& supports = use_average_support ? average_supports : min_supports;
+#ifdef debug
+    cerr << "Min vs. average" << endl;
+#endif
+    for (size_t i = 0; i < average_supports.size(); i++) {
+#ifdef debug
+        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
+#endif
+        // We should always have a higher average support than minumum support
+        assert(total(average_supports.at(i)) >= total(min_supports.at(i)));
+    }
+
+    // Decide which support vector we use to actually decide.
+    // Use average support for long sites where dropout might be expected, and min support otherwise.
+    vector<Support>& supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        average_supports :
+        min_supports;
     
     for (auto& support : supports) {
         // Blit supports over to the locus
@@ -628,6 +683,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // call, and both alleles exceed the minimum to call them
             // present.
             
+#ifdef debug
+            cerr << "Call as best/second best" << endl;
+#endif
+            
             // Say both are present
             genotype.add_allele(best_allele);
             genotype.add_allele(second_best_allele);
@@ -654,6 +713,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // but the best allele has enough coverage that we can just call
             // two of it.
             
+#ifdef debug
+            cerr << "Call as best/best" << endl;
+#endif
+            
             // Say the best is present twice
             genotype.add_allele(best_allele);
             genotype.add_allele(best_allele);
@@ -674,6 +737,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         } else if (copy_budget >= 1 && total(best_support) >= min_total_support_for_call) {
             // We're only supposed to have one copy, and the best allele is good enough to call
             
+#ifdef debug
+            cerr << "Call as best" << endl;
+#endif
+            
             // Say the best is present once
             genotype.add_allele(best_allele);
             
@@ -692,6 +759,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         } else {
             // Either coverage is too low, or we aren't allowed any copies.
             // We can't really call this as anything.
+            
+#ifdef debug
+            cerr << "Do not call" << endl;
+#endif
             
             // Don't add the genotype to the locus
         }
@@ -827,7 +898,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     if (locus.genotype_size() > 0) {
         // Emit the locus if we have a call
-        emit_locus(locus);
+        emit_locus(locus, &site);
     }
     
     // Return the traversals, best and second-best first, but having at least
@@ -1122,8 +1193,10 @@ void Call2Vcf::call(
             baseline_support = PrimaryPath::get_average_support(primary_paths);
         }
         
-        // This function emits the given variant on the given primary path, as VCF.
-        auto emit_variant = [&site, &contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path) {
+        // This function emits the given variant on the given primary path, as
+        // VCF. It needs to take the site as an argument because it may be
+        // called for children of the site we're working on right now.
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
         
             // Note that the locus paths will traverse our site forward, which
             // may make them backward along the primary path.
@@ -1209,6 +1282,11 @@ void Call2Vcf::call(
             }
             if(second_best_allele != -1 && second_best_allele != 0) {
                 used_alleles.push_back(second_best_allele);
+            }
+            
+            if (used_alleles.size() == 1) {
+                // We only have the reference. Don't emit the allele.
+                //return;
             }
         
             // Rewrite the sequences and variation_start to just represent the
@@ -1383,6 +1461,14 @@ void Call2Vcf::call(
                 variant.info["XSEE"].push_back(to_string(id));
             }
             
+            for (size_t i = 1; i < variant.alleles.size(); i++) {
+                // Claculate the SVLEN for this non-reference allele
+                int64_t svlen = (int64_t) variant.alleles.at(i).size() - (int64_t) variant.alleles.at(0).size();
+                
+                // Add it in
+                //variant.info["SVLEN"].push_back(to_string(svlen));
+            }
+            
             // Set up the depth format field
             variant.format.push_back("DP");
             // And allelic depth
@@ -1454,16 +1540,24 @@ void Call2Vcf::call(
         };
         
         // Recursively type the site, using that support and an assumption of a diploid sample.
-        find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2, [&](const Locus& locus) {
-            // Now we have the Locus with call information
+        find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2,
+            [&locus_buffer, &emit_variant, &site_manager, &called_loci, &primary_paths, &augmented,
+            &covered_nodes, &covered_edges, this](const Locus& locus, const Snarl* site) {
+            
+            // Now we have the Locus with call information, and the site (either
+            // the root snarl we passed in or a child snarl) that the call is
+            // for. We need to output the call.
         
             if (convert_to_vcf) {
                 // We want to emit VCF
+                
+                // Look up the path this child site lives on. (TODO: just capture and use the path the parent lives on?)
+                auto found_path = find_path(*site, primary_paths);
                 if(found_path != primary_paths.end()) {
                     // And this site is on a primary path
                     
                     // Emit the variant for this Locus
-                    emit_variant(locus, found_path->second);
+                    emit_variant(locus, found_path->second, site);
                 }
                 // Otherwise discard it as off-path
                 // TODO: update bases lost

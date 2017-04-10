@@ -64,6 +64,12 @@ inline StrandSupport minSup(vector<StrandSupport>& s) {
     }
     return *min_element(s.begin(), s.end());
 }
+inline StrandSupport maxSup(vector<StrandSupport>& s) {
+    if (s.empty()) {
+        return StrandSupport();
+    }
+    return *max_element(s.begin(), s.end());
+}
 inline StrandSupport avgSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
@@ -78,6 +84,19 @@ inline StrandSupport avgSup(vector<StrandSupport>& s) {
         ret.rs /= s.size();
         ret.os /= s.size();
         ret.likelihood /= s.size();
+    }
+    return ret;
+}
+inline StrandSupport totalSup(vector<StrandSupport>& s) {
+    StrandSupport ret;
+    if (!s.empty()) {
+        ret.likelihood = 0;
+        for (auto sup : s) {
+            ret.fs += sup.fs;
+            ret.rs += sup.rs;
+            ret.os += sup.os;
+            ret.likelihood += sup.likelihood;
+        }
     }
     return ret;
 }
@@ -472,7 +491,8 @@ public:
      */
     vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
-        const Support& baseline_support, size_t copy_budget, function<void(const Locus&)> emit_locus);
+        const Support& baseline_support, size_t copy_budget,
+        function<void(const Locus&, const Snarl*)> emit_locus);
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph
@@ -544,10 +564,10 @@ public:
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
-    Option<double> max_het_bias{this, "max-het-bias", "H", 3,
+    Option<double> max_het_bias{this, "max-het-bias", "H", 4.5,
         "max imbalance factor between alts to call heterozygous"};
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4,
+    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
         "max imbalance factor between ref and alts to call heterozygous ref"};
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
@@ -566,6 +586,12 @@ public:
     // Should we use average support instead of minimum support for our calculations?
     Option<bool> use_average_support{this, "use-avg-support", "u", false,
         "use average instead of minimum support"};
+    // Max traversal length threshold at which we switch from minimum support to
+    // average support (so we don't use average support on pairs of adjacent
+    // errors and miscall them, but we do use it on long runs of reference
+    // inside a deletion where the min support might not be representative.
+    Option<size_t> average_support_switch_threshold{this, "use-avg-support-above", "uUaAtT", 100,
+        "use average instead of minimum support for sites this long or longer"};
     
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?

@@ -187,6 +187,7 @@ struct AugmentedGraph {
     
     // This holds support info for nodes. Note that we discard the "os" other
     // support field from StrandSupport.
+    // Supports for nodes are minimum distinct reads that use the node.
     map<Node*, Support> node_supports;
     // And for edges
     map<Edge*, Support> edge_supports;
@@ -534,6 +535,12 @@ double total(const Support& support);
  * orientation.
  */
 Support support_min(const Support& a, const Support& b);
+
+/**
+ * Get the maximum support of a pair of Supports, by taking the max in each
+ * orientation.
+ */
+Support support_max(const Support& a, const Support& b);
 
 /**
  * Add two Support values together, accounting for strand.
