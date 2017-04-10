@@ -3887,7 +3887,6 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         
         // execute one step of LF mapping
         match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
-        max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
         
         if (gcsa::Range::empty(match.range)
             || (max_mem_length && match.end - cursor > max_mem_length)
@@ -3975,7 +3974,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         }
         else {
             prev_iter_jumped_lcp = false;
-            
+            max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
             // just step to the next position
             --cursor;
         }
