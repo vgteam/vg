@@ -87,9 +87,8 @@ class Filter{
         void set_my_xg_idx(xg::XG* xg_idx);
         void set_inverse(bool do_inv);
 
-    private:
         vg::VG* my_vg;
-        xg::XG* my_xg_index;
+        xg::XG* my_xg_index = NULL;
         gcsa::GCSA* gcsa_ind;
         gcsa::LCPArray * lcp_ind;
  
@@ -106,6 +105,7 @@ class Filter{
         // we really need a reservoir sampling method /
         // some way to effectively calculate less-biased moving averages.
         bool inverse = false;
+        bool do_remap = false;
         bool remove_failing_edits = false;
         bool filter_matches = false;
         bool use_avg = false;;

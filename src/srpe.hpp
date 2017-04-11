@@ -5,12 +5,12 @@
 #include <Variant.h>
 #include "filter.hpp"
 #include "index.hpp"
+#include "IntervalTree.h"
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "gcsa.h"
 #include "alignment.hpp"
 #include "genotypekit.hpp"
-#include "deps/vclfib/intervaltree/IntervalTree.h"
 using namespace std;
 namespace vg{
 
@@ -38,6 +38,7 @@ public:
   int8_t* depths;
   uint64_t size;
   inline DepthMap(int64_t sz) { depths = new int8_t[sz]; };
+  inline DepthMap() { depths = new int8_t[1000]; };
   inline int8_t get_depth(int64_t node_id) { return depths[node_id]; };
   inline void set_depth(int64_t node_id, int8_t d) { depths[node_id] = d; };
   inline void fill(vector<Alignment> alns){
@@ -103,11 +104,21 @@ public:
 };
 
 
+struct SVar{
+    string type;
+    int64_t start = 0;
+    int64_t end = 0;
+    int64_t ci_start = 0;
+    int64_t ci_end = 0;
+    int sr_support = 0;
+    int pr_support = 0;
+    int internal_support = 0;
+
+};
+
     class SRPE{
 
-        void fill_pair_evidence(Alignment& first_aln, Alignment& second_aln);
-        void fill_split_evidence(Alignment& a);
-        void fill_read
+        
            
 
         public:
@@ -128,7 +139,10 @@ public:
             // and a name->mate map
 
             // A graph (or subgraph) for the region this SRPE is handling.
-            vg::VG* vg;
+            vg::VG* graph;
+            // xg::XG* xindex;
+            // gcsa::GCSA* gindex;
+            // gcsa::LCPArray * lcp_ind;
 
             // Cap the total coverage at a given position
             int max_reads = 125;

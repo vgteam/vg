@@ -1,6 +1,9 @@
 import sys
 import math
 
+# run with::
+# ./bin/vg view -a alt.mega.gam | grep -o "\"length\": [-]*[0-9]*" | cut -f 2 -d ":" | python scripts/calc_insert.py
+
 def calc_mean(vals):
     return float(sum(vals)) / float(len(vals))
 

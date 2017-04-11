@@ -467,19 +467,19 @@ int main_sift(int argc, char** argv){
 
     };
 
-    double curr_insert = 0.0;
-    double insert_tot = 0.0;
-    int insert_count = 0;
-    double curr_sigma = 0.0;
-    std::function<void(Alignment&, Alignment&)> calc_insert = [&](Alignment& a, Alignment& b){
-        if (a.fragment_size() > 1){
-            insert_count += 1;
-            insert_tot += (double) a.fragment(0).length();   
-        }
-        else if (b.fragment_size() > 1){
+    // double curr_insert = 0.0;
+    // double insert_tot = 0.0;
+    // int insert_count = 0;
+    // double curr_sigma = 0.0;
+    // std::function<void(Alignment&, Alignment&)> calc_insert = [&](Alignment& a, Alignment& b){
+    //     if (a.fragment_size() > 1){
+    //         insert_count += 1;
+    //         insert_tot += (double) a.fragment(0).length();   
+    //     }
+    //     else if (b.fragment_size() > 1){
 
-        }
-    };
+    //     }
+    // };
 
 
 
@@ -494,10 +494,10 @@ else{
     in.open(alignment_file);
     if (in.good()){
 
-        if (just_calc_insert){
-            stream::for_each_interleaved_pair_parallel(in, calc_insert);
-            exit(0);
-        }
+        // if (just_calc_insert){
+        //     stream::for_each_interleaved_pair_parallel(in, calc_insert);
+        //     exit(0);
+        // }
 
         if (is_paired){
             cerr << "Processing..." << endl;

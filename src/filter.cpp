@@ -248,7 +248,11 @@ namespace vg{
         // for (int i = 0; i < aln_second.fragment_size(); i++){
         //     cerr << aln_second.name() << " " << aln_second.fragment(i).length() << endl;
         // }
-        // bool flipped = (aln_first.fragment(0).length());
+        bool flipped = false;
+        if (aln_first.fragment_size() > 0){
+            flipped = aln_first.fragment(0).length() < 0;
+        }
+
         for (int i = 0; i < f_path.mapping_size(); i++){
             if (f_path.mapping(i).position().is_reverse()){
                 f_rev = true;
@@ -264,9 +268,9 @@ namespace vg{
         if (f_rev == s_rev){
             return make_pair(aln_first, aln_second);
         }
-        //else if (f_rev == true && s_rev == false){
-        //    return make_pair(aln_first, aln_second);
-       // }
+        else if ((f_rev == true && s_rev == false) && flipped){
+            return make_pair(aln_first, aln_second);
+        }
         else{
             return make_pair(Alignment(), Alignment());
         }
@@ -529,41 +533,17 @@ namespace vg{
         Path path = aln.path();
         //check if nodes are on same path(s)
 
-        int top_side = path.mapping_size() - 1;
-        int bottom_side = 0;
+        Mapping next;
+        for (int i = 0; i < path.mapping_size() - 1; ++i){
+            Mapping m = path.mapping(i);
+            next = path.mapping(i+1);
+            // Get distance between the two mappings
+        }
 
-        Mapping bottom_mapping;
-        Mapping top_mapping;
+        // Check softclips
 
-        string main_path = "";
-        while (top_side > bottom_side){
-            //main_path = path_of_node(path.mapping(bottom_side);
-            //
-            //Check if paths are different
-            //if (divergent(node1, node2){
-            //    return inverse ? aln : Alignment();
-            //}
-            top_mapping = path.mapping(top_side);
-            bottom_mapping = path.mapping(bottom_side);
-            Position top_pos = top_mapping.position();
-            Position bot_pos = bottom_mapping.position();
-            id_t top_id = top_pos.node_id();
-            id_t bottom_id = bot_pos.node_id();
+        if (do_remap){
 
-            // TODO USE THE XG
-            if (abs(top_id - bottom_id) > 10){
-                return inverse ? aln : Alignment();
-            }
-
-            // Check if two mappings are far apart 
-            //
-            // Check if a single mapping has a huge indel
-
-
-
-
-            top_side--;
-            bottom_side++;
         }
 
         return inverse ? Alignment() : aln;
