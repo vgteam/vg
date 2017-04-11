@@ -237,6 +237,9 @@ int main_srpe(int argc, char** argv){
         << "Please provide one using [ vg sift -p -D x.gam ]" << endl;
         exit(1);
     }
+    else{
+        
+    }
 
      
     return 0;
