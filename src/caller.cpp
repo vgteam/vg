@@ -902,6 +902,8 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
         auto* old_edit = old_mapping->add_edit();
         old_edit->set_from_length(node->sequence().size());
         old_edit->set_to_length(node->sequence().size());
+        
+        _augmented_graph.translations.push_back(trans);
     }
 }
 
@@ -920,13 +922,13 @@ void Caller::annotate_augmented_nd()
         for (auto& j : i.second) {
             int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
-            char call = entry.sup_ref.empty() || avgSup(entry.sup_ref) == StrandSupport() ? 'U' : 'R';
-            annotate_augmented_node(entry.ref, call, avgSup(entry.sup_ref), orig_node_id, orig_node_offset);
+            char call = entry.sup_ref.empty() || maxSup(entry.sup_ref) == StrandSupport() ? 'U' : 'R';
+            annotate_augmented_node(entry.ref, call, maxSup(entry.sup_ref), orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
-                annotate_augmented_node(entry.alt1, 'S', avgSup(entry.sup_alt1), orig_node_id, orig_node_offset);
+                annotate_augmented_node(entry.alt1, 'S', maxSup(entry.sup_alt1), orig_node_id, orig_node_offset);
             }
             if (entry.alt2 != NULL) {
-                annotate_augmented_node(entry.alt2, 'S', avgSup(entry.sup_alt2), orig_node_id, orig_node_offset);
+                annotate_augmented_node(entry.alt2, 'S', maxSup(entry.sup_alt2), orig_node_id, orig_node_offset);
             }
         }
     }
