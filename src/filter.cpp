@@ -12,6 +12,31 @@ namespace vg{
 
     }
 
+    // to expand to multiple paths, we'll need to maintain a map of maps
+    // pathname -> map<node_id, int> >
+    int64_t Filter::distance_between_positions(Position first, Position second){
+        int64_t f_node_pos = node_to_position[first.node_id()];
+        int64_t r_node_pos = node_to_position[second.node_id()];
+        int64_t fp = f_node_pos + first.offset();
+        int64_t rp = r_node_pos + second.offset();
+        return abs(rp - fp);
+    }
+
+    void Filter::fill_node_to_position(string pathname){
+        if (my_vg == NULL){
+            cerr << "VG must be provided to use node_to_position" << endl;
+            exit(1);
+        }
+        if (my_vg->paths._paths.count(pathname)){
+            list<Mapping> maps = my_vg->paths._paths[pathname];
+            int64_t dist_from_start = 0;
+            for (auto m : maps){
+                node_to_position[m.position().node_id()] = dist_from_start;
+                dist_from_start += my_vg->get_node(m.position().node_id())->sequence().size();
+            }
+        }
+    }
+
     void Filter::set_min_depth(int depth){
         min_depth = depth;
     }
@@ -520,6 +545,28 @@ namespace vg{
         }
 
     }
+
+    string Filter::get_clipped_seq(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            if (left_overhang > soft_clip_limit){
+                return left_edit.sequence();
+            }
+            else if (right_overhang > soft_clip_limit){
+                return right_edit.sequence();
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return "";
+            }
+
+        }
+    }
     /**
      * Split reads map to two separate paths in the graph OR vastly separated non-consecutive
      * nodes in a single path.
@@ -529,25 +576,24 @@ namespace vg{
      */
     Alignment Filter::split_read_filter(Alignment& aln){
 
-        //TODO binary search for breakpoint in read would be awesome.
-        Path path = aln.path();
-        //check if nodes are on same path(s)
-
-        Mapping next;
-        for (int i = 0; i < path.mapping_size() - 1; ++i){
-            Mapping m = path.mapping(i);
-            next = path.mapping(i+1);
-            // Get distance between the two mappings
-        }
-
+        bool flagged = false;
         // Check softclips
 
-        if (do_remap){
-
+        if (soft_clip_filter(aln).name() != ""){
+            flagged = true;
+            string clipseq = get_clipped_seq(aln);
+            Alignment clipmatch = my_vg->align(clipseq);
+            if (clipmatch.mapping_quality() < 5){
+                flagged = false;
+            }
+        if (flagged){
+            return inverse ? Alignment() : aln;
+        }
+        else{
+            return inverse ? aln : Alignment();
         }
 
-        return inverse ? Alignment() : aln;
-
+    }
     }
 
 

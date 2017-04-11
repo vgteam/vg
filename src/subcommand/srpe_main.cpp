@@ -13,6 +13,7 @@
 #include "genotyper.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
+#include <math.h>
 #include "srpe.hpp"
 #include "filter.hpp"
 #include "utility.hpp"
@@ -229,8 +230,67 @@ int main_srpe(int argc, char** argv){
     ifstream quality_stream;
     ifstream depth_stream;
 
+    double insert_size = 0.0;
+    double insert_var = 0.0;
+    
+    struct INS_INTERVAL{
+        int64_t start = 0;
+        int64_t end = 0;
+        int64_t len = 0;
+        double start_ci = 1000.0;
+        double end_ci = 1000.0;
+        bool precise = false;
+        int fragl_supports = 0;
+        int oea_supports = 0;
+        int split_supports = 0;
+        int other_supports = 0;
+        inline int total_supports(){
+            return fragl_supports + oea_supports + split_supports + other_supports;
+        }
+    };
+
+    // Set up path index
+
+    vector<INS_INTERVAL> ins;
+    
+    std::function<void(Alignment&, Alignment&)> calc_insert_size = [&](Alignment& a, Alignment& b){
+        insert_size = 1000.0;
+        insert_var = 300.0;
+    };
+
+    std::function<void(Alignment&, Alignment&)> insert_sz_func = [&](Alignment& a, Alignment& b){
+        if (a.fragment_size() > 0){
+            int frag_diff = abs(a.fragment(0).length() - floor(insert_size));
+            // Get mappings of node from graph
+
+            // Get position (using Mapping* and path index)
+
+            // Set start to final position of first mate
+            // Set end position to start + (frag_diff)
+            // Length to frag_diff
+            // Increment supports
+        }
+    };
+
+    // Merge insertion intervals and supports
+
+    // Once merged, we can output putative breakpoints
+    // using the combined information.
+
+    // Get splits that map near the breakpoint
+
+
     // INSERTIONS
     // Open relevant GAMfiles
+    insert_stream.open(discordant_fn);
+    if (!insert_stream.good()){
+        cerr << "Must provide a .discordant file.";
+    }
+    else{
+        // Collect all long insert reads
+        stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
+    }
+
     oea_stream.open(oea_fn);
     if (!oea_stream.good()){
         cerr << "No one-end-anchored file found." << endl
@@ -238,7 +298,9 @@ int main_srpe(int argc, char** argv){
         exit(1);
     }
     else{
-        
+        // Get all OEA reads
+        // and place a breakpoint <insertsize> bp from the mapped read.
+
     }
 
      

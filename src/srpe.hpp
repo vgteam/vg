@@ -26,7 +26,6 @@ namespace vg{
  *          Duplications: Read depth signals
  *          Translocations: Distant read pairs
  */
-
           
 class DepthMap {
     /**

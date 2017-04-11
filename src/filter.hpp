@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <sstream>
 #include <string>
+#include <math.h>
 #include "vg.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
@@ -87,11 +88,16 @@ class Filter{
         void set_my_xg_idx(xg::XG* xg_idx);
         void set_inverse(bool do_inv);
 
-        vg::VG* my_vg;
+        vg::VG* my_vg = NULL;
         xg::XG* my_xg_index = NULL;
         gcsa::GCSA* gcsa_ind;
         gcsa::LCPArray * lcp_ind;
- 
+        
+        map<int64_t, int64_t> node_to_position;
+        void fill_node_to_position(string pathname);
+        int64_t distance_between_positions(Position first, Position second);
+        string get_clipped_seq(Alignment& a);
+
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?
