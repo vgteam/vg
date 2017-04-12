@@ -120,6 +120,7 @@ message Alignment {
     repeated Path fragment = 17; // An estimate of the length of the fragment, if this Alignment is paired.
     repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
     repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph
+    
     // SAMTools-style flags
     bool read_paired = 20;
     bool read_mapped = 21;
@@ -277,6 +278,9 @@ message Locus {
     // We also have a Support for the locus overall, because reads may have
     // supported multiple alleles and we want to know how many total there were.
     Support overall_support = 5;
+    // We track the likelihood of each allele individually, in addition to
+    // genotype likelihoods. Stores the likelihood natural logged.
+    repeated double allele_log_likelihood = 6;
 }
 
 // Describes a genotype at a particular locus.

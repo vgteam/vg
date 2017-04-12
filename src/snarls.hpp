@@ -82,7 +82,14 @@ namespace vg {
         /// Execute a function on all top level sites in parallel
         void for_each_top_level_snarl_parallel(const function<void(const Snarl*)>& lambda);
         
+        /// Given a Snarl that we don't own (like from a Visit), find the
+        /// pointer to the managed copy of that Snarl.
+        const Snarl* manage(const Snarl& not_owned);
+        
     private:
+    
+        /// Define the key type
+        using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
         
         /// Master list of the snarls in the graph
         vector<Snarl> snarls;
@@ -91,14 +98,18 @@ namespace vg {
         vector<const Snarl*> roots;
         
         /// Map of snarls to the child snarls they contain
-        unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, vector<const Snarl*> > children;
-        unordered_map<pair<pair<int64_t, bool>, pair<int64_t, bool> >, const Snarl*> parent;
+        unordered_map<key_t, vector<const Snarl*>> children;
+        unordered_map<key_t, const Snarl*> parent;
+        
+        /// Map of snarl keys to the indexes in the snarl array
+        // TODO: should we switch to just pointers here and save an indirection?
+        unordered_map<key_t, size_t> index_of;
         
         /// Converts Snarl to the form used as keys in internal data structures
-        inline pair<pair<int64_t, bool>, pair<int64_t, bool> > key_form(const Snarl* snarl);
+        inline key_t key_form(const Snarl* snarl);
         
         /// Builds tree indices after Snarls have been added
-        void build_trees();
+        void build_indexes();
     };
     
     /**
@@ -135,6 +146,15 @@ namespace vg {
     /// Converts a Mapping to a Visit. The mapping must represent a full node match.
     inline Visit to_visit(const Mapping& mapping);
     
+    /// Make a Visit from a node ID and an orientation
+    inline Visit to_visit(id_t node_id, bool is_reverse);
+    
+    /// Make a Visit from a snarl to traverse
+    inline Visit to_visit(const Snarl& snarl);
+    
+    /// Get the reversed version of a visit
+    inline Visit reverse(const Visit& visit);
+    
     /// Converts a NodeTraversal to a Visit in the opposite orientation.
     inline Visit to_rev_visit(const NodeTraversal& node_traversal);
     
@@ -167,6 +187,11 @@ namespace vg {
      * backward.
      */
     bool operator<(const Visit& a, const Visit& b);
+    
+    /**
+     * A Visit can be printed.
+     */
+    ostream& operator<<(ostream& out, const Visit& visit);
     
     // And some operators for SnarlTraversals
     
@@ -203,6 +228,10 @@ namespace vg {
      */
     bool operator<(const Snarl& a, const Snarl& b);
     
+    /**
+     * A Snarl can be printed.
+     */
+    ostream& operator<<(ostream& out, const Snarl& snarl);
     
     /****
      * Template and Inlines:
@@ -214,8 +243,8 @@ namespace vg {
         for (auto iter = begin; iter != end; iter++) {
             snarls.push_back(*iter);
         }
-        // record the tree structure
-        build_trees();
+        // record the tree structure and build the other indexes
+        build_indexes();
     }
     
     inline NodeTraversal to_node_traversal(const Visit& visit, VG& graph) {
@@ -277,6 +306,29 @@ namespace vg {
         Visit to_return;
         to_return.set_node_id(mapping.position().node_id());
         to_return.set_backward(mapping.position().is_reverse());
+        return to_return;
+    }
+    
+    inline Visit to_visit(id_t node_id, bool is_reverse) {
+        Visit to_return;
+        to_return.set_node_id(node_id);
+        to_return.set_backward(is_reverse);
+        return to_return;
+    }
+    
+    inline Visit to_visit(const Snarl& snarl) {
+        Visit to_return;
+        // Only copy necessary fields
+        *to_return.mutable_snarl()->mutable_start() = snarl.start();
+        *to_return.mutable_snarl()->mutable_end() = snarl.end();
+        return to_return;
+    }
+    
+    inline Visit reverse(const Visit& visit) {
+        // Copy the visit
+        Visit to_return = visit;
+        // And flip its orientation bit
+        to_return.set_backward(!visit.backward());
         return to_return;
     }
     

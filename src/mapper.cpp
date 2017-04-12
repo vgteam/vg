@@ -3824,9 +3824,12 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     
     // did we move the cursor or the end of the match last iteration?
     bool prev_iter_jumped_lcp = false;
+
+    int max_lcp = 0;
     
     // loop maintains invariant that match.range contains the hits for seq[cursor+1:match.end]
     while (cursor >= seq_begin) {
+
         // break the MEM on N; which for DNA we assume is non-informative
         // this *will* match many places in assemblies, but it isn't helpful
         if (*cursor == 'N') {
@@ -3856,7 +3859,9 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             --cursor;
             
             // are we reseeding?
-            if (reseed_length && mem_length >= reseed_length) {
+            if (reseed_length
+                && mem_length >= min_mem_length
+                && max_lcp >= reseed_length) {
                 if (fast_reseed) {
                     find_sub_mems_fast(mems,
                                        match.end,
@@ -3870,9 +3875,9 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                                   sub_mems);
                 }
             }
-            
+
             prev_iter_jumped_lcp = false;
-            
+            max_lcp = 0;
             // skip looking for matches since they are non-informative
             continue;
         }
@@ -3907,8 +3912,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 --cursor;
                 
                 // don't reseed in empty MEMs
-                
                 prev_iter_jumped_lcp = false;
+                max_lcp = 0;
             }
             else {
                 match.begin = cursor + 1;
@@ -3940,9 +3945,14 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 match.end = match.begin + parent.lcp();
                 // and set up the next MEM using the parent node range
                 match.range = parent.range();
+                // record our max lcp
+                max_lcp = max(max_lcp, (int)parent.lcp());
                 
                 // are we reseeding?
-                if (reseed_length && mem_length >= reseed_length && !prev_iter_jumped_lcp) {
+                if (reseed_length
+                    && !prev_iter_jumped_lcp
+                    && mem_length >= min_mem_length
+                    && max_lcp >= reseed_length) {
                     if (fast_reseed) {
                         find_sub_mems_fast(mems,
                                            match.end,
@@ -3959,11 +3969,12 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 
                 
                 prev_iter_jumped_lcp = true;
+                max_lcp = 0;
             }
         }
         else {
             prev_iter_jumped_lcp = false;
-            
+            max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
             // just step to the next position
             --cursor;
         }
@@ -3976,6 +3987,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     match.begin = seq_begin;
     size_t mem_length = match.end - match.begin;
     if (mem_length >= min_mem_length) {
+        max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
         mems.push_back(match);
         
 #ifdef debug_mapper
@@ -3992,7 +4004,9 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
 #endif
         
         // are we reseeding?
-        if (reseed_length && mem_length >= reseed_length) {
+        if (reseed_length
+            && mem_length >= min_mem_length
+            && max_lcp >= reseed_length) {
             if (fast_reseed) {
                 find_sub_mems_fast(mems,
                                    match.begin,

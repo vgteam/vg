@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <sstream>
 #include <string>
+#include <math.h>
 #include "vg.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
@@ -87,12 +88,17 @@ class Filter{
         void set_my_xg_idx(xg::XG* xg_idx);
         void set_inverse(bool do_inv);
 
-    private:
-        vg::VG* my_vg;
-        xg::XG* my_xg_index;
+        vg::VG* my_vg = NULL;
+        xg::XG* my_xg_index = NULL;
         gcsa::GCSA* gcsa_ind;
         gcsa::LCPArray * lcp_ind;
- 
+        
+        map<int64_t, int64_t> node_to_position;
+        void fill_node_to_position(string pathname);
+        int64_t distance_between_positions(Position first, Position second);
+        string get_clipped_seq(Alignment& a);
+        int64_t get_clipped_position(Alignment& a);
+
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?
@@ -106,6 +112,7 @@ class Filter{
         // we really need a reservoir sampling method /
         // some way to effectively calculate less-biased moving averages.
         bool inverse = false;
+        bool do_remap = false;
         bool remove_failing_edits = false;
         bool filter_matches = false;
         bool use_avg = false;;

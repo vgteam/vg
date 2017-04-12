@@ -5,6 +5,7 @@
 #include <Variant.h>
 #include "filter.hpp"
 #include "index.hpp"
+#include "IntervalTree.h"
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "gcsa.h"
@@ -25,7 +26,6 @@ namespace vg{
  *          Duplications: Read depth signals
  *          Translocations: Distant read pairs
  */
-
           
 class DepthMap {
     /**
@@ -37,6 +37,7 @@ public:
   int8_t* depths;
   uint64_t size;
   inline DepthMap(int64_t sz) { depths = new int8_t[sz]; };
+  inline DepthMap() { depths = new int8_t[1000]; };
   inline int8_t get_depth(int64_t node_id) { return depths[node_id]; };
   inline void set_depth(int64_t node_id, int8_t d) { depths[node_id] = d; };
   inline void fill(vector<Alignment> alns){
@@ -102,55 +103,45 @@ public:
 };
 
 
+struct SVar{
+    string type;
+    int64_t start = 0;
+    int64_t end = 0;
+    int64_t ci_start = 0;
+    int64_t ci_end = 0;
+    int sr_support = 0;
+    int pr_support = 0;
+    int internal_support = 0;
+
+};
+
     class SRPE{
 
-
-            // Looks like locus_to_vcf, but handles the SVTYPE /SVLEN info fields
-            // vcflib::Variant locus_to_sv_vcf(Locus ll);
-            // vcflib::Variant locus_to_vcf(Locus ll);
-
-            // void restrict_to_interval(string pathname, uint64_t start, uint64_t end, vg::VG* graph);
-
-            // clear any region restrictions, delete all the pointers, clear depth maps and settings.
-            // void reset();
-
-            // Remake the depth map for a graph / subgraph.
-            // void regenerate_depth_map(Alignment& a);
-            // void regenerate_depth_map(pair<Alignment, Alignment> alns);
-
-            // void remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped);
-
-            // void normalize_pairs(vector<pair<Alignment&, Alignment&> > alns, vector<pair<Alignment, Alignment> > normals);
-            // void normalize_singles(vector<Alignment&> alns, vector<Alignment&> normals);
-
-            // void load_read(vector<Alignment> a);
-            // void flush_reads(vector<Alignment> a);
-
-            
-            // // Performs graph augmentation in a way that won't shatter the graph into single
-            // // base pairs. Integrates one path per variant; does not integrate a path for
-            // // perfect matches to the reference path. Does not integrate unanchored paths.
-            // void single_smart_augment(vector<Alignment&> alns);
-            // void pair_smart_augment(vector<pair<Alignment&, Alignment&> > alns);
-
-
-            // // Write a signed 16-bit int for every node id in the graph.
-            // // Every 16 bits is a node id. -1 signifies there is no node POSITION
-            // // in the graph.
-            // void export_depth_map(string outname);
-            // void import_depth_map(string mapname);
-            // void export_reference_names(vector<string> names);
+        
            
 
         public:
             vector<string> ref_names;
+
+            vector<pair<int, int> > intervals;
+
+
             // Are multiple references present in the same subgraph?
             bool overlapping_refs = false;
+            // Maps from node-id to read depth
             DepthMap depth;
+
+            // Every SRPE gets its own filter
             vg::Filter ff;
 
+            // Every SRPE also gets its own name->alignment map
+            // and a name->mate map
+
             // A graph (or subgraph) for the region this SRPE is handling.
-            vg::VG* vg;
+            vg::VG* graph;
+            // xg::XG* xindex;
+            // gcsa::GCSA* gindex;
+            // gcsa::LCPArray * lcp_ind;
 
             // Cap the total coverage at a given position
             int max_reads = 125;

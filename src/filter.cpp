@@ -12,6 +12,55 @@ namespace vg{
 
     }
 
+    // to expand to multiple paths, we'll need to maintain a map of maps
+    // pathname -> map<node_id, int> >
+    int64_t Filter::distance_between_positions(Position first, Position second){
+        int64_t f_node_pos = node_to_position[first.node_id()];
+        int64_t r_node_pos = node_to_position[second.node_id()];
+        int64_t fp = f_node_pos + first.offset();
+        int64_t rp = r_node_pos + second.offset();
+        return abs(rp - fp);
+    }
+
+    int64_t Filter::get_clipped_position(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            if (left_overhang > soft_clip_limit){
+                return node_to_position[path.mapping(0).position().node_id()] + 
+                (path.mapping(0).position().is_reverse() ? (-1 * path.mapping(0).position().offset()) : path.mapping(0).position().offset());
+            }
+            else if (right_overhang > soft_clip_limit){
+                return node_to_position[path.mapping(0).position().node_id()] + 
+                (path.mapping(path.mapping_size() - 1).position().is_reverse() ? (-1 * path.mapping(path.mapping_size() - 1).position().offset()) : path.mapping(path.mapping_size() - 1).position().offset());
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return 0;
+            }
+
+        }
+    }
+
+    void Filter::fill_node_to_position(string pathname){
+        if (my_vg == NULL){
+            cerr << "VG must be provided to use node_to_position" << endl;
+            exit(1);
+        }
+        if (my_vg->paths._paths.count(pathname)){
+            list<Mapping> maps = my_vg->paths._paths[pathname];
+            int64_t dist_from_start = 0;
+            for (auto m : maps){
+                node_to_position[m.position().node_id()] = dist_from_start;
+                dist_from_start += my_vg->get_node(m.position().node_id())->sequence().size();
+            }
+        }
+    }
+
     void Filter::set_min_depth(int depth){
         min_depth = depth;
     }
@@ -198,12 +247,20 @@ namespace vg{
     pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
 
         double zed;
-        if (aln_first.fragment(0).length() != 0){
-            zed = (double) aln_first.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        bool check_first = true;
+        bool check_second = true;
+        if (aln_first.fragment_size() < 1){
+            check_first = false;
         }
-        else if (aln_second.fragment(0).length() != 0){
+        if (aln_second.fragment_size() < 1){
+            check_second = false;
+        }
 
-            zed = (double) aln_second.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        if (check_first && !check_second){
+            zed = ((double) aln_first.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
+        }
+        else if (check_second){
+            zed = ((double) aln_second.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
         }else{
             return make_pair(Alignment(), Alignment());
         }
@@ -240,7 +297,11 @@ namespace vg{
         // for (int i = 0; i < aln_second.fragment_size(); i++){
         //     cerr << aln_second.name() << " " << aln_second.fragment(i).length() << endl;
         // }
-        // bool flipped = (aln_first.fragment(0).length());
+        bool flipped = false;
+        if (aln_first.fragment_size() > 0){
+            flipped = aln_first.fragment(0).length() < 0;
+        }
+
         for (int i = 0; i < f_path.mapping_size(); i++){
             if (f_path.mapping(i).position().is_reverse()){
                 f_rev = true;
@@ -256,9 +317,9 @@ namespace vg{
         if (f_rev == s_rev){
             return make_pair(aln_first, aln_second);
         }
-        //else if (f_rev == true && s_rev == false){
-        //    return make_pair(aln_first, aln_second);
-       // }
+        else if ((f_rev == true && s_rev == false) && flipped){
+            return make_pair(aln_first, aln_second);
+        }
         else{
             return make_pair(Alignment(), Alignment());
         }
@@ -499,14 +560,36 @@ namespace vg{
         }
         else{
             if (aln.sequence().length() > soft_clip_limit){
-                return inverse ? Alignment() : aln;
+                return Alignment();
             }
             cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
                 << "WITH NO MAPPINGS TO REFERENCE" << endl
                 << "CONSIDER REMOVING IT FROM ANALYSIS" << endl;
-            return inverse ? Alignment() : aln;
+            return Alignment();
         }
 
+    }
+
+    string Filter::get_clipped_seq(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            if (left_overhang > soft_clip_limit){
+                return left_edit.sequence();
+            }
+            else if (right_overhang > soft_clip_limit){
+                return right_edit.sequence();
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return "";
+            }
+
+        }
     }
     /**
      * Split reads map to two separate paths in the graph OR vastly separated non-consecutive
@@ -517,49 +600,26 @@ namespace vg{
      */
     Alignment Filter::split_read_filter(Alignment& aln){
 
-        //TODO binary search for breakpoint in read would be awesome.
-        Path path = aln.path();
-        //check if nodes are on same path(s)
+        bool flagged = false;
+        // Check softclips
 
-        int top_side = path.mapping_size() - 1;
-        int bottom_side = 0;
-
-        Mapping bottom_mapping;
-        Mapping top_mapping;
-
-        string main_path = "";
-        while (top_side > bottom_side){
-            //main_path = path_of_node(path.mapping(bottom_side);
-            //
-            //Check if paths are different
-            //if (divergent(node1, node2){
-            //    return inverse ? aln : Alignment();
-            //}
-            top_mapping = path.mapping(top_side);
-            bottom_mapping = path.mapping(bottom_side);
-            Position top_pos = top_mapping.position();
-            Position bot_pos = bottom_mapping.position();
-            id_t top_id = top_pos.node_id();
-            id_t bottom_id = bot_pos.node_id();
-
-            // TODO USE THE XG
-            if (abs(top_id - bottom_id) > 10){
-                return inverse ? aln : Alignment();
+        if (soft_clip_filter(aln).name() != ""){
+            flagged = true;
+            string clipseq = get_clipped_seq(aln);
+            Alignment clipmatch = my_vg->align(clipseq);
+            cerr << clipmatch.path().mapping_size() << endl;
+            if (clipmatch.path().mapping_size() < 1 || clipmatch.mapping_quality() < 5){
+                flagged = false;
             }
-
-            // Check if two mappings are far apart 
-            //
-            // Check if a single mapping has a huge indel
-
-
-
-
-            top_side--;
-            bottom_side++;
+        }
+        if (flagged){
+            return inverse ? Alignment() : aln;
+        }
+        else{
+            return inverse ? aln : Alignment();
         }
 
-        return inverse ? Alignment() : aln;
-
+    
     }
 
 

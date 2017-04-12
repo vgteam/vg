@@ -3,18 +3,17 @@
 #include <getopt.h>
 #include <functional>
 #include <regex>
-//#include "intervaltree.hpp"
 #include "subcommand.hpp"
 #include "stream.hpp"
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
 #include "path.hpp"
-//#include "genotyper.hpp"
 #include "genotypekit.hpp"
 #include "genotyper.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
+#include <math.h>
 #include "srpe.hpp"
 #include "filter.hpp"
 #include "utility.hpp"
@@ -28,25 +27,13 @@ using namespace vg::subcommand;
 
 
 void help_srpe(char** argv){
-    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl
-        << "Options: " << endl
-        << "   -I / --insertions  <INS>       fasta file containing insertion sequences." << endl
-        << "   -g" << endl
-        << "   -x" << endl
-        << "Smart genotyping:" << endl
-        << "   -a / --augmented   <AUG>       write the intermediate augmented graph to <AUG>." << endl
-        << "   -p / --ref-path   <PATHNAME>   find variants relative to <PATHNAME>" << endl
-        << endl;
-    //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
-
-
-
+    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl;
 }
 
 
 
 int main_srpe(int argc, char** argv){
-    string gam_name = "";
+    string alignment_file = "";
     string gam_index_name = "";
     string graph_name = "";
     string xg_name = "";
@@ -151,10 +138,12 @@ int main_srpe(int argc, char** argv){
     omp_set_num_threads(threads);
 
 
-    //SRPE srpe;
+    SRPE srpe;
+
+    
 
 
-    gam_name = argv[optind];
+    alignment_file = argv[optind];
     //gam_index_name = argv[++optind];
     graph_name = argv[++optind];
 
@@ -166,6 +155,17 @@ int main_srpe(int argc, char** argv){
     if (!xg_name.empty()){
         ifstream in(xg_name);
         xg_ind->load(in);
+        srpe.ff.set_my_xg_idx(xg_ind);
+    }
+    // Set GCSA indexes
+    if (!gcsa_name.empty()){
+            ifstream gcsa_stream(gcsa_name);
+            srpe.ff.gcsa_ind = new gcsa::GCSA();
+            srpe.ff.gcsa_ind->load(gcsa_stream);
+            string lcp_name = gcsa_name + ".lcp";
+            ifstream lcp_stream(lcp_name);
+            srpe.ff.lcp_ind = new gcsa::LCPArray();
+            srpe.ff.lcp_ind->load(lcp_stream);
     }
     if (!gam_index_name.empty()){
         gamind.open_read_only(gam_index_name);
@@ -196,7 +196,115 @@ int main_srpe(int argc, char** argv){
 
     }
 
+    vector<Alignment> just_fine;
+    vector<Alignment> perfect;
+    vector<Alignment> simple_mismatch;
+    vector<Alignment> discordant_selected;
+    vector<Alignment> split_selected;
+    vector<Alignment> reversing_selected;
+    vector<Alignment> clipped_selected;
+    vector<Alignment> one_end_anchored;
+    vector<Alignment> quality_selected;
+    vector<Alignment> insert_selected;
+    vector<Alignment> depth_selected;
+    vector<Alignment> single_bp_diff;
+    vector<Alignment> unmapped_selected;
+
+    string unmapped_fn = alignment_file + ".unmapped";
+    string discordant_fn = alignment_file + ".discordant";
+    string split_fn = alignment_file + ".split";
+    string reversing_fn = alignment_file +  ".reversing";
+    string oea_fn = alignment_file + ".one_end_anchored";
+    string clipped_fn = alignment_file + ".softclipped";
+    string insert_fn = alignment_file + ".insert_size";
+    string quality_fn = alignment_file + ".quality";
+    string depth_fn = alignment_file + ".depth";
+
+    ifstream unmapped_stream;
+    ifstream discordant_stream;
+    ifstream split_stream;
+    ifstream reversing_stream;
+    ifstream oea_stream;
+    ifstream clipped_stream;
+    ifstream insert_stream;
+    ifstream quality_stream;
+    ifstream depth_stream;
+    vector<Interval<int> > inters;
+
+    double insert_size = 0.0;
+    double insert_var = 0.0;
     
+    struct INS_INTERVAL{
+        int64_t start = 0;
+        int64_t end = 0;
+        int64_t len = 0;
+        double start_ci = 1000.0;
+        double end_ci = 1000.0;
+        bool precise = false;
+        int fragl_supports = 0;
+        int oea_supports = 0;
+        int split_supports = 0;
+        int other_supports = 0;
+        inline int total_supports(){
+            return fragl_supports + oea_supports + split_supports + other_supports;
+        }
+    };
+
+    // Set up path index
+    srpe.ff.fill_node_to_position(ref_path);
+    
+
+    vector<INS_INTERVAL> ins;
+    
+    std::function<void(Alignment&, Alignment&)> calc_insert_size = [&](Alignment& a, Alignment& b){
+        insert_size = 1000.0;
+        insert_var = 300.0;
+    };
+
+    std::function<void(Alignment&, Alignment&)> insert_sz_func = [&](Alignment& a, Alignment& b){
+        if (a.fragment_size() > 0){
+            int frag_diff = abs(a.fragment(0).length() - floor(insert_size));
+            // Get mappings of node from graph
+
+            // Get position (using Mapping* and path index)
+
+            // Set start to final position of first mate
+            // Set end position to start + (frag_diff)
+            // Length to frag_diff
+            // Increment supports
+        }
+    };
+
+    // Merge insertion intervals and supports
+
+    // Once merged, we can output putative breakpoints
+    // using the combined information.
+
+    // Get splits that map near the breakpoint
+
+
+    // INSERTIONS
+    // Open relevant GAMfiles
+    insert_stream.open(discordant_fn);
+    if (!insert_stream.good()){
+        cerr << "Must provide a .discordant file.";
+    }
+    else{
+        // Collect all long insert reads
+        stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
+    }
+
+    oea_stream.open(oea_fn);
+    if (!oea_stream.good()){
+        cerr << "No one-end-anchored file found." << endl
+        << "Please provide one using [ vg sift -p -D x.gam ]" << endl;
+        exit(1);
+    }
+    else{
+        // Get all OEA reads
+        // and place a breakpoint <insertsize> bp from the mapped read.
+
+    }
 
      
     return 0;
