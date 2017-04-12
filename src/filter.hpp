@@ -97,6 +97,7 @@ class Filter{
         void fill_node_to_position(string pathname);
         int64_t distance_between_positions(Position first, Position second);
         string get_clipped_seq(Alignment& a);
+        int64_t get_clipped_position(Alignment& a);
 
         //Position: NodeID + offset
         // different edits may be present at each position.

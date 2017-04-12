@@ -229,6 +229,7 @@ int main_srpe(int argc, char** argv){
     ifstream insert_stream;
     ifstream quality_stream;
     ifstream depth_stream;
+    vector<Interval<int> > inters;
 
     double insert_size = 0.0;
     double insert_var = 0.0;
@@ -250,6 +251,8 @@ int main_srpe(int argc, char** argv){
     };
 
     // Set up path index
+    srpe.ff.fill_node_to_position(ref_path);
+    
 
     vector<INS_INTERVAL> ins;
     

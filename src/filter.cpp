@@ -22,6 +22,30 @@ namespace vg{
         return abs(rp - fp);
     }
 
+    int64_t Filter::get_clipped_position(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            if (left_overhang > soft_clip_limit){
+                return node_to_position[path.mapping(0).position().node_id()] + 
+                (path.mapping(0).position().is_reverse() ? (-1 * path.mapping(0).position().offset()) : path.mapping(0).position().offset());
+            }
+            else if (right_overhang > soft_clip_limit){
+                return node_to_position[path.mapping(0).position().node_id()] + 
+                (path.mapping(path.mapping_size() - 1).position().is_reverse() ? (-1 * path.mapping(path.mapping_size() - 1).position().offset()) : path.mapping(path.mapping_size() - 1).position().offset());
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return 0;
+            }
+
+        }
+    }
+
     void Filter::fill_node_to_position(string pathname){
         if (my_vg == NULL){
             cerr << "VG must be provided to use node_to_position" << endl;
@@ -536,12 +560,12 @@ namespace vg{
         }
         else{
             if (aln.sequence().length() > soft_clip_limit){
-                return inverse ? Alignment() : aln;
+                return Alignment();
             }
             cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
                 << "WITH NO MAPPINGS TO REFERENCE" << endl
                 << "CONSIDER REMOVING IT FROM ANALYSIS" << endl;
-            return inverse ? Alignment() : aln;
+            return Alignment();
         }
 
     }
@@ -583,9 +607,11 @@ namespace vg{
             flagged = true;
             string clipseq = get_clipped_seq(aln);
             Alignment clipmatch = my_vg->align(clipseq);
-            if (clipmatch.mapping_quality() < 5){
+            cerr << clipmatch.path().mapping_size() << endl;
+            if (clipmatch.path().mapping_size() < 1 || clipmatch.mapping_quality() < 5){
                 flagged = false;
             }
+        }
         if (flagged){
             return inverse ? Alignment() : aln;
         }
@@ -593,7 +619,7 @@ namespace vg{
             return inverse ? aln : Alignment();
         }
 
-    }
+    
     }
 
 

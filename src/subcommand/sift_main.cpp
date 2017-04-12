@@ -65,6 +65,7 @@ int main_sift(int argc, char** argv){
     }
 
     string alignment_file = "";
+    string graph_name = "";
     int threads = 1;
 
     bool inverse = false;
@@ -118,7 +119,7 @@ int main_sift(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hut:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r1",
+        c = getopt_long (argc, argv, "hut:vx:gG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -134,7 +135,9 @@ int main_sift(int argc, char** argv){
             case 't':
                 threads = atoi(optarg);
                 break;
-
+            case 'G':
+                graph_name = optarg;
+                break;
             case 'u':
                 do_unmapped = true;
                 do_all = false;
@@ -146,6 +149,7 @@ int main_sift(int argc, char** argv){
                 break;
             case 's':
                 do_split_read = true;
+                split_read_limit = atoi(optarg);
                 do_all = false;
                 break;
             case 'q':
@@ -212,6 +216,11 @@ int main_sift(int argc, char** argv){
 
     cerr << "Filtering  " << alignment_file << endl;
 
+    vg::VG* graph;
+    if (!graph_name.empty()){
+        ifstream gstream(graph_name);
+        ff.my_vg = new vg::VG(gstream);
+    }
 
     omp_set_num_threads(threads);
     ff.set_inverse(inverse);
@@ -292,6 +301,9 @@ int main_sift(int argc, char** argv){
     }
     if (do_insert_size){
         insert_stream.open(insert_fn);
+    }
+    if (do_softclip){
+        clipped_stream.open(clipped_fn);
     }
 
     std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b){
@@ -385,6 +397,7 @@ int main_sift(int argc, char** argv){
                 {
                     split_selected.push_back(alns_first);
                     split_selected.push_back(alns_second);
+
                 }
             }
             
@@ -408,12 +421,14 @@ int main_sift(int argc, char** argv){
 
             Alignment x = ff.soft_clip_filter(alns_first);
             Alignment y = ff.soft_clip_filter(alns_second);
+            if (!x.name().empty() || !y.name().empty()){
+                #pragma omp critical (clipped_selected)
+                {
+                    clipped_selected.push_back(alns_first);
+                    clipped_selected.push_back(alns_second);
+                }
+            } 
 
-            #pragma omp critical (clipped_selected)
-            {
-                clipped_selected.push_back(alns_first);
-                clipped_selected.push_back(alns_second);
-            }
 
         }
         if (do_quality && !flagged){
@@ -440,8 +455,8 @@ int main_sift(int argc, char** argv){
         stream::write_buffered(discordant_stream, discordant_selected, 100);
         stream::write_buffered(oea_stream, one_end_anchored, 100);
         stream::write_buffered(insert_stream, insert_selected, 100);
-
-
+        stream::write_buffered(split_stream, split_selected, 100);
+        stream::write_buffered(clipped_stream, clipped_selected, 100);
     };
 
     std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
@@ -517,7 +532,8 @@ stream::write_buffered(unmapped_stream, unmapped_selected, 0);
 stream::write_buffered(discordant_stream, discordant_selected, 0);
 stream::write_buffered(oea_stream, one_end_anchored, 0);
 stream::write_buffered(insert_stream, insert_selected, 0);
-
+stream::write_buffered(split_stream, split_selected, 0);
+stream::write_buffered(clipped_stream, clipped_selected, 0);
 
     buffer.clear();
 
