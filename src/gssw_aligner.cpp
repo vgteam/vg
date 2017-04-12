@@ -594,7 +594,7 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
 //    return mapping_qualities;
 //}
 
-double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
+double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out, double est_next_score) {
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
     if (scaled_scores.size() == 1) {
@@ -630,7 +630,15 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     }
     
     *max_idx_out = max_idx;
-    
+
+    //cerr << "next score " << next_score << " est score " << est_next_score << endl;
+    if (est_next_score > next_score) {
+        next_score = est_next_score;
+        next_count = 1;
+    }
+    //cerr << "next score now " << next_score << endl;
+    //cerr << "max score " << max_score << endl;
+
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
 }
 
@@ -639,7 +647,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           bool fast_approximation,
                                           double cluster_mq,
                                           bool use_cluster_mq,
-                                          int overlap_count) {
+                                          int overlap_count,
+                                          double lcp_avg) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -656,14 +665,23 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     for (size_t i = 0; i < size; i++) {
         scaled_scores[i] = log_base * alignments[i].score();
     }
-    
+
+    double est_next_score = 0;
+    /* // not working yet
+    if (lcp_avg) {
+        // compute approximate minimum number of mismatches in next-best cluster
+        int length = alignments.front().sequence().size();
+        est_next_score = log_base * estimate_next_best_score(length, length / lcp_avg);
+    }
+    */
+
     double mapping_quality;
     size_t max_idx;
     if (!fast_approximation) {
         mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
     }
     else {
-        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
+        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, est_next_score);
     }
 
     double max_weight = scaled_scores[max_idx];
@@ -674,8 +692,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = max(best_chance, mapping_quality);
     }
 
-    double identity = alignments[max_idx].identity();
-    mapping_quality *= pow(identity, 4);
+    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
+    mapping_quality *= pow(identity * alignments[max_idx].identity(), 2);
 
     if (overlap_count) {
         mapping_quality -= quality_scale_factor * log(overlap_count);
@@ -700,7 +718,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  double cluster_mq,
                                                  bool use_cluster_mq,
                                                  int overlap_count1,
-                                                 int overlap_count2) {
+                                                 int overlap_count2,
+                                                 double lcp_avg1,
+                                                 double lcp_avg2) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -720,6 +740,17 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     for (size_t i = 0; i < size; i++) {
         scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
     }
+
+    double est_next_score = 0;
+    /* // not working yet
+    if (lcp_avg1 && lcp_avg2) {
+        // compute approximate minimum number of mismatches in next-best cluster
+        int length1 = alignment_pairs.first.front().sequence().size();
+        int length2 = alignment_pairs.second.front().sequence().size();
+        est_next_score = log_base * estimate_next_best_score(length1 + length2,
+                                                             length1 / lcp_avg1 + length2 / lcp_avg2);
+    }
+    */
     
     size_t max_idx;
     double mapping_quality;
@@ -727,7 +758,7 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
     }
     else {
-        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
+        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, est_next_score);
     }
     
     double max_weight = scaled_scores[max_idx];
@@ -744,11 +775,11 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
 
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
-    
-    double identity1 = alignment_pairs.first[max_idx].identity();
-    mapping_quality1 *= pow(identity1, 4);
-    double identity2 = alignment_pairs.second[max_idx].identity();
-    mapping_quality2 *= pow(identity2, 4);
+
+    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
+    mapping_quality1 *= pow(identity1 * alignment_pairs.first[max_idx].identity(), 2);
+    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
+    mapping_quality2 *= pow(identity2 * alignment_pairs.second[max_idx].identity(), 2);
 
     if (overlap_count1) {
         mapping_quality1 -= quality_scale_factor * log(overlap_count1);
@@ -769,6 +800,18 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
     alignment_pairs.second[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality2)));
+}
+
+double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
+    return ((length - min_diffs) * match - min_diffs * mismatch);
+}
+
+double BaseAligner::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {
+    double max_score = log_base * ((length - min_diffs) * match - min_diffs * mismatch);
+    double next_max_score = log_base * ((length - next_min_diffs) * match - next_min_diffs * mismatch);
+    vector<double> v = { max_score };
+    size_t max_idx;
+    return maximum_mapping_quality_approx(v, &max_idx, next_max_score);
 }
 
 double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {

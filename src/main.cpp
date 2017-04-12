@@ -3997,10 +3997,6 @@ int main_find(int argc, char** argv) {
         exit(1);
     }
     
-    if (use_fast_reseed && !mem_reseed_length) {
-        cerr << "[vg find] WARNING: Fast MEM reseed option is ignored when reseeding is turned off. Use -R to turn on reseeding." << endl;
-    }
-
     // process input node list
     if (!node_list_file.empty()) {
         ifstream nli;
@@ -5065,10 +5061,6 @@ int main_map(int argc, char** argv) {
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
-    if (use_fast_reseed && !mem_reseed_factor) {
-        cerr << "warning:[vg map] Fast MEM reseed option is ignored when reseeding is turned off. Use --mem-reseed to turn on reseeding." << endl;
-    }
-    
     MappingQualityMethod mapping_quality_method;
     if (method_code == 0) {
         mapping_quality_method = None;
