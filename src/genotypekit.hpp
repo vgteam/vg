@@ -526,6 +526,11 @@ class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
 // We also supply utility functions for working with genotyping Protobuf objects
 
 /**
+ * Create a Support for the given forward and reverse coverage.
+ */
+Support make_support(double forward, double reverse);
+
+/**
  * Get the total read support in a Support.
  */
 double total(const Support& support);
