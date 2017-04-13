@@ -4766,7 +4766,7 @@ int main_map(int argc, char** argv) {
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = true;
-    float drop_chain = 0.2;
+    float drop_chain = 0.1;
     float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;

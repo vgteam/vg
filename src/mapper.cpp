@@ -1602,58 +1602,36 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                                                      lcp_avg1,
                                                      max_mem_length,
                                                      min_mem_length,
-                                                     0);
+                                                     mem_reseed_length);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
                                                      lcp_avg2,
                                                      max_mem_length,
                                                      min_mem_length,
-                                                     0);
+                                                     mem_reseed_length);
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
 
-    auto estimate_mq_max =[&](void) {
-    };
-
     {
-        int mem_length_sum1 = 0;
-        for (auto& mem : mems1) mem_length_sum1 += mem.length();
+        double mem_length_sum1 = 0;
+        for (auto& mem : mems1) mem_length_sum1 += (double)mem.length()/(double)mem.match_count;
         double mem_avg1 = (double) mem_length_sum1 / mems1.size();
         double maybe_max1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
                                                                   read1.sequence().size()/max(1.0, mem_avg1),
                                                                   read1.sequence().size()/lcp_avg1);
-        int mem_length_sum2 = 0;
-        for (auto& mem : mems2) mem_length_sum2 += mem.length();
+        double mem_length_sum2 = 0;
+        for (auto& mem : mems2) mem_length_sum2 += (double)mem.length()/(double)mem.match_count;;
         double mem_avg2 = (double) mem_length_sum2 / mems2.size();
         double maybe_max2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
                                                                   read2.sequence().size()/max(1.0, mem_avg2),
                                                                   read2.sequence().size()/lcp_avg2);
 
         if (debug) cerr << "maybe mq " << maybe_max1 << " " << maybe_max2 << endl;
-        // force MQ to be max the one given
-        if (maybe_max1 + maybe_max2 < max_mapping_quality) {
-            total_multimaps = 2;
-            mq_cap1 = mq_cap2 = min((double)max_mapping_quality, min(maybe_max1, maybe_max2));
-        } else {
-            mq_cap1 = min((double)max_mapping_quality, maybe_max1);
-            mq_cap2 = min((double)max_mapping_quality, maybe_max2);
-        }
-        if (maybe_max1 > max_mapping_quality * 2) {
-            mems1 = find_mems_deep(read1.sequence().begin(),
-                                   read1.sequence().end(),
-                                   lcp_avg1,
-                                   max_mem_length,
-                                   min_mem_length,
-                                   mem_reseed_length);
-        }
-        if (maybe_max2 > max_mapping_quality * 2) {
-            mems2 = find_mems_deep(read2.sequence().begin(),
-                                   read2.sequence().end(),
-                                   lcp_avg2,
-                                   max_mem_length,
-                                   min_mem_length,
-                                   mem_reseed_length);
+        total_multimaps = max(max_multimaps+4, min(total_multimaps, (int)round(1 / phred_to_prob(maybe_max1+maybe_max2))));
+        if (max(maybe_max1, maybe_max2) < max_mapping_quality ) {
+            mq_cap1 = min(maybe_max1, (double)max_mapping_quality);
+            mq_cap2 = min(maybe_max2, (double)max_mapping_quality);
         }
     }
 
@@ -2244,25 +2222,17 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     double mq_cap = max_mapping_quality;
 
     {
-        int mem_length_sum = 0;
-        for (auto& mem : mems) mem_length_sum += mem.length();
-        double mem_avg = (double) mem_length_sum / mems.size();
+        double mem_length_sum = 0;
+        for (auto& mem : mems) mem_length_sum += (double)mem.length()/(double)mem.match_count;
+        double mem_avg = mem_length_sum / mems.size();
         double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
-                                                     aln.sequence().size()/max(1.0, mem_avg),
-                                                     aln.sequence().size()/lcp_avg);
+                                                                 aln.sequence().size()/max(1.0, mem_avg),
+                                                                 aln.sequence().size()/lcp_avg);
 
         if (debug) cerr << "maybe mq " << maybe_max << endl;
-        mq_cap = min(maybe_max, (double)max_mapping_quality);
+        total_multimaps = max(max_multimaps+4, min(total_multimaps, (int)round(1 / phred_to_prob(maybe_max))));
         if (maybe_max < max_mapping_quality) {
-            total_multimaps = 2;
-        }
-        if (maybe_max > max_mapping_quality * 2) {
-            mems = find_mems_deep(aln.sequence().begin(),
-                                  aln.sequence().end(),
-                                  lcp_avg,
-                                  max_mem_length,
-                                  min_mem_length,
-                                  mem_reseed_length);
+            mq_cap = min(maybe_max, (double)max_mapping_quality);
         }
     }
 
@@ -3265,7 +3235,7 @@ LRUCache<id_t, vector<Edge> >& Mapper::get_edge_cache(void) {
 
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double lcp_avg, double mq_cap) {
     if (alns.empty()) return;
-    double max_mq = mq_cap ? min(mq_cap, (double)max_mapping_quality) : max_mapping_quality;
+    double max_mq = min(mq_cap, (double)max_mapping_quality);
     auto aligner = (alns.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
@@ -3282,8 +3252,8 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double lcp_avg1, double lcp_avg2, double mq_cap1, double mq_cap2) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
-    double max_mq1 = mq_cap1 ? min(mq_cap1, (double)max_mapping_quality) : max_mapping_quality;
-    double max_mq2 = mq_cap2 ? min(mq_cap2, (double)max_mapping_quality) : max_mapping_quality;
+    double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
+    double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
     auto aligner = (pair_alns.first.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     int sub_overlaps1 = sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
     int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
@@ -3435,7 +3405,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         lcp_avg,
                                                         max_mem_length,
                                                         min_mem_length,
-                                                        0);
+                                                        mem_reseed_length);
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, lcp_avg, max_mem_length, additional_multimaps_for_quality);
     }
