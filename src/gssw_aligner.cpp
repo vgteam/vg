@@ -713,7 +713,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
-                                                 int max_mapping_quality,
+                                                 int max_mapping_quality1,
+                                                 int max_mapping_quality2,
                                                  bool fast_approximation,
                                                  double cluster_mq,
                                                  bool use_cluster_mq,
@@ -791,11 +792,11 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     mapping_quality1 += quality_scale_factor * log(1 - alignment_pairs.first[max_idx].uniqueness());
     mapping_quality2 += quality_scale_factor * log(1 - alignment_pairs.second[max_idx].uniqueness());
     
-    if (mapping_quality1 > max_mapping_quality) {
-        mapping_quality1 = max_mapping_quality;
+    if (mapping_quality1 > max_mapping_quality1) {
+        mapping_quality1 = max_mapping_quality1;
     }
-    if (mapping_quality2 > max_mapping_quality) {
-        mapping_quality2 = max_mapping_quality;
+    if (mapping_quality2 > max_mapping_quality2) {
+        mapping_quality2 = max_mapping_quality2;
     }
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));

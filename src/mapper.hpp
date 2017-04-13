@@ -133,8 +133,8 @@ private:
                                            double& cluster_mq,
                                            int additional_multimaps = 0,
                                            vector<MaximalExactMatch>* restricted_mems = nullptr);
-    void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double lcp_avg);
-    void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double lcp_avg1, double lcp_avg2);
+    void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double lcp_avg, double mq_cap);
+    void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double lcp_avg1, double lcp_avg2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
     vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
@@ -145,7 +145,10 @@ private:
                            int max_mem_length = 0,
                            int band_width = 1000);
     // alignment based on the MEM approach
-    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int additional_multimaps = 0);
+//    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
+    // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
+    vector<Alignment> align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps);
+
     // base algorithm for above Update the passed-in Alignment with a highest-
     // score alignment, and return all good alignments sorted by score up to
     // max_multimaps. If the read does not map, the returned vector will be
@@ -281,8 +284,6 @@ public:
     // uses heuristic clustering based on node id ranges to find alignment targets, and aligns
     vector<Alignment> mems_id_clusters_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
 
-    // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
-    vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq, double lcp_avg);
     // use mapper parameters to determine which clusters we should drop
     set<const vector<MaximalExactMatch>* > clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters);
 

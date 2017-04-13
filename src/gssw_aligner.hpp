@@ -125,7 +125,8 @@ namespace vg {
                                      double lcp_avg);
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
-                                            int max_mapping_quality,
+                                            int max_mapping_quality1,
+                                            int max_mapping_quality2,
                                             bool fast_approximation,
                                             double cluster_mq,
                                             bool use_cluster_mq,
