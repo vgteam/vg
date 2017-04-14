@@ -1976,6 +1976,13 @@ size_t RepresentativeTraversalFinder::bp_length(const list<Visit>& path) {
     return length;
 }
 
+Support make_support(double forward, double reverse) {
+    Support to_return;
+    to_return.set_forward(forward);
+    to_return.set_reverse(reverse);
+    return to_return;
+}
+
 double total(const Support& support) {
     return support.forward() + support.reverse();
 }
