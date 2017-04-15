@@ -5183,6 +5183,7 @@ int main_map(int argc, char** argv) {
         }
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
+        m->min_multimaps = min_multimaps;
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
