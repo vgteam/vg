@@ -1076,7 +1076,7 @@ void help_msga(char** argv) {
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "mem mapping:" << endl
-         << "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
+        //<< "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
          << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: estimated)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
         //<< "    -
@@ -1193,7 +1193,6 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
-                {"no-mem-threader", no_argument, 0, 'l'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'H'},
@@ -1217,7 +1216,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:7:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:7:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1226,10 +1225,6 @@ int main_msga(int argc, char** argv) {
 
         switch (c)
         {
-
-        case 'l':
-            use_mem_threader = false;
-            break;
 
         case 'L':
             min_mem_length = atoi(optarg);
