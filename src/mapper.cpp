@@ -1631,10 +1631,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         // use the estimated mapping quality to avoid hard work when the results are likely noninformative
         if (maybe_max1 + maybe_max2 < maybe_mq_threshold) {
             total_multimaps = min_multimaps;
+        }
+        if (maybe_max1 < maybe_mq_threshold) {
             mq_cap1 = maybe_max1;
+        }
+        if (maybe_max2 < maybe_mq_threshold) {
             mq_cap2 = maybe_max2;
-        } else if (min_multimaps < max_multimaps) {
-            total_multimaps = max(min_multimaps, (int)round(total_multimaps/min(maybe_max1,maybe_max2)));
+        }
+        if (min_multimaps < max_multimaps) {
+            total_multimaps = max(min_multimaps, (int)round(total_multimaps/max(maybe_max1,maybe_max2)));
         }
     }
 
@@ -2235,7 +2240,8 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
         if (maybe_max < maybe_mq_threshold) {
             total_multimaps = min_multimaps;
             mq_cap = maybe_max;
-        } else {
+        }
+        if (min_multimaps < max_multimaps) {
             total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
         }
         if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_length_sum << " " << mem_avg << " " << lcp_avg << endl;
