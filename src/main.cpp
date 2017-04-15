@@ -4667,9 +4667,10 @@ void help_map(char** argv) {
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.2]" << endl
-         << "    -L, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
+         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
@@ -4683,7 +4684,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
-         << "    -l, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -4751,6 +4752,7 @@ int main_map(int argc, char** argv) {
     int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
+    int min_multimaps = 16;
     int max_mapping_quality = 60;
     int method_code = 1;
     string gam_input;
@@ -4819,10 +4821,11 @@ int main_map(int argc, char** argv) {
                 {"compare", no_argument, 0, 'B'},
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
-                {"full-l-bonus", required_argument, 0, 'l'},
+                {"full-l-bonus", required_argument, 0, 'L'},
                 {"chance-match", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
-                {"mq-overlap", required_argument, 0, 'L'},
+                {"mq-overlap", required_argument, 0, 'n'},
+                {"try-at-least", required_argument, 0, 'l'},
                 {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
@@ -4830,7 +4833,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:n:",
                          long_options, &option_index);
 
 
@@ -4876,7 +4879,7 @@ int main_map(int argc, char** argv) {
             max_mapping_quality = atoi(optarg);
             break;
 
-        case 'l':
+        case 'L':
             full_length_bonus = atoi(optarg);
             break;
 
@@ -4926,7 +4929,11 @@ int main_map(int argc, char** argv) {
             drop_chain = atof(optarg);
             break;
 
-        case 'L':
+        case 'l':
+            min_multimaps = atoi(optarg);
+            break;
+
+        case 'n':
             mq_overlap = atof(optarg);
             break;
 

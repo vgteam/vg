@@ -516,6 +516,7 @@ public:
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
     int extra_multimaps; // Extra mappings considered
+    int min_multimaps; // Minimum number of multimappings
     
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities

@@ -23,6 +23,7 @@ Mapper::Mapper(Index* idex,
     , max_thread_gap(30)
     , context_depth(1)
     , max_multimaps(1)
+    , min_multimaps(1)
     , max_attempts(0)
     , softclip_threshold(0)
     , max_softclip_iterations(10)
@@ -1630,8 +1631,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         if (maybe_max1 + maybe_max2 == 0) {
             total_multimaps = max_multimaps+1;
             mq_cap1 = mq_cap2 = 0;
-        } else {
-            total_multimaps = max(max_multimaps+16, (int)round(total_multimaps*1.0/min(maybe_max1,maybe_max2)));
+        } else if (min_multimaps < max_multimaps) {
+            total_multimaps = max(min_multimaps, (int)round(total_multimaps*1.0/min(maybe_max1,maybe_max2)));
         }
     }
 
@@ -2233,7 +2234,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
             total_multimaps = max_multimaps+1;
             mq_cap = 0;
         } else {
-            total_multimaps = max(max_multimaps+16, (int)round(total_multimaps*1.0/maybe_max));
+            total_multimaps = max(min_multimaps, (int)round(total_multimaps*1.0/maybe_max));
         }
         if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_length_sum << " " << mem_avg << " " << lcp_avg << endl;
     }
