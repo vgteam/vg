@@ -69,6 +69,7 @@ Mapper::Mapper(Index* idex,
     , alignment_gap_open(6)
     , alignment_gap_extension(1)
     , full_length_alignment_bonus(5)
+    , maybe_mq_threshold(10)
 {
     init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
@@ -1616,21 +1617,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 
     {
         double mem_length_sum1 = 0;
-        for (auto& mem : mems1) mem_length_sum1 += mem.length() / (double)mem.match_count;
+        for (auto& mem : mems1) if (mem.match_count) mem_length_sum1 += mem.length() / (double)mem.match_count;
         double mem_avg1 = (double) mem_length_sum1 / mems1.size();
         double maybe_max1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
                                                                   read1.sequence().size()/max(1.0, mem_avg1),
                                                                   read1.sequence().size()/lcp_avg1);
         double mem_length_sum2 = 0;
-        for (auto& mem : mems2) mem_length_sum2 += mem.length() / (double)mem.match_count;
+        for (auto& mem : mems2) if (mem.match_count) mem_length_sum2 += mem.length() / (double)mem.match_count;
         double mem_avg2 = (double) mem_length_sum2 / mems2.size();
         double maybe_max2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
                                                                   read2.sequence().size()/max(1.0, mem_avg2),
                                                                   read2.sequence().size()/lcp_avg2);
         // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-        if (maybe_max1 + maybe_max2 == 0) {
+        if (maybe_max1 + maybe_max2 < maybe_mq_threshold) {
             total_multimaps = min_multimaps;
-            mq_cap1 = mq_cap2 = 0;
+            mq_cap1 = maybe_max1;
+            mq_cap2 = maybe_max2;
         } else if (min_multimaps < max_multimaps) {
             total_multimaps = max(min_multimaps, (int)round(total_multimaps*1.0/min(maybe_max1,maybe_max2)));
         }
@@ -2224,15 +2226,15 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
 
     {
         double mem_length_sum = 0;
-        for (auto& mem : mems) mem_length_sum += (double)mem.length()/mem.match_count;
+        for (auto& mem : mems) if (mem.match_count) mem_length_sum += (double)mem.length()/mem.match_count;
         double mem_avg = (double)mem_length_sum / mems.size();
         double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
                                                                  aln.sequence().size()/max(1.0, mem_avg),
                                                                  aln.sequence().size()/lcp_avg);
         // use the estimated mapping quality to avoid hard work when the outcome will be noninformative
-        if (maybe_max == 0) {
+        if (maybe_max < maybe_mq_threshold) {
             total_multimaps = min_multimaps;
-            mq_cap = 0;
+            mq_cap = maybe_max;
         } else {
             total_multimaps = max(min_multimaps, (int)round(total_multimaps*1.0/maybe_max));
         }
