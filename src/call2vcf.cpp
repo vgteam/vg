@@ -108,7 +108,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-    //stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
+    stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
@@ -357,6 +357,244 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
     return primary_paths.end();
 }
 
+/**
+ * Trace out the given traversal, handling nodes, child snarls, and edges
+ * associated with particular visit numbers.
+ */
+void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t)> handle_node,
+    function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
+
+    for(int64_t i = 0; i < traversal.visits_size(); i++) {
+        // For all the (internal) visits...
+        auto& visit = traversal.visits(i);
+        
+        if (visit.node_id() != 0) {
+            // This is a visit to a node
+            
+            // Find the node
+            handle_node(i, visit.node_id());
+        } else {
+            // This is a snarl
+            handle_child(i, visit.snarl());
+        }
+        
+        // Account for the edge out
+        if (i + 1 < traversal.visits_size()) {
+            // There's a next visit
+            auto& next_visit = traversal.visits(i + 1);
+            
+            if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+                to_right_side(visit).flip() == to_left_side(next_visit)) {
+                
+                // These are two back-to-back child snarl visits, which
+                // share a node and have no connecting edge.
+#ifdef debug
+                cerr << "No edge needed for back-to-back child snarls" << endl;
+#endif
+                
+            } else {
+                // Do the edge to it
+                handle_edge(i, to_right_side(visit), to_left_side(next_visit));
+            }
+        } else {
+            // Do the edge to the end of the snarl.
+            handle_edge(i, to_right_side(visit), to_left_side(site.end()));
+        }
+        
+        // And for the edge in, if necessary
+        if (i == 0) {
+            // This is the first visit, so we need to connect to the left end of the snarl.
+            handle_edge(i, to_right_side(site.start()), to_left_side(visit));
+        }
+    }
+    
+    if(traversal.visits_size() == 0) {
+        // We just have the anchoring nodes and the edge between them.
+        // Look at that edge specially.
+        handle_edge(0, to_right_side(site.start()), to_left_side(site.end()));
+    }
+
+}
+
+/**
+ * Get the min support, total support, bp size (to divide total by for average
+ * support), and min likelihood for a traversal, optionally excluding the
+ * material used by another traversal.
+ */
+tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& augmented,
+    SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
+    const SnarlTraversal* excluded = nullptr) {
+
+#ifdef debug
+    cerr << "Evaluate traversal: " << endl;
+    for (size_t i = 0; i < traversal.visits_size(); i++) {
+        cerr << "\t" << pb2json(traversal.visits(i)) << endl;
+    }
+    if (excluded != nullptr) {
+        cerr << "Exclude: " << endl;
+        for (size_t i = 0; i < excluded->visits_size(); i++) {
+            cerr << "\t" << pb2json(excluded->visits(i)) << endl;
+        }
+    }
+#endif
+
+    // First work out the stuff we need to skip
+    set<id_t> skip_nodes;
+    set<Snarl> skip_children;
+    set<Edge*> skip_edges;
+    if (excluded != nullptr) {
+        // Exlcude all the nodes and edges that the traversal to exclude uses.
+        trace_traversal(*excluded, site, [&](size_t i, id_t node) {
+            skip_nodes.insert(node);
+        }, [&](size_t i, NodeSide end1, NodeSide end2) {
+            skip_edges.insert(augmented.graph.get_edge(end1, end2));
+        }, [&](size_t i, Snarl child) {
+            skip_children.insert(child);
+        });
+    }
+    
+    
+    // Compute min and total supports, and bp sizes, for all the visits by
+    // number.
+    size_t record_count = max(1, traversal.visits_size());
+    // What's the min support observed at every visit (inclusing edges)?
+    vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY));
+    // And the total support (ignoring edges)?
+    vector<Support> total_supports(record_count, Support());
+    // And the bp size of each visit
+    vector<size_t> visit_sizes(record_count, 0);
+    // And the min likelihoods at each visit?
+    vector<double> likelihoods(record_count, INFINITY);
+    
+    // Don't count nodes shared between child snarls more than once.
+    set<Node*> coverage_counted;
+    
+    trace_traversal(traversal, site, [&](size_t i, id_t node_id) {
+        if (skip_nodes.count(node_id)) {
+            // Used by the traversal we want to ignore
+            return;
+        }
+    
+        // Find the node
+        Node* node = augmented.graph.get_node(node_id);
+    
+        // Grab this node's total support along its length
+        total_supports[i] += augmented.get_support(node) * node->sequence().size();
+        // And its size
+        visit_sizes[i] += node->sequence().size();
+        // And its likelihood
+        likelihoods[i] = min(likelihoods[i], augmented.get_likelihood(node));
+        
+        // And update its min support
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node));
+        
+    }, [&](size_t i, NodeSide end1, NodeSide end2) {
+        // This is an edge
+        Edge* edge = augmented.graph.get_edge(end1, end2);
+        assert(edge != nullptr);
+        
+        if (skip_edges.count(edge)) {
+            // Used by the traversal we want to ignore
+            return;
+        }
+
+        // Count as 1 base worth for the total/average support
+        total_supports[i] += augmented.get_support(edge);
+        visit_sizes[i] += 1;
+        
+        // Min in its support
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge));
+        // And use its likelihood in the min
+        likelihoods[i] = min(likelihoods[i], augmented.get_likelihood(edge));
+    }, [&](size_t i, Snarl child) {
+        // This is a child snarl, so get its max support.
+        
+        if (skip_children.count(child)) {
+            // Used by the traversal we want to ignore
+            return;
+        }
+        
+        Support child_max;
+        size_t child_size = 0;
+        for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(child),
+            augmented.graph, true).first) {
+            // For every node in the child
+            
+            if (coverage_counted.count(node)) {
+                // Already used by another child snarl on this traversal
+                continue;
+            }
+            // Claim this node for this child.
+            coverage_counted.insert(node);
+            
+            // How many distinct reads must use the child, given the distinct reads on this node?
+            child_max = support_max(child_max, augmented.get_support(node));
+            
+            // Add in the node's size to the child
+            child_size += node->sequence().size();
+            
+#ifdef debug
+            cerr << "From child snarl node " << node->id() << " get "
+                << augmented.get_support(node) << " for distinct " << child_max << endl;
+#endif
+        }
+        
+        // Smoosh support over the whole child
+        total_supports[i] += child_max * child_size;
+        visit_sizes[i] += child_size;
+        
+        if (child_size != 0) {
+            // We actually have some nodes to our name.
+            min_supports[i] = support_min(min_supports[i], child_max);
+        }
+        
+        // TODO: child snarl likelihoods?
+    });
+    
+    // Now aggregate across visits and their edges
+
+    // What's the total support for this traversal?
+    Support total_support;
+    for (auto& support : total_supports) {
+        total_support += support;
+    }
+    
+    // And the length over which we have it (for averaging)
+    size_t total_size = 0;
+    for (auto& size : visit_sizes) {
+        total_size += size;
+    }
+    
+    // And the min support?
+    Support min_support = make_support(INFINITY, INFINITY);
+    for (auto& support : min_supports) {
+        min_support = support_min(min_support, support);
+    }
+    
+    // Also, what's the min likelihood
+    // Really this is already logged base 10.
+    double min_likelihood = INFINITY;
+    for (auto& likelihood : likelihoods) {
+        min_likelihood = min(min_likelihood, likelihood);
+    }
+    
+    if (min_support.forward() == INFINITY || min_support.reverse() == INFINITY) {
+        // If we have actually no material, say we have actually no support
+        min_support = Support();
+    }
+    
+    if (min_likelihood == INFINITY) {
+        // Similarly, and infinite likelihood means no likelihood at all
+        min_likelihood = 0;
+    }
+    
+    // Spit out the supports, the size in bases, and the min likelihood
+    // observed.
+    return tie(min_support, total_support, total_size, min_likelihood);
+        
+}
+
+
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
@@ -376,192 +614,40 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // Sort of approximate because of the way nested site sizes are estimated.
     size_t longest_traversal_length = 0;
     
-    // Keep around a vector of is_reference statuses for all the traversals.
-    vector<bool> is_ref;
-   
 #ifdef debug
     cerr << "Site " << site << endl;
 #endif
    
+    
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
     vector<Support> average_supports;
     for(auto& traversal : here_traversals) {
         // Go through all the SnarlTraversals for this Snarl
         
-#ifdef debug
-        cerr << "Evaluate traversal: " << endl;
-        for (size_t j = 0; j < traversal.visits_size(); j++) {
-            cerr << "\t" << pb2json(traversal.visits(j)) << endl;
-        }
-#endif
-        
         // What's the total support for this traversal?
         Support total_support;
-        
         // And the length over which we have it (for averaging)
-        size_t total_size = 0;
-        
+        size_t total_size;
         // And the min support?
         Support min_support;
-        
         // Also, what's the min likelihood
         // Really this is already logged base 10.
-        double min_likelihood = INFINITY;
-        
-        // Don't count nodes shared between child snarls more than once.
-        set<Node*> coverage_counted;
-        
-        for(int64_t i = 0; i < traversal.visits_size(); i++) {
-            // For all the (internal) visits...
-            auto& visit = traversal.visits(i);
+        double min_likelihood;
+        // Trace the traversal and get its support
+        tie(min_support, total_support, total_size, min_likelihood) = get_traversal_support(augmented,
+            snarl_manager, site, traversal);
             
-            // Get the support for this thing, in read-bases
-            Support here_support;
-            // And its base pair length
-            size_t here_size = 0;
-            if (visit.node_id() != 0) {
-                // Find the node
-                Node* node = augmented.graph.get_node(visit.node_id());
-            
-                // Grab this node's average support along its length
-                here_support = augmented.get_support(node) * node->sequence().size();
-                // And its size
-                here_size = node->sequence().size();
-                
-                // Update minimum likelihood in the alt path
-                min_likelihood = min(min_likelihood, augmented.get_likelihood(node));
-            } else {
-                // This is a snarl, so get its max support.
-                Support child_max;
-                size_t child_size = 0;
-                for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(visit.snarl()),
-                    augmented.graph, true).first) {
-                    
-                    if (coverage_counted.count(node)) {
-                        // Already used by another child snarl on this traversal
-                        continue;
-                    }
-                    // Claim this node for this child.
-                    coverage_counted.insert(node);
-                    
-                    // How many distinct reads must use the child, given the distinct reads on this node?
-                    child_max = support_max(child_max, augmented.get_support(node));
-                    
-                    // Add in the node's size to the child
-                    child_size += node->sequence().size();
-                    
-#ifdef debug
-                    cerr << "From child snarl node " << node->id() << " get "
-                        << augmented.get_support(node) << " for distinct " << child_max << endl;
-#endif
-                }
-                
-                // Smoosh support over the whole child
-                here_support += child_max * child_size;
-                here_size += child_size;
-                
-                // A snarl can't be compeltely empty
-                assert(here_size != 0);
-                
-#ifdef debug
-                cerr << "Average " << here_support << "/" << here_size << " = " << (here_support / here_size) << endl;
-#endif
-                
-                // TODO: child snarl likelihoods?
-            }
-            
-            // This gets filled in with the min of our support for this visit
-            // and our support for the edges in and out. Denominated in reads,
-            // not read-bases.
-            auto here_min_support = here_support / here_size;
-            
-            // Account for the support for the edge out
-            if (i + 1 < traversal.visits_size()) {
-                // There's a next visit
-                auto& next_visit = traversal.visits(i + 1);
-                
-                if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
-                    to_right_side(visit).flip() == to_left_side(next_visit)) {
-                    
-                    // These are two back-to-back child snarl visits, which
-                    // share a node and have no connecting edge.
-#ifdef debug
-                    cerr << "No edge needed for back-to-back child snarls" << endl;
-#endif
-                    
-                } else {
-                    // Get the edge to it
-                    Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(next_visit));
-                    if (next_edge == nullptr) {
-                        cerr << "Missing edge from " << pb2json(visit) << " to " << pb2json(next_visit) << endl;
-                        cerr << "Traversal: " << endl;
-                        for (size_t j = 0; j < traversal.visits_size(); j++) {
-                            cerr << "\t" << pb2json(traversal.visits(j)) << endl;
-                        }
-                    }
-                    assert(next_edge != nullptr);
-                    // Min in its support
-                    here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
-                    // And use its likelihood in the min
-                    min_likelihood = min(min_likelihood, augmented.get_likelihood(next_edge));
-                }
-            } else {
-                // Get the edge to the end of the snarl.
-                Edge* next_edge = augmented.graph.get_edge(to_right_side(visit), to_left_side(site.end()));
-                assert(next_edge != nullptr);
-                // Min in its support
-                here_min_support = support_min(here_min_support, augmented.get_support(next_edge));
-                // And use its likelihood in the min
-                min_likelihood = min(min_likelihood, augmented.get_likelihood(next_edge));
-            }
-            
-            // And for the edge in, if necessary
-            if (i == 0) {
-                // This is the first visit, so we need to connect to the left end of the snarl.
-                Edge* last_edge = augmented.graph.get_edge(to_right_side(site.start()), to_left_side(visit));
-                assert(last_edge != nullptr);
-                // Min in its support
-                here_min_support = support_min(here_min_support, augmented.get_support(last_edge));
-                min_likelihood = min(min_likelihood, augmented.get_likelihood(last_edge));
-            }
-            
-            // For a node or nested site, add total read-bases into total support.
-            total_support += here_support; 
-            total_size += here_size;
-            
-            // Edges don't count for total support
-            
-            // Take this as the minimum support if it's the first node, and min it with the min support otherwise.
-            min_support = (i == 0 ? here_min_support : support_min(min_support, here_min_support));
-
-        }
-        
-        if(traversal.visits_size() == 0) {
-            // We just have the anchoring nodes and the edge between them.
-            // Look at that edge specially.
-            Edge* edge = augmented.graph.get_edge(make_pair(to_right_side(site.start()),
-                                                            to_left_side(site.end())));
-            
-            // Only use the support on the edge
-            total_support = augmented.get_support(edge);
-            min_support = total_support;
-            total_size = 1;
-            
-            // And the likelihood on the edge
-            min_likelihood = augmented.edge_likelihoods.at(edge);
-        }
-        
         // Add average and min supports to vectors. Note that average support
         // ignores edges.
         min_supports.push_back(min_support);
-        average_supports.push_back(total_support / total_size);
+        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
         
 #ifdef debug
         cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
 #endif
 
-        // Remember a new longesttraversal length
+        // Remember a new longest traversal length
         longest_traversal_length = max(longest_traversal_length, total_size);
         
         // Copy the likelihood over to the locus. Convert from log10 which it
@@ -593,22 +679,64 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     ////////////////////////////////////////////////////////////////////////////
     
-    // Now look at all the paths for the site and pick the top 2.
+    // Now look at all the paths for the site and pick the best one
     int best_allele = -1;
-    int second_best_allele = -1;
     for(size_t i = 0; i < supports.size(); i++) {
         if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
-            // We have a new best. Demote the old best.
-            second_best_allele = best_allele;
+            // We have a new best.
             best_allele = i;
-        } else if(second_best_allele == -1 || total(supports[second_best_allele]) <= total(supports[i])) {
-            // We're not better than the best, but we can demote the second best.
+        }
+    }
+    // We should always have a best allele; we may sometimes have a second best.
+    assert(best_allele != -1);
+    
+#ifdef debug
+    cerr << "Choose best allele: " << best_allele << endl;
+#endif
+    
+    // Then recalculate supports assuming we can't count anything shared with that best traversal
+    vector<Support> min_additional_supports;
+    vector<Support> average_additional_supports;
+    for(auto& traversal : here_traversals) {
+        // Go through all the SnarlTraversals for this Snarl
+        
+        // Get all these again, modulo the best allele
+        Support total_support;
+        size_t total_size;
+        Support min_support;
+        double min_likelihood;
+        tie(min_support, total_support, total_size, min_likelihood) = get_traversal_support(augmented,
+            snarl_manager, site, traversal, &here_traversals.at(best_allele));
+            
+        // Add average and min supports to vectors.
+        min_additional_supports.push_back(min_support);
+        average_additional_supports.push_back(total_size != 0 ? total_support / total_size : Support());
+        
+#ifdef debug
+        cerr << "Additional: Min: " << min_support << " Total: " << total_support << " Average: "
+            << average_additional_supports.back() << endl;
+#endif
+    }
+    vector<Support>& additional_supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        average_additional_supports :
+        min_additional_supports;
+    
+    // Then pick the second best one
+    int second_best_allele = -1;
+    for(size_t i = 0; i < additional_supports.size(); i++) {
+        if (best_allele == i) {
+            // The second best allele can't be the best allele.
+            continue;
+        }
+        if(second_best_allele == -1 || total(additional_supports[second_best_allele]) <= total(additional_supports[i])) {
+            // We're the best so far, and not the best allele, so we're the second best.
             second_best_allele = i;
         }
     }
     
-    // We should always have a best allele; we may sometimes have a second best.
-    assert(best_allele != -1);
+#ifdef debug
+    cerr << "Choose second best allele: " << second_best_allele << endl;
+#endif
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -1284,11 +1412,6 @@ void Call2Vcf::call(
                 used_alleles.push_back(second_best_allele);
             }
             
-            if (used_alleles.size() == 1) {
-                // We only have the reference. Don't emit the allele.
-                //return;
-            }
-        
             // Rewrite the sequences and variation_start to just represent the
             // actually variable part, by dropping any common prefix and common
             // suffix. We just do the whole thing in place, modifying the used
@@ -1466,7 +1589,7 @@ void Call2Vcf::call(
                 int64_t svlen = (int64_t) variant.alleles.at(i).size() - (int64_t) variant.alleles.at(0).size();
                 
                 // Add it in
-                //variant.info["SVLEN"].push_back(to_string(svlen));
+                variant.info["SVLEN"].push_back(to_string(svlen));
             }
             
             // Set up the depth format field
