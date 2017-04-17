@@ -27,11 +27,11 @@ class VGCITest(TestCase):
         
         self.f1_threshold = 0.002
         self.auc_threshold = 0.002
-        self.input_store = 's3://glennhickey-bakeoff-store'
+        self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
         self.verify = True
         self.do_teardown = True
-        self.baseline = 's3://glennhickey-vg-regression-baseline'
+        self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
         self.cores = 8
 
         self.loadCFG()
@@ -147,6 +147,9 @@ class VGCITest(TestCase):
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
+            
+        print 'F1: {}  Baseline: {}  Threshold: {}'.format(
+            f1_score, baseline_f1, threshold)
         self.assertTrue(f1_score >= baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
@@ -227,6 +230,8 @@ class VGCITest(TestCase):
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
         for key, val in baseline_dict.items():
+            print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
+                key, key[1], val[1], key[2], val[2], self.auc_threshold)
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
