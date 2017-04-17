@@ -150,6 +150,10 @@ int main_sift(int argc, char** argv){
             case 's':
                 do_split_read = true;
                 split_read_limit = atoi(optarg);
+                if (softclip_max < 0){
+                    softclip_max = 15;
+                    ff.set_soft_clip_limit(15);
+                }
                 do_all = false;
                 break;
             case 'q':
@@ -381,22 +385,23 @@ int main_sift(int argc, char** argv){
 
         }
         if (do_split_read && !flagged){
-            // first check softclip with a default size of 15
-            // then get the position of the clip start
-            // then remap the clipped/unclipped portions if required.
-            // Then binary-search map if needed.
 
-            if (remap){
-                // ff.split_remap(alns_first, alns_second);
-
-            }
-
-            if (ff.split_read_filter(alns_first).name() != ""
-                || ff.split_read_filter(alns_second).name() != ""){
+            if (ff.split_read_filter(alns_first).name() != ""){
                 #pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
                     split_selected.push_back(alns_second);
+                    flagged = true;
+
+                }
+                
+            }
+            if (ff.split_read_filter(alns_second).name() != ""){
+                #pragma omp critical (split_selected)
+                {
+                    split_selected.push_back(alns_first);
+                    split_selected.push_back(alns_second);
+                    flagged = true;
 
                 }
             }
@@ -421,14 +426,20 @@ int main_sift(int argc, char** argv){
 
             Alignment x = ff.soft_clip_filter(alns_first);
             Alignment y = ff.soft_clip_filter(alns_second);
-            if (!x.name().empty() || !y.name().empty()){
+            if (!x.name().empty()){
                 #pragma omp critical (clipped_selected)
                 {
                     clipped_selected.push_back(alns_first);
+                    flagged = true;
+                }
+            } 
+            if (!y.name().empty()){
+                #pragma omp critical (clipped_selected)
+                {
+                    flagged = true;
                     clipped_selected.push_back(alns_second);
                 }
             } 
-
 
         }
         if (do_quality && !flagged){

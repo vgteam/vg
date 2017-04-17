@@ -248,7 +248,7 @@ int main_srpe(int argc, char** argv){
         inline int total_supports(){
             return fragl_supports + oea_supports + split_supports + other_supports;
         }
-        inline string to_string{
+        inline string to_string(){
             stringstream ss;
             ss << "Start: " << start <<
             "End: " << end << "Support: " << total_supports() << endl;
@@ -262,7 +262,7 @@ int main_srpe(int argc, char** argv){
 
     vector<INS_INTERVAL> ins;
 
-    std::function<void(vector<INS_INTERVAL>&, map<int64_t, vector<INS_INTERVAL> >&) merge = [&](vector<INS_INTERVAL>& ins, map<int64_t, vector<INS_INTERVAL> >& start_to_interval){
+    std::function<void(vector<INS_INTERVAL>&, map<int64_t, vector<INS_INTERVAL> >&)> merge = [&](vector<INS_INTERVAL>& ins, map<int64_t, vector<INS_INTERVAL> >& start_to_interval){
 
     };
     
