@@ -103,18 +103,6 @@ public:
 };
 
 
-struct SVar{
-    string type;
-    int64_t start = 0;
-    int64_t end = 0;
-    int64_t ci_start = 0;
-    int64_t ci_end = 0;
-    int sr_support = 0;
-    int pr_support = 0;
-    int internal_support = 0;
-
-};
-
     class SRPE{
 
         
