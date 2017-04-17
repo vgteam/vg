@@ -27,11 +27,11 @@ class VGCITest(TestCase):
         
         self.f1_threshold = 0.002
         self.auc_threshold = 0.002
-        self.input_store = 's3://glennhickey-bakeoff-store'
+        self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
         self.verify = True
         self.do_teardown = True
-        self.baseline = 's3://glennhickey-vg-regression-baseline'
+        self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
         self.cores = 8
 
         self.loadCFG()
@@ -88,9 +88,12 @@ class VGCITest(TestCase):
 
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
-        if 's3://' in self.baseline:
-            bucket = S3Connection().get_bucket(self.baseline.replace('s3://',''))
-            key = bucket.get_key(os.path.join('outstore-{}'.format(tag), path))
+        if self.baseline[:5] == 's3://':
+            toks = self.baseline[5:].split('/')
+            bname = toks[0]
+            keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
+            bucket = S3Connection().get_bucket(bname)
+            key = bucket.get_key(keyname)
             return key.get_contents_as_string()
         else:
             with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
@@ -147,6 +150,9 @@ class VGCITest(TestCase):
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
+            
+        print 'F1: {}  Baseline: {}  Threshold: {}'.format(
+            f1_score, baseline_f1, threshold)
         self.assertTrue(f1_score >= baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
@@ -227,6 +233,8 @@ class VGCITest(TestCase):
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
         for key, val in baseline_dict.items():
+            print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
+                key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
