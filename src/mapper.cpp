@@ -777,17 +777,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
         }
     };
 
-    double lcp_avg1, lcp_avg2;
+    double longest_lcp1, longest_lcp2;
     // find the MEMs for the alignments
     vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
                                                      read1.sequence().end(),
-                                                     lcp_avg1,
+                                                     longest_lcp1,
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
-                                                     lcp_avg2,
+                                                     longest_lcp2,
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length);
@@ -1079,7 +1079,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
             }
         }
 
-        compute_mapping_qualities(consistent_pairs, cluster_mq1+cluster_mq2, lcp_avg1, lcp_avg2, max_mapping_quality, max_mapping_quality);
+        compute_mapping_qualities(consistent_pairs, cluster_mq1+cluster_mq2, longest_lcp1, longest_lcp2, max_mapping_quality, max_mapping_quality);
 
         // remove the extra pair used to compute mapping quality if necessary
         if (consistent_pairs.first.size() > max_multimaps) {
@@ -1116,7 +1116,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     } else {
 
         results = make_pair(alignments1, alignments2);
-        compute_mapping_qualities(results, cluster_mq1 + cluster_mq2, lcp_avg1, lcp_avg2, max_mapping_quality, max_mapping_quality);
+        compute_mapping_qualities(results, cluster_mq1 + cluster_mq2, longest_lcp1, longest_lcp2, max_mapping_quality, max_mapping_quality);
 
         // Truncate to max multimaps
         if(results.first.size() > max_multimaps) {
@@ -1597,17 +1597,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     }
 
     pair<vector<Alignment>, vector<Alignment>> results;
-    double lcp_avg1, lcp_avg2;
+    double longest_lcp1, longest_lcp2;
     // find the MEMs for the alignments
     vector<MaximalExactMatch> mems1 = find_mems_deep(read1.sequence().begin(),
                                                      read1.sequence().end(),
-                                                     lcp_avg1,
+                                                     longest_lcp1,
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length);
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
-                                                     lcp_avg2,
+                                                     longest_lcp2,
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length);
@@ -1616,18 +1616,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     mq_cap1 = mq_cap2 = max_mapping_quality;
 
     {
-        double mem_length_sum1 = 0;
-        for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_length_sum1 += mem.length();
-        double mem_avg1 = (double) mem_length_sum1 / mems1.size();
+        int mem_max_length1 = 0;
+        for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
         double maybe_max1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
-                                                                  read1.sequence().size()/max(1.0, mem_avg1),
-                                                                  read1.sequence().size()/lcp_avg1);
-        double mem_length_sum2 = 0;
-        for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_length_sum2 += mem.length();
-        double mem_avg2 = (double) mem_length_sum2 / mems2.size();
+                                                                  read1.sequence().size()/max(1.0, (double)mem_max_length1),
+                                                                  read1.sequence().size()/longest_lcp1);
+        int mem_max_length2 = 0;
+        for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_max_length2 = max(mem_max_length2, (int)mem.length());
         double maybe_max2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
-                                                                  read2.sequence().size()/max(1.0, mem_avg2),
-                                                                  read2.sequence().size()/lcp_avg2);
+                                                                  read2.sequence().size()/max(1.0, (double)mem_max_length2),
+                                                                  read2.sequence().size()/longest_lcp2);
         // use the estimated mapping quality to avoid hard work when the results are likely noninformative
         if (maybe_max1 + maybe_max2 < maybe_mq_threshold) {
             total_multimaps = min_multimaps;
@@ -1948,7 +1946,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         results.first.push_back(p.first);
         results.second.push_back(p.second);
     }
-    compute_mapping_qualities(results, cluster_mq, lcp_avg1, lcp_avg2, mq_cap1, mq_cap2);
+    compute_mapping_qualities(results, cluster_mq, longest_lcp1, longest_lcp2, mq_cap1, mq_cap2);
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2201,7 +2199,7 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
 }
 
 vector<Alignment>
-Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps) {
+Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double longest_lcp, int max_mem_length, int additional_multimaps) {
 
 //#ifdef debug_mapper
 #pragma omp critical
@@ -2230,12 +2228,11 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     double mq_cap = max_mapping_quality;
 
     {
-        double mem_length_sum = 0;
-        for (auto& mem : mems) if (mem.primary && mem.match_count) mem_length_sum += (double)mem.length();
-        double mem_avg = (double)mem_length_sum / mems.size();
+        int mem_max_length = 0;
+        for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
         double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
-                                                                 aln.sequence().size()/max(1.0, mem_avg),
-                                                                 aln.sequence().size()/lcp_avg);
+                                                                 aln.sequence().size()/max(1.0, (double)mem_max_length),
+                                                                 aln.sequence().size()/longest_lcp);
         // use the estimated mapping quality to avoid hard work when the outcome will be noninformative
         if (maybe_max < maybe_mq_threshold) {
             total_multimaps = min_multimaps;
@@ -2244,7 +2241,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
         if (min_multimaps < max_multimaps) {
             total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
         }
-        if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_length_sum << " " << mem_avg << " " << lcp_avg << endl;
+        if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << endl;
     }
 
     double avg_node_len = average_node_length();
@@ -2438,7 +2435,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     // second round of sorting and deduplication
     alns = score_sort_and_deduplicate_alignments(alns, aln);
     // and finally, compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, lcp_avg, mq_cap);
+    compute_mapping_qualities(alns, cluster_mq, longest_lcp, mq_cap);
     // prune to max_multimaps
     filter_and_process_multimaps(alns, 0);
 
@@ -3244,24 +3241,24 @@ LRUCache<id_t, vector<Edge> >& Mapper::get_edge_cache(void) {
     return *edge_cache[tid];
 }
 
-void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double lcp_avg, double mq_cap) {
+void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double longest_lcp, double mq_cap) {
     if (alns.empty()) return;
     double max_mq = min(mq_cap, (double)max_mapping_quality);
     auto aligner = (alns.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, lcp_avg);
+            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, longest_lcp);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, lcp_avg);
+            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, longest_lcp);
             break;
         default: // None
             break;
     }
 }
     
-void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double lcp_avg1, double lcp_avg2, double mq_cap1, double mq_cap2) {
+void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double longest_lcp1, double longest_lcp2, double mq_cap1, double mq_cap2) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
     double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
@@ -3270,10 +3267,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, lcp_avg1, lcp_avg2);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, longest_lcp1, longest_lcp2);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, lcp_avg1, lcp_avg2);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, longest_lcp1, longest_lcp2);
             break;
         default: // None
             break;
@@ -3394,7 +3391,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         additional_multimaps_for_quality = additional_multimaps;
     }
 
-    double lcp_avg;
+    double longest_lcp;
     vector<Alignment> alignments;
     /*
     if (kmer_size || xindex == nullptr) {
@@ -3408,17 +3405,17 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     // use pre-restricted mems for paired mapping or find mems here
     if (restricted_mems != nullptr) {
         // mem hits will already have been queried
-        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, lcp_avg, max_mem_length, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, max_mem_length, additional_multimaps_for_quality);
     }
     else {
         vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
                                                         aln.sequence().end(),
-                                                        lcp_avg,
+                                                        longest_lcp,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length);
         // query mem hits
-        alignments = align_mem_multi(aln, mems, cluster_mq, lcp_avg, max_mem_length, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, max_mem_length, additional_multimaps_for_quality);
     }
 
     /*
@@ -3426,7 +3423,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     
     // compute mapping quality before removing extra alignments
     if (compute_unpaired_quality) {
-        compute_mapping_qualities(alignments, cluster_mq, lcp_avg, max_mapping_quality);
+        compute_mapping_qualities(alignments, cluster_mq, longest_lcp, max_mapping_quality);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -3845,7 +3842,7 @@ Mapper::find_mems_simple(string::const_iterator seq_begin,
 // Use the GCSA2 index to find super-maximal exact matches (and optionally sub-MEMs).
 vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begin,
                                                  string::const_iterator seq_end,
-                                                 double& lcp_avg,
+                                                 double& longest_lcp,
                                                  int max_mem_length,
                                                  int min_mem_length,
                                                  int reseed_length) {
@@ -4033,7 +4030,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 // and set up the next MEM using the parent node range
                 match.range = parent.range();
                 // record our max lcp
-                max_lcp = max(max_lcp, (int)parent.lcp());
+                //max_lcp = max(max_lcp, (int)parent.lcp());
+                max_lcp = (int)parent.lcp();
                 
                 // are we reseeding?
                 if (reseed_length
@@ -4062,7 +4060,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         }
         else {
             prev_iter_jumped_lcp = false;
-            max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
+            //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
+            max_lcp = (int)lcp->parent(match.range).lcp();
             // just step to the next position
             --cursor;
         }
@@ -4075,7 +4074,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     match.begin = seq_begin;
     size_t mem_length = match.end - match.begin;
     if (mem_length >= min_mem_length) {
-        max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
+        //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
+        max_lcp = (int)lcp->parent(match.range).lcp();
         mems.push_back(match);
         
 #ifdef debug_mapper
@@ -4110,19 +4110,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         }
     }
     lcp_maxima.push_back(max_lcp);
-    //lcp_avg = *max_element(lcp_maxima.begin(), lcp_maxima.end());
-    /*
-    if (debug) {
-        cerr << "LCP maxima "; for (auto& i : lcp_maxima) cerr << i << " "; cerr << endl;
-    }
-    if (debug) {
-        cerr << "LCP mean " << lcp_max_mean << endl;
-        cerr << "LCP max max " << *max_element(lcp_maxima.begin(), lcp_maxima.end()) << endl;
-    }
-    */
-    int lcp_max_sum = 0;
-    for (auto& i : lcp_maxima) lcp_max_sum += i;
-    lcp_avg = lcp_maxima.size() ? (double) lcp_max_sum / (double) lcp_maxima.size() : 0;
+    longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
 
     // fill the MEMs' node lists and indicate they are primary MEMs
     for (MaximalExactMatch& mem : mems) {
@@ -4169,12 +4157,6 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         return m1.begin < m2.begin ? true : (m1.begin == m2.begin ? m1.end < m2.end : false);
     });
     
-    // verify the matches (super costly at scale)
-    /*
-#ifdef debug_mapper
-    if (debug) { check_mems(mems); }
-#endif
-    */
     return mems;
 }
     
