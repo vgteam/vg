@@ -39,6 +39,7 @@ public:
     gcsa::range_type range;
     size_t match_count;
     int fragment;
+    bool primary; // if not a sub-MEM
     std::vector<gcsa::node_type> nodes;
     map<string, vector<size_t> > positions;
     

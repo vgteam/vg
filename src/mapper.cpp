@@ -1617,13 +1617,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
 
     {
         double mem_length_sum1 = 0;
-        for (auto& mem : mems1) if (mem.match_count) mem_length_sum1 += mem.length() / (double)mem.match_count;
+        for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_length_sum1 += mem.length();
         double mem_avg1 = (double) mem_length_sum1 / mems1.size();
         double maybe_max1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
                                                                   read1.sequence().size()/max(1.0, mem_avg1),
                                                                   read1.sequence().size()/lcp_avg1);
         double mem_length_sum2 = 0;
-        for (auto& mem : mems2) if (mem.match_count) mem_length_sum2 += mem.length() / (double)mem.match_count;
+        for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_length_sum2 += mem.length();
         double mem_avg2 = (double) mem_length_sum2 / mems2.size();
         double maybe_max2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
                                                                   read2.sequence().size()/max(1.0, mem_avg2),
@@ -2231,7 +2231,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
 
     {
         double mem_length_sum = 0;
-        for (auto& mem : mems) if (mem.match_count) mem_length_sum += (double)mem.length()/mem.match_count;
+        for (auto& mem : mems) if (mem.primary && mem.match_count) mem_length_sum += (double)mem.length();
         double mem_avg = (double)mem_length_sum / mems.size();
         double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
                                                                  aln.sequence().size()/max(1.0, mem_avg),
@@ -4011,7 +4011,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 // for the end of the next MEM
                 if (mem_length >= min_mem_length && !prev_iter_jumped_lcp) {
                     mems.push_back(match);
-                    
+
 #ifdef debug_mapper
 #pragma omp critical
                     {
@@ -4124,9 +4124,10 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     for (auto& i : lcp_maxima) lcp_max_sum += i;
     lcp_avg = lcp_maxima.size() ? (double) lcp_max_sum / (double) lcp_maxima.size() : 0;
 
-    // fill the MEMs' node lists
+    // fill the MEMs' node lists and indicate they are primary MEMs
     for (MaximalExactMatch& mem : mems) {
         mem.match_count = gcsa->count(mem.range);
+        mem.primary = true;
         // if we aren't filtering on hit count, or if we have up to the max allowed hits
         if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
             // extract the graph positions matching the range
@@ -4145,9 +4146,10 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             }
         }
 
-        // fill MEMs with positions
+        // fill MEMs with positions and set flag indicating they are submems
         for (auto& m : sub_mems) {
             auto& mem = m.first;
+            mem.primary = false;
             if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
                 gcsa->locate(mem.range, mem.nodes);
             }
