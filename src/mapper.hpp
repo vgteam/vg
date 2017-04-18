@@ -134,8 +134,8 @@ private:
                                            double& cluster_mq,
                                            int additional_multimaps = 0,
                                            vector<MaximalExactMatch>* restricted_mems = nullptr);
-    void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double lcp_avg, double mq_cap);
-    void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double lcp_avg1, double lcp_avg2, double mq_cap1, double mq_cap2);
+    void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap);
+    void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
     vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);

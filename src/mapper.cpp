@@ -1079,7 +1079,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
             }
         }
 
-        compute_mapping_qualities(consistent_pairs, cluster_mq1+cluster_mq2, longest_lcp1, longest_lcp2, max_mapping_quality, max_mapping_quality);
+        compute_mapping_qualities(consistent_pairs, cluster_mq1+cluster_mq2, -1, -1, max_mapping_quality, max_mapping_quality);
 
         // remove the extra pair used to compute mapping quality if necessary
         if (consistent_pairs.first.size() > max_multimaps) {
@@ -1116,7 +1116,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_sep(
     } else {
 
         results = make_pair(alignments1, alignments2);
-        compute_mapping_qualities(results, cluster_mq1 + cluster_mq2, longest_lcp1, longest_lcp2, max_mapping_quality, max_mapping_quality);
+        compute_mapping_qualities(results, cluster_mq1 + cluster_mq2, -1, -1, max_mapping_quality, max_mapping_quality);
 
         // Truncate to max multimaps
         if(results.first.size() > max_multimaps) {
@@ -1426,7 +1426,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_combi(
 
     // compute mapping qualities
     if (!results.first.empty()) {
-        compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2), 0, 0, max_mapping_quality, max_mapping_quality);
+        compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2), -1, -1, max_mapping_quality, max_mapping_quality);
         //compute_mapping_qualities(results, max(cluster_mq1, cluster_mq2));
         /*
         compute_mapping_qualities(results.first, cluster_mq1);
@@ -1634,7 +1634,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             mq_cap2 = maybe_max2;
         }
         if (min_multimaps < max_multimaps) {
-            if (maybe_max1 + maybe_max2 < maybe_mq_threshold) {
+            if (maybe_max1 + maybe_max2 < 2*maybe_mq_threshold) {
                 total_multimaps = min_multimaps;
             } else {
                 total_multimaps = max(min_multimaps, (int)round(total_multimaps/max(maybe_max1,maybe_max2)));
@@ -1947,7 +1947,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
         results.first.push_back(p.first);
         results.second.push_back(p.second);
     }
-    compute_mapping_qualities(results, cluster_mq, longest_lcp1, longest_lcp2, mq_cap1, mq_cap2);
+    compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -2435,7 +2435,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     // second round of sorting and deduplication
     alns = score_sort_and_deduplicate_alignments(alns, aln);
     // and finally, compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, longest_lcp, mq_cap);
+    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
     // prune to max_multimaps
     filter_and_process_multimaps(alns, 0);
 
@@ -3241,24 +3241,24 @@ LRUCache<id_t, vector<Edge> >& Mapper::get_edge_cache(void) {
     return *edge_cache[tid];
 }
 
-void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double longest_lcp, double mq_cap) {
+void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap) {
     if (alns.empty()) return;
     double max_mq = min(mq_cap, (double)max_mapping_quality);
     auto aligner = (alns.front().quality().empty() ? (BaseAligner*) get_regular_aligner() : (BaseAligner*) get_qual_adj_aligner());
     int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, longest_lcp);
+            aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate);
             break;
         case Exact:
-            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, longest_lcp);
+            aligner->compute_mapping_quality(alns, max_mq, false, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate);
             break;
         default: // None
             break;
     }
 }
     
-void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double longest_lcp1, double longest_lcp2, double mq_cap1, double mq_cap2) {
+void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estimate1, double mq_estimate2, double mq_cap1, double mq_cap2) {
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
     double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
@@ -3267,10 +3267,10 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, longest_lcp1, longest_lcp2);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, true, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2);
             break;
         case Exact:
-            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, longest_lcp1, longest_lcp2);
+            aligner->compute_paired_mapping_quality(pair_alns, max_mq1, max_mq2, false, cluster_mq, use_cluster_mq, sub_overlaps1, sub_overlaps2, mq_estimate1, mq_estimate2);
             break;
         default: // None
             break;

@@ -648,7 +648,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           double cluster_mq,
                                           bool use_cluster_mq,
                                           int overlap_count,
-                                          double lcp_avg) {
+                                          double mq_estimate) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -666,22 +666,13 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         scaled_scores[i] = log_base * alignments[i].score();
     }
 
-    double est_next_score = 0;
-    /* // not working yet
-    if (lcp_avg) {
-        // compute approximate minimum number of mismatches in next-best cluster
-        int length = alignments.front().sequence().size();
-        est_next_score = log_base * estimate_next_best_score(length, length / lcp_avg);
-    }
-    */
-
     double mapping_quality;
     size_t max_idx;
     if (!fast_approximation) {
         mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
     }
     else {
-        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, est_next_score);
+        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, 0);
     }
 
     double max_weight = scaled_scores[max_idx];
@@ -709,6 +700,10 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = max_mapping_quality;
     }
 
+    if (mq_estimate < mapping_quality) {
+        mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
+    }
+
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
 }
 
@@ -720,8 +715,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  bool use_cluster_mq,
                                                  int overlap_count1,
                                                  int overlap_count2,
-                                                 double lcp_avg1,
-                                                 double lcp_avg2) {
+                                                 double mq_estimate1,
+                                                 double mq_estimate2) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -742,24 +737,13 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
     }
 
-    double est_next_score = 0;
-    /* // not working yet
-    if (lcp_avg1 && lcp_avg2) {
-        // compute approximate minimum number of mismatches in next-best cluster
-        int length1 = alignment_pairs.first.front().sequence().size();
-        int length2 = alignment_pairs.second.front().sequence().size();
-        est_next_score = log_base * estimate_next_best_score(length1 + length2,
-                                                             length1 / lcp_avg1 + length2 / lcp_avg2);
-    }
-    */
-    
     size_t max_idx;
     double mapping_quality;
     if (!fast_approximation) {
         mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
     }
     else {
-        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, est_next_score);
+        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, 0);
     }
     
     double max_weight = scaled_scores[max_idx];
@@ -797,6 +781,14 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     }
     if (mapping_quality2 > max_mapping_quality2) {
         mapping_quality2 = max_mapping_quality2;
+    }
+
+    if (mq_estimate1 < mapping_quality2) {
+        mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
+    }
+
+    if (mq_estimate2 < mapping_quality2) {
+        mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
