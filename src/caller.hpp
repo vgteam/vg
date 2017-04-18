@@ -552,7 +552,7 @@ public:
     // How many nodes should we be willing to look at on our path back to the
     // primary path? Keep in mind we need to look at all valid paths (and all
     // combinations thereof) until we find a valid pair.
-    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 10,
+    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 1000,
         "maximum depth for path search"};
     
     
