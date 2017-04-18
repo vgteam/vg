@@ -1627,8 +1627,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                                                                   read2.sequence().size()/max(1.0, (double)mem_max_length2),
                                                                   read2.sequence().size()/longest_lcp2);
         // use the estimated mapping quality to avoid hard work when the results are likely noninformative
+        if (maybe_max1 < maybe_mq_threshold) {
+            mq_cap1 = maybe_max1;
+        }
+        if (maybe_max2 < maybe_mq_threshold) {
+            mq_cap2 = maybe_max2;
+        }
         if (min_multimaps < max_multimaps) {
-            total_multimaps = max(min_multimaps, (int)round(total_multimaps/max(maybe_max1,maybe_max2)));
+            if (maybe_max1 + maybe_max2 < maybe_mq_threshold) {
+                total_multimaps = min_multimaps;
+            } else {
+                total_multimaps = max(min_multimaps, (int)round(total_multimaps/max(maybe_max1,maybe_max2)));
+            }
         }
     }
 
@@ -1792,7 +1802,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
     int multimaps = 0;
     for (auto& cluster : clusters) {
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster)) continue;
+        if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
         // stop if we have enough multimaps
         if (multimaps > total_multimaps) { break; }
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
@@ -2225,7 +2235,10 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
                                                                  aln.sequence().size()/max(1.0, (double)mem_max_length),
                                                                  aln.sequence().size()/longest_lcp);
         // use the estimated mapping quality to avoid hard work when the outcome will be noninformative
-        if (min_multimaps < max_multimaps) {
+        if (maybe_max < maybe_mq_threshold) {
+            total_multimaps = min_multimaps;
+            mq_cap = maybe_max;
+        } else if (min_multimaps < max_multimaps) {
             total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
         }
         if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << endl;
@@ -2359,7 +2372,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     int multimaps = 0;
     for (auto& cluster : clusters) {
         // filtered out due to overlap with longer chain
-        if (to_drop.count(&cluster)) continue;
+        if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
         if (++multimaps > total_multimaps) { break; }
         // skip this if we don't have sufficient cluster coverage and we have at least two alignments
         // which we can use to estimate mapping quality
@@ -4049,6 +4062,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             prev_iter_jumped_lcp = false;
             //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
             max_lcp = (int)lcp->parent(match.range).lcp();
+            lcp_maxima.push_back(max_lcp);
             // just step to the next position
             --cursor;
         }

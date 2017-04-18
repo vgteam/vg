@@ -4663,6 +4663,7 @@ void help_map(char** argv) {
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
+         << "    -E, --approx-mq-cap INT cap mapping quality of reads with less than this approximate mapping quality [0]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.2]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
@@ -4769,6 +4770,7 @@ int main_map(int argc, char** argv) {
     int kmer_stride = 0;
     int pair_window = 64; // unused
     int mate_rescues = 64;
+    int maybe_mq_threshold = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4824,11 +4826,12 @@ int main_map(int argc, char** argv) {
                 {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
+                {"approx-mq-cap", required_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:n:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:n:E:",
                          long_options, &option_index);
 
 
@@ -4872,6 +4875,10 @@ int main_map(int argc, char** argv) {
 
         case 'Q':
             max_mapping_quality = atoi(optarg);
+            break;
+
+        case 'E':
+            maybe_mq_threshold = atoi(optarg);
             break;
 
         case 'L':
@@ -5184,6 +5191,7 @@ int main_map(int argc, char** argv) {
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->min_multimaps = min_multimaps;
+        m->maybe_mq_threshold = maybe_mq_threshold;
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
