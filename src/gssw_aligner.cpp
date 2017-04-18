@@ -696,12 +696,12 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
     mapping_quality *= identity;
 
-    if (mapping_quality > max_mapping_quality) {
-        mapping_quality = max_mapping_quality;
-    }
-
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
+    }
+
+    if (mapping_quality > max_mapping_quality) {
+        mapping_quality = max_mapping_quality;
     }
 
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
@@ -776,19 +776,19 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
     mapping_quality2 *= identity2;
 
-    if (mapping_quality1 > max_mapping_quality1) {
-        mapping_quality1 = max_mapping_quality1;
-    }
-    if (mapping_quality2 > max_mapping_quality2) {
-        mapping_quality2 = max_mapping_quality2;
-    }
-
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
 
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
+    }
+
+    if (mapping_quality1 > max_mapping_quality1) {
+        mapping_quality1 = max_mapping_quality1;
+    }
+    if (mapping_quality2 > max_mapping_quality2) {
+        mapping_quality2 = max_mapping_quality2;
     }
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
