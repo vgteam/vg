@@ -1184,6 +1184,13 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     // XREF states will have to be calculated later, over the whole traversal.
     set<vector<Visit>> site_traversal_set;
     
+    // we need to track what nodes, edges, and child snarls already have
+    // traversals based on them, so we know not to try and make more (so we
+    // aren't super n^2)
+    set<Node*> represented_nodes;
+    set<Edge*> represented_edges;
+    set<const Snarl*> represented_children;
+    
     // We have this function to extend a partial traversal into a full
     // traversal and add it as a path. The path must already be rooted on
     // the reference in the correct order and orientation.
@@ -1293,10 +1300,29 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         
         // Now add it to the set
         site_traversal_set.insert(extended_path);
+        
+        return;
+        
+        for (size_t i = 0; i < extended_path.size(); i++) {
+            // For every visit
+            if (extended_path[i].node_id() != 0) {
+                // Mark the node as represented
+                represented_nodes.insert(augmented.graph.get_node(extended_path[i].node_id()));
+            } else {
+                // Mark the child snarl as represented
+                represented_children.insert(snarl_manager.manage(extended_path[i].snarl()));
+            }
+            
+            if (i != 0) {
+                // Mark the edge we just crossed as represented
+                represented_edges.insert(augmented.graph.get_edge(to_right_side(extended_path[i - 1]),
+                    to_left_side(extended_path[i])));
+            }
+        }
     
     };
 
-    for(Node* node : contents.first) {
+    for (Node* node : contents.first) {
         // Find the bubble for each node
         
         if (child_boundary_index.count(NodeTraversal(node, false)) || child_boundary_index.count(NodeTraversal(node, true))) {
@@ -1304,15 +1330,22 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             continue;
         }
         
-        if(augmented.has_supports() && total(augmented.get_support(node)) == 0) {
+        if (augmented.has_supports() && total(augmented.get_support(node)) == 0) {
             // Don't bother with unsupported nodes
             continue;
         }
         
-        if(index.by_id.count(node->id())) {
+        if (index.by_id.count(node->id())) {
             // Don't try to pathfind to the backbone for backbone nodes.
             continue;
         }
+        
+        if (represented_nodes.count(node)) {
+            // We already visited this node on some traversal, so don't consider
+            // any more combinations.
+            continue;
+        }
+        
         
 #ifdef debug
         cerr << "Base path on " << node->id() << endl;
@@ -1361,6 +1394,17 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             continue;
         }
         
+        if (represented_edges.count(edge)) {
+            // We already visited this edge on some traversal, so don't consider
+            // any more combinations.
+            
+#ifdef debug
+            cerr << "Skip represented edge " << edge->from() << " -> " << edge->to() << endl;
+#endif
+            
+            continue;
+        }
+        
 #ifdef debug
         cerr << "Base path on " << edge->from() << " -> " << edge->to() << endl;
 #endif
@@ -1392,6 +1436,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     
     for (const Snarl* child : snarl_manager.children_of(&site)) {
         // Go through all the child snarls
+        
+        if (represented_children.count(child)) {
+            // We already visited this child on some traversal, so don't consider
+            // any more combinations.
+            continue;
+        }
         
 #ifdef debug
         cerr << "Base path on " << *child << endl;
@@ -1838,10 +1888,10 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
     // Mark this traversal as already queued
     alreadyQueued.insert(visit);
     
-#ifdef debug
     // How many ticks have we spent searching?
     size_t searchTicks = 0;
     
+#ifdef debug
     cerr << "Start BFS" << endl;
 #endif
 
@@ -1851,8 +1901,9 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
     while (!toExtend.empty()) {
         // Keep going until we've visited every node up to our max search depth.
         
-#ifdef debug
         searchTicks++;
+        
+#ifdef debug
         // Report on how much searching we are doing.
         cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << endl;
 #endif
@@ -1862,6 +1913,12 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
         list<Visit> path(move(toExtend.front()));
         toExtend.pop_front();
         stillToExtend--;
+        
+        if (stillToExtend > 30) {
+            cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << endl;
+        }
+        
+        assert(toExtend.size() == stillToExtend);
         
         // We can't just throw out longer paths, because shorter paths may need
         // to visit a node twice (in opposite orientations) and thus might get
