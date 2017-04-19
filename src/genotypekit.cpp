@@ -1321,11 +1321,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
     
     };
-#define debug
+
 #ifdef debug
     cerr << "Explore " << contents.first.size() << " nodes" << endl;
 #endif
-#undef debug
+
     for (Node* node : contents.first) {
         // Find the bubble for each node
         
@@ -1377,11 +1377,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         
     }
     
-#define debug
+
 #ifdef debug
     cerr << "Explore " << contents.second.size() << " edges" << endl;
 #endif
-#undef debug
+
     for(Edge* edge : contents.second) {
         // Go through all the edges
         
@@ -1444,11 +1444,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     }
     
     auto children = snarl_manager.children_of(&site);
-#define debug
+
 #ifdef debug
     cerr << "Explore " << children.size() << " children" << endl;
 #endif
-#undef debug
+
     for (const Snarl* child : children) {
         // Go through all the child snarls
         
@@ -1918,12 +1918,12 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
         
         searchTicks++;
         
-#define debug
+
 #ifdef debug
         // Report on how much searching we are doing.
         cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << endl;
 #endif
-#undef debug
+
         
         // Dequeue a path to extend.
         // Make sure to move out of the list to avoid a useless copy.
@@ -2049,11 +2049,11 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
                     // it, we'll always have at least one slot left to fill with
                     // an extension, so we'll at least keep exploring one path.
 
-#define debug                
+                
 #ifdef debug
                     cerr << "Reject " << prevVisit << " because queue is full" << endl;
 #endif
-#undef debug
+
                     
                     continue;
                 }

@@ -603,20 +603,20 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // TODO: generalize it
     assert(site.type() == ULTRABUBBLE);
 
-#define debug
+
 #ifdef debug
     cerr << "Site " << site << endl;
 #endif
-#undef debug
+
 
     // Get traversals of this Snarl, with Visits to child Snarls
     vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
     
-#define debug
+
 #ifdef debug
     cerr << "Found " << here_traversals.size() << " traversals" << endl;
 #endif
-#undef debug
+
     
     // Make a Locus to hold all our stats for the different traversals
     // available.
