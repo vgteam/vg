@@ -56,7 +56,7 @@ namespace vg {
         string graph_cigar(gssw_graph_mapping* gm);
         
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
-        double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out, double est_next_score);
+        double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
         double estimate_next_best_score(int length, double min_diffs);
         
         // must be called before querying mapping_quality
