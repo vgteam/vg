@@ -392,6 +392,8 @@ protected:
     
     /// What DFS depth should we search to?
     size_t max_depth;
+    /// How many DFS searches should we let there be on the stack at a time?
+    size_t max_width;
     /// How many search intermediates can we allow?
     size_t max_bubble_paths;
     
@@ -461,8 +463,20 @@ protected:
     
 public:
 
+    /**
+     * Make a new RepresentativeTraversalFinder to find traversals. Uses the
+     * given augmented graph as the graph with coverage annotation, and reasons
+     * about child snarls with the given SnarlManager. Explores up to max_depth
+     * in the BFS search when trying to find its way across snarls, and
+     * considers up to max_width search states at a time. When combining search
+     * results on either side of a graph element to be represented, thinks about
+     * max_bubble_paths combinations.
+     *
+     * Uses the given get_index function to try and find a PathIndex for a
+     * reference path traversing a child snarl.
+     */
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        size_t max_depth, size_t max_bubble_paths,
+        size_t max_depth, size_t max_width, size_t max_bubble_paths,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?
