@@ -590,6 +590,9 @@ namespace vg{
             }
 
         }
+        else{
+            return "";
+        }
     }
     /**
      * Split reads map to two separate paths in the graph OR vastly separated non-consecutive
@@ -612,12 +615,13 @@ namespace vg{
                 flagged = false;
             }
         }
+
         if (flagged){
-            return inverse ? Alignment() : aln;
+            return aln;
         }
-        else{
-            return inverse ? aln : Alignment();
-        }
+
+        return Alignment();
+
 
     
     }

@@ -248,6 +248,12 @@ int main_srpe(int argc, char** argv){
         inline int total_supports(){
             return fragl_supports + oea_supports + split_supports + other_supports;
         }
+        inline string to_string(){
+            stringstream ss;
+            ss << "Start: " << start <<
+            "End: " << end << "Support: " << total_supports() << endl;
+            return ss.str();
+        }
     };
 
     // Set up path index
@@ -255,6 +261,10 @@ int main_srpe(int argc, char** argv){
     
 
     vector<INS_INTERVAL> ins;
+
+    std::function<void(vector<INS_INTERVAL>&, map<int64_t, vector<INS_INTERVAL> >&)> merge = [&](vector<INS_INTERVAL>& ins, map<int64_t, vector<INS_INTERVAL> >& start_to_interval){
+
+    };
     
     std::function<void(Alignment&, Alignment&)> calc_insert_size = [&](Alignment& a, Alignment& b){
         insert_size = 1000.0;
@@ -262,18 +272,27 @@ int main_srpe(int argc, char** argv){
     };
 
     std::function<void(Alignment&, Alignment&)> insert_sz_func = [&](Alignment& a, Alignment& b){
-        if (a.fragment_size() > 0){
+        if (a.fragment_size() > 0 && a.mapping_quality() > 0
+            && b.mapping_quality() >  0){
             int frag_diff = abs(a.fragment(0).length() - floor(insert_size));
             // Get mappings of node from graph
 
             // Get position (using Mapping* and path index)
-
+            INS_INTERVAL i;
+            i.start = srpe.ff.node_to_position[ a.path().mapping(0).position().node_id()] ;
+            i.end = srpe.ff.node_to_position[ b.path().mapping(0).position().node_id()] ;
             // Set start to final position of first mate
             // Set end position to start + (frag_diff)
             // Length to frag_diff
             // Increment supports
         }
     };
+
+    std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
+
+    };
+
+
 
     // Merge insertion intervals and supports
 
