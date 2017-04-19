@@ -289,7 +289,10 @@ int main_srpe(int argc, char** argv){
     };
 
     std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
-
+        // read in split reads
+        // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
+        // Merge overlapping intervals.
+        // Search for additional support in split reads.
     };
 
 
