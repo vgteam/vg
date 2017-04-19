@@ -1634,7 +1634,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
             mq_cap2 = maybe_max2;
         }
         if (min_multimaps < max_multimaps) {
-            if (maybe_max1 + maybe_max2 < 2*maybe_mq_threshold) {
+            if (min(maybe_max1, maybe_max2) < maybe_mq_threshold) {
                 total_multimaps = min_multimaps;
             } else {
                 total_multimaps = max(min_multimaps, (int)round(total_multimaps/max(maybe_max1,maybe_max2)));
