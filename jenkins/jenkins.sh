@@ -86,20 +86,24 @@ printf "workdir ./vgci-work\n" >> vgci_cfg.tsv
 
 if [ -n "${LOCAL_BUILD}" ]
 then
-     # Just build vg here
-     . source_me.sh
-     make -j ${NUM_CORES}
+    # Just build vg here
+    . source_me.sh
+    make -j ${NUM_CORES}
 
     if [ "$?" -ne 0 ]
     then
-        echo "vg local docker build fail"
+        echo "vg local build fail"
         exit 1
     fi
     VG_VERSION=`vg version`
     printf "vg-docker-version None\n" >> vgci_cfg.tsv
 else
-     # Build a docker image locally.  Can be useful when don't
-     # have priveleges to easily install dependencies
+    # Build a docker image locally.  Can be useful when don't
+    # have priveleges to easily install dependencies
+
+    # we actually want to throw git in our local image so we can get
+    # a proper version
+    rm -f .dockerignore
 
     docker pull ubuntu:16.04
     DOCKER_TAG="jenkins-docker-vg-local"
