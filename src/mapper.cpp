@@ -1627,10 +1627,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_simul(
                                                                   read2.sequence().size()/max(1.0, (double)mem_max_length2),
                                                                   read2.sequence().size()/longest_lcp2);
         // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-        if (maybe_max1 < maybe_mq_threshold) {
+        if (maybe_max1+maybe_max2 < maybe_mq_threshold) {
             mq_cap1 = maybe_max1;
-        }
-        if (maybe_max2 < maybe_mq_threshold) {
             mq_cap2 = maybe_max2;
         }
         if (min_multimaps < max_multimaps) {
