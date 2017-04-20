@@ -4763,7 +4763,6 @@ int main_map(int argc, char** argv) {
     bool fragment_direction = true;
     bool use_cluster_mq = false;
     float chance_match = 0.05;
-    bool smooth_alignments = true;
     bool use_fast_reseed = true;
     float drop_chain = 0.4;
     float mq_overlap = 0.4;
@@ -5225,7 +5224,6 @@ int main_map(int argc, char** argv) {
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
-        m->smooth_alignments = smooth_alignments;
         m->mate_rescues = mate_rescues;
         mapper[i] = m;
     }

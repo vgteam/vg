@@ -138,7 +138,6 @@ private:
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
-    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Return the one best banded alignment.
     Alignment align_banded(const Alignment& read,
                            int kmer_size = 0,
@@ -150,17 +149,6 @@ private:
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
     vector<Alignment> align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps);
 
-    // base algorithm for above Update the passed-in Alignment with a highest-
-    // score alignment, and return all good alignments sorted by score up to
-    // max_multimaps. If the read does not map, the returned vector will be
-    // empty. No alignments will be marked as secondary; the caller must do that
-    // if they plan to produce GAM output.
-    vector<Alignment> align_threaded(const Alignment& read,
-                                     int& hit_count,
-                                     int kmer_size = 0,
-                                     int stride = 0,
-                                     int attempt = 0);
-    
     // Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     // before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     // that contain it
@@ -292,10 +280,6 @@ public:
     // for reconstruction the alignments from the SMEMs
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
-    // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment
-    Alignment patch_alignment(const Alignment& aln);
-    // try to locally align portions of the alignment with "knots" where we slip backwards in the graph
-    Alignment smooth_alignment(const Alignment& aln);
     // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
     int32_t score_alignment(const Alignment& aln);
     // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
@@ -434,8 +418,6 @@ public:
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
     // use an average length of an LCP to a parent in the suffix tree to estimate a mapping quality
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
-    // use BFS to expand the graph in an attempt to resolve soft clips
-    void resolve_softclips(Alignment& aln, VG& graph);
     // walks the graph one base at a time from pos1 until we find pos2
     int graph_distance(pos_t pos1, pos_t pos2, int maximum = 1e3);
     // use the offset in the sequence array to give an approximate distance
@@ -525,7 +507,6 @@ public:
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
-    bool smooth_alignments; // smooth alignments after patching
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths
