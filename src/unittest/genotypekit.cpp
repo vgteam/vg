@@ -516,7 +516,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         augmented.graph = graph;
         
         // Make a RepresentativeTraversalFinder
-        RepresentativeTraversalFinder finder(augmented, snarl_manager, 100, 1000);
+        RepresentativeTraversalFinder finder(augmented, snarl_manager, 100, 100, 1000);
         
         SECTION("there should be two traversals of the substitution") {
             
