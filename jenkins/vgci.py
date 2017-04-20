@@ -88,9 +88,12 @@ class VGCITest(TestCase):
 
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
-        if 's3://' in self.baseline:
-            bucket = S3Connection().get_bucket(self.baseline.replace('s3://',''))
-            key = bucket.get_key(os.path.join('outstore-{}'.format(tag), path))
+        if self.baseline[:5] == 's3://':
+            toks = self.baseline[5:].split('/')
+            bname = toks[0]
+            keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
+            bucket = S3Connection().get_bucket(bname)
+            key = bucket.get_key(keyname)
             return key.get_contents_as_string()
         else:
             with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
