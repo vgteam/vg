@@ -4661,11 +4661,11 @@ void help_map(char** argv) {
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
-         << "    -E, --approx-mq-cap INT cap mapping quality of reads with less than this approximate mapping quality [0]" << endl
+         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.2]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
@@ -4747,10 +4747,11 @@ int main_map(int argc, char** argv) {
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 512;
-    int min_multimaps = 16;
+    int extra_multimaps = 64;
+    int min_multimaps = 4;
     int max_mapping_quality = 60;
     int method_code = 1;
+    int maybe_mq_threshold = 60;
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;
@@ -4764,13 +4765,12 @@ int main_map(int argc, char** argv) {
     float chance_match = 0.05;
     bool smooth_alignments = true;
     bool use_fast_reseed = true;
-    float drop_chain = 0.1;
+    float drop_chain = 0.4;
     float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
     int mate_rescues = 64;
-    int maybe_mq_threshold = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
