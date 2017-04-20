@@ -333,51 +333,14 @@ public:
     // will be empty.
     // If only_top_scoring_pair is set, then the vectors will be empty unless
     // the primary pair of alignments each have top scores individually as well. 
+    // align the pair as a single component using MEM threading and patching on the pair simultaneously
     pair<vector<Alignment>, vector<Alignment>> 
         align_paired_multi(const Alignment& read1,
                            const Alignment& read2,
                            bool& queued_resolve_later,
-                           int kmer_size = 0,
-                           int stride = 0,
                            int max_mem_length = 0,
-                           int band_width = 1000,
-                           int pair_window = 64,
                            bool only_top_scoring_pair = false,
                            bool retrying = false);
-
-    // align each fragment separately, then find consistent results using various heuristics
-    pair<vector<Alignment>, vector<Alignment>> 
-        align_paired_multi_sep(const Alignment& read1,
-                               const Alignment& read2,
-                               bool& queued_resolve_later,
-                               int kmer_size = 0,
-                               int stride = 0,
-                               int max_mem_length = 0,
-                               int band_width = 1000,
-                               int pair_window = 64,
-                               bool only_top_scoring_pair = false,
-                               bool retrying = false);
-
-    // align the pair's ends singly, then take the cross of possible pairs based on the fragment distribution
-    pair<vector<Alignment>, vector<Alignment>>
-        align_paired_multi_combi(const Alignment& read1,
-                                 const Alignment& read2,
-                                 bool& queued_resolve_later,
-                                 int kmer_size = 0,
-                                 int stride = 0,
-                                 int max_mem_length = 0,
-                                 int band_width = 1000,
-                                 bool only_top_scoring_pair = false,
-                                 bool retrying = false);
-
-    // align the pair as a single component using MEM threading and patching on the pair simultaneously
-    pair<vector<Alignment>, vector<Alignment>> 
-        align_paired_multi_simul(const Alignment& read1,
-                                 const Alignment& read2,
-                                 bool& queued_resolve_later,
-                                 int max_mem_length = 0,
-                                 bool only_top_scoring_pair = false,
-                                 bool retrying = false);
 
     // lossily project an alignment into a particular path space of a graph
     // the resulting alignment is equivalent to a SAM record against the chosen path
