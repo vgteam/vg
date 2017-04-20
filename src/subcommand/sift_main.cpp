@@ -73,7 +73,7 @@ int main_sift(int argc, char** argv){
     bool remap = false;
 
 
-    bool do_all = false;
+    bool do_all = true;
 
     bool do_orientation = false;
     bool do_oea = false;
@@ -94,10 +94,10 @@ int main_sift(int argc, char** argv){
     float insert_size_sigma = 50;
 
 
-    int softclip_max = -1;
-    int max_path_length = 0;
+    int softclip_max = 15;
+    int max_path_length = 200;
 
-    int split_read_limit = -1;
+    int split_read_limit = 15;
     double depth = -1;
 
 
@@ -417,15 +417,15 @@ int main_sift(int argc, char** argv){
 
         }
         if (do_reversing && !flagged){
-            Alignment x = ff.reversing_filter(alns_first);
-            Alignment y = ff.reversing_filter(alns_second);
-            if (x.name() != "" || y.name() != ""){
-                #pragma omp critical (reversing_selected)
-                {
-                    reversing_selected.push_back(alns_first);
-                    reversing_selected.push_back(alns_second);
-                }
-            }
+            //Alignment x = ff.reversing_filter(alns_first);
+            //Alignment y = ff.reversing_filter(alns_second);
+            //if (x.name() != "" || y.name() != ""){
+            //    #pragma omp critical (reversing_selected)
+            //    {
+              //      reversing_selected.push_back(alns_first);
+              //      reversing_selected.push_back(alns_second);
+            //    }
+            //}
        
 
 
