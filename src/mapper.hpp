@@ -99,7 +99,7 @@ public:
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
-        int position_depth = 3,
+        int position_depth = 1,
         int max_connections = 10);
     void score(const set<MEMChainModelVertex*>& exclude);
     MEMChainModelVertex* max_vertex(void);

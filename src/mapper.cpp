@@ -4273,7 +4273,7 @@ MEMChainModel::MEMChainModel(
     for (auto& pos : approx_positions) {
         std::sort(pos.second.begin(), pos.second.end(), [](const vector<MEMChainModelVertex>::iterator& v1,
                                                            const vector<MEMChainModelVertex>::iterator& v2) {
-                      return v1->mem.match_count < v2->mem.match_count;
+                      return v1->mem.length() > v2->mem.length();
                   });
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
     }
