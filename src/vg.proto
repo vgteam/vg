@@ -277,6 +277,9 @@ message Locus {
     // We also have a Support for the locus overall, because reads may have
     // supported multiple alleles and we want to know how many total there were.
     Support overall_support = 5;
+    // We track the likelihood of each allele individually, in addition to
+    // genotype likelihoods. Stores the likelihood natural logged.
+    repeated double allele_log_likelihood = 6;
 }
 
 // Describes a genotype at a particular locus.

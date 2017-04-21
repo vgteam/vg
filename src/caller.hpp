@@ -64,6 +64,12 @@ inline StrandSupport minSup(vector<StrandSupport>& s) {
     }
     return *min_element(s.begin(), s.end());
 }
+inline StrandSupport maxSup(vector<StrandSupport>& s) {
+    if (s.empty()) {
+        return StrandSupport();
+    }
+    return *max_element(s.begin(), s.end());
+}
 inline StrandSupport avgSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
@@ -78,6 +84,19 @@ inline StrandSupport avgSup(vector<StrandSupport>& s) {
         ret.rs /= s.size();
         ret.os /= s.size();
         ret.likelihood /= s.size();
+    }
+    return ret;
+}
+inline StrandSupport totalSup(vector<StrandSupport>& s) {
+    StrandSupport ret;
+    if (!s.empty()) {
+        ret.likelihood = 0;
+        for (auto sup : s) {
+            ret.fs += sup.fs;
+            ret.rs += sup.rs;
+            ret.os += sup.os;
+            ret.likelihood += sup.likelihood;
+        }
     }
     return ret;
 }
@@ -453,19 +472,50 @@ public:
     void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
+     * For the given snarl, find the best traversal, and the second-best
+     * traversal, recursively, if any exist. These traversals will be fully
+     * filled in with nodes.
+     *
+     * Only snarls which are ultrabubbles can be called.
+     *
+     * Expects the given baseline support for a diploid call.
+     *
+     * Will not return more than copy_budget SnarlTraversals, and will return
+     * less if some copies are called as having the same traversal.
+     *
+     * Uses the given copy number allowance, and emits a Locus for this Snarl
+     * and any child Snarls.
+     *
+     * If no path through the Snarl can be found, emits no Locus and returns no
+     * SnarlTraversals.
+     */
+    vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
+        SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
+        const Support& baseline_support, size_t copy_budget,
+        function<void(const Locus&, const Snarl*)> emit_locus);
+    
+    /**
      * Decide if the given SnarlTraversal is included in the original base graph
      * (true), or if it represents a novel variant (false).
      *
      * Looks at the nodes in the traversal, and sees if their calls are
      * CALL_REFERENCE or not.
      *
-     * Specially handles single-edge traversals.
+     * Handles single-edge traversals.
      *
-     * If given a traversal that's all primary path nodes, it assumes it is non-
-     * reference, because it assumes the caller will never pass it the all-
-     * primary-path reference traversal.
      */
     bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented);
+    
+    /**
+     * Decide if the given Path is included in the original base graph (true) or
+     * if it represents a novel variant (false).
+     *
+     * Looks at the nodes, and sees if their calls are CALL_REFERENCE or not.
+     *
+     * The path can't be empty; it has to be anchored to something (probably the
+     * start and end of the snarl it came from).
+     */
+    bool is_reference(const Path& path, AugmentedGraph& augmented);
     
     /**
      * Find the primary path, if any, that the given site is threaded onto.
@@ -476,86 +526,87 @@ public:
     
     // Option variables
     
-    // Should we output in VCF (true) or Protobuf Locus (false) format?
+    /// Should we output in VCF (true) or Protobuf Locus (false) format?
     Option<bool> convert_to_vcf{this, "no-vcf", "V", true,
         "output variants in binary Loci format instead of text VCF format"};
-    // How big should our output buffer be?
+    /// How big should our output buffer be?
     size_t locus_buffer_size = 1000;
     
-    // What are the names of the reference paths, if any, in the graph?
+    /// What are the names of the reference paths, if any, in the graph?
     Option<vector<string>> ref_path_names{this, "ref", "r", {},
         "use the path with the given name as a reference path (can repeat)"};
-    // What name should we give each contig in the VCF file? Autodetected from
-    // path names if empty or too short.
+    /// What name should we give each contig in the VCF file? Autodetected from
+    /// path names if empty or too short.
     Option<vector<string>> contig_name_overrides{this, "contig", "c", {},
         "use the given name as the VCF name for the corresponding reference path"};
-    // What should the total sequence length reported in the VCF header be for
-    // each contig? Autodetected from path lengths if empty or too short.
+    /// What should the total sequence length reported in the VCF header be for
+    /// each contig? Autodetected from path lengths if empty or too short.
     Option<vector<size_t>> length_overrides{this, "length", "l", {},
         "override total sequence length in VCF for the corresponding reference path"};
-    // What name should we use for the sample in the VCF file?
+    /// What name should we use for the sample in the VCF file?
     Option<string> sample_name{this, "sample", "S", "SAMPLE",
         "name the sample in the VCF with the given name"};
-    // How far should we offset positions of variants?
+    /// How far should we offset positions of variants?
     Option<int64_t> variant_offset{this, "offset", "o", 0,
         "offset variant positions by this amount in VCF"};
-    // How many nodes should we be willing to look at on our path back to the
-    // primary path? Keep in mind we need to look at all valid paths (and all
-    // combinations thereof) until we find a valid pair.
-    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 10,
+    /// How many nodes should we be willing to look at on our path back to the
+    /// primary path? Keep in mind we need to look at all valid paths (and all
+    /// combinations thereof) until we find a valid pair.
+    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 1000,
         "maximum depth for path search"};
+    /// How many search states should we allow on the DFS stack when searching
+    /// for traversals?
+    Option<int64_t> max_search_width{this, "max-search-width", "wWmMsS", 1000,
+        "maximum width for path search"};
     
     
-    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    // Default to 0 because vg call is still applying depth thresholding
+    /// What fraction of average coverage should be the minimum to call a
+    /// variant (or a single copy)? Default to 0 because vg call is still
+    /// applying depth thresholding
     Option<double> min_fraction_for_call{this, "min-cov-frac", "F", 0,
         "min fraction of average coverage at which to call"};
-    // What fraction of the reads supporting an alt are we willing to discount?
-    // At 2, if twice the reads support one allele as the other, we'll call
-    // homozygous instead of heterozygous. At infinity, every call will be
-    // heterozygous if even one read supports each allele.
-    Option<double> max_het_bias{this, "max-het-bias", "H", 3,
+    /// What fraction of the reads supporting an alt are we willing to discount?
+    /// At 2, if twice the reads support one allele as the other, we'll call
+    /// homozygous instead of heterozygous. At infinity, every call will be
+    /// heterozygous if even one read supports each allele.
+    Option<double> max_het_bias{this, "max-het-bias", "H", 4.5,
         "max imbalance factor between alts to call heterozygous"};
-    // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4,
+    /// Like above, but applied to ref / alt ratio (instead of alt / ref)
+    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
         "max imbalance factor between ref and alts to call heterozygous ref"};
-    // How much should we multiply the bias limits for indels?
-    Option<double> indel_bias_multiple{this, "bias-mult", "M", 1,
-        "multiplier for bias limits for indels as opposed to substitutions"};
-    // What's the minimum integer number of reads that must support a call? We
-    // don't necessarily want to call a SNP as het because we have a single
+    /// What's the minimum integer number of reads that must support a call? We
+    /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
     Option<size_t> min_total_support_for_call{this, "min-count", "n", 1, 
         "min total supporting read count to call a variant"};
-    // Bin size used for counting coverage along the reference path.  The
-    // bin coverage is used for computing the probability of an allele
-    // of a certain depth
+    /// Bin size used for counting coverage along the reference path.  The
+    /// bin coverage is used for computing the probability of an allele
+    /// of a certain depth
     Option<size_t> ref_bin_size{this, "bin-size", "B", 250,
         "bin size used for counting coverage"};
-    // On some graphs, we can't get the coverage because it's split over
-    // parallel paths.  Allow overriding here
+    /// On some graphs, we can't get the coverage because it's split over
+    /// parallel paths.  Allow overriding here
     Option<double> expected_coverage{this, "avg-coverage", "C", 0.0,
         "specify expected coverage (instead of computing on reference)"};
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    Option<bool> suppress_overlaps{this, "no-overlap", "O", false,
-        "don't emit new variants that overlap old ones"};
-    // Should we use average support instead of minimum support for our calculations?
+    /// Should we use average support instead of minimum support for our
+    /// calculations?
     Option<bool> use_average_support{this, "use-avg-support", "u", false,
         "use average instead of minimum support"};
-    // What's the max ref length of a site that we genotype as a whole instead
-    // of splitting?
-    Option<size_t> max_ref_length{this, "max-ref-length", "mMrRlL", 100,
-        "max length of a site to genotype as a whole instead of splitting"};
+    /// Max traversal length threshold at which we switch from minimum support
+    /// to average support (so we don't use average support on pairs of adjacent
+    /// errors and miscall them, but we do use it on long runs of reference
+    /// inside a deletion where the min support might not be representative.
+    Option<size_t> average_support_switch_threshold{this, "use-avg-support-above", "uUaAtT", 100,
+        "use average instead of minimum support for sites this long or longer"};
     
-    // What's the maximum number of bubble path combinations we can explore
-    // while finding one with maximum support?
+    /// What's the maximum number of bubble path combinations we can explore
+    /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
-    // what's the minimum minimum allele depth to give a PASS in the filter column
-    // (anything below gets FAIL)    
+    /// what's the minimum minimum allele depth to give a PASS in the filter column
+    /// (anything below gets FAIL)    
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
         "min. minimum allele depth required to PASS filter"};
-    // print warnings etc. to stderr
+    /// print warnings etc. to stderr
     bool verbose = false;
     
 };

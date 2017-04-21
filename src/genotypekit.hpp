@@ -187,11 +187,12 @@ struct AugmentedGraph {
     
     // This holds support info for nodes. Note that we discard the "os" other
     // support field from StrandSupport.
+    // Supports for nodes are minimum distinct reads that use the node.
     map<Node*, Support> node_supports;
     // And for edges
     map<Edge*, Support> edge_supports;
     
-    // This holds the likelihood for each node.
+    // This holds the log10 likelihood for each node.
     // TODO: what exactly does that mean?
     map<Node*, double> node_likelihoods;
     // And for edges
@@ -202,6 +203,45 @@ struct AugmentedGraph {
     // whole new node on the forward strand, and the piece of the single old
     // node it came from, on the forward strand.
     vector<Translation> translations;
+    
+    /**
+     * Return true if we have support information, and false otherwise.
+     */
+    bool has_supports();
+    
+    /**
+     * Get the Support for a given Node, or 0 if it has no recorded support.
+     */
+    Support get_support(Node* node);
+    
+    /**
+     * Get the Support for a given Edge, or 0 if it has no recorded support.
+     */
+    Support get_support(Edge* edge);
+    
+    /**
+     * Get the log10 likelihood for a given node, or 0 if it has no recorded
+     * likelihood.
+     */
+    double get_likelihood(Node* node);
+    
+    /**
+     * Get the log10 likelihood for a edge node, or 0 if it has no recorded
+     * likelihood.
+     */
+    double get_likelihood(Edge* edge);
+    
+    /**
+     * Get the call for a given node, or CALL_UNCALLED if it has no associated
+     * call.
+     */
+    ElementCall get_call(Node* node);
+    
+    /**
+     * Get the call for a given edge, or CALL_UNCALLED if it has no associated
+     * call.
+     */
+    ElementCall get_call(Edge* edge);
     
     /**
      * Clear the contents.
@@ -352,6 +392,8 @@ protected:
     
     /// What DFS depth should we search to?
     size_t max_depth;
+    /// How many DFS searches should we let there be on the stack at a time?
+    size_t max_width;
     /// How many search intermediates can we allow?
     size_t max_bubble_paths;
     
@@ -364,50 +406,77 @@ protected:
     
     /**
      * Given an edge or node in the augmented graph, look out from the edge or
-     * node in both directions to find a shortest bubble relative to the path,
-     * with a consistent orientation. The bubble may not visit the same node
-     * twice.
+     * node or snarl in both directions to find a shortest bubble relative to
+     * the path, with a consistent orientation. The bubble may not visit the
+     * same node twice.
      *
-     * Exactly one of edge and node must be null, and one not null.
+     * Exactly one of edge and node and snarl must be not null.
      *
      * Takes a max depth for the searches producing the paths on each side.
      * 
      * Return the ordered and oriented nodes in the bubble, with the outer nodes
-     * being oriented forward along the named path, and with the first node
-     * coming before the last node in the reference.  Also return the minimum
-     * support found on any edge or node in the bubble (including the reference
-     * node endpoints and their edges which aren't stored in the path)
+     * being oriented forward along the path for which an index is provided, and
+     * with the first node coming before the last node in the reference.  Also
+     * return the minimum support found on any edge or node in the bubble
+     * (including the reference node endpoints and their edges which aren't
+     * stored in the path).
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge, PathIndex& index);
+    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index);
         
     /**
      * Get the minimum support of all nodes and edges in path
      */
-    Support min_support_in_path(const list<NodeTraversal>& path);
+    Support min_support_in_path(const list<Visit>& path);
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the given
-     * indexed path. Refuses to visit nodes with no support.
+     * indexed path. Refuses to visit nodes with no support, if support data is
+     * available in the augmented graph.
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
      * lengths and paths starting at the given node and ending on the given
-     * indexed path.
+     * indexed path. Refuses to visit nodes with no support, if support data is
+     * available in the augmented graph.
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.
      */
-    size_t bp_length(const list<NodeTraversal>& path);
+    size_t bp_length(const list<Visit>& path);
     
 public:
 
+    /**
+     * Make a new RepresentativeTraversalFinder to find traversals. Uses the
+     * given augmented graph as the graph with coverage annotation, and reasons
+     * about child snarls with the given SnarlManager. Explores up to max_depth
+     * in the BFS search when trying to find its way across snarls, and
+     * considers up to max_width search states at a time. When combining search
+     * results on either side of a graph element to be represented, thinks about
+     * max_bubble_paths combinations.
+     *
+     * Uses the given get_index function to try and find a PathIndex for a
+     * reference path traversing a child snarl.
+     */
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        size_t max_depth, size_t max_bubble_paths,
+        size_t max_depth, size_t max_width, size_t max_bubble_paths,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?
@@ -471,6 +540,11 @@ class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
 // We also supply utility functions for working with genotyping Protobuf objects
 
 /**
+ * Create a Support for the given forward and reverse coverage.
+ */
+Support make_support(double forward, double reverse);
+
+/**
  * Get the total read support in a Support.
  */
 double total(const Support& support);
@@ -480,6 +554,12 @@ double total(const Support& support);
  * orientation.
  */
 Support support_min(const Support& a, const Support& b);
+
+/**
+ * Get the maximum support of a pair of Supports, by taking the max in each
+ * orientation.
+ */
+Support support_max(const Support& a, const Support& b);
 
 /**
  * Add two Support values together, accounting for strand.

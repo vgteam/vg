@@ -162,32 +162,35 @@ DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
+# Dependencies that go into libvg's archive
+LIB_DEPS =
+LIB_DEPS += $(LIB_DIR)/libprotobuf.a
+LIB_DEPS += $(LIB_DIR)/libsdsl.a
+LIB_DEPS += $(LIB_DIR)/libssw.a
+LIB_DEPS += $(LIB_DIR)/libsnappy.a
+LIB_DEPS += $(LIB_DIR)/librocksdb.a
+LIB_DEPS += $(LIB_DIR)/libgcsa2.a
+LIB_DEPS += $(OBJ_DIR)/Fasta.o
+LIB_DEPS += $(LIB_DIR)/libhts.a
+LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libvcflib.a
+LIB_DEPS += $(LIB_DIR)/libgssw.a
+LIB_DEPS += $(LIB_DIR)/libvcfh.a
+LIB_DEPS += $(LIB_DIR)/libgfakluge.a
+LIB_DEPS += $(LIB_DIR)/libsupbub.a
+LIB_DEPS += $(LIB_DIR)/libsonlib.a
+LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
+LIB_DEPS += $(LIB_DIR)/libraptor2.a
+
 # common dependencies to build before all vg src files
-DEPS = 
-DEPS += $(LIB_DIR)/libprotobuf.a
+DEPS = $(LIB_DEPS)
 DEPS += $(CPP_DIR)/vg.pb.h
-DEPS += $(LIB_DIR)/libsdsl.a
-DEPS += $(LIB_DIR)/libssw.a
-DEPS += $(LIB_DIR)/libsnappy.a
-DEPS += $(LIB_DIR)/librocksdb.a
 DEPS += $(INC_DIR)/gcsa/gcsa.h
-DEPS += $(LIB_DIR)/libgcsa2.a
-DEPS += $(OBJ_DIR)/Fasta.o
-DEPS += $(LIB_DIR)/libhts.a
-DEPS += $(LIB_DIR)/libxg.a
-DEPS += $(LIB_DIR)/libvcflib.a
-DEPS += $(LIB_DIR)/libgssw.a
 DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
-DEPS += $(LIB_DIR)/libvcfh.a
-DEPS += $(LIB_DIR)/libgfakluge.a
 DEPS += $(INC_DIR)/gfakluge.hpp
-DEPS += $(LIB_DIR)/libsupbub.a
-DEPS += $(LIB_DIR)/libsonlib.a
-DEPS += $(LIB_DIR)/libpinchesandcacti.a
 DEPS += $(INC_DIR)/globalDefs.hpp
-DEPS += $(LIB_DIR)/libraptor2.a
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 
@@ -208,7 +211,7 @@ static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(LIB_DIR)/libvg.a: $(OBJ) $(DEPS)
-	ar rs $@ $^
+	ar rs $@ $(OBJ) $(LIB_DEPS)
 
 get-deps:
 	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev
@@ -473,13 +476,13 @@ $(UNITTEST_OBJ_DIR)/banded_global_aligner.o: $(UNITTEST_SRC_DIR)/banded_global_a
 
 $(UNITTEST_OBJ_DIR)/pinned_alignment.o: $(UNITTEST_SRC_DIR)/pinned_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/genotypekit.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mapper.cpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/phased_genome.cpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
 
@@ -497,7 +500,7 @@ $(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SR
 
 $(UNITTEST_OBJ_DIR)/aligner.o: $(UNITTEST_SRC_DIR)/aligner.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(UNITTEST_OBJ_DIR)/chunker.o: $(UNITTEST_SRC_DIR)/chunker.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/chunker.hpp $(DEPS)
@@ -609,6 +612,7 @@ clean:
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
+	cd $(DEP_DIR) && cd gfakludge && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

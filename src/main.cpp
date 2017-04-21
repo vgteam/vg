@@ -1075,7 +1075,7 @@ void help_msga(char** argv) {
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "mem mapping:" << endl
-         << "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
+        //<< "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
          << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: estimated)" << endl
          << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
         //<< "    -
@@ -1192,7 +1192,6 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
-                {"no-mem-threader", no_argument, 0, 'l'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'H'},
@@ -1216,7 +1215,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:lL:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:7:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:7:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1225,10 +1224,6 @@ int main_msga(int argc, char** argv) {
 
         switch (c)
         {
-
-        case 'l':
-            use_mem_threader = false;
-            break;
 
         case 'L':
             min_mem_length = atoi(optarg);
@@ -3996,10 +3991,6 @@ int main_find(int argc, char** argv) {
         exit(1);
     }
     
-    if (use_fast_reseed && !mem_reseed_length) {
-        cerr << "[vg find] WARNING: Fast MEM reseed option is ignored when reseeding is turned off. Use -R to turn on reseeding." << endl;
-    }
-
     // process input node list
     if (!node_list_file.empty()) {
         ifstream nli;
@@ -4669,10 +4660,12 @@ void help_map(char** argv) {
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [32]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
+         << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.2]" << endl
-         << "    -L, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
@@ -4686,7 +4679,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
-         << "    -l, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -4753,9 +4746,11 @@ int main_map(int argc, char** argv) {
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 32;
+    int extra_multimaps = 64;
+    int min_multimaps = 4;
     int max_mapping_quality = 60;
     int method_code = 1;
+    int maybe_mq_threshold = 60;
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;
@@ -4767,9 +4762,8 @@ int main_map(int argc, char** argv) {
     bool fragment_direction = true;
     bool use_cluster_mq = false;
     float chance_match = 0.05;
-    bool smooth_alignments = true;
     bool use_fast_reseed = true;
-    float drop_chain = 0.2;
+    float drop_chain = 0.4;
     float mq_overlap = 0.4;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
@@ -4822,18 +4816,20 @@ int main_map(int argc, char** argv) {
                 {"compare", no_argument, 0, 'B'},
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
-                {"full-l-bonus", required_argument, 0, 'l'},
+                {"full-l-bonus", required_argument, 0, 'L'},
                 {"chance-match", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
-                {"mq-overlap", required_argument, 0, 'L'},
+                {"mq-overlap", required_argument, 0, 'n'},
+                {"try-at-least", required_argument, 0, 'l'},
                 {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
+                {"approx-mq-cap", required_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:n:E:",
                          long_options, &option_index);
 
 
@@ -4879,7 +4875,11 @@ int main_map(int argc, char** argv) {
             max_mapping_quality = atoi(optarg);
             break;
 
-        case 'l':
+        case 'E':
+            maybe_mq_threshold = atoi(optarg);
+            break;
+
+        case 'L':
             full_length_bonus = atoi(optarg);
             break;
 
@@ -4929,7 +4929,11 @@ int main_map(int argc, char** argv) {
             drop_chain = atof(optarg);
             break;
 
-        case 'L':
+        case 'l':
+            min_multimaps = atoi(optarg);
+            break;
+
+        case 'n':
             mq_overlap = atof(optarg);
             break;
 
@@ -5064,10 +5068,6 @@ int main_map(int argc, char** argv) {
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
-    if (use_fast_reseed && !mem_reseed_factor) {
-        cerr << "warning:[vg map] Fast MEM reseed option is ignored when reseeding is turned off. Use --mem-reseed to turn on reseeding." << endl;
-    }
-    
     MappingQualityMethod mapping_quality_method;
     if (method_code == 0) {
         mapping_quality_method = None;
@@ -5188,6 +5188,8 @@ int main_map(int argc, char** argv) {
         }
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
+        m->min_multimaps = min_multimaps;
+        m->maybe_mq_threshold = maybe_mq_threshold;
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
@@ -5221,7 +5223,6 @@ int main_map(int argc, char** argv) {
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
-        m->smooth_alignments = smooth_alignments;
         m->mate_rescues = mate_rescues;
         mapper[i] = m;
     }
@@ -5344,7 +5345,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -5353,10 +5354,10 @@ int main_map(int argc, char** argv) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                                       queued_resolve_later, kmer_size,
-                                                                       kmer_stride, max_mem_length,
-                                                                       band_width, pair_window,
-                                                                       top_pairs_only, true);
+                                                                       queued_resolve_later,
+                                                                       max_mem_length,
+                                                                       top_pairs_only,
+                                                                       true);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -5372,10 +5373,10 @@ int main_map(int argc, char** argv) {
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                               queued_resolve_later, kmer_size,
-                                                               kmer_stride, max_mem_length,
-                                                               band_width, pair_window,
-                                                               top_pairs_only, true);
+                                                               queued_resolve_later,
+                                                               max_mem_length,
+                                                               top_pairs_only,
+                                                               true);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -5427,7 +5428,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -5436,10 +5437,10 @@ int main_map(int argc, char** argv) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                                       queued_resolve_later, kmer_size,
-                                                                       kmer_stride, max_mem_length,
-                                                                       band_width, pair_window,
-                                                                       top_pairs_only, true);
+                                                                       queued_resolve_later,
+                                                                       max_mem_length,
+                                                                       top_pairs_only,
+                                                                       true);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -5454,10 +5455,10 @@ int main_map(int argc, char** argv) {
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                               queued_resolve_later, kmer_size,
-                                                               kmer_stride, max_mem_length,
-                                                               band_width, pair_window,
-                                                               top_pairs_only, true);
+                                                               queued_resolve_later,
+                                                               max_mem_length,
+                                                               top_pairs_only,
+                                                               true);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
@@ -5505,7 +5506,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -5514,10 +5515,10 @@ int main_map(int argc, char** argv) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                                       queued_resolve_later, kmer_size,
-                                                                       kmer_stride, max_mem_length,
-                                                                       band_width, pair_window,
-                                                                       top_pairs_only, true);
+                                                                       queued_resolve_later,
+                                                                       max_mem_length,
+                                                                       top_pairs_only,
+                                                                       true);
                             output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
@@ -5532,10 +5533,10 @@ int main_map(int argc, char** argv) {
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
-                                                               queued_resolve_later, kmer_size,
-                                                               kmer_stride, max_mem_length,
-                                                               band_width, pair_window,
-                                                               top_pairs_only, true);
+                                                               queued_resolve_later,
+                                                               max_mem_length,
+                                                               top_pairs_only,
+                                                               true);
                     output_func(p.first, p.second, alnp);
                 }
                 our_mapper->imperfect_pairs_to_retry.clear();
