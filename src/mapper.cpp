@@ -1253,16 +1253,15 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
     if (!mems_overlap(mem1, mem2)) {
         return 0;
     } else {
-        // overlap is length from min to max end/begin
         if (mem1.begin < mem2.begin) {
             if (mem1.end < mem2.end) {
-                return mem2.end - mem1.begin;
+                return mem1.end - mem2.begin;
             } else {
                 return mem1.end - mem1.begin;
             }
         } else {
             if (mem2.end < mem1.end) {
-                return mem1.end - mem2.begin;
+                return mem2.end - mem1.begin;
             } else {
                 return mem2.end - mem2.begin;
             }
@@ -1380,43 +1379,27 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        // find the difference in m1.end and m2.begin
-        // find the positional difference in the graph between m1.end and m2.begin
-        //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+
         int unique_coverage = m1.length() + m2.length() - mems_overlap_length(m1, m2);
-        //cerr << "unique coverage " << unique_coverage << endl;
-        //int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
-        //double uniqueness = 2.0 / (m1.match_count + m2.match_count);
-
-        // approximate distance by node lengths
-        //int max_length = 2 * (m1.length() + m2.length());
         int max_length = aln.sequence().size();
-        //int max_length = 10 * abs(m2.begin - m1.begin);
-        //double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
-        //double approx_distance = (double)abs(xindex->node_start(id(m1_pos))+offset(m1_pos) -
         int approx_dist = abs(approx_distance(m1_pos, m2_pos));
         
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << "approx distance " << approx_dist << endl;
+            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << endl;
         }
 #endif
         if (approx_dist > max_length) {
             // too far
             return -std::numeric_limits<double>::max();
         } else {
+            // re-enable if more precise distances are desired
             //int distance = graph_distance(m1_pos, m2_pos, max_length);
             int distance = approx_dist;
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "actual distance " << distance << endl;
-            }
-#endif
-            if (distance == max_length) {
+            if (distance >= max_length) {
                 // couldn't find distance
                 //distance = approx_dist;
                 return -std::numeric_limits<double>::max();
