@@ -4275,6 +4275,11 @@ MEMChainModel::MEMChainModel(
                                                            const vector<MEMChainModelVertex>::iterator& v2) {
                       return v1->mem.length() > v2->mem.length();
                   });
+        if (pos.second.size() > position_depth) {
+            for (int i = position_depth; i < pos.second.size(); ++i) {
+                redundant_vertexes.insert(pos.second[i]);
+            }
+        }
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
     }
     // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
