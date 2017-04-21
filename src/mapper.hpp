@@ -92,6 +92,7 @@ class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
     map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,

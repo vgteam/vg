@@ -975,12 +975,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
         ++multimaps;
 
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) { cerr << "patch identities " << p.first.identity() << ", " << p.second.identity() << endl; }
-        }
-#endif
     }
 
     auto sort_and_dedup = [&](void) {
@@ -1036,28 +1030,33 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         if (rescued) sort_and_dedup();
     }
-    
-#ifdef debug_mapper
+
 #pragma omp critical
     {
         if (debug) {
             for (auto& p : alns) {
                 auto& aln1 = p.first;
-                cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
+                cerr << "1:" << aln1.score();
+                if (aln1.score()) cerr << "@" << aln1.path().mapping(0).position().node_id() << " ";
+                //cerr << endl;
+                //cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
                 if (!check_alignment(aln1)) {
                     cerr << "alignment failure " << pb2json(aln1) << endl;
                     assert(false);
                 }
                 auto& aln2 = p.second;
-                cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
+                cerr << "2:" << aln2.score();
+                if (aln2.score()) cerr << "@" << aln2.path().mapping(0).position().node_id() << " ";
+                //cerr << endl;
+                //cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
                 if (!check_alignment(aln2)) {
                     cerr << "alignment failure " << pb2json(aln2) << endl;
                     assert(false);
                 }
+                cerr << endl;
             }
         }
     }
-#endif
 
     // calculate cluster mapping quality
     if (use_cluster_mq) {
@@ -4297,7 +4296,6 @@ MEMChainModel::MEMChainModel(
     }
     // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
     // scan forward
-    set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         for (auto& v1 : p->second) {
@@ -4409,6 +4407,7 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
     vector<vector<MaximalExactMatch> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
     set<MEMChainModelVertex*> exclude;
+    for (auto& v : redundant_vertexes) exclude.insert(&*v);
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
         clear_scores();
