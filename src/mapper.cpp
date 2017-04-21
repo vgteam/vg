@@ -975,12 +975,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
         ++multimaps;
 
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) { cerr << "patch identities " << p.first.identity() << ", " << p.second.identity() << endl; }
-        }
-#endif
     }
 
     auto sort_and_dedup = [&](void) {
@@ -1036,28 +1030,33 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         if (rescued) sort_and_dedup();
     }
-    
-#ifdef debug_mapper
+
 #pragma omp critical
     {
         if (debug) {
             for (auto& p : alns) {
                 auto& aln1 = p.first;
-                cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
+                cerr << "1:" << aln1.score();
+                if (aln1.score()) cerr << "@" << aln1.path().mapping(0).position().node_id() << " ";
+                //cerr << endl;
+                //cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
                 if (!check_alignment(aln1)) {
                     cerr << "alignment failure " << pb2json(aln1) << endl;
                     assert(false);
                 }
                 auto& aln2 = p.second;
-                cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
+                cerr << "2:" << aln2.score();
+                if (aln2.score()) cerr << "@" << aln2.path().mapping(0).position().node_id() << " ";
+                //cerr << endl;
+                //cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
                 if (!check_alignment(aln2)) {
                     cerr << "alignment failure " << pb2json(aln2) << endl;
                     assert(false);
                 }
+                cerr << endl;
             }
         }
     }
-#endif
 
     // calculate cluster mapping quality
     if (use_cluster_mq) {
@@ -1254,16 +1253,15 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
     if (!mems_overlap(mem1, mem2)) {
         return 0;
     } else {
-        // overlap is length from min to max end/begin
         if (mem1.begin < mem2.begin) {
             if (mem1.end < mem2.end) {
-                return mem2.end - mem1.begin;
+                return mem1.end - mem2.begin;
             } else {
                 return mem1.end - mem1.begin;
             }
         } else {
             if (mem2.end < mem1.end) {
-                return mem1.end - mem2.begin;
+                return mem2.end - mem1.begin;
             } else {
                 return mem2.end - mem2.begin;
             }
@@ -1381,53 +1379,29 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     // build the clustering model
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-        // find the difference in m1.end and m2.begin
-        // find the positional difference in the graph between m1.end and m2.begin
-        //int unique_coverage = (m1.end < m2.begin ? m1.length() + m2.length() : m2.end - m1.begin);
+
         int unique_coverage = m1.length() + m2.length() - mems_overlap_length(m1, m2);
-        //cerr << "unique coverage " << unique_coverage << endl;
-        //int overlap = (m1.end < m2.begin ? 0 : m1.end - m2.begin);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
-        //double uniqueness = 2.0 / (m1.match_count + m2.match_count);
-
-        // approximate distance by node lengths
-        //int max_length = 2 * (m1.length() + m2.length());
         int max_length = aln.sequence().size();
-        //int max_length = 10 * abs(m2.begin - m1.begin);
-        //double approx_distance = (double) abs(id(m1_pos) - id(m2_pos)) * avg_node_len- offset(m1_pos);
-        //double approx_distance = (double)abs(xindex->node_start(id(m1_pos))+offset(m1_pos) -
         int approx_dist = abs(approx_distance(m1_pos, m2_pos));
         
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << "approx distance " << approx_dist << endl;
+            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << endl;
         }
 #endif
         if (approx_dist > max_length) {
             // too far
             return -std::numeric_limits<double>::max();
         } else {
-            //int distance = graph_distance(m1_pos, m2_pos, max_length);
-            int distance = approx_dist;
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "actual distance " << distance << endl;
-            }
-#endif
-            if (distance == max_length) {
-                // couldn't find distance
-                //distance = approx_dist;
-                return -std::numeric_limits<double>::max();
-            }
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
                 // disable inversions
                 return -std::numeric_limits<double>::max();
             } else {
                 // accepted transition
-                double jump = abs((m2.begin - m1.begin) - distance);
+                double jump = abs((m2.begin - m1.begin) - approx_dist);
                 if (jump) {
                     return (double) unique_coverage * match - (gap_open + jump * gap_extension);
                 } else {
@@ -4291,13 +4265,17 @@ MEMChainModel::MEMChainModel(
     for (auto& pos : approx_positions) {
         std::sort(pos.second.begin(), pos.second.end(), [](const vector<MEMChainModelVertex>::iterator& v1,
                                                            const vector<MEMChainModelVertex>::iterator& v2) {
-                      return v1->mem.match_count < v2->mem.match_count;
+                      return v1->mem.length() > v2->mem.length();
                   });
+        if (pos.second.size() > position_depth) {
+            for (int i = position_depth; i < pos.second.size(); ++i) {
+                redundant_vertexes.insert(pos.second[i]);
+            }
+        }
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
     }
     // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
     // scan forward
-    set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         for (auto& v1 : p->second) {
@@ -4308,9 +4286,12 @@ MEMChainModel::MEMChainModel(
                     if (redundant_vertexes.count(v2)) continue;
                     if (mems_overlap(v1->mem, v2->mem)
                         && abs(v2->mem.begin - v1->mem.begin) == abs(q->first - p->first)) {
-                        v1->mem.end = v2->mem.end;
-                        v1->weight = v1->mem.length();
-                        redundant_vertexes.insert(v2);
+                        if (v2->mem.length() < v1->mem.length()) {
+                            redundant_vertexes.insert(v2);
+                            if (v2->mem.end > v1->mem.end) {
+                                v1->weight += v2->mem.end - v1->mem.end;
+                            }
+                        }
                     }
                 }
             }
@@ -4327,9 +4308,12 @@ MEMChainModel::MEMChainModel(
                     if (redundant_vertexes.count(v2)) continue;
                     if (mems_overlap(v1->mem, v2->mem)
                         && abs(v2->mem.begin - v1->mem.begin) == abs(p->first - q->first)) {
-                        v1->mem.end = v2->mem.end;
-                        v1->weight = v1->mem.length();
-                        redundant_vertexes.insert(v2);
+                        if (v2->mem.length() < v1->mem.length()) {
+                            redundant_vertexes.insert(v2);
+                            if (v2->mem.end > v1->mem.end) {
+                                v1->weight += v2->mem.end - v1->mem.end;
+                            }
+                        }
                     }
                 }
             }
@@ -4409,6 +4393,7 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
     vector<vector<MaximalExactMatch> > traces;
     traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
     set<MEMChainModelVertex*> exclude;
+    for (auto& v : redundant_vertexes) exclude.insert(&*v);
     for (int i = 0; i < alt_alns; ++i) {
         // score the model, accounting for excluded traces
         clear_scores();
