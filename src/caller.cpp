@@ -10,39 +10,13 @@ namespace vg {
 
 const double Caller::Log_zero = (double)-1e100;
 
-// these values pretty arbitrary at this point
-// note, they conly control what makes the augmented graph
-// (so we keep fairly loose).  the final vcf calls are governed
-// by the (former) glenn2vcf options (passed to call2vcf())
-const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 1;
-const int Caller::Default_max_depth = 1000;
-const int Caller::Default_min_support = 1;
-const double Caller::Default_min_frac = 0.;
-const double Caller::Default_min_log_likelihood = -5000.0;
 const char Caller::Default_default_quality = 30;
-const double Caller::Default_max_strand_bias = 1;
 
 Caller::Caller(VG* graph,
-               double het_prior,
-               int min_depth,
-               int max_depth,
-               int min_support,
-               double min_frac,
-               double min_log_likelihood, 
                int default_quality,
-               double max_strand_bias,
                bool bridge_alts):
     _graph(graph),
-    _het_log_prior(safe_log(het_prior)),
-    _hom_log_prior(safe_log(.5 * (1. - het_prior))),
-    _min_depth(min_depth),
-    _max_depth(max_depth),
-    _min_support(min_support),
-    _min_frac(min_frac),
-    _min_log_likelihood(min_log_likelihood),
     _default_quality(default_quality),
-    _max_strand_bias(max_strand_bias),
     _bridge_alts(bridge_alts) {
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
@@ -103,7 +77,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
             }
         }
         int pileup_depth = max(num_inserts, pileup.base_pileup(i).num_bases() - num_inserts);
-        if (pileup_depth >= _min_depth && pileup_depth <= _max_depth) {
+        if (pileup_depth >= 1) {
             call_base_pileup(pileup, i, false);
             call_base_pileup(pileup, i, true);
         }
@@ -117,8 +91,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
 }
 
 void Caller::call_edge_pileup(const EdgePileup& pileup) {
-    if (pileup.num_reads() >= _min_depth &&
-        pileup.num_reads() <= _max_depth) {
+    if (pileup.num_reads() >= 1) {
 
         // use equivalent logic to SNPs (see base_log_likelihood)
         double log_likelihood = 0;
@@ -415,37 +388,24 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     // note first and second base will be upper case too
     string ref_base = string(1, ::toupper(bp.ref_base()));
 
-    // compute threshold
-    int min_support = max(int(_min_frac * (double)max(total_count, bp.num_bases() - total_count)), _min_support);
-
-    // compute strand bias
-    double top_sb = top_count > 0 ? abs(0.5 - (double)top_rev_count / (double)top_count) : 0;
-    double second_sb = second_count > 0 ? abs(0.5 - (double)second_rev_count / (double)second_count) : 0;
-
     // get references to node-level members we want to update
     Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
     pair<StrandSupport, StrandSupport>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
 
-    // we create augmented structures for anything that passes the above support and
-    // strand bias filters (note, these should be minimal, with decisions being
-    // pushed back to vcf export)
-    bool first_passes = top_count >= min_support && top_sb <= _max_strand_bias;
-    bool second_passes = second_count >= min_support && second_sb <= _max_strand_bias;
-
-    if (first_passes || top_base == ref_base) {
+    if (top_count > 0) {
         base_call.first = top_base != ref_base ? top_base : ".";
         support.first.fs = top_count - top_rev_count;
         support.first.rs = top_rev_count;
-        string alt_base = second_passes ? second_base : "";
+        string alt_base = second_count > 0 ? second_base : "";
         auto ld =  base_log_likelihood(bp, base_offsets, top_base, top_base, alt_base);
         support.first.likelihood = ld.first;
         support.first.os = max(0, ld.second - top_count);
     }
-    if (second_passes || (second_base == ref_base && second_base != top_base)) {
+    if (second_count > 0) { 
         base_call.second = second_base != ref_base ? second_base : ".";
         support.second.fs = second_count - second_rev_count;
         support.second.rs = second_rev_count;
-        string alt_base = first_passes ? top_base : "";
+        string alt_base = top_count > 0 ? top_base : "";
         auto ld = base_log_likelihood(bp, base_offsets, second_base, second_base, alt_base);
         support.second.likelihood = ld.first;
         support.second.os = max(0, ld.second - second_count);

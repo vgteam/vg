@@ -165,32 +165,11 @@ public:
 
     // log of zero
     static const double Log_zero;
-    // heterzygous prior (from r MAQ paper)
-    static const double Default_het_prior;
-    // minimum size of pileup to call a snp
-    static const int Default_min_depth;
-    // maximum size of pileup to call a snp
-    static const int Default_max_depth;
-    // minimum number of reads that support snp required to call it
-    static const int Default_min_support;
-    // same as min_support, but as fraction of total depth
-    static const double Default_min_frac;
-    // minimum likelihood to call a snp
-    static const double Default_min_log_likelihood;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
-    // use to balance alignments to forward and reverse strand
-    static const double Default_max_strand_bias;
     
     Caller(VG* graph,
-           double het_prior = Default_het_prior,
-           int min_depth = Default_min_depth,
-           int max_depth = Default_max_depth,
-           int min_support = Default_min_support,
-           double min_frac = Default_min_frac,
-           double min_log_likelihood = Default_min_log_likelihood, 
            int default_quality = Default_default_quality,
-           double max_strand_bias = Default_max_strand_bias,
            bool bridge_alts = false);
     ~Caller();
     void clear();
@@ -244,25 +223,10 @@ public:
     // todo: generalize augmented edge support
     EdgeSupHash _deletion_supports;
 
-    // used to favour homozygous genotype (r from MAQ paper)
-    double _het_log_prior;
-    double _hom_log_prior;
     // maximum number of nodes to call before writing out output stream
     int _buffer_size;
-    // minimum depth of pileup to call variants on
-    int _min_depth;
-    // maximum depth of pileup to call variants on
-    int _max_depth;
-    // min reads supporting snp to call it
-    int _min_support;
-    // minimum fraction of bases in pileup that nucleotide must have to be snp
-    double _min_frac;
-    // minimum log likelihood for a snp to be called
-    double _min_log_likelihood;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
-    // min deviation from .5 in proportion of negative strand reads
-    double _max_strand_bias;
     // the base-by-base calling is very limited, and adjacent
     // variants are not properly phased according to the reads.
     // so we choose either to add all edges between neighboring
