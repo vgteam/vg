@@ -1396,20 +1396,12 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
             // too far
             return -std::numeric_limits<double>::max();
         } else {
-            // re-enable if more precise distances are desired
-            //int distance = graph_distance(m1_pos, m2_pos, max_length);
-            int distance = approx_dist;
-            if (distance >= max_length) {
-                // couldn't find distance
-                //distance = approx_dist;
-                return -std::numeric_limits<double>::max();
-            }
             if (is_rev(m1_pos) != is_rev(m2_pos)) {
                 // disable inversions
                 return -std::numeric_limits<double>::max();
             } else {
                 // accepted transition
-                double jump = abs((m2.begin - m1.begin) - distance);
+                double jump = abs((m2.begin - m1.begin) - approx_dist);
                 if (jump) {
                     return (double) unique_coverage * match - (gap_open + jump * gap_extension);
                 } else {
@@ -4294,9 +4286,12 @@ MEMChainModel::MEMChainModel(
                     if (redundant_vertexes.count(v2)) continue;
                     if (mems_overlap(v1->mem, v2->mem)
                         && abs(v2->mem.begin - v1->mem.begin) == abs(q->first - p->first)) {
-                        v1->mem.end = v2->mem.end;
-                        v1->weight = v1->mem.length();
-                        redundant_vertexes.insert(v2);
+                        if (v2->mem.length() < v1->mem.length()) {
+                            redundant_vertexes.insert(v2);
+                            if (v2->mem.end > v1->mem.end) {
+                                v1->weight += v2->mem.end - v1->mem.end;
+                            }
+                        }
                     }
                 }
             }
@@ -4313,9 +4308,12 @@ MEMChainModel::MEMChainModel(
                     if (redundant_vertexes.count(v2)) continue;
                     if (mems_overlap(v1->mem, v2->mem)
                         && abs(v2->mem.begin - v1->mem.begin) == abs(p->first - q->first)) {
-                        v1->mem.end = v2->mem.end;
-                        v1->weight = v1->mem.length();
-                        redundant_vertexes.insert(v2);
+                        if (v2->mem.length() < v1->mem.length()) {
+                            redundant_vertexes.insert(v2);
+                            if (v2->mem.end > v1->mem.end) {
+                                v1->weight += v2->mem.end - v1->mem.end;
+                            }
+                        }
                     }
                 }
             }
