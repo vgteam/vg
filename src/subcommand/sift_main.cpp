@@ -73,7 +73,7 @@ int main_sift(int argc, char** argv){
     bool remap = false;
 
 
-    bool do_all = false;
+    bool do_all = true;
 
     bool do_orientation = false;
     bool do_oea = false;
@@ -94,10 +94,10 @@ int main_sift(int argc, char** argv){
     float insert_size_sigma = 50;
 
 
-    int softclip_max = -1;
-    int max_path_length = 0;
+    int softclip_max = 15;
+    int max_path_length = 200;
 
-    int split_read_limit = -1;
+    int split_read_limit = 15;
     double depth = -1;
 
 
@@ -254,7 +254,7 @@ int main_sift(int argc, char** argv){
     
 
     //vector<Alignment> orphaned_selected;
-    vector<Alignment> just_fine;
+    vector<Alignment> clean;
     vector<Alignment> perfect;
     vector<Alignment> simple_mismatch;
     vector<Alignment> discordant_selected;
@@ -277,6 +277,8 @@ int main_sift(int argc, char** argv){
     string insert_fn = alignment_file + ".insert_size";
     string quality_fn = alignment_file + ".quality";
     string depth_fn = alignment_file + ".depth";
+    string clean_fn = alignment_file + ".clean";
+    string perfect_fn = alignment_file + ".perfect";
 
     ofstream unmapped_stream;
     ofstream discordant_stream;
@@ -287,6 +289,12 @@ int main_sift(int argc, char** argv){
     ofstream insert_stream;
     ofstream quality_stream;
     ofstream depth_stream;
+    ofstream clean_stream;
+    ofstream perfect_stream;
+
+    if (do_reversing){
+        reversing_stream.open(reversing_fn);
+    }
 
     if (do_unmapped){
         unmapped_stream.open(unmapped_fn);
@@ -411,13 +419,13 @@ int main_sift(int argc, char** argv){
         if (do_reversing && !flagged){
             //Alignment x = ff.reversing_filter(alns_first);
             //Alignment y = ff.reversing_filter(alns_second);
-           // if (x.name() != "" || y.name() != ""){
-            // #pragma omp critical (reversing_selected)
-            // {
-            //     reversing_selected.push_back(alns_first);
-            //     reversing_selected.push_back(alns_second);
-            // }
-            // }
+            //if (x.name() != "" || y.name() != ""){
+            //    #pragma omp critical (reversing_selected)
+            //    {
+              //      reversing_selected.push_back(alns_first);
+              //      reversing_selected.push_back(alns_second);
+            //    }
+            //}
        
 
 
@@ -460,6 +468,22 @@ int main_sift(int argc, char** argv){
             }
             
         }
+        if (!do_all && !flagged){
+            // Check if read is perfect
+
+            if (ff.perfect_filter(alns_first) && ff.perfect_filter(alns_second)){
+
+            }
+            else{
+                // otherwise, it's pretty clean, so place it in the clean pile.
+                #pragma omp critical (clean)
+                {
+                    clean.push_back(alns_first);
+                    clean.push_back(alns_second);
+                }
+            }
+            
+        }
         
 
         stream::write_buffered(unmapped_stream, unmapped_selected, 100);
@@ -468,6 +492,9 @@ int main_sift(int argc, char** argv){
         stream::write_buffered(insert_stream, insert_selected, 100);
         stream::write_buffered(split_stream, split_selected, 100);
         stream::write_buffered(clipped_stream, clipped_selected, 100);
+        stream::write_buffered(clean_stream, clean, 100);
+        stream::write_buffered(reversing_stream, reversing_selected, 100);
+        stream::write_buffered(perfect_stream, perfect, 100);
     };
 
     std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
@@ -539,19 +566,22 @@ else{
         help_sift(argv);
     }
 }
-stream::write_buffered(unmapped_stream, unmapped_selected, 0);
-stream::write_buffered(discordant_stream, discordant_selected, 0);
-stream::write_buffered(oea_stream, one_end_anchored, 0);
-stream::write_buffered(insert_stream, insert_selected, 0);
-stream::write_buffered(split_stream, split_selected, 0);
-stream::write_buffered(clipped_stream, clipped_selected, 0);
+    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
+    stream::write_buffered(discordant_stream, discordant_selected, 0);
+    stream::write_buffered(oea_stream, one_end_anchored, 0);
+    stream::write_buffered(insert_stream, insert_selected, 0);
+    stream::write_buffered(split_stream, split_selected, 0);
+    stream::write_buffered(clipped_stream, clipped_selected, 0);
+    stream::write_buffered(clean_stream, clean, 0);
+    stream::write_buffered(reversing_stream, reversing_selected, 0);
+    stream::write_buffered(perfect_stream, perfect, 0);
 
     buffer.clear();
 
 
 
 
-return 0;
+    return 0;
 }
 
 static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", main_sift);

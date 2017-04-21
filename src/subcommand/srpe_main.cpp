@@ -251,12 +251,50 @@ int main_srpe(int argc, char** argv){
         inline string to_string(){
             stringstream ss;
             ss << "Start: " << start <<
-            "End: " << end << "Support: " << total_supports() << endl;
+            " End: " << end << " Support: " << total_supports() << endl;
             return ss.str();
+        }
+        inline bool overlap(INS_INTERVAL other){
+            if ( (other.start >= start && other.start <= end) ||
+                  (other.end <= end && other.end >= start) ||
+                  (other.start >= start && other.end <= end)){
+                    return true;
+                  }
+            return false;
+                  
+        }
+        inline bool contained(INS_INTERVAL other){
+            return false;
+        }
+        inline Interval<int> as_interval(){
+            return Interval<int>(start, end, 0);
         }
     };
 
+    std::function<vector<INS_INTERVAL>(vector<INS_INTERVAL>)> merge_intervals = [&](vector<INS_INTERVAL> ins){
+        vector<INS_INTERVAL> ret;
+        // sentinel interval
+        INS_INTERVAL sent;
+        sent.start = -1;
+        sent.end = -1;
+        for (int i = 0; i < ins.size(); i++){
+            bool merged = false;
+            for (int j = 0; j < ret.size(); j++){
+                if (ret[j].overlap(ins[i])){
+                    ret[j].other_supports+=1;
+                    merged = true;
+                }
+            }
+            if (!merged){
+                ret.push_back(ins[i]);
+            }
+
+        }
+        return ret;
+    };
+
     // Set up path index
+    srpe.ff.set_my_vg(graph);
     srpe.ff.fill_node_to_position(ref_path);
     
 
@@ -281,21 +319,26 @@ int main_srpe(int argc, char** argv){
             INS_INTERVAL i;
             i.start = srpe.ff.node_to_position[ a.path().mapping(0).position().node_id()] ;
             i.end = srpe.ff.node_to_position[ b.path().mapping(0).position().node_id()] ;
+            i.fragl_supports +=1;
             // Set start to final position of first mate
             // Set end position to start + (frag_diff)
             // Length to frag_diff
             // Increment supports
+            ins.push_back(i);
         }
     };
 
     std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
-
+        // read in split reads
+        
+        // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
+        // Merge overlapping intervals.
+        // Search for additional support in split reads.
     };
 
 
 
-    // Merge insertion intervals and supports
-
+   
     // Once merged, we can output putative breakpoints
     // using the combined information.
 
@@ -323,6 +366,14 @@ int main_srpe(int argc, char** argv){
         // Get all OEA reads
         // and place a breakpoint <insertsize> bp from the mapped read.
 
+    }
+
+     // Merge insertion intervals and supports
+    vector<INS_INTERVAL> merged = merge_intervals(ins);
+
+    cerr << "Found " << merged.size() << " candidate intervals." << endl;
+    for (auto x : merged){
+        cerr << x.total_supports() << endl;
     }
 
      
