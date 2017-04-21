@@ -359,7 +359,7 @@ int main_srpe(int argc, char** argv){
     oea_stream.open(oea_fn);
     if (!oea_stream.good()){
         cerr << "No one-end-anchored file found." << endl
-        << "Please provide one using [ vg sift -p -D x.gam ]" << endl;
+        << "Please provide one using [ vg sift -p -O x.gam ]" << endl;
         exit(1);
     }
     else{
@@ -368,12 +368,27 @@ int main_srpe(int argc, char** argv){
 
     }
 
+    clipped_stream.open(clipped_fn);
+    if(!clipped_stream.good()){
+    }
+    else{
+        // collect some clipped reads
+        // Split-read map their clipped portions
+        // check if the seq mapped; if not, move on
+        // if it did:
+        //   find the interval where we see the break
+        //   add some SR evidence
+        //   refine its start / end / CI
+    }
+
+    
+
      // Merge insertion intervals and supports
     vector<INS_INTERVAL> merged = merge_intervals(ins);
 
     cerr << "Found " << merged.size() << " candidate intervals." << endl;
     for (auto x : merged){
-        cerr << x.total_supports() << endl;
+        cerr << x.to_string() << endl;
     }
 
      
