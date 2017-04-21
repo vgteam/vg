@@ -108,7 +108,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-    stream << "##INFO=<ID=SVLEN,Number=-1,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
+    stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
@@ -603,8 +603,20 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // TODO: generalize it
     assert(site.type() == ULTRABUBBLE);
 
+
+#ifdef debug
+    cerr << "Site " << site << endl;
+#endif
+
+
     // Get traversals of this Snarl, with Visits to child Snarls
     vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
+    
+
+#ifdef debug
+    cerr << "Found " << here_traversals.size() << " traversals" << endl;
+#endif
+
     
     // Make a Locus to hold all our stats for the different traversals
     // available.
@@ -613,11 +625,6 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // How long is the longest traversal?
     // Sort of approximate because of the way nested site sizes are estimated.
     size_t longest_traversal_length = 0;
-    
-#ifdef debug
-    cerr << "Site " << site << endl;
-#endif
-   
     
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
@@ -1265,8 +1272,8 @@ void Call2Vcf::call(
     }
     
     // Now start looking for traversals of the sites.
-    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_bubble_paths,
-        [&] (const Snarl& site) -> PathIndex* {
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_search_width,
+        max_bubble_paths, [&] (const Snarl& site) -> PathIndex* {
         
         // When the TraversalFinder needs a primary path index for a site, it can look it up with this function.
         auto found = find_path(site, primary_paths);
