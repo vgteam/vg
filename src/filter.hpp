@@ -9,6 +9,7 @@
 #include <string>
 #include <math.h>
 #include "vg.hpp"
+#include "mapper.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
 
@@ -88,10 +89,13 @@ class Filter{
         void set_my_xg_idx(xg::XG* xg_idx);
         void set_inverse(bool do_inv);
 
+        void init_mapper();
+
         vg::VG* my_vg = NULL;
         xg::XG* my_xg_index = NULL;
         gcsa::GCSA* gcsa_ind;
         gcsa::LCPArray * lcp_ind;
+        Mapper* my_mapper;
         
         map<int64_t, int64_t> node_to_position;
         void fill_node_to_position(string pathname);

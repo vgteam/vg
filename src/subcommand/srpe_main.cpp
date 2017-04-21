@@ -27,7 +27,12 @@ using namespace vg::subcommand;
 
 
 void help_srpe(char** argv){
-    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl;
+    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl
+    << "Options: " << endl 
+    << "  -p / --ref-path" << endl
+    << "  -x / --xg" << endl 
+    << "  -g / --gcsa" << endl 
+    << endl;
 }
 
 
@@ -167,8 +172,10 @@ int main_srpe(int argc, char** argv){
             srpe.ff.lcp_ind = new gcsa::LCPArray();
             srpe.ff.lcp_ind->load(lcp_stream);
     }
-    if (!gam_index_name.empty()){
-        gamind.open_read_only(gam_index_name);
+    if (!xg_name.empty()){
+        ifstream xgstream(xg_name);
+        xg_ind->load(xgstream);
+        srpe.ff.set_my_xg_idx(xg_ind);
     }
     // else{
 
@@ -328,12 +335,22 @@ int main_srpe(int argc, char** argv){
         }
     };
 
+    std::vector<Alignment> splits;
+    std::vector<INS_INTERVAL> split_intervals;
     std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
-        // read in split reads
-        
+        // remap in clipped reads
+        Alignment x = srpe.ff.split_read_filter(a);
+        if (!x.sequence().empty()){
+            // We got a match to the graph from our clip
+            // store the alignment and create an interval
+            INS_INTERVAL i;
+            i.start = 
+            i.end = srpe.ff.node_to_position[ x.path().mapping(0).position().node_id() ]
+        }
         // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
         // Merge overlapping intervals.
         // Search for additional support in split reads.
+
     };
 
 

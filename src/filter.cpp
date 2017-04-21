@@ -29,11 +29,16 @@ namespace vg{
             Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
             int left_overhang = left_edit.to_length() - left_edit.from_length();
             int right_overhang = right_edit.to_length() - right_edit.from_length();
+            
             if (left_overhang > soft_clip_limit){
-                return node_to_position[path.mapping(0).position().node_id()] + 
+                
+
+                return node_to_position[path.mapping().position().node_id()] + 
                 (path.mapping(0).position().is_reverse() ? (-1 * path.mapping(0).position().offset()) : path.mapping(0).position().offset());
             }
             else if (right_overhang > soft_clip_limit){
+
+
                 return node_to_position[path.mapping(0).position().node_id()] + 
                 (path.mapping(path.mapping_size() - 1).position().is_reverse() ? (-1 * path.mapping(path.mapping_size() - 1).position().offset()) : path.mapping(path.mapping_size() - 1).position().offset());
             }
@@ -105,6 +110,15 @@ namespace vg{
 
     void Filter::set_inverse(bool do_inv){
         inverse = do_inv;
+    }
+
+    void Filter::init_mapper(){
+        if (my_xg_index == NULL || gcsa_ind == NULL || lcp_ind == NULL){
+            cerr << "Must provide an xg and gcsa to inititiate mapper for split read mapping."
+            << endl;
+            exit(1);
+        }
+        my_mapper = new Mapper(my_xg_index, gcsa_ind, lcp_ind);
     }
 
     bool Filter::perfect_filter(Alignment& aln){
@@ -603,16 +617,23 @@ namespace vg{
      */
     Alignment Filter::split_read_filter(Alignment& aln){
 
+        if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
+            cerr << "An XG and GCSA are required for split read processing." << endl;
+            exit(1337);
+        }
         bool flagged = false;
         // Check softclips
 
         if (soft_clip_filter(aln).name() != ""){
             flagged = true;
             string clipseq = get_clipped_seq(aln);
-            Alignment clipmatch = my_vg->align(clipseq);
+            Alignment clipmatch = my_mapper->align(clipseq);
             cerr << clipmatch.path().mapping_size() << endl;
             if (clipmatch.path().mapping_size() < 1 || clipmatch.mapping_quality() < 5){
                 flagged = false;
+            }
+            else{
+                clipmatch.set_name(aln.name() + "_split" );
             }
         }
 

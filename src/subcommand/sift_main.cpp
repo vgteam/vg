@@ -348,6 +348,10 @@ int main_sift(int argc, char** argv){
                         flagged = true;
                         unmapped_selected.push_back(alns_first);
                         unmapped_selected.push_back(alns_second);
+                        alns_first.set_read_mapped(true);
+                        alns_first.set_mate_unmapped(true);
+                        alns_second.set_read_mapped(true);
+                        alns_second.set_read_mapped(true);
                     }
                 }
         }
