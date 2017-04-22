@@ -4662,7 +4662,7 @@ void help_map(char** argv) {
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
