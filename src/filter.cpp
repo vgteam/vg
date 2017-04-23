@@ -31,16 +31,35 @@ namespace vg{
             int right_overhang = right_edit.to_length() - right_edit.from_length();
             
             if (left_overhang > soft_clip_limit){
-                
-
-                return node_to_position[path.mapping().position().node_id()] + 
-                (path.mapping(0).position().is_reverse() ? (-1 * path.mapping(0).position().offset()) : path.mapping(0).position().offset());
+                /// Get the position of the first match
+                int i; 
+                for (i = 0; i < path.mapping_size(); i++){
+                    Mapping m = path.mapping(i);
+                    for (int j = 0; j < m.edit_size(); j++){
+                        Edit e = m.edit(j);
+                        if (e.to_length() == e.from_length() && e.sequence().empty()){
+                            break;
+                        }
+                    }
+                }
+                return node_to_position[path.mapping(i).position().node_id()] + 
+                (path.mapping(i).position().is_reverse() ? (-1 * path.mapping(i).position().offset()) : path.mapping(i).position().offset());
             }
             else if (right_overhang > soft_clip_limit){
+ /// Get the position of the first match
+                int i; 
+                for (i = path.mapping_size() - 1; i >= 0; i--){
+                    Mapping m = path.mapping(i);
+                    for (int j = m.edit_size() - 1; j >= 0; j--){
+                        Edit e = m.edit(j);
+                        if (e.to_length() == e.from_length() && e.sequence().empty()){
+                            break;
+                        }
+                    }
+                }
+                return node_to_position[path.mapping(i).position().node_id()] + 
+                (path.mapping(i).position().is_reverse() ? (-1 * path.mapping(i).position().offset()) : path.mapping(i).position().offset());
 
-
-                return node_to_position[path.mapping(0).position().node_id()] + 
-                (path.mapping(path.mapping_size() - 1).position().is_reverse() ? (-1 * path.mapping(path.mapping_size() - 1).position().offset()) : path.mapping(path.mapping_size() - 1).position().offset());
             }
             else{
                 cerr << "WARNING: BOTH ENDS CLIPPED" << endl
@@ -241,7 +260,9 @@ namespace vg{
 
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
-        if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
+        bool f = aln_first.mapping_quality() == 0;
+        bool s = aln_second.mapping_quality() == 0;
+        if ( (f && !s) || (s && !f)){ 
             return std::make_pair(aln_first, aln_second);
         }
         else{

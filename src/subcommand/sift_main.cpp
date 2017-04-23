@@ -372,7 +372,7 @@ int main_sift(int argc, char** argv){
         }
         if (do_oea && !flagged){
             ret = ff.one_end_anchored_filter(alns_first, alns_second);
-            if (ret.first.name() != "" && ret.second.name() != ""){
+            if (ret.first.sequence() != "" && ret.second.sequence() != ""){
                 #pragma omp critical (oea_selected)
                 {
                     one_end_anchored.push_back(alns_first);

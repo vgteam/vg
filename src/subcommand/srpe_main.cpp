@@ -344,8 +344,8 @@ int main_srpe(int argc, char** argv){
             // We got a match to the graph from our clip
             // store the alignment and create an interval
             INS_INTERVAL i;
-            i.start = 
-            i.end = srpe.ff.node_to_position[ x.path().mapping(0).position().node_id() ]
+            i.start = srpe.ff.get_clipped_position(a);
+            i.end = srpe.ff.node_to_position[ x.path().mapping(0).position().node_id() ];
         }
         // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
         // Merge overlapping intervals.
