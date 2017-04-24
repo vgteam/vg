@@ -93,22 +93,18 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
 void Caller::call_edge_pileup(const EdgePileup& pileup) {
     if (pileup.num_reads() >= 1) {
 
-        // use equivalent logic to SNPs (see base_log_likelihood)
-        double log_likelihood = 0;
+        double qual_sum = 0;
         
         for (int i = 0; i < pileup.num_reads(); ++i) {
             char qual = !pileup.qualities().empty() ? pileup.qualities().at(i) : _default_quality;
-            double perr = phred_to_prob(qual);
-            log_likelihood += safe_log(1. - perr);
-            assert(!std::isnan(log_likelihood));
+            qual_sum += (double)qual;
         }
-        
+
         Edge edge = pileup.edge(); // gcc not happy about passing directly
         _called_edges[NodeSide::pair_from_edge(edge)] = StrandSupport(
             pileup.num_forward_reads(),
             pileup.num_reads() - pileup.num_forward_reads(),
-            0,
-            log_likelihood);
+            qual_sum);
     }
 }
 
@@ -396,19 +392,13 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
         base_call.first = top_base != ref_base ? top_base : ".";
         support.first.fs = top_count - top_rev_count;
         support.first.rs = top_rev_count;
-        string alt_base = second_count > 0 ? second_base : "";
-        auto ld =  base_log_likelihood(bp, base_offsets, top_base, top_base, alt_base);
-        support.first.likelihood = ld.first;
-        support.first.os = max(0, ld.second - top_count);
+        support.first.qual = total_base_quality(bp, base_offsets, top_base);
     }
     if (second_count > 0) { 
         base_call.second = second_base != ref_base ? second_base : ".";
         support.second.fs = second_count - second_rev_count;
         support.second.rs = second_rev_count;
-        string alt_base = top_count > 0 ? top_base : "";
-        auto ld = base_log_likelihood(bp, base_offsets, second_base, second_base, alt_base);
-        support.second.likelihood = ld.first;
-        support.second.os = max(0, ld.second - second_count);
+        support.second.qual = total_base_quality(bp, base_offsets, second_base);
     }
 }
 
@@ -578,60 +568,35 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     second_rev_count = rev_hist[second_base];
 }
 
-pair<double, int> Caller::base_log_likelihood(const BasePileup& bp,
-                                              const vector<pair<int64_t, int64_t> >& base_offsets,
-                                              const string& val, const string& first, const string& second) {
-    double log_likelihood = 0;
+double Caller::total_base_quality(const BasePileup& bp,
+                                  const vector<pair<int64_t, int64_t> >& base_offsets,
+                                  const string& val) {
+    double qual_sum = 0;
 
     const string& bases = bp.bases();
     const string& quals = bp.qualities();
-    double perr;
-    // inserts are treated completely seprately.  toggle here:
-    bool insert = first[0] == '+';
-    assert(!insert || second.empty() || second[0] == '+');
-    double depth = 0;
 
     for (int i = 0; i < base_offsets.size(); ++i) {
         string base = Pileups::extract(bp, base_offsets[i].first);
-        bool base_insert = base[0] == '+';
-        if (base_insert == insert) {
 
-            // make sure deletes always compared without is_reverse flag
-            if (base.length() > 1 && base[0] == '-') {
-                bool is_reverse, from_start, to_end;
-                int64_t from_id, from_offset, to_id, to_offset;
-                Pileups::parse_delete(base, is_reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
-                // reset reverse to forward
-                if (is_reverse) {
-                    Pileups::make_delete(base, false, from_id, from_offset, from_start, to_id, to_offset, to_end);
-                }
+        // make sure deletes always compared without is_reverse flag
+        if (base.length() > 1 && base[0] == '-') {
+            bool is_reverse, from_start, to_end;
+            int64_t from_id, from_offset, to_id, to_offset;
+            Pileups::parse_delete(base, is_reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
+            // reset reverse to forward
+            if (is_reverse) {
+                Pileups::make_delete(base, false, from_id, from_offset, from_start, to_id, to_offset, to_end);
             }
+        }
 
+        if (base == val) {
             char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
-            perr = phred_to_prob(qual);
-
-            double log_prob;
-            if (!second.empty() && base == second) {
-                // we pretend second base is in another pileup
-                log_prob = 0.;
-            } else {
-                // X 0.2 reflect probability of hitting correct base by change in event of an error
-                // 1 / |A+C+G+T+Delete|
-                log_prob = safe_log(base == val ? (1. - perr) + perr * 0.2 : perr * 0.2);
-                depth += 1;
-                if (!second.empty() && base != first) {
-                    // we pretend anything not first or second base is split
-                    // across two pileups by square rooting the probability. 
-                    log_prob *= 0.5;
-                    depth -= 0.5;
-                }
-            }
-
-            log_likelihood += log_prob;
+            qual_sum += (double)qual;
         }
     }
-
-    return make_pair(log_likelihood, (int)depth);
+    
+    return qual_sum;
 }
 
 // please refactor me! 
@@ -859,7 +824,7 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
     _augmented_graph.node_calls[node] = (ElementCall) call;
     _augmented_graph.node_supports[node].set_forward(support.fs);
     _augmented_graph.node_supports[node].set_reverse(support.rs);
-    _augmented_graph.node_likelihoods[node] = support.likelihood;
+    _augmented_graph.node_supports[node].set_quality(support.qual);
     
     if (orig_id != 0 && call != 'S' && call != 'I') {
         // Add translations for preserved parts
@@ -885,7 +850,7 @@ void Caller::annotate_augmented_edge(Edge* edge, char call, StrandSupport suppor
     _augmented_graph.edge_calls[edge] = (ElementCall) call;
     _augmented_graph.edge_supports[edge].set_forward(support.fs);
     _augmented_graph.edge_supports[edge].set_reverse(support.rs);
-    _augmented_graph.edge_likelihoods[edge] = support.likelihood;
+    _augmented_graph.edge_supports[edge].set_quality(support.qual);
 }
 
 void Caller::annotate_augmented_nd()

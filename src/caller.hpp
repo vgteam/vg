@@ -25,10 +25,9 @@ using namespace std;
 struct StrandSupport {
     int fs; // forward support
     int rs; // reverse support
-    int os; // support for other stuff (ie errors)
-    double likelihood; // log likelihood from caller (0 if not available)
-    StrandSupport(int f = 0, int r = 0, int o = 0, double ll = -1e100) :
-        fs(f), rs(r), os(o), likelihood(ll) {}
+    double qual; // phred score (derived from sum log p-err over all observations)
+    StrandSupport(int f = 0, int r = 0, double q = 0) :
+        fs(f), rs(r), qual(q) {}
     bool operator<(const StrandSupport& other) const {
         if ((fs + rs) == (other.fs + other.rs)) {
             // more strand bias taken as less support
@@ -40,21 +39,19 @@ struct StrandSupport {
         return !(*this < other);
     }
     bool operator==(const StrandSupport& other) const {
-        return fs == other.fs && rs == other.rs && os == other.os && likelihood == other.likelihood;
+        return fs == other.fs && rs == other.rs && qual == other.qual;
     }
     // min out at 0
     StrandSupport operator-(const StrandSupport& other) const {
         return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs),
-                             max(0, os - other.os), likelihood);
+                             max(0., qual - other.qual));
     }
     StrandSupport& operator+=(const StrandSupport& other) {
         fs += other.fs;
         rs += other.rs;
-        os += other.os;
-        likelihood = max(likelihood, other.likelihood);
+        qual += other.qual;
         return *this;
     }
-    int depth() { return fs + rs + os; }
     int total() { return fs + rs; }
 };
 
@@ -73,36 +70,31 @@ inline StrandSupport maxSup(vector<StrandSupport>& s) {
 inline StrandSupport avgSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
-        ret.likelihood = 0;
         for (auto sup : s) {
             ret.fs += sup.fs;
             ret.rs += sup.rs;
-            ret.os += sup.os;
-            ret.likelihood += sup.likelihood;
+            ret.qual += sup.qual;
         }
         ret.fs /= s.size();
         ret.rs /= s.size();
-        ret.os /= s.size();
-        ret.likelihood /= s.size();
+        ret.qual /= s.size();
     }
     return ret;
 }
 inline StrandSupport totalSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
-        ret.likelihood = 0;
         for (auto sup : s) {
             ret.fs += sup.fs;
             ret.rs += sup.rs;
-            ret.os += sup.os;
-            ret.likelihood += sup.likelihood;
+            ret.qual += sup.qual;
         }
     }
     return ret;
 }
 
 inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
-    return os << sup.fs << ", " << sup.rs << ", " << sup.os << ", " << sup.likelihood;
+    return os << sup.fs << ", " << sup.rs << ", " << sup.qual;
 }
 
 // We need to break apart nodes but remember where they came from to update edges.
@@ -265,17 +257,11 @@ public:
                                  string& top_base, int& top_count, int& top_rev_count,
                                  string& second_base, int& second_count, int& second_rev_count,
                                  int& total_count, bool inserts);
-    
-    // compute a likelihood from the pileup qualities
-    // "first" and "second" are used to virtually split the pileup across two nodes:
-    // all bases == "first" are kept
-    // all bases == "second" are ignored
-    // all otherse are squarerooted (to split their probabilities evenly between the two virtual pileups)
-    // returns pair of (likelihood, effective depth), where the effective depth is the number
-    // of pileup entries that were considered in computing the likelihood
-    pair<double, int> base_log_likelihood(const BasePileup& pb,
-                                             const vector<pair<int64_t, int64_t> >& base_offsets,
-                                             const string& val, const string& first, const string& second);
+
+    // Sum up the qualities of a given symbol in a pileup
+    double total_base_quality(const BasePileup& pb,
+                              const vector<pair<int64_t, int64_t> >& base_offsets,
+                              const string& val);
 
     // write graph structure corresponding to all the calls for the current
     // node.  
@@ -486,7 +472,7 @@ public:
      *
      * TODO: can only work by brute-force search.
      */
-    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);    
     
     // Option variables
     
