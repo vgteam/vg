@@ -696,6 +696,10 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = max_mapping_quality;
     }
 
+    if (alignments[max_idx].score() == 0) {
+        mapping_quality = 0;
+    }
+
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
 }
 
@@ -771,7 +775,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
-
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
@@ -781,6 +784,13 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     }
     if (mapping_quality2 > max_mapping_quality2) {
         mapping_quality2 = max_mapping_quality2;
+    }
+
+    if (alignment_pairs.first[max_idx].score() == 0) {
+        mapping_quality1 = 0;
+    }
+    if (alignment_pairs.second[max_idx].score() == 0) {
+        mapping_quality2 = 0;
     }
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
