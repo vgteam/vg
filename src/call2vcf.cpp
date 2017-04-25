@@ -142,6 +142,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
  * to be specified to GATK is left as an exercise to the reader.
  */
 bool can_write_alleles(vcflib::Variant& variant) {
+
     for(auto& allele : variant.alleles) {
         if(MAX_ALLELE_LENGTH > 0 && allele.size() > MAX_ALLELE_LENGTH) {
             return false;
@@ -1606,7 +1607,6 @@ void Call2Vcf::call(
             
                 if(can_write_alleles(variant)) {
                     // No need to check for collisions because we assume sites are correctly found.
-                    
                     // Output the created VCF variant.
                     cout << variant << endl;
                 
