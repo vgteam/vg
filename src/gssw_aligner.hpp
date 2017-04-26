@@ -131,6 +131,9 @@ namespace vg {
         size_t longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos,
                                       int8_t full_length_bonus = 0);
         
+        /// The longest gap detectable from any read position without soft-clipping
+        size_t longest_detectable_gap(const Alignment& alignment, int8_t full_length_bonus = 0);
+        
         // members
         int8_t* nt_table = nullptr;
         int8_t* score_matrix = nullptr;

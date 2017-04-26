@@ -757,6 +757,13 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const str
     
 }
 
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, int8_t full_length_bonus) {
+    // longest detectable gap across entire read is in the middle
+    return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2),
+                                  full_length_bonus);
+    
+}
+
 Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
                  int8_t _gap_open,

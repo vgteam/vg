@@ -54,6 +54,8 @@ public:
     int length(void) const;
     // uses an xgindex to fill out the MEM positions
     void fill_positions(Mapper* mapper);
+    // tells if the MEM contains an N
+    size_t count_Ns(void) const;
 
     friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
     friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
@@ -68,34 +70,37 @@ public:
 };
 
 
-class MEMMarkovModelVertex {
+class MEMChainModelVertex {
 public:
     MaximalExactMatch mem;
-    vector<pair<MEMMarkovModelVertex*, double> > next_cost; // for forward
-    vector<pair<MEMMarkovModelVertex*, double> > prev_cost; // for backward
+    vector<pair<MEMChainModelVertex*, double> > next_cost; // for forward
+    vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     vector<int> traces; // traces this vertex is used in
     double weight;
     double score;
-    MEMMarkovModelVertex* prev;
-    MEMMarkovModelVertex(void) = default;                                      // Copy constructor
-    MEMMarkovModelVertex(const MEMMarkovModelVertex&) = default;               // Copy constructor
-    MEMMarkovModelVertex(MEMMarkovModelVertex&&) = default;                    // Move constructor
-    MEMMarkovModelVertex& operator=(const MEMMarkovModelVertex&) & = default;  // MEMMarkovModelVertexopy assignment operator
-    MEMMarkovModelVertex& operator=(MEMMarkovModelVertex&&) & = default;       // Move assignment operator
-    virtual ~MEMMarkovModelVertex() { }                     // Destructor
+    int approx_position;
+    MEMChainModelVertex* prev;
+    MEMChainModelVertex(void) = default;                                      // Copy constructor
+    MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
+    MEMChainModelVertex(MEMChainModelVertex&&) = default;                    // Move constructor
+    MEMChainModelVertex& operator=(const MEMChainModelVertex&) & = default;  // MEMChainModelVertexopy assignment operator
+    MEMChainModelVertex& operator=(MEMChainModelVertex&&) & = default;       // Move assignment operator
+    virtual ~MEMChainModelVertex() { }                     // Destructor
 };
 
-class MEMMarkovModel {
+class MEMChainModel {
 public:
-    vector<MEMMarkovModelVertex> model;
-    MEMMarkovModel(
+    vector<MEMChainModelVertex> model;
+    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
         Mapper* mapper,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-        int band_width = 10);
-    void score(const set<MEMMarkovModelVertex*>& exclude);
-    MEMMarkovModelVertex* max_vertex(void);
+        int band_width = 10,
+        int position_depth = 3);
+    void score(const set<MEMChainModelVertex*>& exclude);
+    MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);
     void clear_scores(void);
@@ -210,11 +215,20 @@ public:
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
 
+    // node start cache for fast approximate position estimates
+    vector<LRUCache<id_t, size_t>* > node_start_cache;
+    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    void init_node_start_cache(void);
+
     // match node traversals to path positions
     vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
     LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
     void init_node_pos_cache(void);
     map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
+
+    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
+    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
+    void init_edge_cache(void);
 
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
@@ -250,6 +264,10 @@ public:
                                const map<string, double>& pos2,
                                int fragment_size_bound);
 
+    // use the fragment length annotations to assess if the pair is consistent or not
+    bool pair_consistent(const Alignment& aln1,
+                         const Alignment& aln2);
+
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
@@ -267,6 +285,14 @@ public:
     vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps, double& cluster_mq);
     // helper for computing the number of bases in the query covered by a cluster
     int cluster_coverage(const vector<MaximalExactMatch>& cluster);
+    // helper to tell if mems are ovelapping
+    bool mems_overlap(const MaximalExactMatch& mem1,
+                      const MaximalExactMatch& mem2);
+    // helper to tell if clusters have any overlap
+    bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
+                          const vector<MaximalExactMatch>& cluster2);
+    // use mapper parameters to determine which clusters we should drop
+    set<const vector<MaximalExactMatch>* > clusters_to_drop(const vector<vector<MaximalExactMatch> >& clusters);
 
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
@@ -282,6 +308,8 @@ public:
     int32_t rescore_without_full_length_bonus(const Alignment& aln);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // helper to cluster subgraph
+    void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
@@ -349,6 +377,18 @@ public:
                                int pair_window = 64,
                                bool only_top_scoring_pair = false,
                                bool retrying = false);
+
+    // align the pair's ends singly, then take the cross of possible pairs based on the fragment distribution
+    pair<vector<Alignment>, vector<Alignment>>
+        align_paired_multi_combi(const Alignment& read1,
+                                 const Alignment& read2,
+                                 bool& queued_resolve_later,
+                                 int kmer_size = 0,
+                                 int stride = 0,
+                                 int max_mem_length = 0,
+                                 int band_width = 1000,
+                                 bool only_top_scoring_pair = false,
+                                 bool retrying = false);
 
     // align the pair as a single component using MEM threading and patching on the pair simultaneously
     pair<vector<Alignment>, vector<Alignment>> 
@@ -455,7 +495,8 @@ public:
     //
     //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
-    bool mem_threading; // whether to use the mem threading mapper or not
+    int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
+    bool mem_chaining; // whether to use the mem threading mapper or not
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
 
@@ -493,6 +534,10 @@ public:
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
     int8_t full_length_alignment_bonus;
+    bool simultaneous_pair_alignment;
+    float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
+    int cache_size;
+    int mate_rescues;
 
 };
 

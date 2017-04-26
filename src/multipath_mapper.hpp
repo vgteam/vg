@@ -8,6 +8,7 @@
 #define multipath_mapper_hpp
 
 #include <stdio.h>
+#include <cmath>
 
 #include "hash_map.hpp"
 #include "suffix_tree.hpp"
@@ -27,6 +28,9 @@ namespace vg {
     
     class MultipathAligner  {
     public:
+        MultipathAligner();
+        ~MultipathAligner();
+        
         
         MultipathAlignment multipath_align(const Alignment& alignment,
                                            const vector<MaximalExactMatch>& mems);
@@ -34,12 +38,33 @@ namespace vg {
         
     private:
         
-        xg::XG xgindex;
-        LRUCache<id_t, Node> node_cache;
+        /// Computes the number of read bases a cluster of MEM hits covers
+        int64_t read_coverage(const vector<pair<MaximalExactMatch* const, pos_t>>& mem_hits);
         
+        /// Computes the Z-score of the number of matches against an equal length random DNA string
+        double read_coverage_z_score(int64_t coverage, const Alignment& alignment);
+        
+        xg::XG& xgindex;
+        LRUCache<id_t, Node>& node_cache;
+        
+        //double z_score_cutoff = -1.0;
         int8_t full_length_bonus = 0;
         size_t max_strand_dist_probes = 2;
         size_t max_expected_dist_approx_error = 8;
+        double mem_coverage_min_ratio = 0.5;
+    };
+    
+    class MultipathAlignmentGraph {
+        vector<ExactMatchNode> match_nodes;
+    };
+    
+    class ExactMatchNode {
+        string::const_iterator begin;
+        string::const_iterator end;
+        Path path;
+        
+        // index of edge and amount of overlap
+        vector<pair<size_t, size_t>> edges;
     };
     
     
@@ -72,9 +97,6 @@ namespace vg {
         
         /// Perform dynamic programming
         void perform_dp();
-        
-        /// Computes the number of bases a traceback through the MEM graph covers
-        int64_t trace_read_coverage(const vector<size_t>& trace);
         
         vector<MPCNode> nodes;
         

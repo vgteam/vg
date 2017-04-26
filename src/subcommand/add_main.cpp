@@ -28,8 +28,8 @@ void help_add(char** argv) {
          << "    -v, --vcf FILE         add in variants from the given VCF file (may repeat)" << endl
          << "    -n, --rename V=G       rename contig V in the VCFs to contig G in the graph (may repeat)" << endl
          << "    -i, --ignore-missing   ignore contigs in the VCF not found in the graph" << endl
-         << "    -r, --variant-range    range in which to look for nearby variants to make a haplotype" << endl
-         << "    -f, --flank-range      extra flanking sequence to use outside of found variants" << endl
+         << "    -r, --variant-range N  range in which to look for nearby variants to make a haplotype" << endl
+         << "    -f, --flank-range N    extra flanking sequence to use outside of found variants" << endl
          << "    -p, --progress         show progress" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
@@ -71,7 +71,7 @@ int main_add(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:n:ipt:h?",
+        c = getopt_long (argc, argv, "v:n:r:f:ipt:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */

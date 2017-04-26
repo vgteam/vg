@@ -23,16 +23,17 @@ using namespace vg::subcommand;
 
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > output.vcf" << endl
-         << "Output variant calls in VCF format given a graph and pileup" << endl
+         << "Output variant calls in VCF or Loci format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -d, --min_depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
-         << "    -e, --max_depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
-         << "    -s, --min_support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
-         << "    -f, --min_frac FLOAT       minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
-         << "    -q, --default_read_qual N  phred quality score to use if none found in the pileup ["
+         << "    -V, --no-vcf               output variants in binary Loci format instead of text VCF format" << endl
+         << "    -d, --min-depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
+         << "    -e, --max-depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
+         << "    -s, --min-support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
+         << "    -f, --min-frac FLOAT       minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
+         << "    -q, --default-read-qual N  phred quality score to use if none found in the pileup ["
          << (int)Caller::Default_default_quality << "]" << endl
-         << "    -b, --max_strand_bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
+         << "    -b, --max-strand-bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
          << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
          << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
          << "    -r, --ref PATH             use the given path name as the reference path" << endl
@@ -43,16 +44,15 @@ void help_call(char** argv) {
          << "    -U, --subgraph             expect a subgraph and ignore extra pileup entries outside it" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
-         << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
-         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
-         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
-         << "    -n, --min_count INT        min total supporting read count to call a variant [1]" << endl
-         << "    -B, --bin_size  INT        bin size used for counting coverage [250]" << endl
-         << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
-         << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
-         << "    -u, --use_avg_support      use average instead of minimum support" << endl
-         << "    -I, --singleallelic        disable support for multiallelic sites" << endl
+         << "    -F, --min-cov-frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
+         << "    -H, --max-het-bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
+         << "    -R, --max-ref-bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
+         << "    -M, --bias-mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
+         << "    -n, --min-count INT        min total supporting read count to call a variant [1]" << endl
+         << "    -B, --bin-size  INT        bin size used for counting coverage [250]" << endl
+         << "    -C, --exp-coverage INT     specify expected coverage (instead of computing on reference)" << endl
+         << "    -O, --no-overlap           don't emit new variants that overlap old ones" << endl
+         << "    -u, --use-avg-support      use average instead of minimum support" << endl
          << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
@@ -97,13 +97,14 @@ int main_call(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"min_depth", required_argument, 0, 'd'},
-                {"max_depth", required_argument, 0, 'e'},
-                {"min_support", required_argument, 0, 's'},
-                {"min_frac", required_argument, 0, 'f'},
-                {"default_read_qual", required_argument, 0, 'q'},
-                {"max_strand_bias", required_argument, 0, 'b'},
-                {"aug_graph", required_argument, 0, 'A'},
+                {"no-vcf", no_argument, 0, 'V'},
+                {"min-depth", required_argument, 0, 'd'},
+                {"max-depth", required_argument, 0, 'e'},
+                {"min-support", required_argument, 0, 's'},
+                {"min-frac", required_argument, 0, 'f'},
+                {"default-read-qual", required_argument, 0, 'q'},
+                {"max-strand-bias", required_argument, 0, 'b'},
+                {"aug-graph", required_argument, 0, 'A'},
                 {"link-alts", no_argument, 0, 'a'},
                 {"progress", no_argument, 0, 'p'},
                 {"verbose", no_argument, 0, 'v'},
@@ -116,22 +117,22 @@ int main_call(int argc, char** argv) {
                 {"length", required_argument, 0, 'l'},
                 {"subgraph", no_argument, 0, 'U'},
                 {"pileup", no_argument, 0, 'P'},
-                {"min_cov_frac", required_argument, 0, 'F'},
-                {"max_het_bias", required_argument, 0, 'H'},
-                {"max_ref_bias", required_argument, 0, 'R'},
-                {"bias_mult", required_argument, 0, 'M'},
-                {"min_count", required_argument, 0, 'n'},
-                {"bin_size", required_argument, 0, 'B'},
-                {"avg_coverage", required_argument, 0, 'C'},
-                {"no_overlap", no_argument, 0, 'O'},
-                {"use_avg_support", no_argument, 0, 'u'},
-                {"min_mad", required_argument, 0, 'E'},
+                {"min-cov-frac", required_argument, 0, 'F'},
+                {"max-het-bias", required_argument, 0, 'H'},
+                {"max-ref-bias", required_argument, 0, 'R'},
+                {"bias-mult", required_argument, 0, 'M'},
+                {"min-count", required_argument, 0, 'n'},
+                {"bin-size", required_argument, 0, 'B'},
+                {"avg-coverage", required_argument, 0, 'C'},
+                {"no-overlap", no_argument, 0, 'O'},
+                {"use-avg-support", no_argument, 0, 'u'},
+                {"min-mad", required_argument, 0, 'E'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h",
+        c = getopt_long (argc, argv, "Vd:e:s:f:q:b:A:apvt:r:c:S:o:D:l:UPF:H:R:M:n:B:C:OuE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -140,6 +141,9 @@ int main_call(int argc, char** argv) {
 
         switch (c)
         {
+        case 'V':
+            call2vcf.convert_to_vcf = false;
+            break;
         case 'd':
             min_depth = atoi(optarg);
             break;
