@@ -683,8 +683,6 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    mapping_quality += quality_scale_factor * log(1 - alignments[max_idx].uniqueness());
-
     double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
     mapping_quality *= identity;
 
@@ -763,9 +761,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     if (overlap_count2) {
         mapping_quality2 -= quality_scale_factor * log(overlap_count2);
     }
-
-    mapping_quality1 += quality_scale_factor * log(1 - alignment_pairs.first[max_idx].uniqueness());
-    mapping_quality2 += quality_scale_factor * log(1 - alignment_pairs.second[max_idx].uniqueness());
 
     double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
     mapping_quality1 *= identity1;
