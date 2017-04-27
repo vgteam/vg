@@ -1632,11 +1632,9 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         return result;
     } else if (aln_rev.score() > aln_fwd.score()) {
         // reverse won
-        aln_rev.set_uniqueness(compute_uniqueness(aln, mems));
         return aln_rev;
     } else {
         // forward won
-        aln_fwd.set_uniqueness(compute_uniqueness(aln, mems));
         return aln_fwd;
     }
 }
