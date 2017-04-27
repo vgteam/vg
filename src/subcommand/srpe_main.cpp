@@ -303,6 +303,7 @@ int main_srpe(int argc, char** argv){
 
     // Set up path index
     srpe.ff.set_my_vg(graph);
+    srpe.ff.soft_clip_limit = 20;
     srpe.ff.fill_node_to_position(ref_path);
     
 
@@ -341,36 +342,22 @@ int main_srpe(int argc, char** argv){
     std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
         // remap in clipped reads
         string a_clip = srpe.ff.get_clipped_seq(a);
-        if (a_clip.length() > 20){
-            cerr << "Remapping " << a_clip << endl;
+        //cerr << a.DebugString() << endl;
+        //cerr << a_clip << endl;
+        if (a_clip.length() > 25){
+            //cerr << "Remapping " << a_clip << endl;
             vector<Alignment> a_remap = srpe.ff.remap(a_clip);
             if (a_remap.size() > 0 && a_remap[0].score() > 0){
-            //cerr << (a_remap[0].score() > 0 ? "MAPPED!" : "unmapped :(") << endl;
-            INS_INTERVAL i;
-            i.start = srpe.ff.get_clipped_position(a);
-            //i.end = srpe.ff.node_to_position[ a_remap[0].path().mapping(0).position().node_id() ];
-            ins.push_back(i);
+                //cerr << (a_remap[0].score() > 0 ? "MAPPED!" : "unmapped :(") << endl;
+                INS_INTERVAL i;
+                i.start = srpe.ff.get_clipped_position(a);
+                i.end = srpe.ff.node_to_position[ a_remap[0].path().mapping(0).position().node_id() ];
+                i.split_supports +=1;
+                ins.push_back(i);
+                cerr << i.to_string() << "\t" << a_remap.size() << endl;
             }
         }
-        //Alignment x = srpe.ff.split_read_filter(a);
-        //Alignment y = srpe.ff.split_read_filter(b);
-        // if (!x.sequence().empty()){
-        //     // We got a match to the graph from our clip
-        //     // store the alignment and create an interval
-        //     INS_INTERVAL i;
-        //     i.start = srpe.ff.get_clipped_position(a);
-        //     Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(a));
-        //     //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
-        // }
-        // else if (!y.sequence().empty()){
-        //     // We got a match to the graph from our clip
-        //     // store the alignment and create an interval
-        //     INS_INTERVAL i;
-        //     i.start = srpe.ff.get_clipped_position(b);
-        //     //Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(b));
-        //     //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
-        //     ins.push_back(i);
-        // }
+        
         // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
         // Merge overlapping intervals.
         // Search for additional support in split reads.
