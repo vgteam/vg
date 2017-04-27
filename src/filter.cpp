@@ -641,23 +641,30 @@ namespace vg{
         }
     }
 
-    Alignment Filter::remap(Alignment& aln){
+    vector<Alignment> Filter::remap(Alignment& aln){
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
             cerr << "An XG and GCSA are required for remapping." << endl;
             exit(1337);
         }
 
-        Alignment match = remap(aln.sequence());
+        vector<Alignment> match = this->my_mapper->align_multi(aln);
         return match;
     }
 
-    Alignment Filter::remap(string seq){
+    vector<Alignment> Filter::remap(string seq){
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
             cerr << "An XG and GCSA are required for remapping." << endl;
             exit(1337);
         }
 
-        Alignment ret = this->my_mapper->align(seq);
+        Alignment x;
+        x.set_sequence(seq);
+
+        vector<Alignment> ret;
+        ret = this->my_mapper->align_multi(x);
+
+        
+
         return ret;
     }
     /**

@@ -54,8 +54,8 @@ class Filter{
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
 
-        Alignment remap(Alignment& aln);
-        Alignment remap(string seq);
+        vector<Alignment> remap(Alignment& aln);
+        vector<Alignment> remap(string seq);
 
         Alignment path_length_filter(Alignment& aln);
 
