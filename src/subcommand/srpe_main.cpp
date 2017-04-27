@@ -177,6 +177,7 @@ int main_srpe(int argc, char** argv){
         xg_ind->load(xgstream);
         srpe.ff.set_my_xg_idx(xg_ind);
     }
+    srpe.ff.init_mapper();
     // else{
 
     // }
@@ -337,27 +338,39 @@ int main_srpe(int argc, char** argv){
 
     std::vector<Alignment> splits;
     std::vector<INS_INTERVAL> split_intervals;
-    std::function<void(Alignment&, Alignment&)> split_read_func = [&](Alignment& a, Alignment& b){
+    std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
         // remap in clipped reads
-        Alignment x = srpe.ff.split_read_filter(a);
-        Alignment y = srpe.ff.split_read_filter(b);
-        if (!x.sequence().empty()){
-            // We got a match to the graph from our clip
-            // store the alignment and create an interval
+        string a_clip = srpe.ff.get_clipped_seq(a);
+        if (a_clip.length() > 20){
+            cerr << "Remapping " << a_clip << endl;
+            vector<Alignment> a_remap = srpe.ff.remap(a_clip);
+            if (a_remap.size() > 0 && a_remap[0].score() > 0){
+            //cerr << (a_remap[0].score() > 0 ? "MAPPED!" : "unmapped :(") << endl;
             INS_INTERVAL i;
             i.start = srpe.ff.get_clipped_position(a);
-            //Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(a));
-            //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
-        }
-        else if (!y.sequence().empty()){
-            // We got a match to the graph from our clip
-            // store the alignment and create an interval
-            INS_INTERVAL i;
-            i.start = srpe.ff.get_clipped_position(b);
-            //Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(b));
-            //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
+            //i.end = srpe.ff.node_to_position[ a_remap[0].path().mapping(0).position().node_id() ];
             ins.push_back(i);
+            }
         }
+        //Alignment x = srpe.ff.split_read_filter(a);
+        //Alignment y = srpe.ff.split_read_filter(b);
+        // if (!x.sequence().empty()){
+        //     // We got a match to the graph from our clip
+        //     // store the alignment and create an interval
+        //     INS_INTERVAL i;
+        //     i.start = srpe.ff.get_clipped_position(a);
+        //     Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(a));
+        //     //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
+        // }
+        // else if (!y.sequence().empty()){
+        //     // We got a match to the graph from our clip
+        //     // store the alignment and create an interval
+        //     INS_INTERVAL i;
+        //     i.start = srpe.ff.get_clipped_position(b);
+        //     //Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(b));
+        //     //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
+        //     ins.push_back(i);
+        // }
         // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
         // Merge overlapping intervals.
         // Search for additional support in split reads.
@@ -383,7 +396,7 @@ int main_srpe(int argc, char** argv){
     else{
         // Collect all long insert reads
         //stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
-        stream::for_each_interleaved_pair_parallel(clipped_stream, split_read_func);
+        stream::for_each_parallel(clipped_stream, split_read_func);
     }
 
     oea_stream.open(oea_fn);
