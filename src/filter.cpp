@@ -22,6 +22,31 @@ namespace vg{
         return abs(rp - fp);
     }
 
+    string Filter::get_clipped_seq(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            if (left_overhang > soft_clip_limit){
+                return left_edit.sequence();
+            }
+            else if (right_overhang > soft_clip_limit){
+                return right_edit.sequence();
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return "";
+            }
+
+        }
+        else{
+            return "";
+        }
+    }
+
     int64_t Filter::get_clipped_position(Alignment& a){
         if (a.path().mapping_size() > 0){
             Path path = a.path();
@@ -32,29 +57,41 @@ namespace vg{
             
             if (left_overhang > soft_clip_limit){
                 /// Get the position of the first match
-                int i; 
+                bool tripped = false;
+                int i = 0; 
                 for (i = 0; i < path.mapping_size(); i++){
                     Mapping m = path.mapping(i);
                     for (int j = 0; j < m.edit_size(); j++){
                         Edit e = m.edit(j);
                         if (e.to_length() == e.from_length() && e.sequence().empty()){
-                            break;
+                            tripped = true;
                         }
                     }
+                    if (tripped){
+                        break;
+                    }
+                }
+                if (i >= path.mapping_size()){
+                    cerr << "ERROR: ALIGNMENT MATCHES ALONG WHOLE LENGTH" << a.name() << endl;
+                    exit(394);
                 }
                 return node_to_position[path.mapping(i).position().node_id()] + 
                 (path.mapping(i).position().is_reverse() ? (-1 * path.mapping(i).position().offset()) : path.mapping(i).position().offset());
             }
             else if (right_overhang > soft_clip_limit){
- /// Get the position of the first match
+                bool tripped = false;
+                /// Get the position of the first match
                 int i; 
                 for (i = path.mapping_size() - 1; i >= 0; i--){
                     Mapping m = path.mapping(i);
                     for (int j = m.edit_size() - 1; j >= 0; j--){
                         Edit e = m.edit(j);
                         if (e.to_length() == e.from_length() && e.sequence().empty()){
-                            break;
+                            tripped = true;
                         }
+                    }
+                    if (tripped){
+                        break;
                     }
                 }
                 return node_to_position[path.mapping(i).position().node_id()] + 
@@ -68,6 +105,7 @@ namespace vg{
             }
 
         }
+        return 0;
     }
 
     void Filter::fill_node_to_position(string pathname){
@@ -616,30 +654,7 @@ namespace vg{
 
     }
 
-    string Filter::get_clipped_seq(Alignment& a){
-        if (a.path().mapping_size() > 0){
-            Path path = a.path();
-            Edit left_edit = path.mapping(0).edit(0);
-            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
-            int left_overhang = left_edit.to_length() - left_edit.from_length();
-            int right_overhang = right_edit.to_length() - right_edit.from_length();
-            if (left_overhang > soft_clip_limit){
-                return left_edit.sequence();
-            }
-            else if (right_overhang > soft_clip_limit){
-                return right_edit.sequence();
-            }
-            else{
-                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
-                << "IGNORING READ";
-                return "";
-            }
-
-        }
-        else{
-            return "";
-        }
-    }
+    
 
     vector<Alignment> Filter::remap(Alignment& aln){
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
