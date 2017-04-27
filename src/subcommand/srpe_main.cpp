@@ -337,15 +337,26 @@ int main_srpe(int argc, char** argv){
 
     std::vector<Alignment> splits;
     std::vector<INS_INTERVAL> split_intervals;
-    std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
+    std::function<void(Alignment&, Alignment&)> split_read_func = [&](Alignment& a, Alignment& b){
         // remap in clipped reads
         Alignment x = srpe.ff.split_read_filter(a);
+        Alignment y = srpe.ff.split_read_filter(b);
         if (!x.sequence().empty()){
             // We got a match to the graph from our clip
             // store the alignment and create an interval
             INS_INTERVAL i;
             i.start = srpe.ff.get_clipped_position(a);
-            i.end = srpe.ff.node_to_position[ x.path().mapping(0).position().node_id() ];
+            //Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(a));
+            //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
+        }
+        else if (!y.sequence().empty()){
+            // We got a match to the graph from our clip
+            // store the alignment and create an interval
+            INS_INTERVAL i;
+            i.start = srpe.ff.get_clipped_position(b);
+            //Alignment cmatch = srpe.ff.remap( srpe.ff.get_clipped_seq(b));
+            //i.end = srpe.ff.node_to_position[ cmatch.path().mapping(0).position().node_id() ];
+            ins.push_back(i);
         }
         // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
         // Merge overlapping intervals.
@@ -365,12 +376,14 @@ int main_srpe(int argc, char** argv){
     // INSERTIONS
     // Open relevant GAMfiles
     insert_stream.open(discordant_fn);
+    clipped_stream.open(clipped_fn);
     if (!insert_stream.good()){
         cerr << "Must provide a .discordant file.";
     }
     else{
         // Collect all long insert reads
-        stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
+        //stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
+        stream::for_each_interleaved_pair_parallel(clipped_stream, split_read_func);
     }
 
     oea_stream.open(oea_fn);

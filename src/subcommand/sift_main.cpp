@@ -144,6 +144,7 @@ int main_sift(int argc, char** argv){
                 break;
             case 'c':
                 do_softclip = true;
+                do_all = false;
                 softclip_max = atoi(optarg);
                 ff.set_soft_clip_limit(softclip_max);
                 break;
@@ -346,12 +347,13 @@ int main_sift(int argc, char** argv){
                     #pragma omp critical (unmapped_selected)
                     {
                         flagged = true;
-                        unmapped_selected.push_back(alns_first);
-                        unmapped_selected.push_back(alns_second);
                         alns_first.set_read_mapped(true);
                         alns_first.set_mate_unmapped(true);
                         alns_second.set_read_mapped(true);
                         alns_second.set_read_mapped(true);
+                        unmapped_selected.push_back(alns_first);
+                        unmapped_selected.push_back(alns_second);
+                        
                     }
                 }
         }
@@ -375,8 +377,9 @@ int main_sift(int argc, char** argv){
             if (ret.first.sequence() != "" && ret.second.sequence() != ""){
                 #pragma omp critical (oea_selected)
                 {
-                    one_end_anchored.push_back(alns_first);
-                    one_end_anchored.push_back(alns_second);
+
+                    one_end_anchored.push_back(ret.first);
+                    one_end_anchored.push_back(ret.second);
                 }
             }
             
@@ -544,7 +547,6 @@ int main_sift(int argc, char** argv){
 
 if (alignment_file == "-"){
     stream::for_each_interleaved_pair_parallel(cin, pair_filters);
-    //stream::write_buffered(oea_stream, one_end_anchored, 0);
 }
 else{
     ifstream in;

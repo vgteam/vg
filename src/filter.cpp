@@ -262,7 +262,18 @@ namespace vg{
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
         bool f = aln_first.mapping_quality() == 0;
         bool s = aln_second.mapping_quality() == 0;
-        if ( (f && !s) || (s && !f)){ 
+        if ( (f && !s)){ 
+            aln_first.set_read_mapped(true);
+            aln_first.set_mate_unmapped(true);
+            aln_second.set_read_mapped(false);
+            aln_second.set_mate_unmapped(false);
+            return std::make_pair(aln_first, aln_second);
+        }
+        else if((s && !f)){
+            aln_first.set_read_mapped(false);
+            aln_first.set_mate_unmapped(false);
+            aln_second.set_read_mapped(true);
+            aln_second.set_mate_unmapped(true);
             return std::make_pair(aln_first, aln_second);
         }
         else{
@@ -628,6 +639,26 @@ namespace vg{
         else{
             return "";
         }
+    }
+
+    Alignment Filter::remap(Alignment& aln){
+        if (this->my_xg_index == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
+            cerr << "An XG and GCSA are required for remapping." << endl;
+            exit(1337);
+        }
+
+        Alignment match = remap(aln.sequence());
+        return match;
+    }
+
+    Alignment Filter::remap(string seq){
+        if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
+            cerr << "An XG and GCSA are required for remapping." << endl;
+            exit(1337);
+        }
+
+        Alignment ret = this->my_mapper->align(seq);
+        return ret;
     }
     /**
      * Split reads map to two separate paths in the graph OR vastly separated non-consecutive
