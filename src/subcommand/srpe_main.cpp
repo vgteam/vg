@@ -20,6 +20,7 @@
 #include "Variant.h"
 #include "translator.hpp"
 #include "Fasta.h"
+#include "IntervalTree.h"
 
 using namespace std;
 using namespace vg;
@@ -241,6 +242,30 @@ int main_srpe(int argc, char** argv){
 
     double insert_size = 0.0;
     double insert_var = 0.0;
+
+    struct BREAKPOINT{
+        int64_t start = 0;
+        int64_t upper_bound = 100;
+        int64_t lower_bound = 100;
+        int fragl_supports = 0;
+        int split_supports = 0;
+        int other_supports = 0;
+        inline int total_supports(){
+            return fragl_supports + split_supports + other_supports;
+        }
+        inline bool overlap(BREAKPOINT p, int dist){
+            if ( abs(start - p.start) < dist){
+                    return true;
+                }
+            return false;
+        }
+        inline string to_string(){
+            stringstream x;
+            x << "Pos: " << start << " u: " << upper_bound << " l: " << lower_bound << " s: " << total_supports();
+            return x.str();
+        }
+
+    };
     
     struct INS_INTERVAL{
         int64_t start = 0;
@@ -279,6 +304,27 @@ int main_srpe(int argc, char** argv){
         }
     };
 
+    std::function<vector<BREAKPOINT> (vector<BREAKPOINT>)> merge_breakpoints = [&](vector<BREAKPOINT> bps){
+        vector<BREAKPOINT> ret;
+        BREAKPOINT sent;
+        sent.start = -100;
+        ret.push_back(sent);
+        for (int i = 0; i < bps.size(); i++){
+            BREAKPOINT a = bps[i];
+            bool merged = false;
+            for (int j = 0; j < ret.size(); j++){
+                if (ret[j].overlap(a, 20)){
+                    ret[j].other_supports += 1;
+                    merged = true;
+                }
+            }
+            if (!merged){
+                ret.push_back(a);
+            }
+        }
+        return ret;
+    };
+
     std::function<vector<INS_INTERVAL>(vector<INS_INTERVAL>)> merge_intervals = [&](vector<INS_INTERVAL> ins){
         vector<INS_INTERVAL> ret;
         // sentinel interval
@@ -308,6 +354,7 @@ int main_srpe(int argc, char** argv){
     
 
     vector<INS_INTERVAL> ins;
+    vector<BREAKPOINT> bps;
 
     std::function<void(vector<INS_INTERVAL>&, map<int64_t, vector<INS_INTERVAL> >&)> merge = [&](vector<INS_INTERVAL>& ins, map<int64_t, vector<INS_INTERVAL> >& start_to_interval){
 
@@ -339,23 +386,28 @@ int main_srpe(int argc, char** argv){
 
     std::vector<Alignment> splits;
     std::vector<INS_INTERVAL> split_intervals;
-    std::function<void(Alignment&)> split_read_func = [&](Alignment& a){
+    std::function<void(Alignment&)> clip_read_func = [&](Alignment& a){
         // remap in clipped reads
         string a_clip = srpe.ff.get_clipped_seq(a);
         //cerr << a.DebugString() << endl;
         //cerr << a_clip << endl;
         if (a_clip.length() > 25){
             //cerr << "Remapping " << a_clip << endl;
-            vector<Alignment> a_remap = srpe.ff.remap(a_clip);
-            if (a_remap.size() > 0 && a_remap[0].score() > 0){
+            BREAKPOINT b;
+            b.start = srpe.ff.get_clipped_position(a);
+            b.split_supports += 1;
+            bps.push_back(b);
+            //vector<Alignment> a_remap = srpe.ff.remap(a_clip);
+            //if (a_remap.size() > 0 && a_remap[0].score() > 0){
                 //cerr << (a_remap[0].score() > 0 ? "MAPPED!" : "unmapped :(") << endl;
-                INS_INTERVAL i;
-                i.start = srpe.ff.get_clipped_position(a);
-                i.end = srpe.ff.node_to_position[ a_remap[0].path().mapping(0).position().node_id() ];
-                i.split_supports +=1;
-                ins.push_back(i);
-                cerr << i.to_string() << "\t" << a_remap.size() << endl;
-            }
+                // INS_INTERVAL i;
+                // i.start = srpe.ff.get_clipped_position(a);
+                // i.end = srpe.ff.node_to_position[ a_remap[0].path().mapping(0).position().node_id() ];
+                // i.split_supports +=1;
+                // ins.push_back(i);
+                // cerr << i.to_string() << "\t" << a_remap.size() << endl;
+                
+            //}
         }
         
         // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
@@ -382,8 +434,8 @@ int main_srpe(int argc, char** argv){
     }
     else{
         // Collect all long insert reads
-        //stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
-        stream::for_each_parallel(clipped_stream, split_read_func);
+        stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
+        stream::for_each_parallel(clipped_stream, clip_read_func);
     }
 
     oea_stream.open(oea_fn);
@@ -415,12 +467,20 @@ int main_srpe(int argc, char** argv){
 
      // Merge insertion intervals and supports
     vector<INS_INTERVAL> merged = merge_intervals(ins);
+    vector<BREAKPOINT> merged_bps = merge_breakpoints(bps);
 
     cerr << "Found " << merged.size() << " candidate intervals." << endl;
     for (auto x : merged){
         cerr << x.to_string() << endl;
     }
-
+    cerr << "Found " << bps.size() << " candidate breakpoints." << endl;
+    int count = 0;
+    for (auto x : merged_bps){
+        if (++count > 100){
+            break;
+        }
+        cerr << x.to_string() << endl;
+    }
      
     return 0;
 }
