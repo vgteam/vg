@@ -32,8 +32,10 @@ void help_msga(char** argv) {
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
+         << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -94,7 +96,6 @@ int main_msga(int argc, char** argv) {
     bool mem_chaining = true;
     int max_mem_length = 0;
     int min_mem_length = 0;
-    float accept_identity = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
     int match = 1;
@@ -114,6 +115,7 @@ int main_msga(int argc, char** argv) {
     int max_mapping_quality = 60;
     int method_code = 1;
     int maybe_mq_threshold = 60;
+    int min_banded_mq = 0;
     bool use_fast_reseed = true;
 
     int c;
@@ -136,6 +138,7 @@ int main_msga(int argc, char** argv) {
                 {"debug-align", no_argument, 0, 'A'},
                 {"context-depth", required_argument, 0, 'c'},
                 {"min-ident", required_argument, 0, 'P'},
+                {"min-banded-mq", required_argument, 0, 'F'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
@@ -146,17 +149,14 @@ int main_msga(int argc, char** argv) {
                 {"reseed-x", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
-                {"accept-identity", required_argument, 0, 'S'},
-                {"max-attempts", required_argument, 0, 'M'},
                 {"max-target-x", required_argument, 0, 'H'},
-                {"max-multimaps", required_argument, 0, 'I'},
+                {"max-multimaps", required_argument, 0, 'M'},
                 {"match", required_argument, 0, 'q'},
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"full-l-bonus", required_argument, 0, 'L'},
                 {"circularize", no_argument, 0, 'Z'},
-                {"chance-match", required_argument, 0, 'F'},
                 {"min-chain", required_argument, 0, 'W'},
                 {"try-up-to", required_argument, 0, 'u'},
                 {"try-at-least", required_argument, 0, 'l'},
@@ -165,7 +165,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NI:Y:H:t:m:S:M:q:OI:i:o:y:ZF:W:z:k:L:e:r:u:l:C:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -187,7 +187,7 @@ int main_msga(int argc, char** argv) {
             min_cluster_length = atoi(optarg);
             break;
 
-        case 'F':
+        case 'e':
             chance_match = atof(optarg);
             break;
 
@@ -199,7 +199,7 @@ int main_msga(int argc, char** argv) {
             hit_max = atoi(optarg);
             break;
 
-        case 'I':
+        case 'M':
             max_multimaps = atoi(optarg);
             break;
 
@@ -213,14 +213,6 @@ int main_msga(int argc, char** argv) {
             
         case 'H':
             max_target_factor = atoi(optarg);
-            break;
-
-        case 'M':
-            max_attempts = atoi(optarg);
-            break;
-
-        case 'S':
-            accept_identity = atof(optarg);
             break;
 
         case 'f':
@@ -293,6 +285,10 @@ int main_msga(int argc, char** argv) {
             min_identity = atof(optarg);
             break;
 
+        case 'F':
+            min_banded_mq = atoi(optarg);
+            break;
+
         case 't':
             omp_set_num_threads(atoi(optarg));
             alignment_threads = atoi(optarg);
@@ -304,10 +300,6 @@ int main_msga(int argc, char** argv) {
 
         case 'E':
             edge_max = atoi(optarg);
-            break;
-
-        case 'e':
-            chance_match = atof(optarg);
             break;
 
         case 'q':
@@ -508,6 +500,7 @@ int main_msga(int argc, char** argv) {
             mapper->maybe_mq_threshold = maybe_mq_threshold;
             mapper->debug = debug_align;
             mapper->min_identity = min_identity;
+            mapper->min_banded_mq = min_banded_mq;
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
                                  : mapper->random_match_length(chance_match));

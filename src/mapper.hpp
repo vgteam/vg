@@ -461,6 +461,7 @@ public:
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     int max_softclip_iterations; // Extend no more than this many times (while softclips are getting shorter)
     float min_identity; // require that alignment identity is at least this much to accept alignment
+    int min_banded_mq; // when aligning banded, treat bands with MQ < this as unaligned
     // paired-end consistency enforcement
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings

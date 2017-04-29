@@ -69,6 +69,7 @@ Mapper::Mapper(Index* idex,
     , alignment_gap_extension(1)
     , full_length_alignment_bonus(5)
     , maybe_mq_threshold(10)
+    , min_banded_mq(0)
 {
     init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
@@ -2064,12 +2065,12 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         if (max_multimaps > 1) {
             vector<Alignment>& malns = multi_alns[i];
             double cluster_mq = 0;
-            malns = align_multi_internal(false, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
+            malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
             // always include an unaligned mapping
             malns.push_back(bands[i]);
             for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
                 Alignment& aln = *a;
-                bool above_threshold = aln.identity() >= min_identity;
+                bool above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
                 if (!above_threshold) {
                     // treat as unmapped
                     aln = bands[i];
