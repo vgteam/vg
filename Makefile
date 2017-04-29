@@ -142,6 +142,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/explode_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/call_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/genotype_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/msga_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/map_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -548,6 +549,8 @@ $(SUBCOMMAND_OBJ_DIR)/call_main.o: $(SUBCOMMAND_SRC_DIR)/call_main.cpp $(SUBCOMM
 $(SUBCOMMAND_OBJ_DIR)/genotype_main.o: $(SUBCOMMAND_SRC_DIR)/genotype_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/msga_main.o: $(SUBCOMMAND_SRC_DIR)/msga_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mapper.cpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/map_main.o: $(SUBCOMMAND_SRC_DIR)/map_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mapper.cpp $(DEPS)
 
 
 ########################
