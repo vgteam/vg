@@ -2031,20 +2031,23 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 // looks wrawng
                 addl_seq = (off - last_off);
                 aln.set_sequence(read.sequence().substr(last_off));
+                if (!read.quality().empty()) aln.set_quality(read.quality().substr(last_off));
                 //assert(aln.sequence().size() == segment_size);
             } else {
                 aln.set_sequence(read.sequence().substr(off));
+                if (!read.quality().empty()) aln.set_quality(read.quality().substr(off));
             }
         } else {
             aln.set_sequence(read.sequence().substr(off, segment_size));
+            if (!read.quality().empty()) aln.set_quality(read.quality().substr(off, segment_size));
         }
         size_t idx = 2*i;
         to_strip[idx].first = (i == 0 ? 0 : segment_size/4 + addl_seq);
         to_strip[idx].second = (i+1 == div ? 0 : segment_size/4);
         bands[idx] = aln;
         if (i != div-1) { // if we're not at the last sequence
-            aln.set_sequence(read.sequence().substr(off+segment_size/2,
-                                                    segment_size));
+            aln.set_sequence(read.sequence().substr(off+segment_size/2, segment_size));
+            if (!read.quality().empty()) aln.set_quality(read.quality().substr(off+segment_size/2, segment_size));
             idx = 2*i+1;
             to_strip[idx].first = segment_size/4;
             // record second but take account of case where we run off end
