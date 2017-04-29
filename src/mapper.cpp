@@ -2172,7 +2172,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
     // use a basic dynamic programming to score the path through the multi mapping
     // we add the score as long as our alignments overlap (we expect them to)
     // otherwise we add nothing
-    // reads that are < the minimum alignment score threshold are dropped
+    // alignments that are < the minimum alignment score threshold are dropped
 
     // a vector of
     // score, current alignment, parent alignment (direction)
@@ -2239,7 +2239,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
                     // and in the same orientation
-                    if (adjacent_positions(prev_end, curr_start)) {
+                    if (approx_distance(make_pos_t(prev_end), make_pos_t(curr_start)) < aln.sequence().size()) {
                         candidates[get<0>(score)].push_back(make_pair(score,k));
                     }
                     ++k;
