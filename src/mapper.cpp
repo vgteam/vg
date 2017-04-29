@@ -1979,7 +1979,6 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     if (band_width % 4) {
         band_width -= band_width % 4; band_width += 4;
     }
-    assert(read.sequence().size() > band_width);
     int div = 2;
     while (read.sequence().size()/div > band_width) {
         ++div;
