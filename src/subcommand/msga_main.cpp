@@ -21,31 +21,25 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
+         << "alignment:" << endl
+         << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
+         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
+         << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
+         << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
+         << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
+         << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
+         << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
+         << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "local alignment parameters:" << endl
-         << "    -a, --match N         use this match score (default: 1)" << endl
-         << "    -i, --mismatch N      use this mismatch penalty (default: 4)" << endl
-         << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
-         << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "mem mapping:" << endl
-        //<< "    -l, --no-mem-threader   do not use the mem-threader-based aligner" << endl
-         << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: estimated)" << endl
-         << "    -F, --chance-match N     set the minimum MEM length so ~ this fraction of min-length hits will by by chance (default: 0.05)" << endl
-        //<< "    -
-         << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
-         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
-         << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
-         << "    -P, --min-identity N    accept alignment only if the alignment-based identity is >= N (default: 0.75)" << endl
-         << "    -B, --band-width N      use this bandwidth when mapping (default: 256)" << endl
-         << "    -G, --greedy-accept     if a tested alignment achieves -S identity don't try clusters with fewer hits" << endl
-         << "    -S, --accept-identity N accept early alignment if the alignment identity is >= N and -G is set" << endl
-         << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
-         << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
-         << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
-         << "    -V, --mem-reseed N      reseed SMEMs longer than this length to find non-supermaximal MEMs inside them" << endl
-         << "                            set to -1 to estimate as 1.5x min mem length (default: -1/estimated)" << endl
-         << "    -7, --min-cluster-length N  require this much sequence in a cluster to consider it" << endl
-         << "                            set to -1 to estimate as 1.5x min mem length (default: 0)" << endl
+         << "    -q, --match INT         use this match score [1]" << endl
+         << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
+         << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
+         << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
+         << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -55,8 +49,7 @@ void help_msga(char** argv) {
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "graph normalization:" << endl
          << "    -N, --normalize         normalize the graph after assembly" << endl
-         << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
-         << "    -C, --circularize       the input sequences are from circular genomes, circularize them after inclusion" << endl
+         << "    -Z, --circularize       the input sequences are from circular genomes, circularize them after inclusion" << endl
          << "generic parameters:" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
@@ -87,10 +80,6 @@ int main_msga(int argc, char** argv) {
     // if we set this above 1, we use a dynamic programming process to determine the
     // optimal alignment through a series of bands based on a proximity metric
     int max_multimaps = 1;
-    // if this is set too low, we may miss optimal alignments
-    int context_depth = 7;
-    // same here; initial clustering
-    int thread_extension = 10;
     float min_identity = 0.0;
     int band_width = 256;
     size_t doubling_steps = 3;
@@ -101,12 +90,10 @@ int main_msga(int argc, char** argv) {
     int edge_max = 0;
     int subgraph_prune = 0;
     bool normalize = false;
-    bool allow_nonpath = false;
     int iter_max = 1;
-    bool use_mem_threader = true;
+    bool mem_chaining = true;
     int max_mem_length = 0;
     int min_mem_length = 0;
-    bool greedy_accept = false;
     float accept_identity = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
@@ -114,11 +101,20 @@ int main_msga(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    int full_length_bonus = 5;
     bool circularize = false;
-    int sens_step = 5;
     float chance_match = 0.05;
     int mem_reseed_length = -1;
     int min_cluster_length = 0;
+    float mem_reseed_factor = 1.5;
+    float random_match_chance = 0.05;
+    int extra_multimaps = 64;
+    int min_multimaps = 4;
+    float drop_chain = 0.4;
+    int max_mapping_quality = 60;
+    int method_code = 1;
+    int maybe_mq_threshold = 60;
+    bool use_fast_reseed = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -135,39 +131,41 @@ int main_msga(int argc, char** argv) {
                 {"idx-kmer-size", required_argument, 0, 'K'},
                 {"idx-no-recomb", no_argument, 0, 'O'},
                 {"idx-doublings", required_argument, 0, 'X'},
-                {"band-width", required_argument, 0, 'B'},
+                {"band-width", required_argument, 0, 'w'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
                 {"context-depth", required_argument, 0, 'c'},
-                {"min-identity", required_argument, 0, 'P'},
+                {"min-ident", required_argument, 0, 'P'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
-                {"allow-nonpath", no_argument, 0, 'z'},
-                {"min-mem-length", required_argument, 0, 'L'},
-                {"max-mem-length", required_argument, 0, 'Y'},
-                {"hit-max", required_argument, 0, 'H'},
+                {"min-seed", required_argument, 0, 'k'},
+                {"max-seed", required_argument, 0, 'Y'},
+                {"hit-max", required_argument, 0, 'c'},
+                {"seed-chance", required_argument, 0, 'e'},
+                {"reseed-x", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
-                {"greedy-accept", no_argument, 0, 'G'},
                 {"accept-identity", required_argument, 0, 'S'},
                 {"max-attempts", required_argument, 0, 'M'},
-                {"thread-ex", required_argument, 0, 'T'},
-                {"max-target-x", required_argument, 0, 'q'},
+                {"max-target-x", required_argument, 0, 'H'},
                 {"max-multimaps", required_argument, 0, 'I'},
-                {"match", required_argument, 0, 'a'},
-                {"mismatch", required_argument, 0, 'i'},
+                {"match", required_argument, 0, 'q'},
+                {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
-                {"gap-extend", required_argument, 0, 'e'},
-                {"circularize", no_argument, 0, 'C'},
+                {"gap-extend", required_argument, 0, 'y'},
+                {"full-l-bonus", required_argument, 0, 'L'},
+                {"circularize", no_argument, 0, 'Z'},
                 {"chance-match", required_argument, 0, 'F'},
-                {"mem-reseed", required_argument, 0, 'V'},
-                {"min-cluster-length", required_argument, 0, '7'},
+                {"min-chain", required_argument, 0, 'W'},
+                {"try-up-to", required_argument, 0, 'u'},
+                {"try-at-least", required_argument, 0, 'l'},
+                {"drop-chain", required_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:CF:V:7:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NI:Y:H:t:m:S:M:q:OI:i:o:y:ZF:W:z:k:L:e:r:u:l:C:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -177,15 +175,15 @@ int main_msga(int argc, char** argv) {
         switch (c)
         {
 
-        case 'L':
+        case 'k':
             min_mem_length = atoi(optarg);
             break;
 
-        case 'V':
-            mem_reseed_length = atoi(optarg);
+        case 'r':
+            mem_reseed_factor = atof(optarg);
             break;
 
-        case '7':
+        case 'W':
             min_cluster_length = atoi(optarg);
             break;
 
@@ -197,7 +195,7 @@ int main_msga(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
-        case 'H':
+        case 'c':
             hit_max = atoi(optarg);
             break;
 
@@ -205,7 +203,15 @@ int main_msga(int argc, char** argv) {
             max_multimaps = atoi(optarg);
             break;
 
-        case 'q':
+        case 'l':
+            min_multimaps = atoi(optarg);
+            break;
+
+        case 'u':
+            extra_multimaps = atoi(optarg);
+            break;
+            
+        case 'H':
             max_target_factor = atoi(optarg);
             break;
 
@@ -213,20 +219,8 @@ int main_msga(int argc, char** argv) {
             max_attempts = atoi(optarg);
             break;
 
-        case 'T':
-            thread_extension = atoi(optarg);
-            break;
-
-        case 'G':
-            greedy_accept = true;
-            break;
-
         case 'S':
             accept_identity = atof(optarg);
-            break;
-
-        case 'c':
-            context_depth = atoi(optarg);
             break;
 
         case 'f':
@@ -254,7 +248,7 @@ int main_msga(int argc, char** argv) {
             graph_files.push_back(optarg);
             break;
 
-        case 'B':
+        case 'w':
             band_width = atoi(optarg);
             break;
 
@@ -287,8 +281,12 @@ int main_msga(int argc, char** argv) {
             normalize = true;
             break;
 
-        case 'C':
+        case 'Z':
             circularize = true;
+            break;
+
+        case 'C':
+            drop_chain = atof(optarg);
             break;
 
         case 'P':
@@ -308,15 +306,15 @@ int main_msga(int argc, char** argv) {
             edge_max = atoi(optarg);
             break;
 
-        case 'z':
-            allow_nonpath = true;
+        case 'e':
+            chance_match = atof(optarg);
             break;
 
-        case 'a':
+        case 'q':
             match = atoi(optarg);
             break;
 
-        case 'i':
+        case 'z':
             mismatch = atoi(optarg);
             break;
 
@@ -324,8 +322,12 @@ int main_msga(int argc, char** argv) {
             gap_open = atoi(optarg);
             break;
 
-        case 'e':
+        case 'y':
             gap_extend = atoi(optarg);
+            break;
+
+        case 'L':
+            full_length_bonus = atoi(optarg);
             break;
 
         case 'h':
@@ -338,6 +340,23 @@ int main_msga(int argc, char** argv) {
             abort ();
         }
     }
+
+    // mapping quality method boilerplate
+    MappingQualityMethod mapping_quality_method;
+    if (method_code == 0) {
+        mapping_quality_method = None;
+    }
+    else if (method_code == 1) {
+        mapping_quality_method = Approx;
+    }
+    else if (method_code == 2) {
+        mapping_quality_method = Exact;
+    }
+    else {
+        cerr << "error:[vg map] unrecognized mapping quality method command line arg '" << method_code << "'" << endl;
+        return 1;
+    }
+
 
     // build the graph or read it in from input
     VG* graph;
@@ -483,26 +502,31 @@ int main_msga(int argc, char** argv) {
         }
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
-            mapper->debug = debug_align;
-            mapper->context_depth = context_depth;
-            mapper->thread_extension = thread_extension;
-            mapper->max_attempts = max_attempts;
-            mapper->min_identity = min_identity;
-            mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
-                                      : mapper->random_match_length(chance_match));
-            mapper->mem_reseed_length = (mem_reseed_length > 0 ? mem_reseed_length
-                                         : (mem_reseed_length == 0 ? 0
-                                            : round(1.5 * mapper->min_mem_length)));
-            mapper->min_cluster_length = (min_cluster_length > 0 ? min_cluster_length
-                                          : (min_cluster_length == 0 ? 0
-                                             : round(1.5 * mapper->min_mem_length)));
             mapper->hit_max = hit_max;
-            mapper->greedy_accept = greedy_accept;
-            mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
-            mapper->accept_identity = accept_identity;
-            mapper->mem_chaining = use_mem_threader;
-
+            mapper->min_multimaps = min_multimaps;
+            mapper->maybe_mq_threshold = maybe_mq_threshold;
+            mapper->debug = debug_align;
+            mapper->min_identity = min_identity;
+            mapper->drop_chain = drop_chain;
+            mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
+                                 : mapper->random_match_length(chance_match));
+            mapper->mem_reseed_length = round(mem_reseed_factor * mapper->min_mem_length);
+            mapper->min_cluster_length = min_cluster_length;
+            if (debug) {
+                cerr << "[vg msga] : min_mem_length = " << mapper->min_mem_length
+                     << ", mem_reseed_length = " << mapper->mem_reseed_length
+                     << ", min_cluster_length = " << mapper->min_cluster_length << endl;
+            }
+            mapper->fast_reseed = use_fast_reseed;
+            mapper->mem_chaining = mem_chaining;
+            mapper->max_target_factor = max_target_factor;
+            mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+            //mapper->adjust_alignments_for_base_quality = qual_adjust_alignments;
+            mapper->extra_multimaps = extra_multimaps;
+            mapper->mapping_quality_method = mapping_quality_method;
+            mapper->full_length_alignment_bonus = full_length_bonus;
+            mapper->max_mapping_quality = max_mapping_quality;
             // set up the multi-threaded alignment interface
             mapper->set_alignment_threads(alignment_threads);
             // Set scores after setting threads, since thread count changing resets scores
@@ -539,7 +563,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, sens_step, max_mem_length, band_width));
+            Alignment aln = simplify(mapper->align(seq, 0, 0, 0, band_width));
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());
                 if (aln_seq != seq) {
@@ -656,12 +680,6 @@ int main_msga(int argc, char** argv) {
         if (!graph->is_valid()) {
             cerr << "[vg msga] warning! graph is not valid after normalization" << endl;
         }
-    }
-
-    // remove nodes in the graph that have no assigned paths
-    // this should be pretty minimal now that we've made one iteration
-    if (!allow_nonpath) {
-        graph->remove_non_path();
     }
 
     // finally, validate the included paths
