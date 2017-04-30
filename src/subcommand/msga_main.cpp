@@ -379,7 +379,8 @@ int main_msga(int argc, char** argv) {
         for (auto& name : ref.index->sequenceNames) {
             if (!seq_names.empty() && seq_names.count(name) == 0) continue;
             // only use the sequence if we have whitelisted it
-            string seq = ref.getSequence(name);
+            // and also sanitize the input so we have only ATGCN
+            string seq = nonATGCNtoN(ref.getSequence(name));
             strings[name] = seq;
             names_in_order.push_back(name);
         }
