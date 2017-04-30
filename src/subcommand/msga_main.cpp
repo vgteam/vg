@@ -397,7 +397,7 @@ int main_msga(int argc, char** argv) {
             ss << s << ++nonce;
             name = sha1head(ss.str(), 8);
         }
-        strings[name] = s;
+        strings[name] = nonATGCNtoN(s);
         names_in_order.push_back(name);
     }
 
