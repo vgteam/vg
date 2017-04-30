@@ -4612,9 +4612,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    cerr << "graph path '" << path.name() << "' invalid: edge from "
-                         << s1 << " to " << s2 << " does not exist" << endl;
-                    cerr << "creating edge" << endl;
+                    // force these edges in
                     create_edge(s1, s2);
                 }
             }
