@@ -2076,6 +2076,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                     aln = bands[i];
                 }
                 // strip overlaps
+                aln = simplify(aln);
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
             }
@@ -2095,6 +2096,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 }
             }
 #endif
+            aln = simplify(aln);
             aln = strip_from_start(aln, to_strip[i].first);
             aln = strip_from_end(aln, to_strip[i].second);
         }
@@ -2160,7 +2162,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
 
 vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_alns) {
     // use a basic dynamic programming to score the path through the multi mapping
-    // we add the score as long as our alignments overlap (we expect them to)
+    // we add the score as long as our alignments are within a bandwidth, subtracting the distance
     // otherwise we add nothing
     // alignments that are < the minimum alignment score threshold are dropped
 
@@ -2229,8 +2231,11 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
                     // and in the same orientation
-                    if (approx_distance(make_pos_t(prev_end), make_pos_t(curr_start)) < aln.sequence().size()) {
-                        candidates[get<0>(score)].push_back(make_pair(score,k));
+                    int dist = approx_distance(make_pos_t(prev_end), make_pos_t(curr_start));
+                    if (dist < aln.sequence().size()) {
+                        score_t adj_score = score;
+                        get<0>(adj_score) -= dist;
+                        candidates[get<0>(score)].push_back(make_pair(adj_score, k));
                     }
                     ++k;
                 }
