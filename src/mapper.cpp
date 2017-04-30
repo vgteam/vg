@@ -2101,17 +2101,21 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             aln = strip_from_end(aln, to_strip[i].second);
         }
     };
-    
+
+    create_progress("aligning " + read.name(), bands.size());
     if (alignment_threads > 1) {
 #pragma omp parallel for schedule(dynamic,1)
         for (int i = 0; i < bands.size(); ++i) {
             do_band(i);
+            update_progress(i);
         }
     } else {
         for (int i = 0; i < bands.size(); ++i) {
             do_band(i);
+            update_progress(i);
         }
     }
+    destroy_progress();
 
     // resolve the highest-scoring traversal of the multi-mappings
     if (max_multimaps > 1) {

@@ -55,6 +55,7 @@ void help_msga(char** argv) {
          << "generic parameters:" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
+         << "    -S, --align-progress    show a progress bar for each banded alignment" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
@@ -117,6 +118,7 @@ int main_msga(int argc, char** argv) {
     int maybe_mq_threshold = 60;
     int min_banded_mq = 0;
     bool use_fast_reseed = true;
+    bool show_align_progress = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -161,11 +163,12 @@ int main_msga(int argc, char** argv) {
                 {"try-up-to", required_argument, 0, 'u'},
                 {"try-at-least", required_argument, 0, 'l'},
                 {"drop-chain", required_argument, 0, 'C'},
+                {"align-progress", no_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:S",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -250,6 +253,10 @@ int main_msga(int argc, char** argv) {
 
         case 'A':
             debug_align = true;
+            break;
+
+        case 'S':
+            show_align_progress = true;
             break;
 
         case 'X':
@@ -524,6 +531,7 @@ int main_msga(int argc, char** argv) {
             mapper->set_alignment_threads(alignment_threads);
             // Set scores after setting threads, since thread count changing resets scores
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+            mapper->show_progress = show_align_progress;
         }
     };
 

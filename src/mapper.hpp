@@ -109,7 +109,7 @@ public:
 };
 
 
-class Mapper {
+class Mapper : public Progressive {
 
 
 private:
