@@ -4,6 +4,7 @@
 #include <functional>
 #include <regex>
 #include "subcommand.hpp"
+#include "srpe.hpp"
 #include "stream.hpp"
 #include "index.hpp"
 #include "position.hpp"
@@ -243,67 +244,9 @@ int main_srpe(int argc, char** argv){
     double insert_size = 0.0;
     double insert_var = 0.0;
 
-    struct BREAKPOINT{
-        int64_t start = 0;
-        int64_t upper_bound = 100;
-        int64_t lower_bound = 100;
-        int fragl_supports = 0;
-        int split_supports = 0;
-        int other_supports = 0;
-        inline int total_supports(){
-            return fragl_supports + split_supports + other_supports;
-        }
-        inline bool overlap(BREAKPOINT p, int dist){
-            if ( abs(start - p.start) < dist){
-                    return true;
-                }
-            return false;
-        }
-        inline string to_string(){
-            stringstream x;
-            x << "Pos: " << start << " u: " << upper_bound << " l: " << lower_bound << " s: " << total_supports();
-            return x.str();
-        }
 
-    };
     
-    struct INS_INTERVAL{
-        int64_t start = 0;
-        int64_t end = 0;
-        int64_t len = 0;
-        double start_ci = 1000.0;
-        double end_ci = 1000.0;
-        bool precise = false;
-        int fragl_supports = 0;
-        int oea_supports = 0;
-        int split_supports = 0;
-        int other_supports = 0;
-        inline int total_supports(){
-            return fragl_supports + oea_supports + split_supports + other_supports;
-        }
-        inline string to_string(){
-            stringstream ss;
-            ss << "Start: " << start <<
-            " End: " << end << " Support: " << total_supports() << endl;
-            return ss.str();
-        }
-        inline bool overlap(INS_INTERVAL other){
-            if ( (other.start >= start && other.start <= end) ||
-                  (other.end <= end && other.end >= start) ||
-                  (other.start >= start && other.end <= end)){
-                    return true;
-                  }
-            return false;
-                  
-        }
-        inline bool contained(INS_INTERVAL other){
-            return false;
-        }
-        inline Interval<int> as_interval(){
-            return Interval<int>(start, end, 0);
-        }
-    };
-
+    
     std::function<vector<BREAKPOINT> (vector<BREAKPOINT>)> merge_breakpoints = [&](vector<BREAKPOINT> bps){
         vector<BREAKPOINT> ret;
         BREAKPOINT sent;
@@ -438,6 +381,27 @@ int main_srpe(int argc, char** argv){
         stream::for_each_parallel(clipped_stream, clip_read_func);
     }
 
+    std::function<void(Alignment&, Alignment&)> oea_func = [&](Alignment& a, Alignment& b){
+        BREAKPOINT bp;
+        if (srpe.ff.soft_clip_filter(a).sequence() != ""){
+            bp.start = srpe.ff.get_clipped_position(a);
+        }
+        else if (srpe.ff.soft_clip_filter(b).sequence() != ""){
+            bp.start = srpe.ff.get_clipped_position(b);
+        }
+        else{
+            if (a.read_mapped()){
+                // take the right end of the read
+                bp.start = srpe.ff.node_to_position[a.path().mapping( a.path().mapping_size() - 1).position().node_id() ];
+            }
+            else if (b.read_mapped()){
+                // take the left end of the read
+                bp.start = srpe.ff.node_to_position[a.path().mapping( b.path().mapping_size() - 1).position().node_id() ];
+            }
+        }
+        bps.push_back(bp);
+    };
+
     oea_stream.open(oea_fn);
     if (!oea_stream.good()){
         cerr << "No one-end-anchored file found." << endl
@@ -447,7 +411,8 @@ int main_srpe(int argc, char** argv){
     else{
         // Get all OEA reads
         // and place a breakpoint <insertsize> bp from the mapped read.
-
+        // check if it's clipped
+        stream::for_each_interleaved_pair_parallel(oea_stream, oea_func);
     }
 
     clipped_stream.open(clipped_fn);

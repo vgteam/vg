@@ -14,6 +14,83 @@
 using namespace std;
 namespace vg{
 
+
+    struct BREAKPOINT{
+        int64_t start = 0;
+        int64_t upper_bound = 100;
+        int64_t lower_bound = 100;
+        int fragl_supports = 0;
+        int split_supports = 0;
+        int other_supports = 0;
+        inline int total_supports(){
+            return fragl_supports + split_supports + other_supports;
+        }
+        inline bool overlap(BREAKPOINT p, int dist){
+            if ( abs(start - p.start) < dist){
+                    return true;
+                }
+            return false;
+        }
+        inline string to_string(){
+            stringstream x;
+            x << "Pos: " << start << " u: " << upper_bound << " l: " << lower_bound << " s: " << total_supports();
+            return x.str();
+        }
+
+    };
+
+
+struct INS_INTERVAL{
+        int64_t start = 0;
+        int64_t end = 0;
+        int64_t len = 0;
+        double start_ci = 1000.0;
+        double end_ci = 1000.0;
+        bool precise = false;
+        int fragl_supports = 0;
+        int oea_supports = 0;
+        int split_supports = 0;
+        int other_supports = 0;
+        inline int total_supports(){
+            return fragl_supports + oea_supports + split_supports + other_supports;
+        }
+        inline string to_string(){
+            stringstream ss;
+            ss << "Start: " << start <<
+            " End: " << end << " Support: " << total_supports();
+            return ss.str();
+        }
+        inline bool overlap(INS_INTERVAL other){
+            if ( (other.start >= start && other.start <= end) ||
+                  (other.end <= end && other.end >= start) ||
+                  (other.start >= start && other.end <= end)){
+                    return true;
+                  }
+            return false;
+                  
+        }
+        inline bool contained(INS_INTERVAL other){
+            if (other.end < end && start > other.start){
+                return true;
+            }
+            return false;
+        }
+        inline Interval<int> as_interval(){
+            return Interval<int>(start, end, 0);
+        }
+        inline void merge_breakpoint(BREAKPOINT b){
+            bool is_front = abs(b.start - start) < abs(b.start - end);
+            if (is_front){
+
+            }
+            else{
+
+            }
+        };
+    };
+
+
+
 /**
  * Overview:
  *      Use the GAM/GAM index and a filter to locate Alignments
@@ -112,6 +189,12 @@ public:
             vector<string> ref_names;
 
             vector<pair<int, int> > intervals;
+
+            double discordance_score(vector<Alignment> alns, VG* subgraph);
+            void aln_to_bseq(Alignment& a, bseq1_t* read);
+            void assemble();
+            void assemble(int64_t start_pos, int64_t end_pos, );
+            void assemble(int64_t node_id, int64_t end_pos);
 
 
             // Are multiple references present in the same subgraph?

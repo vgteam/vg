@@ -3,14 +3,12 @@
 using namespace std;
 namespace vg{
 
-    /**
-    void aln_to_bseq(Alignment& a, bseq1_t* read);
-    void assemble();
-    void assemble(int64_t start_pos, int64_t end_pos, );
-    void assemble(int64_t node_id, int64_t end_pos);
-    void rescore(vector<Alignment> reads, vg* graph);
-    
-    */
+    double SRPE::discordance_score(vector<Alignment> alns, VG* subgraph);
+
+    void SRPE::aln_to_bseq(Alignment& a, bseq1_t* read);
+    void SRPE::assemble();
+    void SRPE::assemble(int64_t start_pos, int64_t end_pos, );
+    void SRPE::assemble(int64_t node_id, int64_t end_pos);
 
     // void SRPE::remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped){
 
