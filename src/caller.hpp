@@ -556,6 +556,10 @@ public:
     /// (anything below gets FAIL)    
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
         "min. minimum allele depth required to PASS filter"};
+
+    Option<bool> write_trivial_calls{this, "trival", "i", false,
+            "write trivial vcf calls (ex 0/0 genotypes)"};
+    
     /// print warnings etc. to stderr
     bool verbose = false;
     

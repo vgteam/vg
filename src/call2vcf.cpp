@@ -1586,7 +1586,7 @@ void Call2Vcf::call(
                 min_site_support = min(min_site_support, total(locus.support(genotype.allele(i))));
                 min_site_quality = min(min_site_quality, locus.support(genotype.allele(i)).quality());
             }
-            
+           
             // Set the variant's total depth            
             string depth_string = to_string((int64_t)round(total(total_support)));
             variant.samples[sample_name]["DP"].push_back(depth_string);
@@ -1602,8 +1602,9 @@ void Call2Vcf::call(
             variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
 
             // Don't bother with trivial calls
-            if (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
-                genotype_vector.back() != "0/0" || genotype_vector.back() != "0|0") {
+            if (write_trivial_calls ||
+                (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
+                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0")) {
             
                 if(can_write_alleles(variant)) {
                     // No need to check for collisions because we assume sites are correctly found.
