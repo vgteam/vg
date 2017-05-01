@@ -2076,7 +2076,6 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                     aln = bands[i];
                 }
                 // strip overlaps
-                aln = simplify(aln);
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
             }
@@ -2096,7 +2095,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 }
             }
 #endif
-            aln = simplify(aln);
+            // strip overlaps
             aln = strip_from_start(aln, to_strip[i].first);
             aln = strip_from_end(aln, to_strip[i].second);
         }

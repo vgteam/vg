@@ -634,7 +634,7 @@ int main_msga(int argc, char** argv) {
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
                     << "expected " << seq << endl
-                    << "got " << path_seq << endl
+                    << "got      " << path_seq << endl
                     << pb2json(aln.path()) << endl
                     << pb2json(graph->paths.path(name)) << endl;
                 graph->serialize_to_file(name + "-post-edit.vg");

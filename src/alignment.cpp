@@ -948,10 +948,7 @@ const string hash_alignment(const Alignment& aln) {
 Alignment simplify(const Alignment& a) {
     auto aln = a;
     *aln.mutable_path() = simplify(aln.path());
-    // clear the path if we have a path, but no mappings or positions
-    if (!aln.path().mapping_size() ||
-        aln.path().mapping_size() == 1
-        && !aln.path().mapping(0).position().node_id()) {
+    if (!aln.path().mapping_size()) {
         aln.clear_path();
     }
     return aln;
