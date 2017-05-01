@@ -7,6 +7,7 @@
 #include "index.hpp"
 #include "IntervalTree.h"
 #include "vg.pb.h"
+#include "fml.h"
 #include "vg.hpp"
 #include "gcsa.h"
 #include "alignment.hpp"
@@ -192,8 +193,8 @@ public:
 
             double discordance_score(vector<Alignment> alns, VG* subgraph);
             void aln_to_bseq(Alignment& a, bseq1_t* read);
-            void assemble();
-            void assemble(int64_t start_pos, int64_t end_pos, );
+            void assemble(vector<Alignment> alns);
+            void assemble(string refpath, int64_t start_pos, int64_t end_pos);
             void assemble(int64_t node_id, int64_t end_pos);
 
 
