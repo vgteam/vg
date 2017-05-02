@@ -1553,6 +1553,8 @@ void Call2Vcf::call(
             
             // Set up the depth format field
             variant.format.push_back("DP");
+            // And expected depth
+            variant.format.push_back("XDP");
             // And allelic depth
             variant.format.push_back("AD");
             // And strand bias
