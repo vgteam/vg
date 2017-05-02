@@ -101,7 +101,7 @@ string char_to_string(const char& letter) {
  */
 void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     const vector<string>& contig_names, const vector<size_t>& contig_sizes,
-    int min_mad_for_filter) {
+    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter) {
     
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
@@ -109,8 +109,12 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
     stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
-    stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highlocaldp,Description=\"Variant has total depth greater than "
+        << max_dp_multiple_for_filter << " times local baseline\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
+    stream << "##FORMAT=<ID=XDP,Number=1,Type=Integer,Description=\"Expected Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
     stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
@@ -1135,7 +1139,8 @@ void Call2Vcf::call(
         // available info fields or whatever are defined in the file's header,
         // so they know what to output.
         stringstream header_stream;
-        write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths, min_mad_for_filter);
+        write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths,
+            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter);
         
         // Load the headers into a the VCF file object
         string header_string = header_stream.str();
@@ -1279,7 +1284,8 @@ void Call2Vcf::call(
         // This function emits the given variant on the given primary path, as
         // VCF. It needs to take the site as an argument because it may be
         // called for children of the site we're working on right now.
-        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions, &baseline_support, this](
+            const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
         
             // Note that the locus paths will traverse our site forward, which
             // may make them backward along the primary path.
@@ -1589,8 +1595,13 @@ void Call2Vcf::call(
            
             // Set the variant's total depth            
             string depth_string = to_string((int64_t)round(total(total_support)));
-            variant.samples[sample_name]["DP"].push_back(depth_string);
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+            
+            // And for the sample
+            variant.samples[sample_name]["DP"].push_back(depth_string);
+            
+            // Set the sample's local expected depth            
+            variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(baseline_support))));
             
             // And its depth of non-0 alleles
             variant.samples[sample_name]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
@@ -1598,9 +1609,21 @@ void Call2Vcf::call(
             // Set the total support quality of the min allele as the variant quality
             variant.quality = min_site_quality;
 
-            // Apply Min Allele Depth cutoff and store result in Filter column
-            variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
-
+            // Now do the filters
+            variant.filter = "PASS";            
+            if (min_site_support < min_mad_for_filter) {
+                // Apply Min Allele Depth cutoff
+                variant.filter = "lowad";
+            } else if (max_dp_for_filter != 0 && total(total_support) > max_dp_for_filter) {
+                // Apply the max depth cutoff
+                variant.filter = "highdp";
+            } else if (max_dp_multiple_for_filter != 0 &&
+                total(total_support) > max_dp_multiple_for_filter * total(baseline_support)) {
+                // Apply the max depth multiple cutoff
+                // TODO: Account for sites called as just one allele
+                variant.filter = "highlocaldp";
+            }
+            
             // Don't bother with trivial calls
             if (write_trivial_calls ||
                 (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
@@ -1610,7 +1633,7 @@ void Call2Vcf::call(
                     // No need to check for collisions because we assume sites are correctly found.
                     // Output the created VCF variant.
                     cout << variant << endl;
-                
+            
                 } else {
                     if (verbose) {
                         cerr << "Variant is too large" << endl;

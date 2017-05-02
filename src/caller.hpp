@@ -553,13 +553,19 @@ public:
     /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
     /// what's the minimum minimum allele depth to give a PASS in the filter column
-    /// (anything below gets FAIL)    
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
-        "min. minimum allele depth required to PASS filter"};
-
+        "min. minimum allele depth to PASS filter"};
+    /// what's the maximum total depth to give a PASS in the filter column
+    Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 0,
+        "max depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the baseline coverage?
+    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 3.0,
+        "max portion of expected depth to PASS filter (0 for unlimited)"};
+        
     Option<bool> write_trivial_calls{this, "trival", "i", false,
-            "write trivial vcf calls (ex 0/0 genotypes)"};
-    
+        "write trivial vcf calls (ex 0/0 genotypes)"};
+        
     /// print warnings etc. to stderr
     bool verbose = false;
     
