@@ -890,11 +890,11 @@ void help_pileup(char** argv) {
          << endl
          << "options:" << endl
          << "    -j, --json              output in JSON" << endl
-         << "    -q, --min-quality N     ignore bases with PHRED quality < N (default=0)" << endl
+         << "    -q, --min-quality N     ignore bases with PHRED quality < N (default=10)" << endl
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
-         << "    -a, --use-mapq          combine mapping qualities with base qualities" << endl
+         << "    -M, --ignore-mapq       do not combine mapping qualities with base qualities" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -v, --verbose           print stats on bases filtered" << endl;
@@ -910,12 +910,12 @@ int main_pileup(int argc, char** argv) {
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
-    int min_quality = 0;
+    int min_quality = 10;
     int max_mismatches = 1;
     int window_size = 0;
     int max_depth = 1000; // used to prevent protobuf messages getting to big
     bool verbose = false;
-    bool use_mapq = false;
+    bool use_mapq = true;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -928,7 +928,7 @@ int main_pileup(int argc, char** argv) {
                 {"window-size", required_argument, 0, 'w'},
                 {"progress", required_argument, 0, 'p'},
                 {"max-depth", required_argument, 0, 'd'},
-                {"use-mapq", no_argument, 0, 'a'},
+                {"ignore-mapq", no_argument, 0, 'M'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
@@ -959,8 +959,8 @@ int main_pileup(int argc, char** argv) {
         case 'd':
             max_depth = atoi(optarg);
             break;
-        case 'a':
-            use_mapq = true;
+        case 'M':
+            use_mapq = false;
             break;
         case 'p':
             show_progress = true;

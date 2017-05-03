@@ -108,7 +108,7 @@ class VGCITest(TestCase):
 
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
-        opts = '--realTimeLogging --logInfo '        
+        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} False '.format(self.vg_docker)
         if chrom:
@@ -185,7 +185,7 @@ class VGCITest(TestCase):
         out_store = self._outstore(tag)
 
         # start by simulating some reads
-        opts = '--realTimeLogging --logInfo '        
+        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} False '.format(self.vg_docker)
         # note, using the same seed only means something if using same
