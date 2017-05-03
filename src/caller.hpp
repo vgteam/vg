@@ -562,10 +562,13 @@ public:
     /// multiple of the baseline coverage?
     Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 1.5,
         "max portion of expected depth to PASS filter (0 for unlimited)"};
+    // what's the min log likelihood for allele depth assignments to PASS?
+    Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-ligelihood", "MmAaDdLl", -9.0,
+        "min log likelihood for AD assignments to PASS filter (0 for unlimited)"};
         
     Option<bool> write_trivial_calls{this, "trival", "i", false,
         "write trivial vcf calls (ex 0/0 genotypes)"};
-        
+    
     /// print warnings etc. to stderr
     bool verbose = false;
     

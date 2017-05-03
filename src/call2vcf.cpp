@@ -101,7 +101,7 @@ string char_to_string(const char& letter) {
  */
 void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     const vector<string>& contig_names, const vector<size_t>& contig_sizes,
-    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter) {
+    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter) {
     
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
@@ -113,10 +113,13 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##FILTER=<ID=highdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
     stream << "##FILTER=<ID=highlocaldp,Description=\"Variant has total depth greater than "
         << max_dp_multiple_for_filter << " times local baseline\">" <<endl;
+    stream << "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than "
+        << min_ad_log_likelihood_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
     stream << "##FORMAT=<ID=XDP,Number=2,Type=Integer,Description=\"Expected Local and Global Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
+    stream << "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">" << endl;
     stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
     stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << endl;
@@ -1140,7 +1143,7 @@ void Call2Vcf::call(
         // so they know what to output.
         stringstream header_stream;
         write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths,
-            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter);
+            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter, min_ad_log_likelihood_for_filter);
         
         // Load the headers into a the VCF file object
         string header_string = header_stream.str();
@@ -1567,6 +1570,9 @@ void Call2Vcf::call(
             variant.format.push_back("XDP");
             // And allelic depth
             variant.format.push_back("AD");
+            // And the log likelihood from the assignment of reads among the
+            // present alleles
+            variant.format.push_back("XADL");
             // And strand bias
             variant.format.push_back("SB");
             // Also the alt allele depth
@@ -1604,7 +1610,28 @@ void Call2Vcf::call(
                 min_site_support = min(min_site_support, total(locus.support(genotype.allele(i))));
                 min_site_quality = min(min_site_quality, locus.support(genotype.allele(i)).quality());
             }
-           
+            
+            // Find the binomial bias between the called alleles, if multiple were called.
+            double ad_log_likelihood = INFINITY;
+            if (second_best_allele != -1) {
+                // How many of the less common one do we have?
+                size_t successes = round(total(locus.support(second_best_allele)));
+                // Out of how many chances
+                size_t trials = successes + (size_t) round(total(locus.support(best_allele)));
+                
+                assert(trials >= successes);
+                
+                // How weird is that?                
+                ad_log_likelihood = binomial_cmf_ln(prob_to_logprob((real_t) 0.5), trials, successes);
+                
+                assert(!std::isnan(ad_log_likelihood));
+                
+                variant.samples[sample_name]["XADL"].push_back(to_string(ad_log_likelihood));
+            } else {
+                // No need to assign reads between two alleles
+                variant.samples[sample_name]["XADL"].push_back(".");
+            }
+
             // Set the variant's total depth            
             string depth_string = to_string((int64_t)round(total(total_support)));
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
@@ -1635,6 +1662,10 @@ void Call2Vcf::call(
                 // Apply the max depth multiple cutoff
                 // TODO: Account for sites called as just one allele
                 variant.filter = "highlocaldp";
+            } else if (min_ad_log_likelihood_for_filter != 0 &&
+                ad_log_likelihood < min_ad_log_likelihood_for_filter) {
+                // We have a het, but the assignment of reads between the two branches is just too weird
+                variant.filter = "lowxadl";
             }
             
             // Don't bother with trivial calls
