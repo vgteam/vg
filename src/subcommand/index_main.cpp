@@ -44,8 +44,6 @@ void help_index(char** argv) {
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
          << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
          << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
          << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "                           (this is required if you are using multiple graphs files)" << endl
@@ -59,6 +57,8 @@ void help_index(char** argv) {
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format, cross reference nodes by alignment traversals" << endl
+         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
          << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
@@ -325,8 +325,6 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    if (edge_max == 0) edge_max = kmer_size + 1;
-
     vector<string> file_names;
     while (optind < argc) {
         string file_name = get_input_file_name(optind, argc, argv);
@@ -354,6 +352,23 @@ int main_index(int argc, char** argv) {
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
     }
+    
+    if (!gcsa_name.empty() && rocksdb_name.empty()) {
+        // We need to make a gcsa index and not a RocksDB index.
+        
+        if (edge_max != 0) {
+            // I have been passing this option to vg index -g for months
+            // thinking it worked. But it can't work. So we should tell the user
+            // they're wrong.
+            cerr << "error:[vg index] Cannot limit edge crossing (-e) when generating GCSA index (-g)."
+                << " Use vg mod -p to prune the graph instead." << endl;
+            exit(1);
+        }
+        
+    }
+    
+    // An edge_max of 0 really just means an edge_max of one edge every base
+    if (edge_max == 0) edge_max = kmer_size + 1;
 
     if (!xg_name.empty()) {
         // We need to build an xg index

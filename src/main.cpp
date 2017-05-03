@@ -2612,6 +2612,14 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
+        if (edge_max != 0) {
+            // I have been passing this option to vg index -g for months
+            // thinking it worked. But it can't work. So we should tell the user
+            // they're wrong.
+            cerr << "error:[vg kmers] Cannot limit edge crossing (-e) when generating GCSA kmers (-g)."
+                << " Use vg mod -p to prune the graph instead." << endl;
+            exit(1);
+        }
         if (!gcsa_binary) {
             graphs.write_gcsa_out(cout, kmer_size, path_only, forward_only, head_id, tail_id);
         } else {
