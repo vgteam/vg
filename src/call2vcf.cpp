@@ -114,7 +114,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##FILTER=<ID=highlocaldp,Description=\"Variant has total depth greater than "
         << max_dp_multiple_for_filter << " times local baseline\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
-    stream << "##FORMAT=<ID=XDP,Number=1,Type=Integer,Description=\"Expected Depth\">" << endl;
+    stream << "##FORMAT=<ID=XDP,Number=2,Type=Integer,Description=\"Expected Local and Global Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
     stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
@@ -1257,12 +1257,16 @@ void Call2Vcf::call(
         // See if the site is on a primary path, so we can use binned support.
         map<string, PrimaryPath>::iterator found_path = find_path(*site, primary_paths);
         
-        // We need to figure out how much support a site ought to have
+        // We need to figure out how much support a site ought to have.
+        // Within its local bin?
         Support baseline_support;
+        // On its primary path?
+        Support global_baseline_support;
         if (expected_coverage != 0.0) {
             // Use the specified coverage override
             baseline_support.set_forward(expected_coverage / 2);
             baseline_support.set_reverse(expected_coverage / 2);
+            global_baseline_support = baseline_support;
         } else if (found_path != primary_paths.end()) {
             // We're on a primary path, so we can find the appropriate bin
         
@@ -1276,15 +1280,21 @@ void Call2Vcf::call(
             // Look in the bins for the primary path to get the support there.
             baseline_support = found_path->second.get_support_at(variation_start);
             
+            // And grab the path's overall support
+            global_baseline_support = found_path->second.get_average_support();
+            
         } else {
             // Just use the primary paths' average support, which may be 0 if there are none.
-            baseline_support = PrimaryPath::get_average_support(primary_paths);
+            // How much support is expected across all the primary paths? May be 0 if there are no primary paths.
+            global_baseline_support = PrimaryPath::get_average_support(primary_paths);
+            baseline_support = global_baseline_support;
         }
         
         // This function emits the given variant on the given primary path, as
         // VCF. It needs to take the site as an argument because it may be
         // called for children of the site we're working on right now.
-        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions, &baseline_support, this](
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions,
+            &baseline_support, &global_baseline_support, this](
             const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
         
             // Note that the locus paths will traverse our site forward, which
@@ -1602,8 +1612,9 @@ void Call2Vcf::call(
             // And for the sample
             variant.samples[sample_name]["DP"].push_back(depth_string);
             
-            // Set the sample's local expected depth            
+            // Set the sample's local and global expected depth            
             variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(baseline_support))));
+            variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(global_baseline_support))));
             
             // And its depth of non-0 alleles
             variant.samples[sample_name]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
@@ -1620,7 +1631,7 @@ void Call2Vcf::call(
                 // Apply the max depth cutoff
                 variant.filter = "highdp";
             } else if (max_dp_multiple_for_filter != 0 &&
-                total(total_support) > max_dp_multiple_for_filter * total(baseline_support)) {
+                total(total_support) > max_dp_multiple_for_filter * total(global_baseline_support)) {
                 // Apply the max depth multiple cutoff
                 // TODO: Account for sites called as just one allele
                 variant.filter = "highlocaldp";

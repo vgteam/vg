@@ -556,11 +556,11 @@ public:
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
         "min. minimum allele depth to PASS filter"};
     /// what's the maximum total depth to give a PASS in the filter column
-    Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 60,
+    Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 100,
         "max depth to PASS filter (0 for unlimited)"};
     /// what's the maximum total depth to give a PASS in the filter column, as a
     /// multiple of the baseline coverage?
-    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 3.0,
+    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 1.5,
         "max portion of expected depth to PASS filter (0 for unlimited)"};
         
     Option<bool> write_trivial_calls{this, "trival", "i", false,
