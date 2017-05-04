@@ -23,7 +23,7 @@ message Node {
 
 // *Side* refers to the end of a node (of two)
 message Side {
-    int64 node_id = 1;
+    int64 node_id = 1; // ID of the node
     bool five_prime = 2; // If the side is the 5' (start) of the node, otherwise is 3' (end) of the node
 }
 
@@ -225,10 +225,6 @@ enum SnarlType {
 message Snarl {    
     // What type of snarl is this?
     SnarlType type = 1;
-    
-    // The two sides of the snarl
-    Side side1 = 2;
-    Side side2 = 3;
 
     // Visits that connect the Snarl to the rest of the graph
     Visit start = 2; // points *INTO* the snarl
@@ -241,8 +237,12 @@ message Snarl {
     // Allows snarls to be named, e.g. by the hash of the VCF variant they come from.
     string name = 5;
     
+    // The two sides of the snarl
+    Side side1 = 6;
+    Side side2 = 7;
+    
     // If the Snarl is in a chain and there exists another snarl in the chain successor will point to it
-    Snarl successor = 7; 
+    Snarl successor = 8; 
 }
 
 // Describes a step of a walk through a Snarl either on a node or through a child Snarl
