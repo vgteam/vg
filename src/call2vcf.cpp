@@ -795,10 +795,12 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             second_best_allele != -1 &&
             bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
             total(best_support) >= min_total_support_for_call &&
-            total(second_best_support) >= min_total_support_for_call) {
-            // There's a second best allele, and it's not too biased to
-            // call, and both alleles exceed the minimum to call them
-            // present.
+            total(second_best_support) >= min_total_support_for_call &&
+            total(second_best_support) >= min_mad_for_filter) {
+            // There's a second best allele, and it's not too biased to call,
+            // and both alleles exceed the minimum to call them present, and the
+            // second-best allele has enough support that it won't torpedo the
+            // variant.
             
 #ifdef debug
             cerr << "Call as best/second best" << endl;
@@ -1620,7 +1622,7 @@ void Call2Vcf::call(
             double min_site_quality = INFINITY;
             
             for (size_t i = 0; i < genotype.allele_size(); i++) {
-                // Min all the total supports from the alleles called as present
+                // Min all the total supports from the non-ref alleles called as present
                 min_site_support = min(min_site_support, total(locus.support(genotype.allele(i))));
                 min_site_quality = min(min_site_quality, locus.support(genotype.allele(i)).quality());
             }
@@ -1666,7 +1668,7 @@ void Call2Vcf::call(
             // Now do the filters
             variant.filter = "PASS";            
             if (min_site_support < min_mad_for_filter) {
-                // Apply Min Allele Depth cutoff
+                // Apply Min Allele Depth cutoff across all alleles (even ref)
                 variant.filter = "lowad";
             } else if (max_dp_for_filter != 0 && total(total_support) > max_dp_for_filter) {
                 // Apply the max depth cutoff

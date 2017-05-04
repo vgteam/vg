@@ -555,9 +555,10 @@ public:
     /// What's the maximum number of bubble path combinations we can explore
     /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
-    /// what's the minimum minimum allele depth to give a PASS in the filter column
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
-        "min. minimum allele depth to PASS filter"};
+        "min. ref/alt allele depth to PASS filter or be a second-best allele"};
     /// what's the maximum total depth to give a PASS in the filter column
     Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 0,
         "max depth to PASS filter (0 for unlimited)"};
@@ -565,7 +566,7 @@ public:
     /// multiple of the baseline coverage?
     Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 2.5,
         "max portion of expected depth to PASS filter (0 for unlimited)"};
-    // what's the min log likelihood for allele depth assignments to PASS?
+    /// what's the min log likelihood for allele depth assignments to PASS?
     Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-ligelihood", "MmAaDdLl", -9.0,
         "min log likelihood for AD assignments to PASS filter (0 for unlimited)"};
         
