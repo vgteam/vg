@@ -48,14 +48,14 @@ ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cu
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o $(OBJ_DIR)/constructor.o $(OBJ_DIR)/progressive.o $(OBJ_DIR)/flow_sort.o $(OBJ_DIR)/homogenizer.o $(OBJ_DIR)/pathindex.o $(OBJ_DIR)/haplotype_extracter.o $(OBJ_DIR)/haplotypes.o
+OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o $(OBJ_DIR)/banded_global_aligner.o $(OBJ_DIR)/constructor.o $(OBJ_DIR)/progressive.o $(OBJ_DIR)/flow_sort.o $(OBJ_DIR)/homogenizer.o $(OBJ_DIR)/pathindex.o $(OBJ_DIR)/haplotype_extracter.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o $(UNITTEST_OBJ_DIR)/readfilter.o $(UNITTEST_OBJ_DIR)/banded_global_aligner.o $(UNITTEST_OBJ_DIR)/pinned_alignment.o $(UNITTEST_OBJ_DIR)/vg.o $(UNITTEST_OBJ_DIR)/constructor.o $(UNITTEST_OBJ_DIR)/flow_sort_test.o $(UNITTEST_OBJ_DIR)/srpe_filter.o
 
 
 # These aren;t put into libvg, but they provide subcommand implementations for the vg bianry
-SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct_main.o $(SUBCOMMAND_OBJ_DIR)/simplify_main.o $(SUBCOMMAND_OBJ_DIR)/index_main.o $(SUBCOMMAND_OBJ_DIR)/mod_main.o $(SUBCOMMAND_OBJ_DIR)/haplotype_main.o $(SUBCOMMAND_OBJ_DIR)/trace_main.o 
+SUBCOMMAND_OBJ:=$(SUBCOMMAND_OBJ_DIR)/subcommand.o $(SUBCOMMAND_OBJ_DIR)/construct_main.o $(SUBCOMMAND_OBJ_DIR)/simplify_main.o $(SUBCOMMAND_OBJ_DIR)/index_main.o $(SUBCOMMAND_OBJ_DIR)/mod_main.o $(SUBCOMMAND_OBJ_DIR)/trace_main.o 
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -349,10 +349,7 @@ $(OBJ_DIR)/srpe.o: $(SRC_DIR)/srpe.cpp $(SRC_DIR)/srpe.hpp $(OBJ_DIR)/filter.o $
 $(OBJ_DIR)/pathindex.o: $(SRC_DIR)/pathindex.cpp $(SRC_DIR)/pathindex.hpp $(DEPS)
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(OBJ_DIR)/haplotypes.o: $(SRC_DIR)/haplotypes.cpp $(SRC_DIR)/haplotypes.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
-	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
-
-$(OBJ_DIR)/haplotype_extracter.o: $(SRC_DIR)/haplotype_extracter.cpp $(SRC_DIR)/haplotype_extracter.hpp $(SRC_DIR)/haplotypes.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
+$(OBJ_DIR)/haplotype_extracter.o: $(SRC_DIR)/haplotype_extracter.cpp $(SRC_DIR)/haplotype_extracter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 	###################################
@@ -424,10 +421,7 @@ $(SUBCOMMAND_OBJ_DIR)/index_main.o: $(SUBCOMMAND_SRC_DIR)/index_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/mod_main.o: $(SUBCOMMAND_SRC_DIR)/mod_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(SUBCOMMAND_OBJ_DIR)/haplotype_main.o: $(SUBCOMMAND_SRC_DIR)/haplotype_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/haplotypes.hpp $(SRC_DIR)/haplotype_extracter.hpp $(DEPS)
-	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
-
-$(SUBCOMMAND_OBJ_DIR)/trace_main.o: $(SUBCOMMAND_SRC_DIR)/trace_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/haplotypes.hpp $(SRC_DIR)/haplotype_extracter.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/trace_main.o: $(SUBCOMMAND_SRC_DIR)/trace_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/haplotype_extracter.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
