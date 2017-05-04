@@ -21,6 +21,12 @@ message Node {
     int64 id = 3;     // Each Node has a unique positive nonzero ID within its Graph.
 }
 
+// *Side* refers to the end of a node (of two)
+message Side {
+    int64 node_id = 1;
+    bool five_prime = 2; // If the side is the 5' (start) of the node, otherwise is 3' (end) of the node
+}
+
 // *Edges* describe linkages between nodes. They are bidirected, connecting the
 // end (default) or start of the "from" node to the start (default) or end of
 // the "to" node.
@@ -219,6 +225,10 @@ enum SnarlType {
 message Snarl {    
     // What type of snarl is this?
     SnarlType type = 1;
+    
+    // The two sides of the snarl
+    Side side1 = 2;
+    Side side2 = 3;
 
     // Visits that connect the Snarl to the rest of the graph
     Visit start = 2; // points *INTO* the snarl
@@ -227,8 +237,12 @@ message Snarl {
     // If this Snarl is nested in another, this field should be filled in with a Snarl
     // that has the start and end visits filled in (other information is optional/extraneous)
     Snarl parent = 4;
+    
     // Allows snarls to be named, e.g. by the hash of the VCF variant they come from.
     string name = 5;
+    
+    // If the Snarl is in a chain and there exists another snarl in the chain successor will point to it
+    Snarl successor = 7; 
 }
 
 // Describes a step of a walk through a Snarl either on a node or through a child Snarl
