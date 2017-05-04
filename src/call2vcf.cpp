@@ -597,7 +597,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #endif
 
 
-    // Get traversals of this Snarl, with Visits to child Snarls
+    // Get traversals of this Snarl, with Visits to child Snarls.
+    // The 0th is always the reference traversal if we're on a primary path
     vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
     
 
@@ -607,7 +608,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 
     
     // Make a Locus to hold all our stats for the different traversals
-    // available.
+    // available. The 0th will always be the ref traversal if we're on a primary
+    // path.
     Locus locus;
     
     // How long is the longest traversal?
@@ -907,19 +909,23 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // Recurse on each child, giving a copy number budget according to the
         // usage count call at this site. This produces fully realized
         // traversals with no Visits to Snarls.
+        // Holds ref traversal, best, and optional second best for each child.
         child_traversals[child] = find_best_traversals(augmented, snarl_manager,
             finder, *child, baseline_support, child_usage_counts[child], emit_locus);
     }
     
     for (auto kv : child_traversals) {
-        // All children must have at least one traversal.
-        assert(!kv.second.empty());
+        // All children must have at least two traversals (a ref and a best).
+        // Off the primary paths, the ref is sort of arbitrary.
+        assert(kv.second.size() >= 2);
     }
     
-    // Put the best traversal for each child in our traversals that visit it
-    // (even if that contradicts the calls on the child)
+    // Put the best (or ref) traversal for each child in our traversals that
+    // visit it (even if that contradicts the calls on the child)
     vector<SnarlTraversal> concrete_traversals;
-    for (auto& abstract_traversal : here_traversals) {
+    for (size_t traversal_number = 0; traversal_number < here_traversals.size(); traversal_number++) {
+        // For every abstract traversal of this site, starting with the ref traversal...
+        auto& abstract_traversal = here_traversals[traversal_number];
         // Make a "concrete", node-level traversal for every abstract, Snarl-
         // visiting traversal.
         concrete_traversals.emplace_back();
@@ -939,9 +945,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // If they're visits to children, look up the child
                 const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
                 
-                // Then blit the child's best path over.
-                // Keep in mind that we may be going through the child backward.
-                auto& child_traversal = child_traversals.at(child).at(0);
+                // Then blit the child's path over. This will be the ref path if
+                // we are concrete-izing this snarl's ref traversal, and the
+                // best path for the child otherwise. Keep in mind that we may
+                // be going through the child backward.
+                auto& child_traversal = child_traversals.at(child).at(traversal_number == 0 ? 0 : 1);
                 
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
@@ -991,22 +999,15 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         emit_locus(locus, &site);
     }
     
-    // Return the traversals, best and second-best first, but having at least
-    // one.
-    assert(concrete_traversals.size() >= 1);
-    // Move the best allele first
-    swap(concrete_traversals[0], concrete_traversals[best_allele]);
-    if (second_best_allele != -1 && concrete_traversals.size() >= 2) {
-        // We want to put the second best allele second
-        if (second_best_allele == 0) {
-            // We moved it already
-            second_best_allele = best_allele;
-        }
-        swap(concrete_traversals[1], concrete_traversals[second_best_allele]);
+    // Build the list of traversals to return as ref, best, second best, with
+    // possible repeats.
+    vector<SnarlTraversal> to_return{concrete_traversals[0], concrete_traversals[best_allele]};
+    if (second_best_allele != -1) {
+        to_return.push_back(concrete_traversals[second_best_allele]);
     }
     
-    // Return all the concrete traversals we created
-    return concrete_traversals;
+    // Return those important traversals
+    return to_return;
 
 }
 
@@ -1492,6 +1493,19 @@ void Call2Vcf::call(
                 
                 // Budge the variant left
                 variant.position--;
+            }
+            
+            // Make sure the ref allele is correct
+            {
+                string real_ref = primary_path.get_index().sequence.substr(
+                    variant.position - variant_offset - 1, sequences.front().size());
+                string got_ref = sequences.front();
+                
+                if (real_ref != got_ref) {
+                    cerr << "Error: Ref should be " << real_ref << " but is " << got_ref << " at " << variant.position << endl;
+                    throw runtime_error("Reference mismatch at site " + pb2json(*site));
+                }
+            
             }
             
             // Add the ref allele to the variant

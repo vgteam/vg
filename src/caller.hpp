@@ -422,16 +422,19 @@ public:
     void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
-     * For the given snarl, find the best traversal, and the second-best
-     * traversal, recursively, if any exist. These traversals will be fully
-     * filled in with nodes.
+     * For the given snarl, find the reference traversal, the best traversal,
+     * and the second-best traversal, recursively, if any exist. These
+     * traversals will be fully filled in with nodes.
      *
      * Only snarls which are ultrabubbles can be called.
      *
      * Expects the given baseline support for a diploid call.
      *
-     * Will not return more than copy_budget SnarlTraversals, and will return
-     * less if some copies are called as having the same traversal.
+     * Will not return more than 1 + copy_budget SnarlTraversals, and will
+     * return less if some copies are called as having the same traversal.
+     *
+     * Does not deduplicate agains the ref traversal; it may be the same as the
+     * best or second-best.
      *
      * Uses the given copy number allowance, and emits a Locus for this Snarl
      * and any child Snarls.
