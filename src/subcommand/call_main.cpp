@@ -60,7 +60,7 @@ int main_call(int argc, char** argv) {
     Call2Vcf call2vcf;
 
     bool show_progress = false;
-    int thread_count = 1;
+    int thread_count = 0;
 
     static const struct option long_options[] = {
         {"default-read-qual", required_argument, 0, 'q'},
@@ -128,8 +128,10 @@ int main_call(int argc, char** argv) {
     // Parse the command line options, updating optind.
     parser.parse(argc, argv);
 
-    // Set up threading according to info parsed from the options.
-    omp_set_num_threads(thread_count);
+    if (thread_count != 0) {
+        // Use a non-default number of threads
+        omp_set_num_threads(thread_count);
+    }
     thread_count = get_thread_count();
 
     // Parse the arguments

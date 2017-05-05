@@ -422,16 +422,19 @@ public:
     void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
-     * For the given snarl, find the best traversal, and the second-best
-     * traversal, recursively, if any exist. These traversals will be fully
-     * filled in with nodes.
+     * For the given snarl, find the reference traversal, the best traversal,
+     * and the second-best traversal, recursively, if any exist. These
+     * traversals will be fully filled in with nodes.
      *
      * Only snarls which are ultrabubbles can be called.
      *
      * Expects the given baseline support for a diploid call.
      *
-     * Will not return more than copy_budget SnarlTraversals, and will return
-     * less if some copies are called as having the same traversal.
+     * Will not return more than 1 + copy_budget SnarlTraversals, and will
+     * return less if some copies are called as having the same traversal.
+     *
+     * Does not deduplicate agains the ref traversal; it may be the same as the
+     * best or second-best.
      *
      * Uses the given copy number allowance, and emits a Locus for this Snarl
      * and any child Snarls.
@@ -552,13 +555,27 @@ public:
     /// What's the maximum number of bubble path combinations we can explore
     /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
-    /// what's the minimum minimum allele depth to give a PASS in the filter column
-    /// (anything below gets FAIL)    
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
-        "min. minimum allele depth required to PASS filter"};
-
-    Option<bool> write_trivial_calls{this, "trival", "i", false,
-            "write trivial vcf calls (ex 0/0 genotypes)"};
+        "min. ref/alt allele depth to PASS filter or be a second-best allele"};
+    /// what's the maximum total depth to give a PASS in the filter column
+    Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 0,
+        "max depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the global baseline coverage?
+    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 0,
+        "max portion of global expected depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the local baseline coverage?
+    Option<double> max_local_dp_multiple_for_filter{this, "max-local-dp-multiple", "MmLlOoDdAaXxPp", 0,
+        "max portion of local expected depth to PASS filter (0 for unlimited)"};
+    /// what's the min log likelihood for allele depth assignments to PASS?
+    Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-likelihood", "MmAaDdLliI", -9.0,
+        "min log likelihood for AD assignments to PASS filter (0 for unlimited)"};
+        
+    Option<bool> write_trivial_calls{this, "trival", "ivtTIRV", false,
+        "write trivial vcf calls (ex 0/0 genotypes)"};
     
     /// print warnings etc. to stderr
     bool verbose = false;
