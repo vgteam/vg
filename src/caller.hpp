@@ -563,14 +563,18 @@ public:
     Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 0,
         "max depth to PASS filter (0 for unlimited)"};
     /// what's the maximum total depth to give a PASS in the filter column, as a
-    /// multiple of the baseline coverage?
-    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 2.5,
-        "max portion of expected depth to PASS filter (0 for unlimited)"};
+    /// multiple of the global baseline coverage?
+    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 0,
+        "max portion of global expected depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the local baseline coverage?
+    Option<double> max_local_dp_multiple_for_filter{this, "max-local-dp-multiple", "MmLlOoDdAaXxPp", 0,
+        "max portion of local expected depth to PASS filter (0 for unlimited)"};
     /// what's the min log likelihood for allele depth assignments to PASS?
-    Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-ligelihood", "MmAaDdLl", -9.0,
+    Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-likelihood", "MmAaDdLliI", -9.0,
         "min log likelihood for AD assignments to PASS filter (0 for unlimited)"};
         
-    Option<bool> write_trivial_calls{this, "trival", "i", false,
+    Option<bool> write_trivial_calls{this, "trival", "ivtTIRV", false,
         "write trivial vcf calls (ex 0/0 genotypes)"};
     
     /// print warnings etc. to stderr

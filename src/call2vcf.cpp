@@ -101,7 +101,8 @@ string char_to_string(const char& letter) {
  */
 void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     const vector<string>& contig_names, const vector<size_t>& contig_sizes,
-    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter) {
+    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter,
+    double max_local_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter) {
     
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
@@ -110,9 +111,11 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
     stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
-    stream << "##FILTER=<ID=highdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highabsdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highreldp,Description=\"Variant has total depth greater than "
+        << max_dp_multiple_for_filter << " times global baseline\">" <<endl;
     stream << "##FILTER=<ID=highlocaldp,Description=\"Variant has total depth greater than "
-        << max_dp_multiple_for_filter << " times local baseline\">" <<endl;
+        << max_local_dp_multiple_for_filter << " times local baseline\">" <<endl;
     stream << "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than "
         << min_ad_log_likelihood_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
@@ -1146,7 +1149,8 @@ void Call2Vcf::call(
         // so they know what to output.
         stringstream header_stream;
         write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths,
-            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter, min_ad_log_likelihood_for_filter);
+            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter, max_local_dp_multiple_for_filter,
+            min_ad_log_likelihood_for_filter);
         
         // Load the headers into a the VCF file object
         string header_string = header_stream.str();
@@ -1672,11 +1676,16 @@ void Call2Vcf::call(
                 variant.filter = "lowad";
             } else if (max_dp_for_filter != 0 && total(total_support) > max_dp_for_filter) {
                 // Apply the max depth cutoff
-                variant.filter = "highdp";
+                variant.filter = "highabsdp";
             } else if (max_dp_multiple_for_filter != 0 &&
                 total(total_support) > max_dp_multiple_for_filter * total(global_baseline_support)) {
                 // Apply the max depth multiple cutoff
-                // TODO: Account for sites called as just one allele
+                // TODO: Different standard for sites called as haploid
+                variant.filter = "highreldp";
+            } else if (max_local_dp_multiple_for_filter != 0 &&
+                total(total_support) > max_local_dp_multiple_for_filter * total(baseline_support)) {
+                // Apply the max local depth multiple cutoff
+                // TODO: Different standard for sites called as haoploid
                 variant.filter = "highlocaldp";
             } else if (min_ad_log_likelihood_for_filter != 0 &&
                 ad_log_likelihood < min_ad_log_likelihood_for_filter) {
