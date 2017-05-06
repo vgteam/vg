@@ -1,8 +1,7 @@
-//
-//  multipath_alignment.cpp
-//  
-// unit tests for multipath alignment construction and utility functions
-//
+/// \file multipath_alignment.cpp
+///  
+/// unit tests for multipath alignment construction and utility functions
+///
 
 #include <stdio.h>
 #include <iostream>

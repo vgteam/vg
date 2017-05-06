@@ -1,10 +1,12 @@
 /**
+ * \file 
  * unittest/constructor.cpp: test cases for the vg graph constructor tool
  */
 
 #include "catch.hpp"
 #include "../constructor.hpp"
 
+#include "../utility.hpp"
 #include "../path.hpp"
 #include "../json2pb.h"
 
@@ -178,7 +180,7 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
 }
 
 /**
- * Testing wrapper to build a graph from a VCF string. Adds alt paths by default.
+ * Testing wrapper to build a graph chunk from a VCF string. Adds alt paths by default.
  */
 ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
     
@@ -205,6 +207,62 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
 
     // Construct the graph    
     return constructor.construct_chunk(ref_sequence, ref_name, variants, 0);
+}
+
+/**
+ * Testing wrapper to build a whole graph from a VCF string. Adds alt paths by default.
+ */
+Graph construct_test_graph(string fasta_data, string vcf_data) {
+    
+    // Merge all the graphs we get into this graph
+    Graph built;
+    
+    // Make a stream out of the VCF data
+    std::stringstream vcf_stream(vcf_data);
+    
+    // Load it up in vcflib
+    vcflib::VariantCallFile vcf;
+    vcf.open(vcf_stream);
+    
+    // Put it in a vector
+    vector<vcflib::VariantCallFile*> vcf_pointers {&vcf};
+    
+    // We have to write the FASTA to a file
+    string fasta_filename = tmpfilename();
+    ofstream fasta_stream(fasta_filename);
+    fasta_stream << fasta_data;
+    fasta_stream.close(); 
+    
+    // Make a FastaReference out of it
+    FastaReference reference;
+    reference.open(fasta_filename);
+    
+    // Put it in a vector
+    vector<FastaReference*> fasta_pointers {&reference};
+    
+    // Make an empty vector of insertion files
+    vector<FastaReference*> ins_pointers;
+    
+    // Make a callback to handle the output
+    auto callback = [&](Graph& constructed) {
+        // Merge everything that comes out into one graph in memory.
+        #pragma omp critical
+        built.MergeFrom(constructed);
+    };
+    
+    Constructor constructor;
+    constructor.alt_paths = true;
+    // Make sure we can test the node splitting behavior at reasonable sizes
+    constructor.max_node_size = 50;
+
+    // Construct the graph    
+    constructor.construct_graph(fasta_pointers, vcf_pointers, ins_pointers, callback);
+    
+    // Delete our temporary file
+    remove(fasta_filename.c_str());
+    
+    // Return the aggregated result
+    return built;
 }
 
 TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
@@ -1139,6 +1197,52 @@ ref	11	.	TAG	T	29	PASS	.	GT
     // TODO: the center ought to look like this:
     // (A)TT A-+->C-+->ACAT(T)
     //       T-+----/
+
+}
+
+TEST_CASE( "A VCF and FASTA on two contigs make a graph with a consistent ID space", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref1	1	.	GA	A	29	PASS	.	GT
+ref1	5	rs1337	AC	A	29	PASS	.	GT
+ref2	5	.	A	T	29	PASS	.	GT
+ref2	6	rs1338	C	G	29	PASS	.	GT
+ref2	11	.	TAG	T	29	PASS	.	GT
+)";
+
+    auto fasta_data = R"(>ref1
+GATTACACATTAG
+>ref2
+GATTACACATTAG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("node IDs are not repeated") {
+        set<id_t> seen_ids;
+        
+        for (size_t i = 0; i < result.node_size(); i++) {
+            // Look at each node
+            auto& node = result.node(i);
+            
+            // Make sure its ID hasn't been seen before
+            REQUIRE(!seen_ids.count(node.id()));
+            seen_ids.insert(node.id());
+        }
+    }
 
 }
 

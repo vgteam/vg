@@ -145,6 +145,29 @@ string tmpfilename(const string& base) {
     return tmpname;
 }
 
+string find_temp_dir() {
+    // We need to find the system temp directory.
+    const char* system_temp_dir = nullptr;
+    
+    for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
+        // Try all these env vars in order
+        if (system_temp_dir == nullptr) {
+            system_temp_dir = getenv(var_name);
+        }
+    }
+    if (system_temp_dir == nullptr) {
+        // Then if none were set default to /tmp
+        system_temp_dir = "/tmp";
+    }
+    
+    return std::string(system_temp_dir);
+}
+
+string tmpfilename() {
+    // Make a temp file in the system temp directory.
+    return tmpfilename(find_temp_dir() + "/vg");
+}
+
 string get_or_make_variant_id(const vcflib::Variant& variant) {
 
      if(!variant.id.empty() && variant.id != ".") {
@@ -218,6 +241,25 @@ string get_input_file_name(int& optind, int argc, char** argv) {
     
 }
 
+string get_output_file_name(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Complain that the user didn't specify a filename
+        cerr << "error:[get_output_file_name] specify output filename" << endl;
+        exit(1);
+    }
+    
+    string file_name(argv[optind++]);
+    
+    if (file_name.empty()) {
+        cerr << "error:[get_output_file_name] specify a non-empty output filename" << endl;
+        exit(1);
+    }
+    
+    return file_name;
+    
+}
+
 void get_input_file(const string& file_name, function<void(istream&)> callback) {
 
     if (file_name == "-") {
@@ -237,5 +279,56 @@ void get_input_file(const string& file_name, function<void(istream&)> callback) 
     
 }
 
+double phi(double x1, double x2) {
+    return (std::erf(x2/std::sqrt(2)) - std::erf(x1/std::sqrt(2)))/2;
+}
+
+void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
+    // Set the ref allele
+    variant.ref = allele;
+    
+    for(size_t i = 0; i < variant.ref.size(); i++) {
+        // Look at all the bases
+        if(variant.ref[i] != 'A' && variant.ref[i] != 'C' && variant.ref[i] != 'G' && variant.ref[i] != 'T') {
+            // Correct anything bogus (like "X") to N
+            variant.ref[i] = 'N';
+        }
+    }
+    
+    // Make it 0 in the alleles-by-index list
+    variant.alleles.push_back(allele);
+    // Build the reciprocal index-by-allele mapping
+    variant.updateAlleleIndexes();
+}
+
+int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
+    // Copy the allele so we can throw out bad characters
+    std::string fixed(allele);
+    
+    for(size_t i = 0; i < fixed.size(); i++) {
+        // Look at all the bases
+        if(fixed[i] != 'A' && fixed[i] != 'C' && fixed[i] != 'G' && fixed[i] != 'T') {
+            // Correct anything bogus (like "X") to N
+            fixed[i] = 'N';
+        }
+    }
+    
+    for(int i = 0; i < variant.alleles.size(); i++) {
+        if(variant.alleles[i] == fixed) {
+            // Already exists
+            return i;
+        }
+    }
+
+    // Add it as an alt
+    variant.alt.push_back(fixed);
+    // Make it next in the alleles-by-index list
+    variant.alleles.push_back(fixed);
+    // Build the reciprocal index-by-allele mapping
+    variant.updateAlleleIndexes();
+
+    // We added it in at the end
+    return variant.alleles.size() - 1;
+}
 
 }

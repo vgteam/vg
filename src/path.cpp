@@ -1110,7 +1110,8 @@ Path simplify(const Path& p) {
         // remove wholly-deleted or empty mappings as these are redundant
         if ((m.edit_size() == 1 && edit_is_deletion(m.edit(0)))
             || m.edit_size() == 0) continue;
-        if (s.mapping_size()) {
+        if (s.mapping_size()
+            && m.position().is_reverse() == s.mapping(s.mapping_size()-1).position().is_reverse()) {
             // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
@@ -1185,22 +1186,24 @@ Mapping simplify(const Mapping& m) {
     Mapping n;
     if (m.rank()) n.set_rank(m.rank());
     //cerr << "pre simplify " << pb2json(m) << endl;
-    // get the position
-    if (!m.has_position() || m.position().node_id()==0) {
-        // do nothing
-    } else {
-        // take the old position
-        *n.mutable_position() = m.position();
-    }
+    // take the old position (which may be empty)
+    *n.mutable_position() = m.position();
 
     size_t j = 0;
     // to simplify, we skip deletions at the very start of the node
     // these are implied by jumps in the path from other nodes
-    if (m.has_position() && m.position().offset() == 0) {
+    if (m.position().offset() == 0) {
         for ( ; j < m.edit_size(); ++j) {
             if (!edit_is_deletion(m.edit(j))) {
                 break;
             } else {
+                if (n.position().node_id() == 0) {
+                    // Complain if a Mapping has no position *and* has edit-initial
+                    // deletions, which we need to remove but can't.
+                    throw runtime_error(
+                        "Cannot simplify Mapping with no position: need to update position when removing leading deletion");
+                }
+                
                 // Adjust the offset by the size of the deletion.
                 n.mutable_position()->set_offset(n.position().offset()
                                                  + m.edit(j).from_length());
@@ -1236,6 +1239,47 @@ Mapping simplify(const Mapping& m) {
     }
     //cerr << "post simplify " << pb2json(n) << endl;
     return n;
+}
+
+Mapping merge_adjacent_edits(const Mapping& m) {
+
+    Mapping n;
+    if (m.rank()) n.set_rank(m.rank());
+    // get the position
+    if (m.has_position()) {
+        // take the old position
+        *n.mutable_position() = m.position();
+    }
+
+    // This tracks what edit we're merging into
+    size_t j = 0;
+    // Go through the edits and see if we can merge them
+    if (j < m.edit_size()) {
+        Edit e = m.edit(j++);
+        for ( ; j < m.edit_size(); ++j) {
+            auto& f = m.edit(j);
+            // if the edit types are the same, merge them
+            if ((edit_is_match(e) && edit_is_match(f))
+                || (edit_is_sub(e) && edit_is_sub(f))
+                || (edit_is_deletion(e) && edit_is_deletion(f))
+                || (edit_is_insertion(e) && edit_is_insertion(f))) {
+                // will be 0 for insertions, and + for the rest
+                e.set_from_length(e.from_length()+f.from_length());
+                // will be 0 for deletions, and + for the rest
+                e.set_to_length(e.to_length()+f.to_length());
+                // will be empty for both or have sequence for both
+                e.set_sequence(e.sequence() + f.sequence());
+            } else {
+                // mismatched types are just put on
+                *n.add_edit() = e;
+                e = f;
+            }
+        }
+        // Keep the last edit
+        *n.add_edit() = e;
+    }
+    return n;
+
 }
 
 Path trim_hanging_ends(const Path& p) {
@@ -1682,11 +1726,13 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
         auto& m = path.mapping(i);
         *p2.add_mapping() = m;
     }
+    // Make sure that the child paths have positions if the parent path did.
+    // Account for the fact that we may have a 0-length child path.
     assert(!path.mapping(0).has_position()
-           || (p1.mapping(0).has_position()
-               && p1.mapping(0).position().node_id()
-               && p2.mapping(0).has_position()
-               && p2.mapping(0).position().node_id()));
+           || ((p1.mapping_size() == 0 || (p1.mapping(0).has_position()
+               && p1.mapping(0).position().node_id())) &&
+               (p2.mapping_size() == 0 || (p2.mapping(0).has_position()
+               && p2.mapping(0).position().node_id()))));
 #ifdef debug
     cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
 #endif
@@ -1793,8 +1839,7 @@ double identity(const Path& path) {
 void
 decompose(const Path& path,
           map<pos_t, int>& ref_positions,
-          map<int, Edit>& edits) {
-    int read_pos = 0;
+          map<pos_t, Edit>& edits) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         pos_t ref_pos = make_pos_t(mapping.position());
@@ -1807,40 +1852,31 @@ decompose(const Path& path,
                     get_offset(ref_pos)++;
                 }
             } else {
-                edits[read_pos] = edit;
+                edits[ref_pos] = edit;
                 get_offset(ref_pos) += edit.from_length();
             }
-            read_pos += edit.to_length();
         }
     }
 }
 
 double overlap(const Path& p1, const Path& p2) {
     map<pos_t, int> ref1, ref2;
-    map<int, Edit> edit1, edit2;
+    map<pos_t, Edit> edit1, edit2;
     decompose(p1, ref1, edit1);
     decompose(p2, ref2, edit2);
     // compare the two position sets
     int matching = 0;
-    int total = 0;
+    //int total = path_to_length(p1) + path_to_length(p2);
     // match positions from 1 in 2
     for (auto& p : ref1) {
-        total += p.second;
         auto f = ref2.find(p.first);
         if (f != ref2.end()) {
             matching += min(p.second, f->second);
-            ref2.erase(f);
         }
-    }
-    // unmatched positions from 2
-    for (auto& p : ref2) {
-        total += p.second;
     }
     // handle edits
     for (auto& e : edit1) {
         auto& edit = e.second;
-        total += edit.to_length();
-        
         auto f = edit2.find(e.first);
         if (f != edit2.end()) {
             if (edit == f->second) {
@@ -1849,7 +1885,7 @@ double overlap(const Path& p1, const Path& p2) {
             edit2.erase(f);
         }
     }
-    return (double) matching / (double) total;
+    return (double) matching / (double) path_to_length(p1);
 }
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {

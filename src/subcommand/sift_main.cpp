@@ -26,50 +26,31 @@ using namespace vg::subcommand;
 //Max path len should be TODO s > avg_p_len + 3*sigma
 //and there should be min path len, essentially discordant path lengths
 
-/*
- *
- 
-bool is_significant(double zed, double cutoff){
-    if (zed > cutoff || -1.0 * zed > cutoff){
-        return true;
-    }
-    return false;
-}
-double zed_score(double mu, double sigma, double val){
-    return (val - mu) / sigma;
-}
-
-double reservoir_avg(int sz, vector<double> vals){
-
-}
-
-*/
-
 void help_sift(char** argv){
     cerr << "Usage: " << argv[0] << " sift [options] <alignments.gam>" << endl
         << "Sift through a GAM and select / remove reads with particular properties." << endl
         << "General Options: " << endl
-        << "    -t / --threads" << endl
-        << "    -v / --inverse" << endl
-        << "    -x / --xg" << endl
-        << "    -P / --paired" << endl
+        << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
+        << "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
+        << "    -x / --xg  <MYXG>   An XG index (for realignment of split reads)" << endl
+        << "    -p / --paired       Input reads are paired-end" << endl
+        << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
+        << "    -o / --output <PREFIX>" << endl
         << "Paired-end options:" << endl
-        << "    -I / --insert-size <INSRTSZ>" << endl
-        << "    -w / --insert-size-sigma <SIGMA>" << endl
-        << "    -O / --one-end-anchored" << endl
-        << "    -C / --interchromosomal" << endl
-        << "    -D / --discordant-orientation" << endl
-        << "    -F / --force-paired" << endl
-        << "    -M / --max-path-length <MXPTHLN>" << endl
+        << "    -I / --insert-size <INSRTSZ>        Insert size mean. Flag reads where ((I - insrtsz) / W) > 2.95" << endl
+        << "    -W / --insert-size-sigma <SIGMA>    Standard deviation of insert size." << endl
+        << "    -O / --one-end-anchored             Flag reads where one read of the pair is mapped and the other is unmapped." << endl
+        << "    -C / --interchromosomal             Flag reads mapping to two distinct Paths" << endl
+        << "    -D / --discordant-orientation       Flag reads that do not have the expected --> <-- orientation." << endl
         << "Single-end / individual read options:" << endl
-        << "    -c / --softclip <CLIPLEN>" << endl
-        << "    -s / --split-read <SPLITLEN>" << endl
-        << "    -q / --quality <QUAL> " << endl
-        << "    -d / --depth <DEPTH> " << endl
-        << "    -p / --percent-identity <PCTID>" << endl
-        << "    -a / --average" << endl
-        << "    -w / --window <WINDOWLEN>" << endl
-        << "    -r / --reversing" << endl
+        << "    -c / --softclip <MAXCLIPLEN>        Flag reads with softclipped sections longer than MAXCLIPLEN" << endl
+        << "    -s / --split-read <SPLITLEN>        Flag reads with softclips that map independently of the anchored portion (requires -x, -g)." << endl
+        << "    -q / --quality <QUAL>               Flag reads with a single base quality below <QUAL>" << endl
+        << "    -d / --depth <DEPTH>                Flag reads which have a low-depth Pos+Edit combo." << endl
+        << "    -i / --percent-identity <PCTID>     Flag reads with percent identity to their primary path beliw <PCTID>" << endl
+        //<< "    -a / --average" << endl
+        //<< "    -w / --window <WINDOWLEN>" << endl
+        << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|--> )" << endl
         << endl;
 }
 
@@ -82,33 +63,45 @@ int main_sift(int argc, char** argv){
     }
 
     string alignment_file = "";
+    int threads = 1;
 
     bool inverse = false;
     bool is_paired = false;
-    bool forced = false;
+    bool remap = false;
+
+
+    bool do_all = true;
 
     bool do_orientation = false;
     bool do_oea = false;
-    int threads = 1;
-
-    int insert_size = 300;
-    int insert_size_sigma = 50;
-    bool do_insrt_sz = false;
-
+    bool do_insert_size = false;
+    bool do_softclip = false;
+    bool do_reversing = false;
     bool do_interchromosomal = false;
+    bool do_split_read = false;
+    bool do_depth = false;
+    bool do_percent_id = false;
+    bool do_quality = false;
+    bool do_unmapped = false;
 
-    int soft_clip_max = -1;
+
+    float insert_size = 300;
+    float insert_size_sigma = 50;
+
+
+    int softclip_max = -1;
     int max_path_length = 0;
-    bool do_max_path = false;
 
     int split_read_limit = -1;
     double depth = -1;
+
+
     int window = 0;
     bool use_avg = false;
     double pct_id = 0;
     double quality = 0.0;
 
-
+    Filter ff;
 
 
     int c;
@@ -117,19 +110,11 @@ int main_sift(int argc, char** argv){
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"one-end-anchored", no_argument, 0, 'O'},
-            {"interchromosomal", no_argument, 0, 'C'},
-            {"discordant-orientation", no_argument, 0, 'D'},
-            {"paired", no_argument, 0, 'P'},
-            {"insert-size", required_argument, 0, 'I'},
-            {"insert-size-sigma", required_argument, 0, 'w'},
-            {"soft-clip", required_argument, 0, 'c'},
-            {"max-path-length", required_argument, 0, 'M'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "htvM:I:w:ODPFc:",
+        c = getopt_long (argc, argv, "ht:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -145,39 +130,60 @@ int main_sift(int argc, char** argv){
             case 't':
                 threads = atoi(optarg);
                 break;
-            case 'v':
-                inverse = true;
+
+            case 'u':
+                do_unmapped = true;
+                do_all = false;
+                break;
+            case 'c':
+                do_softclip = true;
+                softclip_max = atoi(optarg);
+                ff.set_soft_clip_limit(softclip_max);
                 break;
             case 's':
-                soft_clip_max = atoi(optarg);
+                do_split_read = true;
+                do_all = false;
                 break;
-            case 'F':
+            case 'q':
+                do_quality = true;
+                do_all = false;
+                quality = atof(optarg);
+                break;
+            case 'd':
+                do_depth = true;
+                do_all = false;
+                depth = atof(optarg);
+                break;
+            case 'R':
+                remap = true;
+                do_all = false;
+                break;
+            case 'r':
+                do_reversing = true;
+                do_all = false;
+                break;
+            case 'p':
                 is_paired = true;
-                forced = true;
+                break;
+            case 'C':
+                do_interchromosomal = true;
+                do_all = false;
+                break;
+            case 'I':
+                insert_size = atof(optarg);
+                do_all = false;
+                break;
+            case 'W':
+                insert_size_sigma = atof(optarg);
+                do_all = false;
                 break;
             case 'O':
                 do_oea = true;
-                break;
-            case 'I':
-                insert_size = atoi(optarg);
-                do_insrt_sz = true;
-                break;
-            case 'w':
-                insert_size_sigma = atoi(optarg);
-                do_insrt_sz = true;
-                break;
-            case 'P':
-                is_paired = true;
+                do_all = false;
                 break;
             case 'D':
                 do_orientation = true;
-                break;
-            case 'M':
-                do_max_path = true;
-                max_path_length = atoi(optarg);
-                break;
-            case 'c':
-                soft_clip_max = atoi(optarg);
+                do_all = false;
                 break;
             default:
                 help_sift(argv);
@@ -198,95 +204,234 @@ int main_sift(int argc, char** argv){
 
 
     omp_set_num_threads(threads);
-
-    Filter ff;
     ff.set_inverse(inverse);
-    ff.max_path_length = max_path_length;
 
-    if (soft_clip_max >= 0){
-        ff.set_soft_clip_limit(soft_clip_max);
+    if (softclip_max >= 0){
+        ff.set_soft_clip_limit(softclip_max);
+    }
+
+
+    if (do_all){
+    do_orientation = true;
+    do_oea = true;
+    do_insert_size = true;
+    do_softclip = true;
+    do_reversing = true;
+    do_interchromosomal = true;
+    do_split_read = true;
+    do_depth = true;
+    do_percent_id = true;
+    do_quality = true;
+    do_unmapped = true;
+
     }
 
     vector<Alignment> buffer;
-    static const int buffer_size = 1000; // we let this be off by 1
-    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
-        return buffer[i];
+    
+    
+
+    function<bool(Alignment&)> single_diff = [&](Alignment& aln){
+        bool anchored = false;
+        for (int i = 0; i < aln.path().mapping_size(); ++i){
+            // check if anchored on both sides
+            // check for small mismatches (to/from len diff or sequence)
+        }
+        return true;
+    };
+
+    //vector<Alignment> orphaned_selected;
+    vector<Alignment> just_fine;
+    vector<Alignment> perfect;
+    vector<Alignment> simple_mismatch;
+    vector<Alignment> discordant_selected;
+    vector<Alignment> split_selected;
+    vector<Alignment> reversing_selected;
+    vector<Alignment> clipped_selected;
+    vector<Alignment> one_end_anchored;
+    vector<Alignment> quality_selected;
+    vector<Alignment> insert_selected;
+    vector<Alignment> depth_selected;
+    vector<Alignment> single_bp_diff;
+    vector<Alignment> unmapped_selected;
+
+    string unmapped_fn = alignment_file + ".unmapped";
+    string discordant_fn = alignment_file + ".discordant";
+    string split_fn = alignment_file + ".split";
+    string reversing_fn = alignment_file +  ".reversing";
+    string oea_fn = alignment_file + ".one_end_anchored";
+    string clipped_fn = alignment_file + ".softclipped";
+    string insert_fn = alignment_file + ".insert_size";
+    string quality_fn = alignment_file + ".quality";
+    string depth_fn = alignment_file + ".depth";
+
+    ofstream unmapped_stream;
+    ofstream discordant_stream;
+    ofstream split_stream;
+    ofstream reversing_stream;
+    ofstream oea_stream;
+    ofstream clipped_stream;
+    ofstream insert_stream;
+    ofstream quality_stream;
+    ofstream depth_stream;
+
+    unmapped_stream.open(unmapped_fn);
+
+    std::function<void()> write_all = [&](){
+
     };
 
 
 
+
     std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
-
-        /**  if (aln.sequence().size() > 0){
-          buffer.push_back(aln);
-          }
-          };*/
-
+        pair<Alignment, Alignment> ret;
         if (do_orientation){
-            std::pair<Alignment, Alignment> filt = ff.orientation_filter(alns_first, alns_second);
-            alns_first = filt.first;
-            alns_second = filt.second;
-            if (!alns_first.name().empty()){
-                buffer.push_back(alns_first);
-                buffer.push_back(alns_second);
+            
+            ret = ff.pair_orientation_filter(alns_first, alns_second);
+            #pragma omp critical (discordant_selected)
+            {
+                discordant_selected.push_back(alns_first);
+                discordant_selected.push_back(alns_second);
             }
+
         }
         if (do_oea){
-            std::pair<Alignment, Alignment> filt = ff.one_end_anchored_filter(alns_first, alns_second);
-            alns_first = filt.first;
-            alns_second = filt.second;
-            if (!alns_first.name().empty()){
-                buffer.push_back(alns_first);
-                buffer.push_back(alns_second);
+            ret = ff.one_end_anchored_filter(alns_first, alns_second);
+            #pragma omp critical (oea_selected)
+            {
+                one_end_anchored.push_back(alns_first);
+                one_end_anchored.push_back(alns_second);
             }
-        }
-        if (do_insrt_sz){
 
         }
-        if (do_interchromosomal){
+        if (do_insert_size){
 
-        }
-        if (do_max_path ){
-            std::pair<Alignment, Alignment> filt = ff.path_length_filter(alns_first, alns_second);
-            alns_first = filt.first;
-            alns_second = filt.second;
-            if (!alns_first.name().empty()){
-                buffer.push_back(alns_first);
-                buffer.push_back(alns_second);
+            #pragma omp critial (insert_selected)
+            {
+                insert_selected.push_back(alns_first);
+                insert_selected.push_back(alns_second);
             }
+
+
         }
-    //return std::make_pair(alns.first, alns.second);
-};
+        if (do_split_read){
+            // first check softclip with a default size of 15
+            // then get the position of the clip start
+            // then remap the clipped/unclipped portions if required.
+            // Then binary-search map if needed.
 
-std::function<void(Alignment&, Alignment&)> se_pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
-    
+            if (remap){
+                // ff.split_remap(alns_first, alns_second);
 
-};
+            }
 
-std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
-    if (soft_clip_max >=0){
-        aln = ff.soft_clip_filter(aln);    
-    }
-    buffer.push_back(aln);
-};
+            
+            #pragma omp critical (split_selected)
+            {
+                split_selected.push_back(alns_first);
+                split_selected.push_back(alns_second);
+            }
+
+        }
+        if (do_reversing){
+            Alignment x = ff.reversing_filter(alns_first);
+            Alignment y = ff.reversing_filter(alns_second);
+            if (x.name() != "" || y.name() != ""){
+            #pragma omp critical (reversing_selected)
+            {
+                reversing_selected.push_back(alns_first);
+                reversing_selected.push_back(alns_second);
+            }
+            }
+       
+
+
+        }
+        if (do_softclip){
+
+            Alignment x = ff.soft_clip_filter(alns_first);
+            Alignment y = ff.soft_clip_filter(alns_second);
+
+            #pragma omp critical (clipped_selected)
+            {
+                clipped_selected.push_back(alns_first);
+                clipped_selected.push_back(alns_second);
+            }
+
+        }
+        if (do_quality){
+
+            #pragma omp critical (quality_selected)
+            {
+                quality_selected.push_back(alns_first);
+                quality_selected.push_back(alns_second);
+            }
+
+        }
+        if (do_depth){
+
+            #pragma omp critical (depth_selected)
+            {
+                depth_selected.push_back(alns_first);
+                depth_selected.push_back(alns_second);
+            }
+            
+        }
+        if (do_unmapped){
+            if (alns_first.path().mapping_size() == 0 ||
+                alns_second.path().mapping_size() == 0){
+
+                    #pragma omp critical (unmapped_selected)
+                    {
+                        unmapped_selected.push_back(alns_first);
+                        unmapped_selected.push_back(alns_second);
+                    }
+                }
+        }
+
+        stream::write_buffered(unmapped_stream, unmapped_selected, 100);
+
+
+    };
+
+    std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
+        if (do_split_read){
+            split_selected.push_back(aln);
+        }
+        if (do_reversing){
+            reversing_selected.push_back(aln);
+        }
+        if (do_softclip){
+           if (!ff.soft_clip_filter(aln).name().empty()){
+                clipped_selected.push_back(aln);
+           }
+           stream::write_buffered(clipped_stream, clipped_selected, 1000);
+
+        }
+        if (do_quality){
+            quality_selected.push_back(aln);
+        }
+        if (do_depth){
+            depth_selected.push_back(aln);
+        }
+
+    };
 
 
 
 if (alignment_file == "-"){
+    stream::for_each_interleaved_pair_parallel(cin, pair_filters);
+    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
+    stream::write_buffered(oea_stream, one_end_anchored, 0);
 }
 else{
     ifstream in;
     in.open(alignment_file);
     if (in.good()){
 
-        if (is_paired && forced){
-            //void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
-        cerr << "Processing..." << endl;
-            gam_paired_interleaved_for_each_parallel(in, pair_filters);
-        }
-        else if (is_paired){
-            //void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda);
-            gam_paired_interleaved_for_each_parallel(in, pair_filters);
+        if (is_paired){
+            cerr << "Processing..." << endl;
+            stream::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{
             stream::for_each_parallel(in, single_filters);
@@ -299,16 +444,15 @@ else{
     }
 }
 
-if (buffer.size() > 0) {
-    stream::write(cout, buffer.size(), write_buffer);
+
     buffer.clear();
-}
+
 
 
 
 return 0;
 }
 
-static Subcommand vg_sift("sift", "GAM filter / scrubber", main_sift);
+static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", main_sift);
 
 

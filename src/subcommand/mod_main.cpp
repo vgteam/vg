@@ -52,6 +52,7 @@ void help_mod(char** argv) {
          << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -D, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
+         << "    -I, --retain-complement keep only paths NOT specified with -r" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -74,6 +75,7 @@ void help_mod(char** argv) {
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
          << "    -a, --cactus            convert to cactus graph representation" << endl
          << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl
+         << "    -G, --sample-graph FILE subset an augmented graph to a sample graph using a Locus file" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -107,6 +109,7 @@ int main_mod(int argc, char** argv) {
     bool drop_paths = false;
     bool force_path_match = false;
     set<string> paths_to_retain;
+    bool retain_complement = false;
     vector<int64_t> root_nodes;
     int32_t context_steps;
     bool remove_null;
@@ -124,6 +127,7 @@ int main_mod(int argc, char** argv) {
     bool flip_doubly_reversed_edges = false;
     bool cactus = false;
     string vcf_filename;
+    string loci_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -174,11 +178,12 @@ int main_mod(int argc, char** argv) {
             {"unreverse-edges", required_argument, 0, 'E'},
             {"cactus", no_argument, 0, 'a'},
             {"sample-vcf", required_argument, 0, 'v'},
+            {"sample-graph", required_argument, 0, 'G'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Eav:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:",
                 long_options, &option_index);
 
 
@@ -220,6 +225,10 @@ int main_mod(int argc, char** argv) {
 
         case 'r':
             paths_to_retain.insert(optarg);
+            break;
+            
+        case 'I':
+            retain_complement = true;
             break;
 
         case 'o':
@@ -353,6 +362,10 @@ int main_mod(int argc, char** argv) {
         case 'v':
             vcf_filename = optarg;
             break;
+            
+        case 'G':
+            loci_filename = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -369,6 +382,21 @@ int main_mod(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
+    
+    if (retain_complement) {
+        // Compute the actual paths to retain
+        set<string> complement;
+        graph->paths.for_each_name([&](const string& name) {
+            if (!paths_to_retain.count(name)) {
+                // Complement the set the user specified by putting in all the
+                // paths they didn't mention.
+                complement.insert(name);
+            }
+        });
+        
+        // Retain the complement of what we were asking for.
+        paths_to_retain = complement;
+    }
 
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,
@@ -510,6 +538,81 @@ int main_mod(int argc, char** argv) {
         }
 
     }
+    
+    if (!loci_filename.empty()) {
+        // Open the file
+        ifstream loci_file(loci_filename);
+        assert(loci_file.is_open());
+    
+        // What nodes and edges are called as present by the loci?
+        set<Node*> called_nodes;
+        set<Edge*> called_edges;
+    
+        function<void(Locus&)> lambda = [&](Locus& locus) {
+            // For each locus
+            
+            if (locus.genotype_size() == 0) {
+                // No call made here. Just remove all the nodes/edges. TODO:
+                // should we keep them all if we don't know if they're there or
+                // not? Or should the caller call ref with some low confidence?
+                return;
+            }
+            
+            const Genotype& gt = locus.genotype(0);
+            
+            for (size_t j = 0; j < gt.allele_size(); j++) {
+                // For every allele called as present
+                int allele_number = gt.allele(j);
+                const Path& allele = locus.allele(allele_number);
+                
+                for (size_t i = 0; i < allele.mapping_size(); i++) {
+                    // For every Mapping in the allele
+                    const Mapping& m = allele.mapping(i);
+                    
+                    // Remember to keep this node
+                    called_nodes.insert(graph->get_node(m.position().node_id()));
+                    
+                    if (i + 1 < allele.mapping_size()) {
+                        // Look at the next mapping, which exists
+                        const Mapping& m2 = allele.mapping(i + 1);
+                        
+                        // Find the edge from the last Mapping's node to this one and mark it as used
+                        called_edges.insert(graph->get_edge(NodeSide(m.position().node_id(), !m.position().is_reverse()),
+                            NodeSide(m2.position().node_id(), m2.position().is_reverse())));
+                    }
+                }
+            }
+        };
+        stream::for_each(loci_file, lambda);
+        
+        // Collect all the unused nodes and edges (so we don't try to delete
+        // while iterating...)
+        set<Node*> unused_nodes;
+        set<Edge*> unused_edges;
+        
+        graph->for_each_node([&](Node* n) {
+            if (!called_nodes.count(n)) {
+                unused_nodes.insert(n);
+            }
+        });
+        
+        graph->for_each_edge([&](Edge* e) {
+            if (!called_edges.count(e)) {
+                unused_edges.insert(e);
+            }
+        });
+        
+        
+        
+        // Destroy all the extra edges (in case they use extra nodes)
+        for (auto* e : unused_edges) {
+            graph->destroy_edge(e);
+        }
+        
+        for (auto* n : unused_nodes) {
+            graph->destroy_node(n);
+        }
+    }
 
     if (bluntify) {
         graph->bluntify();
@@ -519,7 +622,7 @@ int main_mod(int argc, char** argv) {
         graph->keep_path(path_name);
     }
 
-    if (!paths_to_retain.empty()) {
+    if (!paths_to_retain.empty() || retain_complement) {
         graph->paths.keep_paths(paths_to_retain);
     }
 
@@ -569,18 +672,18 @@ int main_mod(int argc, char** argv) {
     }
 
     if (dagify_steps) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
     }
 
     if (unfold_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->unfold(unfold_to, node_translation);
     }
 
@@ -740,4 +843,4 @@ int main_mod(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("mod", "filter, transform, and edit the graph", main_mod);
+static Subcommand vg_mod("mod", "filter, transform, and edit the graph", main_mod);

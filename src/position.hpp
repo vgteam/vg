@@ -7,6 +7,7 @@
 #include "lru_cache.h"
 #include "utility.hpp"
 #include "json2pb.h"
+#include "gcsa.h"
 #include <iostream>
 
 /** \file 
@@ -41,22 +42,32 @@ ostream& operator<<(ostream& out, const pos_t& pos);
 pos_t make_pos_t(const Position& pos);
 /// Create a pos_t from a Node ID, an orientation flag, and an offset.
 pos_t make_pos_t(id_t id, bool is_rev, off_t off);
+/// Create a pos_t from a gcsa node
+pos_t make_pos_t(gcsa::node_type node);
 /// Convert a pos_t to a Position.
 Position make_position(const pos_t& pos);
 /// Create a Position from a Node ID, an orientation flag, and an offset.
 Position make_position(id_t id, bool is_rev, off_t off);
+/// Make a Position from a gcsa node
+Position make_position(gcsa::node_type node);
 
 // xg/position traversal helpers with caching
 // used by the Sampler and by the Mapper
 string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the length of a Node from an xg::XG index, with cacheing of deserialized nodes.
 size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+/// Get the node start position in the sequence vector
+size_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, size_t>& node_start_cache);
 /// Get the character at a position in an xg::XG index, with cacheing of deserialized nodes.
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the characters at positions after the given position from an xg::XG index, with cacheing of deserialized nodes.
-map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
-int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum);
-set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+//void xg_cached_graph_context(VG& graph, const pos_t& pos, int length, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+Node xg_cached_node(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache);
 
 }
 

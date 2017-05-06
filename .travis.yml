@@ -45,7 +45,7 @@ before_install:
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && make test && make static -j4; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && make test && make static -j4; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
 # Cache all our dependency directories, and our lib and include
 cache:

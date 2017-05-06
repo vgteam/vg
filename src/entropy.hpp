@@ -6,12 +6,14 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <map>
 
 namespace vg {
 
 using namespace std;
 
-double entropy(string& st);
+double entropy(const string& st);
+double entropy(const char* st, size_t len);
 
 }
 

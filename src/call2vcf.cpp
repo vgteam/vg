@@ -6,6 +6,7 @@
 #include <sstream>
 #include <regex>
 #include <set>
+#include <unordered_set>
 #include <utility>
 #include <algorithm>
 #include <getopt.h>
@@ -14,15 +15,15 @@
 #include "index.hpp"
 #include "Variant.h"
 #include "genotypekit.hpp"
+#include "snarls.hpp"
+#include "path_index.hpp"
+#include "caller.hpp"
+#include "stream.hpp"
+#include "nested_traversal_finder.hpp"
 
-namespace glenn2vcf {
+//#define debug
 
-using namespace vg;
-
-// TODO:
-//  - Decide if we need to have sibling alts detect (somehow) and coordinate with each other
-//  - Parallelize variant generation
-//  - Make variant stamping out some kind of function, don't duplicate the same variant construction code 6 times
+namespace vg {
 
 // How many bases may we put in an allele in VCF if we expect GATK to be able to
 // parse it?
@@ -34,75 +35,11 @@ const static double LOG_ZERO = (double)-1e100;
 
 // convert to string using stringstream (to replace to_string when we want sci. notation)
 template <typename T>
-std::string to_string_ss(T val) {
+string to_string_ss(T val) {
     stringstream ss;
     ss << val;
     return ss.str();
 }
-
-// Poisson utility functions from Freebayes (when merging into vg
-// these should get offloaded into utility.cpp or something
-static long double gammaln(
-    long double x
-    ) {
-
-    long double cofactors[] = { 76.18009173, 
-                                -86.50532033,
-                                24.01409822,
-                                -1.231739516,
-                                0.120858003E-2,
-                                -0.536382E-5 };    
-
-    long double x1 = x - 1.0;
-    long double tmp = x1 + 5.5;
-    tmp -= (x1 + 0.5) * log(tmp);
-    long double ser = 1.0;
-    for (int j=0; j<=5; j++) {
-        x1 += 1.0;
-        ser += cofactors[j]/x1;
-    }
-    long double y =  (-1.0 * tmp + log(2.50662827465 * ser));
-
-    return y;
-}
-
-static long double factorial(
-    int n
-    ) {
-    if (n < 0) {
-        return (long double)0.0;
-    }
-    else if (n == 0) {
-        return (long double)1.0;
-    }
-    else {
-        return exp(gammaln(n + 1.0));
-    }
-}
-
-long double poissonp(int observed, int expected) {
-    return (double) pow((double) expected, (double) observed) * (double) pow(M_E, (double) -expected) / factorial(observed);
-}
-
-
-/**
- * Holds indexes of the reference: position to node, node to position and
- * orientation, and the full reference string.
- */
-struct ReferenceIndex {
-    // Index from node ID to first position on the reference string and
-    // orientation it occurs there.
-    std::map<int64_t, std::pair<size_t, bool>> byId;
-    
-    // Index from start position on the reference to the oriented node that
-    // begins there.  Some nodes may be backward (orientation true) at their
-    // canonical reference positions. In this case, the last base of the node
-    // occurs at the given position.
-    std::map<size_t, vg::NodeTraversal> byStart;
-    
-    // The actual sequence of the reference.
-    std::string sequence;
-};
 
 /**
  * We need to suppress overlapping variants, but interval trees are hard to
@@ -110,7 +47,7 @@ struct ReferenceIndex {
  */
 struct IntervalBitfield {
     // Mark every position that's used in a variant
-    std::vector<bool> used;
+    vector<bool> used;
     
     /**
      * Make a new IntervalBitfield covering a region of the specified length.
@@ -141,176 +78,69 @@ struct IntervalBitfield {
     }
 };
 
-// We represent support as a pair, but we define math for it.
-// We use doubles because we may need fractional math.
-typedef std::pair<double, double> Support;
-
 /**
- * Add two Support values together, accounting for strand.
- */
-Support operator+(const Support& one, const Support& other) {
-    return std::make_pair(one.first + other.first, one.second + other.second);
-}
-
-/**
- * Add in a Support to another.
- */
-Support& operator+=(Support& one, const Support& other) {
-    one.first += other.first;
-    one.second += other.second;
-    return one;
-}
-
-
-/**
- * Scale a support by a factor.
- */
-template<typename Scalar>
-Support operator*(const Support& support, const Scalar& scale) {
-    return std::make_pair(support.first * scale, support.second * scale);
-}
-
-/**
- * Scale a support by a factor, the other way
- */
-template<typename Scalar>
-Support operator*(const Scalar& scale, const Support& support) {
-    return std::make_pair(support.first * scale, support.second * scale);
-}
-
-/**
- * Divide a support by a factor.
- */
-template<typename Scalar>
-Support operator/(const Support& support, const Scalar& scale) {
-    return std::make_pair(support.first / scale, support.second / scale);
-}
-    
-/**
- * Allow printing a support.
- */
-std::ostream& operator<<(std::ostream& stream, const Support& support) {
-    return stream << support.first << "," << support.second;
-}
-
-/**
- * Get the total read support in a support.
- */
-double total(const Support& support) {
-    return support.first + support.second;
-}
-
-/**
- * Get the strand bias of a support.
+ * Get the strand bias of a Support.
  */
 double strand_bias(const Support& support) {
-    return std::max(support.first, support.second) / (support.first + support.second);
-}
-
-/**
- * Get the minimum support of a pair of supports, by taking the min in each
- * orientation.
- */
-Support support_min(const Support& a, const Support& b) {
-    return std::make_pair(std::min(a.first, b.first), std::min(a.second, b.second));
+    return max(support.forward(), support.reverse()) / (support.forward() + support.reverse());
 }
 
 /**
  * Make a letter into a full string because apparently that's too fancy for the
  * standard library.
  */
-std::string char_to_string(const char& letter) {
-    std::string toReturn;
+string char_to_string(const char& letter) {
+    string toReturn;
     toReturn.push_back(letter);
     return toReturn;
 }
 
 /**
- * Write a minimal VCF header for a single-sample file.
+ * Write a minimal VCF header for a file with the given samples, and the given
+ * contigs with the given lengths.
  */
-void write_vcf_header(std::ostream& stream, std::string& sample_name, std::string& contig_name, size_t contig_size,
-                      int min_mad_for_filter) {
-    stream << "##fileformat=VCFv4.2" << std::endl;
-    stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
-    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
-    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
-    stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
-    stream << "##FILTER=<ID=FAIL,Description=\"Variant does meat minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
-    stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
-    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
-    stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
-    stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
+void write_vcf_header(ostream& stream, const vector<string>& sample_names,
+    const vector<string>& contig_names, const vector<size_t>& contig_sizes,
+    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter,
+    double max_local_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter) {
+    
+    stream << "##fileformat=VCFv4.2" << endl;
+    stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
+    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
+    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
+    stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
+    stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
+    stream << "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highabsdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highreldp,Description=\"Variant has total depth greater than "
+        << max_dp_multiple_for_filter << " times global baseline\">" <<endl;
+    stream << "##FILTER=<ID=highlocaldp,Description=\"Variant has total depth greater than "
+        << max_local_dp_multiple_for_filter << " times local baseline\">" <<endl;
+    stream << "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than "
+        << min_ad_log_likelihood_for_filter << "\">" <<endl;
+    stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
+    stream << "##FORMAT=<ID=XDP,Number=2,Type=Integer,Description=\"Expected Local and Global Depth\">" << endl;
+    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
+    stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
+    stream << "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">" << endl;
+    stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
-    stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << std::endl;
-    stream << "##FORMAT=<ID=AL,Number=.,Type=Float,Description=\"Allelic likelihoods for the ref and alt alleles in the order listed\">" << std::endl;
+    stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << endl;
+    stream << "##FORMAT=<ID=AL,Number=.,Type=Float,Description=\"Allelic likelihoods for the ref and alt alleles in the order listed\">" << endl;
     
-    if(!contig_name.empty()) {
-        // Announce the contig as well.
-        stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << std::endl;
-    }
-    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << std::endl;
-}
-
-/**
- * Create the reference allele for an empty vcflib Variant, since apaprently
- * there's no method for that already. Must be called before any alt alleles are
- * added.
- */
-void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
-    // Set the ref allele
-    variant.ref = allele;
-    
-    for(size_t i = 0; i < variant.ref.size(); i++) {
-        // Look at all the bases
-        if(variant.ref[i] != 'A' && variant.ref[i] != 'C' && variant.ref[i] != 'G' && variant.ref[i] != 'T') {
-            // Correct anything bogus (like "X") to N
-            variant.ref[i] = 'N';
-        }
+    for(size_t i = 0; i < contig_names.size(); i++) {
+        // Announce the contigs as well.
+        stream << "##contig=<ID=" << contig_names.at(i) << ",length=" << contig_sizes.at(i) << ">" << endl;
     }
     
-    // Make it 0 in the alleles-by-index list
-    variant.alleles.push_back(allele);
-    // Build the reciprocal index-by-allele mapping
-    variant.updateAlleleIndexes();
-}
-
-/**
- * Add a new alt allele to a vcflib Variant, since apaprently there's no method
- * for that already.
- *
- * If that allele already exists in the variant, does not add it again.
- *
- * Returns the allele number (0, 1, 2, etc.) corresponding to the given allele
- * string in the given variant. 
- */
-int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
-    // Copy the allele so we can throw out bad characters
-    std::string fixed(allele);
-    
-    for(size_t i = 0; i < fixed.size(); i++) {
-        // Look at all the bases
-        if(fixed[i] != 'A' && fixed[i] != 'C' && fixed[i] != 'G' && fixed[i] != 'T') {
-            // Correct anything bogus (like "X") to N
-            fixed[i] = 'N';
-        }
+    // Now the column header line
+    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
+    for (auto& sample_name : sample_names) {
+        // Append columns for all the samples
+        stream << "\t" << sample_name;
     }
-    
-    for(int i = 0; i < variant.alleles.size(); i++) {
-        if(variant.alleles[i] == fixed) {
-            // Already exists
-            return i;
-        }
-    }
-
-    // Add it as an alt
-    variant.alt.push_back(fixed);
-    // Make it next in the alleles-by-index list
-    variant.alleles.push_back(fixed);
-    // Build the reciprocal index-by-allele mapping
-    variant.updateAlleleIndexes();
-
-    // We added it in at the end
-    return variant.alleles.size() - 1;
+    // End the column header line
+    stream << endl;
 }
 
 /**
@@ -322,6 +152,7 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
  * to be specified to GATK is left as an exercise to the reader.
  */
 bool can_write_alleles(vcflib::Variant& variant) {
+
     for(auto& allele : variant.alleles) {
         if(MAX_ALLELE_LENGTH > 0 && allele.size() > MAX_ALLELE_LENGTH) {
             return false;
@@ -333,7 +164,7 @@ bool can_write_alleles(vcflib::Variant& variant) {
 /**
  * Return true if a mapping is a perfect match, and false if it isn't.
  */
-bool mapping_is_perfect_match(const vg::Mapping& mapping) {
+bool mapping_is_perfect_match(const Mapping& mapping) {
     for (auto edit : mapping.edit()) {
         if (edit.from_length() != edit.to_length() || !edit.sequence().empty()) {
             // This edit isn't a perfect match
@@ -347,516 +178,6 @@ bool mapping_is_perfect_match(const vg::Mapping& mapping) {
 }
 
 /**
- * Get the length of a path through nodes, in base pairs.
- */
-size_t bp_length(const std::list<vg::NodeTraversal>& path) {
-    size_t length = 0;
-    for(auto& traversal : path) {
-        // Sum up length of each node's sequence
-        length += traversal.node->sequence().size();
-    }
-    return length;
-}
-
-/**
- * Get the minimum support of all nodes and edges in path
- */
-Support min_support_in_path(vg::VG& graph,
-                            const std::map<vg::Node*, Support>& nodeReadSupport,
-                            const std::map<vg::Edge*, Support>& edgeReadSupport,
-                            const std::list<vg::NodeTraversal>& path) {
-    if (path.empty()) {
-        return Support();
-    }
-    auto cur = path.begin();
-    auto next = path.begin();
-    ++next;
-    Support minSupport = nodeReadSupport.count(cur->node) ? nodeReadSupport.at(cur->node) : Support();
-    for (; next != path.end(); ++cur, ++next) {
-        // check the node support
-        Support support = nodeReadSupport.count(next->node) ? nodeReadSupport.at(next->node) : Support();
-        minSupport = support_min(minSupport, support);
-        
-        // check the edge support
-        Edge* edge = graph.get_edge(*cur, *next);
-        assert(edge != NULL);
-        Support edgeSupport = edgeReadSupport.count(edge) ? edgeReadSupport.at(edge) : Support();
-        minSupport = support_min(minSupport, edgeSupport);
-    }
-    return minSupport;
-}
-
-/**
- * Do a breadth-first search left from the given node traversal, and return
- * lengths and paths starting at the given node and ending on the indexed
- * reference path. Refuses to visit nodes with no support.
- */
-std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_left(vg::VG& graph,
-    vg::NodeTraversal node, const ReferenceIndex& index,
-    const std::map<vg::Node*, Support>& nodeReadSupport,
-    const std::map<vg::Edge*, Support>& edgeReadSupport,
-    int64_t maxDepth = 10, bool stopIfVisited = false) {
-
-    // Holds partial paths we want to return, with their lengths in bp.
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
-    
-    // Do a BFS
-    
-    // This holds the paths to get to NodeTraversals to visit (all of which will
-    // end with the node we're starting with).
-    std::list<std::list<vg::NodeTraversal>> toExtend;
-    
-    // This keeps a set of all the oriented nodes we already got to and don't
-    // need to queue again.
-    std::set<vg::NodeTraversal> alreadyQueued;
-    
-    // Start at this node at depth 0
-    toExtend.emplace_back(std::list<vg::NodeTraversal> {node});
-    // Mark this traversal as already queued
-    alreadyQueued.insert(node);
-    
-    // How many ticks have we spent searching?
-    size_t searchTicks = 0;
-    // Track how many options we have because size may be O(n).
-    size_t stillToExtend = toExtend.size();
-    
-    while(!toExtend.empty()) {
-        // Keep going until we've visited every node up to our max search depth.
-        
-#ifdef debug
-        searchTicks++;
-        if(searchTicks % 100 == 0) {
-            // Report on how much searching we are doing.
-            std::cerr << "Search tick " << searchTicks << ", " << stillToExtend << " options." << std::endl;
-        }
-#endif
-        
-        // Dequeue a path to extend.
-        // Make sure to move out of the list to avoid a useless copy.
-        std::list<vg::NodeTraversal> path(std::move(toExtend.front()));
-        toExtend.pop_front();
-        stillToExtend--;
-        
-        // We can't just throw out longer paths, because shorter paths may need
-        // to visit a node twice (in opposite orientations) and thus might get
-        // rejected later. Or they might overlap with paths on the other side.
-        
-        // Look up and see if the front node on the path is on our reference
-        // path
-        if(index.byId.count(path.front().node->id())) {
-            // This node is on the reference path. TODO: we don't care if it
-            // lands in a place that is itself deleted.
-            
-            // Say we got to the right place
-            toReturn.emplace(bp_length(path), std::move(path));
-            
-            // Don't bother looking for extensions, we already got there.
-        } else if(path.size() <= maxDepth) {
-            // We haven't hit the reference path yet, but we also haven't hit
-            // the max depth. Extend with all the possible extensions.
-            
-            // Look left
-            vector<vg::NodeTraversal> prevNodes;
-            graph.nodes_prev(path.front(), prevNodes);
-            
-            for(auto prevNode : prevNodes) {
-                // For each node we can get to
-                vg::Edge* edge = graph.get_edge(prevNode, path.front());
-                assert(edge != NULL);
-                
-                if((!nodeReadSupport.empty() && (!nodeReadSupport.count(prevNode.node) ||
-                    total(nodeReadSupport.at(prevNode.node)) == 0)) ||
-                   (!edgeReadSupport.empty() && (!edgeReadSupport.count(edge) ||
-                    total(edgeReadSupport.at(edge)) == 0))) {
-                    
-                    // We have no support at all for visiting this node (but we
-                    // do have some node read support data)
-                    continue;
-                }
-                
-                if(stopIfVisited && alreadyQueued.count(prevNode)) {
-                    // We already have a way to get here.
-                    continue;
-                }
-            
-                // Make a new path extended left with the node
-                std::list<vg::NodeTraversal> extended(path);
-                extended.push_front(prevNode);
-                toExtend.emplace_back(std::move(extended));
-                stillToExtend++;
-                
-                // Remember we found a way to this node, so we don't try and
-                // visit it other ways.
-                alreadyQueued.insert(prevNode);
-            }
-        }
-        
-    }
-    
-    return toReturn;
-}
-
-/**
- * Flip a NodeTraversal around and return the flipped copy.
- */
-vg::NodeTraversal flip(vg::NodeTraversal toFlip) {
-    return vg::NodeTraversal(toFlip.node, !toFlip.backward);
-}
-
-/**
- * Do a breadth-first search right from the given node traversal, and return
- * lengths and paths starting at the given node and ending on the indexed
- * reference path.
- */
-std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& graph,
-    vg::NodeTraversal node, const ReferenceIndex& index,
-    const std::map<vg::Node*, Support>& nodeReadSupport,
-    const std::map<vg::Edge*, Support>& edgeReadSupport,
-    int64_t maxDepth = 10, bool stopIfVisited = false) {
-
-    // Look left from the backward version of the node.
-    auto toConvert = bfs_left(graph, flip(node), index, nodeReadSupport,
-                              edgeReadSupport, maxDepth, stopIfVisited);
-    
-    // Since we can't modify set records in place, we need to do a copy
-    std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> toReturn;
-    
-    for(auto lengthAndPath : toConvert) {
-        // Flip every path to run the other way
-        lengthAndPath.second.reverse();
-        for(auto& traversal : lengthAndPath.second) {
-            // And invert the orientation of every node in the path in place.
-            traversal = flip(traversal);
-        }
-        // Stick it in the new set
-        toReturn.emplace(std::move(lengthAndPath));
-    }
-    
-    return toReturn;
-}
-
-
-/**
- * Given a vg graph, an edge or node in the graph, and an index for the
- * reference path, look out from the edge or node in both directions to find a
- * shortest bubble relative to the path, with a consistent orientation. The
- * bubble may not visit the same node twice.
- *
- * Exactly one of edge and node must be null, and one not null.
- *
- * Takes a max depth for the searches producing the paths on each side.
- * 
- * Return the ordered and oriented nodes in the bubble, with the outer nodes
- * being oriented forward along the named path, and with the first node coming
- * before the last node in the reference.  Also return the minimum support
- * found on any edge or node in the bubble (including the reference node endpoints
- * and their edges which aren't stored in the path)
- */
-std::pair<Support, std::vector<vg::NodeTraversal> >
-find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex& index,
-            const std::map<vg::Node*, Support>& nodeReadSupport,
-            const std::map<vg::Edge*, Support>& edgeReadSupport, int64_t maxDepth,
-            size_t max_bubble_paths) {
-
-    // What are we going to find our left and right path halves based on?
-    NodeTraversal left_traversal;
-    NodeTraversal right_traversal;
-
-    if(edge != nullptr) {
-        // Be edge-based
-        
-        // Find the nodes at the ends of the edges. Look at them traversed in the
-        // edge's local orientation.
-        left_traversal = NodeTraversal(graph.get_node(edge->from()), edge->from_start());
-        right_traversal = NodeTraversal(graph.get_node(edge->to()), edge->to_end());
-        
-    } else {
-        // Be node-based
-        assert(node != nullptr);
-        left_traversal = right_traversal = NodeTraversal(node);
-    }
-    
-#ifdef debug
-    std::cerr << "Starting from: " << left_traversal << ", " << right_traversal << std::endl;
-#endif
-
-    // Find paths on both sides, with nodes on the primary path at the outsides
-    // and this edge in the middle. Returns path lengths and paths in pairs in a
-    // set.
-    auto leftPaths = bfs_left(graph, left_traversal, index, nodeReadSupport,
-                              edgeReadSupport, maxDepth);
-    auto rightPaths = bfs_right(graph, right_traversal, index, nodeReadSupport,
-                                edgeReadSupport, maxDepth);
-    
-    // Find a combination of two paths which gets us to the reference in a
-    // consistent orientation (meaning that when you look at the ending nodes'
-    // Mappings in the reference path, the ones with minimal ranks have the same
-    // orientations) and which doesn't use the same nodes on both sides.
-    // Track support of up to max_bubble_paths combinations, and return the
-    // highest
-    std::pair<Support, std::vector<NodeTraversal> > bestBubblePath;
-    int bubbleCount = 0;
-    
-    // We need to look in different combinations of lists.
-    auto testCombinations = [&](const std::list<std::list<vg::NodeTraversal>>& leftList,
-        const std::list<std::list<vg::NodeTraversal>>& rightList) {
-
-        for(auto leftPath : leftList) {
-            // Figure out the relative orientation for the leftmost node.
-#ifdef debug        
-            std::cerr << "Left path: " << std::endl;
-            for(auto traversal : leftPath ) {
-                std::cerr << "\t" << traversal << std::endl;
-            }
-#endif    
-            // Split out its node pointer and orientation
-            auto leftNode = leftPath.front().node;
-            auto leftOrientation = leftPath.front().backward;
-            
-            // Get where it falls in the reference as a position, orientation pair.
-            auto leftRefPos = index.byId.at(leftNode->id());
-            
-            // We have a backward orientation relative to the reference path if we
-            // were traversing the anchoring node backwards, xor if it is backwards
-            // in the reference path.
-            bool leftRelativeOrientation = leftOrientation != leftRefPos.second;
-            
-            // Make a set of all the nodes in the left path
-            std::set<int64_t> leftPathNodes;
-            for(auto visit : leftPath) {
-                leftPathNodes.insert(visit.node->id());
-            }
-
-            // Get the minimum support in the left path
-            Support minLeftSupport = min_support_in_path(
-                graph, nodeReadSupport, edgeReadSupport, leftPath);
-            
-            for(auto rightPath : rightList) {
-                // Figure out the relative orientation for the rightmost node.
-#ifdef debug            
-                std::cerr << "Right path: " << std::endl;
-                for(auto traversal : rightPath ) {
-                    std::cerr << "\t" << traversal << std::endl;
-                }
-#endif            
-                // Split out its node pointer and orientation
-                // Remember it's at the end of this path.
-                auto rightNode = rightPath.back().node;
-                auto rightOrientation = rightPath.back().backward;
-                
-                // Get where it falls in the reference as a position, orientation pair.
-                auto rightRefPos = index.byId.at(rightNode->id());
-                
-                // We have a backward orientation relative to the reference path if we
-                // were traversing the anchoring node backwards, xor if it is backwards
-                // in the reference path.
-                bool rightRelativeOrientation = rightOrientation != rightRefPos.second;
-
-                // Get the minimum support in the right path
-                Support minRightSupport = min_support_in_path(
-                    graph, nodeReadSupport, edgeReadSupport, rightPath);
-                
-                if(leftRelativeOrientation == rightRelativeOrientation &&
-                    ((!leftRelativeOrientation && leftRefPos.first < rightRefPos.first) ||
-                    (leftRelativeOrientation && leftRefPos.first > rightRefPos.first))) {
-                    // We found a pair of paths that get us to and from the
-                    // reference without turning around, and that don't go back to
-                    // the reference before they leave.
-
-                    // Get the minimum support of combined left and right paths
-                    Support minFullSupport = support_min(minLeftSupport, minRightSupport);
-                    
-                    // Start with the left path
-                    std::vector<vg::NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
-                    
-                    // We need to detect overlap with the left path
-                    bool overlap = false;
-                    
-                    // If we're starting from an edge, we keep the first node on
-                    // the right path. If we're starting from a node, we need to
-                    // discard it because it's just another copy of our node
-                    // we're starting with.
-                    for(auto it = (edge != nullptr ? rightPath.begin() : ++(rightPath.begin())); it != rightPath.end(); ++it) {
-                        // For all but the first node on the right path, add that in
-                        fullPath.push_back(*it);
-                        
-                        if(leftPathNodes.count((*it).node->id())) {
-                            // We already visited this node on the left side. Try
-                            // the next right path instead.
-                            overlap = true;
-                        }
-                    }
-                    
-                    if(overlap) {
-                        // Can't combine this right with this left, as they share
-                        // nodes and we can't handle the copy number implications.
-                        // Try the next right.
-                        // TODO: handle the copy number implications.
-                        continue;
-                    }
-                    
-                    if(leftRelativeOrientation) {
-                        // Turns out our anchored path is backwards.
-                        
-                        // Reorder everything the other way
-                        std::reverse(fullPath.begin(), fullPath.end());
-                        
-                        for(auto& traversal : fullPath) {
-                            // Flip each traversal
-                            traversal = flip(traversal);
-                        }
-                    }
-
-                    
-#ifdef debug        
-                    std::cerr << "Merged path:" << std::endl;
-                    for(auto traversal : fullPath) {
-                        std::cerr << "\t" << traversal << std::endl;
-                    }                    
-#endif
-                    // update our best path by seeing if we've found one with higher min support
-                    if (total(minFullSupport) > total(bestBubblePath.first)) {
-                        bestBubblePath.first = minFullSupport;
-                        bestBubblePath.second = fullPath;
-                    }
-
-                    // keep things from getting out of hand
-                    if (++bubbleCount >= max_bubble_paths) {
-                        return bestBubblePath;
-                    }
-                }
-            }
-        }
-        
-        // Return the best path along with its min support
-        // (could be empty)
-        return bestBubblePath;
-        
-    };
-    
-    // Convert sets to lists, which requires a copy again...
-    std::list<std::list<vg::NodeTraversal>> leftConverted;
-    for(auto lengthAndPath : leftPaths) {
-        leftConverted.emplace_back(std::move(lengthAndPath.second));
-    }
-    std::list<std::list<vg::NodeTraversal>> rightConverted;
-    for(auto lengthAndPath : rightPaths) {
-        rightConverted.emplace_back(std::move(lengthAndPath.second));
-    }
-    
-    // Look for a valid combination, or return an empty path if one iesn't
-    // found.
-    return testCombinations(leftConverted, rightConverted);
-    
-}
-
-/**
- * Trace out the reference path in the given graph named by the given name.
- * Returns a structure with useful indexes of the reference.
- */
-ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool verbose) {
-    // Make sure the reference path is present
-    assert(vg.paths.has_path(refPathName));
-    
-    // We'll fill this in and then return it.
-    ReferenceIndex index;
-    
-    // We're also going to build the reference sequence string
-    std::stringstream refSeqStream;
-    
-    // What base are we at in the reference
-    size_t referenceBase = 0;
-    
-    // What was the last rank? Ranks must always go up.
-    int64_t lastRank = -1;
-    
-    for(auto mapping : vg.paths.get_path(refPathName)) {
-        // All the mappings need to be perfect matches.
-        assert(mapping_is_perfect_match(mapping));
-    
-        if(!index.byId.count(mapping.position().node_id())) {
-            // This is the first time we have visited this node in the reference
-            // path.
-            
-            // Add in a mapping.
-            index.byId[mapping.position().node_id()] = 
-                std::make_pair(referenceBase, mapping.position().is_reverse());
-#ifdef debug
-            std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
-                << " starts at base " << referenceBase << " with "
-                << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
-#endif
-            
-            // Make sure ranks are monotonically increasing along the path.
-            assert(mapping.rank() > lastRank);
-            lastRank = mapping.rank();
-        } else if (verbose) {
-            std::cerr << "Warning: Cycle detected at " << mapping.position().node_id()
-                      << " in reference path " << refPathName << endl;
-        }
-        
-        // Find the node's sequence
-        std::string sequence = vg.get_node(mapping.position().node_id())->sequence();
-        
-        while(referenceBase == 0 && sequence.size() > 0 &&
-            (sequence[0] != 'A' && sequence[0] != 'T' && sequence[0] != 'C' &&
-            sequence[0] != 'G' && sequence[0] != 'N')) {
-            
-            // If the path leads with invalid characters (like "X"), throw them
-            // out when computing reference path positions.
-            
-            // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
-            // which leads with an X.
-
-            if (verbose) {
-                std::cerr << "Warning: dropping invalid leading character "
-                          << sequence[0] << " from node " << mapping.position().node_id()
-                          << std::endl;
-            }
-                
-            sequence.erase(sequence.begin());
-        }
-        
-        if(mapping.position().is_reverse()) {
-            // Put the reverse sequence in the reference path
-            refSeqStream << vg::reverse_complement(sequence);
-        } else {
-            // Put the forward sequence in the reference path
-            refSeqStream << sequence;
-        }
-            
-        // Say that this node appears here along the reference in this
-        // orientation.
-        index.byStart[referenceBase] = vg::NodeTraversal(
-            vg.get_node(mapping.position().node_id()), mapping.position().is_reverse()); 
-            
-        // Whether we found the right place for this node in the reference or
-        // not, we still need to advance along the reference path. We assume the
-        // whole node (except any leading bogus characters) is included in the
-        // path (since it sort of has to be, syntactically, unless it's the
-        // first or last node).
-        referenceBase += sequence.size();
-        
-        // TODO: handle leading bogus characters in calls on the first node.
-    }
-    
-    // Create the actual reference sequence we will use
-    index.sequence = refSeqStream.str();
-    
-    // Announce progress.
-    if (verbose) {
-        std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
-    
-        if(index.sequence.size() < 100) {
-            std::cerr << "Reference sequence: " << index.sequence << std::endl;
-        }
-    }
-    
-    // Give back the indexes we have been making
-    return index;
-}
-
-/**
  * Given a collection of pileups by original node ID, and a set of original node
  * id:offset cross-references in both ref and alt categories, produce a VCF
  * comment line giving the pileup for each of those positions on those nodes.
@@ -864,19 +185,19 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool ve
  *
  * TODO: VCF comments aren't really a thing.
  */
-std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups,
-    const std::set<std::pair<int64_t, size_t>>& refCrossreferences,
-    const std::set<std::pair<int64_t, size_t>>& altCrossreferences) {
+string get_pileup_line(const map<int64_t, NodePileup>& node_pileups,
+    const set<pair<int64_t, size_t>>& refCrossreferences,
+    const set<pair<int64_t, size_t>>& altCrossreferences) {
     // We'll make a stringstream to write to.
-    std::stringstream out;
+    stringstream out;
     
     out << "#";
     
     for(const auto& xref : refCrossreferences) {
         // For every cross-reference
-        if(nodePileups.count(xref.first) && nodePileups.at(xref.first).base_pileup_size() > xref.second) {
+        if(node_pileups.count(xref.first) && node_pileups.at(xref.first).base_pileup_size() > xref.second) {
             // If we have that base pileup, grab it
-            auto basePileup = nodePileups.at(xref.first).base_pileup(xref.second);
+            auto basePileup = node_pileups.at(xref.first).base_pileup(xref.second);
             
             out << xref.first << ":" << xref.second << " (ref) " << basePileup.bases() << "\t";
         }
@@ -886,9 +207,9 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
     
     for(const auto& xref : altCrossreferences) {
         // For every cross-reference
-        if(nodePileups.count(xref.first) && nodePileups.at(xref.first).base_pileup_size() > xref.second) {
+        if(node_pileups.count(xref.first) && node_pileups.at(xref.first).base_pileup_size() > xref.second) {
             // If we have that base pileup, grab it
-            auto basePileup = nodePileups.at(xref.first).base_pileup(xref.second);
+            auto basePileup = node_pileups.at(xref.first).base_pileup(xref.second);
             
             out << xref.first << ":" << xref.second << " (alt) " << basePileup.bases() << "\t";
         }
@@ -899,7 +220,7 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
     
     if(out.str().size() > 1) {
         // We actually found something. Send it out with a trailing newline
-        out << std::endl;
+        out << endl;
         return out.str();
     } else {
         // Give an empty string.
@@ -907,945 +228,1249 @@ std::string get_pileup_line(const std::map<int64_t, vg::NodePileup>& nodePileups
     }
 }
 
-    std::map<vg::Node*, Support> nodeReadSupport;
-    // And read support for the edges
-    std::map<vg::Edge*, Support> edgeReadSupport;
-    // This holds all the edges that are deletions, by the pointer to the stored
-    // Edge object in the VG graph
-    std::set<vg::Edge*> deletionEdges;
-    
-    // This holds where nodes came from (node and offset) in the original, un-
-    // augmented graph. For pieces of original nodes, this is where the piece
-    // started. For novel nodes, this is where the piece that thois is an
-    // alternative to started.
-    std::map<vg::Node*, std::pair<int64_t, size_t>> nodeSources;
-    
-    // We also need to track what edges and nodes are reference (i.e. already
-    // known)
-    std::set<vg::Node*> knownNodes;
-    std::set<vg::Edge*> knownEdges;
+Call2Vcf::PrimaryPath::PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size):
+    ref_bin_size(ref_bin_size), index(augmented.graph, ref_path_name, true), name(ref_path_name)  {
 
-/**
- * Parse tsv into an internal format, where we track status and copy number
- * for nodes and edges.
- */
-void parse_tsv(const std::string& tsvFile,
-               vg::VG& vg,
-               std::map<vg::Node*, Support>& nodeReadSupport,
-               std::map<vg::Edge*, Support>& edgeReadSupport,
-               std::map<vg::Node*, double>& nodeLikelihood,
-               std::map<vg::Edge*, double>& edgeLikelihood,
-               std::set<vg::Edge*>& deletionEdges,
-               std::map<vg::Node*, std::pair<int64_t, size_t>>& nodeSources,
-               std::set<vg::Node*>& knownNodes,
-               std::set<vg::Edge*>& knownEdges,
-               bool verbose) {
-    
-    // Open up the TSV-file
-    std::stringstream tsvStream(tsvFile);
-
-    // Loop through all the lines
-    std::string line;
-    size_t lineNumber = 0;
-    while(std::getline(tsvStream, line)) {
-        // For each line
-        
-        lineNumber++;
-        
-        if(line == "") {
-            // Skip blank lines
-            continue;
-        }
-        
-        // Make a stringstream to read out tokens
-        std::stringstream tokens(line);
-        
-        // Read the kind of line this is ("N"ode or "E"dge)
-        std::string lineType;
-        tokens >> lineType; 
-        
-        if(lineType == "N") {
-            // This is a line about a node
-            
-            // Read the node ID
-            int64_t nodeId;
-            tokens >> nodeId;
-            
-            if(!vg.has_node(nodeId)) {
-                throw std::runtime_error("Line " + std::to_string(lineNumber) + ": Invalid node: " + std::to_string(nodeId));
-            }
-            
-            // Retrieve the node we're talking about 
-            vg::Node* nodePointer = vg.get_node(nodeId);
-            
-            // What kind of call is it? Could be "U"ncalled, or "R"eference
-            // (i.e. known in the original graph), which we have special
-            // handling for.
-            std::string callType;
-            tokens >> callType;
-                        
-            // Read the read support
-            Support readSupport;
-            int other_support = 0;
-            double likelihood = 0.;
-            if((tokens >> readSupport.first) && (tokens >> readSupport.second) &&
-               (tokens >> other_support) && (tokens >> likelihood)) {
-                // For nodes with the number there, actually process the read support
-            
-#ifdef debug
-                std::cerr << "Line " << std::to_string(lineNumber) << ": Node " << nodeId
-                    << " has read support " << readSupport.first << "," << readSupport.second << endl;
-#endif
-                
-                // Save it
-                nodeReadSupport[nodePointer] = readSupport;
-                nodeLikelihood[nodePointer] = likelihood;
-                
-                if(callType == "R") {
-                    // Note that this is a reference node
-                    knownNodes.insert(nodePointer);
-                }
-            }
-            
-            // Load the original node ID and offset for this node, if present.
-            int64_t originalId;
-            size_t originalOffset;
-            
-            if(tokens >> originalId && tokens >> originalOffset && originalId != 0) {
-                nodeSources[nodePointer] = std::make_pair(originalId, originalOffset);
-            }
-            
-        } else if(lineType == "E") {
-        
-            // Read the edge data
-            std::string edgeDescription;
-            tokens >> edgeDescription;
-            
-            // Split on commas. We'd just iterate the regex iterator ourselves,
-            // but it seems to only split on the first comma if we do that.
-            std::vector<string> parts;
-            std::regex comma_re(",");
-            std::copy(std::sregex_token_iterator(edgeDescription.begin(), edgeDescription.end(), comma_re, -1), std::sregex_token_iterator(), std::back_inserter(parts));
-            
-            // We need the four fields to describe an edge.
-            assert(parts.size() == 4);
-            
-            // Parse the from node
-            int64_t from = std::stoll(parts[0]);
-            // And the from_start flag
-            bool fromStart = std::stoi(parts[1]);
-            // Make a NodeSide for the from side
-            vg::NodeSide fromSide(from, !fromStart);
-            // Parse the to node
-            int64_t to = std::stoll(parts[2]);
-            // And the to_end flag
-            bool toEnd = std::stoi(parts[3]);
-            // Make a NodeSide for the to side
-            vg::NodeSide toSide(to, toEnd);
-            
-            if(!vg.has_edge(std::make_pair(fromSide, toSide))) {
-                // Ensure we really have that edge
-                throw std::runtime_error("Line " + std::to_string(lineNumber) + ": Edge " + edgeDescription + " not in graph.");
-            }
-            
-            // Get the edge
-            vg::Edge* edgePointer = vg.get_edge(std::make_pair(fromSide, toSide));
-            
-            // Parse the mode
-            std::string mode;
-            tokens >> mode;
-            
-            if(mode == "L" || mode == "R") {
-                // This is a deletion edge, or an edge in the primary path that
-                // may describe a nonzero-length deletion.
-#ifdef debug
-                std::cerr << "Line " << std::to_string(lineNumber) << ": Edge "
-                    << edgeDescription << " may describe a deletion." << endl;
-#endif
-
-                // Say it's a deletion
-                deletionEdges.insert(edgePointer);
-                
-                if(mode == "R") {
-                    // The reference edges also get marked as such
-                    knownEdges.insert(edgePointer);
-#ifdef debug
-                    std::cerr << "Line " << std::to_string(lineNumber) << ": Edge "
-                        << edgeDescription << " is reference." << endl;
-#endif
-                }
-
-            }
-            
-            // Read the read support
-            Support readSupport;
-            int other_support;
-            double likelihood;
-            tokens >> readSupport.first;
-            tokens >> readSupport.second;
-            tokens >> other_support;
-            tokens >> likelihood;
-            
-#ifdef debug
-            std::cerr << "Line " << std::to_string(lineNumber) << ": Edge " << edgeDescription
-                << " has read support " << readSupport.first << "," << readSupport.second << endl;
-#endif
-                
-            // Save it
-            edgeReadSupport[edgePointer] = readSupport;
-            edgeLikelihood[edgePointer] = likelihood;
-        
-        } else {
-            // This is not a real kind of line
-            throw std::runtime_error("Line " + std::to_string(lineNumber) + ": Unknown line type: " + lineType);
-        }
-        
-    }
-    if (verbose) {
-        std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
-    }
-}
-
-// this was main() in glenn2vcf
-// all that's changed for now is that arguments passed in rather than
-// parsed from argc/argv (or passed as files)
-int call2vcf(
-
-    // Augmented graph
-    vg::VG& vg,
-    // "glennfile" as string (relic from old pipeline)
-    const std::string& glennFile,
-    // Option variables
-    // What's the name of the reference path in the graph?
-    std::string refPathName,
-    // What name should we give the contig in the VCF file?
-    std::string contigName,
-    // What name should we use for the sample in the VCF file?
-    std::string sampleName,
-    // How far should we offset positions of variants?
-    int64_t variantOffset,
-    // How many nodes should we be willing to look at on our path back to the
-    // primary path? Keep in mind we need to look at all valid paths (and all
-    // combinations thereof) until we find a valid pair.
-    int64_t maxDepth,
-    // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride,
-    // Should we load a pileup and print out pileup info as comments after
-    // variants?
-    std::string pileupFilename,
-    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall,
-    // What fraction of the reads supporting an alt are we willing to discount?
-    // At 2, if twice the reads support one allele as the other, we'll call
-    // homozygous instead of heterozygous. At infinity, every call will be
-    // heterozygous if even one read supports each allele.
-    double maxHetBias,
-    // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias,
-    // How much should we multiply the bias limits for indels?
-    double indelBiasMultiple,
-    // What's the minimum integer number of reads that must support a call? We
-    // don't necessarily want to call a SNP as het because we have a single
-    // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall,
-    // Bin size used for counting coverage along the reference path.  The
-    // bin coverage is used for computing the probability of an allele
-    // of a certain depth
-    size_t refBinSize,
-    // On some graphs, we can't get the coverage because it's split over
-    // parallel paths.  Allow overriding here
-    size_t expCoverage,
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps,
-    // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport,
-    // Should we use the site finder and multiallelic support?
-    bool multiallelic_support,
-    // What's the max ref length of a site that we genotype as a whole instead
-    // of splitting?
-    size_t max_ref_length,
-    // What's the maximum number of bubble path combinations we can explore
-    // while finding one with maximum support?
-    size_t max_bubble_paths,
-    // what's the minimum minimum allele depth to give a PASS in the filter column
-    // (anything below gets FAIL)    
-    size_t min_mad_for_filter,
-    // print warnings etc. to stderr
-    bool verbose) {
-    
-    vg.paths.sort_by_mapping_rank();
-    vg.paths.rebuild_mapping_aux();
-    
-    if(refPathName.empty()) {
-        if (verbose) {
-          std:cerr << "Graph has " << vg.paths.size() << " paths to choose from."
-                   << std::endl;
-        }
-        if(vg.paths.size() == 1) {
-            // Autodetect the reference path name as the name of the only path
-            refPathName = (*vg.paths._paths.begin()).first;
-        } else {
-            refPathName = "ref";
-        }
-
-        if (verbose) {
-            std::cerr << "Guessed reference path name of " << refPathName
-                      << std::endl;
-        }
-    }
-    
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    ReferenceIndex index = trace_reference_path(vg, refPathName, verbose);  
-    
-    // This holds read support, on each strand, for all the nodes we have read
-    // support provided for, by the node pointer in the vg graph.
-    std::map<vg::Node*, Support> nodeReadSupport;
-    // And read support for the edges
-    std::map<vg::Edge*, Support> edgeReadSupport;
-    // This maps the likelihood passed from the tsv to the nodes and edges
-    // (todo: could save some lookups by lumping with supports)
-    std::map<vg::Node*, double> nodeLikelihood;
-    std::map<vg::Edge*, double> edgeLikelihood;
+    PathIndex index(augmented.graph, ref_path_name, true);
 
-    // This holds all the edges that are deletions, by the pointer to the stored
-    // Edge object in the VG graph
-    std::set<vg::Edge*> deletionEdges;
-    
-    // This holds where nodes came from (node and offset) in the original, un-
-    // augmented graph. For pieces of original nodes, this is where the piece
-    // started. For novel nodes, this is where the piece that thois is an
-    // alternative to started.
-    std::map<vg::Node*, std::pair<int64_t, size_t>> nodeSources;
-    
-    // We also need to track what edges and nodes are reference (i.e. already
-    // known)
-    std::set<vg::Node*> knownNodes;
-    std::set<vg::Edge*> knownEdges;
-
-    // Parse tsv into an internal format, where we track status and copy number
-    // for nodes and edges.
-    parse_tsv(glennFile, vg, nodeReadSupport, edgeReadSupport,
-              nodeLikelihood, edgeLikelihood, deletionEdges,
-              nodeSources, knownNodes, knownEdges, verbose);
+    if (index.sequence.size() == 0) {
+        // No empty reference paths allowed
+        throw runtime_error("Reference path cannot be empty");
+    }
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
-    refBinSize = min(refBinSize, index.sequence.size());
-    vector<Support> binnedSupport(max(1, int(index.sequence.size() / refBinSize)),
-                                  Support(expCoverage / 2, expCoverage /2));
+    ref_bin_size = min(ref_bin_size, index.sequence.size());
+    if (ref_bin_size <= 0) {
+        // No zero-sized bins allowed
+        throw runtime_error("Reference bin size must be 1 or larger");
+    }
+    // Start out all the bins empty.
+    binned_support = vector<Support>(max(1, int(index.sequence.size() / ref_bin_size)), Support());
     
     // Crunch the numbers on the reference and its read support. How much read
     // support in total (node length * aligned reads) does the primary path get?
-    Support primaryPathTotalSupport = std::make_pair(0.0, 0.0);
-    for(auto& pointerAndSupport : nodeReadSupport) {
-        if(index.byId.count(pointerAndSupport.first->id())) {
+    total_support = Support();
+    for(auto& pointerAndSupport : augmented.node_supports) {
+        if(index.by_id.count(pointerAndSupport.first->id())) {
             // This is a primary path node. Add in the total read bases supporting it
-            primaryPathTotalSupport += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
-            if (expCoverage == 0) {
-                int bin = index.byId[pointerAndSupport.first->id()].first / refBinSize;
-                if (bin == binnedSupport.size()) {
-                    --bin;
-                }
-                binnedSupport[bin] = binnedSupport[bin] + 
-                    pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
+            int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            if (bin == binned_support.size()) {
+                --bin;
             }
+            binned_support[bin] = binned_support[bin] + 
+                pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
         }
     }
-    // Calculate average support in reads per base
-    auto primaryPathAverageSupport = primaryPathTotalSupport / index.sequence.size();
     
     // Average out the support bins too (in place)
-    int minBin = -1;
-    int maxBin = -1;
-    for (int i = 0; i < binnedSupport.size(); ++i) {
-        if (expCoverage == 0) {
-            binnedSupport[i] = binnedSupport[i] / (
-                i < binnedSupport.size() - 1 ? (double)refBinSize :
-                (double)(refBinSize + index.sequence.size() % refBinSize));
+    min_bin = 0;
+    max_bin = 0;
+    for (int i = 0; i < binned_support.size(); ++i) {
+        // Compute the average over the bin's actual size
+        binned_support[i] = binned_support[i] / (
+            i < binned_support.size() - 1 ? (double)ref_bin_size :
+            (double)(ref_bin_size + index.sequence.size() % ref_bin_size));
+            
+        // See if it's a min or max
+        if (binned_support[i] < binned_support[min_bin]) {
+            min_bin = i;
         }
-        if (minBin == -1 || binnedSupport[i] < binnedSupport[minBin]) {
-            minBin = i;
-        }
-        if (maxBin == -1 || binnedSupport[i] > binnedSupport[maxBin]) {
-            maxBin = i;
+        if (binned_support[i] > binned_support[max_bin]) {
+            max_bin = i;
         }
     }
 
-    if (verbose) {
-        std::cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
-        std::cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
-                  << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
-        std::cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
-                  << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+}
+
+const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset) const {
+    return get_bin(get_bin_index(primary_path_offset));
+}
+        
+size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
+    // Find which coordinate bin the position is in
+    int bin = primary_path_offset / ref_bin_size;
+    if (bin == get_total_bins()) {
+        --bin;
+    }
+    return bin;
+}
+    
+size_t Call2Vcf::PrimaryPath::get_min_bin() const {
+    return min_bin;
+}
+    
+size_t Call2Vcf::PrimaryPath::get_max_bin() const {
+    return max_bin;
+}
+    
+const Support& Call2Vcf::PrimaryPath::get_bin(size_t bin) const {
+    return binned_support[bin];
+}
+        
+size_t Call2Vcf::PrimaryPath::get_total_bins() const {
+    return binned_support.size();
+}
+        
+Support Call2Vcf::PrimaryPath::get_average_support() const {
+    return get_total_support() / get_index().sequence.size();
+}
+
+Support Call2Vcf::PrimaryPath::get_average_support(const map<string, PrimaryPath>& paths) {
+    // Track the total support overall
+    Support total;
+    // And the total number of bases
+    size_t bases;
+    
+    for (auto& kv : paths) {
+        // Sum over all paths
+        total += kv.second.get_total_support();
+        bases += kv.second.get_index().sequence.size();
+    }
+    
+    // Then divide
+    return total / bases;
+}
+        
+Support Call2Vcf::PrimaryPath::get_total_support() const {
+    return total_support;
+}
+  
+PathIndex& Call2Vcf::PrimaryPath::get_index() {
+    return index;
+}
+    
+const PathIndex& Call2Vcf::PrimaryPath::get_index() const {
+    return index;
+}
+
+const string& Call2Vcf::PrimaryPath::get_name() const {
+    return name;
+}
+
+map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
+    for(auto i = primary_paths.begin(); i != primary_paths.end(); ++i) {
+        // Scan the whole map with an iterator
+        
+        if (i->second.get_index().by_id.count(site.start().node_id()) &&
+            i->second.get_index().by_id.count(site.end().node_id())) {
+            // This path threads through this site
+            return i;
+        }
+    }
+    // Otherwise we hit the end and found no path that this site can be strung
+    // on.
+    return primary_paths.end();
+}
+
+/**
+ * Trace out the given traversal, handling nodes, child snarls, and edges
+ * associated with particular visit numbers.
+ */
+void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t)> handle_node,
+    function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
+
+    for(int64_t i = 0; i < traversal.visits_size(); i++) {
+        // For all the (internal) visits...
+        auto& visit = traversal.visits(i);
+        
+        if (visit.node_id() != 0) {
+            // This is a visit to a node
+            
+            // Find the node
+            handle_node(i, visit.node_id());
+        } else {
+            // This is a snarl
+            handle_child(i, visit.snarl());
+        }
+        
+        // Account for the edge out
+        if (i + 1 < traversal.visits_size()) {
+            // There's a next visit
+            auto& next_visit = traversal.visits(i + 1);
+            
+            if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+                to_right_side(visit).flip() == to_left_side(next_visit)) {
+                
+                // These are two back-to-back child snarl visits, which
+                // share a node and have no connecting edge.
+#ifdef debug
+                cerr << "No edge needed for back-to-back child snarls" << endl;
+#endif
+                
+            } else {
+                // Do the edge to it
+                handle_edge(i, to_right_side(visit), to_left_side(next_visit));
+            }
+        } else {
+            // Do the edge to the end of the snarl.
+            handle_edge(i, to_right_side(visit), to_left_side(site.end()));
+        }
+        
+        // And for the edge in, if necessary
+        if (i == 0) {
+            // This is the first visit, so we need to connect to the left end of the snarl.
+            handle_edge(i, to_right_side(site.start()), to_left_side(visit));
+        }
+    }
+    
+    if(traversal.visits_size() == 0) {
+        // We just have the anchoring nodes and the edge between them.
+        // Look at that edge specially.
+        handle_edge(0, to_right_side(site.start()), to_left_side(site.end()));
+    }
+
+}
+
+/**
+ * Get the min support, total support, bp size (to divide total by for average
+ * support), and min likelihood for a traversal, optionally excluding the
+ * material used by another traversal.
+ */
+tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
+    SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
+    const SnarlTraversal* excluded = nullptr) {
+
+#ifdef debug
+    cerr << "Evaluate traversal: " << endl;
+    for (size_t i = 0; i < traversal.visits_size(); i++) {
+        cerr << "\t" << pb2json(traversal.visits(i)) << endl;
+    }
+    if (excluded != nullptr) {
+        cerr << "Exclude: " << endl;
+        for (size_t i = 0; i < excluded->visits_size(); i++) {
+            cerr << "\t" << pb2json(excluded->visits(i)) << endl;
+        }
+    }
+#endif
+
+    // First work out the stuff we need to skip
+    set<id_t> skip_nodes;
+    set<Snarl> skip_children;
+    set<Edge*> skip_edges;
+    if (excluded != nullptr) {
+        // Exlcude all the nodes and edges that the traversal to exclude uses.
+        trace_traversal(*excluded, site, [&](size_t i, id_t node) {
+            skip_nodes.insert(node);
+        }, [&](size_t i, NodeSide end1, NodeSide end2) {
+            skip_edges.insert(augmented.graph.get_edge(end1, end2));
+        }, [&](size_t i, Snarl child) {
+            skip_children.insert(child);
+        });
+    }
+    
+    
+    // Compute min and total supports, and bp sizes, for all the visits by
+    // number.
+    size_t record_count = max(1, traversal.visits_size());
+    // What's the min support observed at every visit (inclusing edges)?
+    vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
+    // And the total support (ignoring edges)?
+    vector<Support> total_supports(record_count, Support());
+    // And the bp size of each visit
+    vector<size_t> visit_sizes(record_count, 0);
+    
+    // Don't count nodes shared between child snarls more than once.
+    set<Node*> coverage_counted;
+    
+    trace_traversal(traversal, site, [&](size_t i, id_t node_id) {
+        if (skip_nodes.count(node_id)) {
+            // Used by the traversal we want to ignore
+            return;
+        }
+    
+        // Find the node
+        Node* node = augmented.graph.get_node(node_id);
+    
+        // Grab this node's total support along its length
+        total_supports[i] += augmented.get_support(node) * node->sequence().size();
+        // And its size
+        visit_sizes[i] += node->sequence().size();
+        
+        // And update its min support
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node));
+        
+    }, [&](size_t i, NodeSide end1, NodeSide end2) {
+        // This is an edge
+        Edge* edge = augmented.graph.get_edge(end1, end2);
+        assert(edge != nullptr);
+        
+        if (skip_edges.count(edge)) {
+            // Used by the traversal we want to ignore
+            return;
+        }
+
+        // Count as 1 base worth for the total/average support
+        total_supports[i] += augmented.get_support(edge);
+        visit_sizes[i] += 1;
+        
+        // Min in its support
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge));
+    }, [&](size_t i, Snarl child) {
+        // This is a child snarl, so get its max support.
+        
+        if (skip_children.count(child)) {
+            // Used by the traversal we want to ignore
+            return;
+        }
+        
+        Support child_max;
+        size_t child_size = 0;
+        for (Node* node : snarl_manager.deep_contents(snarl_manager.manage(child),
+            augmented.graph, true).first) {
+            // For every node in the child
+            
+            if (coverage_counted.count(node)) {
+                // Already used by another child snarl on this traversal
+                continue;
+            }
+            // Claim this node for this child.
+            coverage_counted.insert(node);
+            
+            // How many distinct reads must use the child, given the distinct reads on this node?
+            child_max = support_max(child_max, augmented.get_support(node));
+            
+            // Add in the node's size to the child
+            child_size += node->sequence().size();
+            
+#ifdef debug
+            cerr << "From child snarl node " << node->id() << " get "
+                << augmented.get_support(node) << " for distinct " << child_max << endl;
+#endif
+        }
+        
+        // Smoosh support over the whole child
+        total_supports[i] += child_max * child_size;
+        visit_sizes[i] += child_size;
+        
+        if (child_size != 0) {
+            // We actually have some nodes to our name.
+            min_supports[i] = support_min(min_supports[i], child_max);
+        }
+        
+    });
+    
+    // Now aggregate across visits and their edges
+
+    // What's the total support for this traversal?
+    Support total_support;
+    for (auto& support : total_supports) {
+        total_support += support;
+    }
+    
+    // And the length over which we have it (for averaging)
+    size_t total_size = 0;
+    for (auto& size : visit_sizes) {
+        total_size += size;
+    }
+    
+    // And the min support?
+    Support min_support = make_support(INFINITY, INFINITY, INFINITY);
+    for (auto& support : min_supports) {
+        min_support = support_min(min_support, support);
+    }
+        
+    if (min_support.forward() == INFINITY || min_support.reverse() == INFINITY) {
+        // If we have actually no material, say we have actually no support
+        min_support = Support();
+    }
+        
+    // Spit out the supports, the size in bases observed.
+    return tie(min_support, total_support, total_size);
+        
+}
+
+
+vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
+        SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
+        const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
+
+    // We need to be an ultrabubble for the traversal finder to work right.
+    // TODO: generalize it
+    assert(site.type() == ULTRABUBBLE);
+
+
+#ifdef debug
+    cerr << "Site " << site << endl;
+#endif
+
+
+    // Get traversals of this Snarl, with Visits to child Snarls.
+    // The 0th is always the reference traversal if we're on a primary path
+    vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
+    
+
+#ifdef debug
+    cerr << "Found " << here_traversals.size() << " traversals" << endl;
+#endif
+
+    
+    // Make a Locus to hold all our stats for the different traversals
+    // available. The 0th will always be the ref traversal if we're on a primary
+    // path.
+    Locus locus;
+    
+    // How long is the longest traversal?
+    // Sort of approximate because of the way nested site sizes are estimated.
+    size_t longest_traversal_length = 0;
+    
+    // Calculate average and min support for all the traversals of this snarl.
+    vector<Support> min_supports;
+    vector<Support> average_supports;
+    for(auto& traversal : here_traversals) {
+        // Go through all the SnarlTraversals for this Snarl
+        
+        // What's the total support for this traversal?
+        Support total_support;
+        // And the length over which we have it (for averaging)
+        size_t total_size;
+        // And the min support?
+        Support min_support;
+        // Trace the traversal and get its support
+        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
+            snarl_manager, site, traversal);
+            
+        // Add average and min supports to vectors. Note that average support
+        // ignores edges.
+        min_supports.push_back(min_support);
+        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
+        
+#ifdef debug
+        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
+#endif
+
+        // Remember a new longest traversal length
+        longest_traversal_length = max(longest_traversal_length, total_size);        
+    }
+    
+#ifdef debug
+    cerr << "Min vs. average" << endl;
+#endif
+    for (size_t i = 0; i < average_supports.size(); i++) {
+#ifdef debug
+        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
+#endif
+        // We should always have a higher average support than minumum support
+        assert(total(average_supports.at(i)) >= total(min_supports.at(i)));
+    }
+
+    // Decide which support vector we use to actually decide.
+    // Use average support for long sites where dropout might be expected, and min support otherwise.
+    vector<Support>& supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        average_supports :
+        min_supports;
+    
+    for (auto& support : supports) {
+        // Blit supports over to the locus
+        *locus.add_support() = support;
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // Now look at all the paths for the site and pick the best one
+    int best_allele = -1;
+    for(size_t i = 0; i < supports.size(); i++) {
+        if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
+            // We have a new best.
+            best_allele = i;
+        }
+    }
+    // We should always have a best allele; we may sometimes have a second best.
+    assert(best_allele != -1);
+    
+#ifdef debug
+    cerr << "Choose best allele: " << best_allele << endl;
+#endif
+    
+    // Then recalculate supports assuming we can't count anything shared with that best traversal
+    vector<Support> min_additional_supports;
+    vector<Support> average_additional_supports;
+    for(auto& traversal : here_traversals) {
+        // Go through all the SnarlTraversals for this Snarl
+        
+        // Get all these again, modulo the best allele
+        Support total_support;
+        size_t total_size;
+        Support min_support;
+        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
+            snarl_manager, site, traversal, &here_traversals.at(best_allele));
+            
+        // Add average and min supports to vectors.
+        min_additional_supports.push_back(min_support);
+        average_additional_supports.push_back(total_size != 0 ? total_support / total_size : Support());
+        
+#ifdef debug
+        cerr << "Additional: Min: " << min_support << " Total: " << total_support << " Average: "
+            << average_additional_supports.back() << endl;
+#endif
+    }
+    vector<Support>& additional_supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        average_additional_supports :
+        min_additional_supports;
+    
+    // Then pick the second best one
+    int second_best_allele = -1;
+    for(size_t i = 0; i < additional_supports.size(); i++) {
+        if (best_allele == i) {
+            // The second best allele can't be the best allele.
+            continue;
+        }
+        if(second_best_allele == -1 || total(additional_supports[second_best_allele]) <= total(additional_supports[i])) {
+            // We're the best so far, and not the best allele, so we're the second best.
+            second_best_allele = i;
+        }
+    }
+    
+#ifdef debug
+    cerr << "Choose second best allele: " << second_best_allele << endl;
+#endif
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // Now make a genotype call at this site, up to the allowed copy number
+    
+    // TODO: Work out how to detect indels when there are nested sites and
+    // enable the indel bias multiple again.
+    double bias_multiple = 1.0;
+    
+    // How much support do we have for the top two alleles?
+    Support site_support = supports.at(best_allele);
+    if(second_best_allele != -1) {
+        site_support += supports.at(second_best_allele);
+    }
+    
+    // Pull out the different supports. Some of them may be the same.
+    Support best_support = supports.at(best_allele);
+    Support second_best_support; // Defaults to 0
+    if(second_best_allele != -1) {
+        second_best_support = supports.at(second_best_allele);
+    }
+    
+    // As we do the genotype, we also compute the likelihood. Holds
+    // likelihood log 10. Starts out at "completely wrong".
+    double gen_likelihood = -1 * INFINITY;
+
+    // Minimum allele depth of called alleles
+    double min_site_support = 0;
+    
+    // This is where we'll put the genotype. We only actually add it to the
+    // Locus if we are confident enough to actually call.
+    Genotype genotype;
+    
+    // We're going to make some really bad calls at low depth. We can
+    // pull them out with a depth filter, but for now just elide them.
+    if (total(site_support) >= total(baseline_support) * min_fraction_for_call * ((double) copy_budget) / 2) {
+        // We have enough to emit a call here.
+        
+        // If best and second best are close enough to be het, we call het.
+        // Otherwise, we call hom best.
+        
+        // We decide closeness differently depending on whether best is ref or not.
+        // In practice, we use this to slightly penalize homozygous ref calls
+        // (by setting max_ref_het_bias higher than max_het_bias) and rather make a less
+        // supported alt call instead.  This boost max sensitivity, and because
+        // everything is homozygous ref by default in VCF, any downstream filters
+        // will effectively reset these calls back to homozygous ref.
+        // TODO: This shouldn't apply when off the primary path! 
+        double bias_limit = (best_allele == 0) ? max_ref_het_bias : max_het_bias;
+
+#ifdef debug
+        cerr << best_allele << ", " << best_support << " and "
+            << second_best_allele << ", " << second_best_support << endl;
+        
+        if (total(second_best_support) > 0) {
+            cerr << "Bias: (limit " << bias_limit * bias_multiple << "):"
+                << total(best_support)/total(second_best_support) << endl;
+        }
+        
+        cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
+            << total(best_support) << endl;
+            
+        cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
+#endif
+
+        if (copy_budget >= 2 &&
+            second_best_allele != -1 &&
+            bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
+            total(best_support) >= min_total_support_for_call &&
+            total(second_best_support) >= min_total_support_for_call &&
+            total(second_best_support) >= min_mad_for_filter) {
+            // There's a second best allele, and it's not too biased to call,
+            // and both alleles exceed the minimum to call them present, and the
+            // second-best allele has enough support that it won't torpedo the
+            // variant.
+            
+#ifdef debug
+            cerr << "Call as best/second best" << endl;
+#endif
+            
+            // Say both are present
+            genotype.add_allele(best_allele);
+            genotype.add_allele(second_best_allele);
+                        
+            // Get minimum support for filter (not assuming it's second_best just to be sure)
+            min_site_support = min(total(second_best_support), total(best_support));
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+            
+        } else if (copy_budget >= 2 && total(best_support) >= min_total_support_for_call) {
+            // The second best allele isn't present or isn't good enough,
+            // but the best allele has enough coverage that we can just call
+            // two of it.
+            
+#ifdef debug
+            cerr << "Call as best/best" << endl;
+#endif
+            
+            // Say the best is present twice
+            genotype.add_allele(best_allele);
+            genotype.add_allele(best_allele);
+            
+            // Get minimum support for filter
+            min_site_support = total(best_support);
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+
+        } else if (copy_budget >= 1 && total(best_support) >= min_total_support_for_call) {
+            // We're only supposed to have one copy, and the best allele is good enough to call
+            
+#ifdef debug
+            cerr << "Call as best" << endl;
+#endif
+            
+            // Say the best is present once
+            genotype.add_allele(best_allele);
+            
+            // Get minimum support for filter
+            min_site_support = total(best_support);
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+        } else {
+            // Either coverage is too low, or we aren't allowed any copies.
+            // We can't really call this as anything.
+            
+#ifdef debug
+            cerr << "Do not call" << endl;
+#endif
+            
+            // Don't add the genotype to the locus
+        }
+    } else {
+        // Depth too low. Say we have no idea.
+        // TODO: elide variant?
+        
+        // Don't add the genotype to the locus
+    }
+    
+    // Find the total support for the Locus across all alleles
+    Support locus_support;
+    for (auto& s : supports) {
+        // Sum up all the Supports form all alleles (even the non-best/second-best).
+        locus_support += s;
+    }
+    // Save support
+    *locus.mutable_overall_support() = locus_support;
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Figure out what child snarls are touched by the paths we have called and
+    // how much copy number each should get.
+    map<const Snarl*, size_t> child_usage_counts;
+    for (size_t i = 0; i < genotype.allele_size(); i++) {
+        // For each copy we call as present, find the SnarlTraversal we're
+        // asserting
+        SnarlTraversal& traversal = here_traversals.at(genotype.allele(i));
+        
+        for (size_t j = 0; j < traversal.visits_size(); j++) {
+            // For each visit to a child snarl
+            auto& visit = traversal.visits(j);
+            if (visit.node_id() != 0) {
+                continue;
+            }
+        
+            // Find the child snarl pointer for the snarl we visit
+            const Snarl* child = snarl_manager.manage(visit.snarl());
+        
+            // Say it's used one more time
+            child_usage_counts[child]++;
+            
+        }
+    }
+
+    // Recurse and get traversals for children. We do this for all our children,
+    // even the ones called as CN 0, because we need the fully-specified
+    // traversals to build our Locus (which needs the alleles we rejected as
+    // having no copies).
+    map<const Snarl*, vector<SnarlTraversal>> child_traversals;
+    for (const Snarl* child : snarl_manager.children_of(&site)) {
+        // Recurse on each child, giving a copy number budget according to the
+        // usage count call at this site. This produces fully realized
+        // traversals with no Visits to Snarls.
+        // Holds ref traversal, best, and optional second best for each child.
+        child_traversals[child] = find_best_traversals(augmented, snarl_manager,
+            finder, *child, baseline_support, child_usage_counts[child], emit_locus);
+    }
+    
+    for (auto kv : child_traversals) {
+        // All children must have at least two traversals (a ref and a best).
+        // Off the primary paths, the ref is sort of arbitrary.
+        assert(kv.second.size() >= 2);
+    }
+    
+    // Put the best (or ref) traversal for each child in our traversals that
+    // visit it (even if that contradicts the calls on the child)
+    vector<SnarlTraversal> concrete_traversals;
+    for (size_t traversal_number = 0; traversal_number < here_traversals.size(); traversal_number++) {
+        // For every abstract traversal of this site, starting with the ref traversal...
+        auto& abstract_traversal = here_traversals[traversal_number];
+        // Make a "concrete", node-level traversal for every abstract, Snarl-
+        // visiting traversal.
+        concrete_traversals.emplace_back();
+        auto& concrete_traversal = concrete_traversals.back();
+        
+        // Copy over the snarl info
+        *concrete_traversal.mutable_snarl() = abstract_traversal.snarl();
+        
+        for (size_t i = 0; i < abstract_traversal.visits_size(); i++) {
+            // Go through all the visits in the abstract traversal
+            auto& abstract_visit = abstract_traversal.visits(i);
+            
+            if (abstract_visit.node_id() != 0) {
+                // If they're fully realized, just take them
+                *concrete_traversal.add_visits() = abstract_visit;
+            } else {
+                // If they're visits to children, look up the child
+                const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
+                
+                // Then blit the child's path over. This will be the ref path if
+                // we are concrete-izing this snarl's ref traversal, and the
+                // best path for the child otherwise. Keep in mind that we may
+                // be going through the child backward.
+                auto& child_traversal = child_traversals.at(child).at(traversal_number == 0 ? 0 : 1);
+                
+                if (i != 0) {
+                    // There was a previous visit. It may have been a previous
+                    // back-to-back snarl.
+                    auto& last_visit = abstract_traversal.visits(i - 1);
+                    if (last_visit.node_id() == 0 && to_right_side(last_visit).flip() == to_left_side(abstract_visit)) {
+                        // It was indeed a previous back to back site. Don't add the entry node!
+#ifdef debug
+                        cerr << "Skip entry node for back-to-back sites" << endl;
+#endif
+                    } else {
+                        
+                        *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
+                    }
+                } else {
+                    // First the entry node (in the correct order and orientation)
+                    *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
+                }
+                for (size_t j = 0; j < child_traversal.visits_size(); j++) {
+                    // All the internal visits, in the correct order 
+                    *concrete_traversal.add_visits() = abstract_visit.backward() ?
+                        reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
+                        child_traversal.visits(j);
+                }
+                // And last the exit node (in the correct order and orientation)
+                *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->start()) : child->end();
+            }
+        }
+    }
+    
+    for (auto& concrete_traversal : concrete_traversals) {
+        // Populate the Locus with those traversals by converting to paths
+        Path* converted = locus.add_allele();
+        
+        // Start with the start mapping
+        *converted->add_mapping() = to_mapping(site.start(), augmented.graph);
+        for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
+            // Convert all the visits to Mappings and stick them in the Locus's Paths
+            *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
+        }
+        // Finish with the end
+        *converted->add_mapping() = to_mapping(site.end(), augmented.graph);
+    }
+    
+    if (locus.genotype_size() > 0) {
+        // Emit the locus if we have a call
+        emit_locus(locus, &site);
+    }
+    
+    // Build the list of traversals to return as ref, best, second best, with
+    // possible repeats.
+    vector<SnarlTraversal> to_return{concrete_traversals[0], concrete_traversals[best_allele]};
+    if (second_best_allele != -1) {
+        to_return.push_back(concrete_traversals[second_best_allele]);
+    }
+    
+    // Return those important traversals
+    return to_return;
+
+}
+
+// this was main() in glenn2vcf
+void Call2Vcf::call(
+    // Augmented graph
+    AugmentedGraph& augmented,
+    // Should we load a pileup and print out pileup info as comments after
+    // variants?
+    string pileup_filename) {
+    
+    // Set up the graph's paths properly after augmentation modified them.
+    augmented.graph.paths.sort_by_mapping_rank();
+    augmented.graph.paths.rebuild_mapping_aux();
+    
+    // Make a list of the specified or autodetected primary reference paths.
+    vector<string> primary_path_names = ref_path_names;
+    if (primary_path_names.empty()) {
+        // Try and guess reference path names for VCF conversion or coverage measurement.
+        if (verbose) {
+          std:cerr << "Graph has " << augmented.graph.paths.size() << " paths to choose from."
+                   << endl;
+        }
+        if(augmented.graph.paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            primary_path_names.push_back((*augmented.graph.paths._paths.begin()).first);
+        } else if (augmented.graph.paths.has_path("ref")) {
+            // Take any "ref" path.
+            primary_path_names.push_back("ref");
+        }
+
+        if (verbose && !primary_path_names.empty()) {
+            cerr << "Guessed reference path name of " << primary_path_names.front() << endl;
+        }
+        
+    }
+    
+    // We'll fill this in with a PrimaryPath for every primary reference path
+    // that is specified or detected.
+    map<string, PrimaryPath> primary_paths;
+    for (auto& name : primary_path_names) {
+        // Make a PrimaryPath for every primary path we have.
+        // Index the primary path and compute the binned supports.   
+        primary_paths.emplace(std::piecewise_construct,
+            std::forward_as_tuple(name),
+            std::forward_as_tuple(augmented, name, ref_bin_size));
+    
+        auto& primary_path = primary_paths.at(name);
+    
+        if (verbose) {
+            cerr << "Primary path " << name << " average/off-path assumed coverage: "
+                << primary_path.get_average_support() << endl;
+            cerr << "Mininimum binned average coverage: " << primary_path.get_bin(primary_path.get_min_bin()) << " (bin "
+                << (primary_path.get_min_bin() + 1) << " / " << primary_path.get_total_bins() << ")" << endl;
+            cerr << "Maxinimum binned average coverage: " << primary_path.get_bin(primary_path.get_max_bin()) << " (bin "
+                << (primary_path.get_max_bin() + 1) << " / " << primary_path.get_total_bins() << ")" << endl;
+        }
     }
     
     // If applicable, load the pileup.
     // This will hold pileup records by node ID.
-    std::map<int64_t, vg::NodePileup> nodePileups;
+    map<int64_t, NodePileup> node_pileups;
     
-    std::function<void(vg::Pileup&)> handlePileup = [&](vg::Pileup& p) { 
+    function<void(Pileup&)> handle_pileup = [&](Pileup& p) { 
         // Handle each pileup chunk
         for(size_t i = 0; i < p.node_pileups_size(); i++) {
             // Pull out every node pileup
             auto& pileup = p.node_pileups(i);
             // Save the pileup under its node's pointer.
-            nodePileups[pileup.node_id()] = pileup;
+            node_pileups[pileup.node_id()] = pileup;
         }
     };
-    if(!pileupFilename.empty()) {
+    if(!pileup_filename.empty()) {
         // We have to load some pileups
-        std::ifstream in;
-        in.open(pileupFilename.c_str());
-        stream::for_each(in, handlePileup);
+        ifstream in;
+        in.open(pileup_filename.c_str());
+        stream::for_each(in, handle_pileup);
     }
     
-    // Generate a vcf header. We can't make Variant records without a
-    // VariantCallFile, because the variants need to know which of their
-    // available info fields or whatever are defined in the file's header, so
-    // they know what to output.
-    // Handle length override if specified.
-    std::stringstream headerStream;
-    write_vcf_header(headerStream, sampleName, contigName,
-                     lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
-                     min_mad_for_filter);
+    // Parse the translation so we know what original node and offset, if any,
+    // each new node came from.
+    map<id_t, pos_t> original_positions;
+    for (auto& translation : augmented.translations) {
+        // TODO: we assume every translation is exactly one old mapping to
+        // exactly one new full-node mapping
+        auto& new_mapping = translation.to().mapping(0);
+        auto& old_mapping = translation.from().mapping(0);
+        
+        // Store the old source position under the new node ID.
+        original_positions[new_mapping.position().node_id()] = make_pos_t(old_mapping.position());
+    }
     
-    // Load the headers into a new VCF file object
+    // Make a VCF because we need it in scope later, if we are outputting VCF.
     vcflib::VariantCallFile vcf;
-    std::string headerString = headerStream.str();
-    assert(vcf.openForOutput(headerString));
     
-    // Spit out the header
-    std::cout << headerStream.str();
+    // We also might need to fillin this contig names by path name map
+    map<string, string> contig_names_by_path_name;
     
-    // Then go through it from the graph's point of view: first over alt nodes
-    // backending into the reference (creating things occupying ranges to which
-    // we can attribute copy number) and then over reference nodes.
-
-    // We need to track the bases lost.
-    size_t basesLost = 0;
-    
-    if(multiallelic_support) {
-        // Do the new thing where we support multiple alleles
-    
-        // Find all the top-level sites
-        std::list<NestedSite> site_queue;
+    if (convert_to_vcf) {
+        // Do initial setup for VCF output
         
-        CactusSiteFinder finder(vg, refPathName);
-        finder.for_each_site_parallel([&](NestedSite site) {
-            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.end.node->id())) {
-                // Skip top-level sites that aren't on the reference path at both ends.
-                return;
-            }
+        // Decide on names and lengths for all the primary paths.
+        vector<size_t> contig_lengths;
+        vector<string> contig_names;
         
-            // Stick all the sites in this vector.
-            #pragma omp critical (sites)
-            site_queue.emplace_back(std::move(site));
-        });
-        
-        // We're going to run through all the top-level sites and break up the
-        // huge ones and throw out the ones not on the reference, leaving only
-        // manageably-sized sites on the ref path. We won't be able to genotype
-        // huge translocations or deletions, but we can save those for the
-        // proper nested-site-aware genotyper.
-        std::vector<NestedSite> sites;
-        
-        while(!site_queue.empty()) {
-            // Grab the first site
-            NestedSite site = std::move(site_queue.front());
-            site_queue.pop_front();
-            
-            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.end.node->id())) {
-                // Skip sites that aren't on the reference path at both ends.
-                continue;
-            }
-            
-            // Where does the variable region start and end on the reference?
-            size_t ref_start = index.byId.at(site.start.node->id()).first + site.start.node->sequence().size();
-            size_t ref_end = index.byId.at(site.end.node->id()).first;
-            
-            if(ref_start > ref_end) {
-                // Make sure it's the right way around (it will get set straight
-                // in the site when we do the bubbling-up).
-                std::swap(ref_start, ref_end);
-            }
-            
-            if(!site.children.empty() && ref_end > ref_start + max_ref_length) {
-                // Site is too big and has children. Split it up and do the
-                // children.
-                for(auto& child : site.children) {
-                    // Dump all the children into the queue for separate
-                    // processing.
-                    site_queue.emplace_back(std::move(child));
-                }
-
-                if (verbose) {
-                    std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                              << site.children.size() << " children" << std::endl;
-                }
-                
+        for (size_t i = 0; i < primary_path_names.size(); i++) {
+            if (i < contig_name_overrides.size()) {
+                // Override this name
+                contig_names.push_back(contig_name_overrides.at(i));
             } else {
-                // With no children, site may still be huge, but it doesn't
-                // matter because there's nothing to nest in it, so we can
-                // genotype it just fine.
-                
-                // With children, it's practical to just include the child
-                // genotypes in the site genotype.
-                
-                if(ref_end > ref_start + max_ref_length) {
-                    // This site is big but we left it anyway.
-                    if (verbose) {
-                        std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                                  << site.children.size() << " children" << std::endl;
-                    }
-                }
-                
-                // Throw it in the final vector of sites we're going to process.
-                sites.emplace_back(std::move(site));
-            }                
+                // Keep the path name from the graph
+                contig_names.push_back(primary_path_names.at(i));
+            }
+            
+            // Allow looking up the assigned contig name later
+            contig_names_by_path_name[primary_path_names.at(i)] = contig_names.back();
+            
+            if (i < length_overrides.size()) {
+                // Override this length
+                contig_lengths.push_back(length_overrides.at(i));
+            } else {
+                // Grab the length from the index
+                contig_lengths.push_back(primary_paths.at(primary_path_names.at(i)).get_index().sequence.size());
+            }
+            
+            // TODO: is this fall-through-style logic smart, or will we just
+            // neglect to warn people that they forgot options by parsing what
+            // they said when they provide too few overrides?
         }
-
-        if (verbose) {
-            std::cerr << "Found " << sites.size() << " sites" << std::endl;
+    
+        // Generate a vcf header. We can't make Variant records without a
+        // VariantCallFile, because the variants need to know which of their
+        // available info fields or whatever are defined in the file's header,
+        // so they know what to output.
+        stringstream header_stream;
+        write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths,
+            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter, max_local_dp_multiple_for_filter,
+            min_ad_log_likelihood_for_filter);
+        
+        // Load the headers into a the VCF file object
+        string header_string = header_stream.str();
+        assert(vcf.openForOutput(header_string));
+        
+        // Spit out the header
+        cout << header_stream.str();
+    }
+    
+    // Find all the top-level sites
+    list<const Snarl*> site_queue;
+    
+    CactusUltrabubbleFinder finder(augmented.graph);
+    SnarlManager site_manager = finder.find_snarls();
+    
+    site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
+        // Stick all the sites in this vector.
+        #pragma omp critical (sites)
+        site_queue.emplace_back(site);
+    });
+    
+    // We're going to run through all the top-level sites and keep just what we
+    // can use. If we're converting to VCF it's only stuff on a primary path,
+    // and we will break top-level sites to find things on a primary path.
+    // Otherwise it's everything.
+    vector<const Snarl*> sites;
+    
+    while(!site_queue.empty()) {
+        // Grab the first site
+        const Snarl* site = move(site_queue.front());
+        site_queue.pop_front();
+        
+        // If the site is strung on any of the primary paths, find the
+        // corresponding PrimaryPath object. Otherwise, leave this null.
+        PrimaryPath* primary_path = nullptr;
+        {
+            auto found = find_path(*site, primary_paths);
+            if (found != primary_paths.end()) {
+                primary_path = &found->second;
+            }
         }
         
-        // Bubble up nested site nodes and edges
-        std::function<void(NestedSite&, NestedSite&)> bubble_up = [&](NestedSite& child, NestedSite& root) {
-            for(auto& next_child : child.children) {
-                // Recurse on all the children
-                bubble_up(next_child, root);
-            }
-            
-            for(Node* content : child.nodes) {
-                // Dump all the node pointers into the root site.
-                root.nodes.insert(content);
-            }
-            
-            for(Edge* content : child.edges) {
-                // Dump all the edges into the root site
-                root.edges.insert(content);
-            }
-            
-        };
         
-        for(auto& site : sites) {
-            // Actually bubble up for all the sites
-            for(auto& child : site.children) {
-                bubble_up(child, site);
-            }
-            
-             // Make sure start and end are front-ways relative to the ref path.
-             if(index.byId.at(site.start.node->id()).first > index.byId.at(site.end.node->id()).first) {
-                 // The site's end happens before its start
-                 site.start = flip(site.start);
-                 site.end = flip(site.end);
-                 std::swap(site.start, site.end);
-             }
-
-        }
+        if (site->type() == ULTRABUBBLE && primary_path != nullptr) {
+            // This site is an ultrabubble on a primary path
         
-        for(auto& site : sites) {
-            // For every site, we're going to make a variant
+            // Throw it in the final vector of sites we're going to process.
+            sites.push_back(site);
+        } else if (site->type() == ULTRABUBBLE && !convert_to_vcf) {
+            // This site is an ultrabubble and we can handle things off the
+            // primary path.
             
-            // Copy its node set
-            std::set<Node*> nodes_left(site.nodes);
+            // Throw it in the final vector of sites we're going to process.
+            sites.push_back(site);
             
-            // Trace the ref path through the site
-            std::vector<NodeTraversal> ref_path_for_site;
-#ifdef debug
-            std::cerr << "Site starts with " << site.start << " at " << index.byId.at(site.start.node->id()).first
-                << " and ends with " << site.end << " at " << index.byId.at(site.end.node->id()).first << std::endl;
-#endif
+        } else {
+            // The site is not on the primary path or isn't an ultrabubble, but
+            // maybe one of its children will meet our requirements.
             
-            int64_t ref_node_start = index.byId.at(site.start.node->id()).first;
-            while(ref_node_start <= index.byId.at(site.end.node->id()).first) {
+            size_t child_count = site_manager.children_of(site).size();
             
-                // Find the reference node starting here or later.
-                auto found = index.byStart.lower_bound(ref_node_start);
-                if(found == index.byStart.end()) {
-                    throw runtime_error("No ref node found when tracing through site!");
-                }
-                if((*found).first > index.byId.at(site.end.node->id()).first) {
-                    // The next reference node we can find is out of the space
-                    // being replaced. We're done.
-                    if (verbose) {
-                        cerr << "Stopping for out-of-bounds node" << endl;
-                    }
-                    break;
-                }
-                
-                // Add the traversal to the ref path through the site
-                ref_path_for_site.push_back((*found).second);
-                
-                // Make sure this node is actually in the site
-                assert(site.nodes.count((*found).second.node));
-                
-                // Drop it from the set of nodes in the site we haven't visited.
-                nodes_left.erase((*found).second.node);
-                
-                // Next iteration look where this node ends.
-                ref_node_start = (*found).first + (*found).second.node->sequence().size();
+            for(const Snarl* child : site_manager.children_of(site)) {
+                // Dump all the children into the queue for separate
+                // processing.
+                site_queue.emplace_back(child);
             }
-            
-            for(auto node : nodes_left) {
-                // Make sure none of the nodes in the site that we didn't visit
-                // while tracing along the ref path are on the ref path.
-                if(index.byId.count(node->id())) {
-                    std::cerr << "Node " << node->id() << " is on ref path but not traced in site " << site.start << " to " << site.end << std::endl;
-                    throw runtime_error("Extra ref node found");
-                }
-            }
-            
-#ifdef debug
-            // Make sure we didn't screw it up
-            std::cerr << "Site " << site.start << " to " << site.end << ":" << std::endl;
-            for(auto& item : ref_path_for_site) {
-                std::cerr << "\t" << item << std::endl;
-            }
-#endif
-            assert(ref_path_for_site.front() == site.start);
-            assert(ref_path_for_site.back() == site.end);
 
-            // check if a path is mostly reference for deciding if we add XREF tag
-            auto is_path_known = [&](std::vector<NodeTraversal> path) {
-                bool path_is_known = false;
-                if(path.size() == 2) {
-                    // We just have the anchoring nodes and the edge between them.
-                    // Look at that edge specially.
-                    vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
-                                                           vg::NodeSide(path[1].node->id(), path[1].backward)));
-
-                    // The path is known if the edge is known
-                    path_is_known = knownEdges.count(edge);
+            if (verbose) {
+                if (child_count) {
+                    cerr << "Broke up off-reference site into "
+                         << child_count << " children" << endl;
                 } else {
-                    // How many bases are known (for XREF determination)?
-                    assert(path.size() > 2);
-                    size_t known_bases = 0;
-                    size_t unknown_bases = 0;
-
-                    // don't iterate over referenc anchors at either end
-                    for (int i = 1; i < path.size() - 1; ++i) {
-                        if (knownNodes.count(path[i].node)) {
-                            // This is a reference node.
-                            known_bases += path[i].node->sequence().size();
-                        } else {
-                            unknown_bases += path[i].node->sequence().size();
-                        }
-                    }
-                    // The path is known if more than half of its bases are reference
-                    path_is_known = known_bases > 0 && known_bases >= (known_bases + unknown_bases) / 2;
+                    cerr << "Dropped off-reference site" << endl;
                 }
-                return path_is_known;
-            };
-            
-            // We need to know all the full-length traversals we're going to
-            // consider. We want them in a set so we can find only unique ones.
-            // We also store the XREF state here because we want to compute
-            // it before the extension is done. 
-            std::map<std::vector<NodeTraversal>, bool> site_traversal_set;
-            
-            // We have this function to extand a partial traversal into a full
-            // traversal and add it as a path. The path must already be rooted on
-            // the reference in the correct order and orientation.
-            auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
-                // Splice the ref path through the site and the bubble's path
-                // through the site together.
-                vector<NodeTraversal> extended_path;
-
-                // Check if the path is xref before adding a bunch of reference stuff to it
-                bool path_known = is_path_known(path);
-                
-                for(auto& traversal : path) {
-                    // Make sure the site actually has the nodes we're visiting.
-                    assert(site.nodes.count(traversal.node));
-#ifdef debug
-                    if(index.byId.count(traversal.node->id())) {
-                        std::cerr << "Path member " << traversal << " lives on ref at "
-                        << index.byId.at(traversal.node->id()).first << std::endl;
-                    } else {
-                        std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
-                    }
-#endif
-                }
-                
-                size_t ref_path_index = 0;
-                size_t bubble_path_index = 0;
-                
-                while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
-                    // Collect NodeTraversals from the ref path until we hit the one
-                    // at which the bubble path starts.
-                    extended_path.push_back(ref_path_for_site[ref_path_index++]);
-                }
-                while(bubble_path_index < path.size()) {
-                    // Then take the whole bubble path
-                    extended_path.push_back(path[bubble_path_index++]);
-                }
-                while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
-                    // Then skip ahead to the matching point in the ref path
-                    ref_path_index++;
-                }
-                if(ref_path_index == ref_path_for_site.size()) {
-                    // We ran out of ref path before finding the place to leave the alt.
-                    // This must be a backtracking loop or something; start over from the beginning.
-                    ref_path_index = 0;
-                    
-                    while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
-                        // Then skip ahead to the matching point in the ref path
-                        ref_path_index++;
-                    }
-                    
-                    if(ref_path_index == ref_path_for_site.size()) {
-                        // Still couldn't find it!
-                        std::stringstream err;
-                        err << "Couldn't find " << path.back() << " in ref path of site " << site.start << " to " << site.end;
-                        throw std::runtime_error(err.str());
-                    }
-                }
-                // Skip the matching NodeTraversal
-                ref_path_index++;
-                while(ref_path_index < ref_path_for_site.size()) {
-                    // Then take the entier rest of the ref path
-                    extended_path.push_back(ref_path_for_site[ref_path_index++]);
-                }
-                
-                // Now add it to the set
-                site_traversal_set.insert(make_pair(extended_path, path_known));
-            
-            };
-
-            for(Node* node : site.nodes) {
-                // Find the bubble for each node
-                
-                if(total(nodeReadSupport.at(node)) == 0) {
-                    // Don't bother with unsupported nodes
-                    continue;
-                }
-                
-                if(index.byId.count(node->id())) {
-                    // Don't try to pathfind to the reference for reference nodes.
-                    continue;
-                }
-                
-                std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
-                    vg, node, nullptr, index, nodeReadSupport,
-                    edgeReadSupport, maxDepth, max_bubble_paths);
-
-                std::vector<NodeTraversal>& path = sup_path.second;
-                
-                if(path.empty()) {
-                    // We couldn't find a path back to the primary path. Discard
-                    // this material.
-                    if (verbose) {
-                        cerr << "Warning: No path found for node " << node->id() << endl;
-                    }
-                    basesLost += node->sequence().size();
-                    // TODO: what if it's already in another bubble/the node is deleted?
-                    continue;
-                }
-                
-                // Extend it out into an allele
-                extend_into_allele(path);
-                
             }
             
-            for(Edge* edge : site.edges) {
-                // Go through all the edges
+        }     
+    }
+
+    if (verbose) {
+        cerr << "Found " << sites.size() << " sites" << endl;
+    }
+    
+    // Now start looking for traversals of the sites.
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_search_width,
+        max_bubble_paths, [&] (const Snarl& site) -> PathIndex* {
+        
+        // When the TraversalFinder needs a primary path index for a site, it can look it up with this function.
+        auto found = find_path(site, primary_paths);
+        if (found != primary_paths.end()) {
+            // It's on a path
+            return &found->second.get_index();
+        } else {
+            // It's not on a known primary path, so the TraversalFinder should make its own backbone path
+            return nullptr;
+        }
+    });
+    
+    // We're going to remember what nodes and edges are covered by sites, so we
+    // will know which nodes/edges aren't in any sites and may need generic
+    // presence/absence calls.
+    set<Node*> covered_nodes;
+    set<Edge*> covered_edges;
+    
+    // When we genotype the sites into Locus objects, we will use this buffer for outputting them.
+    vector<Locus> locus_buffer;
+    
+    // How many sites result in output?
+    size_t called_loci = 0;
+    
+    for(const Snarl* site : sites) {
+        // For every site, we're going to make a bunch of Locus objects
+        
+        // See if the site is on a primary path, so we can use binned support.
+        map<string, PrimaryPath>::iterator found_path = find_path(*site, primary_paths);
+        
+        // We need to figure out how much support a site ought to have.
+        // Within its local bin?
+        Support baseline_support;
+        // On its primary path?
+        Support global_baseline_support;
+        if (expected_coverage != 0.0) {
+            // Use the specified coverage override
+            baseline_support.set_forward(expected_coverage / 2);
+            baseline_support.set_reverse(expected_coverage / 2);
+            global_baseline_support = baseline_support;
+        } else if (found_path != primary_paths.end()) {
+            // We're on a primary path, so we can find the appropriate bin
+        
+            // Since the variable part of the site is after the first anchoring node, where does it start?
+            // Account for the site possibly being backward on the path.
+            size_t variation_start = min(found_path->second.get_index().by_id.at(site->start().node_id()).first
+                    + augmented.graph.get_node(site->start().node_id())->sequence().size(),
+                found_path->second.get_index().by_id.at(site->end().node_id()).first
+                    + augmented.graph.get_node(site->end().node_id())->sequence().size());
+            
+            // Look in the bins for the primary path to get the support there.
+            baseline_support = found_path->second.get_support_at(variation_start);
+            
+            // And grab the path's overall support
+            global_baseline_support = found_path->second.get_average_support();
+            
+        } else {
+            // Just use the primary paths' average support, which may be 0 if there are none.
+            // How much support is expected across all the primary paths? May be 0 if there are no primary paths.
+            global_baseline_support = PrimaryPath::get_average_support(primary_paths);
+            baseline_support = global_baseline_support;
+        }
+        
+        // This function emits the given variant on the given primary path, as
+        // VCF. It needs to take the site as an argument because it may be
+        // called for children of the site we're working on right now.
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions,
+            &baseline_support, &global_baseline_support, this](
+            const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
+        
+            // Note that the locus paths will traverse our site forward, which
+            // may make them backward along the primary path.
+            bool site_backward = (primary_path.get_index().by_id.at(site->start().node_id()).first >
+                primary_path.get_index().by_id.at(site->end().node_id()).first);
+        
+            // Unpack the genotype back into best and second-best allele
+            auto& genotype = locus.genotype(0);
+            int best_allele = genotype.allele(0);
+            // If we called a single allele, we've lost the second-best allele info. But we won't need it, so we can just say -1.
+            int second_best_allele = (genotype.allele_size() >= 2 && genotype.allele(0) != genotype.allele(1)) ?
+                genotype.allele(1) :
+                -1;
                 
-                if(!index.byId.count(edge->from()) || !index.byId.count(edge->to())) {
-                    // Edge doesn't touch reference at both ends. Don't use it
-                    // because for some reason it makes performance worse
-                    // overall.
-                    continue;
-                }
+            // Populate this with original node IDs, from before augmentation.
+            set<id_t> original_nodes;
                 
-                // Find a path based around this edge
-                std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
-                    vg, nullptr, edge, index, nodeReadSupport,
-                    edgeReadSupport, maxDepth, max_bubble_paths);
-                std::vector<NodeTraversal>& path = sup_path.second;
+            // Calculate the ID and sequence strings for all the alleles.
+            // TODO: we only use some of these
+            vector<string> sequences;
+            vector<string> id_lists;
+            // Also the flags for whether alts are reference (i.e. known)
+            vector<bool> is_ref;
+            
+            for (size_t i = 0; i < locus.allele_size(); i++) {
+                // For each allele path in the Locus
+                auto& path = locus.allele(i);
                 
-#ifdef debug
-                std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
-                for(auto& traversal : path) {
-                    std::cerr << "\t" << traversal << std::endl;
-                }
-#endif
+                // Make a stream for the sequence of the path
+                stringstream sequence_stream;
+                // And for the description of involved IDs
+                stringstream id_stream;
                 
-                if(path.empty()) {
-                    // We couldn't find a path back to the primary path. Discard
-                    // this material.
-                    if (verbose) {
-                        cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                for (size_t j = 0; j < path.mapping_size(); j++) {
+                    // For each mapping along the path
+                    auto& mapping = path.mapping(j);
+                    
+                    // Record the sequence
+                    string node_sequence = augmented.graph.get_node(mapping.position().node_id())->sequence();
+                    if (mapping.position().is_reverse()) {
+                        node_sequence = reverse_complement(node_sequence);
                     }
-                    // TODO: bases lost
-                    // TODO: what if it's already in another bubble/the node is deleted?
-                    continue;
-                }
-                
-                // Extend it out into an allele
-                extend_into_allele(path);
-            }
-            
-            // Throw the ref allele out of the set
-            if(site_traversal_set.count(ref_path_for_site)) {
-                site_traversal_set.erase(ref_path_for_site);
-            }
-            
-            // Make it the first in the ordered alleles
-            std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
-            // Then add all the rest
-            std::copy(site_traversal_set.begin(), site_traversal_set.end(), std::back_inserter(ordered_paths));
-            
-            // Collect sequences for all the paths
-            std::vector<std::string> sequences;
-            // And the lists of involved IDs that we use for variant IDs
-            std::vector<string> id_lists;
-            // Calculate average and min support for all the alts.
-            std::vector<Support> min_supports;
-            std::vector<Support> average_supports;
-            // And the min likelihood along each path
-            std::vector<double> min_likelihoods;
-            // Is the path as a whole known or novel?
-            std::vector<bool> is_known;
-            for(auto& path_xref : ordered_paths) {
-                // Go through all the paths
-                auto& path = path_xref.first;
-                bool path_is_known = path_xref.second;
-                
-                // We use this to construct the allele sequence
-                std::stringstream sequence_stream;
-                
-                // And this to compose the allele's name in terms of node IDs
-                std::stringstream id_stream;
-                
-                // What's the total support for this path?
-                Support total_support = std::make_pair(0.0, 0.0);
-                
-                // And the min
-                Support min_support = std::make_pair(INFINITY, INFINITY);
-                
-                // Also, what's the min likelihood
-                double min_likelihood = INFINITY;
-                                
-                for(int64_t i = 1; i < path.size() - 1; i++) {
-                    // For all but the first and last nodes (which are anchors),
-                    // grab their sequences in the correct orientation.
+                    sequence_stream << node_sequence;
                     
-                    std::string added_sequence = path[i].node->sequence();
-                
-                    if(path[i].backward) {
-                        // If the node is traversed backward, we need to flip its sequence.
-                        added_sequence = reverse_complement(added_sequence);
-                    }
-                    
-                    // Stick the sequence
-                    sequence_stream << added_sequence;
-                    
-                    // Record ID
-                    id_stream << std::to_string(path[i].node->id());
-                    if(i != path.size() - 2) {
-                        // Add a separator (-2 since the last thing is path is an
-                        // anchoring reference node)
+                    if (j != 0) {
+                        // Add a separator
                         id_stream << "_";
                     }
+                    // Record the ID
+                    id_stream << mapping.position().node_id();
                     
-                    // How much support do we have for visiting this node?
-                    Support node_support = nodeReadSupport.at(path[i].node);
-                    // Grab the edge we're traversing into the node
-                    vg::Edge* in_edge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
-                                                              vg::NodeSide(path[i].node->id(), path[i].backward)));
-                    // If there's less support on the in edge than on the node,
-                    // knock it down. We do this separately in each dimension.
-                    node_support = support_min(node_support, edgeReadSupport.at(in_edge));
+                    if (original_positions.count(mapping.position().node_id())) {
+                        // This node is derived from an original graph node. Remember it.
+                        original_nodes.insert(id(original_positions[mapping.position().node_id()]));
+                    }
                     
-                    // Ditto for the edge we're traversing out of the node
-                    vg::Edge* out_edge = vg.get_edge(make_pair(vg::NodeSide(path[i].node->id(), !path[i].backward),
-                                                               vg::NodeSide(path[i+1].node->id(), path[i+1].backward)));
-                    node_support = support_min(node_support, edgeReadSupport.at(out_edge));
-                    
-                    
-                    // Add support in to the total support for the alt. Scale by node length.
-                    total_support += path[i].node->sequence().size() * node_support;
-                    min_support = support_min(min_support, node_support);
-
-                    // Update minimum likelihood in the alt path
-                    min_likelihood = std::min(min_likelihood, nodeLikelihood.at(path[i].node));
-                    
-                    // TODO: use edge likelihood here too?
-                        
                 }
                 
-                if(path.size() == 2) {
-                    // We just have the anchoring nodes and the edge between them.
-                    // Look at that edge specially.
-                    vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
-                                                           vg::NodeSide(path[1].node->id(), path[1].backward)));
-                    
-                    // Only use the support on the edge
-                    total_support = edgeReadSupport.at(edge);
-                    min_support = total_support;
-                    
-                    // And the likelihood on the edge
-                    min_likelihood = edgeLikelihood.at(edge);
-                    
-                } 
-                
-#ifdef debug
-                std::cerr << "Sequence \"" << sequence_stream.str() << "\" has " << known_bases << " known bases" << std::endl;
-#endif
-                
-                // Fill in the vectors
-                sequences.push_back(sequence_stream.str());
+                // Remember the descriptions of the alleles
+                if (site_backward) {
+                    sequences.push_back(reverse_complement(sequence_stream.str()));
+                } else {
+                    sequences.push_back(sequence_stream.str());
+                }
                 id_lists.push_back(id_stream.str());
-                min_supports.push_back(min_support);
-                // The support needs to get divided by bases, unless we're just a
-                // single edge empty allele, in which case we're sepcial.
-                average_supports.push_back(sequences.back().size() > 0 ? total_support / sequences.back().size() : total_support);
-                min_likelihoods.push_back(min_likelihood);
-                is_known.push_back(path_is_known);
+                // And whether they're reference or not
+                is_ref.push_back(is_reference(path, augmented));
             }
             
-            // TODO: complain if multiple copies of the same string exist???
+            // Start off declaring the variable part to start at the start of
+            // the first anchoring node. We'll clip it back later to just what's
+            // after the shared prefix.
+            size_t variation_start = min(primary_path.get_index().by_id.at(site->start().node_id()).first,
+                primary_path.get_index().by_id.at(site->end().node_id()).first);
+        
+            // Keep track of the alleles that actually need to go in the VCF:
+            // ref, best, and second-best (if any), some of which may overlap.
+            // This is the order they will show up in the variant.
+            vector<int> used_alleles;
+            used_alleles.push_back(0);
+            if (best_allele != 0) {
+                used_alleles.push_back(best_allele);
+            }
+            if(second_best_allele != -1 && second_best_allele != 0) {
+                used_alleles.push_back(second_best_allele);
+            }
             
-            // Decide which support vector we use to actually decide
-            std::vector<Support>& supports = useAverageSupport ? average_supports : min_supports;
+            // Rewrite the sequences and variation_start to just represent the
+            // actually variable part, by dropping any common prefix and common
+            // suffix. We just do the whole thing in place, modifying the used
+            // entries in sequences.
             
-            // Now look at all the paths for the site and pick the top 2.
-            int best_allele = -1;
-            int second_best_allele = -1;
-            
-            for(size_t i = 0; i < ordered_paths.size(); i++) {
-                if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
-                    // We have a new best. Demote the old best.
-                    second_best_allele = best_allele;
-                    best_allele = i;
-                } else if(second_best_allele == -1 || total(supports[second_best_allele]) <= total(supports[i])) {
-                    // We're not better than the best, but we can demote the second best.
-                    second_best_allele = i;
+            auto shared_prefix_length = [&](bool backward) {
+                size_t shortest_prefix = std::numeric_limits<size_t>::max();
+                
+                auto here = used_alleles.begin();
+                if (here == used_alleles.end()) {
+                    // No strings.
+                    // Say no prefix is in common...
+                    return (size_t) 0;
                 }
+                auto next = here;
+                next++;
+                
+                if (next == used_alleles.end()) {
+                    // Only one string.
+                    // Say no prefix is in common...
+                    return (size_t) 0;
+                }
+                
+                while (next != used_alleles.end()) {
+                    // Consider each allele and the next one after it, as
+                    // long as we have both.
+                
+                    // Figure out the shorter and the longer string
+                    string* shorter = &sequences.at(*here);
+                    string* longer = &sequences.at(*next);
+                    if (shorter->size() > longer->size()) {
+                        swap(shorter, longer);
+                    }
+                
+                    // Calculate the match length for this pair
+                    size_t match_length;
+                    if (backward) {
+                        // Find out how far in from the right the first mismatch is.
+                        auto mismatch_places = std::mismatch(shorter->rbegin(), shorter->rend(), longer->rbegin());
+                        match_length = std::distance(shorter->rbegin(), mismatch_places.first);
+                    } else {
+                        // Find out how far in from the left the first mismatch is.
+                        auto mismatch_places = std::mismatch(shorter->begin(), shorter->end(), longer->begin());
+                        match_length = std::distance(shorter->begin(), mismatch_places.first);
+                    }
+                    
+                    // The shared prefix of these strings limits the longest
+                    // prefix shared by all strings.
+                    shortest_prefix = min(shortest_prefix, match_length);
+                
+                    here = next;
+                    ++next;
+                }
+                
+                // Return the shortest universally shared prefix
+                return shortest_prefix;
+            };
+            // Trim off the shared prefix
+            size_t shared_prefix = shared_prefix_length(false);
+            for (auto allele : used_alleles) {
+                sequences[allele] = sequences[allele].substr(shared_prefix);
             }
+            // Add it onto the start coordinate
+            variation_start += shared_prefix;
             
-            // We should always have a best allele; we may sometimes have a second best.
-            assert(best_allele != -1);
-            
-            if(best_allele == 0 && second_best_allele == -1) {
-                // This site isn't variable; don't bother with it.
-                continue;
+            // Then find and trim off the shared suffix
+            size_t shared_suffix = shared_prefix_length(true);
+            for (auto allele : used_alleles) {
+                sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
             }
-            
-            // Since the variable part of the site is after the first anchoring node, where does it start?
-            size_t variation_start = index.byId.at(site.start.node->id()).first + site.start.node->sequence().size();
             
             // Make a Variant
             vcflib::Variant variant;
-            variant.sequenceName = contigName;
+            variant.sequenceName = contig_names_by_path_name.at(primary_path.get_name());
             variant.setVariantCallFile(vcf);
             variant.quality = 0;
-            variant.position = variation_start + 1 + variantOffset;
+            // Position should be 1-based and offset with our offset option.
+            variant.position = variation_start + 1 + variant_offset;
             
             // Set the ID based on the IDs of the involved nodes. Note that the best
             // allele may have no nodes (because it's a pure edge)
@@ -1865,7 +1490,7 @@ int call2vcf(
                 // We need to grab the character before the variable part of the
                 // site in the reference.
                 assert(variation_start > 0);
-                std::string extra_base = char_to_string(index.sequence.at(variation_start - 1));
+                string extra_base = char_to_string(primary_path.get_index().sequence.at(variation_start - 1));
                 
                 for(auto& seq : sequences) {
                     // Stick it on the front of all the allele sequences
@@ -1876,6 +1501,19 @@ int call2vcf(
                 variant.position--;
             }
             
+            // Make sure the ref allele is correct
+            {
+                string real_ref = primary_path.get_index().sequence.substr(
+                    variant.position - variant_offset - 1, sequences.front().size());
+                string got_ref = sequences.front();
+                
+                if (real_ref != got_ref) {
+                    cerr << "Error: Ref should be " << real_ref << " but is " << got_ref << " at " << variant.position << endl;
+                    throw runtime_error("Reference mismatch at site " + pb2json(*site));
+                }
+            
+            }
+            
             // Add the ref allele to the variant
             create_ref_allele(variant, sequences.front());
             
@@ -1884,1004 +1522,401 @@ int call2vcf(
             int best_alt = add_alt_allele(variant, sequences.at(best_allele));
             
             int second_best_alt = (second_best_allele == -1) ? -1 : add_alt_allele(variant, sequences.at(second_best_allele));
-            
-            
+
             // Say we're going to spit out the genotype for this sample.        
             variant.format.push_back("GT");
-            auto& genotype = variant.samples[sampleName]["GT"];
+            auto& genotype_vector = variant.samples[sample_name]["GT"];
 
-            // find which coordinate bin we're in, so we can get the typical local support
-            int bin = variation_start / refBinSize;
-            if (bin == binnedSupport.size()) {
-                --bin;
-            }
-            const Support& baseline_support = binnedSupport[bin];
-
-            // Decide if we're an indel. We're an indel if the sequence lengths
-            // aren't all equal between the ref and the alleles we're going to call.
-            bool is_indel = sequences.front().size() == sequences[best_allele].size() &&
-                (second_best_allele == -1 || sequences.front().size() == sequences[second_best_allele].size());
-
-            // We need to decide what to scale the bias limits by. We scale them up if this is an indel.
-            double bias_multiple = is_indel ? indelBiasMultiple : 1.0;
-            
-            // How much support do we have for the top two alleles?
-            Support site_support = supports.at(best_allele);
-            if(second_best_allele != -1) {
-                site_support += supports.at(second_best_allele);
-            }
-            
-            // Pull out the different supports. Some of them may be the same.
-            Support ref_support = supports.at(0);
-            Support best_support = supports.at(best_allele);
-            Support second_best_support = std::make_pair(0.0, 0.0);
-            if(second_best_allele != -1) {
-                second_best_support = supports.at(second_best_allele);
-            }
-            
-            // As we do the genotype, we also compute the likelihood. Holds
-            // likelihood log 10. Starts out at "completely wrong".
-            double gen_likelihood = -1 * INFINITY;
-
-            // Minimum allele depth of called alleles
-            double min_site_support = 0;
-            
-            // We're going to make some really bad calls at low depth. We can
-            // pull them out with a depth filter, but for now just elide them.
-            if(total(site_support) >= total(baseline_support) * minFractionForCall) {
-                // We have enough to emit a call here.
+            if (locus.genotype_size() > 0) {
+                // We actually made a call. Emit the first genotype, which is the call.
                 
-                // If best and second best are close enough to be het, we call het.
-                // Otherwise, we call hom best.
+                // We need to rewrite the allele numbers to alt numbers, since
+                // we aren't keeping all the alleles in the VCF, so we can't use
+                // the natural conversion of Genotype to VCF genotype string.
                 
-                // We decide closeness differently depending on whether best is ref or not.
-                // In practice, we use this to slightly penalize homozygous ref calls
-                // (by setting maxRefHetBias higher than maxHetBias) and rather make a less
-                // supported alt call instead.  This boost max sensitivity, and because
-                // everything is homozygous ref by default in VCF, any downstream filters
-                // will effectively reset these calls back to homozygous ref. 
-                double bias_limit = (best_allele == 0) ? maxRefHetBias : maxHetBias;
-                
-#ifdef debug
-                std::cerr << best_allele << ", " << best_support << " and "
-                    << second_best_allele << ", " << second_best_support << std::endl;
-                
-                std::cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
-                    << total(best_support) << std::endl;
+                // Emit parts into this stream
+                stringstream stream;
+                for (size_t i = 0; i < genotype.allele_size(); i++) {
+                    // For each allele called as present in the genotype
                     
-                std::cerr << total(second_best_support) << " vs " << minTotalSupportForCall << std::endl;
-#endif
-                
-                if(second_best_allele != -1 &&
-                    bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
-                    total(best_support) >= minTotalSupportForCall &&
-                    total(second_best_support) >= minTotalSupportForCall) {
-                    // There's a second best allele, and it's not too biased to
-                    // call, and both alleles exceed the minimum to call them
-                    // present.
-                    genotype.push_back(std::to_string(best_alt) + "/" + std::to_string(second_best_alt));
+                    // Convert from allele number to alt number
+                    if (genotype.allele(i) == best_allele) {
+                        stream << best_alt;
+                    } else if (genotype.allele(i) == second_best_allele) {
+                        stream << second_best_alt;
+                    } else {
+                        throw runtime_error("Allele " + to_string(genotype.allele(i)) +
+                            " is not best or second-best and has no alt");
+                    }
                     
-                    // Compute the likelihood for a best/second best het
-                    // Quick quality: combine likelihood and depth, using poisson for latter
-                    // TODO: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-                    gen_likelihood = log10(poissonp(total(best_support), 0.5 * total(baseline_support))) +
-                        log10(poissonp(total(second_best_support), 0.5 * total(baseline_support)));
-                    gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
-                    // Get minimum support for filter (not assuming it's second_best just to be sure)
-                    min_site_support = std::min(total(second_best_support), total(best_support));
-                    
-                } else if(total(best_support) >= minTotalSupportForCall) {
-                    // The second best allele isn't present or isn't good enough,
-                    // but the best allele has enough coverage that we can just call
-                    // two of it.
-                    genotype.push_back(std::to_string(best_alt) + "/" + std::to_string(best_alt));
-                    
-                    // Compute the likelihood for hom best allele
-                    gen_likelihood = log10(poissonp(total(best_support), total(baseline_support)));
-                    gen_likelihood += min_likelihoods.at(best_allele);
-
-                    // Get minimum support for filter
-                    min_site_support = total(best_support);
-
-                
-                } else {
-                    // We can't really call this as anything.
-                    genotype.push_back("./.");
+                    if (i + 1 != genotype.allele_size()) {
+                        // Write a separator after all but the last one
+                        stream << (genotype.is_phased() ? '|' : '/');
+                    }
                 }
+                // Save the finished genotype
+                genotype_vector.push_back(stream.str());              
             } else {
-                // Depth too low. Say we have no idea.
-                // TODO: elide variant?
-                genotype.push_back("./.");
+                // Say there's no call here
+                genotype_vector.push_back("./.");
             }
             
             // Now fill in all the other variant info/format stuff
 
-            if((best_allele != 0 && is_known.at(best_allele)) || 
-                (second_best_allele != 0 && second_best_allele != -1 && is_known.at(second_best_allele))) {
+            if((best_allele != 0 && is_ref.at(best_allele)) || 
+                (second_best_allele != 0 && second_best_allele != -1 && is_ref.at(second_best_allele))) {
                 // Flag the variant as reference if either of its two best alleles
                 // is known but not the primary path. Don't put in a false entry if
                 // it isn't known, because vcflib will spit out the flag anyway...
                 variant.infoFlags["XREF"] = true;
             }
             
-            // Add depth for the variant and the samples
-            Support total_support = ref_support;
-            if(best_allele != 0) {
-                // Add in the depth from the best allele, which is not already counted
-                total_support += best_support;
+            for (auto id : original_nodes) {
+                // Add references to the relevant original nodes
+                variant.info["XSEE"].push_back(to_string(id));
             }
-            if(second_best_allele != -1 && second_best_allele != 0) {
-                // Add in the depth from the second allele
-                total_support += second_best_support;
+            
+            for (size_t i = 1; i < variant.alleles.size(); i++) {
+                // Claculate the SVLEN for this non-reference allele
+                int64_t svlen = (int64_t) variant.alleles.at(i).size() - (int64_t) variant.alleles.at(0).size();
+                
+                // Add it in
+                variant.info["SVLEN"].push_back(to_string(svlen));
             }
-            std::string depth_string = std::to_string((int64_t)round(total(total_support)));
+            
+            // Set up the depth format field
             variant.format.push_back("DP");
-            variant.samples[sampleName]["DP"].push_back(depth_string);
+            // And expected depth
+            variant.format.push_back("XDP");
+            // And allelic depth
+            variant.format.push_back("AD");
+            // And the log likelihood from the assignment of reads among the
+            // present alleles
+            variant.format.push_back("XADL");
+            // And strand bias
+            variant.format.push_back("SB");
+            // Also the alt allele depth
+            variant.format.push_back("XAAD");
+            
+            // Compute the total support for all the alts that will be appearing
+            Support total_support;
+            // And total alt allele depth for the alt alleles
+            Support alt_support;
+
+            for (int allele : used_alleles) {
+                // For all the alleles we are using, look at the support.
+                auto& support = locus.support(allele);
+                
+                // Set up allele-specific stats for the allele
+                variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(support))));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.forward())));
+                variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.reverse())));
+                
+                // Sum up into total depth
+                total_support += support;
+                
+                if (allele != 0) {
+                    // It's not the primary reference allele
+                    alt_support += support;
+                }
+            }
+
+            // Find the min total support of anything called
+            double min_site_support = INFINITY;
+            double min_site_quality = INFINITY;
+            
+            for (size_t i = 0; i < genotype.allele_size(); i++) {
+                // Min all the total supports from the non-ref alleles called as present
+                min_site_support = min(min_site_support, total(locus.support(genotype.allele(i))));
+                min_site_quality = min(min_site_quality, locus.support(genotype.allele(i)).quality());
+            }
+            
+            // Find the binomial bias between the called alleles, if multiple were called.
+            double ad_log_likelihood = INFINITY;
+            if (second_best_allele != -1) {
+                // How many of the less common one do we have?
+                size_t successes = round(total(locus.support(second_best_allele)));
+                // Out of how many chances
+                size_t trials = successes + (size_t) round(total(locus.support(best_allele)));
+                
+                assert(trials >= successes);
+                
+                // How weird is that?                
+                ad_log_likelihood = binomial_cmf_ln(prob_to_logprob((real_t) 0.5), trials, successes);
+                
+                assert(!std::isnan(ad_log_likelihood));
+                
+                variant.samples[sample_name]["XADL"].push_back(to_string(ad_log_likelihood));
+            } else {
+                // No need to assign reads between two alleles
+                variant.samples[sample_name]["XADL"].push_back(".");
+            }
+
+            // Set the variant's total depth            
+            string depth_string = to_string((int64_t)round(total(total_support)));
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
             
-            // Also allelic depths
-            variant.format.push_back("AD");
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(ref_support))));
-            // And strand biases
-            variant.format.push_back("SB");
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(ref_support.second)));
-            // Also allelic likelihoods (from minimum values found on their paths)
-            variant.format.push_back("AL");
-            variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(0)));
-            if(best_allele != 0) {
-                // If our best allele isn't ref, it comes next.
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(best_support))));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(best_support.second)));
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(best_allele)));
-            }
-            if(second_best_allele != -1 && second_best_allele != 0) {
-                // If our second best allele is real and not ref, it comes next.
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(second_best_support))));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(second_best_support.second)));
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(min_likelihoods.at(second_best_allele)));
+            // And for the sample
+            variant.samples[sample_name]["DP"].push_back(depth_string);
+            
+            // Set the sample's local and global expected depth            
+            variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(baseline_support))));
+            variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(global_baseline_support))));
+            
+            // And its depth of non-0 alleles
+            variant.samples[sample_name]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
+
+            // Set the total support quality of the min allele as the variant quality
+            variant.quality = min_site_quality;
+
+            // Now do the filters
+            variant.filter = "PASS";            
+            if (min_site_support < min_mad_for_filter) {
+                // Apply Min Allele Depth cutoff across all alleles (even ref)
+                variant.filter = "lowad";
+            } else if (max_dp_for_filter != 0 && total(total_support) > max_dp_for_filter) {
+                // Apply the max depth cutoff
+                variant.filter = "highabsdp";
+            } else if (max_dp_multiple_for_filter != 0 &&
+                total(total_support) > max_dp_multiple_for_filter * total(global_baseline_support)) {
+                // Apply the max depth multiple cutoff
+                // TODO: Different standard for sites called as haploid
+                variant.filter = "highreldp";
+            } else if (max_local_dp_multiple_for_filter != 0 &&
+                total(total_support) > max_local_dp_multiple_for_filter * total(baseline_support)) {
+                // Apply the max local depth multiple cutoff
+                // TODO: Different standard for sites called as haoploid
+                variant.filter = "highlocaldp";
+            } else if (min_ad_log_likelihood_for_filter != 0 &&
+                ad_log_likelihood < min_ad_log_likelihood_for_filter) {
+                // We have a het, but the assignment of reads between the two branches is just too weird
+                variant.filter = "lowxadl";
             }
             
-            // And total alt allele depth for the alt alleles
-            Support alt_support = std::make_pair(0.0, 0.0);
-            if(best_allele != 0) {
-                alt_support += best_support;
-            }
-            if(second_best_allele != -1 && second_best_allele != 0) {
-                alt_support += second_best_support;
-            }
-            variant.format.push_back("XAAD");
-            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(alt_support))));
-
-            // Copy over the quality value
-            variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
-
-            // Apply Min Allele Depth cutoff and store result in Filter column
-            variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
+            // Don't bother with trivial calls
+            if (write_trivial_calls ||
+                (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
+                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0")) {
             
-            if(can_write_alleles(variant)) {
-                // No need to check for collisions because we assume sites are correctly found.
-                
-                // Output the created VCF variant.
-                std::cout << variant << std::endl;
-            } else {
-                if (verbose) {
-                    std::cerr << "Variant is too large" << std::endl;
+                if(can_write_alleles(variant)) {
+                    // No need to check for collisions because we assume sites are correctly found.
+                    // Output the created VCF variant.
+                    cout << variant << endl;
+            
+                } else {
+                    if (verbose) {
+                        cerr << "Variant is too large" << endl;
+                    }
+                    // TODO: track bases lost again
                 }
-                // TODO: account for the 1 base we added extra if it was a pure
-                // insert.
-                basesLost += sequences.at(best_allele).size();
             }
-        }
+        };
         
-    } else {
-        // Do the old thing with no support for multiallelic sites
+        // Recursively type the site, using that support and an assumption of a diploid sample.
+        find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2,
+            [&locus_buffer, &emit_variant, &site_manager, &called_loci, &primary_paths, &augmented,
+            &covered_nodes, &covered_edges, this](const Locus& locus, const Snarl* site) {
+            
+            // Now we have the Locus with call information, and the site (either
+            // the root snarl we passed in or a child snarl) that the call is
+            // for. We need to output the call.
         
-        // We need to track reference regions taken up by other variants. Holds
-        // a map from start position to past_end position. Guaranteed not to have
-        // overlaps if used.
-        // Only make it nonzero size if we're going to use it.
-        IntervalBitfield occupied_regions(suppress_overlaps ? index.sequence.size() : 0);
+            if (convert_to_vcf) {
+                // We want to emit VCF
+                
+                // Look up the path this child site lives on. (TODO: just capture and use the path the parent lives on?)
+                auto found_path = find_path(*site, primary_paths);
+                if(found_path != primary_paths.end()) {
+                    // And this site is on a primary path
+                    
+                    // Emit the variant for this Locus
+                    emit_variant(locus, found_path->second, site);
+                }
+                // Otherwise discard it as off-path
+                // TODO: update bases lost
+            } else {
+                // Emit the locus itself
+                locus_buffer.push_back(locus);
+                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+            }
+            
+            // We called a site
+            called_loci++;
+            
+            // Mark all the nodes and edges in the site as covered
+            auto contents = site_manager.deep_contents(site, augmented.graph, true);
+            for (auto* node : contents.first) {
+                covered_nodes.insert(node);
+            }
+            for (auto* edge : contents.second) {
+                covered_edges.insert(edge);
+            }
+        });
+    }
     
-        vg.for_each_node([&](vg::Node* node) {
-            // Look at every node in the graph and spit out variants for the ones
-            // that are non-reference, but for which we can push copy number to the
-            // reference path, greedily.
+    if (verbose) {
+        cerr << "Called " << called_loci << " loci" << endl;
+    }
+    
+    // OK now we have handled all the real sites. But there are still nodes and
+    // edges that we might want to call as present or absent.
+    
+    if (!convert_to_vcf) {
         
-            // Ensure this node is nonreference
-            if(index.byId.count(node->id())) {
-                // Skip reference nodes
+        size_t extra_loci = 0;
+        
+        augmented.graph.for_each_edge([&](Edge* e) {
+            // We want to make calls on all the edges that aren't covered yet
+            if (covered_edges.count(e)) {
+                // Skip this edge
                 return;
             }
             
-            if(total(nodeReadSupport.at(node)) > 0) {
-                // We have copy number on this node.
-                
-                // Find a path to the primary reference from here
-                std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
-                    vg, node, nullptr, index, nodeReadSupport,
-                    edgeReadSupport, maxDepth, max_bubble_paths);
-                std::vector<NodeTraversal>& path = sup_path.second;
-                
-                if(path.empty()) {
-                    // We couldn't find a path back to the primary path. Discard
-                    // this material.
-                    basesLost += node->sequence().size();
-                    return;
-                }
-                
-                // Turn it into a substitution/insertion
-                
-                // The position we have stored for this start node is the first
-                // position along the reference at which it occurs. Our bubble
-                // goes forward in the reference, so we must come out of the
-                // opposite end of the node from the one we have stored.
-                auto referenceIntervalStart = index.byId.at(path.front().node->id()).first +
-                    path.front().node->sequence().size();
-                
-                // The position we have stored for the end node is the first
-                // position it occurs in the reference, and we know we go into
-                // it in a reference-concordant direction, so we must have our
-                // past-the-end position right there.
-                auto referenceIntervalPastEnd = index.byId.at(path.back().node->id()).first;
-                
-                // We'll fill in this stream with all the node sequences we visit on
-                // the path, except for the first and last.
-                std::stringstream altStream;
-                
-                
-                if(referenceIntervalPastEnd - referenceIntervalStart == 0) {
-                    // If this is an insert, make sure we have the 1 base before it.
-                    
-                    // TODO: we should handle an insert at the very beginning
-                    assert(referenceIntervalStart > 0);
-                    
-                    // Budge left and add that character to the alt as well
-                    referenceIntervalStart--;
-                    altStream << index.sequence[referenceIntervalStart];
-                }
-                
-                // Variants should be reference if most of their bases are
-                // reference, and novel otherwise. A single SNP base on a known
-                // insert should not make it a novel insert.
-                size_t knownAltBases = 0;
-                
-                // How many alt bases are there overall, both known and novel?
-                size_t altBases = 0;
-                
-                // We also need a list of all the alt node IDs for naming the
-                // variant.
-                std::stringstream idStream;
-                
-                // And collections of all the involved node pointers, on both the
-                // ref and alt sides
-                std::set<vg::Node*> refInvolvedNodes;
-                std::set<vg::Node*> altInvolvedNodes;
-                
-                // And we want to know how much read support in total ther alt has
-                // (support * node length)
-                Support altReadSupportTotal = std::make_pair(0.0, 0.0);
-                Support altReadSupportMin = sup_path.first;
-                
-                // And we keep track of the ref and alt nodes with the lowest likelihoods
-                // (for insertion, we use the bypass edge for the ref likelihood)
-                std::pair<vg::Node*, double> altMinLikelihood(nullptr, LOG_ZERO);
-                std::pair<vg::Node*, double> refMinLikelihood(nullptr, LOG_ZERO);
-
-                for(int64_t i = 1; i < path.size() - 1; i++) {
-                    // For all but the first and last nodes, grab their sequences in
-                    // the correct orientation.
-                    
-                    std::string addedSequence = path[i].node->sequence();
-
-                    if(path[i].backward) {
-                        // If the node is traversed backward, we need to flip its sequence.
-                        addedSequence = vg::reverse_complement(addedSequence);
-                    }
-                    
-                    // Stick the sequence
-                    altStream << addedSequence;
-                    
-                    // Record ID
-                    idStream << std::to_string(path[i].node->id());
-                    if(i != path.size() - 2) {
-                        // Add a separator (-2 since the last thing is path is an
-                        // anchoring reference node)
-                        idStream << "_";
-                    }
-                    
-                    // Record involvement
-                    altInvolvedNodes.insert(path[i].node);
-
-                    Support nodeSupport;
-                    if(nodeReadSupport.count(path[i].node)) {
-                        // We have read support for this node. 
-                        nodeSupport = nodeReadSupport.at(path[i].node);
-                    }
-                    vg::Edge* pathEdge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
-                                                               vg::NodeSide(path[i].node->id(), path[i].backward)));
-                    if (edgeReadSupport.count(pathEdge)) {
-                        // We have read support for edge into node, take minimum between it and the node.
-                        nodeSupport = support_min(nodeSupport, edgeReadSupport[pathEdge]);
-                    } else {
-                        throw runtime_error("No support on edge!");
-                    }
-                    
-                    //Add support in to the total support for the alt.
-                    altReadSupportTotal += path[i].node->sequence().size() * nodeSupport;
-
-                    // Update minimum likelihood in the alt path
-                    if(nodeLikelihood.count(path[i].node)) {
-                        double likelihood = nodeLikelihood.at(path[i].node);
-                        if (altMinLikelihood.first == nullptr || likelihood < altMinLikelihood.second) {
-                            altMinLikelihood = make_pair(path[i].node, likelihood);
-                        }
-                    }
-                        
-                    if(knownNodes.count(path[i].node)) {
-                        // This is a reference node.
-                        knownAltBases += path[i].node->sequence().size();
-                    }
-                    // We always need to add in the length of the node to the total
-                    // length
-                    altBases += path[i].node->sequence().size();
-                }
-
-
-                // Find the primary path nodes that are being skipped over/bypassed
-                
-                // First collect all the IDs of nodes we aren't skipping because
-                // they're in the alt. Don't count those.
-                std::set<int64_t> altIds;
-                for(auto& visit : path) {
-                    altIds.insert(visit.node->id());
-                }
-
-                // Holds total primary path base readings observed (read support * node length).
-                Support refReadSupportTotal = std::make_pair(0.0, 0.0);
-                Support refReadSupportMin = std::make_pair(std::numeric_limits<double>::max(),
-                                                           std::numeric_limits<double>::max());
-                
-                // And total bases of material we looked at on the primary path and
-                // not this alt
-                size_t refBases = 0;
-                int64_t refNodeStart = referenceIntervalStart;
-                
-                while(refNodeStart < referenceIntervalPastEnd) {
-                
-                    // Find the reference node starting here or later. Remember that
-                    // a variant anchored at its left base to a reference position
-                    // may have no node starting right where it starts.
-                    auto found = index.byStart.lower_bound(refNodeStart);
-                    if(found == index.byStart.end()) {
-                        // No reference nodes here! That's a bit weird. But stop the
-                        // loop.
-                        break;
-                    }
-                    if((*found).first >= referenceIntervalPastEnd) {
-                        // The next reference node we can find is out of the space
-                        // being replaced. We're done.
-                        break;
-                    }
-                    
-                    // Pull out the reference node we located
-                    auto* refNode = (*found).second.node;
-                    
-                    // Record involvement
-                    refInvolvedNodes.insert(refNode);
-                
-                    // Next iteration look where this node ends.
-                    refNodeStart = (*found).first + refNode->sequence().size();
-                
-                    if(altIds.count(refNode->id())) {
-                        // This node is also involved in the alt we did take, so
-                        // skip it. TODO: work out how to deal with shared nodes.
-#ifdef debug
-                        std::cerr << "Node " << refNode->id() << " also used in alt" << std::endl;
-#endif
-                        continue;
-                    }
-                    
-                    // Say we saw these bases, which may or may not have been called present
-                    refBases += refNode->sequence().size();
-#ifdef debug
-                    std::cerr << "Node " << refNode->id() << " has " << nodeReadSupport.at(refNode) << " copies" << std::endl;
-#endif
-                    
-                    // Count the bases we see not deleted
-                    refReadSupportTotal += refNode->sequence().size() * nodeReadSupport.at(refNode);
-                    refReadSupportMin = support_min(refReadSupportMin, nodeReadSupport.at(refNode));
-
-                    // Update minimum likelihood in the ref path
-                    if(nodeLikelihood.count(refNode)) {
-                        double likelihood = nodeLikelihood.at(refNode);
-                        if (refMinLikelihood.first == nullptr || likelihood < refMinLikelihood.second) {
-                            refMinLikelihood = make_pair(refNode, likelihood);
-                        }
-                    }
-
-                }
-                
-#ifdef debug
-                std::cerr << idStream.str() << " ref alternative: " << refReadSupportTotal << "/" << refBases
-                    << " from " << referenceIntervalStart << " to " << referenceIntervalPastEnd << std::endl;
-#endif
-
-                // We divide the read support of stuff passed over by the total
-                // bases of stuff passed over to get the average read support for
-                // the primary path allele.
-                Support refReadSupportAverage = refBases == 0 ? std::make_pair(0.0, 0.0) : refReadSupportTotal / refBases;
-                
-                // And similarly for the alt
-                Support altReadSupportAverage = altBases == 0 ? std::make_pair(0.0, 0.0) : altReadSupportTotal / altBases;
-
-                if(refBases == 0) {
-                    // There's no reference node; we're a pure insert. Like with
-                    // deletions, we should look at the edge that bypasses us to see
-                    // if there's any support for it.
-                    
-                    // We eant an edge from the end of the node before us to the
-                    // start of the node after us.
-                    std::pair<vg::NodeSide, vg::NodeSide> edgeWanted = std::make_pair(
-                        vg::NodeSide(path.front().node->id(), true),
-                        vg::NodeSide(path.back().node->id()));
-                    
-                    if(vg.has_edge(edgeWanted)) {
-                        // We found it!
-                        vg::Edge* bypass = vg.get_edge(edgeWanted);
-                        
-                        // Any reads supporting the edge bypassing the insert are
-                        // really ref support reads, and should count as supporting
-                        // the whole ref allele.
-                        refReadSupportTotal = edgeReadSupport.count(bypass) ? edgeReadSupport.at(bypass) : std::make_pair(0.0, 0.0); 
-                        refReadSupportAverage = refReadSupportTotal;
-                        refReadSupportMin = refReadSupportTotal;
-
-                        // set minimum likelihood in the ref path using the edge
-                        if(edgeLikelihood.count(bypass)) {
-                            double likelihood = edgeLikelihood.at(bypass);
-                            assert(refMinLikelihood.first == nullptr);
-                            refMinLikelihood = make_pair(nullptr, likelihood);
-                        }
-                    }
-                }
-                // Otherwise if there's no edge or no support for that edge, the ref support should stay 0.
-                
-                // Make the variant and emit it.
-                std::string refAllele = index.sequence.substr(
-                    referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
-                std::string altAllele = altStream.str();
-                
-                // Make a Variant
-                vcflib::Variant variant;
-                variant.sequenceName = contigName;
-                variant.setVariantCallFile(vcf);
-                variant.quality = 0;
-                variant.position = referenceIntervalStart + 1 + variantOffset;
-                variant.id = idStream.str();
-                
-                if(knownAltBases > 0 && knownAltBases >= altBases / 2) {
-                    // Flag the variant as reference. Don't put in a false entry if
-                    // it isn't, because vcflib will spit out the flag anyway...
-                    variant.infoFlags["XREF"] = true;
-                }
-                
-                // We need to deduplicate the corss-references, because multiple
-                // involved nodes may cross-reference the same original node and
-                // offset, and because the same original node and offset can be
-                // referenced by both ref and alt paths.
-                std::set<std::pair<int64_t, size_t>> refCrossreferences;
-                std::set<std::pair<int64_t, size_t>> altCrossreferences;
-                std::set<std::pair<int64_t, size_t>> crossreferences;
-                
-                for(auto* node : refInvolvedNodes) {
-                    // Every involved node gets its original node:offset recorded as
-                    // an XSEE cross-reference.
-                    
-                    if(nodeSources.count(node)) {
-                        // It has a source. Find it
-                        auto& source = nodeSources.at(node);
-                        // Then add it to be referenced.
-                        refCrossreferences.insert(source);
-                        crossreferences.insert(source);
-                    }
-                }
-                for(auto* node : altInvolvedNodes) {
-                    // Every involved node gets its original node:offset recorded as
-                    // an XSEE cross-reference.
-                    
-                    if(nodeSources.count(node)) {
-                        // It has a source. Find it
-                        auto& source = nodeSources.at(node);
-                        // Then add it to be referenced.
-                        altCrossreferences.insert(source);
-                        crossreferences.insert(source);
-                    }
-                }
-                for(auto& crossreference : crossreferences) {
-                    variant.info["XSEE"].push_back(std::to_string(crossreference.first) + ":" +
-                        std::to_string(crossreference.second));
-                }
-                
-                // Initialize the ref allele
-                create_ref_allele(variant, refAllele);
-                
-                // Add the alt allele
-                int altNumber = add_alt_allele(variant, altAllele);
-                
-                // Say we're going to spit out the genotype for this sample.        
-                variant.format.push_back("GT");
-                auto& genotype = variant.samples[sampleName]["GT"];
-
-                // find which bin we're in
-                int bin = referenceIntervalStart / refBinSize;
-                if (bin == binnedSupport.size()) {
-                    --bin;
-                }
-                const Support& baselineSupport = binnedSupport[bin];
-
-                Support refSupport = useAverageSupport ? refReadSupportAverage : refReadSupportMin;
-                Support altSupport = useAverageSupport ? altSupport : altReadSupportMin;
-                
-                // We need to decide what to scale the bias limits by. We scale them up if this is an indel.
-                double biasMultiple = (altAllele.size() == refAllele.size()) ? 1.0 : indelBiasMultiple;
-                
-                // We're going to make some really bad calls at low depth. We can
-                // pull them out with a depth filter, but for now just elide them.
-                if(total(refSupport + altSupport) >= total(baselineSupport) * minFractionForCall) {
-                    if(total(refSupport) > maxRefHetBias * biasMultiple * total(altSupport) &&
-                        total(refReadSupportTotal) >= minTotalSupportForCall) {
-                        // Biased enough towards ref, and ref has enough total reads.
-                        // Say it's hom ref
-                        genotype.push_back("0/0");
-                    } else if(total(altSupport) > maxHetBias * biasMultiple * total(refSupport)
-                        && total(altReadSupportTotal) >= minTotalSupportForCall) {
-                        // Say it's hom alt
-                        genotype.push_back(std::to_string(altNumber) + "/" + std::to_string(altNumber));
-                    } else if(total(refReadSupportTotal) >= minTotalSupportForCall &&
-                        total(altReadSupportTotal) >= minTotalSupportForCall) {
-                        // Say it's het
-                        genotype.push_back("0/" + std::to_string(altNumber));
-                    } else {
-                        // We can't really call this as anything.
-                        genotype.push_back("./.");
-                    }
-                } else {
-                    // Depth too low. Say we have no idea.
-                    // TODO: elide variant?
-                    genotype.push_back("./.");
-                }
-                // TODO: use legit thresholds here.
-                
-                // Add depth for the variant and the samples
-                std::string depthString = std::to_string((int64_t)round(total(refSupport + altSupport)));
-                variant.format.push_back("DP");
-                variant.samples[sampleName]["DP"].push_back(depthString);
-                variant.info["DP"].push_back(depthString); // We only have one sample, so variant depth = sample depth
-                
-                // Also allelic depths
-                variant.format.push_back("AD");
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(refSupport))));
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(altSupport))));
-                
-                // Also strand biases
-                variant.format.push_back("SB");
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.second)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altSupport.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altSupport.second)));
-
-                // And total alt allele depth
-                variant.format.push_back("XAAD");
-                variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(altSupport))));
-
-                // Also allelic likelihoods (from minimum values found on their paths)
-                variant.format.push_back("AL");
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(refMinLikelihood.second));
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(altMinLikelihood.second));
-
-                // Quick quality: combine likelihood and depth, using poisson for latter
-                // todo: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-                double genLikelihood;
-                double min_site_support = 0;
-                if (genotype.back() == "0/0") {
-                    genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
-                    genLikelihood += refMinLikelihood.second;
-                    min_site_support =  total(refSupport);
-                } else if (genotype.back() == "1/1") {
-                    genLikelihood = log10(poissonp(total(altSupport), total(baselineSupport)));
-                    genLikelihood += altMinLikelihood.second;
-                    min_site_support = total(altSupport);
-                } else {
-                    genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
-                        log10(poissonp(total(altSupport), 0.5 * total(baselineSupport)));
-                    genLikelihood += refMinLikelihood.second + altMinLikelihood.second;
-                    min_site_support = std::min(total(refSupport), total(altSupport));
-                }
-                variant.quality = -10. * log10(1. - pow(10, genLikelihood));
-
-                // Apply Min Allele Depth cutoff and store result in Filter column
-                variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
-                
-                
-#ifdef debug
-                std::cerr << "Found variant " << refAllele << " -> " << altAllele
-                    << " caused by nodes " <<  variant.id
-                    << " at 1-based reference position " << variant.position
-                    << std::endl;
-#endif
-
-                if(can_write_alleles(variant)) {
-                    if(!suppress_overlaps || !occupied_regions.collides(referenceIntervalStart, referenceIntervalPastEnd)) {
-                        // Variant doesn't intersect with something we care about
-                        
-                        // Output the created VCF variant.
-                        std::cout << variant << std::endl;
-                        
-                        // Output the pileup line, which will be nonempty if we have pileups
-                        std::cout << get_pileup_line(nodePileups, refCrossreferences, altCrossreferences);
-                    
-                        if(suppress_overlaps) {
-                            // Mark region as occupied
-                            occupied_regions.add(referenceIntervalStart, referenceIntervalPastEnd);
-                        }
-                    
-                    } else {
-                        if (verbose) {
-                            std::cerr << "Variant collides with already-emitted variant" << std::endl;
-                        }
-                        basesLost += altAllele.size();
-                    }
-                } else {
-                    if (verbose) {
-                        std::cerr << "Variant is too large" << std::endl;
-                    }
-                    // TODO: account for the 1 base we added extra if it was a pure
-                    // insert.
-                    basesLost += altAllele.size();
-                }
-                
-                
-            }
+            // Make a couple of fake Visits
+            Visit from_visit;
+            from_visit.set_node_id(e->from());
+            from_visit.set_backward(e->from_start());
+            Visit to_visit;
+            to_visit.set_node_id(e->to());
+            to_visit.set_backward(e->to_end());
             
+            // Make a Locus for the edge
+            Locus locus;
+            
+            // Give it an allele
+            Path* path = locus.add_allele();
+            
+            // Fill in 
+            *path->add_mapping() = to_mapping(from_visit, augmented.graph);
+            *path->add_mapping() = to_mapping(to_visit, augmented.graph);
+            
+            // Set the support
+            *locus.add_support() = augmented.edge_supports[e];
+            *locus.mutable_overall_support() = augmented.edge_supports[e];
+            
+            // Decide on the genotype
+            Genotype gt;
+            
+            // TODO: use the coverage bins
+            if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.25) {
+                // We're closer to 1 copy than 0 copies
+                gt.add_allele(0);
+                
+                if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.75) {
+                    // We're closer to 2 copies than 1 copy
+                    gt.add_allele(0);
+                }
+            }
+            // Save the genotype with 0, 1, or 2 copies.
+            *locus.add_genotype() = gt;
+            
+            // Send out the locus
+            locus_buffer.push_back(locus);
+            stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+            
+            extra_loci++;
             
         });
         
-        for(vg::Edge* deletion : deletionEdges) {
-            // Make deletion variants for each deletion edge
-            
-            // Make a string naming the edge
-            std::string edgeName = std::to_string(deletion->from()) +
-                (deletion->from_start() ? "L" : "R") + "->" +
-                std::to_string(deletion->to()) + (deletion->to_end() ? "R" : "L");
-            
-            if(!index.byId.count(deletion->from()) || !index.byId.count(deletion->to())) {
-                // This deletion edge does not cover a reference interval.
-                // TODO: take into account its presence when pushing copy number.
-#ifdef debug
-                std::cerr << "Deletion edge " << edgeName << " does not cover a reference interval. Skipping!" << endl;
-#endif
-                continue;
-            }
-            
-            // Where are we from and to in the reference (leftmost position and
-            // relative orientation)
-            auto& fromPlacement = index.byId.at(deletion->from());
-            auto& toPlacement = index.byId.at(deletion->to());
-            
-#ifdef debug
-            std::cerr << "Node " << deletion->from() << " is at ref position " 
-                << fromPlacement.first << " orientation " << fromPlacement.second << std::endl;
-            std::cerr << "Node " << deletion->to() << " is at ref position "
-                << toPlacement.first << " orientation " << toPlacement.second << std::endl;
-#endif
-            
-            // Are we attached to the reference-relative left or right of our from
-            // base?
-            bool fromFirst = fromPlacement.second != deletion->from_start();
-            
-            // And our to base?
-            bool toLast = toPlacement.second != deletion->to_end();
-            
-            // What base should the from end really be on? This is the non-deleted
-            // base outside the deletion on the from end.
-            int64_t fromBase = fromPlacement.first + (fromFirst ? 0 : vg.get_node(deletion->from())->sequence().size() - 1);
-            
-            // And the to end?
-            int64_t toBase = toPlacement.first + (toLast ? vg.get_node(deletion->to())->sequence().size() - 1 : 0);
-
-            if(toBase <= fromBase) {
-                // Our edge ought to be running backward.
-                if(!(fromFirst && toLast)) {
-                    // We're not a proper deletion edge in the backwards spelling
-                    // Discard the edge
-                    if (verbose) {
-                        std::cerr << "Improper deletion edge " << edgeName << std::endl;
-                    }
-                    basesLost += toBase - fromBase;
-                    continue;
-                } else {
-                    // Just invert the from and to bases.
-                    std::swap(fromBase, toBase);
-#ifdef debug
-                    std::cerr << "Inverted deletion edge " << edgeName << std::endl;
-#endif
-                }
-            } else if(fromFirst || toLast) {
-                // We aren't a proper deletion edge in the forward spelling either.
-                if (verbose) {
-                    std::cerr << "Improper deletion edge " << edgeName << std::endl;
-                }
-                basesLost += fromBase - toBase;
-                continue;
-            }
-            
-            
-            if(toBase <= fromBase + 1) {
-                // No bases were actually deleted. Maybe this is just a normal reference edge.
-                continue;
-            }
-            
-#ifdef debug
-            std::cerr << "Deletion " << edgeName << " bookended by " << fromBase << " and " << toBase << std::endl;
-#endif
-            
-            // What original node:offset places do we care about?
-            std::set<std::pair<int64_t, size_t>> crossreferences;
-            
-            // Guess the copy number of the deletion.
-            // Holds total base copies (node length * read support) observed as not deleted.
-            Support refReadSupportTotal = std::make_pair(0.0, 0.0);
-            Support refReadSupportMin = std::make_pair(std::numeric_limits<double>::max(),
-                                                       std::numeric_limits<double>::max());
-            std::pair<vg::Node*, double> refMinLikelihood(NULL, LOG_ZERO);
-            
-            int64_t deletedNodeStart = fromBase + 1;
-            while(deletedNodeStart != toBase) {
-#ifdef debug
-                std::cerr << "Next deleted node starts at " << deletedNodeStart << std::endl;
-#endif
-            
-                // Find the deleted node starting here in the reference
-                auto* deletedNode = index.byStart.at(deletedNodeStart).node;
-                // We know the next reference node should start just after this one.
-                // Even if it previously existed in the reference.
-                deletedNodeStart += deletedNode->sequence().size();
-                
-                // Count the read observations we see not deleted
-                refReadSupportTotal += deletedNode->sequence().size() * nodeReadSupport.at(deletedNode);
-                refReadSupportMin = support_min(refReadSupportMin, nodeReadSupport.at(deletedNode));
-
-                // Update minimum node likelihood
-                double likelihood = nodeLikelihood.at(deletedNode);
-                if (refMinLikelihood.first == NULL || likelihood < refMinLikelihood.second) {
-                    refMinLikelihood = make_pair(deletedNode, likelihood);
-                }
-                
-                if(nodeSources.count(deletedNode)) {
-                    // Add the beginning of this node as a see also. The deletion is
-                    // stored at the beginning of the first node, and the other
-                    // locations will help us get an idea of how much support the
-                    // deleted stuff has.
-                    crossreferences.insert(nodeSources.at(deletedNode));
-                }
-            }
-            
-            // We divide the total read support by the total bases deleted to get
-            // the average read support for the reference.
-            Support refReadSupportAverage = refReadSupportTotal / (toBase - fromBase - 1);
-            
-            // Get the support for the edge itself?
-            Support altReadSupportTotal = edgeReadSupport.count(deletion) ? edgeReadSupport[deletion] : std::make_pair(0.0, 0.0);
-            double altMinLikelihood = edgeLikelihood.count(deletion) ? edgeLikelihood[deletion] : LOG_ZERO;
-            // No sense averaging the deletion edge read support because there are no bases.
-            
-            // What copy number do we call for the deletion?
-            int64_t copyNumberCall = 2;
-
-            // Now we know fromBase is the last non-deleted base and toBase is the
-            // first non-deleted base. We'll make an alt replacing the first non-
-            // deleted base plus the deletion with just the first non-deleted base.
-            // Rename everything to the same names we were using before.
-            size_t referenceIntervalStart = fromBase;
-            size_t referenceIntervalPastEnd = toBase;
-     
-            // find which bin we're in
-            int bin = referenceIntervalStart / refBinSize;
-            if (bin == binnedSupport.size()) {
-                --bin;
-            }
-            const Support& baselineSupport = binnedSupport[bin];
-
-            Support refSupport = useAverageSupport ? refReadSupportAverage : refReadSupportMin;
-            // altSupport comes from single edge, so will always just be altReadSupportTotal
-
-            // These are always indels, so no need to decide on a variable bias multiple
-
-            // We're going to make some really bad calls at low depth. We can
-            // pull them out with a depth filter, but for now just elide them.
-            if(total(refSupport + altReadSupportTotal) >= total(baselineSupport) * minFractionForCall) {
-                if(total(refSupport) > maxRefHetBias * indelBiasMultiple * total(altReadSupportTotal) &&
-                    total(refReadSupportTotal) >= minTotalSupportForCall) {
-                    // Say it's hom ref
-                    copyNumberCall = 0;
-                } else if(total(altReadSupportTotal) > maxHetBias * indelBiasMultiple * total(refSupport) &&
-                    total(altReadSupportTotal) >= minTotalSupportForCall) {
-                    // Say it's hom alt
-                    copyNumberCall = 2;
-                } else if(total(refReadSupportTotal) >= minTotalSupportForCall &&
-                    total(altReadSupportTotal) >= minTotalSupportForCall) {
-                    // Say it's het
-                    copyNumberCall = 1;
-                } else {
-                    // We're not biased enough towards either homozygote, but we
-                    // don't have enough support for each allele to call het.
-                    // TODO: we just don't call
-                    copyNumberCall = 0;
-                }
-            } else {
-                // Depth too low. Don't call.
-                copyNumberCall = 0;
-            }
-            // TODO: use legit thresholds here.
-            
-            
-            if(copyNumberCall == 0) {
-                // Actually don't call a deletion
-                continue;
-            }
-                   
-            // Make the variant and emit it.
-            std::string refAllele = index.sequence.substr(
-                referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
-            std::string altAllele = index.sequence.substr(referenceIntervalStart, 1);
-            
-            // Make a Variant
-            vcflib::Variant variant;
-            variant.sequenceName = contigName;
-            variant.setVariantCallFile(vcf);
-            variant.quality = 0;
-            variant.position = referenceIntervalStart + 1 + variantOffset;
-            variant.id = edgeName;
-            
-            if(knownEdges.count(deletion)) {
-                // Mark it as reference if it is a reference edge. Apparently vcflib
-                // does not check the flag value when serializing, so don't put in a
-                // flase entry if it's not a reference edge.œ
-                variant.infoFlags["XREF"] = true;
-#ifdef debug
-                std::cerr << edgeName << " is a reference deletion" << std::endl;
-#endif
-            }
-            
-            for(auto& crossreference : crossreferences) {
-                // Add in all the deduplicated cross-references
-                variant.info["XSEE"].push_back(std::to_string(crossreference.first) + ":" +
-                    std::to_string(crossreference.second));
-            }
-            
-            // Initialize the ref allele
-            create_ref_allele(variant, refAllele);
-            
-            // Add the alt allele
-            int altNumber = add_alt_allele(variant, altAllele);
-            
-            // Say we're going to spit out the genotype for this sample.        
-            variant.format.push_back("GT");
-            auto& genotype = variant.samples[sampleName]["GT"];
-            
-            if(copyNumberCall == 1) {
-                // We're allele alt and ref heterozygous.
-                genotype.push_back("0/" + std::to_string(altNumber));
-            } else if(copyNumberCall == 2) {
-                // We're alt homozygous, other overlapping variants notwithstanding.
-                genotype.push_back(std::to_string(altNumber) + "/" + std::to_string(altNumber));
-            } else {
-                // We're something weird
-                throw std::runtime_error("Invalid copy number for deletion: " + std::to_string(copyNumberCall));
-            }
-            
-            // Add depth for the variant and the samples
-                std::string depthString = std::to_string((int64_t)round(total(refSupport + altReadSupportTotal)));
-                variant.format.push_back("DP");
-                variant.samples[sampleName]["DP"].push_back(depthString);
-                variant.info["DP"].push_back(depthString); // We only have one sample, so variant depth = sample depth
-                
-                // Also allelic depths
-                variant.format.push_back("AD");
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(refSupport))));
-                variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(altReadSupportTotal))));
-                
-                // Also strand biases
-                variant.format.push_back("SB");
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.second)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altReadSupportTotal.first)));
-                variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altReadSupportTotal.second)));
-                
-                // And total alt allele depth
-                variant.format.push_back("XAAD");
-                variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(altReadSupportTotal))));
-
-                // Also allelic likelihoods (from minimum values found on their paths)
-                variant.format.push_back("AL");
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(refMinLikelihood.second));
-                variant.samples[sampleName]["AL"].push_back(to_string_ss(altMinLikelihood));
-
-                // Quick quality: combine likelihood and depth, using poisson for latter
-                // todo: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-                double genLikelihood;
-                double min_site_support = 0;
-                if (genotype.back() == "0/0") {
-                    genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
-                    genLikelihood += refMinLikelihood.second;
-                    min_site_support = total(refSupport);
-                } else if (genotype.back() == "1/1") {
-                    genLikelihood = log10(poissonp(total(altReadSupportTotal), total(baselineSupport)));
-                    genLikelihood += altMinLikelihood;
-                    min_site_support = total(altReadSupportTotal);
-                } else {
-                    genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
-                        log10(poissonp(total(altReadSupportTotal), 0.5 * total(baselineSupport)));
-                    genLikelihood += refMinLikelihood.second + altMinLikelihood;
-                    min_site_support = std::min(total(refSupport), total(altReadSupportTotal));
-                }
-                variant.quality = -10. * log10(1. - pow(10, genLikelihood));
-
-                // Apply Min Allele Depth cutoff and store result in Filter column
-                variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
-                
-#ifdef debug
-            std::cerr << "Found variant " << refAllele << " -> " << altAllele
-                << " caused by edge " <<  variant.id
-                << " at 1-based reference position " << variant.position
-                << std::endl;
-#endif
-
-            if(can_write_alleles(variant)) {
-                if(!suppress_overlaps || !occupied_regions.collides(referenceIntervalStart, referenceIntervalPastEnd)) {
-                    // Variant doesn't intersect with something we care about
-                    
-                    // Output the created VCF variant.
-                    std::cout << variant << std::endl;
-                    
-                    // Output the pileup line, which will be nonempty if we have pileups
-                    // We only have ref crossreferences here. TODO: make the ref and alt
-                    // labels make sense for deletions/re-design the way labeling works.
-                    std::cout << get_pileup_line(nodePileups, crossreferences, std::set<std::pair<int64_t, size_t>>());
-                
-                    if(suppress_overlaps) {
-                        // Mark region as occupied
-                        occupied_regions.add(referenceIntervalStart, referenceIntervalPastEnd);
-                    }
-                
-                } else {
-                    if (verbose) {
-                        std::cerr << "Variant collides with already-emitted variant" << std::endl;
-                    }
-                    basesLost += altAllele.size();
-                }
-            } else {
-                if (verbose) {
-                    std::cerr << "Variant is too large" << std::endl;
-                }
-                // TODO: Drop the anchoring base that doesn't really belong to the
-                // deletion, when we can be consistent with inserts.
-                basesLost += altAllele.size();
-            }
-            
+        // TODO: look at average node coverages and do node loci (in case any nodes have no edges?)
+    
+        // Flush the buffer of Locus objects we have to write
+        stream::write_buffered(cout, locus_buffer, 0);
+        
+        if (verbose) {
+            cerr << "Called " << extra_loci << " extra loci with copy number estimates" << endl;
         }
         
     }
     
-    // Announce how much we can't show.
-    if (verbose) {
-        std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+}
+
+bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented) {
+    
+    // Keep track of the previous NodeSide
+    NodeSide previous;
+    
+    // We'll call this function with each visit in turn.
+    // If it ever returns false, the whole thing is nonreference.
+    auto experience_visit = [&](const Visit& visit) {
+        // TODO: handle nested sites
+        assert(visit.node_id());
+        
+        if (previous.node != 0) {
+            // Consider the edge from the previous visit
+            Edge* edge = augmented.graph.get_edge(previous, to_left_side(visit));
+            
+            if (augmented.edge_calls.at(edge) != CALL_REFERENCE) {
+                // Found a novel edge!
+                return false;
+            }
+        }
+        
+        if (augmented.node_calls.at(augmented.graph.get_node(visit.node_id())) != CALL_REFERENCE) {
+            // This node itself is novel
+            return false;
+        }
+        
+        // Remember we want an edge from this visit when we look at the next
+        // one.
+        previous = to_right_side(visit);
+        
+        // This visit is known.
+        return true;
+    };
+    
+    // Make sure we visit a ref start node
+    if (!experience_visit(trav.snarl().start())) {
+        return false;
     }
     
-    return 0;
+    // Then all the internal nodes
+    for (size_t i = 0; i < trav.visits_size(); i++) {
+        if (!experience_visit(trav.visits(i))) {
+            return false;
+        }
+    }
+    
+    // And finally the end node
+    if (!experience_visit(trav.snarl().end())) {
+        return false;
+    }
+    
+    // And if we make it through it's a reference traversal.
+    return true;
+        
+}
+
+bool Call2Vcf::is_reference(const Path& path, AugmentedGraph& augmented) {
+    
+    // The path can't be empty because it's not clear if an empty path should be
+    // reference or not.
+    assert(path.mapping_size() != 0);
+    
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        // Check each mapping
+        auto& mapping = path.mapping(i);
+        
+        if (augmented.get_call(augmented.graph.get_node(mapping.position().node_id())) != CALL_REFERENCE) {
+            // We use a novel node
+            return false;
+        }
+        
+        if (i + 1 < path.mapping_size()) {
+            // Also look at the next mapping
+            auto& next_mapping = path.mapping(i + 1);
+            
+            // And see about the edge to it
+            Edge* edge = augmented.graph.get_edge(to_right_side(to_visit(mapping)), to_left_side(to_visit(next_mapping)));
+            if (augmented.get_call(edge) != CALL_REFERENCE) {
+                // We used a novel edge
+                return false;
+            }
+        }
+    }
+    
+    // If we get through everything it's reference.
+    return true;
 }
 
 }

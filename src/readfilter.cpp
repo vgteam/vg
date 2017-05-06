@@ -134,19 +134,13 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // Use the full length of the node and ignore any offset
             target_sequence_stream << sequence;
         } else {
-            // Assume the offset is 0 and use the total from_length of all the
+            // Use the offset plus the total from_length of all the
             // edits (in case we're the last node and ending early). We made
             // sure all non-root nodes had edits earlier.
             
-            size_t from_length = 0;
+            size_t from_length = mapping.position().offset();
             for(size_t j = 0; j < mapping.edit_size(); j++) {
                 from_length += mapping.edit(j).from_length();
-            }
-            
-            if(mapping.position().offset() != 0) {
-                // Non-leading mappings can't have offsets. That implies
-                // skipping over some ref sequence without an appropriate edit.
-                throw runtime_error("Non leading mapping has offset in alignment: " + pb2json(alignment));
             }
             
             // Put in the sequence that the mapping visits
@@ -615,12 +609,11 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         Counts& counts = counts_vec[tid];
         bool keep = true;
         double score = (double)aln.score();
-        double denom = 2. * aln.sequence().length();
+        double denom = aln.sequence().length();
         // toggle substitution score
         if (sub_score == true) {
             // hack in ident to replace old counting logic.
             score = aln.identity() * aln.sequence().length();
-            denom = aln.sequence().length();
             assert(score <= denom);
         }
         // toggle absolute or fractional score

@@ -226,13 +226,20 @@ Mapping reverse_complement_mapping(const Mapping& m,
 // from the other ends of their nodes.
 Path reverse_complement_path(const Path& path,
                              const function<int64_t(id_t)>& node_length);
-// Simplify the path for addition as new material in the graph. Remove any
-// mappings that are merely single deletions, merge adjacent edis of the same
-// type, strip leading and trailing deletion edits on mappings, and make sure no
-// mappings have missing positions.
+/// Simplify the path for addition as new material in the graph. Remove any
+/// mappings that are merely single deletions, merge adjacent edits of the same
+/// type, strip leading and trailing deletion edits on mappings, and make sure no
+/// mappings have missing positions.
 Path simplify(const Path& p);
-// does the same for a single mapping element
+/// Merge adjacent edits of the same type, strip leading and trailing deletion
+/// edits (while updating positions if necessary), and makes sure position is
+/// actually set.
 Mapping simplify(const Mapping& m);
+
+/// Merge adjacent edits of the same type
+Path merge_adjacent_edits(const Path& m);
+/// Merge adjacent edits of the same type
+Mapping merge_adjacent_edits(const Mapping& m);
 // trim path so it starts and begins with a match (or is empty)
 Path trim_hanging_ends(const Path& p);
 // make a new mapping that concatenates the mappings
@@ -263,7 +270,7 @@ double identity(const Path& path);
 // compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
-void decompose(const Path& path, map<pos_t, int>& ref_positions, map<int, Edit>& edits);
+void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
