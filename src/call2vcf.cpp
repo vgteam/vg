@@ -101,7 +101,8 @@ string char_to_string(const char& letter) {
  */
 void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     const vector<string>& contig_names, const vector<size_t>& contig_sizes,
-    int min_mad_for_filter) {
+    int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter,
+    double max_local_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter) {
     
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
@@ -109,10 +110,19 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
     stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
-    stream << "##FILTER=<ID=FAIL,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highabsdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
+    stream << "##FILTER=<ID=highreldp,Description=\"Variant has total depth greater than "
+        << max_dp_multiple_for_filter << " times global baseline\">" <<endl;
+    stream << "##FILTER=<ID=highlocaldp,Description=\"Variant has total depth greater than "
+        << max_local_dp_multiple_for_filter << " times local baseline\">" <<endl;
+    stream << "##FILTER=<ID=lowxadl,Description=\"Variant has AD log likelihood less than "
+        << min_ad_log_likelihood_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << endl;
+    stream << "##FORMAT=<ID=XDP,Number=2,Type=Integer,Description=\"Expected Local and Global Depth\">" << endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << endl;
+    stream << "##FORMAT=<ID=XADL,Number=1,Type=Float,Description=\"Likelihood of allelic depths for called alleles\">" << endl;
     stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << endl;
     // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
     stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << endl;
@@ -142,6 +152,7 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
  * to be specified to GATK is left as an exercise to the reader.
  */
 bool can_write_alleles(vcflib::Variant& variant) {
+
     for(auto& allele : variant.alleles) {
         if(MAX_ALLELE_LENGTH > 0 && allele.size() > MAX_ALLELE_LENGTH) {
             return false;
@@ -421,7 +432,7 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
  * support), and min likelihood for a traversal, optionally excluding the
  * material used by another traversal.
  */
-tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& augmented,
+tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
     SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
     const SnarlTraversal* excluded = nullptr) {
 
@@ -458,13 +469,11 @@ tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& au
     // number.
     size_t record_count = max(1, traversal.visits_size());
     // What's the min support observed at every visit (inclusing edges)?
-    vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY));
+    vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
     // And the total support (ignoring edges)?
     vector<Support> total_supports(record_count, Support());
     // And the bp size of each visit
     vector<size_t> visit_sizes(record_count, 0);
-    // And the min likelihoods at each visit?
-    vector<double> likelihoods(record_count, INFINITY);
     
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
@@ -482,8 +491,6 @@ tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& au
         total_supports[i] += augmented.get_support(node) * node->sequence().size();
         // And its size
         visit_sizes[i] += node->sequence().size();
-        // And its likelihood
-        likelihoods[i] = min(likelihoods[i], augmented.get_likelihood(node));
         
         // And update its min support
         min_supports[i] = support_min(min_supports[i], augmented.get_support(node));
@@ -504,8 +511,6 @@ tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& au
         
         // Min in its support
         min_supports[i] = support_min(min_supports[i], augmented.get_support(edge));
-        // And use its likelihood in the min
-        likelihoods[i] = min(likelihoods[i], augmented.get_likelihood(edge));
     }, [&](size_t i, Snarl child) {
         // This is a child snarl, so get its max support.
         
@@ -548,7 +553,6 @@ tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& au
             min_supports[i] = support_min(min_supports[i], child_max);
         }
         
-        // TODO: child snarl likelihoods?
     });
     
     // Now aggregate across visits and their edges
@@ -566,31 +570,18 @@ tuple<Support, Support, size_t, double> get_traversal_support(AugmentedGraph& au
     }
     
     // And the min support?
-    Support min_support = make_support(INFINITY, INFINITY);
+    Support min_support = make_support(INFINITY, INFINITY, INFINITY);
     for (auto& support : min_supports) {
         min_support = support_min(min_support, support);
     }
-    
-    // Also, what's the min likelihood
-    // Really this is already logged base 10.
-    double min_likelihood = INFINITY;
-    for (auto& likelihood : likelihoods) {
-        min_likelihood = min(min_likelihood, likelihood);
-    }
-    
+        
     if (min_support.forward() == INFINITY || min_support.reverse() == INFINITY) {
         // If we have actually no material, say we have actually no support
         min_support = Support();
     }
-    
-    if (min_likelihood == INFINITY) {
-        // Similarly, and infinite likelihood means no likelihood at all
-        min_likelihood = 0;
-    }
-    
-    // Spit out the supports, the size in bases, and the min likelihood
-    // observed.
-    return tie(min_support, total_support, total_size, min_likelihood);
+        
+    // Spit out the supports, the size in bases observed.
+    return tie(min_support, total_support, total_size);
         
 }
 
@@ -609,7 +600,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #endif
 
 
-    // Get traversals of this Snarl, with Visits to child Snarls
+    // Get traversals of this Snarl, with Visits to child Snarls.
+    // The 0th is always the reference traversal if we're on a primary path
     vector<SnarlTraversal> here_traversals = finder->find_traversals(site);
     
 
@@ -619,7 +611,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 
     
     // Make a Locus to hold all our stats for the different traversals
-    // available.
+    // available. The 0th will always be the ref traversal if we're on a primary
+    // path.
     Locus locus;
     
     // How long is the longest traversal?
@@ -638,11 +631,8 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         size_t total_size;
         // And the min support?
         Support min_support;
-        // Also, what's the min likelihood
-        // Really this is already logged base 10.
-        double min_likelihood;
         // Trace the traversal and get its support
-        tie(min_support, total_support, total_size, min_likelihood) = get_traversal_support(augmented,
+        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
             snarl_manager, site, traversal);
             
         // Add average and min supports to vectors. Note that average support
@@ -655,11 +645,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #endif
 
         // Remember a new longest traversal length
-        longest_traversal_length = max(longest_traversal_length, total_size);
-        
-        // Copy the likelihood over to the locus. Convert from log10 which it
-        // comes in as from the caller to ln.
-        locus.add_allele_log_likelihood(log10_to_ln(min_likelihood));
+        longest_traversal_length = max(longest_traversal_length, total_size);        
     }
     
 #ifdef debug
@@ -711,8 +697,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         Support total_support;
         size_t total_size;
         Support min_support;
-        double min_likelihood;
-        tie(min_support, total_support, total_size, min_likelihood) = get_traversal_support(augmented,
+        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
             snarl_manager, site, traversal, &here_traversals.at(best_allele));
             
         // Add average and min supports to vectors.
@@ -813,10 +798,12 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             second_best_allele != -1 &&
             bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
             total(best_support) >= min_total_support_for_call &&
-            total(second_best_support) >= min_total_support_for_call) {
-            // There's a second best allele, and it's not too biased to
-            // call, and both alleles exceed the minimum to call them
-            // present.
+            total(second_best_support) >= min_total_support_for_call &&
+            total(second_best_support) >= min_mad_for_filter) {
+            // There's a second best allele, and it's not too biased to call,
+            // and both alleles exceed the minimum to call them present, and the
+            // second-best allele has enough support that it won't torpedo the
+            // variant.
             
 #ifdef debug
             cerr << "Call as best/second best" << endl;
@@ -825,18 +812,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // Say both are present
             genotype.add_allele(best_allele);
             genotype.add_allele(second_best_allele);
-            
-            // Compute the likelihood for a best/second best het
-            // Quick quality: combine likelihood and depth, using poisson for latter
-            // TODO: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-            gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), 0.5 * total(baseline_support))) +
-                ln_to_log10(poisson_prob_ln(total(second_best_support), 0.5 * total(baseline_support)));
-            gen_likelihood += ln_to_log10(locus.allele_log_likelihood(best_allele)) +
-                ln_to_log10(locus.allele_log_likelihood(second_best_allele));
-            
-            // Save the likelihood in the Genotype
-            genotype.set_likelihood(log10_to_ln(gen_likelihood));
-            
+                        
             // Get minimum support for filter (not assuming it's second_best just to be sure)
             min_site_support = min(total(second_best_support), total(best_support));
             
@@ -856,13 +832,6 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             genotype.add_allele(best_allele);
             genotype.add_allele(best_allele);
             
-            // Compute the likelihood for hom best allele
-            gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support)));
-            gen_likelihood += ln_to_log10(locus.allele_log_likelihood(best_allele));
-
-            // Save the likelihood in the Genotype
-            genotype.set_likelihood(log10_to_ln(gen_likelihood));
-
             // Get minimum support for filter
             min_site_support = total(best_support);
             
@@ -879,13 +848,6 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // Say the best is present once
             genotype.add_allele(best_allele);
             
-            // Compute the likelihood for hom best allele, 1 copy
-            gen_likelihood = ln_to_log10(poisson_prob_ln(total(best_support), total(baseline_support) / 2));
-            gen_likelihood += ln_to_log10(locus.allele_log_likelihood(best_allele));
-
-            // Save the log likelihood in the Genotype
-            genotype.set_log_likelihood(log10_to_ln(gen_likelihood));
-
             // Get minimum support for filter
             min_site_support = total(best_support);
             
@@ -952,19 +914,23 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // Recurse on each child, giving a copy number budget according to the
         // usage count call at this site. This produces fully realized
         // traversals with no Visits to Snarls.
+        // Holds ref traversal, best, and optional second best for each child.
         child_traversals[child] = find_best_traversals(augmented, snarl_manager,
             finder, *child, baseline_support, child_usage_counts[child], emit_locus);
     }
     
     for (auto kv : child_traversals) {
-        // All children must have at least one traversal.
-        assert(!kv.second.empty());
+        // All children must have at least two traversals (a ref and a best).
+        // Off the primary paths, the ref is sort of arbitrary.
+        assert(kv.second.size() >= 2);
     }
     
-    // Put the best traversal for each child in our traversals that visit it
-    // (even if that contradicts the calls on the child)
+    // Put the best (or ref) traversal for each child in our traversals that
+    // visit it (even if that contradicts the calls on the child)
     vector<SnarlTraversal> concrete_traversals;
-    for (auto& abstract_traversal : here_traversals) {
+    for (size_t traversal_number = 0; traversal_number < here_traversals.size(); traversal_number++) {
+        // For every abstract traversal of this site, starting with the ref traversal...
+        auto& abstract_traversal = here_traversals[traversal_number];
         // Make a "concrete", node-level traversal for every abstract, Snarl-
         // visiting traversal.
         concrete_traversals.emplace_back();
@@ -984,9 +950,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // If they're visits to children, look up the child
                 const Snarl* child = snarl_manager.manage(abstract_visit.snarl());
                 
-                // Then blit the child's best path over.
-                // Keep in mind that we may be going through the child backward.
-                auto& child_traversal = child_traversals.at(child).at(0);
+                // Then blit the child's path over. This will be the ref path if
+                // we are concrete-izing this snarl's ref traversal, and the
+                // best path for the child otherwise. Keep in mind that we may
+                // be going through the child backward.
+                auto& child_traversal = child_traversals.at(child).at(traversal_number == 0 ? 0 : 1);
                 
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
@@ -1036,22 +1004,15 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         emit_locus(locus, &site);
     }
     
-    // Return the traversals, best and second-best first, but having at least
-    // one.
-    assert(concrete_traversals.size() >= 1);
-    // Move the best allele first
-    swap(concrete_traversals[0], concrete_traversals[best_allele]);
-    if (second_best_allele != -1 && concrete_traversals.size() >= 2) {
-        // We want to put the second best allele second
-        if (second_best_allele == 0) {
-            // We moved it already
-            second_best_allele = best_allele;
-        }
-        swap(concrete_traversals[1], concrete_traversals[second_best_allele]);
+    // Build the list of traversals to return as ref, best, second best, with
+    // possible repeats.
+    vector<SnarlTraversal> to_return{concrete_traversals[0], concrete_traversals[best_allele]};
+    if (second_best_allele != -1) {
+        to_return.push_back(concrete_traversals[second_best_allele]);
     }
     
-    // Return all the concrete traversals we created
-    return concrete_traversals;
+    // Return those important traversals
+    return to_return;
 
 }
 
@@ -1187,7 +1148,9 @@ void Call2Vcf::call(
         // available info fields or whatever are defined in the file's header,
         // so they know what to output.
         stringstream header_stream;
-        write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths, min_mad_for_filter);
+        write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths,
+            min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter, max_local_dp_multiple_for_filter,
+            min_ad_log_likelihood_for_filter);
         
         // Load the headers into a the VCF file object
         string header_string = header_stream.str();
@@ -1304,12 +1267,16 @@ void Call2Vcf::call(
         // See if the site is on a primary path, so we can use binned support.
         map<string, PrimaryPath>::iterator found_path = find_path(*site, primary_paths);
         
-        // We need to figure out how much support a site ought to have
+        // We need to figure out how much support a site ought to have.
+        // Within its local bin?
         Support baseline_support;
+        // On its primary path?
+        Support global_baseline_support;
         if (expected_coverage != 0.0) {
             // Use the specified coverage override
             baseline_support.set_forward(expected_coverage / 2);
             baseline_support.set_reverse(expected_coverage / 2);
+            global_baseline_support = baseline_support;
         } else if (found_path != primary_paths.end()) {
             // We're on a primary path, so we can find the appropriate bin
         
@@ -1323,15 +1290,22 @@ void Call2Vcf::call(
             // Look in the bins for the primary path to get the support there.
             baseline_support = found_path->second.get_support_at(variation_start);
             
+            // And grab the path's overall support
+            global_baseline_support = found_path->second.get_average_support();
+            
         } else {
             // Just use the primary paths' average support, which may be 0 if there are none.
-            baseline_support = PrimaryPath::get_average_support(primary_paths);
+            // How much support is expected across all the primary paths? May be 0 if there are no primary paths.
+            global_baseline_support = PrimaryPath::get_average_support(primary_paths);
+            baseline_support = global_baseline_support;
         }
         
         // This function emits the given variant on the given primary path, as
         // VCF. It needs to take the site as an argument because it may be
         // called for children of the site we're working on right now.
-        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions, this](const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
+        auto emit_variant = [&contig_names_by_path_name, &vcf, &augmented, &original_positions,
+            &baseline_support, &global_baseline_support, this](
+            const Locus& locus, PrimaryPath& primary_path, const Snarl* site) {
         
             // Note that the locus paths will traverse our site forward, which
             // may make them backward along the primary path.
@@ -1527,6 +1501,19 @@ void Call2Vcf::call(
                 variant.position--;
             }
             
+            // Make sure the ref allele is correct
+            {
+                string real_ref = primary_path.get_index().sequence.substr(
+                    variant.position - variant_offset - 1, sequences.front().size());
+                string got_ref = sequences.front();
+                
+                if (real_ref != got_ref) {
+                    cerr << "Error: Ref should be " << real_ref << " but is " << got_ref << " at " << variant.position << endl;
+                    throw runtime_error("Reference mismatch at site " + pb2json(*site));
+                }
+            
+            }
+            
             // Add the ref allele to the variant
             create_ref_allele(variant, sequences.front());
             
@@ -1535,8 +1522,7 @@ void Call2Vcf::call(
             int best_alt = add_alt_allele(variant, sequences.at(best_allele));
             
             int second_best_alt = (second_best_allele == -1) ? -1 : add_alt_allele(variant, sequences.at(second_best_allele));
-            
-            
+
             // Say we're going to spit out the genotype for this sample.        
             variant.format.push_back("GT");
             auto& genotype_vector = variant.samples[sample_name]["GT"];
@@ -1568,7 +1554,6 @@ void Call2Vcf::call(
                         stream << (genotype.is_phased() ? '|' : '/');
                     }
                 }
-                
                 // Save the finished genotype
                 genotype_vector.push_back(stream.str());              
             } else {
@@ -1601,12 +1586,15 @@ void Call2Vcf::call(
             
             // Set up the depth format field
             variant.format.push_back("DP");
+            // And expected depth
+            variant.format.push_back("XDP");
             // And allelic depth
             variant.format.push_back("AD");
+            // And the log likelihood from the assignment of reads among the
+            // present alleles
+            variant.format.push_back("XADL");
             // And strand bias
             variant.format.push_back("SB");
-            // Also allelic likelihoods (from minimum values found on their paths)
-            variant.format.push_back("AL");
             // Also the alt allele depth
             variant.format.push_back("XAAD");
             
@@ -1614,6 +1602,7 @@ void Call2Vcf::call(
             Support total_support;
             // And total alt allele depth for the alt alleles
             Support alt_support;
+
             for (int allele : used_alleles) {
                 // For all the alleles we are using, look at the support.
                 auto& support = locus.support(allele);
@@ -1622,7 +1611,6 @@ void Call2Vcf::call(
                 variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(support))));
                 variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.forward())));
                 variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.reverse())));
-                variant.samples[sample_name]["AL"].push_back(to_string_ss(ln_to_log10(locus.allele_log_likelihood(allele))));
                 
                 // Sum up into total depth
                 total_support += support;
@@ -1632,41 +1620,96 @@ void Call2Vcf::call(
                     alt_support += support;
                 }
             }
-            
+
             // Find the min total support of anything called
             double min_site_support = INFINITY;
+            double min_site_quality = INFINITY;
+            
             for (size_t i = 0; i < genotype.allele_size(); i++) {
-                // Min all the total supports from the alleles called as present
+                // Min all the total supports from the non-ref alleles called as present
                 min_site_support = min(min_site_support, total(locus.support(genotype.allele(i))));
+                min_site_quality = min(min_site_quality, locus.support(genotype.allele(i)).quality());
+            }
+            
+            // Find the binomial bias between the called alleles, if multiple were called.
+            double ad_log_likelihood = INFINITY;
+            if (second_best_allele != -1) {
+                // How many of the less common one do we have?
+                size_t successes = round(total(locus.support(second_best_allele)));
+                // Out of how many chances
+                size_t trials = successes + (size_t) round(total(locus.support(best_allele)));
+                
+                assert(trials >= successes);
+                
+                // How weird is that?                
+                ad_log_likelihood = binomial_cmf_ln(prob_to_logprob((real_t) 0.5), trials, successes);
+                
+                assert(!std::isnan(ad_log_likelihood));
+                
+                variant.samples[sample_name]["XADL"].push_back(to_string(ad_log_likelihood));
+            } else {
+                // No need to assign reads between two alleles
+                variant.samples[sample_name]["XADL"].push_back(".");
             }
 
             // Set the variant's total depth            
             string depth_string = to_string((int64_t)round(total(total_support)));
-            variant.samples[sample_name]["DP"].push_back(depth_string);
             variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+            
+            // And for the sample
+            variant.samples[sample_name]["DP"].push_back(depth_string);
+            
+            // Set the sample's local and global expected depth            
+            variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(baseline_support))));
+            variant.samples[sample_name]["XDP"].push_back(to_string((int64_t)round(total(global_baseline_support))));
             
             // And its depth of non-0 alleles
             variant.samples[sample_name]["XAAD"].push_back(to_string((int64_t)round(total(alt_support))));
 
-            // Phred-ify the likelihood into a quality
-            variant.quality = -10. * log10(1. - pow(10, ln_to_log10(genotype.log_likelihood())));
+            // Set the total support quality of the min allele as the variant quality
+            variant.quality = min_site_quality;
 
-            // Apply Min Allele Depth cutoff and store result in Filter column
-            variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
-            
-            if(can_write_alleles(variant)) {
-                // No need to check for collisions because we assume sites are correctly found.
-                
-                // Output the created VCF variant.
-                cout << variant << endl;
-                
-            } else {
-                if (verbose) {
-                    cerr << "Variant is too large" << endl;
-                }
-                // TODO: track bases lost again
+            // Now do the filters
+            variant.filter = "PASS";            
+            if (min_site_support < min_mad_for_filter) {
+                // Apply Min Allele Depth cutoff across all alleles (even ref)
+                variant.filter = "lowad";
+            } else if (max_dp_for_filter != 0 && total(total_support) > max_dp_for_filter) {
+                // Apply the max depth cutoff
+                variant.filter = "highabsdp";
+            } else if (max_dp_multiple_for_filter != 0 &&
+                total(total_support) > max_dp_multiple_for_filter * total(global_baseline_support)) {
+                // Apply the max depth multiple cutoff
+                // TODO: Different standard for sites called as haploid
+                variant.filter = "highreldp";
+            } else if (max_local_dp_multiple_for_filter != 0 &&
+                total(total_support) > max_local_dp_multiple_for_filter * total(baseline_support)) {
+                // Apply the max local depth multiple cutoff
+                // TODO: Different standard for sites called as haoploid
+                variant.filter = "highlocaldp";
+            } else if (min_ad_log_likelihood_for_filter != 0 &&
+                ad_log_likelihood < min_ad_log_likelihood_for_filter) {
+                // We have a het, but the assignment of reads between the two branches is just too weird
+                variant.filter = "lowxadl";
             }
             
+            // Don't bother with trivial calls
+            if (write_trivial_calls ||
+                (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
+                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0")) {
+            
+                if(can_write_alleles(variant)) {
+                    // No need to check for collisions because we assume sites are correctly found.
+                    // Output the created VCF variant.
+                    cout << variant << endl;
+            
+                } else {
+                    if (verbose) {
+                        cerr << "Variant is too large" << endl;
+                    }
+                    // TODO: track bases lost again
+                }
+            }
         };
         
         // Recursively type the site, using that support and an assumption of a diploid sample.
