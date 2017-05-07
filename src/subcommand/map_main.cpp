@@ -32,6 +32,7 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [1e4:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
@@ -45,7 +46,6 @@ void help_map(char** argv) {
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -J, --quality STR       Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
          << "    -V, --seq-name STR      name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -T, --reads FILE        take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE    align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
@@ -92,6 +92,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
+    int max_band_jump = -1;
     bool always_rescue = false;
     bool top_pairs_only = false;
     int max_mem_length = 0;
@@ -141,7 +142,6 @@ int main_map(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
-                {"quality", required_argument, 0, 'J'},
                 {"seq-name", required_argument, 0, 'V'},
                 {"base-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
@@ -159,6 +159,7 @@ int main_map(int argc, char** argv) {
                 {"fastq", required_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"band-width", required_argument, 0, 'w'},
+                {"band-jump", required_argument, 0, 'J'},
                 {"min-ident", required_argument, 0, 'P'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-seed", required_argument, 0, 'k'},
@@ -204,10 +205,6 @@ int main_map(int argc, char** argv) {
         case 's':
             seq = optarg;
             break;
-
-        case 'J':
-            qual = string_quality_char_to_short(string(optarg));
-                break;
 
         case 'd':
             db_name = optarg;
@@ -309,6 +306,10 @@ int main_map(int argc, char** argv) {
 
         case 'w':
             band_width = atoi(optarg);
+            break;
+
+        case 'J':
+            max_band_jump = atoi(optarg);
             break;
 
         case 'P':
@@ -586,6 +587,7 @@ int main_map(int argc, char** argv) {
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
         m->mate_rescues = mate_rescues;
+        m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         mapper[i] = m;
     }
 

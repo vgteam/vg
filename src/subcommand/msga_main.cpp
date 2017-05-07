@@ -35,6 +35,7 @@ void help_msga(char** argv) {
          << "    -F, --min-band-mq INT   require mapping quality for each band to be at least this [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
+         << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [2*{-w}]" << endl
          << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
@@ -85,6 +86,7 @@ int main_msga(int argc, char** argv) {
     int max_multimaps = 1;
     float min_identity = 0.0;
     int band_width = 256;
+    int max_band_jump = -1;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
@@ -136,6 +138,7 @@ int main_msga(int argc, char** argv) {
                 {"idx-no-recomb", no_argument, 0, 'O'},
                 {"idx-doublings", required_argument, 0, 'X'},
                 {"band-width", required_argument, 0, 'w'},
+                {"band-jump", required_argument, 0, 'J'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
                 {"context-depth", required_argument, 0, 'c'},
@@ -168,7 +171,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:S",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -245,6 +248,10 @@ int main_msga(int argc, char** argv) {
 
         case 'w':
             band_width = atoi(optarg);
+            break;
+
+        case 'J':
+            max_band_jump = atoi(optarg);
             break;
 
         case 'D':
@@ -508,6 +515,7 @@ int main_msga(int argc, char** argv) {
             mapper->debug = debug_align;
             mapper->min_identity = min_identity;
             mapper->min_banded_mq = min_banded_mq;
+            mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
                                  : mapper->random_match_length(chance_match));
@@ -559,12 +567,12 @@ int main_msga(int argc, char** argv) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph" << iter << endl;
             vector<Path> paths;
-            vector<Alignment> alns;
             int j = 0;
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
             Alignment aln = simplify(mapper->align(seq, 0, 0, 0, band_width));
+            aln.set_name(name);
             if (aln.path().mapping_size()) {
                 auto aln_seq = graph->path_string(aln.path());
                 if (aln_seq != seq) {
@@ -582,7 +590,6 @@ int main_msga(int argc, char** argv) {
                 edit->set_sequence(aln.sequence());
                 edit->set_to_length(aln.sequence().size());
             }
-            alns.push_back(aln);
             //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
@@ -638,6 +645,9 @@ int main_msga(int argc, char** argv) {
                     << pb2json(aln.path()) << endl
                     << pb2json(graph->paths.path(name)) << endl;
                 graph->serialize_to_file(name + "-post-edit.vg");
+                ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
+                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                f.close();
             }
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;

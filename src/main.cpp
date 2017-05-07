@@ -3698,7 +3698,8 @@ int main_find(int argc, char** argv) {
                 mapper.xindex = &xindex;
                 mapper.fast_reseed = use_fast_reseed;
                 // get the mems
-                auto mems = mapper.find_mems_simple(sequence.begin(), sequence.end(), max_mem_length, min_mem_length, mem_reseed_length);
+                double lcp_avg;
+                auto mems = mapper.find_mems_deep(sequence.begin(), sequence.end(), lcp_avg, max_mem_length, min_mem_length, mem_reseed_length);
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
 
