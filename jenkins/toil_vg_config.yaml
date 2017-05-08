@@ -213,10 +213,10 @@ call-chunk-size: 10000000
 chunk_context: 50
 
 # Options to pass to chunk_gam. (do not include file names or -t/--threads)
-filter-opts: ['-o', '0', '-D', '999', '-r', '0.9', '-fu']
+filter-opts: ['-o', '0', '-D', '999', '-r', '0.9', '-fu', '-q', 15]
 
 # Options to pass to vg pileup. (do not include file names or -t/--threads)
-pileup-opts: [ ]
+pileup-opts: ['-q', '10' ]
 
 # Options to pass to vg call. (do not include file names or -t/--threads)
 call-opts: ['']
