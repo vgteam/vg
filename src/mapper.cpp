@@ -1169,11 +1169,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& aln : results.first) {
         aln.set_name(read1.name());
         aln.mutable_fragment_next()->set_name(read2.name());
+        aln.set_sequence(read1.sequence());
+        aln.set_quality(read1.quality());
     }
 
     for (auto& aln : results.second) {
         aln.set_name(read2.name());
         aln.mutable_fragment_prev()->set_name(read1.name());
+        aln.set_sequence(read2.sequence());
+        aln.set_quality(read2.quality());
     }
 
     return results;
