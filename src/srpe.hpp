@@ -191,13 +191,28 @@ public:
 
             vector<pair<int, int> > intervals;
 
+            // Calculate a proxy for discordance between a set of Alginments
+            // and a subgraph (e.g. one that's been modified with a candidate variant)
+            // Useful for deciding which variant is closest to what's represented in reads
             double discordance_score(vector<Alignment> alns, VG* subgraph);
+
+            // Convert Alignments to the read-like objects Fermi-lite uses in assembly
             void aln_to_bseq(Alignment& a, bseq1_t* read);
-            void assemble(vector<Alignment> alns);
-            void assemble(string refpath, int64_t start_pos, int64_t end_pos);
-            void assemble(int64_t node_id, int64_t end_pos);
 
+            // Assemble a set of alignments into a set of unitigs
+            // UNITIGS ARE GRAPH ELEMENTS - you could make them subgraphs.
+            // Alignments need not map to the graph (e.g. they could be unmapped reads)
+            void assemble(vector<Alignment> alns, vector<fml_utg_t>& unitigs);
 
+            // Assemble a set of Alignments that map along <refpath> between <startpos> and <endpos>,
+            // which are reference-relative coordinates (a.k.a your standard, linear ref coordinates)
+            void assemble(string refpath, int64_t start_pos, int64_t end_pos, vector<fml_utg_t>& unitigs);
+
+            // Assemble all reads that overlap a given position (within window_size bp)
+            void assemble(int64_t node_id, int64_t offset, int window_size);
+
+            void intervals_to_variants(vector<INS_INTERVAL> intervals, vector<vcflib::Variant>& vars);
+            void breakpoints_to_intervals(vector<BREAKPOINT> bps, vector<INS_INTERVAL>& ret, vector<INS_INTERVAL> existing);
             // Are multiple references present in the same subgraph?
             bool overlapping_refs = false;
             // Maps from node-id to read depth
