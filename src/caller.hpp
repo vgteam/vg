@@ -491,11 +491,11 @@ public:
     /// What name should we give each contig in the VCF file? Autodetected from
     /// path names if empty or too short.
     Option<vector<string>> contig_name_overrides{this, "contig", "c", {},
-        "use the given name as the VCF name for the corresponding reference path"};
+        "use the given name as the VCF name for the corresponding reference path (can repeat)"};
     /// What should the total sequence length reported in the VCF header be for
     /// each contig? Autodetected from path lengths if empty or too short.
     Option<vector<size_t>> length_overrides{this, "length", "l", {},
-        "override total sequence length in VCF for the corresponding reference path"};
+        "override total sequence length in VCF for the corresponding reference path (can repeat)"};
     /// What name should we use for the sample in the VCF file?
     Option<string> sample_name{this, "sample", "S", "SAMPLE",
         "name the sample in the VCF with the given name"};
