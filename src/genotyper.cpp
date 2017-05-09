@@ -74,7 +74,7 @@ namespace vg {
                     }    
                 }
             }
-            cerr << "Snarls processed, this many: " << snarl_name_to_node_set.size() << endl;
+            cerr << "Snarls processed, and we have this many: " << snarl_name_to_node_set.size() << endl;
         }
         
 

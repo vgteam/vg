@@ -30,7 +30,6 @@
 #include "bubbles.hpp"
 #include "translator.hpp"
 #include "homogenize_main.cpp"
-#include "sift_main.cpp"
 #include "readfilter.hpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
@@ -5286,8 +5285,6 @@ int main(int argc, char *argv[])
         return main_version(argc, argv);
     }  else if (command == "homogenize"){
         return main_homogenize(argc, argv);
-    } else if (command == "sift"){
-        return main_sift(argc, argv);  
     } else if (command == "test") {
         return main_test(argc, argv);
     } else if (command == "locify"){

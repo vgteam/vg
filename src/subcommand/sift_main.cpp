@@ -51,6 +51,8 @@ void help_sift(char** argv){
         //<< "    -a / --average" << endl
         //<< "    -w / --window <WINDOWLEN>" << endl
         << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|--> )" << endl
+        << "Helpful helpers: " << endl
+        << "    -1 / --calc-insert                  Calculate and print the insert size mean / sd every 1000 reads." << endl
         << endl;
 }
 
@@ -63,6 +65,7 @@ int main_sift(int argc, char** argv){
     }
 
     string alignment_file = "";
+    string graph_name = "";
     int threads = 1;
 
     bool inverse = false;
@@ -84,15 +87,17 @@ int main_sift(int argc, char** argv){
     bool do_quality = false;
     bool do_unmapped = false;
 
+    bool just_calc_insert = false;
+
 
     float insert_size = 300;
     float insert_size_sigma = 50;
 
 
-    int softclip_max = -1;
-    int max_path_length = 0;
+    int softclip_max = 15;
+    int max_path_length = 200;
 
-    int split_read_limit = -1;
+    int split_read_limit = 15;
     double depth = -1;
 
 
@@ -114,7 +119,7 @@ int main_sift(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "ht:vx:g:pRo:I:W:OCDc:s:q:d:i:aw:r",
+        c = getopt_long (argc, argv, "hut:vx:gG:pRo:I:W:OCDc:s:q:d:i:aw:r1",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -130,18 +135,26 @@ int main_sift(int argc, char** argv){
             case 't':
                 threads = atoi(optarg);
                 break;
-
+            case 'G':
+                graph_name = optarg;
+                break;
             case 'u':
                 do_unmapped = true;
                 do_all = false;
                 break;
             case 'c':
                 do_softclip = true;
+                do_all = false;
                 softclip_max = atoi(optarg);
                 ff.set_soft_clip_limit(softclip_max);
                 break;
             case 's':
                 do_split_read = true;
+                split_read_limit = atoi(optarg);
+                if (softclip_max < 0){
+                    softclip_max = 15;
+                    ff.set_soft_clip_limit(15);
+                }
                 do_all = false;
                 break;
             case 'q':
@@ -171,10 +184,13 @@ int main_sift(int argc, char** argv){
                 break;
             case 'I':
                 insert_size = atof(optarg);
+                ff.insert_mean = insert_size;
                 do_all = false;
+                do_insert_size = true;
                 break;
             case 'W':
                 insert_size_sigma = atof(optarg);
+                ff.insert_sd = insert_size_sigma;
                 do_all = false;
                 break;
             case 'O':
@@ -184,6 +200,9 @@ int main_sift(int argc, char** argv){
             case 'D':
                 do_orientation = true;
                 do_all = false;
+                break;
+            case '1':
+                just_calc_insert = true;
                 break;
             default:
                 help_sift(argv);
@@ -202,6 +221,11 @@ int main_sift(int argc, char** argv){
 
     cerr << "Filtering  " << alignment_file << endl;
 
+    vg::VG* graph;
+    if (!graph_name.empty()){
+        ifstream gstream(graph_name);
+        ff.my_vg = new vg::VG(gstream);
+    }
 
     omp_set_num_threads(threads);
     ff.set_inverse(inverse);
@@ -230,17 +254,8 @@ int main_sift(int argc, char** argv){
     
     
 
-    function<bool(Alignment&)> single_diff = [&](Alignment& aln){
-        bool anchored = false;
-        for (int i = 0; i < aln.path().mapping_size(); ++i){
-            // check if anchored on both sides
-            // check for small mismatches (to/from len diff or sequence)
-        }
-        return true;
-    };
-
     //vector<Alignment> orphaned_selected;
-    vector<Alignment> just_fine;
+    vector<Alignment> clean;
     vector<Alignment> perfect;
     vector<Alignment> simple_mismatch;
     vector<Alignment> discordant_selected;
@@ -263,6 +278,8 @@ int main_sift(int argc, char** argv){
     string insert_fn = alignment_file + ".insert_size";
     string quality_fn = alignment_file + ".quality";
     string depth_fn = alignment_file + ".depth";
+    string clean_fn = alignment_file + ".clean";
+    string perfect_fn = alignment_file + ".perfect";
 
     ofstream unmapped_stream;
     ofstream discordant_stream;
@@ -273,93 +290,174 @@ int main_sift(int argc, char** argv){
     ofstream insert_stream;
     ofstream quality_stream;
     ofstream depth_stream;
+    ofstream clean_stream;
+    ofstream perfect_stream;
 
-    unmapped_stream.open(unmapped_fn);
+    if (do_reversing){
+        reversing_stream.open(reversing_fn);
+    }
 
-    std::function<void()> write_all = [&](){
+    if (do_unmapped){
+        unmapped_stream.open(unmapped_fn);
+    }
 
+    if (do_orientation){
+        discordant_stream.open(discordant_fn);
+    }
+
+    if (do_oea){
+        oea_stream.open(oea_fn);
+    }
+
+    if (do_split_read){
+        split_stream.open(split_fn);
+    }
+    if (do_insert_size){
+        insert_stream.open(insert_fn);
+    }
+    if (do_softclip){
+        clipped_stream.open(clipped_fn);
+    }
+
+    std::function<bool(Alignment, Alignment)> normalish = [&](Alignment a, Alignment b){
+        bool a_forward = true;
+        bool b_reverse = false;
+        for (int i = 0; i < a.path().mapping_size(); i++){
+            if (a.path().mapping(i).position().is_reverse()){
+                a_forward = false;
+            }
+        }
+        for (int i = 0; i < b.path().mapping_size(); i++){
+            if (b.path().mapping(i).position().is_reverse()){
+                b_reverse = true;
+            }
+        }
+        return (a_forward != b_reverse);
     };
-
-
 
 
     std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
         pair<Alignment, Alignment> ret;
-        if (do_orientation){
+        bool flagged = false;
+
+        if (do_unmapped && !flagged){
+            if (alns_first.mapping_quality() == 0 &&
+                alns_second.mapping_quality() == 0){
+
+                    #pragma omp critical (unmapped_selected)
+                    {
+                        flagged = true;
+                        alns_first.set_read_mapped(true);
+                        alns_first.set_mate_unmapped(true);
+                        alns_second.set_read_mapped(true);
+                        alns_second.set_read_mapped(true);
+                        unmapped_selected.push_back(alns_first);
+                        unmapped_selected.push_back(alns_second);
+                        
+                    }
+                }
+        }
+
+        if (do_orientation && !flagged){
             
             ret = ff.pair_orientation_filter(alns_first, alns_second);
-            #pragma omp critical (discordant_selected)
+            if (ret.first.name() != "" || ret.first.name() != ""){
+                #pragma omp critical (discordant_selected)
             {
+                flagged = true;
                 discordant_selected.push_back(alns_first);
                 discordant_selected.push_back(alns_second);
             }
-
-        }
-        if (do_oea){
-            ret = ff.one_end_anchored_filter(alns_first, alns_second);
-            #pragma omp critical (oea_selected)
-            {
-                one_end_anchored.push_back(alns_first);
-                one_end_anchored.push_back(alns_second);
             }
-
-        }
-        if (do_insert_size){
-
-            #pragma omp critial (insert_selected)
-            {
-                insert_selected.push_back(alns_first);
-                insert_selected.push_back(alns_second);
-            }
-
-
-        }
-        if (do_split_read){
-            // first check softclip with a default size of 15
-            // then get the position of the clip start
-            // then remap the clipped/unclipped portions if required.
-            // Then binary-search map if needed.
-
-            if (remap){
-                // ff.split_remap(alns_first, alns_second);
-
-            }
-
             
-            #pragma omp critical (split_selected)
-            {
-                split_selected.push_back(alns_first);
-                split_selected.push_back(alns_second);
-            }
 
         }
-        if (do_reversing){
-            Alignment x = ff.reversing_filter(alns_first);
-            Alignment y = ff.reversing_filter(alns_second);
-            if (x.name() != "" || y.name() != ""){
-            #pragma omp critical (reversing_selected)
-            {
-                reversing_selected.push_back(alns_first);
-                reversing_selected.push_back(alns_second);
+        if (do_oea && !flagged){
+            ret = ff.one_end_anchored_filter(alns_first, alns_second);
+            if (ret.first.sequence() != "" && ret.second.sequence() != ""){
+                #pragma omp critical (oea_selected)
+                {
+
+                    one_end_anchored.push_back(ret.first);
+                    one_end_anchored.push_back(ret.second);
+                }
             }
+            
+
+        }
+        if (do_insert_size && !flagged){
+            
+            ret = ff.insert_size_filter(alns_first, alns_second);
+            if (ret.first.name() != "" && ret.second.name() != ""){
+                #pragma omp critial (insert_selected)
+                {
+                    insert_selected.push_back(alns_first);
+                    insert_selected.push_back(alns_second);
+                }
             }
+            
+
+
+        }
+        if (do_split_read && !flagged){
+
+            if (ff.split_read_filter(alns_first).name() != ""){
+                #pragma omp critical (split_selected)
+                {
+                    split_selected.push_back(alns_first);
+                    split_selected.push_back(alns_second);
+                    flagged = true;
+
+                }
+                
+            }
+            if (ff.split_read_filter(alns_second).name() != ""){
+                #pragma omp critical (split_selected)
+                {
+                    split_selected.push_back(alns_first);
+                    split_selected.push_back(alns_second);
+                    flagged = true;
+
+                }
+            }
+            
+
+        }
+        if (do_reversing && !flagged){
+            //Alignment x = ff.reversing_filter(alns_first);
+            //Alignment y = ff.reversing_filter(alns_second);
+            //if (x.name() != "" || y.name() != ""){
+            //    #pragma omp critical (reversing_selected)
+            //    {
+              //      reversing_selected.push_back(alns_first);
+              //      reversing_selected.push_back(alns_second);
+            //    }
+            //}
        
 
 
         }
-        if (do_softclip){
+        if (do_softclip && !flagged){
 
             Alignment x = ff.soft_clip_filter(alns_first);
             Alignment y = ff.soft_clip_filter(alns_second);
-
-            #pragma omp critical (clipped_selected)
-            {
-                clipped_selected.push_back(alns_first);
-                clipped_selected.push_back(alns_second);
-            }
+            if (!x.name().empty()){
+                #pragma omp critical (clipped_selected)
+                {
+                    clipped_selected.push_back(alns_first);
+                    flagged = true;
+                }
+            } 
+            if (!y.name().empty()){
+                #pragma omp critical (clipped_selected)
+                {
+                    flagged = true;
+                    clipped_selected.push_back(alns_second);
+                }
+            } 
 
         }
-        if (do_quality){
+        if (do_quality && !flagged){
 
             #pragma omp critical (quality_selected)
             {
@@ -368,7 +466,7 @@ int main_sift(int argc, char** argv){
             }
 
         }
-        if (do_depth){
+        if (do_depth && !flagged){
 
             #pragma omp critical (depth_selected)
             {
@@ -377,21 +475,33 @@ int main_sift(int argc, char** argv){
             }
             
         }
-        if (do_unmapped){
-            if (alns_first.path().mapping_size() == 0 ||
-                alns_second.path().mapping_size() == 0){
+        if (!do_all && !flagged){
+            // Check if read is perfect
 
-                    #pragma omp critical (unmapped_selected)
-                    {
-                        unmapped_selected.push_back(alns_first);
-                        unmapped_selected.push_back(alns_second);
-                    }
+            if (ff.perfect_filter(alns_first) && ff.perfect_filter(alns_second)){
+
+            }
+            else{
+                // otherwise, it's pretty clean, so place it in the clean pile.
+                #pragma omp critical (clean)
+                {
+                    clean.push_back(alns_first);
+                    clean.push_back(alns_second);
                 }
+            }
+            
         }
+        
 
         stream::write_buffered(unmapped_stream, unmapped_selected, 100);
-
-
+        stream::write_buffered(discordant_stream, discordant_selected, 100);
+        stream::write_buffered(oea_stream, one_end_anchored, 100);
+        stream::write_buffered(insert_stream, insert_selected, 100);
+        stream::write_buffered(split_stream, split_selected, 100);
+        stream::write_buffered(clipped_stream, clipped_selected, 100);
+        stream::write_buffered(clean_stream, clean, 100);
+        stream::write_buffered(reversing_stream, reversing_selected, 100);
+        stream::write_buffered(perfect_stream, perfect, 100);
     };
 
     std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
@@ -405,7 +515,7 @@ int main_sift(int argc, char** argv){
            if (!ff.soft_clip_filter(aln).name().empty()){
                 clipped_selected.push_back(aln);
            }
-           stream::write_buffered(clipped_stream, clipped_selected, 1000);
+           //stream::write_buffered(clipped_stream, clipped_selected, 1000);
 
         }
         if (do_quality){
@@ -417,17 +527,36 @@ int main_sift(int argc, char** argv){
 
     };
 
+    // double curr_insert = 0.0;
+    // double insert_tot = 0.0;
+    // int insert_count = 0;
+    // double curr_sigma = 0.0;
+    // std::function<void(Alignment&, Alignment&)> calc_insert = [&](Alignment& a, Alignment& b){
+    //     if (a.fragment_size() > 1){
+    //         insert_count += 1;
+    //         insert_tot += (double) a.fragment(0).length();   
+    //     }
+    //     else if (b.fragment_size() > 1){
+
+    //     }
+    // };
+
+
+
 
 
 if (alignment_file == "-"){
     stream::for_each_interleaved_pair_parallel(cin, pair_filters);
-    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
-    stream::write_buffered(oea_stream, one_end_anchored, 0);
 }
 else{
     ifstream in;
     in.open(alignment_file);
     if (in.good()){
+
+        // if (just_calc_insert){
+        //     stream::for_each_interleaved_pair_parallel(in, calc_insert);
+        //     exit(0);
+        // }
 
         if (is_paired){
             cerr << "Processing..." << endl;
@@ -443,14 +572,22 @@ else{
         help_sift(argv);
     }
 }
-
+    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
+    stream::write_buffered(discordant_stream, discordant_selected, 0);
+    stream::write_buffered(oea_stream, one_end_anchored, 0);
+    stream::write_buffered(insert_stream, insert_selected, 0);
+    stream::write_buffered(split_stream, split_selected, 0);
+    stream::write_buffered(clipped_stream, clipped_selected, 0);
+    stream::write_buffered(clean_stream, clean, 0);
+    stream::write_buffered(reversing_stream, reversing_selected, 0);
+    stream::write_buffered(perfect_stream, perfect, 0);
 
     buffer.clear();
 
 
 
 
-return 0;
+    return 0;
 }
 
 static Subcommand vg_sift("sift", "Filter Alignments by various metrics related to variant calling.", main_sift);

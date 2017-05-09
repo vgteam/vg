@@ -12,6 +12,117 @@ namespace vg{
 
     }
 
+    // to expand to multiple paths, we'll need to maintain a map of maps
+    // pathname -> map<node_id, int> >
+    int64_t Filter::distance_between_positions(Position first, Position second){
+        int64_t f_node_pos = node_to_position[first.node_id()];
+        int64_t r_node_pos = node_to_position[second.node_id()];
+        int64_t fp = f_node_pos + first.offset();
+        int64_t rp = r_node_pos + second.offset();
+        return abs(rp - fp);
+    }
+
+    string Filter::get_clipped_seq(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            if (left_overhang > soft_clip_limit){
+                return left_edit.sequence();
+            }
+            else if (right_overhang > soft_clip_limit){
+                return right_edit.sequence();
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return "";
+            }
+
+        }
+        else{
+            return "";
+        }
+    }
+
+    int64_t Filter::get_clipped_position(Alignment& a){
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            
+            if (left_overhang > soft_clip_limit){
+                /// Get the position of the first match
+                bool tripped = false;
+                int i = 0; 
+                for (i = 0; i < path.mapping_size(); i++){
+                    Mapping m = path.mapping(i);
+                    for (int j = 0; j < m.edit_size(); j++){
+                        Edit e = m.edit(j);
+                        if (e.to_length() == e.from_length() && e.sequence().empty()){
+                            tripped = true;
+                        }
+                    }
+                    if (tripped){
+                        break;
+                    }
+                }
+                if (i >= path.mapping_size()){
+                    cerr << "ERROR: ALIGNMENT MATCHES ALONG WHOLE LENGTH" << a.name() << endl;
+                    exit(394);
+                }
+                return node_to_position[path.mapping(i).position().node_id()] + 
+                (path.mapping(i).position().is_reverse() ? (-1 * path.mapping(i).position().offset()) : path.mapping(i).position().offset());
+            }
+            else if (right_overhang > soft_clip_limit){
+                bool tripped = false;
+                /// Get the position of the first match
+                int i; 
+                for (i = path.mapping_size() - 1; i >= 0; i--){
+                    Mapping m = path.mapping(i);
+                    for (int j = m.edit_size() - 1; j >= 0; j--){
+                        Edit e = m.edit(j);
+                        if (e.to_length() == e.from_length() && e.sequence().empty()){
+                            tripped = true;
+                        }
+                    }
+                    if (tripped){
+                        break;
+                    }
+                }
+                return node_to_position[path.mapping(i).position().node_id()] + 
+                (path.mapping(i).position().is_reverse() ? (-1 * path.mapping(i).position().offset()) : path.mapping(i).position().offset());
+
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+                return 0;
+            }
+
+        }
+        return 0;
+    }
+
+    void Filter::fill_node_to_position(string pathname){
+        if (my_vg == NULL){
+            cerr << "VG must be provided to use node_to_position" << endl;
+            exit(1);
+        }
+        if (my_vg->paths._paths.count(pathname)){
+            list<Mapping> maps = my_vg->paths._paths[pathname];
+            int64_t dist_from_start = 0;
+            for (auto m : maps){
+                node_to_position[m.position().node_id()] = dist_from_start;
+                dist_from_start += my_vg->get_node(m.position().node_id())->sequence().size();
+            }
+        }
+    }
+
     void Filter::set_min_depth(int depth){
         min_depth = depth;
     }
@@ -56,6 +167,15 @@ namespace vg{
 
     void Filter::set_inverse(bool do_inv){
         inverse = do_inv;
+    }
+
+    void Filter::init_mapper(){
+        if (my_xg_index == NULL || gcsa_ind == NULL || lcp_ind == NULL){
+            cerr << "Must provide an xg and gcsa to inititiate mapper for split read mapping."
+            << endl;
+            exit(1);
+        }
+        my_mapper = new Mapper(my_xg_index, gcsa_ind, lcp_ind);
     }
 
     bool Filter::perfect_filter(Alignment& aln){
@@ -178,11 +298,24 @@ namespace vg{
 
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
-        if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
-            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
+        bool f = aln_first.mapping_quality() == 0;
+        bool s = aln_second.mapping_quality() == 0;
+        if ( (f && !s)){ 
+            aln_first.set_read_mapped(true);
+            aln_first.set_mate_unmapped(true);
+            aln_second.set_read_mapped(false);
+            aln_second.set_mate_unmapped(false);
+            return std::make_pair(aln_first, aln_second);
+        }
+        else if((s && !f)){
+            aln_first.set_read_mapped(false);
+            aln_first.set_mate_unmapped(false);
+            aln_second.set_read_mapped(true);
+            aln_second.set_mate_unmapped(true);
+            return std::make_pair(aln_first, aln_second);
         }
         else{
-            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
+            return std::make_pair(Alignment(), Alignment());
         }
     }
 
@@ -198,13 +331,24 @@ namespace vg{
     pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
 
         double zed;
-        if (aln_first.fragment(0).length() != 0){
-            zed = (double) aln_first.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        bool check_first = true;
+        bool check_second = true;
+        if (aln_first.fragment_size() < 1){
+            check_first = false;
         }
-        else if (aln_second.fragment(0).length() != 0){
+        if (aln_second.fragment_size() < 1){
+            check_second = false;
+        }
 
-            zed = (double) aln_second.fragment(0).length() - (double) insert_mean / (double) insert_sd;
+        if (check_first && !check_second){
+            zed = ((double) aln_first.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
         }
+        else if (check_second){
+            zed = ((double) aln_second.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
+        }else{
+            return make_pair(Alignment(), Alignment());
+        }
+
         if (zed >= 2.95 || zed <= -2.95){
             return std::make_pair(aln_first, aln_second);
         }
@@ -224,8 +368,24 @@ namespace vg{
         // <--  <--
         bool f_rev = false;
         bool s_rev = false;
+        
+        if (! (aln_first.mapping_quality() > 0 && aln_second.mapping_quality() > 0)){
+            return std::make_pair(Alignment(), Alignment());
+        }
+
         Path f_path = aln_first.path();
         Path s_path = aln_second.path();
+        // for (int i = 0; i < aln_first.fragment_size(); i++){
+        //     cerr << aln_first.name() << " " << aln_first.fragment(i).length() << endl;
+        // }
+        // for (int i = 0; i < aln_second.fragment_size(); i++){
+        //     cerr << aln_second.name() << " " << aln_second.fragment(i).length() << endl;
+        // }
+        bool flipped = false;
+        if (aln_first.fragment_size() > 0){
+            flipped = aln_first.fragment(0).length() < 0;
+        }
+
         for (int i = 0; i < f_path.mapping_size(); i++){
             if (f_path.mapping(i).position().is_reverse()){
                 f_rev = true;
@@ -241,11 +401,11 @@ namespace vg{
         if (f_rev == s_rev){
             return make_pair(aln_first, aln_second);
         }
-        else if (f_rev == true && s_rev == false){
+        else if ((f_rev == true && s_rev == false) && flipped){
             return make_pair(aln_first, aln_second);
         }
         else{
-
+            return make_pair(Alignment(), Alignment());
         }
 
     }
@@ -484,14 +644,43 @@ namespace vg{
         }
         else{
             if (aln.sequence().length() > soft_clip_limit){
-                return inverse ? Alignment() : aln;
+                return Alignment();
             }
             cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
                 << "WITH NO MAPPINGS TO REFERENCE" << endl
                 << "CONSIDER REMOVING IT FROM ANALYSIS" << endl;
-            return inverse ? Alignment() : aln;
+            return Alignment();
         }
 
+    }
+
+    
+
+    vector<Alignment> Filter::remap(Alignment& aln){
+        if (this->my_xg_index == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
+            cerr << "An XG and GCSA are required for remapping." << endl;
+            exit(1337);
+        }
+
+        vector<Alignment> match = this->my_mapper->align_multi(aln);
+        return match;
+    }
+
+    vector<Alignment> Filter::remap(string seq){
+        if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
+            cerr << "An XG and GCSA are required for remapping." << endl;
+            exit(1337);
+        }
+
+        Alignment x;
+        x.set_sequence(seq);
+
+        vector<Alignment> ret;
+        ret = this->my_mapper->align_multi(x);
+
+        
+
+        return ret;
     }
     /**
      * Split reads map to two separate paths in the graph OR vastly separated non-consecutive
@@ -502,49 +691,34 @@ namespace vg{
      */
     Alignment Filter::split_read_filter(Alignment& aln){
 
-        //TODO binary search for breakpoint in read would be awesome.
-        Path path = aln.path();
-        //check if nodes are on same path(s)
+        if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
+            cerr << "An XG and GCSA are required for split read processing." << endl;
+            exit(1337);
+        }
+        bool flagged = false;
+        // Check softclips
 
-        int top_side = path.mapping_size() - 1;
-        int bottom_side = 0;
-
-        Mapping bottom_mapping;
-        Mapping top_mapping;
-
-        string main_path = "";
-        while (top_side > bottom_side){
-            //main_path = path_of_node(path.mapping(bottom_side);
-            //
-            //Check if paths are different
-            //if (divergent(node1, node2){
-            //    return inverse ? aln : Alignment();
-            //}
-            top_mapping = path.mapping(top_side);
-            bottom_mapping = path.mapping(bottom_side);
-            Position top_pos = top_mapping.position();
-            Position bot_pos = bottom_mapping.position();
-            id_t top_id = top_pos.node_id();
-            id_t bottom_id = bot_pos.node_id();
-
-            // TODO USE THE XG
-            if (abs(top_id - bottom_id) > 10){
-                return inverse ? aln : Alignment();
+        if (soft_clip_filter(aln).name() != ""){
+            flagged = true;
+            string clipseq = get_clipped_seq(aln);
+            Alignment clipmatch = my_mapper->align(clipseq);
+            cerr << clipmatch.path().mapping_size() << endl;
+            if (clipmatch.path().mapping_size() < 1 || clipmatch.mapping_quality() < 5){
+                flagged = false;
             }
-
-            // Check if two mappings are far apart 
-            //
-            // Check if a single mapping has a huge indel
-
-
-
-
-            top_side--;
-            bottom_side++;
+            else{
+                clipmatch.set_name(aln.name() + "_split" );
+            }
         }
 
-        return inverse ? Alignment() : aln;
+        if (flagged){
+            return aln;
+        }
 
+        return Alignment();
+
+
+    
     }
 
 
