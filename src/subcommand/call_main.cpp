@@ -28,13 +28,8 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "Output variant calls in VCF or Loci format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -d, --min-depth INT         minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
-         << "    -e, --max-depth INT         maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
-         << "    -s, --min-support INT       minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
-         << "    -f, --min-frac FLOAT        minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
          << "    -q, --default-read-qual N   phred quality score to use if none found in the pileup ["
          << (int)Caller::Default_default_quality << "]" << endl
-         << "    -b, --max-strand-bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
          << "    -a, --link-alts             add all possible edges between adjacent alts" << endl
          << "    -A, --aug-graph FILE        write out the agumented graph in vg format" << endl
          << "    -U, --subgraph              expect a subgraph and ignore extra pileup entries outside it" << endl
@@ -50,18 +45,10 @@ void help_call(char** argv, ConfigurableParser& parser) {
 
 int main_call(int argc, char** argv) {
 
-    double het_prior = Caller::Default_het_prior;
-    int min_depth = Caller::Default_min_depth;
-    int max_depth = Caller::Default_max_depth;
-    int min_support = Caller::Default_min_support;
-    double min_frac = Caller::Default_min_frac;
     int default_read_qual = Caller::Default_default_quality;
-    double max_strand_bias = Caller::Default_max_strand_bias;
     string aug_file;
     bool bridge_alts = false;
-    
-    
-    
+        
     // Should we expect a subgraph and ignore pileups for missing nodes/edges?
     bool expect_subgraph = false;
     
@@ -73,15 +60,10 @@ int main_call(int argc, char** argv) {
     Call2Vcf call2vcf;
 
     bool show_progress = false;
-    int thread_count = 1;
+    int thread_count = 0;
 
     static const struct option long_options[] = {
-        {"min-depth", required_argument, 0, 'd'},
-        {"max-depth", required_argument, 0, 'e'},
-        {"min-support", required_argument, 0, 's'},
-        {"min-frac", required_argument, 0, 'f'},
         {"default-read-qual", required_argument, 0, 'q'},
-        {"max-strand-bias", required_argument, 0, 'b'},
         {"aug-graph", required_argument, 0, 'A'},
         {"link-alts", no_argument, 0, 'a'},
         {"progress", no_argument, 0, 'p'},
@@ -92,7 +74,7 @@ int main_call(int argc, char** argv) {
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "d:e:s:f:q:b:A:apvt:UPh";
+    static const char* short_options = "q:A:apvt:UPh";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -100,23 +82,8 @@ int main_call(int argc, char** argv) {
         // Parse all the options we have defined here.
         switch (c)
         {
-        case 'd':
-            min_depth = atoi(optarg);
-            break;
-        case 'e':
-            max_depth = atoi(optarg);
-            break;
-        case 's':
-            min_support = atoi(optarg);
-            break;
-        case 'f':
-            min_frac = atof(optarg);
-            break;
         case 'q':
             default_read_qual = atoi(optarg);
-            break;
-        case 'b':
-            max_strand_bias = atof(optarg);
             break;
         case 'A':
             aug_file = optarg;
@@ -161,8 +128,10 @@ int main_call(int argc, char** argv) {
     // Parse the command line options, updating optind.
     parser.parse(argc, argv);
 
-    // Set up threading according to info parsed from the options.
-    omp_set_num_threads(thread_count);
+    if (thread_count != 0) {
+        // Use a non-default number of threads
+        omp_set_num_threads(thread_count);
+    }
     thread_count = get_thread_count();
 
     // Parse the arguments
@@ -194,10 +163,7 @@ int main_call(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing augmented graph" << endl;
     }
-    Caller caller(graph,
-                  het_prior, min_depth, max_depth, min_support,
-                  min_frac, Caller::Default_min_log_likelihood,
-                  default_read_qual, max_strand_bias, bridge_alts);
+    Caller caller(graph, default_read_qual, bridge_alts);
 
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {

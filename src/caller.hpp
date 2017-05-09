@@ -25,10 +25,9 @@ using namespace std;
 struct StrandSupport {
     int fs; // forward support
     int rs; // reverse support
-    int os; // support for other stuff (ie errors)
-    double likelihood; // log likelihood from caller (0 if not available)
-    StrandSupport(int f = 0, int r = 0, int o = 0, double ll = -1e100) :
-        fs(f), rs(r), os(o), likelihood(ll) {}
+    double qual; // phred score (derived from sum log p-err over all observations)
+    StrandSupport(int f = 0, int r = 0, double q = 0) :
+        fs(f), rs(r), qual(q) {}
     bool operator<(const StrandSupport& other) const {
         if ((fs + rs) == (other.fs + other.rs)) {
             // more strand bias taken as less support
@@ -40,21 +39,19 @@ struct StrandSupport {
         return !(*this < other);
     }
     bool operator==(const StrandSupport& other) const {
-        return fs == other.fs && rs == other.rs && os == other.os && likelihood == other.likelihood;
+        return fs == other.fs && rs == other.rs && qual == other.qual;
     }
     // min out at 0
     StrandSupport operator-(const StrandSupport& other) const {
         return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs),
-                             max(0, os - other.os), likelihood);
+                             max(0., qual - other.qual));
     }
     StrandSupport& operator+=(const StrandSupport& other) {
         fs += other.fs;
         rs += other.rs;
-        os += other.os;
-        likelihood = max(likelihood, other.likelihood);
+        qual += other.qual;
         return *this;
     }
-    int depth() { return fs + rs + os; }
     int total() { return fs + rs; }
 };
 
@@ -73,36 +70,31 @@ inline StrandSupport maxSup(vector<StrandSupport>& s) {
 inline StrandSupport avgSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
-        ret.likelihood = 0;
         for (auto sup : s) {
             ret.fs += sup.fs;
             ret.rs += sup.rs;
-            ret.os += sup.os;
-            ret.likelihood += sup.likelihood;
+            ret.qual += sup.qual;
         }
         ret.fs /= s.size();
         ret.rs /= s.size();
-        ret.os /= s.size();
-        ret.likelihood /= s.size();
+        ret.qual /= s.size();
     }
     return ret;
 }
 inline StrandSupport totalSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
-        ret.likelihood = 0;
         for (auto sup : s) {
             ret.fs += sup.fs;
             ret.rs += sup.rs;
-            ret.os += sup.os;
-            ret.likelihood += sup.likelihood;
+            ret.qual += sup.qual;
         }
     }
     return ret;
 }
 
 inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
-    return os << sup.fs << ", " << sup.rs << ", " << sup.os << ", " << sup.likelihood;
+    return os << sup.fs << ", " << sup.rs << ", " << sup.qual;
 }
 
 // We need to break apart nodes but remember where they came from to update edges.
@@ -165,32 +157,11 @@ public:
 
     // log of zero
     static const double Log_zero;
-    // heterzygous prior (from r MAQ paper)
-    static const double Default_het_prior;
-    // minimum size of pileup to call a snp
-    static const int Default_min_depth;
-    // maximum size of pileup to call a snp
-    static const int Default_max_depth;
-    // minimum number of reads that support snp required to call it
-    static const int Default_min_support;
-    // same as min_support, but as fraction of total depth
-    static const double Default_min_frac;
-    // minimum likelihood to call a snp
-    static const double Default_min_log_likelihood;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
-    // use to balance alignments to forward and reverse strand
-    static const double Default_max_strand_bias;
     
     Caller(VG* graph,
-           double het_prior = Default_het_prior,
-           int min_depth = Default_min_depth,
-           int max_depth = Default_max_depth,
-           int min_support = Default_min_support,
-           double min_frac = Default_min_frac,
-           double min_log_likelihood = Default_min_log_likelihood, 
            int default_quality = Default_default_quality,
-           double max_strand_bias = Default_max_strand_bias,
            bool bridge_alts = false);
     ~Caller();
     void clear();
@@ -244,25 +215,10 @@ public:
     // todo: generalize augmented edge support
     EdgeSupHash _deletion_supports;
 
-    // used to favour homozygous genotype (r from MAQ paper)
-    double _het_log_prior;
-    double _hom_log_prior;
     // maximum number of nodes to call before writing out output stream
     int _buffer_size;
-    // minimum depth of pileup to call variants on
-    int _min_depth;
-    // maximum depth of pileup to call variants on
-    int _max_depth;
-    // min reads supporting snp to call it
-    int _min_support;
-    // minimum fraction of bases in pileup that nucleotide must have to be snp
-    double _min_frac;
-    // minimum log likelihood for a snp to be called
-    double _min_log_likelihood;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
-    // min deviation from .5 in proportion of negative strand reads
-    double _max_strand_bias;
     // the base-by-base calling is very limited, and adjacent
     // variants are not properly phased according to the reads.
     // so we choose either to add all edges between neighboring
@@ -301,17 +257,11 @@ public:
                                  string& top_base, int& top_count, int& top_rev_count,
                                  string& second_base, int& second_count, int& second_rev_count,
                                  int& total_count, bool inserts);
-    
-    // compute a likelihood from the pileup qualities
-    // "first" and "second" are used to virtually split the pileup across two nodes:
-    // all bases == "first" are kept
-    // all bases == "second" are ignored
-    // all otherse are squarerooted (to split their probabilities evenly between the two virtual pileups)
-    // returns pair of (likelihood, effective depth), where the effective depth is the number
-    // of pileup entries that were considered in computing the likelihood
-    pair<double, int> base_log_likelihood(const BasePileup& pb,
-                                             const vector<pair<int64_t, int64_t> >& base_offsets,
-                                             const string& val, const string& first, const string& second);
+
+    // Sum up the qualities of a given symbol in a pileup
+    double total_base_quality(const BasePileup& pb,
+                              const vector<pair<int64_t, int64_t> >& base_offsets,
+                              const string& val);
 
     // write graph structure corresponding to all the calls for the current
     // node.  
@@ -472,16 +422,19 @@ public:
     void call(AugmentedGraph& augmented, string pileup_filename = "");
     
     /**
-     * For the given snarl, find the best traversal, and the second-best
-     * traversal, recursively, if any exist. These traversals will be fully
-     * filled in with nodes.
+     * For the given snarl, find the reference traversal, the best traversal,
+     * and the second-best traversal, recursively, if any exist. These
+     * traversals will be fully filled in with nodes.
      *
      * Only snarls which are ultrabubbles can be called.
      *
      * Expects the given baseline support for a diploid call.
      *
-     * Will not return more than copy_budget SnarlTraversals, and will return
-     * less if some copies are called as having the same traversal.
+     * Will not return more than 1 + copy_budget SnarlTraversals, and will
+     * return less if some copies are called as having the same traversal.
+     *
+     * Does not deduplicate agains the ref traversal; it may be the same as the
+     * best or second-best.
      *
      * Uses the given copy number allowance, and emits a Locus for this Snarl
      * and any child Snarls.
@@ -522,7 +475,7 @@ public:
      *
      * TODO: can only work by brute-force search.
      */
-    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);    
     
     // Option variables
     
@@ -538,11 +491,11 @@ public:
     /// What name should we give each contig in the VCF file? Autodetected from
     /// path names if empty or too short.
     Option<vector<string>> contig_name_overrides{this, "contig", "c", {},
-        "use the given name as the VCF name for the corresponding reference path"};
+        "use the given name as the VCF name for the corresponding reference path (can repeat)"};
     /// What should the total sequence length reported in the VCF header be for
     /// each contig? Autodetected from path lengths if empty or too short.
     Option<vector<size_t>> length_overrides{this, "length", "l", {},
-        "override total sequence length in VCF for the corresponding reference path"};
+        "override total sequence length in VCF for the corresponding reference path (can repeat)"};
     /// What name should we use for the sample in the VCF file?
     Option<string> sample_name{this, "sample", "S", "SAMPLE",
         "name the sample in the VCF with the given name"};
@@ -602,10 +555,28 @@ public:
     /// What's the maximum number of bubble path combinations we can explore
     /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
-    /// what's the minimum minimum allele depth to give a PASS in the filter column
-    /// (anything below gets FAIL)    
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
     Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
-        "min. minimum allele depth required to PASS filter"};
+        "min. ref/alt allele depth to PASS filter or be a second-best allele"};
+    /// what's the maximum total depth to give a PASS in the filter column
+    Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 0,
+        "max depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the global baseline coverage?
+    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 0,
+        "max portion of global expected depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the local baseline coverage?
+    Option<double> max_local_dp_multiple_for_filter{this, "max-local-dp-multiple", "MmLlOoDdAaXxPp", 0,
+        "max portion of local expected depth to PASS filter (0 for unlimited)"};
+    /// what's the min log likelihood for allele depth assignments to PASS?
+    Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-likelihood", "MmAaDdLliI", -9.0,
+        "min log likelihood for AD assignments to PASS filter (0 for unlimited)"};
+        
+    Option<bool> write_trivial_calls{this, "trival", "ivtTIRV", false,
+        "write trivial vcf calls (ex 0/0 genotypes)"};
+    
     /// print warnings etc. to stderr
     bool verbose = false;
     

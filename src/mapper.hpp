@@ -20,7 +20,7 @@
 
 namespace vg {
 
-// uncomment to enable vg map --debug
+// uncomment to make vg map --debug very interesting
 //#define debug_mapper
 
 using namespace std;
@@ -109,7 +109,49 @@ public:
 };
 
 
-class Mapper {
+// for banded long read alignment resolution
+
+class AlignmentChainModelVertex {
+public:
+    Alignment* aln;
+    vector<pair<AlignmentChainModelVertex*, double> > next_cost; // for forward
+    vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
+    double weight;
+    double score;
+    int approx_position;
+    int band_begin;
+    int band_idx;
+    AlignmentChainModelVertex* prev;
+    AlignmentChainModelVertex(void) = default;                                      // Copy constructor
+    AlignmentChainModelVertex(const AlignmentChainModelVertex&) = default;               // Copy constructor
+    AlignmentChainModelVertex(AlignmentChainModelVertex&&) = default;                    // Move constructor
+    AlignmentChainModelVertex& operator=(const AlignmentChainModelVertex&) & = default;  // AlignmentChainModelVertexopy assignment operator
+    AlignmentChainModelVertex& operator=(AlignmentChainModelVertex&&) & = default;       // Move assignment operator
+    virtual ~AlignmentChainModelVertex() { }                     // Destructor
+};
+
+class AlignmentChainModel {
+public:
+    vector<AlignmentChainModelVertex> model;
+    map<int, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
+    set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
+    vector<Alignment> unaligned_bands;
+    AlignmentChainModel(
+        vector<vector<Alignment> >& bands,
+        Mapper* mapper,
+        const function<double(const Alignment&, const Alignment&)>& transition_weight,
+        int band_width = 10,
+        int position_depth = 1,
+        int max_connections = 10);
+    void score(const set<AlignmentChainModelVertex*>& exclude);
+    AlignmentChainModelVertex* max_vertex(void);
+    vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
+    void display(ostream& out);
+    void clear_scores(void);
+};
+
+
+class Mapper : public Progressive {
 
 
 private:
@@ -140,11 +182,11 @@ private:
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
     // Return the one best banded alignment.
-    Alignment align_banded(const Alignment& read,
-                           int kmer_size = 0,
-                           int stride = 0,
-                           int max_mem_length = 0,
-                           int band_width = 1000);
+    vector<Alignment> align_banded(const Alignment& read,
+                                   int kmer_size = 0,
+                                   int stride = 0,
+                                   int max_mem_length = 0,
+                                   int band_width = 1000);
     // alignment based on the MEM approach
 //    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
@@ -461,6 +503,7 @@ public:
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     int max_softclip_iterations; // Extend no more than this many times (while softclips are getting shorter)
     float min_identity; // require that alignment identity is at least this much to accept alignment
+    int min_banded_mq; // when aligning banded, treat bands with MQ < this as unaligned
     // paired-end consistency enforcement
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
@@ -480,6 +523,7 @@ public:
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
     bool simultaneous_pair_alignment;
+    int max_band_jump; // the maximum length edit we can detect via banded alignment
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int cache_size;

@@ -2071,10 +2071,11 @@ size_t RepresentativeTraversalFinder::bp_length(const list<Visit>& path) {
     return length;
 }
 
-Support make_support(double forward, double reverse) {
+Support make_support(double forward, double reverse, double quality) {
     Support to_return;
     to_return.set_forward(forward);
     to_return.set_reverse(reverse);
+    to_return.set_quality(quality);
     return to_return;
 }
 
@@ -2086,6 +2087,7 @@ Support support_min(const Support& a, const Support& b) {
     Support to_return;
     to_return.set_forward(min(a.forward(), b.forward()));
     to_return.set_reverse(min(a.reverse(), b.reverse()));
+    to_return.set_quality(min(a.quality(), b.quality()));
     return to_return;
 }
 
@@ -2093,6 +2095,7 @@ Support support_max(const Support& a, const Support& b) {
     Support to_return;
     to_return.set_forward(max(a.forward(), b.forward()));
     to_return.set_reverse(max(a.reverse(), b.reverse()));
+    to_return.set_quality(max(a.quality(), b.quality()));    
     return to_return;
 }
 
