@@ -1726,13 +1726,6 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
         auto& m = path.mapping(i);
         *p2.add_mapping() = m;
     }
-    // Make sure that the child paths have positions if the parent path did.
-    // Account for the fact that we may have a 0-length child path.
-    assert(!path.mapping(0).has_position()
-           || ((p1.mapping_size() == 0 || (p1.mapping(0).has_position()
-               && p1.mapping(0).position().node_id())) &&
-               (p2.mapping_size() == 0 || (p2.mapping(0).has_position()
-               && p2.mapping(0).position().node_id()))));
 #ifdef debug
     cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
 #endif

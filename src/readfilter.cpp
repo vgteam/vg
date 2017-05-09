@@ -609,12 +609,11 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         Counts& counts = counts_vec[tid];
         bool keep = true;
         double score = (double)aln.score();
-        double denom = 2. * aln.sequence().length();
+        double denom = aln.sequence().length();
         // toggle substitution score
         if (sub_score == true) {
             // hack in ident to replace old counting logic.
             score = aln.identity() * aln.sequence().length();
-            denom = aln.sequence().length();
             assert(score <= denom);
         }
         // toggle absolute or fractional score

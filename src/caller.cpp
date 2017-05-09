@@ -10,39 +10,13 @@ namespace vg {
 
 const double Caller::Log_zero = (double)-1e100;
 
-// these values pretty arbitrary at this point
-// note, they conly control what makes the augmented graph
-// (so we keep fairly loose).  the final vcf calls are governed
-// by the (former) glenn2vcf options (passed to call2vcf())
-const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 1;
-const int Caller::Default_max_depth = 1000;
-const int Caller::Default_min_support = 1;
-const double Caller::Default_min_frac = 0.;
-const double Caller::Default_min_log_likelihood = -5000.0;
 const char Caller::Default_default_quality = 30;
-const double Caller::Default_max_strand_bias = 1;
 
 Caller::Caller(VG* graph,
-               double het_prior,
-               int min_depth,
-               int max_depth,
-               int min_support,
-               double min_frac,
-               double min_log_likelihood, 
                int default_quality,
-               double max_strand_bias,
                bool bridge_alts):
     _graph(graph),
-    _het_log_prior(safe_log(het_prior)),
-    _hom_log_prior(safe_log(.5 * (1. - het_prior))),
-    _min_depth(min_depth),
-    _max_depth(max_depth),
-    _min_support(min_support),
-    _min_frac(min_frac),
-    _min_log_likelihood(min_log_likelihood),
     _default_quality(default_quality),
-    _max_strand_bias(max_strand_bias),
     _bridge_alts(bridge_alts) {
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
@@ -103,7 +77,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
             }
         }
         int pileup_depth = max(num_inserts, pileup.base_pileup(i).num_bases() - num_inserts);
-        if (pileup_depth >= _min_depth && pileup_depth <= _max_depth) {
+        if (pileup_depth >= 1) {
             call_base_pileup(pileup, i, false);
             call_base_pileup(pileup, i, true);
         }
@@ -117,25 +91,20 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
 }
 
 void Caller::call_edge_pileup(const EdgePileup& pileup) {
-    if (pileup.num_reads() >= _min_depth &&
-        pileup.num_reads() <= _max_depth) {
+    if (pileup.num_reads() >= 1) {
 
-        // use equivalent logic to SNPs (see base_log_likelihood)
-        double log_likelihood = 0;
+        double qual_sum = 0;
         
         for (int i = 0; i < pileup.num_reads(); ++i) {
             char qual = !pileup.qualities().empty() ? pileup.qualities().at(i) : _default_quality;
-            double perr = phred_to_prob(qual);
-            log_likelihood += safe_log(1. - perr);
-            assert(!std::isnan(log_likelihood));
+            qual_sum += (double)qual;
         }
-        
+
         Edge edge = pileup.edge(); // gcc not happy about passing directly
         _called_edges[NodeSide::pair_from_edge(edge)] = StrandSupport(
             pileup.num_forward_reads(),
             pileup.num_reads() - pileup.num_forward_reads(),
-            0,
-            log_likelihood);
+            qual_sum);
     }
 }
 
@@ -415,40 +384,21 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     // note first and second base will be upper case too
     string ref_base = string(1, ::toupper(bp.ref_base()));
 
-    // compute threshold
-    int min_support = max(int(_min_frac * (double)max(total_count, bp.num_bases() - total_count)), _min_support);
-
-    // compute strand bias
-    double top_sb = top_count > 0 ? abs(0.5 - (double)top_rev_count / (double)top_count) : 0;
-    double second_sb = second_count > 0 ? abs(0.5 - (double)second_rev_count / (double)second_count) : 0;
-
     // get references to node-level members we want to update
     Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
     pair<StrandSupport, StrandSupport>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
 
-    // we create augmented structures for anything that passes the above support and
-    // strand bias filters (note, these should be minimal, with decisions being
-    // pushed back to vcf export)
-    bool first_passes = top_count >= min_support && top_sb <= _max_strand_bias;
-    bool second_passes = second_count >= min_support && second_sb <= _max_strand_bias;
-
-    if (first_passes || top_base == ref_base) {
+    if (top_count > 0) {
         base_call.first = top_base != ref_base ? top_base : ".";
         support.first.fs = top_count - top_rev_count;
         support.first.rs = top_rev_count;
-        string alt_base = second_passes ? second_base : "";
-        auto ld =  base_log_likelihood(bp, base_offsets, top_base, top_base, alt_base);
-        support.first.likelihood = ld.first;
-        support.first.os = max(0, ld.second - top_count);
+        support.first.qual = total_base_quality(bp, base_offsets, top_base);
     }
-    if (second_passes || (second_base == ref_base && second_base != top_base)) {
+    if (second_count > 0) { 
         base_call.second = second_base != ref_base ? second_base : ".";
         support.second.fs = second_count - second_rev_count;
         support.second.rs = second_rev_count;
-        string alt_base = first_passes ? top_base : "";
-        auto ld = base_log_likelihood(bp, base_offsets, second_base, second_base, alt_base);
-        support.second.likelihood = ld.first;
-        support.second.os = max(0, ld.second - second_count);
+        support.second.qual = total_base_quality(bp, base_offsets, second_base);
     }
 }
 
@@ -618,60 +568,35 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     second_rev_count = rev_hist[second_base];
 }
 
-pair<double, int> Caller::base_log_likelihood(const BasePileup& bp,
-                                              const vector<pair<int64_t, int64_t> >& base_offsets,
-                                              const string& val, const string& first, const string& second) {
-    double log_likelihood = 0;
+double Caller::total_base_quality(const BasePileup& bp,
+                                  const vector<pair<int64_t, int64_t> >& base_offsets,
+                                  const string& val) {
+    double qual_sum = 0;
 
     const string& bases = bp.bases();
     const string& quals = bp.qualities();
-    double perr;
-    // inserts are treated completely seprately.  toggle here:
-    bool insert = first[0] == '+';
-    assert(!insert || second.empty() || second[0] == '+');
-    double depth = 0;
 
     for (int i = 0; i < base_offsets.size(); ++i) {
         string base = Pileups::extract(bp, base_offsets[i].first);
-        bool base_insert = base[0] == '+';
-        if (base_insert == insert) {
 
-            // make sure deletes always compared without is_reverse flag
-            if (base.length() > 1 && base[0] == '-') {
-                bool is_reverse, from_start, to_end;
-                int64_t from_id, from_offset, to_id, to_offset;
-                Pileups::parse_delete(base, is_reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
-                // reset reverse to forward
-                if (is_reverse) {
-                    Pileups::make_delete(base, false, from_id, from_offset, from_start, to_id, to_offset, to_end);
-                }
+        // make sure deletes always compared without is_reverse flag
+        if (base.length() > 1 && base[0] == '-') {
+            bool is_reverse, from_start, to_end;
+            int64_t from_id, from_offset, to_id, to_offset;
+            Pileups::parse_delete(base, is_reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
+            // reset reverse to forward
+            if (is_reverse) {
+                Pileups::make_delete(base, false, from_id, from_offset, from_start, to_id, to_offset, to_end);
             }
+        }
 
+        if (base == val) {
             char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
-            perr = phred_to_prob(qual);
-
-            double log_prob;
-            if (!second.empty() && base == second) {
-                // we pretend second base is in another pileup
-                log_prob = 0.;
-            } else {
-                // X 0.2 reflect probability of hitting correct base by change in event of an error
-                // 1 / |A+C+G+T+Delete|
-                log_prob = safe_log(base == val ? (1. - perr) + perr * 0.2 : perr * 0.2);
-                depth += 1;
-                if (!second.empty() && base != first) {
-                    // we pretend anything not first or second base is split
-                    // across two pileups by square rooting the probability. 
-                    log_prob *= 0.5;
-                    depth -= 0.5;
-                }
-            }
-
-            log_likelihood += log_prob;
+            qual_sum += (double)qual;
         }
     }
-
-    return make_pair(log_likelihood, (int)depth);
+    
+    return qual_sum;
 }
 
 // please refactor me! 
@@ -899,7 +824,7 @@ void Caller::annotate_augmented_node(Node* node, char call, StrandSupport suppor
     _augmented_graph.node_calls[node] = (ElementCall) call;
     _augmented_graph.node_supports[node].set_forward(support.fs);
     _augmented_graph.node_supports[node].set_reverse(support.rs);
-    _augmented_graph.node_likelihoods[node] = support.likelihood;
+    _augmented_graph.node_supports[node].set_quality(support.qual);
     
     if (orig_id != 0 && call != 'S' && call != 'I') {
         // Add translations for preserved parts
@@ -925,7 +850,7 @@ void Caller::annotate_augmented_edge(Edge* edge, char call, StrandSupport suppor
     _augmented_graph.edge_calls[edge] = (ElementCall) call;
     _augmented_graph.edge_supports[edge].set_forward(support.fs);
     _augmented_graph.edge_supports[edge].set_reverse(support.rs);
-    _augmented_graph.edge_likelihoods[edge] = support.likelihood;
+    _augmented_graph.edge_supports[edge].set_quality(support.qual);
 }
 
 void Caller::annotate_augmented_nd()
