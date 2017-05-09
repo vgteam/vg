@@ -7,6 +7,7 @@
 #include "Variant.h"
 #include "path.hpp"
 #include "vg.hpp"
+#include "genotypekit.hpp"
 #include "vg.pb.h"
 #include "Fasta.h"
 
