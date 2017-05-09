@@ -36,6 +36,7 @@ void help_msga(char** argv) {
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [2*{-w}]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
          << "    -M, --max-multimaps INT when set > 1, thread an optimal alignment through the multimappings of each band [1]" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
@@ -87,6 +88,7 @@ int main_msga(int argc, char** argv) {
     float min_identity = 0.0;
     int band_width = 256;
     int max_band_jump = -1;
+    int band_multimaps = 4;
     size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
@@ -139,6 +141,7 @@ int main_msga(int argc, char** argv) {
                 {"idx-doublings", required_argument, 0, 'X'},
                 {"band-width", required_argument, 0, 'w'},
                 {"band-jump", required_argument, 0, 'J'},
+                {"band-multi", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
                 {"context-depth", required_argument, 0, 'c'},
@@ -171,7 +174,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:OI:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -252,6 +255,10 @@ int main_msga(int argc, char** argv) {
 
         case 'J':
             max_band_jump = atoi(optarg);
+            break;
+
+        case 'B':
+            band_multimaps = atoi(optarg);
             break;
 
         case 'D':
@@ -516,6 +523,7 @@ int main_msga(int argc, char** argv) {
             mapper->min_identity = min_identity;
             mapper->min_banded_mq = min_banded_mq;
             mapper->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
+            mapper->band_multimaps = band_multimaps;
             mapper->drop_chain = drop_chain;
             mapper->min_mem_length = (min_mem_length > 0 ? min_mem_length
                                  : mapper->random_match_length(chance_match));

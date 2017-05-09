@@ -175,12 +175,13 @@ private:
                                            int max_mem_length,
                                            int band_width,
                                            double& cluster_mq,
+                                           int keep_multimaps = 0,
                                            int additional_multimaps = 0,
                                            vector<MaximalExactMatch>* restricted_mems = nullptr);
     void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap);
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
-    void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
+    void filter_and_process_multimaps(vector<Alignment>& all_alns, int total_multimaps);
     // Return the one best banded alignment.
     vector<Alignment> align_banded(const Alignment& read,
                                    int kmer_size = 0,
@@ -190,7 +191,13 @@ private:
     // alignment based on the MEM approach
 //    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
-    vector<Alignment> align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps);
+    vector<Alignment> align_mem_multi(const Alignment& aln,
+                                      vector<MaximalExactMatch>& mems,
+                                      double& cluster_mq,
+                                      double lcp_avg,
+                                      int max_mem_length,
+                                      int keep_multimaps,
+                                      int additional_multimaps);
 
     // Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     // before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
@@ -507,6 +514,7 @@ public:
     // paired-end consistency enforcement
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
+    int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
