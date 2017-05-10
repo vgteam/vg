@@ -567,6 +567,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     // If the aligner can't find any valid alignment in the restrictive
                     // band, we will need to knock together an alignment manually.
                     aligned_in_band = false;
+#ifdef debug
+                    cerr << "\t\tFailed." << endl;
+#endif
                 }
 
 #ifdef debug                
@@ -759,7 +762,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     return aln;
 
 }
-
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;

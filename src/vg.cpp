@@ -5222,6 +5222,13 @@ void VG::add_nodes_and_edges(const Path& path,
                         // Until we used up all the sequence, make nodes
                         Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
                         cursor += max_node_size;
+                        
+                        if (!new_nodes.empty()) {
+                            // Connect each to the previous node in the chain.
+                            create_edge(new_nodes.back(), new_node);
+                        }
+                        
+                        // Remember the new node
                         new_nodes.push_back(new_node);
                         
                         // Chop the front of the from path off and associate it
