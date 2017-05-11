@@ -328,15 +328,12 @@ namespace vg {
         return 0.5773502691896258 * (4.0 * coverage / root_len - root_len);
     }
     
-    MultipathAlignment MultipathAligner::make_alignment(const Alignment& alignment, VG* vg,
-                                                        const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
-                                                        const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                                        const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                        vector<MultipathAlignment>& multipath_alns) {
-        
-        
-        // a temporary representation of the multipath alignment that we can build up incrementally
-        MultipathAlignmentGraph multi_aln_graph;
+    MultipathAlignment MultipathAligner::set_up_multipath_graph(const Alignment& alignment, VG* vg,
+                                                                const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
+                                                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                                MultipathAlignmentGraph& multi_aln_graph) {
+
         
         // map of node ids in the dagified graph to the indices in the matches that contain them
         unordered_map<int64_t, vector<int64_t>> node_matches;
@@ -485,13 +482,22 @@ namespace vg {
         // to connect with intervening alignments
         
         auto start_offset = [&](size_t idx) {
-            return multi_aln_graph.match_nodes[idx].path.mapping(0).position().offset()
+            return multi_aln_graph.match_nodes[idx].path.mapping(0).position().offset();
         };
         
         auto end_offset = [&](size_t idx) {
             Path& path = multi_aln_graph.match_nodes[idx].path;
             const Mapping& mapping = path.mapping(path.mapping_size() - 1);
             return mapping.position().offset() + mapping_from_length(mapping);
+        };
+        
+        auto start_node_id = [&](size_t idx) {
+            return multi_aln_graph.match_nodes[idx].path.mapping(0).position().node_id();
+        };
+        
+        auto end_node_id = [&](size_t idx) {
+            Path& path = multi_aln_graph.match_nodes[idx].path;
+            return path.mapping(path.mapping_size() - 1).position().node_id();
         };
 
         // record the start and end node ids of every exact match
@@ -521,18 +527,18 @@ namespace vg {
         
         // for each node, the starts and ends of MEMs that can reach this node without passing any other
         // MEM starts or ends
-        unordered_map<id_t, unordered_set<size_t>> reachable_ends;
-        unordered_map<id_t, unordered_set<size_t>> reachable_starts;
+        unordered_map<id_t, unordered_map<size_t, size_t>> reachable_ends;
+        unordered_map<id_t, unordered_map<size_t, size_t>> reachable_starts;
         
         // for the start of each MEM, the starts and ends of other MEMs that can reach it without passing any
         // other start or end
-        unordered_map<size_t, vector<size_t>> reachable_starts_from_start;
-        unordered_map<size_t, vector<size_t>> reachable_ends_from_start;
+        unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_start;
+        unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_ends_from_start;
         
         // for the end of each MEM, the ends of other MEMs that can reach it without passing any
         // other start or end
-        unordered_map<size_t, vector<size_t>> reachable_ends_from_end;
-        unordered_map<size_t, vector<size_t>> reachable_starts_from_end;
+        unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_ends_from_end;
+        unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
         // note: graph has been sorted into topological order
         
@@ -541,46 +547,24 @@ namespace vg {
             Node* node = graph.mutable_node(i);
             id_t node_id = node->id();
             
+            size_t node_length = node->sequence().size();
+            
             // do any MEMs start or end on this node?
             bool contains_starts = exact_match_starts.count(node_id);
-            bool contains_ends exact_match_ends.count(node_id);
+            bool contains_ends = exact_match_ends.count(node_id);
             
             // we will use DP to carry reachability information forward onto the next nodes
             vector<NodeTraversal> nexts;
             vg->nodes_from(NodeTraversal(node), nexts);
             
             if (contains_starts && contains_ends) {
-                // TODO: move the forward DP to the end so I can use a range instead of the last
-                
-                // this contains both starts and ends, so we need to check whether we're going to be passing
-                // a start or end as we leave the node
-                size_t last_start_offset = start_offset(exact_match_starts[node_id].back());
-                size_t last_end_offset = end_offset(exact_match_ends[node_id].back());
-                
-                if (last_end_offset >= last_start_offset) {
-                    // we are leaving this node out MEM end, so we carry forward reachability from this MEM
-                    
-                    size_t last_mem_idx = exact_match_ends[node_id].back();
-                    
-                    for (NodeTraversal next : nexts) {
-                        reachable_ends[next.node->id()].insert(last_mem_idx);
-                    }
-                }
-                if (last_end_offset <= last_start_offset) {
-                    // we are leaving this node out MEM start, so we carry forward reachability from this MEM
-                    
-                    size_t last_mem_idx = exact_match_starts[node_id].back();
-                    
-                    for (NodeTraversal next : nexts) {
-                        reachable_starts[next.node->id()].insert(last_mem_idx);
-                    }
-                }
-                
                 // since there are both starts and ends on this node, we have to traverse both lists simultaneously
                 // to assess reachability within the same node
                 
                 vector<size_t>& ends = exact_match_starts[node_id];
                 vector<size_t>& starts = exact_match_starts[node_id];
+                
+                // find the range of starts and ends in the list with the same offset
                 
                 size_t start_range_begin = 0;
                 size_t start_range_end = 0;
@@ -589,6 +573,7 @@ namespace vg {
                 
                 size_t curr_start_offset = start_offset(starts[start_range_begin]);
                 size_t curr_end_offset = end_offset(ends[end_range_begin]);
+                size_t prev_offset = 0;
                 
                 bool prev_is_end = curr_end_offset <= curr_start_offset;
                 while (end_offset(starts[start_range_end]) == curr_end_offset) {
@@ -604,21 +589,24 @@ namespace vg {
                     }
                 }
                 
+                // connect the first range of starts or ends to the incoming starts and ends
+                
                 size_t prev_end_range_begin = end_range_begin;
                 size_t prev_start_range_begin = start_range_begin;
                 if (prev_is_end) {
                     for (size_t j = end_range_begin; j < end_range_end; j++) {
-                        for (size_t incoming_end : reachable_ends[node_id]) {
+                        for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
                             reachable_ends_from_end[ends[j]].push_back(incoming_end);
                         }
-                        for (size_t incoming_start : reachable_starts[node_id]) {
+                        for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
                             reachable_starts_from_end[ends[j]].push_back(incoming_start);
                         }
                     }
                     
                     end_range_begin = end_range_end;
+                    prev_offset = curr_end_offset;
                     curr_end_offset = end_offset(ends[end_range_begin]);
-                    if (end_range_end != ends.size()) {
+                    if (end_range_begin != ends.size()) {
                         while (end_offset(starts[start_range_end]) == curr_end_offset) {
                             end_range_end++;
                             if (end_range_end == ends.size()) {
@@ -629,17 +617,18 @@ namespace vg {
                 }
                 else {
                     for (size_t j = start_range_begin; j < start_range_end; j++) {
-                        for (size_t incoming_end : reachable_ends[node_id]) {
+                        for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
                             reachable_ends_from_start[starts[j]].push_back(incoming_end);
                         }
-                        for (size_t incoming_start : reachable_starts[node_id]) {
+                        for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
                             reachable_starts_from_start[starts[j]].push_back(incoming_start);
                         }
                     }
                     
                     start_range_begin = start_range_end;
+                    prev_offset = curr_start_offset;
                     curr_start_offset = start_offset(starts[start_range_begin]);
-                    if (start_range_end != starts.size()) {
+                    if (start_range_begin != starts.size()) {
                         while (start_offset(starts[start_range_end]) == curr_start_offset) {
                             start_range_end++;
                             if (start_range_end == starts.size()) {
@@ -649,29 +638,38 @@ namespace vg {
                     }
                 }
                 
+                // iterate along ranges of starts or ends in order of their offsets
+                
                 while (start_range_begin < starts.size() && end_range_begin < ends.size()) {
                     if (curr_end_offset <= curr_start_offset) {
+                        
+                        size_t dist_between = curr_end_offset - prev_offset;
+                        
+                        // connect this range to the previous range
                         if (prev_is_end) {
                             for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                                 for (size_t k = end_range_begin; k < end_range_end; k++) {
-                                    reachable_ends_from_end[ends[k]].push_back(ends[j]);
+                                    reachable_ends_from_end[ends[k]].push_back(make_pair(ends[j], dist_between));
                                 }
                             }
                         }
                         else {
                             for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                                 for (size_t k = end_range_begin; k < end_range_end; k++) {
-                                    reachable_starts_from_end[ends[k]].push_back(starts[j]);
+                                    reachable_starts_from_end[ends[k]].push_back(make_pair(starts[j], dist_between));
                                 }
                             }
                         }
                         
+                        // record the properties of this range
                         prev_end_range_begin = end_range_begin;
-                        end_range_begin = end_range_end;
-                        curr_end_offset = end_offset(ends[end_range_begin]);
                         prev_is_end = true;
                         
-                        if (end_range_end != ends.size()) {
+                        // advance to the next range
+                        end_range_begin = end_range_end;
+                        prev_offset = curr_end_offset;
+                        curr_end_offset = end_offset(ends[end_range_begin]);
+                        if (end_range_begin != ends.size()) {
                             while (end_offset(starts[start_range_end]) == curr_end_offset) {
                                 end_range_end++;
                                 if (end_range_end == ends.size()) {
@@ -681,27 +679,34 @@ namespace vg {
                         }
                     }
                     else {
+                        
+                        size_t dist_between = curr_end_offset - prev_offset;
+                        
+                        // connect this range to the previous range
                         if (prev_is_end) {
                             for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                                 for (size_t k = start_range_begin; k < start_range_end; k++) {
-                                    reachable_ends_from_start[start[k]].push_back(ends[j]);
+                                    reachable_ends_from_start[start[k]].push_back(make_pair(ends[j], dist_between));
                                 }
                             }
                         }
                         else {
                             for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                                 for (size_t k = start_range_begin; k < start_range_end; k++) {
-                                    reachable_starts_from_start[starts[k]].push_back(starts[j]);
+                                    reachable_starts_from_start[starts[k]].push_back(make_pair(starts[j], dist_between));
                                 }
                             }
                         }
                         
+                        // record the properties of this range
                         prev_start_range_begin = start_range_begin;
-                        start_range_begin = start_range_end;
-                        curr_start_offset = start_offset(starts[start_range_begin]);
                         prev_is_end = false;
                         
-                        if (start_range_end != starts.size()) {
+                        // advance to the next range
+                        start_range_begin = start_range_end;
+                        prev_offset = curr_start_offset;
+                        curr_start_offset = start_offset(starts[start_range_begin]);
+                        if (start_range_begin != starts.size()) {
                             while (start_offset(starts[start_range_end]) == curr_start_offset) {
                                 start_range_end++;
                                 if (start_range_end == starts.size()) {
@@ -712,114 +717,110 @@ namespace vg {
                     }
                 }
                 
+                // finish off the list of starts on this node
+                
                 while (start_range_begin < starts.size()) {
                     
+                    size_t dist_between = curr_start_offset - prev_offset;
+                    
+                    if (prev_is_end) {
+                        for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
+                            for (size_t k = start_range_begin; k < start_range_end; k++) {
+                                reachable_ends_from_start[start[k]].push_back(make_pair(ends[j], dist_between));
+                            }
+                        }
+                    }
+                    else {
+                        for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
+                            for (size_t k = start_range_begin; k < start_range_end; k++) {
+                                reachable_starts_from_start[starts[k]].push_back(make_pair(starts[j], dist_between));
+                            }
+                        }
+                    }
+                    
+                    prev_start_range_begin = start_range_begin;
+                    start_range_begin = start_range_end;
+                    prev_offset = curr_start_offset;
+                    curr_start_offset = start_offset(starts[start_range_begin]);
+                    prev_is_end = false;
+                    
+                    if (start_range_begin != starts.size()) {
+                        while (start_offset(starts[start_range_end]) == curr_start_offset) {
+                            start_range_end++;
+                            if (start_range_end == starts.size()) {
+                                break;
+                            }
+                        }
+                    }
                 }
+                
+                // finish off the list of ends on this node
                 
                 while (end_range_begin < ends.size()) {
                     
-                }
-
-                
-                // ######IMPORTANT#######
-                // TODO: consider repeat offsets within the same list (e.g. both are starts)
-                
-                // TODO: actually, an end at the same index as a start IS reachable because it
-                // is a past-the-last index
-                
-                while (end_idx < ends.size() && start_idx < starts.size()) {
-                    size_t curr_start_offset = start_offset(starts[start_idx]);
-                    size_t curr_end_offset = end_offset(ends[end_idx]);
+                    size_t dist_between = curr_start_offset - prev_offset;
                     
-                    if (curr_start_offset == curr_end_offset) {
-                        // we are at both a start and an end, have to connect both of them to the previous
-                        // start/end
-                        
-                        if (prevs_equal) {
-                            reachable_starts_from_start[starts[start_idx]].push_back(starts[start_idx - 1]);
-                            reachable_ends_from_start[starts[start_idx]].push_back(ends[end_idx - 1]);
-                            reachable_ends_from_end[ends[end_idx]].push_back(ends[end_idx - 1]);
+                    if (prev_is_end) {
+                        for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
+                            for (size_t k = end_range_begin; k < end_range_end; k++) {
+                                reachable_ends_from_end[ends[k]].push_back(make_pair(ends[j], dist_between));
+                            }
                         }
-                        else if (prev_is_start) {
-                            reachable_starts_from_start[starts[start_idx]].push_back(starts[start_idx - 1]);
-                        }
-                        else {
-                            reachable_ends_from_start[starts[start_idx]].push_back(ends[end_idx - 1]);
-                            reachable_ends_from_end[ends[end_idx]].push_back(ends[end_idx - 1]);
-                        }
-                        
-                        // advance forward on both lists
-                        start_idx++;
-                        end_idx++;
-                        
-                        prevs_equal = true;
-                    }
-                    else if (curr_start_offset < curr_end_offset) {
-                        // the next offset belongs to a start, connect it backwards
-                        
-                        if (prevs_equal) {
-                            reachable_starts_from_start[starts[start_idx]].push_back(starts[start_idx - 1]);
-                            reachable_ends_from_start[starts[start_idx]].push_back(ends[end_idx - 1]);
-                        }
-                        else if (prev_is_start) {
-                            reachable_starts_from_start[starts[start_idx]].push_back(starts[start_idx - 1]);
-                        }
-                        else {
-                            reachable_ends_from_start[starts[start_idx]].push_back(ends[end_idx - 1]);
-                        }
-                        
-                        // advance forward on the start list
-                        start_idx++;
-                        
-                        prevs_equal = false;
-                        prev_is_start = true;
                     }
                     else {
-                        // the next offset belongs to an end, connect it backwards
-                        if (prevs_equal || !prev_is_start) {
-                            reachable_ends_from_end[ends[end_idx]].push_back(ends[end_idx - 1]);
+                        for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
+                            for (size_t k = end_range_begin; k < end_range_end; k++) {
+                                reachable_starts_from_end[ends[k]].push_back(make_pair(starts[j], dist_between));
+                            }
                         }
-                        
-                        // advance forward on the end list
-                        end_idx++;
-                        
-                        prevs_equal = false;
-                        prev_is_start = false;
                     }
                     
+                    prev_end_range_begin = end_range_begin;
+                    end_range_begin = end_range_end;
+                    prev_offset = curr_end_offset;
+                    curr_end_offset = end_offset(ends[end_range_begin]);
+                    prev_is_end = true;
+                    
+                    if (end_range_begin != ends.size()) {
+                        while (end_offset(starts[start_range_end]) == curr_end_offset) {
+                            end_range_end++;
+                            if (end_range_end == ends.size()) {
+                                break;
+                            }
+                        }
+                    }
                 }
                 
-                // finish out the start list
-                while (start_idx < starts.size()) {
-                    if (prevs_equal) {
-                        reachable_starts_from_start[starts[start_idx]].push_back(starts[start_idx - 1]);
-                        reachable_ends_from_start[starts[start_idx]].push_back(ends[end_idx - 1]);
-                    }
-                    else if (prev_is_start) {
-                        reachable_starts_from_start[starts[start_idx]].push_back(starts[start_idx - 1]);
-                    }
-                    else {
-                        reachable_ends_from_start[starts[start_idx]].push_back(ends[end_idx - 1]);
-                    }
-                    
-                    start_idx++;
-                    
-                    prevs_equal = false;
-                    prev_is_start = true;
-                }
+                // carry forward the reachability of the last range onto the next nodes
                 
-                // finish out the end list
-                while (end_idx < ends.size()) {
-                    if (prevs_equal || !prev_is_start) {
-                        reachable_ends_from_end[ends[end_idx]].push_back(ends[end_idx - 1]);
-                    }
-                    
-                    end_idx++;
-                    
-                    prevs_equal = false;
-                    prev_is_start = false;
-                }
+                size_t dist_thru = node_length - curr_offset;
                 
+                if (prev_is_end) {
+                    for (NodeTraversal next : nexts) {
+                        unordered_map<size_t, size_t> reachable_ends_next = reachable_ends[next.node->id()];
+                        for (size_t j = prev_range_begin; j < ends.size(); j++) {
+                            if (reachable_ends_next.count(ends[j])) {
+                                reachable_ends_next[ends[j]] = std::min(reachable_ends_next[ends[j]], dist_thru);
+                            }
+                            else {
+                                reachable_ends_next[ends[j]] = dist_thru;
+                            }
+                        }
+                    }
+                }
+                else {
+                    for (NodeTraversal next : nexts) {
+                        unordered_map<size_t, size_t> reachable_starts_next = reachable_starts[next.node->id()];
+                        for (size_t j = prev_range_begin; j < starts.size(); j++) {
+                            if (reachable_starts_next.count(ends[j])) {
+                                reachable_starts_next[starts[j]] = std::min(reachable_starts_next[starts[j]], dist_thru);
+                            }
+                            else {
+                                reachable_starts_next[starts[j]] = dist_thru;
+                            }
+                        }
+                    }
+                }
             }
             else if (contains_starts) {
                 
@@ -831,6 +832,7 @@ namespace vg {
                 size_t range_begin = 0;
                 size_t range_end = 0;
                 size_t curr_offset = start_offset(starts[range_begin]);
+                size_t prev_offset = curr_offset;
                 // find the range of starts that are at the first offset
                 while (start_offset(starts[range_end]) == curr_offset) {
                     range_end++;
@@ -840,10 +842,10 @@ namespace vg {
                 }
                 // connect the range to the incoming starts/ends
                 for (size_t j = range_begin; j < range_end; j++) {
-                    for (size_t incoming_start : reachable_starts[node_id]) {
+                    for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
                         reachable_starts_from_start[starts[j]].push_back(incoming_start);
                     }
-                    for (size_t incoming_end : reachable_ends[node_id]) {
+                    for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
                         reachable_ends_from_start[starts[j]].push_back(incoming_end);
                     }
                 }
@@ -853,6 +855,7 @@ namespace vg {
                 range_begin = range_end;
                 while (range_begin < starts.size()) {
                     // find the range of starts at this offset
+                    prev_offset = curr_offset;
                     curr_offset = start_offset(starts[range_begin]);
                     while (start_offset(starts[range_end]) == curr_offset) {
                         range_end++;
@@ -861,10 +864,12 @@ namespace vg {
                         }
                     }
                     
+                    size_t dist_between = curr_offset - prev_offset;
+                    
                     // connect this range to the previous range
                     for (size_t j = range_begin; j < range_end; j++) {
                         for (size_t k = prev_range_begin; k < range_begin; k++) {
-                            reachable_starts_from_start[starts[j]].push_back(starts[k]);
+                            reachable_starts_from_start[starts[j]].push_back(make_pair(starts[k], dist_between));
                         }
                     }
                     prev_range_begin = range_begin;
@@ -874,12 +879,19 @@ namespace vg {
                 // this node contains at least one start of a MEM, so carry forward the reachability of all
                 // starts at the final offset onto the next nodes
                 
+                size_t dist_thru = node_length - curr_offset;
+                
                 for (NodeTraversal next : nexts) {
+                    unordered_map<size_t, size_t> reachable_starts_next = reachable_starts[next.node->id()];
                     for (size_t j = prev_range_begin; j < starts.size(); j++) {
-                        reachable_starts[next.node->id()].insert(starts[j]);
+                        if (reachable_starts_next.count(ends[j])) {
+                            reachable_starts_next[starts[j]] = std::min(reachable_starts_next[starts[j]], dist_thru);
+                        }
+                        else {
+                            reachable_starts_next[starts[j]] = dist_thru;
+                        }
                     }
                 }
-                
             }
             else if (contains_ends) {
                 
@@ -891,6 +903,7 @@ namespace vg {
                 size_t range_begin = 0;
                 size_t range_end = 0;
                 size_t curr_offset = end_offset(ends[range_begin]);
+                size_t prev_offset = curr_offset;
                 // find the range of ends that are at the first offset
                 while (end_offset(ends[range_end]) == curr_offset) {
                     range_end++;
@@ -900,19 +913,20 @@ namespace vg {
                 }
                 // connect the range to the incoming ends
                 for (size_t j = range_begin; j < range_end; j++) {
-                    for (size_t incoming_end : reachable_ends[node_id]) {
+                    for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
                         reachable_ends_from_end[ends[j]].push_back(incoming_end);
                     }
-                    for (size_t incoming_start : reachable_starts[node_id]) {
+                    for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
                         reachable_starts_from_end[ends[j]].push_back(incoming_start);
                     }
                 }
                 
                 // the reachable ends internal to this node
-                size_t prev_range_begin = 0;
+                size_t prev_range_begin = range_begin;
                 range_begin = range_end;
                 while (range_begin < ends.size()) {
                     // find the range of ends at this offset
+                    prev_offset = curr_offset;
                     curr_offset = end_offset(ends[range_begin]);
                     while (end_offset(ends[range_end]) == curr_offset) {
                         range_end++;
@@ -921,10 +935,12 @@ namespace vg {
                         }
                     }
                     
+                    size_t dist_between = curr_offset - prev_offset;
+                    
                     // connect this range to the previous range
                     for (size_t j = range_begin; j < range_end; j++) {
                         for (size_t k = prev_range_begin; k < range_begin; k++) {
-                            reachable_ends_from_end[ends[j]].push_back(ends[k]);
+                            reachable_ends_from_end[ends[j]].push_back(make_pair(ends[k], dist_between));
                         }
                     }
                     prev_range_begin = range_begin;
@@ -934,9 +950,17 @@ namespace vg {
                 // this node contains at least one end of a MEM, so carry forward the reachability of all
                 // ends at the final offset onto the next nodes
                 
+                size_t dist_thru = node_length - curr_offset;
+                
                 for (NodeTraversal next : nexts) {
+                    unordered_map<size_t, size_t> reachable_ends_next = reachable_ends[next.node->id()];
                     for (size_t j = prev_range_begin; j < ends.size(); j++) {
-                        reachable_ends[next.node->id()].insert(ends[j]);
+                        if (reachable_ends_next.count(ends[j])) {
+                            reachable_ends_next[ends[j]] = std::min(reachable_ends_next[ends[j]], dist_thru);
+                        }
+                        else {
+                            reachable_ends_next[ends[j]] = dist_thru;
+                        }
                     }
                 }
             }
@@ -945,111 +969,352 @@ namespace vg {
                 // into this node onto the next nodes
                 
                 for (NodeTraversal next : nexts) {
-                    unordered_set<size_t>& reachable_ends_next = reachable_ends[next.node->id()];
-                    for (size_t reachable_end : reachable_ends[node_id]) {
-                        reachable_ends_next.insert(reachable_end);
+                    unordered_map<size_t, size_t>& reachable_ends_next = reachable_ends[next.node->id()];
+                    for (const pair<size_t, size_t>& reachable_end : reachable_ends[node_id]) {
+                        size_t dist_thru = reachable_end.second + node_length;
+                        if (reachable_ends_next.count(reachable_end.first)) {
+                            reachable_ends_next[reachable_end.first] = std::min(reachable_ends_next[reachable_end.first],
+                                                                                dist_thru);
+                        }
+                        else {
+                            reachable_ends_next[reachable_end.first] = dist_thru;
+                        }
                     }
                     
-                    unordered_set<size_t>& reachable_starts_next = reachable_starts[next.node->id()];
-                    for (size_t reachable_start : reachable_starts[node_id]) {
-                        reachable_starts_next.insert(reachable_start);
+                    unordered_map<size_t, size_t>& reachable_starts_next = reachable_starts[next.node->id()];
+                    for (const pair<size_t, size_t>& reachable_start : reachable_starts[node_id]) {
+                        size_t dist_thru = reachable_start.second + node_length;
+                        if (reachable_starts_next.count(reachable_start.first)) {
+                            reachable_starts_next[reachable_start.first] = std::min(reachable_starts_next[reachable_start.first],
+                                                                                    dist_thru);
+                        }
+                        else {
+                            reachable_starts_next[reachable_start.first] = dist_thru;
+                        }
                     }
                 }
             }
         }
         
-//        for (size_t i = 0; i < graph.node_size(); i++) {
-//            id_t node_id = graph.node(i).id();
-//            bool contains_starts = exact_match_starts.count(node_id);
-//            bool contains_ends = exact_match_ends.count(node_id);
-//            
-//            if (contains_starts && !contains_ends) {
-//                vector<size_t>& starts = exact_match_starts[node_id];
-//                for (size_t incoming_end : reachable_from[node_id]) {
-//                    reachable_ends_from_start[starts.front()].push_back(incoming_end);
-//                }
-//                for (size_t j = 1; j < starts.size(); j++) {
-//                    reachable_ends_from_start[starts[j]].push_back(starts[j - 1]);
-//                }
-//            }
-//            else if (contains_ends && !contains_starts) {
-//                vector<size_t>& ends = exact_match_ends[node_id];
-//                for (size_t incoming_end : reachable_from[node_id]) {
-//                    reachable_ends_from_end[ends.front()].push_back(incoming_end);
-//                }
-//                for (size_t j = 1; j < starts.size(); j++) {
-//                    reachable_ends_from_end[ends[j]].push_back(ends[j - 1]);
-//                }
-//            }
-//            else if (contains_starts && contains_ends) {
-//                
-//            }
-//        }
+        // now we have the reachability information for the start and end of every MEM in the graph. we
+        // will use this to navigate between the MEMs in a way that respects graph reachability so that this
+        // phase of the algorithm only needs to pay attention to read colinearity and transitive reducibility
+        
+        vector<unordered_map<size_t, size_t>> noncolinear_shells(multi_aln_graph.match_nodes.size());
+        
+        unordered_map<size_t, SuffixTree> suffix_trees;
+        
+        // tuples of (overlap size, index from, index onto)
+        vector<tuple<size_t, size_t, size_t>> confirmed_overlaps;
+        
+        for (size_t i = 0; i < graph.node_size(); i++) {
+            id_t node_id = graph.node(i).id();
+            
+            if (!exact_match_starts.count(node_id)) {
+                continue;
+            }
+            
+            for (size_t start : exact_match_starts[node_id]) {
+                // traverse all of the reachable starts to find the adjacent ends that might be colinear
+                ExactMatchNode& start_node = multi_aln_graph.match_nodes[start];
+                
+                unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
+                
+                // pairs of (dist, index)
+                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> start_queue;
+                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> end_queue;
+                start_queue.emplace(start, 0);
+                
+                unordered_map<size_t, size_t> traversed_start;
+                
+                while (!start_queue.empty()) {
+                    pair<size_t, size_t> start_here = start_queue.top();
+                    start_queue.pop();
+                    if (traversed_start.count(start_here.first)) {
+                        continue;
+                    }
+                    traversed_start[start_here.first] = start_here.second;
+                    
+                    for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
+                        end_queue.emplace(start_here.first + end.second, end.first);
+                    }
+                    
+                    for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
+                        start_queue.emplace(start_here.first + start_next.second, start_here.second);
+                    }
+                }
+                
+                unordered_map<size_t, size_t> traversed_end;
+                
+                while (!end_queue.empty()) {
+                    size_t candidate_end = end_queue.top().second;
+                    size_t candidate_dist = end_queue.top().first;
+                    candidate_queue.pop();
+                    if (traversed_end.count(candidate_end)) {
+                        continue;
+                    }
+                    traversed_end[candidate_end] = candidate_dist;
+                    
+                    ExactMatchNode& candidate_end_node = multi_aln_graph.match_nodes[candidate_end];
+                    
+                    if (candidate_end_node.end <= start_node.begin) {
+                        // these MEMs are colinear, so connect them
+                        candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
+                        
+                        // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                        // this connection
+                        for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+                            end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
+                        }
+                    }
+                    else {
+                        // could removing an overlap restore colinearity on the read?
+                        bool overlap_rescued = false;
+                        if (start_node.end > candidate_end.end && candidate_end.begin < start_node.begin) {
+                            
+                            // make a suffix tree or get a pre-made one
+                            if (!suffix_trees.count(candidate_end)) {
+                                suffix_trees[candidate_end] = SuffixTree(candidate_end_node.begin, candidate_end_node.end);
+                            }
+                            SuffixTree& suffix_tree = suffix_trees[candidate_end];
+                            
+                            // compute the overlap
+                            size_t overlap = suffix_tree.longest_overlap(start_node.begin, start_node.end);
+                            
+                            // is the overlap sufficient to restore colinearity?
+                            if (candidate_end_node.end <= start_node.begin + overlap) {
+                                confirmed_overlaps.emplace_back(overlap, candidate_end, start);
+                                overlap_rescued = true;
+                            }
+                        }
+                        
+                        if (!overlap_rescued) {
+                            // these MEMs are noncolinear, so add this predecessor to the shell
+                            noncolinear_shell.insert(candidate_end);
+                            
+                            // there is no connection to block further connections back, so any of this MEMs
+                            // predecessors could still be colinear
+                            
+                            // find the ends that can reach it directly
+                            unordered_set<size_t> predecessors;
+                            for (size_t pred_end : reachable_ends_from_end[candidate_end]) {
+                                predecessors.insert(pred_end);
+                            }
+                            
+                            // traverse backward through any starts to find more ends that can reach this MEM
+                            unordered_set<size_t> enqueued;
+                            list<size_t> queue;
+                            
+                            // initialize the queue with the immediate start neighbors
+                            for (size_t pred_start : reachable_starts_from_end[candidate_end]) {
+                                enqueued.insert(pred_start);
+                                queue.push_back(pred_start);
+                            }
+                            
+                            // traverse backwards through starts stopping at any ends
+                            while (!queue.empty()) {
+                                size_t start_here = queue.front();
+                                queue.pop_front();
+                                
+                                for (size_t pred_end : reachable_ends_from_start[start_here]) {
+                                    predecessors.insert(pred_end);
+                                }
+                                for (size_t start_next : reachable_starts_from_start[start_here]) {
+                                    if (!enqueued.count(start_here)) {
+                                        start_queue.push_back(start_next);
+                                        enqueued.insert(start_next);
+                                    }
+                                }
+                            }
+                            
+                            // add any new predecessors we discovered in the traversal to the candidate queue
+                            for (size_t pred : predecessors) {
+                                if (!adjacent_ends.count(pred)) {
+                                    adjacent_ends.insert(pred);
+                                    candidate_queue.push_back(pred);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // record the node IDs that this MEM's path traverses
+                unordered_set<id_t> match_path_nodes;
+                Path& match_path = multi_aln_graph.match_nodes[start].path;
+                for (size_t j = 0; j < match_path.mapping_size(); j++) {
+                    match_path_nodes.insert(path.mapping(j).position().node_id());
+                }
+                
+                // each record in the queue is (start/end idx, is an end?)
+                list<pair<size_t, bool>> path_queue{make_pair(start, true)};
+                unordered_set<pair<size_t, bool>> path_enqueued{path_queue.front()};
+                
+                unordered_set<size_t> candidate_overlap_preds;
+                
+                while (!path_queue.empty()) {
+                    // TODO: should I also be adding these to the noncolinear shell?
+                    
+                    size_t idx = path_queue.front().first;
+                    bool at_end = path_queue.front().second;
+                    path_queue.pop_front();
+                    
+                    // stop searching backwards at the start of the MEM
+                    if (idx == start && !at_end) {
+                        break;
+                    }
+                    
+                    if (at_end) {
+                        // this end is on the path of the MEM, it might be overlap-colinear
+                        candidate_overlap_preds.insert(idx);
+                        
+                        // add the start and end predecessors that fall on the path of the MEM to the queue
+                        for (size_t start_pred : reachable_starts_from_end[idx]) {
+                            if (!path_enqueued.count(make_pair(start_pred, false)) &&
+                                match_path_nodes.count(start_node_id(start_pred))) {
+                                
+                                path_queue.push_back(make_pair(start_pred, false));
+                                path_enqueued.insert(path_queue.back());
+                            }
+                        }
+                        for (size_t end_pred : reachable_ends_from_end[idx]) {
+                            if (!path_enqueued.count(make_pair(end_pred, true)) &&
+                                match_path_nodes.count(end_node_id(end_pred))) {
+                                
+                                path_queue.push_back(make_pair(end_pred, true));
+                                path_enqueued.insert(path_queue.back());
+                            }
+                        }
+                    }
+                    else {
+                        // this start is on the path of the MEM, it cannot be overlap-colinear even if
+                        // the end is also on the path
+                        if (candidate_overlap_preds.count(idx)) {
+                            candidate_overlap_preds.erase(idx);
+                        }
+                        
+                        // add the start and end predecessors that fall on the path of the MEM to the queue
+                        for (size_t start_pred : reachable_starts_from_start[idx]) {
+                            if (!path_enqueued.count(make_pair(start_pred, false)) &&
+                                match_path_nodes.count(start_node_id(start_pred))) {
+                                
+                                path_queue.push_back(make_pair(start_pred, false));
+                                path_enqueued.insert(path_queue.back());
+                            }
+                        }
+                        for (size_t end_pred : reachable_ends_from_start[idx]) {
+                            if (!path_enqueued.count(make_pair(end_pred, true)) &&
+                                match_path_nodes.count(end_node_id(end_pred))) {
+                                
+                                path_queue.push_back(make_pair(end_pred, true));
+                                path_enqueued.insert(path_queue.back());
+                            }
+                        }
+                    }
+                }
+                
+                for (size_t overlap_candidate : candidate_overlap_preds) {
+                    ExactMatchNode& overlap_node = multi_aln_graph.match_nodes[overlap_candidate];
+                    
+                    // make a suffix tree or get a pre-made one
+                    if (!suffix_trees.count(overlap_candidate)) {
+                        suffix_trees[overlap_candidate] = SuffixTree(overlap_node.begin, overlap_node.end);
+                    }
+                    SuffixTree& suffix_tree = suffix_trees[overlap_candidate];
+                    
+                    // compute the overlap
+                    size_t overlap = suffix_tree.longest_overlap(start_node.begin, start_node.end);
+                    
+                    // traverse backward down the path to find the trim point for the overlap
+                    Path& overlap_path = overlap_node.path;
+                    int64_t remaining = overlap;
+                    size_t mapping_idx = overlap_path.mapping_size() - 1;
+                    int64_t mapping_len = mapping_from_length(overlap_path.mapping(mapping_idx));
+                    while (remaining > mapping_len) {
+                        remaining -= mapping_len;
+                        mapping_idx--;
+                        mapping_len = mapping_from_length(overlap_path.mapping(mapping_idx));;
+                    }
+                    
+                    // get the final position of the path prefix
+                    id_t final_id = from_path.mapping(mapping_idx).position().node_id();
+                    const Position& first_position = onto_node.path.mapping(0).position();
+                    
+                    //
+                    if (!match_path_nodes.count(final_id) ||
+                        (first_position.node_id() == final_id && mapping_len - remaining <= first_position.offset())) {
+                        
+                        confirmed_overlaps.emplace_back(overlap, overlap_candidate, start);
+                        
+                    }
+                }
+            }
+        }
+        
+        // sort in descending order of overlap length
+        std::sort(confirmed_overlaps.begin(), confirmed_overlaps.end(),
+                  std::greater<tuple<size_t, size_t, size_t>>());
         
         
-//        for (pair<id_t, vector<size_t>>& node_match_ends : exact_match_ends) {
-//            if (node_match_ends.second.size() > 1) {
-//                // TODO: replace with only the last one
-//            }
-//        }
-//        // resolve reachability for matches that are contained on the same node
-//        for (pair<id_t, vector<size_t>>& node_match_starts : exact_match_starts) {
-//            if (node_match_starts.second.size() > 1) {
-//                
-//                // sort the hits along this node in increasing position along the node
-//                std::sort(node_match_starts.second.begin(), node_match_starts.second.end(),
-//                          [&](size_t idx_1, size_t idx_2) {
-//                              return multi_aln_graph.match_nodes[idx_1].path.mapping(0).position().offset()
-//                                     < multi_aln_graph.match_nodes[idx_2].path.mapping(0).position().offset();
-//                          });
-//
-//                // check if any pairs of these matches represent chains that are only reachable
-//                // from outside this node by passing through each other
-//
-//                // from idx, to idx, overlap
-//                unordered_map<size_t, pair<size_t, size_t>> internal_connections;
-//                for (int64_t i = 0; i < node_match_starts.second.size() - 1; i++) {
-//                    ExactMatchNode& match_node = multi_aln_graph.match_nodes[node_match_starts.second[i]];
-//                    const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
-//
-//                    if (final_mapping.position().node_id() != node_match_starts.first) {
-//                        // this exact match isn't entirely contained in the node
-//                        continue;
-//                    }
-//
-//                    int64_t final_offset = final_mapping.position().offset() + mapping_from_length(final_mapping);
-//
-//                    for (int64_t j = i + 1; j < node_match_starts.second.size(); j++) {
-//                        ExactMatchNode& other_node = multi_aln_graph.match_nodes[node_match_starts.second[j]];
-//                        const Position& other_start_offset = other_node.path.mapping(0).position().offset();
-//                        const Mapping& other_final_mapping = other_node.path.mapping(other_node.path.mapping_size() - 1);
-//                        int64_t other_final_offset = other_final_mapping.position().offset()
-//                                                     + mapping_from_length(other_final_mapping);
-//
-//                        if (match_node.end <= other_start_offset.begin && final_offset <= other_start_offset) {
-//                            // these match nodes are colinear along both the read and the graph
-//                            internal_connections[i] = make_pair(j, 0);
-//                        }
-//                        else if (match_node.end < other_node.end && final_offset < other_final_offset) {
-//                            // these match nodes are weakly colinear along both the read and graph, so
-//                            // we might be able to uncover colinearity with an overlap
-//
-//                            SuffixTree suffix_tree(match_node.begin, match_node.end);
-//                            size_t overlap = suffix_tree.longest_overlap(other_node.begin, other_node.end);
-//
-//                            if (match_node.end <= other_start_offset.begin + overlap
-//                                && final_offset <= other_start_offset + overlap) {
-//                                internal_connections[i] = make_pair(j, overlap);
-//                            }
-//                        }
-//                    }
-//                    
-//                    // TODO: THIS PART IS NOT FINISHED, WHAT DO I DO NOW WITH THE INTERNAL CONNECTIONS?
-//                    // I DON'T NEED TO ENSURE READ COLINEARITY TO MEET THE INVARIANTS OF THE NEXT
-//                    // PHASE OF THE ALGORITHM
-//                }
-//            }
-//        }
+        // split up each node with an overlap edge onto it
+        for (auto overlap_record : confirmed_overlaps) {
+            ExactMatchNode& from_node = multi_aln_graph.match_nodes[get<1>(overlap_record)];
+            ExactMatchNode& onto_node = multi_aln_graph.match_nodes[get<2>(overlap_record)];
+            
+            size_t suffix_idx = multi_aln_graph.match_nodes.size();
+            
+            ExactMatchNode& suffix_node = *(multi_aln_graph.match_nodes.emplace_back());
+            
+            // transfer the outgoing edges onto the new node
+            suffix_node.edges = std::move(onto_node.edges);
+            
+            // clear the old edges and add a single edge to the suffix
+            onto_node.edges.clear();
+            onto_node.edges.push_back(suffix_idx);
+            
+            // add the overlap edge
+            from_node.edges.push_back(suffix_idx);
+            
+            // store the full path and remove it from the node
+            Path full_path = std::move(onto_node.path);
+            onto_node.path.Clear();
+            
+            // add mappings from the path until reaching the overlap point
+            int64_t remaining = get<0>(overlap_record);
+            int64_t mapping_idx = 0;
+            int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
+            while (remaining >= mapping_len) {
+                *onto_node.path.add_mapping() = full_path.mapping(mapping_idx);
+                mapping_idx++;
+                mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
+            }
+            
+            if (remaining) {
+                // the overlap point is in the middle of a node, need to split a mapping
+                
+                const Mapping& split_mapping = full_path.mapping(mapping_idx);
+                
+                // add the prefix of the mapping to the original node
+                Mapping* prefix_split = onto_node.path.add_mapping();
+                prefix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
+                prefix_split->set_from_length(remaining);
+                prefix_split->set_to_length(remaining);
+                
+                // add the suffix of the mapping to the new node
+                Mapping* suffix_split = suffix_node.path.add_mapping();
+                suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
+                suffix_split->mutable_position()->set_offset(remaining);
+                suffix_split->set_from_length(mapping_len - remaining);
+                suffix_split->set_to_length(mapping_len - remaining);
+                
+                mapping_idx++;
+            }
+            
+            // add the remaining mappings to the suffix node
+            for (; mapping_idx < full_path.mapping_size(); mapping_idx) {
+                *suffix_node.path.add_mapping() = full_path.mapping(mapping_idx);
+            }
+        }
+        
     }
     
     MultipathClusterer::MultipathClusterer(const Alignment& alignment,

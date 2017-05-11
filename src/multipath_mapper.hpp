@@ -63,9 +63,10 @@ namespace vg {
         string::const_iterator end;
         Path path;
         
-        // index of edge and amount of overlap
+        // pair of (target index, path length)
         vector<pair<size_t, size_t>> edges;
     };
+    
     
     
     class MultipathClusterer {
