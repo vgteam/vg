@@ -40,6 +40,7 @@ Mapper::Mapper(Index* idex,
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(512)
+    , band_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
     , fragment_max(1e4)
@@ -1336,7 +1337,13 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
 }
 
 vector<Alignment>
-Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double longest_lcp, int max_mem_length, int additional_multimaps) {
+Mapper::align_mem_multi(const Alignment& aln,
+                        vector<MaximalExactMatch>& mems,
+                        double& cluster_mq,
+                        double longest_lcp,
+                        int max_mem_length,
+                        int keep_multimaps,
+                        int additional_multimaps) {
 
 //#ifdef debug_mapper
 #pragma omp critical
@@ -1549,7 +1556,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     // and finally, compute the mapping quality
     compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
     // prune to max_multimaps
-    filter_and_process_multimaps(alns, 0);
+    filter_and_process_multimaps(alns, keep_multimaps);
 
     return alns;
 }
@@ -2085,7 +2092,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     auto do_band = [&](int i) {
         vector<Alignment>& malns = multi_alns[i];
         double cluster_mq = 0;
-        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
+        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, band_multimaps, extra_multimaps, nullptr);
         // always include an unaligned mapping
         malns.push_back(bands[i]);
         for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
@@ -2152,6 +2159,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         aln.set_score(score_alignment(aln));
     }
     compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+    filter_and_process_multimaps(alignments, max_multimaps);
     return alignments;
 }
 
@@ -2425,8 +2433,7 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
 }
 
 // filters down to requested number of alignments and marks
-void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int additional_multimaps) {
-    int total_multimaps = max_multimaps + additional_multimaps;
+void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int total_multimaps) {
     if (sorted_unique_alignments.size() > total_multimaps){
         sorted_unique_alignments.resize(total_multimaps);
     }
@@ -2440,7 +2447,7 @@ void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_align
     
 vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width) {
     double cluster_mq = 0;
-    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
+    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, cluster_mq, max_multimaps, extra_multimaps, nullptr);
 }
     
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
@@ -2449,6 +2456,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                int max_mem_length,
                                                int band_width,
                                                double& cluster_mq,
+                                               int keep_multimaps,
                                                int additional_multimaps,
                                                vector<MaximalExactMatch>* restricted_mems) {
     
@@ -2459,8 +2467,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             << aln.sequence() << ", " 
             << kmer_size << ", " 
             << stride << ", " 
-            << band_width << ", " 
-            << additional_multimaps << ", " 
+            << band_width << ", "
+            << keep_multimaps << ", "
+            << additional_multimaps << ", "
             << restricted_mems << ")" 
             << endl;
         if (aln.has_path()) {
@@ -2468,7 +2477,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             cerr << pb2json(aln) << endl;
         }
     }
-    
+    // make sure to respect the max multimaps if we haven't been givne a keep multimap count
+    if (keep_multimaps == 0) keep_multimaps = max_multimaps;
+
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi_internal on fragments of the read
     if (aln.sequence().size() > band_width) {
@@ -2495,7 +2506,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     // use pre-restricted mems for paired mapping or find mems here
     if (restricted_mems != nullptr) {
         // mem hits will already have been queried
-        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, max_mem_length, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
     else {
         vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
@@ -2505,26 +2516,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         min_mem_length,
                                                         mem_reseed_length);
         // query mem hits
-        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, max_mem_length, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
-
-    /*
-    alignments = score_sort_and_deduplicate_alignments(alignments, aln);
-    
-    // compute mapping quality before removing extra alignments
-    if (compute_unpaired_quality) {
-        compute_mapping_qualities(alignments, cluster_mq, longest_lcp, max_mapping_quality);
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) cerr << "mapping quality " << alignments.front().mapping_quality() << " " << cluster_mq << endl;
-        }
-#endif
-        filter_and_process_multimaps(alignments, 0);
-    } else {
-        filter_and_process_multimaps(alignments, additional_multimaps);
-    }
-    */
 
     for (auto& aln : alignments) {
         // Make sure no alignments are wandering out of the graph

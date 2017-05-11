@@ -57,9 +57,10 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
-         << "    -B, --compare           realign GAM input (-G), writing: name, overlap with input, identity, score, mq, time" << endl
+         << "    -X, --compare           realign GAM input (-G), writing: name, overlap with input, identity, score, mq, time" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
+         << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
          << "    -Q, --mq-max INT        cap the mapping quality at INT [60]" << endl
          << "    -D, --debug             print debugging information about alignment to stderr" << endl;
 
@@ -92,6 +93,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_input = false;
     int band_width = 256;
+    int band_multimaps = 4;
     int max_band_jump = -1;
     bool always_rescue = false;
     bool top_pairs_only = false;
@@ -159,6 +161,7 @@ int main_map(int argc, char** argv) {
                 {"fastq", required_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"band-width", required_argument, 0, 'w'},
+                {"band-multi", required_argument, 0, 'B'},
                 {"band-jump", required_argument, 0, 'J'},
                 {"min-ident", required_argument, 0, 'P'},
                 {"debug", no_argument, 0, 'D'},
@@ -176,7 +179,7 @@ int main_map(int argc, char** argv) {
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, 'A'},
                 {"try-up-to", required_argument, 0, 'u'},
-                {"compare", no_argument, 0, 'B'},
+                {"compare", no_argument, 0, 'X'},
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
@@ -192,7 +195,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:BI:S:l:e:C:v:V:O:L:n:E:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:",
                          long_options, &option_index);
 
 
@@ -308,6 +311,10 @@ int main_map(int argc, char** argv) {
             band_width = atoi(optarg);
             break;
 
+        case 'B':
+            band_multimaps = atoi(optarg);
+            break;
+
         case 'J':
             max_band_jump = atoi(optarg);
             break;
@@ -368,7 +375,7 @@ int main_map(int argc, char** argv) {
             method_code = atoi(optarg);
             break;
 
-        case 'B':
+        case 'X':
             compare_gam = true;
             output_json = true;
             break;
@@ -552,6 +559,7 @@ int main_map(int argc, char** argv) {
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->min_multimaps = min_multimaps;
+        m->band_multimaps = band_multimaps;
         m->maybe_mq_threshold = maybe_mq_threshold;
         m->debug = debug;
         m->min_identity = min_score;
