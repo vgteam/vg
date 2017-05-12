@@ -28,7 +28,7 @@ REF_LOCUS_COUNT="$(vg view --locus-in -j calls.loci | jq -c 'select(.genotype[0]
 
 is "${REF_LOCUS_COUNT}" "${LOCUS_COUNT}" "all loci on an empty pileup are called reference"
 
-vg mod --sample-graph calls.loci tiny.vg > sample.vg
+vg mod --sample-graph calls.loci augmented.vg > sample.vg
 
 is "$(vg stats -l sample.vg)" "$(vg mod -k x tiny.vg | vg stats -l -)"  "called loci describe the primary path"
 
