@@ -576,6 +576,12 @@ public:
         
     Option<bool> write_trivial_calls{this, "trival", "ivtTIRV", false,
         "write trivial vcf calls (ex 0/0 genotypes)"};
+        
+    /// Should we call on nodes/edges outside of snarls by coverage (true), or
+    /// just assert that primary path things exist and off-path things don't
+    /// (false)?
+    Option<bool> call_other_by_coverage{this, "call-nodes-by-coverage", "cCoObB", false,
+        "make calls on nodes/edges outside snarls by coverage"};
     
     /// print warnings etc. to stderr
     bool verbose = false;

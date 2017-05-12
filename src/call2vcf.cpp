@@ -1765,61 +1765,144 @@ void Call2Vcf::call(
         
         size_t extra_loci = 0;
         
-        augmented.graph.for_each_edge([&](Edge* e) {
-            // We want to make calls on all the edges that aren't covered yet
-            if (covered_edges.count(e)) {
-                // Skip this edge
-                return;
-            }
-            
-            // Make a couple of fake Visits
-            Visit from_visit;
-            from_visit.set_node_id(e->from());
-            from_visit.set_backward(e->from_start());
-            Visit to_visit;
-            to_visit.set_node_id(e->to());
-            to_visit.set_backward(e->to_end());
-            
-            // Make a Locus for the edge
-            Locus locus;
-            
-            // Give it an allele
-            Path* path = locus.add_allele();
-            
-            // Fill in 
-            *path->add_mapping() = to_mapping(from_visit, augmented.graph);
-            *path->add_mapping() = to_mapping(to_visit, augmented.graph);
-            
-            // Set the support
-            *locus.add_support() = augmented.edge_supports[e];
-            *locus.mutable_overall_support() = augmented.edge_supports[e];
-            
-            // Decide on the genotype
-            Genotype gt;
-            
-            // TODO: use the coverage bins
-            if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.25) {
-                // We're closer to 1 copy than 0 copies
-                gt.add_allele(0);
+        if (call_other_by_coverage) {
+            // We should look at the coverage of things off the primary path and
+            // make calls on them.
+        
+            augmented.graph.for_each_edge([&](Edge* e) {
+                // We want to make calls on all the edges that aren't covered yet
+                if (covered_edges.count(e)) {
+                    // Skip this edge
+                    return;
+                }
                 
-                if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.75) {
-                    // We're closer to 2 copies than 1 copy
+                // Make a couple of fake Visits
+                Visit from_visit;
+                from_visit.set_node_id(e->from());
+                from_visit.set_backward(e->from_start());
+                Visit to_visit;
+                to_visit.set_node_id(e->to());
+                to_visit.set_backward(e->to_end());
+                
+                // Make a Locus for the edge
+                Locus locus;
+                
+                // Give it an allele
+                Path* path = locus.add_allele();
+                
+                // Fill in 
+                *path->add_mapping() = to_mapping(from_visit, augmented.graph);
+                *path->add_mapping() = to_mapping(to_visit, augmented.graph);
+                
+                // Set the support
+                *locus.add_support() = augmented.edge_supports[e];
+                *locus.mutable_overall_support() = augmented.edge_supports[e];
+                
+                // Decide on the genotype
+                Genotype gt;
+                
+                // TODO: use the coverage bins
+                if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.25) {
+                    // We're closer to 1 copy than 0 copies
                     gt.add_allele(0);
+                    
+                    if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.75) {
+                        // We're closer to 2 copies than 1 copy
+                        gt.add_allele(0);
+                    }
+                }
+                // Save the genotype with 0, 1, or 2 copies.
+                *locus.add_genotype() = gt;
+                
+                // Send out the locus
+                locus_buffer.push_back(locus);
+                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                
+                extra_loci++;
+                
+                // TODO: look at average node coverages and do node loci (in
+                // case any nodes have no edges?)
+                
+            });
+        } else {
+            // We should just assert the existence of the primary path edges
+            // that weren't in something. Everything not asserted will get
+            // subsetted out.
+            
+            for (auto& kv : primary_paths) {
+                // For every primary path in the graph
+                auto& primary_path = kv.second;
+                
+                // Remember the end of the previous ndoe
+                NodeSide previous_end;
+                
+                for (auto& offset_and_side : primary_path.get_index()) {
+                    // For every NodeSide that happens in the primary path
+                    
+                    // Grab the side
+                    NodeSide here = offset_and_side.second;
+                    
+                    if (previous_end == NodeSide()) {
+                        // Skip the first node and remember its end
+                        previous_end = here.flip();
+                        continue;
+                    }
+                    
+                    // Find the edge we crossed
+                    Edge* crossed = augmented.graph.get_edge(previous_end, here);
+                    assert(crossed != nullptr);
+                    
+                    if (covered_edges.count(crossed)) {
+                        // If the edge we crossed is covered by a snarl, don't
+                        // emit anything.
+                        previous_end = here.flip();
+                        continue;
+                    }
+                    
+                    // If the edge we're crossing isn't covered, we should
+                    // assert the primary path here.
+                    
+                    // Make a couple of fake Visits
+                    Visit from_visit;
+                    from_visit.set_node_id(crossed->from());
+                    from_visit.set_backward(crossed->from_start());
+                    Visit to_visit;
+                    to_visit.set_node_id(crossed->to());
+                    to_visit.set_backward(crossed->to_end());
+                    
+                    // Make a Locus for the edge
+                    Locus locus;
+                    
+                    // Give it an allele
+                    Path* path = locus.add_allele();
+                    
+                    // Fill in 
+                    *path->add_mapping() = to_mapping(from_visit, augmented.graph);
+                    *path->add_mapping() = to_mapping(to_visit, augmented.graph);
+                    
+                    // Set the support
+                    *locus.add_support() = augmented.get_support(crossed);
+                    *locus.mutable_overall_support() = augmented.get_support(crossed);
+                    
+                    // Decide on the genotype of hom ref.
+                    Genotype* gt = locus.add_genotype();
+                    gt->add_allele(0);
+                    gt->add_allele(0);
+                    
+                    // Send out the locus
+                    locus_buffer.push_back(locus);
+                    stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                    
+                    extra_loci++;
+                    
+                    // Make sure to remember the end of the node we just did,
+                    // for looking at the next node.
+                    previous_end = here.flip();
+                    
                 }
             }
-            // Save the genotype with 0, 1, or 2 copies.
-            *locus.add_genotype() = gt;
-            
-            // Send out the locus
-            locus_buffer.push_back(locus);
-            stream::write_buffered(cout, locus_buffer, locus_buffer_size);
-            
-            extra_loci++;
-            
-        });
+        }
         
-        // TODO: look at average node coverages and do node loci (in case any nodes have no edges?)
-    
         // Flush the buffer of Locus objects we have to write
         stream::write_buffered(cout, locus_buffer, 0);
         
