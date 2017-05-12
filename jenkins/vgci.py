@@ -25,8 +25,8 @@ class VGCITest(TestCase):
     def setUp(self):
         self.workdir = tempfile.mkdtemp()
         
-        self.f1_threshold = 0.015
-        self.auc_threshold = 0.015
+        self.f1_threshold = 0.02
+        self.auc_threshold = 0.02
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
         self.verify = True
@@ -110,7 +110,7 @@ class VGCITest(TestCase):
         out_store = self._outstore(tag)
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
-            opts += '--vg_docker {} False '.format(self.vg_docker)
+            opts += '--vg_docker {} '.format(self.vg_docker)
         if chrom:
             opts += '--chroms {} '.format(chrom)
         if graph_path:
@@ -171,7 +171,7 @@ class VGCITest(TestCase):
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
                           self._input('chr{}.fa.gz'.format(chrom)), True,
-                          '--call_opts \'--offset {}\''.format(offset), tag)
+                          '--vcf_offsets {}'.format(offset), tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
@@ -187,7 +187,7 @@ class VGCITest(TestCase):
         # start by simulating some reads
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
-            opts += '--vg_docker {} False '.format(self.vg_docker)
+            opts += '--vg_docker {} '.format(self.vg_docker)
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
@@ -199,7 +199,7 @@ class VGCITest(TestCase):
         # then run mapeval
         opts = '--realTimeLogging --logInfo '        
         if self.vg_docker:
-            opts += '--vg_docker {} False '.format(self.vg_docker)
+            opts += '--vg_docker {} '.format(self.vg_docker)
         opts += '--maxCores {} '.format(self.cores)
         opts += '--bwa --bwa-paired --vg-paired '
         opts += '--fasta {} '.format(fasta_path)
