@@ -109,8 +109,9 @@ namespace vg {
             // Set position based on the lowest position in the snarl.
             pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[snarl->start().node_id()];
             pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[snarl->end().node_id()];
-            
-            v.position = (pos_orientation_start.first < pos_orientation_end.first) ? pos_orientation_start.first : pos_orientation_end.first;
+            bool use_start = pos_orientation_start.first < pos_orientation_end.first;
+            size_t node_pos = (use_start ? pos_orientation_start.first : pos_orientation_end.first);
+            v.position = node_pos +(use_start ? graph->get_node(snarl->start().node_id())->sequence().length() : graph->get_node(snarl->end().node_id())->sequence().length());
             std::pair<bool, vector<string> > t_alleles = get_alleles(travs, refpath, graph);
             if (t_alleles.first){
                 v.alleles.insert(v.alleles.begin(), t_alleles.second[0]);
