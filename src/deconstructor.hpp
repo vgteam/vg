@@ -2,6 +2,7 @@
 #define DECON_HPP
 #include <vector>
 #include <string>
+#include <sstream>
 #include <ostream>
 #include "genotypekit.hpp"
 #include "Variant.h"
@@ -30,10 +31,14 @@ namespace vg{
             Deconstructor();
             ~Deconstructor();
 
+            pair<bool, vector<string> > get_alleles(vector<SnarlTraversal> travs, string refpath, vg::VG* graph);
+
             void deconstruct(string refpath, vg::VG* graph);
             void deconstruct(vector<string> refpaths, vg::VG* graph); 
+            map<string, PathIndex*> pindexes;
 
         private:
+            bool headered = false;
     };
 }
 #endif
