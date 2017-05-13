@@ -92,9 +92,6 @@ namespace vg {
             cout << outvcf.header << endl;
             this->headered = true;
         }
-        
-
-        
 
         // Find snarls
         // Snarls are variant sites ("bubbles")
@@ -133,6 +130,7 @@ namespace vg {
             }
             v.updateAlleleIndexes();
             cerr << v << endl;
+
         }
         
 

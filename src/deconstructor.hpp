@@ -4,7 +4,9 @@
 #include <string>
 #include <sstream>
 #include <ostream>
+#include <sstream>
 #include "genotypekit.hpp"
+#include "path_index.hpp"
 #include "Variant.h"
 #include "path.hpp"
 #include "vg.hpp"
@@ -30,7 +32,6 @@ namespace vg{
 
             Deconstructor();
             ~Deconstructor();
-
             pair<bool, vector<string> > get_alleles(vector<SnarlTraversal> travs, string refpath, vg::VG* graph);
 
             void deconstruct(string refpath, vg::VG* graph);
