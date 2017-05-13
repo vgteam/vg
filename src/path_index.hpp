@@ -70,6 +70,9 @@ struct PathIndex {
     /// Find what node and orientation covers a position. The position must not
     /// be greater than the path length.
     NodeSide at_position(size_t position) const;
+
+    // Check whether a node is on the reference path.
+    bool path_contains_node(int64_t node_id);
     
     /// We keep iterators to node occurrences along the ref path.
     using iterator = map<size_t, vg::NodeSide>::const_iterator;

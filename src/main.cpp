@@ -4964,16 +4964,10 @@ int main_locify(int argc, char** argv){
 }
 
 void help_deconstruct(char** argv){
-    cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
+    cerr << "usage: " << argv[0] << " deconstruct [options] -p <PATH> <my_graph>.vg" << endl
+         << "Outputs VCF records for Snarls present in a graph." << endl
          << "options: " << endl
-         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
-         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
-         << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
-         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
-         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
-         << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
-         << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
-         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
+         << "--path / -p     A reference path to deconstruct against." << endl
          << endl;
 }
 
@@ -4984,34 +4978,23 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
-    bool print_sbs = false;
+    vector<string> refpaths;
+    string graphname;
     string outfile = "";
-    bool dagify = false;
-    int unroll_steps = 0;
-    int compact_steps = 0;
-    bool invert = false;
-    string mask_file = "";
-    string xg_name;
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
                 {"help", no_argument, 0, 'h'},
-                {"xg-name", required_argument,0, 'x'},
-                {"output", required_argument, 0, 'o'},
-                {"unroll", required_argument, 0, 'u'},
-                {"compact", required_argument, 0, 'c'},
-                {"mask", required_argument, 0, 'm'},
-                {"dagify", no_argument, 0, 'd'},
-                {"superbubbles", no_argument, 0, 's'},
-                {"invert", no_argument, 0, 'v'},
+                {"path", required_argument, 0, 'p'},
                 {0, 0, 0, 0}
 
             };
 
             int option_index = 0;
-            c = getopt_long (argc, argv, "dho:u:c:vm:sx:",
+            c = getopt_long (argc, argv, "hp:",
                     long_options, &option_index);
 
             // Detect the end of the options.
@@ -5020,29 +5003,8 @@ int main_deconstruct(int argc, char** argv){
 
             switch (c)
             {
-                case 's':
-                    print_sbs = true;
-                    break;
-                case 'x':
-                    xg_name = optarg;
-                    break;
-                case 'o':
-                    outfile = optarg;
-                    break;
-                case 'u':
-                    unroll_steps = atoi(optarg);
-                    break;
-                case 'c':
-                    compact_steps = atoi(optarg);
-                    break;
-                case 'm':
-                    mask_file = optarg;
-                    break;
-                case 'd':
-                    dagify = true;
-                    break;
-                case 'v':
-                    invert = true;
+                case 'p':
+                    refpaths = split(optarg, ",");
                     break;
                 case '?':
                 case 'h':
@@ -5054,6 +5016,18 @@ int main_deconstruct(int argc, char** argv){
             }
 
         }
+        graphname = argv[optind];
+        vg::VG* graph;
+        if (!graphname.empty()){
+            ifstream gstream(graphname);
+            graph = new vg::VG(gstream);
+        }
+
+        // load graph
+
+        // Deconstruct
+        Deconstructor dd;
+        dd.deconstruct(refpaths, graph);
     return 0;
 }
 
