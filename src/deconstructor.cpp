@@ -20,7 +20,10 @@ namespace vg {
     */
     pair<bool, vector<string> > Deconstructor::get_alleles(vector<SnarlTraversal> travs, string refpath, vg::VG* graph){
         vector<string> ret;
+        vector<SnarlTraversal> ordered_traversals;
         bool hasRef = false;
+
+        bool normalize_indels = false;
 
         // Check if we have a PathIndex for this path
         bool path_indexed = pindexes.find(refpath) != pindexes.end();
@@ -40,14 +43,21 @@ namespace vg {
                     }
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
+
+                string t_str = t_allele.str();
+                if (t_str == ""){
+                    normalize_indels = true;
+                }
                 if (is_ref){
-                    ret.insert(ret.begin(), t_allele.str());
+                    ret.insert(ret.begin(), t_str);
+                    ordered_traversals.insert(ordered_traversals.begin(), t);
                     hasRef = true;
                 }
                 else{
-                    ret.push_back(t_allele.str());
+                    ret.push_back(t_str);
+                    ordered_traversals.push_back(t);
                 }
-
+                
             }
 
             else{
@@ -57,9 +67,29 @@ namespace vg {
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
                 ret.push_back(t_allele.str());
+                ordered_traversals.push_back(t);
             }
-            
         }
+            // If we haev indels to normalize, loop over our alleles
+            // normalize each string to VCF-friendly format (i.e. clip one ref base
+            // on the left side and put it in the ref field and the alt field).
+            if (normalize_indels){
+                for (int i = 0; i < ret.size(); ++i){
+                // Get the reference base to the left of the variant.
+                // If our empty allele is the reference (and we have a reference),
+                // put our new-found ref base in the 0th index of alleles vector.
+                // Then, prepend that base to each allele in our alleles vector.
+                    SnarlTraversal t = ordered_traversals[i];
+                    pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[t.snarl().start().node_id()];
+                    pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[t.snarl().end().node_id()];
+                    bool use_start = pos_orientation_start.first < pos_orientation_end.first;
+                    bool rev = use_start ? pos_orientation_start.second : pos_orientation_end.second;
+                    string pre_node_seq = use_start ? graph->get_node(t.snarl().start().node_id())->sequence() :
+                                            graph->get_node(t.snarl().end().node_id())->sequence();
+                    string pre_variant_base = rev ? string(1, pre_node_seq[0]) : string(1, pre_node_seq[pre_node_seq.length() - 1]);
+                    ret[i].insert(0, pre_variant_base);
+                }
+            }
         return make_pair(hasRef, ret);
 
     }
