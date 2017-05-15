@@ -703,13 +703,14 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
     Alignment res;
     res.set_name(aln.name());
     res.set_score(aln.score());
-    //cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
     *res.mutable_path() = cut_path(aln.path(), drop).second;
     assert(res.has_path());
     if (alignment_to_length(res) != res.sequence().size()) {
         cerr << "failed!!! drop from start 轰" << endl;
+        cerr << "drop " << drop << " from start" << endl << pb2json(aln) << endl;
+        cerr << "wanted " << aln.sequence().size() - drop << " got " << alignment_to_length(res) << endl;
         cerr << pb2json(res) << endl << endl;
         assert(false);
     }
@@ -830,6 +831,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
     //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     a1.set_sequence(a1.sequence() + a2.sequence());
+    if (!a1.quality().empty()) a1.set_quality(a1.quality() + a2.quality());
     extend_path(*a1.mutable_path(), a2.path());
     //if (debug) cerr << "extended alignments, result is " << endl << pb2json(a1) << endl;
     return a1;
