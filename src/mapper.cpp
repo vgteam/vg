@@ -1994,7 +1994,7 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
     }
 #ifdef debug_mapper
     if (debug) {
-    cerr << "Segment size be " << segment_size << "/" << read.sequence().size() << endl;
+        cerr << "Segment size be " << segment_size << "/" << read.sequence().size() << endl;
     }
 #endif
     // and overlap them too
@@ -2043,6 +2043,10 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
             to_strip[i].second = segment_size - (start_positions[i+1] + q);
         } else if (&p == &start_positions.back()) {
             to_strip[i].first = start_positions[i-1]+segment_size-q - p;
+            // if we only have two bands, handle the potential non-divisibility by 2
+            if (start_positions.size() == 2) {
+                to_strip[i].first -= (int)read.sequence().size() % 2;
+            }
         } else {
             to_strip[i].first = q;
             to_strip[i].second = q;
@@ -2152,16 +2156,20 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         }
         auto aln1_end = path_end(aln1.path());
         auto aln2_begin = path_start(aln2.path());
-        int dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
-        if (dist > max_band_jump) {
+        int path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
+        int graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+        int dist = min(path_dist, graph_dist);
+        if (dist >= max_band_jump) {
             return -std::numeric_limits<double>::max();
         } else {
             // try to get the precise distance
             //dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+            /*
             if (dist >= max_band_jump) {
                 // we discovered that it was too far
                 return -std::numeric_limits<double>::max();
             }
+            */
             double weight = aln1.sequence().size() + aln2.sequence().size() + aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
             if (aln1_end.is_reverse() != aln2_begin.is_reverse()) {
                 // make inversions cost as much as a full length insertion of the inverted sequence
@@ -2180,7 +2188,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         // patch the alignment
         //cerr << "patching and simplifying " << pb2json(aln) << endl;
         //aln = simplify(aln);
-        aln = patch_alignment(aln, band_width/2);
+        aln = patch_alignment(aln, band_width);
         aln.set_score(score_alignment(aln, true));
         //cerr << "done patching and simplin" << endl;
     }
@@ -3996,7 +4004,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         //cerr << "internal addition" << endl;
                         VG graph;
                         cached_graph_context(graph, band_ref_pos, band.sequence().size(), node_cache, edge_cache);
-                        band = align_maybe_flip(band, graph, is_rev(band_ref_pos), true);
+                        band = align_maybe_flip(band, graph, is_rev(band_ref_pos), false);
                     }
 #ifdef debug_mapper
                     if (debug && !check_alignment(band)) {
@@ -4010,12 +4018,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     band = strip_from_start(band, to_strip[k].first);
                     band = strip_from_end(band, to_strip[k].second);
                     band = simplify(band);
+                    band.set_identity(identity(band.path()));
                     //cerr << "band simplified " << pb2json(band) << endl;
                     // update the reference end position
                     if (band.has_path()) {
                         //cerr << "we have an alignment" << endl;
                         // do nothing here, our bands are just getting full-length'd anyway
-                        if (alignment_from_length(band)) {
+                        if (alignment_from_length(band) && band.identity() >= min_identity) {
                             band_ref_pos = make_pos_t(alignment_end_position(band));
                             //cerr << "new ref pos " << band_ref_pos << endl;
 #ifdef debug_mapper
@@ -4042,6 +4051,12 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         *m->mutable_position() = make_position(band_ref_pos);
                     }
                 }
+                /*
+                cerr << "done bands" << endl;
+                for (auto& band : bands) {
+                    cerr << "band: " << pb2json(band) << endl;
+                }
+                */
                 patch = merge_alignments(bands);
                 if (patch.sequence() != edit.sequence()) {
                     cerr << "sequence mismatch" << endl;
