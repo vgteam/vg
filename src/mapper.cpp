@@ -2172,8 +2172,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
             */
             double weight = aln1.sequence().size() + aln2.sequence().size() + aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
             if (aln1_end.is_reverse() != aln2_begin.is_reverse()) {
-                // make inversions cost as much as a full length insertion of the inverted sequence
-                weight -= gap_open + (aln1.sequence().size() + aln1.sequence().size()) * gap_extension;
+                // make inversions cost twice as much as a full length insertion of the inverted sequences
+                weight -= 2 * (gap_open + (aln1.sequence().size() + aln2.sequence().size()) * gap_extension);
             }
             dist = abs(dist);
             weight -= (gap_open + dist * gap_extension);
@@ -3978,7 +3978,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     bands.push_back(patch);
                 }
                 //cerr << "got " << bands.size() << " bands" << endl;
-                pos_t band_ref_pos = ref_pos;
+                //pos_t band_ref_pos = ref_pos;
+                set<pos_t> band_ref_pos;
+                band_ref_pos.insert(ref_pos);
                 for (int k = 0; k < bands.size(); ++k) {
                     Alignment& band = bands[k];
                     //cerr << "on band " << k << " " << pb2json(band) << endl;
@@ -3986,25 +3988,37 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         //cerr << "soft clip at start " << band.sequence() << endl;
                         //cerr << "ref pos " << band_ref_pos << endl;
                         // reverse the position, we're going backwards to get the graph off the end of where we are
-                        pos_t pos = reverse(band_ref_pos, xg_cached_node_length(id(band_ref_pos), xindex, get_node_cache()));
-                        VG graph;
-                        cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
-                        band = align_maybe_flip(band, graph, is_rev(band_ref_pos), false);
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
+                            cached_graph_context(graph, pos_rev, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                        // TODO
                         // ideal: edit it with the path fragment after this, to get the breakpoints right
                         // and trim off the part matching that bit
-                        // TODO
                     } else if (i == path.mapping_size()-1
                                && j == mapping.edit_size()-1
                                && k == bands.size()-1) {
                         //cerr << "soft clip at end " << band.sequence() << endl;
-                        VG graph;
-                        cached_graph_context(graph, band_ref_pos, band.sequence().size(), node_cache, edge_cache);
-                        band = align_maybe_flip(band, graph, is_rev(band_ref_pos), false);
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
                     } else {
                         //cerr << "internal addition" << endl;
-                        VG graph;
-                        cached_graph_context(graph, band_ref_pos, band.sequence().size(), node_cache, edge_cache);
-                        band = align_maybe_flip(band, graph, is_rev(band_ref_pos), false);
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
                     }
 #ifdef debug_mapper
                     if (debug && !check_alignment(band)) {
@@ -4023,10 +4037,20 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     // update the reference end position
                     if (band.has_path()) {
                         //cerr << "we have an alignment" << endl;
-                        // do nothing here, our bands are just getting full-length'd anyway
-                        if (alignment_from_length(band) && band.identity() >= min_identity) {
-                            band_ref_pos = make_pos_t(alignment_end_position(band));
+                        if (alignment_from_length(band) >= min_mem_length
+                            && band.identity() >= min_identity
+                            && band.sequence().size() >= min_cluster_length) {
                             //cerr << "new ref pos " << band_ref_pos << endl;
+                            band_ref_pos.clear();
+                            // todo... step our position back just a little to match the banding
+                            // right now we're relying on the chunkiness of the graph to get this for us
+                            // strip back a little
+                            if (to_strip.size() > k+1 && to_strip[k+1].first && band.sequence().size() > to_strip[k+1].first) {
+                                auto band_chew = strip_from_end(band, to_strip[k+1].first);
+                                band_ref_pos.insert(make_pos_t(alignment_end_position(band_chew)));
+                            } else {
+                                band_ref_pos.insert(make_pos_t(alignment_end_position(band)));
+                            }
 #ifdef debug_mapper
                             if (debug && !check_alignment(band)) {
                                 cerr << "failed band " << pb2json(band) << endl;
@@ -4048,7 +4072,17 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         Edit* e = m->add_edit();
                         e->set_sequence(band.sequence());
                         e->set_to_length(band.sequence().size());
-                        *m->mutable_position() = make_position(band_ref_pos);
+                        if (!band_ref_pos.empty()) {
+                            *m->mutable_position() = make_position(*band_ref_pos.begin());
+                        } // should we alternatively set ourselves back to the ref_pos?
+                        // walk graph to estimate next position based on assumption we are ~ homologous to the graph
+                        set<pos_t> next_pos;
+                        for (auto& pos : band_ref_pos) {
+                            for (auto& next : positions_bp_from(pos, band.sequence().size(), false)) {
+                                next_pos.insert(next);
+                            }
+                        }
+                        band_ref_pos = next_pos;
                     }
                 }
                 /*
@@ -4082,8 +4116,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                     assert(false);
                 }
                 */
-                // this could mess up the coordinates above if the thing we're patching doesn't have the expected structure
-                band_ref_pos = make_pos_t(alignment_end_position(patched));
             }
             read_pos += edit.to_length();
         }
