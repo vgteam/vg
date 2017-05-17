@@ -104,7 +104,7 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -f msgas/cycle.fa -b s2 -w 32 -t 1 -P 0.95 -E 3 | vg mod -D - | vg mod -U 10 - | vg mod -c - >c.vg
+vg msga -f msgas/cycle.fa -b s1 -w 16 -t 1 -E 4 | vg mod -N - | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
 is $(cat c.vg| vg mod -X 30 - | vg mod -w 100 - | vg stats -N -) 36 "dagify correctly calculates the minimum distance through the unrolled component"
 is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 2) 400 "dagify only takes one step past our component length limit"
 rm -f c.vg
