@@ -36,7 +36,7 @@ void help_map(char** argv) {
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
          << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
-         << "    -p, --print-frag-model  don't emit alignments, just establish the fragment model and print it as per {-I} format" << endl
+         << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
@@ -987,7 +987,7 @@ int main_map(int argc, char** argv) {
     if (print_fragment_model) {
         if (mapper[0]->fragment_size) {
             // we've calculated our fragment size, so print it and bail out
-            cerr << mapper[0]->fragment_model_str() << endl;
+            cout << mapper[0]->fragment_model_str() << endl;
         } else {
             cerr << "[vg map] Error: could not calculate fragment model" << endl;
         }
