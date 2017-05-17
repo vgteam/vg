@@ -282,6 +282,7 @@ public:
     deque<bool> fragment_orientations;
     deque<bool> fragment_directions;
     void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
+    string fragment_model_str(void);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
     double fragment_length_pdf(double length);
@@ -292,7 +293,7 @@ public:
     bool cached_fragment_orientation;
     bool cached_fragment_direction;
     int since_last_fragment_length_estimate;
-    int fragment_length_estimate_interval;
+    int fragment_model_update_interval;
 
     double estimate_gc_content(void);
     int random_match_length(double chance_random);
@@ -536,6 +537,7 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
+    bool fixed_fragment_model;
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain

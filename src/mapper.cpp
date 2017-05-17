@@ -50,8 +50,9 @@ Mapper::Mapper(Index* idex,
     , cached_fragment_length_stdev(0)
     , cached_fragment_orientation(0)
     , cached_fragment_direction(1)
+    , fixed_fragment_model(true)
     , since_last_fragment_length_estimate(0)
-    , fragment_length_estimate_interval(10)
+    , fragment_model_update_interval(10)
     , perfect_pair_identity_threshold(0.95)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
@@ -1743,7 +1744,18 @@ map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, cons
     return lengths;
 }
 
+string Mapper::fragment_model_str(void) {
+    stringstream s;
+    s << fragment_size << ":"
+      << cached_fragment_length_mean << ":"
+      << cached_fragment_length_stdev << ":"
+      << cached_fragment_orientation << ":"
+      << cached_fragment_direction;
+    return s.str();
+}
+
 void Mapper::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
+    if (fixed_fragment_model) return;
     // record the relative orientations
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());
     bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
@@ -1777,7 +1789,7 @@ void Mapper::record_fragment_configuration(int length, const Alignment& aln1, co
         auto last = fragment_lengths.back();
         fragment_lengths.pop_back();
     }
-    if (++since_last_fragment_length_estimate > fragment_length_estimate_interval) {
+    if (++since_last_fragment_length_estimate > fragment_model_update_interval) {
         cached_fragment_length_mean = fragment_length_mean();
         cached_fragment_length_stdev = fragment_length_stdev();
         cached_fragment_orientation = fragment_orientation();

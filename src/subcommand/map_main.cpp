@@ -35,6 +35,9 @@ void help_map(char** argv) {
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
          << "                            max, mean, stdev, orientation (1=same, 0=flip), direction (1=forward, 0=backward)" << endl
+         << "    -U, --fixed-frag-model  don't learn the pair fragment model online, use {-I} without update" << endl
+         << "    -p, --print-frag-model  don't emit alignments, just establish the fragment model and print it as per {-I} format" << endl
+         << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
          << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
          << "scoring:" << endl
@@ -134,6 +137,9 @@ int main_map(int argc, char** argv) {
     int kmer_stride = 0;
     int pair_window = 64; // unused
     int mate_rescues = 64;
+    bool fixed_fragment_model = false;
+    bool print_fragment_model = false;
+    int fragment_model_update = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -191,11 +197,14 @@ int main_map(int argc, char** argv) {
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
                 {"approx-mq-cap", required_argument, 0, 'E'},
+                {"fixed-frag-model", no_argument, 0, 'U'},
+                {"print-frag-model", no_argument, 0, 'p'},
+                {"frag-calc", required_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:",
                          long_options, &option_index);
 
 
@@ -406,6 +415,18 @@ int main_map(int argc, char** argv) {
             mate_rescues = atoi(optarg);
             break;
 
+        case 'U':
+            fixed_fragment_model = true;
+            break;
+
+        case 'p':
+            print_fragment_model = true;
+            break;
+
+        case 'F':
+            fragment_model_update = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -582,6 +603,7 @@ int main_map(int argc, char** argv) {
         m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
+        m->fixed_fragment_model = fixed_fragment_model;
         m->fragment_max = fragment_max;
         m->fragment_sigma = fragment_sigma;
         if (fragment_mean) {
@@ -591,6 +613,7 @@ int main_map(int argc, char** argv) {
             m->cached_fragment_orientation = fragment_orientation;
             m->cached_fragment_direction = fragment_direction;
         }
+        m->fragment_model_update_interval = fragment_model_update;
         m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
@@ -696,13 +719,16 @@ int main_map(int argc, char** argv) {
         if (interleaved_input) {
             // paired interleaved
             auto output_func = [&output_alignments,
-                                &compare_gam]
+                                &compare_gam,
+                                &print_fragment_model]
                 (Alignment& aln1,
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
-                // Output the alignments in JSON or protobuf as appropriate.
-                output_alignments(alnp.first);
-                output_alignments(alnp.second);
+                if (!print_fragment_model) {
+                    // Output the alignments in JSON or protobuf as appropriate.
+                    output_alignments(alnp.first);
+                    output_alignments(alnp.second);
+                }
             };
             function<void(Alignment&,Alignment&)> lambda =
                 [&mapper,
@@ -714,6 +740,7 @@ int main_map(int argc, char** argv) {
                  &band_width,
                  &pair_window,
                  &top_pairs_only,
+                 &print_fragment_model,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
@@ -778,14 +805,17 @@ int main_map(int argc, char** argv) {
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
             // paired two-file
-            auto output_func = [&output_alignments]
+            auto output_func = [&output_alignments,
+                                &print_fragment_model]
                 (Alignment& aln1,
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 // Output the alignments in JSON or protobuf as appropriate.
-                output_alignments(alnp.first);
-                output_alignments(alnp.second);
+                if (!print_fragment_model) {
+                    output_alignments(alnp.first);
+                    output_alignments(alnp.second);
+                }
             };
             function<void(Alignment&,Alignment&)> lambda =
                 [&mapper,
@@ -797,6 +827,7 @@ int main_map(int argc, char** argv) {
                  &band_width,
                  &pair_window,
                  &top_pairs_only,
+                 &print_fragment_model,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
@@ -842,11 +873,14 @@ int main_map(int argc, char** argv) {
         ifstream gam_in(gam_input);
         if (interleaved_input) {
             auto output_func = [&output_alignments,
-                                &compare_gam]
+                                &compare_gam,
+                                &print_fragment_model]
                 (Alignment& aln1,
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
-                if (compare_gam) {
+                if (print_fragment_model) {
+                    // do nothing
+                } else if (compare_gam) {
 #pragma omp critical (cout)
                     {
                         cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path())
@@ -875,6 +909,7 @@ int main_map(int argc, char** argv) {
                  &compare_gam,
                  &pair_window,
                  &top_pairs_only,
+                 &print_fragment_model,
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
@@ -947,6 +982,15 @@ int main_map(int argc, char** argv) {
             stream::for_each_parallel(gam_in, lambda);
         }
         gam_in.close();
+    }
+
+    if (print_fragment_model) {
+        if (mapper[0]->fragment_size) {
+            // we've calculated our fragment size, so print it and bail out
+            cerr << mapper[0]->fragment_model_str() << endl;
+        } else {
+            cerr << "[vg map] Error: could not calculate fragment model" << endl;
+        }
     }
 
     // clean up
