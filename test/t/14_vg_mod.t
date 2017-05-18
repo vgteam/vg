@@ -78,7 +78,7 @@ is $(vg msga -w 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -
 
 is $(vg msga -w 20 -f msgas/s.fa | vg mod -r s1 - | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
 
-vg msga -f msgas/l.fa -b a1 -w 8 | vg mod -X 8 - | vg validate -
+vg msga -f msgas/l.fa -b a1 -w 16 | vg mod -X 8 - | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
 
 vg mod -U 3 graphs/atgclinv2.vg | vg validate -
@@ -104,7 +104,7 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -f msgas/cycle.fa -b s2 -w 16 -t 1 | vg mod -D - | vg mod -U 10 - | vg mod -c - >c.vg
+vg msga -f msgas/cycle.fa -b s1 -w 16 -t 1 -E 4 | vg mod -N - | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
 is $(cat c.vg| vg mod -X 30 - | vg mod -w 100 - | vg stats -N -) 36 "dagify correctly calculates the minimum distance through the unrolled component"
 is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 2) 400 "dagify only takes one step past our component length limit"
 rm -f c.vg

@@ -50,8 +50,9 @@ Mapper::Mapper(Index* idex,
     , cached_fragment_length_stdev(0)
     , cached_fragment_orientation(0)
     , cached_fragment_direction(1)
+    , fixed_fragment_model(true)
     , since_last_fragment_length_estimate(0)
-    , fragment_length_estimate_interval(10)
+    , fragment_model_update_interval(10)
     , perfect_pair_identity_threshold(0.95)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
@@ -1561,7 +1562,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool banded_global) {
     Alignment aln = base;
     if (flip) {
         aln.set_sequence(reverse_complement(base.sequence()));
@@ -1576,7 +1577,6 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) 
             aln.set_quality(base.quality());
         }
     }
-    bool banded_global = false;
     bool pinned_alignment = false;
     bool pinned_reverse = false;
     aln = align_to_graph(aln,
@@ -1586,7 +1586,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) 
                          pinned_reverse,
                          full_length_alignment_bonus,
                          banded_global);
-    aln.set_score(rescore_without_full_length_bonus(aln));
+    if (!banded_global) aln.set_score(rescore_without_full_length_bonus(aln));
     if (flip) {
         aln = reverse_complement_alignment(
             aln,
@@ -1685,6 +1685,7 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
         }
         nexts = todo;
     }
+    graph.remove_orphan_edges();
     return;
 }
 
@@ -1743,7 +1744,18 @@ map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, cons
     return lengths;
 }
 
+string Mapper::fragment_model_str(void) {
+    stringstream s;
+    s << fragment_size << ":"
+      << cached_fragment_length_mean << ":"
+      << cached_fragment_length_stdev << ":"
+      << cached_fragment_orientation << ":"
+      << cached_fragment_direction;
+    return s.str();
+}
+
 void Mapper::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
+    if (fixed_fragment_model) return;
     // record the relative orientations
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());
     bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
@@ -1777,7 +1789,7 @@ void Mapper::record_fragment_configuration(int length, const Alignment& aln1, co
         auto last = fragment_lengths.back();
         fragment_lengths.pop_back();
     }
-    if (++since_last_fragment_length_estimate > fragment_length_estimate_interval) {
+    if (++since_last_fragment_length_estimate > fragment_model_update_interval) {
         cached_fragment_length_mean = fragment_length_mean();
         cached_fragment_length_stdev = fragment_length_stdev();
         cached_fragment_orientation = fragment_orientation();
@@ -1976,37 +1988,7 @@ bool Mapper::check_alignment(const Alignment& aln) {
     return true;
 }
 
-vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width) {
-
-    int match;
-    int gap_extension;
-    int gap_open;
-    if (read.quality().empty() || !adjust_alignments_for_base_quality) {
-        auto aligner =  get_regular_aligner();
-        match = aligner->match;
-        gap_extension = aligner->gap_extension;
-        gap_open = aligner->gap_open;
-    }
-    else {
-        auto aligner =  get_qual_adj_aligner();
-        match = aligner->match;
-        gap_extension = aligner->gap_extension;
-        gap_open = aligner->gap_open;
-    }
-
-    int total_multimaps = max_multimaps + extra_multimaps;
-
-    // split the alignment up into overlapping chunks of band_width size
-    // force used bandwidth to be divisible by 4
-    // round up so we have > band_width
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "trying band width " << band_width << endl;
-        }
-    }
-#endif
+vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip) {
     if (band_width % 4) {
         band_width -= band_width % 4; band_width += 4;
     }
@@ -2028,68 +2010,123 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     }
 #endif
     // and overlap them too
-    size_t to_align = div * 2 - 1; // number of alignments we'll do
-    vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
+    //int to_align = div * 2 - 1; // number of alignments we'll do
+    //vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
+    //vector<Alignment> bands; bands.resize(to_align);
+
+    int remainder = (int)read.sequence().size() % segment_size;
+    //cerr << "remainder " << remainder << endl;
+    if (remainder % 2) {
+        remainder -= remainder % 2; remainder += 2; // make divisible by 2
+    }
+    //cerr << "remainder adj " << remainder << endl;
+
+    vector<int> start_positions;
+
+    // record the start positions
+    int offset = 0;
+    while (offset+segment_size < read.sequence().size()) {
+        if (offset == 0) {
+            start_positions.push_back(0);
+            if (remainder) {
+                offset += remainder/2;
+            } else {
+                offset += segment_size/2;
+            }
+        } else {
+            start_positions.push_back(offset);
+            offset += segment_size/2;
+        }
+    }
+    // add in the last alignment
+    start_positions.push_back(read.sequence().size()-segment_size);
+    // set up the structures to hold onto the banded alignments
+    int to_align = start_positions.size();
+    to_strip.resize(to_align);
     vector<Alignment> bands; bands.resize(to_align);
+    int i = 0;
+    int q = segment_size/4;
+    for (auto& p : start_positions) {
+        // so that we tend to obtain the path component derived from the middle of alignments
+        // with the exception of the first and last alignments
+        // we will remove half the overlap length from each end
+        // the overlap length is 1/2 the bandwidth, so we remove 1/4 length from each end
+        if (&p == &start_positions.front()) {
+            to_strip[i].second = segment_size - (start_positions[i+1] + q);
+        } else if (&p == &start_positions.back()) {
+            to_strip[i].first = start_positions[i-1]+segment_size-q - p;
+            // if we only have two bands, handle the potential non-divisibility by 2
+            if (start_positions.size() == 2) {
+                to_strip[i].first -= (int)read.sequence().size() % 2;
+            }
+        } else {
+            to_strip[i].first = q;
+            to_strip[i].second = q;
+        }
+        //cerr << "position: " << p << " strip " << to_strip[i].first << " " << to_strip[i].second << endl;
+        auto& aln = bands[i];
+        aln.set_sequence(read.sequence().substr(p, segment_size));
+        if (!read.quality().empty()) aln.set_quality(read.quality().substr(p, segment_size));
+        ++i;
+    }
+    return bands;
+}
+
+vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width) {
+
+    int match;
+    int gap_extension;
+    int gap_open;
+    if (read.quality().empty() || !adjust_alignments_for_base_quality) {
+        auto aligner =  get_regular_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    else {
+        auto aligner =  get_qual_adj_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+
+    int total_multimaps = max_multimaps + extra_multimaps;
+
+    //cerr << "top of align_banded " << pb2json(read) << endl;
+    // split the alignment up into overlapping chunks of band_width size
+    // force used bandwidth to be divisible by 4
+    // round up so we have > band_width
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "trying band width " << band_width << endl;
+        }
+    }
+#endif
 
     // scan across the read choosing bands
     // these bands are hard coded to overlap by 50%
+    // the second and next-to-last bands begin or end remander/2 into the read
     // the last band is guaranteed to be segment_size long
     // overlap scheme example
     // read: ----------------------
     //       --------
-    //           --------
-    //               --------
+    //         --------
+    //              --------
     //                   --------
     //                     --------
     // Afterwards, we align each fragment, trim the overlaps implied by the layout
     // and build up an AlignmentChain model to generate maximum likelihood chains through
     // the bands which define our best to Nth best alignment. Changes to the chain model cost
     // function can be used to enable direct detection of SVs and other large scale variations.
-    for (int i = 0; i < div; ++i) {
-        size_t off = i*segment_size;
-        // TODO: copying the whole read here, including sequence and qualities,
-        // makes this O(n^2).
-        //Alignment aln = read; aln.clear_path();
-        Alignment aln;
-        size_t addl_seq = 0;
-        if (i+1 == div) {
-            // ensure we have a full-length segment for the last alignment
-            // otherwise we run the risk of trying to align a very tiny band
-            size_t last_off = read.sequence().size() - segment_size;
-            if (off > last_off) {
-                // looks wrawng
-                addl_seq = (off - last_off);
-                aln.set_sequence(read.sequence().substr(last_off));
-                if (!read.quality().empty()) aln.set_quality(read.quality().substr(last_off));
-                //assert(aln.sequence().size() == segment_size);
-            } else {
-                aln.set_sequence(read.sequence().substr(off));
-                if (!read.quality().empty()) aln.set_quality(read.quality().substr(off));
-            }
-        } else {
-            aln.set_sequence(read.sequence().substr(off, segment_size));
-            if (!read.quality().empty()) aln.set_quality(read.quality().substr(off, segment_size));
-        }
-        size_t idx = 2*i;
-        to_strip[idx].first = (i == 0 ? 0 : segment_size/4 + addl_seq);
-        to_strip[idx].second = (i+1 == div ? 0 : segment_size/4);
-        bands[idx] = aln;
-        if (i != div-1) { // if we're not at the last sequence
-            aln.set_sequence(read.sequence().substr(off+segment_size/2, segment_size));
-            if (!read.quality().empty()) aln.set_quality(read.quality().substr(off+segment_size/2, segment_size));
-            idx = 2*i+1;
-            to_strip[idx].first = segment_size/4;
-            // record second but take account of case where we run off end
-            to_strip[idx].second = segment_size/4 - (segment_size - aln.sequence().size());
-            bands[idx] = aln;
-        }
-    }
-
+    vector<pair<int, int>> to_strip;
+    vector<Alignment> bands = make_bands(read, band_width, to_strip);
     vector<vector<Alignment>> multi_alns;
-    multi_alns.resize(to_align);
+    multi_alns.resize(bands.size());
 
     auto do_band = [&](int i) {
+        //cerr << "aligning band " << i << endl;
         vector<Alignment>& malns = multi_alns[i];
         double cluster_mq = 0;
         malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, band_multimaps, extra_multimaps, nullptr);
@@ -2122,29 +2159,33 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     // cost function
     auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2) {
         // scoring scheme for unaligned reads
-        if (!aln1.score() && !aln2.score()) {
+        if (!aln1.has_path() && !aln2.has_path()) {
             return -std::numeric_limits<double>::max();
-        } else if (!aln2.score()) {
-            return (double) aln1.score() - aln2.sequence().size() * gap_extension;
+        } else if (!aln2.has_path()) {
+            return (double) aln1.score();// - aln2.sequence().size() * gap_extension;
         } else {
-            return (double) aln2.score() - aln1.sequence().size() * gap_extension;
+            return (double) aln2.score();// - aln1.sequence().size() * gap_extension;
         }
         auto aln1_end = path_end(aln1.path());
         auto aln2_begin = path_start(aln2.path());
-        int dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
-        if (dist > max_band_jump) {
+        int path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
+        int graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+        int dist = min(path_dist, graph_dist);
+        if (dist >= max_band_jump) {
             return -std::numeric_limits<double>::max();
         } else {
             // try to get the precise distance
-            dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+            //dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+            /*
             if (dist >= max_band_jump) {
                 // we discovered that it was too far
                 return -std::numeric_limits<double>::max();
             }
-            double weight = aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
+            */
+            double weight = aln1.sequence().size() + aln2.sequence().size() + aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
             if (aln1_end.is_reverse() != aln2_begin.is_reverse()) {
-                // make inversions cost as much as a full length insertion of the inverted sequence
-                weight -= gap_open + (aln1.sequence().size() + aln1.sequence().size()) * gap_extension;
+                // make inversions cost twice as much as a full length insertion of the inverted sequences
+                weight -= 2 * (gap_open + (aln1.sequence().size() + aln2.sequence().size()) * gap_extension);
             }
             dist = abs(dist);
             weight -= (gap_open + dist * gap_extension);
@@ -2154,10 +2195,17 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
 
     AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump);
     if (debug) chainer.display(cerr);
-    vector<Alignment> alignments = chainer.traceback(read, total_multimaps, false, debug);
+    vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
     for (auto& aln : alignments) {
-        aln.set_score(score_alignment(aln));
+        // patch the alignment
+        //cerr << "patching and simplifying " << pb2json(aln) << endl;
+        //aln = simplify(aln);
+        aln = patch_alignment(aln, band_width);
+        aln.set_score(score_alignment(aln, true));
+        //cerr << "done patching and simplin" << endl;
     }
+    // sort the alignments by score
+    std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
     compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
     filter_and_process_multimaps(alignments, max_multimaps);
     return alignments;
@@ -2286,6 +2334,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
         alns[i] = *get<1>(score); // save the alignment
         prev_best_idx = get<2>(score); // and where we go next
     }
+    cerr << "returning from align banded" << endl;
     return alns;
 }
 
@@ -3881,10 +3930,232 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
     return alns;
 }
 
+Position Mapper::alignment_end_position(const Alignment& aln) {
+    if (!aln.has_path()) { Position pos; return pos; }
+    Alignment b;
+    *b.mutable_path()->add_mapping() = aln.path().mapping(aln.path().mapping_size()-1);
+    b = reverse_complement_alignment(b,
+                                     (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                             return (int64_t)get_node_length(id);
+                                         }));
+    return reverse(b.path().mapping(0).position(),
+                   get_node_length(b.path().mapping(0).position().node_id()));
+}
+
+Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
+    //cerr << "top of patch_alignment" << endl;
+    Alignment patched;
+    // walk along the alignment and find the portions that are unaligned
+    int read_pos = 0;
+    auto& path = aln.path();
+    //auto aligner = get_regular_aligner();
+    //auto qual_adj_aligner = get_qual_adj_aligner();
+    auto& node_cache = get_node_cache();
+    auto& edge_cache = get_edge_cache();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        //cerr << "looking at mapping " << i << " " << pb2json(mapping) << endl;
+        pos_t ref_pos = make_pos_t(mapping.position());
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            //cerr << "looking at edit " << j << " " << pb2json(edit) << endl;
+            if (edit_is_match(edit) || edit_is_sub(edit)) {
+                patched.mutable_sequence()->append(aln.sequence().substr(read_pos, edit.to_length()));
+                Mapping* new_mapping = patched.mutable_path()->add_mapping();
+                *new_mapping->mutable_position() = make_position(ref_pos);
+                *new_mapping->add_edit() = edit;
+                get_offset(ref_pos) += edit.from_length();
+            } else if (edit_is_deletion(edit)) {
+                Mapping* new_mapping = patched.mutable_path()->add_mapping();
+                *new_mapping->mutable_position() = make_position(ref_pos);
+                *new_mapping->add_edit() = edit;
+                get_offset(ref_pos) += edit.from_length();
+            } else if (edit_is_insertion(edit)) {
+                // let's try to patch this insertion into the gap between the neighboring bits
+                //cerr << "patching " << pb2json(edit) << endl;
+                Alignment patch;
+                patch.set_sequence(edit.sequence());
+                if (!aln.quality().empty()) {
+                    patch.set_quality(aln.quality().substr(read_pos, edit.sequence().size()));
+                }
+                vector<Alignment> bands;
+                vector<pair<int, int>> to_strip;
+                if (edit.sequence().size() > max_patch_length) {
+                    // do the banding thing
+                    //cerr << "banding" << endl;
+                    bands = make_bands(patch, max_patch_length, to_strip);
+                } else {
+                    //cerr << "not banding" << endl;
+                    to_strip.push_back(make_pair(0,0));
+                    bands.push_back(patch);
+                }
+                //cerr << "got " << bands.size() << " bands" << endl;
+                //pos_t band_ref_pos = ref_pos;
+                set<pos_t> band_ref_pos;
+                band_ref_pos.insert(ref_pos);
+                for (int k = 0; k < bands.size(); ++k) {
+                    Alignment& band = bands[k];
+                    //cerr << "on band " << k << " " << pb2json(band) << endl;
+                    if (i == 0 && j == 0 && k == 0) {
+                        //cerr << "soft clip at start " << band.sequence() << endl;
+                        //cerr << "ref pos " << band_ref_pos << endl;
+                        // reverse the position, we're going backwards to get the graph off the end of where we are
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
+                            cached_graph_context(graph, pos_rev, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                        // TODO
+                        // ideal: edit it with the path fragment after this, to get the breakpoints right
+                        // and trim off the part matching that bit
+                    } else if (i == path.mapping_size()-1
+                               && j == mapping.edit_size()-1
+                               && k == bands.size()-1) {
+                        //cerr << "soft clip at end " << band.sequence() << endl;
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                    } else {
+                        //cerr << "internal addition" << endl;
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                    }
+#ifdef debug_mapper
+                    if (debug && !check_alignment(band)) {
+                        cerr << "patching failure " << pb2json(band) << endl;
+                        assert(false);
+                    }
+#endif
+                    //cerr << "band before strip " << pb2json(band) << endl;
+                    //cerr << "stripping " << to_strip[k].first << "," << to_strip[k].second << endl;
+                    assert(band.sequence().size() > to_strip[k].first + to_strip[k].second);
+                    band = strip_from_start(band, to_strip[k].first);
+                    band = strip_from_end(band, to_strip[k].second);
+                    band = simplify(band);
+                    band.set_identity(identity(band.path()));
+                    //cerr << "band simplified " << pb2json(band) << endl;
+                    // update the reference end position
+                    if (band.has_path()) {
+                        //cerr << "we have an alignment" << endl;
+                        if (alignment_from_length(band) >= min_mem_length
+                            && band.identity() >= min_identity
+                            && band.sequence().size() >= min_cluster_length) {
+                            //cerr << "new ref pos " << band_ref_pos << endl;
+                            band_ref_pos.clear();
+                            // todo... step our position back just a little to match the banding
+                            // right now we're relying on the chunkiness of the graph to get this for us
+                            // strip back a little
+                            if (to_strip.size() > k+1 && to_strip[k+1].first && band.sequence().size() > to_strip[k+1].first) {
+                                auto band_chew = strip_from_end(band, to_strip[k+1].first);
+                                band_ref_pos.insert(make_pos_t(alignment_end_position(band_chew)));
+                            } else {
+                                band_ref_pos.insert(make_pos_t(alignment_end_position(band)));
+                            }
+#ifdef debug_mapper
+                            if (debug && !check_alignment(band)) {
+                                cerr << "failed band " << pb2json(band) << endl;
+                                assert(false);
+                            }
+#endif
+                        } else {
+                            //cerr << "clearing the path" << endl;
+                            band.clear_path();
+                            // TODO try to align over a bigger chunk after this
+                        }
+                    }
+                    if (band.path().mapping_size() == 0) {
+                        //cerr << "the hack" << endl;
+                        // hack to make merging work when we are unaligned
+                        band.set_score(0);
+                        band.clear_path();
+                        Mapping* m = band.mutable_path()->add_mapping();
+                        Edit* e = m->add_edit();
+                        e->set_sequence(band.sequence());
+                        e->set_to_length(band.sequence().size());
+                        if (!band_ref_pos.empty()) {
+                            *m->mutable_position() = make_position(*band_ref_pos.begin());
+                        } // should we alternatively set ourselves back to the ref_pos?
+                        // walk graph to estimate next position based on assumption we are ~ homologous to the graph
+                        set<pos_t> next_pos;
+                        for (auto& pos : band_ref_pos) {
+                            for (auto& next : positions_bp_from(pos, band.sequence().size(), false)) {
+                                next_pos.insert(next);
+                            }
+                        }
+                        band_ref_pos = next_pos;
+                    }
+                }
+                /*
+                cerr << "done bands" << endl;
+                for (auto& band : bands) {
+                    cerr << "band: " << pb2json(band) << endl;
+                }
+                */
+                patch = merge_alignments(bands);
+                if (patch.sequence() != edit.sequence()) {
+                    cerr << "sequence mismatch" << endl;
+                    cerr << "seq_expect: " << edit.sequence() << endl;
+                    cerr << "seq_got:    " << patch.sequence() << endl;
+                    assert(false);
+                }
+#ifdef debug_mapper
+                if (debug && !check_alignment(patch)) {
+                    cerr << "failed patch merge " << pb2json(patch) << endl;
+                    assert(false);
+                }
+#endif
+                //cerr << "adding " << pb2json(patch) << endl;
+                if (patched.path().mapping_size()) {
+                    extend_alignment(patched, patch);
+                } else {
+                    patched = patch;
+                }
+                /*
+                if (!check_alignment(patched)) {
+                    cerr << "failed patched extend " << pb2json(patched) << endl;
+                    assert(false);
+                }
+                */
+            }
+            read_pos += edit.to_length();
+        }
+    }
+    // finally, fix up the alignment score
+    patched.set_sequence(aln.sequence());
+    if (!aln.quality().empty()) {
+        patched.set_quality(aln.quality());
+    }
+#ifdef debug_mapper
+    if (debug && !check_alignment(patched)) {
+        cerr << "failed final alignment " << pb2json(patched) << endl;
+        assert(false);
+    }
+#endif
+    // simplify the mapping representation
+    patched = simplify(patched);
+    // set the identity
+    patched.set_identity(identity(patched.path()));
+    // recompute the score
+    patched.set_score(score_alignment(patched, true));
+    return patched;
+}
+
 // generate a score from the alignment without realigning
 // handles split alignments, where gaps of unknown length are
 // by estimating length using the positional paths embedded in the graph
-int32_t Mapper::score_alignment(const Alignment& aln) {
+int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
@@ -3930,7 +4201,11 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
             }
 #endif
-            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            int dist =
+                (use_approx_distance ?
+                 approx_distance(make_pos_t(last_pos), make_pos_t(next_pos))
+                 :
+                 graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size()));
             if (dist == aln.sequence().size()) {
 #ifdef debug_mapper
 #pragma omp critical

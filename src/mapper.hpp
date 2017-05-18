@@ -182,6 +182,8 @@ private:
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
     void filter_and_process_multimaps(vector<Alignment>& all_alns, int total_multimaps);
+    // make the bands used in banded alignment
+    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
     // Return the one best banded alignment.
     vector<Alignment> align_banded(const Alignment& read,
                                    int kmer_size = 0,
@@ -280,6 +282,7 @@ public:
     deque<bool> fragment_orientations;
     deque<bool> fragment_directions;
     void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
+    string fragment_model_str(void);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
     double fragment_length_pdf(double length);
@@ -290,7 +293,7 @@ public:
     bool cached_fragment_orientation;
     bool cached_fragment_direction;
     int since_last_fragment_length_estimate;
-    int fragment_length_estimate_interval;
+    int fragment_model_update_interval;
 
     double estimate_gc_content(void);
     int random_match_length(double chance_random);
@@ -331,9 +334,11 @@ public:
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
     // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
-    int32_t score_alignment(const Alignment& aln);
+    int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
     int32_t rescore_without_full_length_bonus(const Alignment& aln);
+    // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
+    Alignment patch_alignment(const Alignment& aln, int max_patch_length);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // helper to cluster subgraph
@@ -343,7 +348,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip);
+    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -439,6 +444,8 @@ public:
     int approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
     int approx_alignment_position(const Alignment& aln);
+    // get the end position of the alignment
+    Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
     int approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
@@ -530,6 +537,7 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
+    bool fixed_fragment_model;
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
