@@ -25,8 +25,8 @@ class VGCITest(TestCase):
     def setUp(self):
         self.workdir = tempfile.mkdtemp()
         
-        self.f1_threshold = 0.002
-        self.auc_threshold = 0.002
+        self.f1_threshold = 0.02
+        self.auc_threshold = 0.02
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
         self.verify = True
@@ -110,7 +110,7 @@ class VGCITest(TestCase):
         out_store = self._outstore(tag)
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
-            opts += '--vg_docker {} False '.format(self.vg_docker)
+            opts += '--vg_docker {} '.format(self.vg_docker)
         if chrom:
             opts += '--chroms {} '.format(chrom)
         if graph_path:
@@ -171,7 +171,7 @@ class VGCITest(TestCase):
                           self._input('platinum_NA12878_{}.fq.gz'.format(region)),
                           self._input('platinum_NA12878_{}.vcf.gz'.format(region)),
                           self._input('chr{}.fa.gz'.format(chrom)), True,
-                          '--call_opts \'--offset {}\''.format(offset), tag)
+                          '--vcf_offsets {}'.format(offset), tag)
 
         if self.verify:
             self._verify_f1('NA12878', tag)
@@ -187,7 +187,7 @@ class VGCITest(TestCase):
         # start by simulating some reads
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
-            opts += '--vg_docker {} False '.format(self.vg_docker)
+            opts += '--vg_docker {} '.format(self.vg_docker)
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
@@ -199,7 +199,7 @@ class VGCITest(TestCase):
         # then run mapeval
         opts = '--realTimeLogging --logInfo '        
         if self.vg_docker:
-            opts += '--vg_docker {} False '.format(self.vg_docker)
+            opts += '--vg_docker {} '.format(self.vg_docker)
         opts += '--maxCores {} '.format(self.cores)
         opts += '--bwa --bwa-paired --vg-paired '
         opts += '--fasta {} '.format(fasta_path)
@@ -237,7 +237,8 @@ class VGCITest(TestCase):
                 key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
-            self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+            # disable roc test for now
+            #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
         
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs):
         """ Run simulation on a bakeoff graph """
@@ -252,13 +253,13 @@ class VGCITest(TestCase):
             self._verify_mapeval(reads, tag)
 
     @timeout_decorator.timeout(3600)
-    def atest_sim_brca2_snp1kg(self):
+    def test_sim_brca2_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'])
 
     @timeout_decorator.timeout(3600)
-    def atest_sim_mhc_snp1kg(self):
+    def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'])    
@@ -269,71 +270,78 @@ class VGCITest(TestCase):
         self._test_bakeoff('BRCA1', 'primary', True)
 
     @timeout_decorator.timeout(200)        
-    def atest_map_brca1_snp1kg(self):
+    def test_map_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         self._test_bakeoff('BRCA1', 'snp1kg', True)
 
     @timeout_decorator.timeout(200)        
-    def atest_map_brca1_cactus(self):
+    def test_map_brca1_cactus(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 cactus graph """
         self._test_bakeoff('BRCA1', 'cactus', True)
 
     @timeout_decorator.timeout(300)        
-    def atest_full_brca2_primary(self):
+    def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
         self._test_bakeoff('BRCA2', 'primary', True)
 
     @timeout_decorator.timeout(300)        
-    def atest_full_brca2_snp1kg(self):
+    def test_full_brca2_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 snp1kg graph """
         self._test_bakeoff('BRCA2', 'snp1kg', True)
 
     @timeout_decorator.timeout(300)        
-    def atest_full_brca2_cactus(self):
+    def test_full_brca2_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 cactus graph """
         self._test_bakeoff('BRCA2', 'cactus', True)
 
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(2000)        
-    def atest_map_sma_primary(self):
+    def test_map_sma_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA primary graph """
         self._test_bakeoff('SMA', 'primary', True)
 
+    @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(2000)        
-    def atest_map_sma_snp1kg(self):
+    def test_map_sma_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA snp1kg graph """
         self._test_bakeoff('SMA', 'snp1kg', True)
-        
+
+    @skip("skipping test to keep runtime down")        
     @timeout_decorator.timeout(2000)        
-    def atest_map_sma_cactus(self):
+    def test_map_sma_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for SMA cactus graph """
         self._test_bakeoff('SMA', 'cactus', True)
 
+    @skip("skipping test to keep runtime down")         
     @timeout_decorator.timeout(2000)        
-    def atest_map_lrc_kir_primary(self):
+    def test_map_lrc_kir_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR primary graph """
         self._test_bakeoff('LRC-KIR', 'primary', True)
 
+    @skip("skipping test to keep runtime down")         
     @timeout_decorator.timeout(2000)        
-    def atest_map_lrc_kir_snp1kg(self):
+    def test_map_lrc_kir_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR snp1kg graph """
         self._test_bakeoff('LRC-KIR', 'snp1kg', True)
         
+    @skip("skipping test to keep runtime down")         
     @timeout_decorator.timeout(2000)        
-    def atest_map_lrc_kir_cactus(self):
+    def test_map_lrc_kir_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for LRC-KIR cactus graph """
-        self._test_bakeoff('SMA', 'cactus', True)
+        self._test_bakeoff('LRC-KIR', 'cactus', True)
 
     @timeout_decorator.timeout(10000)        
-    def atest_map_mhc_primary(self):
+    def test_map_mhc_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         self._test_bakeoff('MHC', 'primary', True)
 
     @timeout_decorator.timeout(10000)        
-    def atest_map_mhc_snp1kg(self):
+    def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
         self._test_bakeoff('MHC', 'snp1kg', True)
-        
+
+    @skip("skipping test to keep runtime down (baseline missing as well)")          
     @timeout_decorator.timeout(10000)        
-    def atest_map_mhc_cactus(self):
+    def test_map_mhc_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC cactus graph """
-        self._test_bakeoff('SMA', 'cactus', True)
+        self._test_bakeoff('MHC', 'cactus', True)
