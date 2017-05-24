@@ -717,7 +717,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         gap_extension = aligner->gap_extension;
         gap_open = aligner->gap_open;
     }
-    int total_multimaps = max_multimaps + extra_multimaps;
+    int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
 
     if(debug) {
@@ -1369,7 +1369,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         gap_open = aligner->gap_open;
     }
 
-    int total_multimaps = max_multimaps + additional_multimaps;
+    int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
 
     {
@@ -2090,7 +2090,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         gap_open = aligner->gap_open;
     }
 
-    int total_multimaps = max_multimaps + extra_multimaps;
+    int total_multimaps = max(max_multimaps, extra_multimaps);
 
     //cerr << "top of align_banded " << pb2json(read) << endl;
     // split the alignment up into overlapping chunks of band_width size
