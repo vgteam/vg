@@ -753,19 +753,17 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Splice left and right tails together with any remaining sequence we didn't have
         
-        // One problem we have to account for is the fact that the alignments we
-        // are splicing may overlap. This can happen e.g. if we see both of the
-        // TSD copies from a mobile element insertion, and we align them both
-        // back to the reference version.
+        // One problem we cah have is the fact that the alignments we are
+        // splicing may overlap. This can happen e.g. if we see both of the TSD
+        // copies from a mobile element insertion, and we align them both back
+        // to the reference version.
         
-        cerr << "\tBefore deoverlap: " << pb2json(aln_right) << endl;
+        // It's going to be much more complicated to try and prevent this from
+        // happening than it will be to just deal with the resulting cycles,
+        // which can describe real homology anyway.
         
-        // We solve this by looking where the left tail alignment goes, and
-        // replacing things in the right tail with inserts until it no longer
-        // overlaps with the left tail.
-        aln_right = deoverlap_alignment(aln_right, aln_left);
-        
-        cerr << "\tAfter deoverlap: " << pb2json(aln_right) << endl;
+        // But we do have to think about overlap between the query sequences
+        // themselves...
         
         // How much overlap is there between the two tails? May be negative.
         int64_t overlap = (int64_t) aln_left.sequence().size() +
@@ -822,65 +820,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     return aln;
 
 }
-
-Alignment VariantAdder::deoverlap_alignment(const Alignment& aln, const Alignment& other) {
-    // We want to modify and return aln so that it doesn't use any reference material that other also uses.
-    
-    // Easy solution: just kick it off of nodes
-    
-    set<id_t> used_nodes;
-    
-    for(size_t i = 0; i < other.path().mapping_size(); i++){
-        // Track all the nodes that the other alignment uses
-        auto& mapping = other.path().mapping(i);
-        used_nodes.insert(mapping.position().node_id());
-    }
-    
-    // Make the new alignment
-    Alignment to_return;
-    to_return.set_sequence(aln.sequence());
-    auto* path = to_return.mutable_path();
-    
-    // Keep track of where we are in the sequence
-    size_t sequence_position = 0;
-    
-    for (size_t i = 0; i < aln.path().mapping_size(); i++) {
-        // For every mapping we are vetting
-        auto& mapping = aln.path().mapping(i);
-        
-        // How much sequence do we use?
-        size_t sequence_used = mapping_to_length(mapping);
-        
-        if (used_nodes.count(mapping.position().node_id())) {
-            // This mapping wants to use a node we already used before, which
-            // would put a cycle in our alignment
-            
-            // Build an insert that inserts this mapping's sequence.
-            Mapping insert_mapping;
-            auto* insert_edit = insert_mapping.add_edit();
-            insert_edit->set_to_length(sequence_used);
-            insert_edit->set_sequence(aln.sequence().substr(sequence_position, sequence_used));
-            
-            // Don't bother giving it a position. We will see if that works.
-            
-            // Stick it in the path.
-            *path->add_mapping() = insert_mapping;
-            
-            cerr << "Removed overlap on " << mapping.position().node_id() << endl;
-        } else {
-            // This mapping is fine and doesn't re-use a node. Keep it. TODO: we
-            // still can't guarantee it won't introduce cycles to the graph, but
-            // it at least won't make super simple obvious ones.
-            *path->add_mapping() = mapping;
-        }
-        
-        // Consume that sequence.
-        sequence_position += sequence_used;
-    }
-    
-    return to_return;
-}
-
 #undef debug
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
