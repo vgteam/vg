@@ -20,7 +20,20 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.dice_nodes(1024);
 }
 
+#define debug
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
+    
+    // Count our current heads and tails
+    vector<Node*> to_count;
+    
+    graph.head_nodes(to_count);
+    size_t head_expected = to_count.size();
+    to_count.clear();
+    graph.tail_nodes(to_count);
+    size_t tail_expected = to_count.size();
+    to_count.clear();
+    
+    cerr << "Starting with heads: " << head_expected << " and tails: " << tail_expected << endl;
     
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
@@ -376,6 +389,38 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 << (used_haplotypes ? (total_graph_bases / used_haplotypes) : 0) << " bp haplotypes vs. graphs average" << endl;
         }
         
+        // Count our current heads and tails
+        graph.head_nodes(to_count);
+        size_t head_count = to_count.size();
+        cerr << "Heads: ";
+        for(auto head : to_count) {
+            cerr << head->id() << " ";
+        }
+        cerr << endl;
+        to_count.clear();
+        graph.tail_nodes(to_count);
+        cerr << "Tails: ";
+        for(auto tail : to_count) {
+            cerr << tail->id() << " ";
+        }
+        cerr << endl;
+        size_t tail_count = to_count.size();
+        to_count.clear();
+        
+        cerr << "Heads count: " << head_count << ", Tail count: " << tail_count << endl;
+
+        if (head_count != head_expected || tail_count != tail_expected) {
+            cerr << "Error! Count mismatch!" << endl;
+            // Bail out but serialize the graph
+            return;
+        }
+        
+        
+        if(variants_processed == 4) {
+            // Stop on our problem variant
+            cerr << "Debug: stop early!" << endl;
+            return;
+        }
     }
 
     // Clean up after the last contig.
@@ -708,6 +753,20 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Splice left and right tails together with any remaining sequence we didn't have
         
+        // One problem we have to account for is the fact that the alignments we
+        // are splicing may overlap. This can happen e.g. if we see both of the
+        // TSD copies from a mobile element insertion, and we align them both
+        // back to the reference version.
+        
+        cerr << "\tBefore deoverlap: " << pb2json(aln_right) << endl;
+        
+        // We solve this by looking where the left tail alignment goes, and
+        // replacing things in the right tail with inserts until it no longer
+        // overlaps with the left tail.
+        aln_right = deoverlap_alignment(aln_right, aln_left);
+        
+        cerr << "\tAfter deoverlap: " << pb2json(aln_right) << endl;
+        
         // How much overlap is there between the two tails? May be negative.
         int64_t overlap = (int64_t) aln_left.sequence().size() +
             (int64_t) aln_right.sequence().size() - (int64_t) to_align.size();
@@ -759,9 +818,70 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     // TODO: check if we got alignments that didn't respect our specified
     // endpoints by one of the non-splicing-together alignment methods.
     
+    cerr << pb2json(aln) << endl;
     return aln;
 
 }
+
+Alignment VariantAdder::deoverlap_alignment(const Alignment& aln, const Alignment& other) {
+    // We want to modify and return aln so that it doesn't use any reference material that other also uses.
+    
+    // Easy solution: just kick it off of nodes
+    
+    set<id_t> used_nodes;
+    
+    for(size_t i = 0; i < other.path().mapping_size(); i++){
+        // Track all the nodes that the other alignment uses
+        auto& mapping = other.path().mapping(i);
+        used_nodes.insert(mapping.position().node_id());
+    }
+    
+    // Make the new alignment
+    Alignment to_return;
+    to_return.set_sequence(aln.sequence());
+    auto* path = to_return.mutable_path();
+    
+    // Keep track of where we are in the sequence
+    size_t sequence_position = 0;
+    
+    for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+        // For every mapping we are vetting
+        auto& mapping = aln.path().mapping(i);
+        
+        // How much sequence do we use?
+        size_t sequence_used = mapping_to_length(mapping);
+        
+        if (used_nodes.count(mapping.position().node_id())) {
+            // This mapping wants to use a node we already used before, which
+            // would put a cycle in our alignment
+            
+            // Build an insert that inserts this mapping's sequence.
+            Mapping insert_mapping;
+            auto* insert_edit = insert_mapping.add_edit();
+            insert_edit->set_to_length(sequence_used);
+            insert_edit->set_sequence(aln.sequence().substr(sequence_position, sequence_used));
+            
+            // Don't bother giving it a position. We will see if that works.
+            
+            // Stick it in the path.
+            *path->add_mapping() = insert_mapping;
+            
+            cerr << "Removed overlap on " << mapping.position().node_id() << endl;
+        } else {
+            // This mapping is fine and doesn't re-use a node. Keep it. TODO: we
+            // still can't guarantee it won't introduce cycles to the graph, but
+            // it at least won't make super simple obvious ones.
+            *path->add_mapping() = mapping;
+        }
+        
+        // Consume that sequence.
+        sequence_position += sequence_used;
+    }
+    
+    return to_return;
+}
+
+#undef debug
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;

@@ -139,6 +139,15 @@ protected:
     set<string> path_names;
     
     /**
+     * Turn parts of aln that overlap with other into inserts so they don't
+     * overlap anymore. Used to avoid creating cycles when splicing together
+     * end-anchored alignments. TODO: cycles maybe do make the most sense in
+     * those cases, so we should get rid of this when the caller is smart enough
+     * to use them.
+     */
+    Alignment deoverlap_alignment(const Alignment& aln, const Alignment& other);
+    
+    /**
      * Get all the unique combinations of variant alts represented by actual
      * haplotypes. Arbitrarily phases unphased variants.
      *
