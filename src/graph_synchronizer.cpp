@@ -96,9 +96,6 @@ void GraphSynchronizer::Lock::lock() {
             NodeSide start_left = synchronizer.get_path_index(path_name).at_position(start);
             NodeSide end_right = synchronizer.get_path_index(path_name).at_position(past_end == 0 ? 0 : past_end - 1).flip();
             
-            cerr << "Start: " << start << " at " << start_left << endl;
-            cerr << "End: " << past_end << " at " << end_right << endl;
-            
             // Fill in the endpoints pair
             endpoints = make_pair(start_left, end_right);
             
@@ -361,11 +358,6 @@ vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& 
     // Find everything attached to the left
     auto dangling = get_peripheral_attachments(ends.first);
     
-    cerr << "First end of graph " << ends.first << " is attached to " << endl;
-    for (auto d : dangling) {
-        cerr << "\t" << d << endl;
-    }
-    
     // Apply the edit, attaching its left end to the stuff attached to the left
     // end of the graph. Get back in the dangling set where the right end of the
     // edit's material is.
@@ -374,11 +366,6 @@ vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& 
     // Get the places that the right end of the graph attaches to
     auto right_periphery = get_peripheral_attachments(ends.second);
     
-    cerr << "Second end of graph " << ends.second << " is attached to " << endl;
-    for (auto d : right_periphery) {
-        cerr << "\t" << d << endl;
-    }
-    
     // Get ownership of the graph because we're making edges
     std::lock_guard<std::mutex> guard(synchronizer.whole_graph_lock);
     
@@ -386,7 +373,6 @@ vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& 
         // For every dangling NodeSide
         for (const NodeSide& attached : right_periphery) {
             // Attach it to each NodeSide the right end of the graph is attached to
-            cerr << "Create edge " << dangled << " -- " << attached << endl;
             synchronizer.graph.create_edge(dangled, attached);
         }
     }

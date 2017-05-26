@@ -4655,9 +4655,11 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // from start positions on old nodes to new nodes.
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
     
+#ifdef debug
     for(auto& kv : node_translation) {
         cerr << "Translate old " << kv.first << " to " << (kv.second == nullptr ? (id_t)0 : (id_t)kv.second->id()) << endl;
     }
+#endif
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
     map<pair<pos_t, string>, vector<Node*>> added_seqs;
@@ -5151,7 +5153,7 @@ void VG::add_nodes_and_edges(const Path& path,
             //get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
             get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
 
-#define debug_edit true
+//#define debug_edit true
 #ifdef debug_edit
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
             cerr << pb2json(e) << endl;
@@ -5217,11 +5219,13 @@ void VG::add_nodes_and_edges(const Path& path,
                 if (added != added_seqs.end()) {
                     // if we have the node run already, don't make it again, just use the existing one
                     new_nodes = added->second;
+#ifdef debug_edit
                     cerr << "Re-using already added nodes: ";
                     for (auto n : new_nodes) {
                         cerr << n->id() << " ";
                     }
                     cerr << endl;
+#endif
                 } else {
                     // Make a new run of nodes of up to max_node_size each
                     
@@ -5235,12 +5239,15 @@ void VG::add_nodes_and_edges(const Path& path,
                         Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
                         cursor += max_node_size;
                         
+#ifdef debug_edit
                         cerr << "Create new node " << pb2json(*new_node) << endl;
-                        
+#endif
                         if (!new_nodes.empty()) {
                             // Connect each to the previous node in the chain.
                             Edge* e = create_edge(new_nodes.back(), new_node);
+#ifdef debug_edit
                             cerr << "Create edge " << pb2json(*e) << endl;
+#endif
                         }
                         
                         // Remember the new node
@@ -5377,7 +5384,7 @@ void VG::add_nodes_and_edges(const Path& path,
             // This way the next one will start at the right place.
             get_offset(edit_first_position) += e.from_length();
 
-#undef debug_edut
+//#undef debug_edut
         }
 
     }

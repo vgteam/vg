@@ -20,9 +20,9 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.dice_nodes(1024);
 }
 
-#define debug
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
+#ifdef debug
     // Count our current heads and tails
     vector<Node*> to_count;
     
@@ -34,6 +34,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     to_count.clear();
     
     cerr << "Starting with heads: " << head_expected << " and tails: " << tail_expected << endl;
+#endif
     
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
@@ -389,6 +390,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 << (used_haplotypes ? (total_graph_bases / used_haplotypes) : 0) << " bp haplotypes vs. graphs average" << endl;
         }
         
+        
+#ifdef debug
         // Count our current heads and tails
         graph.head_nodes(to_count);
         size_t head_count = to_count.size();
@@ -414,13 +417,8 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             // Bail out but serialize the graph
             return;
         }
+#endif
         
-        
-        if(variants_processed == 4) {
-            // Stop on our problem variant
-            cerr << "Debug: stop early!" << endl;
-            return;
-        }
     }
 
     // Clean up after the last contig.
@@ -816,11 +814,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     // TODO: check if we got alignments that didn't respect our specified
     // endpoints by one of the non-splicing-together alignment methods.
     
-    cerr << pb2json(aln) << endl;
     return aln;
 
 }
-#undef debug
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;
