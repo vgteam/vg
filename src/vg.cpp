@@ -1356,9 +1356,11 @@ void VG::normalize(int max_iter) {
     }
 }
 
-void VG::remove_non_path(void) {
-    set<Edge*> path_edges;
-    function<void(const Path&)> lambda = [this, &path_edges](const Path& path) {
+set<Edge*> VG::get_path_edges(void) {
+    // We'll populate a set with edges.
+    // This set shadows our function anme but we're not recursive so that's fine.
+    set<Edge*> edges;
+    function<void(const Path&)> lambda = [this, &edges](const Path& path) {
         for (size_t i = 1; i < path.mapping_size(); ++i) {
             auto& m1 = path.mapping(i-1);
             auto& m2 = path.mapping(i);
@@ -1368,7 +1370,7 @@ void VG::remove_non_path(void) {
             // check that we always have an edge between the two nodes in the correct direction
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
-            path_edges.insert(edge);
+            edges.insert(edge);
         }
         // if circular, include the cycle-closing edge
         if (path.is_circular()) {
@@ -1380,11 +1382,19 @@ void VG::remove_non_path(void) {
             // check that we always have an edge between the two nodes in the correct direction
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
-            path_edges.insert(edge);
+            edges.insert(edge);
 
         }
     };
     paths.for_each(lambda);
+    return edges;
+}
+
+void VG::remove_non_path(void) {
+    
+    // Determine which edges are used
+    set<Edge*> path_edges(get_path_edges());
+    
     // now determine which edges aren't used
     set<Edge*> non_path_edges;
     for_each_edge([this, &path_edges, &non_path_edges](Edge* e) {
@@ -1404,6 +1414,27 @@ void VG::remove_non_path(void) {
             }
         });
     for (auto id : non_path_nodes) {
+        destroy_node(id);
+    }
+}
+
+void VG::remove_path(void) {
+    
+    // Determine which edges are used
+    set<Edge*> path_edges(get_path_edges());
+    
+    // and destroy them
+    for (auto* e : path_edges) {
+        destroy_edge(e);
+    }
+
+    set<id_t> path_nodes;
+    for_each_node([this, &path_nodes](Node* n) {
+            if (paths.has_node_mapping(n->id())) {
+                path_nodes.insert(n->id());
+            }
+        });
+    for (auto id : path_nodes) {
         destroy_node(id);
     }
 }
