@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 11
+plan tests 12
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -61,4 +61,13 @@ vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >minigi
 vg index -k 11 -g m.gcsa -x m.xg minigiab.vg
 is $(vg map -b minigiab/NA12878.chr22.tiny.bam -x m.xg -g m.gcsa | vg surject -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from BAM input"
 is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
-rm -rf minigiab.vg* m.xg m.gcsa
+
+echo '{"sequence": "GATTACA", "path": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}], "mapping_quality": 99}' | vg view -JGa - > read.gam
+
+is "$(vg surject -x m.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
+
+rm -rf minigiab.vg* m.xg m.gcsa read.gam
+ 
+
+
+
