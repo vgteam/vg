@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 12
+plan tests 13
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -65,6 +65,10 @@ is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject 
 echo '{"sequence": "GATTACA", "path": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}], "mapping_quality": 99}' | vg view -JGa - > read.gam
 
 is "$(vg surject -x m.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
+
+echo '{"name": "read2", "sequence": "GATTACA", "path": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}], "fragment_prev": {"name": "read1"}}' | vg view -JGa - > read.gam
+
+is "$(vg surject -x m.xg read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read1" "read pairing is preserved through surjection"
 
 rm -rf minigiab.vg* m.xg m.gcsa read.gam
  
