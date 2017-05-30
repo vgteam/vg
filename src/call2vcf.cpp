@@ -798,8 +798,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             second_best_allele != -1 &&
             bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
             total(best_support) >= min_total_support_for_call &&
-            total(second_best_support) >= min_total_support_for_call &&
-            total(second_best_support) >= min_mad_for_filter) {
+            total(second_best_support) >= min_total_support_for_call) {
             // There's a second best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
             // second-best allele has enough support that it won't torpedo the
