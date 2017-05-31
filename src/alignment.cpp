@@ -614,19 +614,6 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
-    if (alignment.score() == 0) {
-        // unmapped
-        flag |= BAM_FUNMAP;
-    } else {
-        // correctly aligned
-        flag |= BAM_FPROPER_PAIR;
-    }
-    if (on_reverse_strand) {
-        flag |= BAM_FREVERSE;
-    }
-    if (alignment.is_secondary()) {
-        flag |= BAM_FSECONDARY;
-    }
     auto& name = alignment.name();
     if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/1")) {
         // This is the first read in a pair
@@ -636,6 +623,22 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
         // This is the second read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD2);
     }
+
+    if (alignment.score() == 0) {
+        // unmapped
+        flag |= BAM_FUNMAP;
+    } else if (flag & BAM_FPAIRED) {
+        // Aligned and in a pair, so assume it's properly paired.
+        // TODO: this relies on us not emitting improperly paired reads
+        flag |= BAM_FPROPER_PAIR;
+    }
+    if (on_reverse_strand) {
+        flag |= BAM_FREVERSE;
+    }
+    if (alignment.is_secondary()) {
+        flag |= BAM_FSECONDARY;
+    }
+    
     
     
     return flag;

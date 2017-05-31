@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 15
+plan tests 16
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -51,6 +51,7 @@ echo '{"name": "read/1", "sequence": "GATT", "path": {"mapping": [{"position": {
 vg surject -s -p x -x x.xg reads.gam > surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjection of paired reads to SAM produces crossreferences"
+is "$(cat surjected.sam | grep -v '^@' | cut -f 2 | sort -n)" "$(printf '67\n147')" "surjection of paired reads to SAM produces correct flags"
 
 rm -rf j.vg x.vg x.idx j.xg x.xg x.gcsa read.gam reads.gam surjected.sam
 
