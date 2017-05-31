@@ -100,6 +100,7 @@ OBJ += $(OBJ_DIR)/graph_synchronizer.o
 OBJ += $(OBJ_DIR)/vg_algorithms.o
 OBJ += $(OBJ_DIR)/nested_traversal_finder.o
 OBJ += $(OBJ_DIR)/option.o
+OBJ += $(OBJ_DIR)/haplotype_extracter.o
 OBJ += $(OBJ_DIR)/gamsorter.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
@@ -144,10 +145,10 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/snarls_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/explode_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/call_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/genotype_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/trace_main.o 
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/gamsort_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/msga_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/map_main.o
-
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -469,6 +470,9 @@ $(OBJ_DIR)/nested_traversal_finder.o: $(SRC_DIR)/nested_traversal_finder.cpp $(S
 
 $(OBJ_DIR)/option.o: $(SRC_DIR)/option.cpp $(SRC_DIR)/option.hpp $(DEPS)
 
+$(OBJ_DIR)/haplotype_extracter.o: $(SRC_DIR)/haplotype_extracter.cpp $(SRC_DIR)/haplotype_extracter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
 ### Algorithms ###
 
 $(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
@@ -583,6 +587,9 @@ $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp
 # Protobuf stuff builds into its same directory
 $(CPP_DIR)/%.o : $(CPP_DIR)/%.cc
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
+$(SUBCOMMAND_OBJ_DIR)/trace_main.o: $(SUBCOMMAND_SRC_DIR)/trace_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/haplotype_extracter.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
 ## VG source code compilation ends here

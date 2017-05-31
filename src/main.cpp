@@ -5265,7 +5265,7 @@ int main(int argc, char *argv[])
         return main_locify(argc, argv);
     } else if (command == "sort") {
         return main_sort(argc, argv);
-    }else {
+    } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
