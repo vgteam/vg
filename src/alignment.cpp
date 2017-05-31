@@ -1,6 +1,8 @@
 #include "alignment.hpp"
 #include "stream.hpp"
 
+#include <regex>
+
 namespace vg {
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
@@ -463,12 +465,15 @@ string alignment_to_sam(const Alignment& alignment,
                         const int32_t matepos,
                         const int32_t tlen) {
                         
-    // Determine flags, using orientation.
+    // Determine flags, using orientation and read name suffix.
     int32_t flags = sam_flag(alignment, refrev);
     
     stringstream sam;
 
-    sam << (!alignment.name().empty() ? alignment.name() : "*") << "\t"
+    // We need to strip the /1 and /2 from paired reads so the two ends have the same name.
+    string alignment_name = regex_replace(alignment.name(), regex("/[12]$"), "");
+
+    sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
         << refpos + 1 << "\t"
@@ -609,11 +614,22 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
+    auto& name = alignment.name();
+    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/1")) {
+        // This is the first read in a pair
+        flag |= (BAM_FPAIRED | BAM_FREAD1);
+    }
+    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/2")) {
+        // This is the second read in a pair
+        flag |= (BAM_FPAIRED | BAM_FREAD2);
+    }
+
     if (alignment.score() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
-    } else {
-        // correctly aligned
+    } else if (flag & BAM_FPAIRED) {
+        // Aligned and in a pair, so assume it's properly paired.
+        // TODO: this relies on us not emitting improperly paired reads
         flag |= BAM_FPROPER_PAIR;
     }
     if (on_reverse_strand) {
@@ -622,6 +638,9 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     if (alignment.is_secondary()) {
         flag |= BAM_FSECONDARY;
     }
+    
+    
+    
     return flag;
 }
 

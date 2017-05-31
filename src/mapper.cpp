@@ -4325,7 +4325,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                                     int window) {
 
     Alignment surjection = source;
-    surjection.clear_mapping_quality();
+    // Leave the original mapping quality in place (because that's the quality
+    // on the placement of this read in this region at all)
     surjection.clear_score();
     surjection.clear_identity();
     surjection.clear_path();
