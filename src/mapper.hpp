@@ -20,7 +20,7 @@
 
 namespace vg {
 
-// uncomment to enable vg map --debug
+// uncomment to make vg map --debug very interesting
 //#define debug_mapper
 
 using namespace std;
@@ -109,7 +109,49 @@ public:
 };
 
 
-class Mapper {
+// for banded long read alignment resolution
+
+class AlignmentChainModelVertex {
+public:
+    Alignment* aln;
+    vector<pair<AlignmentChainModelVertex*, double> > next_cost; // for forward
+    vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
+    double weight;
+    double score;
+    int approx_position;
+    int band_begin;
+    int band_idx;
+    AlignmentChainModelVertex* prev;
+    AlignmentChainModelVertex(void) = default;                                      // Copy constructor
+    AlignmentChainModelVertex(const AlignmentChainModelVertex&) = default;               // Copy constructor
+    AlignmentChainModelVertex(AlignmentChainModelVertex&&) = default;                    // Move constructor
+    AlignmentChainModelVertex& operator=(const AlignmentChainModelVertex&) & = default;  // AlignmentChainModelVertexopy assignment operator
+    AlignmentChainModelVertex& operator=(AlignmentChainModelVertex&&) & = default;       // Move assignment operator
+    virtual ~AlignmentChainModelVertex() { }                     // Destructor
+};
+
+class AlignmentChainModel {
+public:
+    vector<AlignmentChainModelVertex> model;
+    map<int, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
+    set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
+    vector<Alignment> unaligned_bands;
+    AlignmentChainModel(
+        vector<vector<Alignment> >& bands,
+        Mapper* mapper,
+        const function<double(const Alignment&, const Alignment&)>& transition_weight,
+        int band_width = 10,
+        int position_depth = 1,
+        int max_connections = 10);
+    void score(const set<AlignmentChainModelVertex*>& exclude);
+    AlignmentChainModelVertex* max_vertex(void);
+    vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
+    void display(ostream& out);
+    void clear_scores(void);
+};
+
+
+class Mapper : public Progressive {
 
 
 private:
@@ -133,22 +175,31 @@ private:
                                            int max_mem_length,
                                            int band_width,
                                            double& cluster_mq,
+                                           int keep_multimaps = 0,
                                            int additional_multimaps = 0,
                                            vector<MaximalExactMatch>* restricted_mems = nullptr);
     void compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap);
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns, double cluster_mq, double mq_estmate1, double mq_estimate2, double mq_cap1, double mq_cap2);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
-    void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
+    void filter_and_process_multimaps(vector<Alignment>& all_alns, int total_multimaps);
+    // make the bands used in banded alignment
+    vector<Alignment> make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip);
     // Return the one best banded alignment.
-    Alignment align_banded(const Alignment& read,
-                           int kmer_size = 0,
-                           int stride = 0,
-                           int max_mem_length = 0,
-                           int band_width = 1000);
+    vector<Alignment> align_banded(const Alignment& read,
+                                   int kmer_size = 0,
+                                   int stride = 0,
+                                   int max_mem_length = 0,
+                                   int band_width = 1000);
     // alignment based on the MEM approach
 //    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps = 0);
     // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
-    vector<Alignment> align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double lcp_avg, int max_mem_length, int additional_multimaps);
+    vector<Alignment> align_mem_multi(const Alignment& aln,
+                                      vector<MaximalExactMatch>& mems,
+                                      double& cluster_mq,
+                                      double lcp_avg,
+                                      int max_mem_length,
+                                      int keep_multimaps,
+                                      int additional_multimaps);
 
     // Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     // before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
@@ -231,6 +282,7 @@ public:
     deque<bool> fragment_orientations;
     deque<bool> fragment_directions;
     void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
+    string fragment_model_str(void);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
     double fragment_length_pdf(double length);
@@ -241,7 +293,7 @@ public:
     bool cached_fragment_orientation;
     bool cached_fragment_direction;
     int since_last_fragment_length_estimate;
-    int fragment_length_estimate_interval;
+    int fragment_model_update_interval;
 
     double estimate_gc_content(void);
     int random_match_length(double chance_random);
@@ -282,9 +334,11 @@ public:
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
     // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
-    int32_t score_alignment(const Alignment& aln);
+    int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
     // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
     int32_t rescore_without_full_length_bonus(const Alignment& aln);
+    // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
+    Alignment patch_alignment(const Alignment& aln, int max_patch_length);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // helper to cluster subgraph
@@ -294,7 +348,7 @@ public:
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip);
+    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -390,6 +444,8 @@ public:
     int approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
     int approx_alignment_position(const Alignment& aln);
+    // get the end position of the alignment
+    Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
     int approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
@@ -461,9 +517,11 @@ public:
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     int max_softclip_iterations; // Extend no more than this many times (while softclips are getting shorter)
     float min_identity; // require that alignment identity is at least this much to accept alignment
+    int min_banded_mq; // when aligning banded, treat bands with MQ < this as unaligned
     // paired-end consistency enforcement
     int extra_multimaps; // Extra mappings considered
     int min_multimaps; // Minimum number of multimappings
+    int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
@@ -479,7 +537,9 @@ public:
     double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
     float perfect_pair_identity_threshold;
+    bool fixed_fragment_model;
     bool simultaneous_pair_alignment;
+    int max_band_jump; // the maximum length edit we can detect via banded alignment
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int cache_size;

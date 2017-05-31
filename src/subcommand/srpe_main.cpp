@@ -3,24 +3,25 @@
 #include <getopt.h>
 #include <functional>
 #include <regex>
-//#include "intervaltree.hpp"
 #include "subcommand.hpp"
+#include "srpe.hpp"
 #include "stream.hpp"
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
 #include "path.hpp"
-//#include "genotyper.hpp"
 #include "genotypekit.hpp"
 #include "genotyper.hpp"
 #include "path_index.hpp"
 #include "vg.hpp"
+#include <math.h>
 #include "srpe.hpp"
 #include "filter.hpp"
 #include "utility.hpp"
 #include "Variant.h"
 #include "translator.hpp"
 #include "Fasta.h"
+#include "IntervalTree.h"
 
 using namespace std;
 using namespace vg;
@@ -29,26 +30,17 @@ using namespace vg::subcommand;
 
 void help_srpe(char** argv){
     cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <graph.vg>" << endl
-        << "Options: " << endl
-        << "Variant recall:" << endl
-        << "   -S / --specific    <VCF>       look up variants in <VCF> in the graph and report only those." << endl
-        << "   -R / --recall                  recall (i.e. type) all variant paths stored in the graph." << endl
-        << "   -r / --reference   <REF>       reference genome to pull structural variants from." << endl
-        << "   -I / --insertions  <INS>       fasta file containing insertion sequences." << endl
-        << "Smart genotyping:" << endl
-        << "   -a / --augmented   <AUG>       write the intermediate augmented graph to <AUG>." << endl
-        << "   -p / --ref-path   <PATHNAME>   find variants relative to <PATHNAME>" << endl
-        << endl;
-    //<< "-S / --SV-TYPE comma separated list of SV types to detect (default: all)." << endl
-
-
-
+    << "Options: " << endl 
+    << "  -p / --ref-path" << endl
+    << "  -x / --xg" << endl 
+    << "  -g / --gcsa" << endl 
+    << endl;
 }
 
 
 
 int main_srpe(int argc, char** argv){
-    string gam_name = "";
+    string alignment_file = "";
     string gam_index_name = "";
     string graph_name = "";
     string xg_name = "";
@@ -153,10 +145,12 @@ int main_srpe(int argc, char** argv){
     omp_set_num_threads(threads);
 
 
-    //SRPE srpe;
+    SRPE srpe;
+
+    
 
 
-    gam_name = argv[optind];
+    alignment_file = argv[optind];
     //gam_index_name = argv[++optind];
     graph_name = argv[++optind];
 
@@ -165,13 +159,27 @@ int main_srpe(int argc, char** argv){
 
     vg::VG* graph;
 
-    // if (!xg_name.empty()){
-    //     ifstream in(xg_name);
-    //     xg_ind->load(in);
-    // }
-    // if (!gam_index_name.empty()){
-    //     gamind.open_read_only(gam_index_name);
-    // }
+    if (!xg_name.empty()){
+        ifstream in(xg_name);
+        xg_ind->load(in);
+        srpe.ff.set_my_xg_idx(xg_ind);
+    }
+    // Set GCSA indexes
+    if (!gcsa_name.empty()){
+            ifstream gcsa_stream(gcsa_name);
+            srpe.ff.gcsa_ind = new gcsa::GCSA();
+            srpe.ff.gcsa_ind->load(gcsa_stream);
+            string lcp_name = gcsa_name + ".lcp";
+            ifstream lcp_stream(lcp_name);
+            srpe.ff.lcp_ind = new gcsa::LCPArray();
+            srpe.ff.lcp_ind->load(lcp_stream);
+    }
+    if (!xg_name.empty()){
+        ifstream xgstream(xg_name);
+        xg_ind->load(xgstream);
+        srpe.ff.set_my_xg_idx(xg_ind);
+    }
+    srpe.ff.init_mapper();
     // else{
 
     // }
@@ -198,325 +206,247 @@ int main_srpe(int argc, char** argv){
 
     }
 
-    if (!spec_vcf.empty() && ref_fasta.empty()){
-        cerr << "Error: option -S requires a fasta reference using the -r <reference> flag" << endl;
-    }
-    else if (!spec_vcf.empty()){
+    vector<Alignment> just_fine;
+    vector<Alignment> perfect;
+    vector<Alignment> simple_mismatch;
+    vector<Alignment> discordant_selected;
+    vector<Alignment> split_selected;
+    vector<Alignment> reversing_selected;
+    vector<Alignment> clipped_selected;
+    vector<Alignment> one_end_anchored;
+    vector<Alignment> quality_selected;
+    vector<Alignment> insert_selected;
+    vector<Alignment> depth_selected;
+    vector<Alignment> single_bp_diff;
+    vector<Alignment> unmapped_selected;
 
-        FastaReference* linear_ref = new FastaReference();
-        linear_ref->open(ref_fasta);
+    string unmapped_fn = alignment_file + ".unmapped";
+    string discordant_fn = alignment_file + ".discordant";
+    string split_fn = alignment_file + ".split";
+    string reversing_fn = alignment_file +  ".reversing";
+    string oea_fn = alignment_file + ".one_end_anchored";
+    string clipped_fn = alignment_file + ".softclipped";
+    string insert_fn = alignment_file + ".insert_size";
+    string quality_fn = alignment_file + ".quality";
+    string depth_fn = alignment_file + ".depth";
 
-        for (auto r_path : (graph->paths)._paths){
-            if (!regex_match(r_path.first, is_alt)){
-                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
-            }
-        }
+    ifstream unmapped_stream;
+    ifstream discordant_stream;
+    ifstream split_stream;
+    ifstream reversing_stream;
+    ifstream oea_stream;
+    ifstream clipped_stream;
+    ifstream insert_stream;
+    ifstream quality_stream;
+    ifstream depth_stream;
+    vector<Interval<int> > inters;
 
-        vcflib::VariantCallFile* variant_file = new vcflib::VariantCallFile();
-        variant_file->open(spec_vcf);
+    double insert_size = 0.0;
+    double insert_var = 0.0;
 
-        std::function<int(vcflib::Variant)> call = [&](vcflib::Variant var){
-            // Sort genotypes by probability 
-            // if top two are sufficiently close, output a homozygous call
-            // otherwise, output the highest probability genotype.
-            return -1;
-        };
-        string ad_line = "##INFO=<ID=AD,Number=R,Type=Integer,Description=\"Allele depth for each allele.\"\\>";
-        string prob_line = "##INFO=<ID=GP,Number=R,Type=Float,Description=\"Genotype probability for each allele.\"\\>";
-        variant_file->addHeaderLine(ad_line);
-        variant_file->addHeaderLine(prob_line);
 
-        cout << variant_file->header << endl;
-
-        unordered_map<string, list<Mapping> > graphpaths( (graph->paths)._paths.begin(), (graph->paths)._paths.end() );
-        map<string, vcflib::Variant> hash_to_var;
-        unordered_map<string, vector<int64_t> > varname_to_nodeid;
-        unordered_map<int64_t, int32_t> node_to_depth;
-        vector<int64_t> variant_nodes;
-        variant_nodes.reserve(10000);
-
-        // Store a site for each VCF variant.
-        map<string, Genotyper::Site > name_to_site;
-
-        
-
-        // Hash a variant from the VCF
-        vcflib::Variant var;
-        while (variant_file->getNextVariant(var)){
-            var.position -= 1;
-            var.canonicalize_sv(*linear_ref, insertions, -1);
-            string var_id = make_variant_id(var);
-            hash_to_var[ var_id ] = var;
-            //Genotyper::Site s;
-            //set<vg::id_t> contents;
-            for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
-                // TODO: escape to the bubble's ends to make sure we get the
-                // start/end of the site correct.
-                string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
-                list<Mapping> x_path = graphpaths[ alt_id ];
-                for (Mapping x_m : x_path){
-                    variant_nodes.push_back(x_m.position().node_id());
-                    varname_to_nodeid[ alt_id ].push_back(x_m.position().node_id());
-              //      contents.insert(x_m.position().node_id());
+    
+    
+    std::function<vector<BREAKPOINT> (vector<BREAKPOINT>)> merge_breakpoints = [&](vector<BREAKPOINT> bps){
+        vector<BREAKPOINT> ret;
+        BREAKPOINT sent;
+        sent.start = -100;
+        ret.push_back(sent);
+        for (int i = 0; i < bps.size(); i++){
+            BREAKPOINT a = bps[i];
+            bool merged = false;
+            for (int j = 0; j < ret.size(); j++){
+                if (ret[j].overlap(a, 20)){
+                    ret[j].other_supports += 1;
+                    merged = true;
                 }
             }
-            
+            if (!merged){
+                ret.push_back(a);
+            }
+        }
+        return ret;
+    };
+
+    std::function<vector<INS_INTERVAL>(vector<INS_INTERVAL>)> merge_intervals = [&](vector<INS_INTERVAL> ins){
+        vector<INS_INTERVAL> ret;
+        // sentinel interval
+        INS_INTERVAL sent;
+        sent.start = -1;
+        sent.end = -1;
+        for (int i = 0; i < ins.size(); i++){
+            bool merged = false;
+            for (int j = 0; j < ret.size(); j++){
+                if (ret[j].overlap(ins[i])){
+                    ret[j].other_supports+=1;
+                    merged = true;
+                }
+            }
+            if (!merged){
+                ret.push_back(ins[i]);
+            }
 
         }
+        return ret;
+    };
 
-        std::function<void(const Alignment& a)> incr = [&](const Alignment& a){
-            for (int i = 0; i < a.path().mapping_size(); i++){
-                node_to_depth[ a.path().mapping(i).position().node_id() ] += 1;
-            }
-        };
+    // Set up path index
+    srpe.ff.set_my_vg(graph);
+    srpe.ff.soft_clip_limit = 20;
+    srpe.ff.fill_node_to_position(ref_path);
+    
 
-        gamind.for_alignment_to_nodes(variant_nodes, incr);
+    vector<INS_INTERVAL> ins;
+    vector<BREAKPOINT> bps;
 
+    std::function<void(vector<INS_INTERVAL>&, map<int64_t, vector<INS_INTERVAL> >&)> merge = [&](vector<INS_INTERVAL>& ins, map<int64_t, vector<INS_INTERVAL> >& start_to_interval){
 
-        for (auto it : hash_to_var){
-            int32_t total_reads = 0;
-            // for (int i = 0; i <= it.second.alt.size(); i++){
-            //     int32_t sum_reads = 0;
-            //     string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
-            //     for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
-            //         sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
-            //     }
-            //     total_reads+= sum_reads;
-            // }
-            for (int i = 0; i <= it.second.alt.size(); i++){
-                int32_t sum_reads = 0;
-                string alt_id = "_alt_" + it.first + "_" + std::to_string(i);
-                for (int i = 0; i < varname_to_nodeid[ alt_id ].size(); i++){
-                    sum_reads += node_to_depth[varname_to_nodeid[ alt_id ][i]];
-                }
+    };
+    
+    std::function<void(Alignment&, Alignment&)> calc_insert_size = [&](Alignment& a, Alignment& b){
+        insert_size = 1000.0;
+        insert_var = 300.0;
+    };
+
+    std::function<void(Alignment&, Alignment&)> insert_sz_func = [&](Alignment& a, Alignment& b){
+        if (a.fragment_size() > 0 && a.mapping_quality() > 0
+            && b.mapping_quality() >  0){
+            int frag_diff = abs(a.fragment(0).length() - floor(insert_size));
+            // Get mappings of node from graph
+
+            // Get position (using Mapping* and path index)
+            INS_INTERVAL i;
+            i.start = srpe.ff.node_to_position[ a.path().mapping(0).position().node_id()] ;
+            i.end = srpe.ff.node_to_position[ b.path().mapping(0).position().node_id()] ;
+            i.fragl_supports +=1;
+            // Set start to final position of first mate
+            // Set end position to start + (frag_diff)
+            // Length to frag_diff
+            // Increment supports
+            ins.push_back(i);
+        }
+    };
+
+    std::vector<Alignment> splits;
+    std::vector<INS_INTERVAL> split_intervals;
+    std::function<void(Alignment&)> clip_read_func = [&](Alignment& a){
+        // remap in clipped reads
+        string a_clip = srpe.ff.get_clipped_seq(a);
+        //cerr << a.DebugString() << endl;
+        //cerr << a_clip << endl;
+        if (a_clip.length() > 25){
+            //cerr << "Remapping " << a_clip << endl;
+            BREAKPOINT b;
+            b.start = srpe.ff.get_clipped_position(a);
+            b.split_supports += 1;
+            bps.push_back(b);
+            //vector<Alignment> a_remap = srpe.ff.remap(a_clip);
+            //if (a_remap.size() > 0 && a_remap[0].score() > 0){
+                //cerr << (a_remap[0].score() > 0 ? "MAPPED!" : "unmapped :(") << endl;
+                // INS_INTERVAL i;
+                // i.start = srpe.ff.get_clipped_position(a);
+                // i.end = srpe.ff.node_to_position[ a_remap[0].path().mapping(0).position().node_id() ];
+                // i.split_supports +=1;
+                // ins.push_back(i);
+                // cerr << i.to_string() << "\t" << a_remap.size() << endl;
                 
-                #pragma omp critical
-                it.second.info["AD"].push_back(std::to_string(sum_reads));
-                double gp = (double) sum_reads / (double) 10;
-                #pragma omp critical
-                it.second.info["GP"].push_back(std::to_string(gp));
-            }
-            cout << it.second << endl;
-
+            //}
         }
+        
+        // Set putative breakpoint evidence based on those (i.e. make interval for each split read)
+        // Merge overlapping intervals.
+        // Search for additional support in split reads.
+
+    };
 
 
 
+   
+    // Once merged, we can output putative breakpoints
+    // using the combined information.
 
-    }
-    else if (do_all){
-        vector<Support> supports;
+    // Get splits that map near the breakpoint
 
-        for (auto r_path : (graph->paths)._paths){
-            if (!regex_match(r_path.first, is_alt)){
-                pindexes[r_path.first] = new PathIndex(*graph, r_path.first, true);
-            }
-        }
-        for (auto x_path : (graph->paths)._paths){
-            cerr << x_path.first << endl;
-            int32_t support = 0;
-            if (regex_match(x_path.first, is_alt)){
-                vector<Alignment> alns;
-                vector<int64_t> var_node_ids;
-                for (Mapping x_m : x_path.second){
-                    var_node_ids.push_back(x_m.position().node_id()); 
-                }
 
-                std::function<void(const Alignment&)> incr = [&](const Alignment& a){
-                    ++support;
-                };
-                gamind.for_alignment_to_nodes(var_node_ids, incr);
-                cout << support << " reads support " << x_path.first << endl;
-            }
-        }
+    // INSERTIONS
+    // Open relevant GAMfiles
+    insert_stream.open(discordant_fn);
+    clipped_stream.open(clipped_fn);
+    if (!insert_stream.good()){
+        cerr << "Must provide a .discordant file.";
     }
     else{
-
-        // First, slurp in our discordant, split-read,
-        // one-end-anchored, etc reads.
-        // basename = * 
-        // *.gam.split
-        // *.gam.oea
-        // *.gam.unmapped
-        // *.gam.discordant
-        
-        ifstream all_reads;
-        all_reads.open(gam_name);
-        // Reads with no mismatches.
-        vector<Alignment> perfects;
-        // Reads with anchored mismatches or indels.
-        vector<Alignment> simple_mismatches;
-        // All the other reads
-        vector<Alignment> complex_reads;
-
-        Filter ff;
-        vector<Path> simple_paths;
-
-        // TODO expose at CLI
-        int min_depth = 5;
-
-
-        std::function<void(Alignment&)> get_simples_and_perfects = [&](Alignment& aln){
-            if (ff.perfect_filter(aln)){
-                #pragma omp critical
-                perfects.push_back(aln);
-            }
-            else if (ff.simple_filter(aln)){
-                #pragma omp critical
-                {
-                    simple_mismatches.push_back(aln);
-                    Path p = trim_hanging_ends(aln.path());
-                    p.set_name(aln.name());
-                    simple_paths.push_back(p);
-                }
-            }
-            else{
-                #pragma omp critical
-                {
-                complex_reads.push_back(aln);
-                }
-                
-            }
-        };
-
-
-
-        stream::for_each_parallel(all_reads, get_simples_and_perfects);
-
-        if (true){
-            cerr << perfects.size() << " perfect reads." << endl;
-            cerr << simple_mismatches.size() << " simple reads." << endl; 
-            cerr << "Adding " << simple_paths.size() << " paths to graph." << endl;
-            cerr << complex_reads.size() << " more complex reads." << endl;
-        }
-
-        // Grab our perfect and simple reads
-        // incorporate our simple reads.
-        // optionally, incorporate all reads and their paths.
-        Translator tt;
-        vector<Translation> translations = graph->edit(simple_paths);
-        tt.load(translations);
-        graph->paths.rebuild_mapping_aux();
-        cerr << "Loaded " << translations.size() << " translations." << endl;
-
-        map<string, Alignment*> reads_by_name;
-    for(auto& alignment : simple_mismatches) {
-        reads_by_name[alignment.name()] = &alignment;
-        // Make sure to replace the alignment's path with the path it has in the augmented graph
-        list<Mapping>& mappings = graph->paths.get_path(alignment.name());
-        alignment.mutable_path()->clear_mapping();
-        for(auto& mapping : mappings) {
-            // Copy over all the transformed mappings
-            *alignment.mutable_path()->add_mapping() = mapping;
-        }
+        // Collect all long insert reads
+        stream::for_each_interleaved_pair_parallel(insert_stream, insert_sz_func);
+        stream::for_each_parallel(clipped_stream, clip_read_func);
     }
 
-        if (augment_paths){
-
+    std::function<void(Alignment&, Alignment&)> oea_func = [&](Alignment& a, Alignment& b){
+        BREAKPOINT bp;
+        if (srpe.ff.soft_clip_filter(a).sequence() != ""){
+            bp.start = srpe.ff.get_clipped_position(a);
         }
-
-
-        
-        
-        // Add both simple and perfect reads to the depth map.
-        DepthMap dm(graph->size());
-        for (auto x : complex_reads){
-            list<Mapping>& mappings = graph->paths.get_path(x.name());
-            for (auto m : mappings){
-                dm.fill(m);
-            }
-        }
-        cerr << "Filled depth map." << endl;
-        
-
-
-        
-        // Save memory (maybe???) by disposing of our perfects and simples.
-        // TODO is clear enough?
-        //simple_mismatches.clear();
-        //perfects.clear();
-
-        // Rip out any nodes supported by an insufficient number of reads.
-        std::function<void(Node*)> remove_low_depth_nodes = [&](Node* n){
-            if (dm.get_depth(n->id()) < min_depth){
-                #pragma omp critical
-                {
-                    cerr << "Destroying node: " << n->id() << endl;
-                    graph->destroy_node(n);
-                }
-            }
-        };
-        graph->for_each_node(remove_low_depth_nodes);
-        //graph->remove_orphan_edges();
-        cerr << "Low-depth nodes/edges removed from graph" << endl;
-
-        if (!augmented_graph_name.empty()){
-            ofstream augstream;
-            augstream.open(augmented_graph_name);
-            graph->serialize_to_ostream(augstream);
-        }
-        // You could call SNPs right here. We should also check known variants at this stage.
-        // Call snarlmanager, tossing out trivial snarls
-        // Report them as either loci or VCF records
-        SnarlFinder* snf = new CactusUltrabubbleFinder(*graph, ref_path, true);
-
-        SnarlManager snarl_manager = snf->find_snarls();
-        vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
-        TraversalFinder* trav_finder;
-        if (augment_paths){
-            //trav_finder = new ReadRestrictedTraversalFinder(*graph, snarl_manager, reads_by_name);
-
+        else if (srpe.ff.soft_clip_filter(b).sequence() != ""){
+            bp.start = srpe.ff.get_clipped_position(b);
         }
         else{
-            trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
-
-        }
-
-        vector<vector<Locus> > locus_buffer;
-        int thread_count = omp_get_num_threads();
-        locus_buffer.resize(thread_count);
-
-        vcflib::VariantCallFile* vcf = nullptr;
-        vector<PathIndex*> pindexes;
-
-
-        bool justSNPs = true;
-        if (justSNPs){
-
-            for (auto x : snarl_roots){
-                vector<SnarlTraversal> site_traversals = trav_finder->find_traversals(*x);
-                for (auto t : site_traversals){
-                    //cout << t.start() << " ";
-                    for (auto zed : t.visits()){
-                        //cout << zed.node_id() << ", ";
-                    }
-                    //cout <<  endl;
-                }
+            if (a.read_mapped()){
+                // take the right end of the read
+                bp.start = srpe.ff.node_to_position[a.path().mapping( a.path().mapping_size() - 1).position().node_id() ];
+            }
+            else if (b.read_mapped()){
+                // take the left end of the read
+                bp.start = srpe.ff.node_to_position[a.path().mapping( b.path().mapping_size() - 1).position().node_id() ];
             }
         }
+        bps.push_back(bp);
+    };
 
-        // Read in all our nasty discordant/split/clipped reads and
-        // filter the nice ones from the nasty ones.
-
-        double expected_insert_size = 500.0;
-        double expected_insert_sd = 100.0;
-
-        std::unordered_map<string, Alignment> mates_by_name;
-        vector<Alignment> complex_singles;
-        vector<Alignment> complex_pairs;
-
-        // for every read in our nasty set, try to normalize it. If we succeed,
-        // grab its mate (if appropriate) and generate an IMPRECISE variant based on the two.
-        // Place that IMPRECISE candidate somewhere within its predicted range in the graph.
-
-        // If desired, remap our unmapped and nasty reads. This will help us to augment our depth map.
-
-
-        // call variants 
-    
+    oea_stream.open(oea_fn);
+    if (!oea_stream.good()){
+        cerr << "No one-end-anchored file found." << endl
+        << "Please provide one using [ vg sift -p -O x.gam ]" << endl;
+        exit(1);
+    }
+    else{
+        // Get all OEA reads
+        // and place a breakpoint <insertsize> bp from the mapped read.
+        // check if it's clipped
+        stream::for_each_interleaved_pair_parallel(oea_stream, oea_func);
     }
 
+    clipped_stream.open(clipped_fn);
+    if(!clipped_stream.good()){
+    }
+    else{
+        // collect some clipped reads
+        // Split-read map their clipped portions
+        // check if the seq mapped; if not, move on
+        // if it did:
+        //   find the interval where we see the break
+        //   add some SR evidence
+        //   refine its start / end / CI
+    }
 
+    
+
+     // Merge insertion intervals and supports
+    vector<INS_INTERVAL> merged = merge_intervals(ins);
+    vector<BREAKPOINT> merged_bps = merge_breakpoints(bps);
+
+    cerr << "Found " << merged.size() << " candidate intervals." << endl;
+    for (auto x : merged){
+        cerr << x.to_string() << endl;
+    }
+    cerr << "Found " << bps.size() << " candidate breakpoints." << endl;
+    int count = 0;
+    for (auto x : merged_bps){
+        if (++count > 100){
+            break;
+        }
+        cerr << x.to_string() << endl;
+    }
+     
     return 0;
 }
 

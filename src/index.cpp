@@ -407,7 +407,13 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_alignment(const Alignment& alignment) {
-    string key(key_for_alignment_prefix(alignment.path().mapping(0).position().node_id()));
+    string key;
+    if (alignment.has_path()) {
+        key = key_for_alignment_prefix(alignment.path().mapping(0).position().node_id());
+    } else {
+        // make our key using the alignment, to try to bin similar alignments together
+        key = key_for_alignment_prefix(0) + alignment.sequence().substr(0,32);
+    }
     // Append a unique nonce to the node-ID-based key prefix, since there can
     // be many alignments to one node. It just needs to be unique, so we use
     // a variable-length encoding to save a few bytes.
@@ -905,12 +911,6 @@ void Index::put_mapping(const Mapping& mapping) {
 
 void Index::put_alignment(const Alignment& alignment) {
     static std::atomic<bool> warned_unmapped(false);
-    if (!alignment.has_path()) {
-        if (!warned_unmapped.exchange(true)) {
-            std::cerr << "[vg index] WARNING: not storing unmapped reads in alignment index. (FIXME)" << std::endl;
-        }
-        return;
-    }
     string data;
     alignment.SerializeToString(&data);
     S(db->Put(write_options, key_for_alignment(alignment), data));

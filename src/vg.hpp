@@ -256,6 +256,11 @@ public:
     vector<Edge> break_cycles(void);
     /// Remove pieces of the graph which are not part of any path.
     void remove_non_path(void);
+    /// Remove pieces of the graph which are part of some path.
+    void remove_path(void);
+    /// Get all of the edges that are on any path.
+    set<Edge*> get_path_edges(void);
+    
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
 

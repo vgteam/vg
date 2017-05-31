@@ -1356,9 +1356,11 @@ void VG::normalize(int max_iter) {
     }
 }
 
-void VG::remove_non_path(void) {
-    set<Edge*> path_edges;
-    function<void(const Path&)> lambda = [this, &path_edges](const Path& path) {
+set<Edge*> VG::get_path_edges(void) {
+    // We'll populate a set with edges.
+    // This set shadows our function anme but we're not recursive so that's fine.
+    set<Edge*> edges;
+    function<void(const Path&)> lambda = [this, &edges](const Path& path) {
         for (size_t i = 1; i < path.mapping_size(); ++i) {
             auto& m1 = path.mapping(i-1);
             auto& m2 = path.mapping(i);
@@ -1368,7 +1370,7 @@ void VG::remove_non_path(void) {
             // check that we always have an edge between the two nodes in the correct direction
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
-            path_edges.insert(edge);
+            edges.insert(edge);
         }
         // if circular, include the cycle-closing edge
         if (path.is_circular()) {
@@ -1380,11 +1382,19 @@ void VG::remove_non_path(void) {
             // check that we always have an edge between the two nodes in the correct direction
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
-            path_edges.insert(edge);
+            edges.insert(edge);
 
         }
     };
     paths.for_each(lambda);
+    return edges;
+}
+
+void VG::remove_non_path(void) {
+    
+    // Determine which edges are used
+    set<Edge*> path_edges(get_path_edges());
+    
     // now determine which edges aren't used
     set<Edge*> non_path_edges;
     for_each_edge([this, &path_edges, &non_path_edges](Edge* e) {
@@ -1404,6 +1414,27 @@ void VG::remove_non_path(void) {
             }
         });
     for (auto id : non_path_nodes) {
+        destroy_node(id);
+    }
+}
+
+void VG::remove_path(void) {
+    
+    // Determine which edges are used
+    set<Edge*> path_edges(get_path_edges());
+    
+    // and destroy them
+    for (auto* e : path_edges) {
+        destroy_edge(e);
+    }
+
+    set<id_t> path_nodes;
+    for_each_node([this, &path_nodes](Node* n) {
+            if (paths.has_node_mapping(n->id())) {
+                path_nodes.insert(n->id());
+            }
+        });
+    for (auto id : path_nodes) {
         destroy_node(id);
     }
 }
@@ -4602,19 +4633,19 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
 
+    // something is off about this check.
     // with the paths sorted, let's double-check that the edges are here
     paths.for_each([&](const Path& path) {
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
-                if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                 auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    cerr << "graph path '" << path.name() << "' invalid: edge from "
-                         << s1 << " to " << s2 << " does not exist" << endl;
-                    cerr << "creating edge" << endl;
+                    //cerr << "edge missing! " << s1 << " " << s2 << endl;
+                    // force these edges in
                     create_edge(s1, s2);
                 }
             }
@@ -4654,6 +4685,12 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // Break any nodes that need to be broken. Save the map we need to translate
     // from start positions on old nodes to new nodes.
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
+    
+#ifdef debug
+    for(auto& kv : node_translation) {
+        cerr << "Translate old " << kv.first << " to " << (kv.second == nullptr ? (id_t)0 : (id_t)kv.second->id()) << endl;
+    }
+#endif
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
     map<pair<pos_t, string>, vector<Node*>> added_seqs;
@@ -5202,6 +5239,9 @@ void VG::add_nodes_and_edges(const Path& path,
                 // Create the new nodes, reversing it if we are reversed
                 vector<Node*> new_nodes;
                 pos_t start_pos = make_pos_t(from_path.mapping(0).position());
+                // We put in the reverse of our sdequence if we are an insert on
+                // the revers of a node, to keep the graph pointing mostly the
+                // same direction.
                 auto fwd_seq = m.position().is_reverse() ?
                     reverse_complement(e.sequence())
                     : e.sequence();
@@ -5210,6 +5250,13 @@ void VG::add_nodes_and_edges(const Path& path,
                 if (added != added_seqs.end()) {
                     // if we have the node run already, don't make it again, just use the existing one
                     new_nodes = added->second;
+#ifdef debug_edit
+                    cerr << "Re-using already added nodes: ";
+                    for (auto n : new_nodes) {
+                        cerr << n->id() << " ";
+                    }
+                    cerr << endl;
+#endif
                 } else {
                     // Make a new run of nodes of up to max_node_size each
                     
@@ -5222,6 +5269,19 @@ void VG::add_nodes_and_edges(const Path& path,
                         // Until we used up all the sequence, make nodes
                         Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
                         cursor += max_node_size;
+                        
+#ifdef debug_edit
+                        cerr << "Create new node " << pb2json(*new_node) << endl;
+#endif
+                        if (!new_nodes.empty()) {
+                            // Connect each to the previous node in the chain.
+                            Edge* e = create_edge(new_nodes.back(), new_node);
+#ifdef debug_edit
+                            cerr << "Create edge " << pb2json(*e) << endl;
+#endif
+                        }
+                        
+                        // Remember the new node
                         new_nodes.push_back(new_node);
                         
                         // Chop the front of the from path off and associate it
@@ -5241,12 +5301,17 @@ void VG::add_nodes_and_edges(const Path& path,
                         added_nodes[new_node] = front_path;
                         
                     }
-                    
+
+                    // reverse the order of the nodes if we did a rev-comp
+                    if (m.position().is_reverse()) {
+                        std::reverse(new_nodes.begin(), new_nodes.end());
+                    }
+
                     // TODO: fwd_seq can't be empty or problems will be happen
                     // because we'll have an empty vector of created nodes. I
                     // think the edit won't be an insert or sub if it is,
                     // though.
-                    
+
                     // Remember that this run belongs to this edit
                     added_seqs[novel_edit_key] = new_nodes;
                     
@@ -5274,17 +5339,23 @@ void VG::add_nodes_and_edges(const Path& path,
 
                 for (auto& dangler : dangling) {
                     // This actually referrs to a node.
+                    
+                    // Attach what was dangling to the early-in-the-alignment side of the newly created run.
+                    auto to_attach = NodeSide(m.position().is_reverse() ? new_nodes.back()->id() : new_nodes.front()->id(),
+                        m.position().is_reverse());
+                    
 #ifdef debug_edit
-                    cerr << "Connecting " << dangler << " and " << NodeSide(new_nodes.front()->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << to_attach << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangler, NodeSide(new_nodes.front()->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, to_attach));
 
                 }
 
-                // Dangle the end of this run of new nodes
+                // Dangle the late-in-the-alignment end of this run of new nodes
                 dangling.clear();
-                dangling.insert(NodeSide(new_nodes.back()->id(), !m.position().is_reverse()));
+                dangling.insert(NodeSide(m.position().is_reverse() ? new_nodes.front()->id() : new_nodes.back()->id(),
+                    !m.position().is_reverse()));
 
                 // save edit into translated path
 
@@ -5349,7 +5420,7 @@ void VG::add_nodes_and_edges(const Path& path,
             // This way the next one will start at the right place.
             get_offset(edit_first_position) += e.from_length();
 
-
+//#undef debug_edut
         }
 
     }

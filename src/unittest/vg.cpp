@@ -1534,5 +1534,95 @@ TEST_CASE("bluntify() should resolve overlaps", "[vg][bluntify]") {
     }
 }
 
+TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
+    
+    const string graph_json = R"(
+        
+    {
+        "node": [
+            {"id": 1, "sequence": "GATT"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "C"},
+            {"id": 4, "sequence": "A"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 4}
+        ]
+    }
+
+    )";
+    
+    // Defien a graph
+    VG graph = string_to_graph(graph_json);
+    
+    const string path_json = R"(
+    {
+        "mapping": [
+            {
+                "position": {
+                    "node_id": 1
+                },
+                "edit": [
+                    {
+                        "from_length": 4,
+                        "to_length": 4
+                    }, 
+                    {
+                        "from_length": 0, 
+                        "to_length": 10,
+                        "sequence": "AAAAAAAAAA"
+                    }
+                ]
+            },
+            {
+                "position": {
+                    "node_id": 4
+                },
+                "edit": [
+                    {
+                        "from_length": 1, 
+                        "to_length": 1
+                    }
+                ]
+            }
+        ]
+    }
+    )";
+    
+    // And a big insert
+    Path path;
+    json2pb(path, path_json.c_str(), path_json.size());
+       
+    // First prepare the various state things we need to pass
+    
+    // This can be empty if no changes have been made yet
+    map<pos_t, Node*> node_translation;
+    // As can this
+    map<pair<pos_t, string>, vector<Node*>> added_seqs;
+    // And this
+    map<Node*, Path> added_nodes;
+    
+    // This actually needs to be filled in
+    map<id_t, size_t> orig_node_sizes;
+    graph.for_each_node([&](Node* node) {
+        orig_node_sizes[node->id()] = node->sequence().size();
+    });
+    
+    // And this can be empty if nothing is dangling in.
+    set<NodeSide> dangling;
+    
+    // Do the addition, but limit node size.
+    graph.add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
+    
+    // Make sure it's still connected
+    list<VG> subgraphs;
+    graph.disjoint_subgraphs(subgraphs);
+    REQUIRE(subgraphs.size() == 1);
+    
+}
+
 }
 }

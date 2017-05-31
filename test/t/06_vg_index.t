@@ -59,13 +59,15 @@ is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignme
 
 # repeat with an unmapped read (sequence from phiX)
 rm -rf x.vg.aln
-(vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x.idx; cat x1337.gam) | vg index -a - -d x.vg.aln
-is $(vg index -D -d x.vg.aln | wc -l) 101 "FIXME: alignment index does NOT store unmapped reads!"
+(vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x -P 0.9; vg map -s "CTGATGAGGCCGCCCCTAGTTTTGTTTCTGGTGCTATGGCTAAAGCTGGTAAAGGACTTC" -d x ) | vg index -a - -d x.vg.aln
+is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 2 "alignment index stores unmapped reads"
 
 # load the same data again & see that the records are duplicated.
 # that's not really a wise use-case, but it tests that we don't
 # overwrite anything in an existing alignment index, by virtue
 # of keying each entry with a unqiue nonce.
+rm -rf x.vg.aln
+vg index -a x1337.gam -d x.vg.aln
 vg index -a x1337.gam -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using sequential invocations; next_nonce persistence"
 

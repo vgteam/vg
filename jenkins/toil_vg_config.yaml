@@ -100,34 +100,33 @@ container: Docker
 ### Docker Tool Arguments ###
 
 ## Docker Tool List ##
-##   Each tool is specified as a list where the first element is the docker image URL,
-##   and the second element indicates if the docker image has an entrypoint or not
-##   If left blank or commented, then the tool will be run directly from the command line instead
+##   Locations of docker images. 
+##   If empty or commented, then the tool will be run directly from the command line instead
 ##   of through docker. 
 
 # Docker container to use for vg
-vg-docker: ['quay.io/vgteam/vg:v1.5.0-0-g6ef422a9-t41-run', False]
+vg-docker: 'quay.io/vgteam/vg:v1.5.0-318-gfc8059a9-t57-run'
 
 # Docker container to use for bcftools
-bcftools-docker: ['quay.io/cmarkello/bcftools', False]
+bcftools-docker: 'quay.io/cmarkello/bcftools'
 
 # Docker container to use for tabix
-tabix-docker: ['quay.io/cmarkello/htslib:latest', False]
+tabix-docker: 'quay.io/cmarkello/htslib:latest'
 
 # Docker container to use for samtools
-samtools-docker: ['quay.io/ucsc_cgl/samtools:latest', True]
+samtools-docker: 'quay.io/ucsc_cgl/samtools:latest'
 
 # Docker container to use for bwa
-bwa-docker: ['quay.io/ucsc_cgl/bwa:latest', True]
+bwa-docker: 'quay.io/ucsc_cgl/bwa:latest'
 
 # Docker container to use for jq
-jq-docker: ['devorbitus/ubuntu-bash-jq-curl', False]
+jq-docker: 'devorbitus/ubuntu-bash-jq-curl'
 
 # Docker container to use for rtg
-rtg-docker: ['realtimegenomics/rtg-tools:3.7.1', True]
+rtg-docker: 'realtimegenomics/rtg-tools:3.7.1'
 
 # Docker container to use for pigz
-pigz-docker: ['quay.io/glennhickey/pigz:latest', True]
+pigz-docker: 'quay.io/glennhickey/pigz:latest'
 
 #############################
 ### Singularity Tool Arguments ###
@@ -213,16 +212,16 @@ call-chunk-size: 10000000
 chunk_context: 50
 
 # Options to pass to chunk_gam. (do not include file names or -t/--threads)
-filter-opts: ['-o', '0', '-D', '999', '-r', '0.9', '-fu']
+filter-opts: ['-r', '0.9', '-fu', '-s', '1000', '-o', '0', '-q', '15']
 
 # Options to pass to vg pileup. (do not include file names or -t/--threads)
-pileup-opts: [ ]
+pileup-opts: ['-q', '10']
 
-# Options to pass to vg call. (do not include file names or -t/--threads)
-call-opts: ['']
+# Options to pass to vg call. (do not include file/contig/sample names or -t/--threads)
+call-opts: []
 
-# Options to pass to vg genotype. (do not include file names or -t/--threads)
-genotype-opts: ['']
+# Options to pass to vg genotype. (do not include file/contig/sample names or -t/--threads)
+genotype-opts: []
 
 # Use vg genotype instead of vg call
 genotype: False
@@ -238,7 +237,7 @@ vcfeval-bed-regions:
 #########################
 ### sim and mapeval Arguments ###
 # Options to pass to vg sim (should not include -x, -n, -s or -a)
-sim-opts: ['-l', '101', '-p', '500', '-v', '50', '-e', '0.01', '-i', '0.001']
+sim-opts: ['-l', '100', '-p', '500', '-v', '50', '-e', '0.01', '-i', '0.002']
 
 # Options to pass to bwa
 bwa-opts: []

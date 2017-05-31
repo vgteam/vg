@@ -306,7 +306,7 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCa
         nexts = todo;
         ++distance;
     }
-    return maximum;
+    return numeric_limits<int>::max();
 }
 
 set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {

@@ -355,7 +355,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& 
     // Find the left and right outer nodesides of the subgraph
     auto ends = get_endpoints();
     
-    // Find everythign attached to the left
+    // Find everything attached to the left
     auto dangling = get_peripheral_attachments(ends.first);
     
     // Apply the edit, attaching its left end to the stuff attached to the left

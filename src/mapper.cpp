@@ -40,6 +40,7 @@ Mapper::Mapper(Index* idex,
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_multimaps(512)
+    , band_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
     , fragment_max(1e4)
@@ -49,8 +50,9 @@ Mapper::Mapper(Index* idex,
     , cached_fragment_length_stdev(0)
     , cached_fragment_orientation(0)
     , cached_fragment_direction(1)
+    , fixed_fragment_model(true)
     , since_last_fragment_length_estimate(0)
-    , fragment_length_estimate_interval(10)
+    , fragment_model_update_interval(10)
     , perfect_pair_identity_threshold(0.95)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
@@ -69,6 +71,8 @@ Mapper::Mapper(Index* idex,
     , alignment_gap_extension(1)
     , full_length_alignment_bonus(5)
     , maybe_mq_threshold(10)
+    , min_banded_mq(0)
+    , max_band_jump(0)
 {
     init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
@@ -713,7 +717,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         gap_extension = aligner->gap_extension;
         gap_open = aligner->gap_open;
     }
-    int total_multimaps = max_multimaps + extra_multimaps;
+    int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
 
     if(debug) {
@@ -1167,11 +1171,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& aln : results.first) {
         aln.set_name(read1.name());
         aln.mutable_fragment_next()->set_name(read2.name());
+        aln.set_sequence(read1.sequence());
+        aln.set_quality(read1.quality());
     }
 
     for (auto& aln : results.second) {
         aln.set_name(read2.name());
         aln.mutable_fragment_prev()->set_name(read1.name());
+        aln.set_sequence(read2.sequence());
+        aln.set_quality(read2.quality());
     }
 
     return results;
@@ -1330,7 +1338,13 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
 }
 
 vector<Alignment>
-Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, double& cluster_mq, double longest_lcp, int max_mem_length, int additional_multimaps) {
+Mapper::align_mem_multi(const Alignment& aln,
+                        vector<MaximalExactMatch>& mems,
+                        double& cluster_mq,
+                        double longest_lcp,
+                        int max_mem_length,
+                        int keep_multimaps,
+                        int additional_multimaps) {
 
 //#ifdef debug_mapper
 #pragma omp critical
@@ -1355,7 +1369,7 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
         gap_open = aligner->gap_open;
     }
 
-    int total_multimaps = max_multimaps + additional_multimaps;
+    int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
 
     {
@@ -1543,12 +1557,12 @@ Mapper::align_mem_multi(const Alignment& aln, vector<MaximalExactMatch>& mems, d
     // and finally, compute the mapping quality
     compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
     // prune to max_multimaps
-    filter_and_process_multimaps(alns, 0);
+    filter_and_process_multimaps(alns, keep_multimaps);
 
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool banded_global) {
     Alignment aln = base;
     if (flip) {
         aln.set_sequence(reverse_complement(base.sequence()));
@@ -1563,7 +1577,6 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) 
             aln.set_quality(base.quality());
         }
     }
-    bool banded_global = false;
     bool pinned_alignment = false;
     bool pinned_reverse = false;
     aln = align_to_graph(aln,
@@ -1573,7 +1586,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip) 
                          pinned_reverse,
                          full_length_alignment_bonus,
                          banded_global);
-    aln.set_score(rescore_without_full_length_bonus(aln));
+    if (!banded_global) aln.set_score(rescore_without_full_length_bonus(aln));
     if (flip) {
         aln = reverse_complement_alignment(
             aln,
@@ -1672,6 +1685,7 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
         }
         nexts = todo;
     }
+    graph.remove_orphan_edges();
     return;
 }
 
@@ -1730,7 +1744,18 @@ map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, cons
     return lengths;
 }
 
+string Mapper::fragment_model_str(void) {
+    stringstream s;
+    s << fragment_size << ":"
+      << cached_fragment_length_mean << ":"
+      << cached_fragment_length_stdev << ":"
+      << cached_fragment_orientation << ":"
+      << cached_fragment_direction;
+    return s.str();
+}
+
 void Mapper::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
+    if (fixed_fragment_model) return;
     // record the relative orientations
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());
     bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
@@ -1764,7 +1789,7 @@ void Mapper::record_fragment_configuration(int length, const Alignment& aln1, co
         auto last = fragment_lengths.back();
         fragment_lengths.pop_back();
     }
-    if (++since_last_fragment_length_estimate > fragment_length_estimate_interval) {
+    if (++since_last_fragment_length_estimate > fragment_model_update_interval) {
         cached_fragment_length_mean = fragment_length_mean();
         cached_fragment_length_stdev = fragment_length_stdev();
         cached_fragment_orientation = fragment_orientation();
@@ -1963,23 +1988,10 @@ bool Mapper::check_alignment(const Alignment& aln) {
     return true;
 }
 
-Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width) {
-    // split the alignment up into overlapping chunks of band_width size
-    list<Alignment> alignments;
-    // force used bandwidth to be divisible by 4
-    // round up so we have > band_width
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "trying band width " << band_width << endl;
-        }
-    }
-#endif
+vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vector<pair<int, int>>& to_strip) {
     if (band_width % 4) {
         band_width -= band_width % 4; band_width += 4;
     }
-    assert(read.sequence().size() > band_width);
     int div = 2;
     while (read.sequence().size()/div > band_width) {
         ++div;
@@ -1998,120 +2010,143 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     }
 #endif
     // and overlap them too
-    size_t to_align = div * 2 - 1; // number of alignments we'll do
-    vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
+    //int to_align = div * 2 - 1; // number of alignments we'll do
+    //vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
+    //vector<Alignment> bands; bands.resize(to_align);
+
+    int remainder = (int)read.sequence().size() % segment_size;
+    //cerr << "remainder " << remainder << endl;
+    if (remainder % 2) {
+        remainder -= remainder % 2; remainder += 2; // make divisible by 2
+    }
+    //cerr << "remainder adj " << remainder << endl;
+
+    vector<int> start_positions;
+
+    // record the start positions
+    int offset = 0;
+    while (offset+segment_size < read.sequence().size()) {
+        if (offset == 0) {
+            start_positions.push_back(0);
+            if (remainder) {
+                offset += remainder/2;
+            } else {
+                offset += segment_size/2;
+            }
+        } else {
+            start_positions.push_back(offset);
+            offset += segment_size/2;
+        }
+    }
+    // add in the last alignment
+    start_positions.push_back(read.sequence().size()-segment_size);
+    // set up the structures to hold onto the banded alignments
+    int to_align = start_positions.size();
+    to_strip.resize(to_align);
     vector<Alignment> bands; bands.resize(to_align);
+    int i = 0;
+    int q = segment_size/4;
+    for (auto& p : start_positions) {
+        // so that we tend to obtain the path component derived from the middle of alignments
+        // with the exception of the first and last alignments
+        // we will remove half the overlap length from each end
+        // the overlap length is 1/2 the bandwidth, so we remove 1/4 length from each end
+        if (&p == &start_positions.front()) {
+            to_strip[i].second = segment_size - (start_positions[i+1] + q);
+        } else if (&p == &start_positions.back()) {
+            to_strip[i].first = start_positions[i-1]+segment_size-q - p;
+            // if we only have two bands, handle the potential non-divisibility by 2
+            if (start_positions.size() == 2) {
+                to_strip[i].first -= (int)read.sequence().size() % 2;
+            }
+        } else {
+            to_strip[i].first = q;
+            to_strip[i].second = q;
+        }
+        //cerr << "position: " << p << " strip " << to_strip[i].first << " " << to_strip[i].second << endl;
+        auto& aln = bands[i];
+        aln.set_sequence(read.sequence().substr(p, segment_size));
+        if (!read.quality().empty()) aln.set_quality(read.quality().substr(p, segment_size));
+        ++i;
+    }
+    return bands;
+}
+
+vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width) {
+
+    int match;
+    int gap_extension;
+    int gap_open;
+    if (read.quality().empty() || !adjust_alignments_for_base_quality) {
+        auto aligner =  get_regular_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+    else {
+        auto aligner =  get_qual_adj_aligner();
+        match = aligner->match;
+        gap_extension = aligner->gap_extension;
+        gap_open = aligner->gap_open;
+    }
+
+    int total_multimaps = max(max_multimaps, extra_multimaps);
+
+    //cerr << "top of align_banded " << pb2json(read) << endl;
+    // split the alignment up into overlapping chunks of band_width size
+    // force used bandwidth to be divisible by 4
+    // round up so we have > band_width
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "trying band width " << band_width << endl;
+        }
+    }
+#endif
 
     // scan across the read choosing bands
     // these bands are hard coded to overlap by 50%
+    // the second and next-to-last bands begin or end remander/2 into the read
     // the last band is guaranteed to be segment_size long
     // overlap scheme example
     // read: ----------------------
     //       --------
-    //           --------
-    //               --------
+    //         --------
+    //              --------
     //                   --------
     //                     --------
     // Afterwards, we align each fragment, trim the overlaps implied by the layout
-    // and concatenate the alignments. The result is a split read alignment that
-    // can describe large indels, CNVs, and inversions natively, even though our
-    // local alignment algorithm is only aware of alignment against DAGs.
-    for (int i = 0; i < div; ++i) {
-        size_t off = i*segment_size;
-        // TODO: copying the whole read here, including sequence and qualities,
-        // makes this O(n^2).
-        Alignment aln = read;
-        size_t addl_seq = 0;
-        if (i+1 == div) {
-            // ensure we have a full-length segment for the last alignment
-            // otherwise we run the risk of trying to align a very tiny band
-            size_t last_off = read.sequence().size() - segment_size;
-            if (off > last_off) {
-                // looks wrawng
-                addl_seq = (off - last_off);
-                aln.set_sequence(read.sequence().substr(last_off));
-                //assert(aln.sequence().size() == segment_size);
-            } else {
-                aln.set_sequence(read.sequence().substr(off));
-            }
-        } else {
-            aln.set_sequence(read.sequence().substr(off, segment_size));
-        }
-        size_t idx = 2*i;
-        to_strip[idx].first = (i == 0 ? 0 : segment_size/4 + addl_seq);
-        to_strip[idx].second = (i+1 == div ? 0 : segment_size/4);
-        bands[idx] = aln;
-        if (i != div-1) { // if we're not at the last sequence
-            aln.set_sequence(read.sequence().substr(off+segment_size/2,
-                                                    segment_size));
-            idx = 2*i+1;
-            to_strip[idx].first = segment_size/4;
-            // record second but take account of case where we run off end
-            to_strip[idx].second = segment_size/4 - (segment_size - aln.sequence().size());
-            bands[idx] = aln;
-        }
-    }
-
+    // and build up an AlignmentChain model to generate maximum likelihood chains through
+    // the bands which define our best to Nth best alignment. Changes to the chain model cost
+    // function can be used to enable direct detection of SVs and other large scale variations.
+    vector<pair<int, int>> to_strip;
+    vector<Alignment> bands = make_bands(read, band_width, to_strip);
     vector<vector<Alignment>> multi_alns;
-    vector<Alignment> alns;
-    if (max_multimaps > 1) multi_alns.resize(to_align);
-    else alns.resize(to_align);
+    multi_alns.resize(bands.size());
 
     auto do_band = [&](int i) {
-        if (max_multimaps > 1) {
-            vector<Alignment>& malns = multi_alns[i];
-            double cluster_mq = 0;
-            malns = align_multi_internal(false, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
-            // always include an unaligned mapping
-            malns.push_back(bands[i]);
-            for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
-                Alignment& aln = *a;
-                bool above_threshold = aln.identity() >= min_identity;
-                if (!above_threshold) {
-                    // treat as unmapped
-                    aln = bands[i];
-                }
-                // strip overlaps
-                aln = strip_from_start(aln, to_strip[i].first);
-                aln = strip_from_end(aln, to_strip[i].second);
-            }
-        } else {
-            Alignment& aln = alns[i];
-            aln = align(bands[i], kmer_size, stride, max_mem_length, band_width);
-            bool above_threshold = aln.identity() >= min_identity;
+        //cerr << "aligning band " << i << endl;
+        vector<Alignment>& malns = multi_alns[i];
+        double cluster_mq = 0;
+        malns = align_multi_internal(true, bands[i], kmer_size, stride, max_mem_length, band_width, cluster_mq, band_multimaps, extra_multimaps, nullptr);
+        // always include an unaligned mapping
+        malns.push_back(bands[i]);
+        for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
+            Alignment& aln = *a;
+            bool above_threshold = aln.identity() >= min_identity && aln.mapping_quality() >= min_banded_mq;
             if (!above_threshold) {
-                aln = bands[i]; // unmapped
+                // treat as unmapped
+                aln = bands[i];
             }
-            
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) {
-                    cerr << "Unstripped alignment: " << pb2json(aln) << endl;
-                }
-            }
-#endif
-            
             // strip overlaps
-            //cerr << "checking before strip" << endl;
-            //check_alignment(aln);
-            // clean up null positions that confuse stripping
-            for (int j = 0; j < aln.path().mapping_size(); ++j) {
-                auto* mapping = aln.mutable_path()->mutable_mapping(j);
-                if (mapping->has_position() && !mapping->position().node_id()) {
-                    mapping->clear_position();
-                }
-            }
             aln = strip_from_start(aln, to_strip[i].first);
             aln = strip_from_end(aln, to_strip[i].second);
-            //cerr << "checking after strip" << endl;
-            //check_alignment(aln);
-            //cerr << "OK" << endl;
         }
     };
-    
+
     if (alignment_threads > 1) {
-#pragma omp parallel for schedule(dynamic,1)
+#pragma omp parallel for
         for (int i = 0; i < bands.size(); ++i) {
             do_band(i);
         }
@@ -2121,58 +2156,66 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         }
     }
 
-    // resolve the highest-scoring traversal of the multi-mappings
-    if (max_multimaps > 1) {
-        alns = resolve_banded_multi(multi_alns);
-        multi_alns.clear(); // clean up
-    }
-
-    // check that the alignments are valid
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            for (auto& aln : alns) {
-                check_alignment(aln);
-            }
+    // cost function
+    auto transition_weight = [&](const Alignment& aln1, const Alignment& aln2) {
+        // scoring scheme for unaligned reads
+        if (!aln1.has_path() && !aln2.has_path()) {
+            return -std::numeric_limits<double>::max();
+        } else if (!aln2.has_path()) {
+            return (double) aln1.score();// - aln2.sequence().size() * gap_extension;
+        } else {
+            return (double) aln2.score();// - aln1.sequence().size() * gap_extension;
         }
-    }
-#endif
-
-    // merge the resulting alignments
-    Alignment merged = merge_alignments(alns);
-
-    merged.set_score(score_alignment(merged));
-    merged.set_identity(identity(merged.path()));
-    merged.set_quality(read.quality());
-    merged.set_name(read.name());
-
-    if(debug) {
-        for(int i = 0; i < merged.path().mapping_size(); i++) {
-            // Check each Mapping to make sure it doesn't go past the end of its
-            // node.
-            auto& mapping = merged.path().mapping(i);
-
-            // What node is the mapping on
-            int64_t node_id = mapping.position().node_id();
-            if(node_id != 0) {
-                // If it's actually on a node, get the node's sequence length
-                int64_t node_length = get_node_length(node_id);
-
-                // Make sure the mapping from length is shorter than the node length
-                assert(node_length >= mapping_from_length(mapping));
+        auto aln1_end = path_end(aln1.path());
+        auto aln2_begin = path_start(aln2.path());
+        int path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
+        int graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+        int dist = min(path_dist, graph_dist);
+        if (dist >= max_band_jump) {
+            return -std::numeric_limits<double>::max();
+        } else {
+            // try to get the precise distance
+            //dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+            /*
+            if (dist >= max_band_jump) {
+                // we discovered that it was too far
+                return -std::numeric_limits<double>::max();
             }
+            */
+            double weight = aln1.sequence().size() + aln2.sequence().size() + aln1.score() + aln2.score() + aln1.mapping_quality() + aln2.mapping_quality();
+            if (aln1_end.is_reverse() != aln2_begin.is_reverse()) {
+                // make inversions cost twice as much as a full length insertion of the inverted sequences
+                weight -= 2 * (gap_open + (aln1.sequence().size() + aln2.sequence().size()) * gap_extension);
+            }
+            dist = abs(dist);
+            weight -= (gap_open + dist * gap_extension);
+            return weight;
         }
-    }
+    };
 
-    return merged;
+    AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump);
+    if (debug) chainer.display(cerr);
+    vector<Alignment> alignments = chainer.traceback(read, max_multimaps+1, false, debug);
+    for (auto& aln : alignments) {
+        // patch the alignment
+        //cerr << "patching and simplifying " << pb2json(aln) << endl;
+        //aln = simplify(aln);
+        aln = patch_alignment(aln, band_width);
+        aln.set_score(score_alignment(aln, true));
+        //cerr << "done patching and simplin" << endl;
+    }
+    // sort the alignments by score
+    std::sort(alignments.begin(), alignments.end(), [](const Alignment& aln1, const Alignment& aln2) { return aln1.score() > aln2.score(); });
+    compute_mapping_qualities(alignments, 0, max_mapping_quality, max_mapping_quality);
+    filter_and_process_multimaps(alignments, max_multimaps);
+    return alignments;
 }
 
 vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_alns) {
     // use a basic dynamic programming to score the path through the multi mapping
-    // we add the score as long as our alignments overlap (we expect them to)
+    // we add the score as long as our alignments are within a bandwidth, subtracting the distance
     // otherwise we add nothing
-    // reads that are < the minimum alignment score threshold are dropped
+    // alignments that are < the minimum alignment score threshold are dropped
 
     // a vector of
     // score, current alignment, parent alignment (direction)
@@ -2224,12 +2267,13 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
         for (auto& aln : curr_alns) {
             // if it's not mapped, take the best previous score
             if (!aln.score()) {
-                curr_scores.push_back(make_tuple(get<0>(best_prev),
-                                                 &aln, best_idx));
+                //assert(aln.path().mapping_size() == 1);
+                aln.clear_path();
+                curr_scores.push_back(make_tuple(get<0>(best_prev), &aln, best_idx));
             } else {
                 // determine our start
                 auto& curr_start = aln.path().mapping(0).position();
-                // accumulate candidate alignments
+                // accumulate candidate alignments, sort by score
                 map<int, vector<pair<score_t, size_t>>> candidates;
                 // for each previous alignment
                 size_t k = 0;
@@ -2239,8 +2283,15 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
                     // and in the same orientation
-                    if (adjacent_positions(prev_end, curr_start)) {
-                        candidates[get<0>(score)].push_back(make_pair(score,k));
+                    //int dist = approx_distance(make_pos_t(prev_end), make_pos_t(curr_start));
+                    int dist = xindex->min_approx_path_distance({}, prev_end.node_id(), curr_start.node_id());
+                    if (dist < max_band_jump || max_band_jump == 0) {
+                        dist = graph_distance(make_pos_t(prev_end), make_pos_t(curr_start), max_band_jump);
+                        if (dist < max_band_jump || max_band_jump == 0) {
+                            auto adj = score;
+                            get<0>(adj) -= dist;
+                            candidates[get<0>(adj)].push_back(make_pair(adj, k));
+                        }
                     }
                     ++k;
                 }
@@ -2248,22 +2299,20 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     // take the best one (at least the first best one we saw)
                     auto& opt = candidates.rbegin()->second.front();
                     // DP scoring step: add scores when we match head to tail
-                    curr_scores.push_back(make_tuple(get<0>(opt.first) + aln.score(),
-                                                     &aln, opt.second));
+                    curr_scores.push_back(make_tuple(get<0>(opt.first) + aln.score(), &aln, opt.second));
                 } else {
-                    // if there are no alignments matching our start
-                    // just take the highest-scoring one
+                    // if there are no alignments matching our start, set this alignment as unmapped
                     auto best_prev_aln = get<1>(prev_scores[best_idx]);
                     if (best_prev_aln->has_path()) {
-                        curr_scores.push_back(make_tuple(get<0>(best_prev),
-                                                         &aln, best_idx));
+                        curr_scores.push_back(make_tuple(get<0>(best_prev), &aln, best_idx));
                     } else {
-                        curr_scores.push_back(make_tuple(get<0>(unmapped_prev),
-                                                         &aln, unmapped_idx));
+                        curr_scores.push_back(make_tuple(get<0>(unmapped_prev), &aln, unmapped_idx));
                     }
                 }
             }
         }
+        std::sort(curr_scores.begin(), curr_scores.end());
+        std::reverse(curr_scores.begin(), curr_scores.end());
     }
     // find the best score at the end
     score_t best_last = scores.back().front();
@@ -2280,10 +2329,12 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
     vector<Alignment> alns; alns.resize(multi_alns.size());
     size_t prev_best_idx = best_last_idx;
     for (int i = scores.size()-1; i >= 0; --i) {
+        assert(scores[i].size());
         auto& score = scores[i][prev_best_idx];
         alns[i] = *get<1>(score); // save the alignment
         prev_best_idx = get<2>(score); // and where we go next
     }
+    cerr << "returning from align banded" << endl;
     return alns;
 }
 
@@ -2431,8 +2482,7 @@ vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment
 }
 
 // filters down to requested number of alignments and marks
-void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int additional_multimaps) {
-    int total_multimaps = max_multimaps + additional_multimaps;
+void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int total_multimaps) {
     if (sorted_unique_alignments.size() > total_multimaps){
         sorted_unique_alignments.resize(total_multimaps);
     }
@@ -2446,7 +2496,7 @@ void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_align
     
 vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int max_mem_length, int band_width) {
     double cluster_mq = 0;
-    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, cluster_mq, extra_multimaps, nullptr);
+    return align_multi_internal(true, aln, kmer_size, stride, max_mem_length, band_width, cluster_mq, max_multimaps, extra_multimaps, nullptr);
 }
     
 vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
@@ -2455,6 +2505,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                int max_mem_length,
                                                int band_width,
                                                double& cluster_mq,
+                                               int keep_multimaps,
                                                int additional_multimaps,
                                                vector<MaximalExactMatch>* restricted_mems) {
     
@@ -2465,8 +2516,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             << aln.sequence() << ", " 
             << kmer_size << ", " 
             << stride << ", " 
-            << band_width << ", " 
-            << additional_multimaps << ", " 
+            << band_width << ", "
+            << keep_multimaps << ", "
+            << additional_multimaps << ", "
             << restricted_mems << ")" 
             << endl;
         if (aln.has_path()) {
@@ -2474,7 +2526,9 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
             cerr << pb2json(aln) << endl;
         }
     }
-    
+    // make sure to respect the max multimaps if we haven't been givne a keep multimap count
+    if (keep_multimaps == 0) keep_multimaps = max_multimaps;
+
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi_internal on fragments of the read
     if (aln.sequence().size() > band_width) {
@@ -2501,7 +2555,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
     // use pre-restricted mems for paired mapping or find mems here
     if (restricted_mems != nullptr) {
         // mem hits will already have been queried
-        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, max_mem_length, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, *restricted_mems, cluster_mq, longest_lcp, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
     else {
         vector<MaximalExactMatch> mems = find_mems_deep(aln.sequence().begin(),
@@ -2511,26 +2565,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         min_mem_length,
                                                         mem_reseed_length);
         // query mem hits
-        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, max_mem_length, additional_multimaps_for_quality);
+        alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, max_mem_length, keep_multimaps, additional_multimaps_for_quality);
     }
-
-    /*
-    alignments = score_sort_and_deduplicate_alignments(alignments, aln);
-    
-    // compute mapping quality before removing extra alignments
-    if (compute_unpaired_quality) {
-        compute_mapping_qualities(alignments, cluster_mq, longest_lcp, max_mapping_quality);
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) cerr << "mapping quality " << alignments.front().mapping_quality() << " " << cluster_mq << endl;
-        }
-#endif
-        filter_and_process_multimaps(alignments, 0);
-    } else {
-        filter_and_process_multimaps(alignments, additional_multimaps);
-    }
-    */
 
     for (auto& aln : alignments) {
         // Make sure no alignments are wandering out of the graph
@@ -3894,10 +3930,232 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
     return alns;
 }
 
+Position Mapper::alignment_end_position(const Alignment& aln) {
+    if (!aln.has_path()) { Position pos; return pos; }
+    Alignment b;
+    *b.mutable_path()->add_mapping() = aln.path().mapping(aln.path().mapping_size()-1);
+    b = reverse_complement_alignment(b,
+                                     (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                             return (int64_t)get_node_length(id);
+                                         }));
+    return reverse(b.path().mapping(0).position(),
+                   get_node_length(b.path().mapping(0).position().node_id()));
+}
+
+Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
+    //cerr << "top of patch_alignment" << endl;
+    Alignment patched;
+    // walk along the alignment and find the portions that are unaligned
+    int read_pos = 0;
+    auto& path = aln.path();
+    //auto aligner = get_regular_aligner();
+    //auto qual_adj_aligner = get_qual_adj_aligner();
+    auto& node_cache = get_node_cache();
+    auto& edge_cache = get_edge_cache();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        //cerr << "looking at mapping " << i << " " << pb2json(mapping) << endl;
+        pos_t ref_pos = make_pos_t(mapping.position());
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            //cerr << "looking at edit " << j << " " << pb2json(edit) << endl;
+            if (edit_is_match(edit) || edit_is_sub(edit)) {
+                patched.mutable_sequence()->append(aln.sequence().substr(read_pos, edit.to_length()));
+                Mapping* new_mapping = patched.mutable_path()->add_mapping();
+                *new_mapping->mutable_position() = make_position(ref_pos);
+                *new_mapping->add_edit() = edit;
+                get_offset(ref_pos) += edit.from_length();
+            } else if (edit_is_deletion(edit)) {
+                Mapping* new_mapping = patched.mutable_path()->add_mapping();
+                *new_mapping->mutable_position() = make_position(ref_pos);
+                *new_mapping->add_edit() = edit;
+                get_offset(ref_pos) += edit.from_length();
+            } else if (edit_is_insertion(edit)) {
+                // let's try to patch this insertion into the gap between the neighboring bits
+                //cerr << "patching " << pb2json(edit) << endl;
+                Alignment patch;
+                patch.set_sequence(edit.sequence());
+                if (!aln.quality().empty()) {
+                    patch.set_quality(aln.quality().substr(read_pos, edit.sequence().size()));
+                }
+                vector<Alignment> bands;
+                vector<pair<int, int>> to_strip;
+                if (edit.sequence().size() > max_patch_length) {
+                    // do the banding thing
+                    //cerr << "banding" << endl;
+                    bands = make_bands(patch, max_patch_length, to_strip);
+                } else {
+                    //cerr << "not banding" << endl;
+                    to_strip.push_back(make_pair(0,0));
+                    bands.push_back(patch);
+                }
+                //cerr << "got " << bands.size() << " bands" << endl;
+                //pos_t band_ref_pos = ref_pos;
+                set<pos_t> band_ref_pos;
+                band_ref_pos.insert(ref_pos);
+                for (int k = 0; k < bands.size(); ++k) {
+                    Alignment& band = bands[k];
+                    //cerr << "on band " << k << " " << pb2json(band) << endl;
+                    if (i == 0 && j == 0 && k == 0) {
+                        //cerr << "soft clip at start " << band.sequence() << endl;
+                        //cerr << "ref pos " << band_ref_pos << endl;
+                        // reverse the position, we're going backwards to get the graph off the end of where we are
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
+                            cached_graph_context(graph, pos_rev, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                        // TODO
+                        // ideal: edit it with the path fragment after this, to get the breakpoints right
+                        // and trim off the part matching that bit
+                    } else if (i == path.mapping_size()-1
+                               && j == mapping.edit_size()-1
+                               && k == bands.size()-1) {
+                        //cerr << "soft clip at end " << band.sequence() << endl;
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                    } else {
+                        //cerr << "internal addition" << endl;
+                        int max_score = -std::numeric_limits<int>::max();
+                        for (auto& pos : band_ref_pos) {
+                            VG graph;
+                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
+                        }
+                    }
+#ifdef debug_mapper
+                    if (debug && !check_alignment(band)) {
+                        cerr << "patching failure " << pb2json(band) << endl;
+                        assert(false);
+                    }
+#endif
+                    //cerr << "band before strip " << pb2json(band) << endl;
+                    //cerr << "stripping " << to_strip[k].first << "," << to_strip[k].second << endl;
+                    assert(band.sequence().size() > to_strip[k].first + to_strip[k].second);
+                    band = strip_from_start(band, to_strip[k].first);
+                    band = strip_from_end(band, to_strip[k].second);
+                    band = simplify(band);
+                    band.set_identity(identity(band.path()));
+                    //cerr << "band simplified " << pb2json(band) << endl;
+                    // update the reference end position
+                    if (band.has_path()) {
+                        //cerr << "we have an alignment" << endl;
+                        if (alignment_from_length(band) >= min_mem_length
+                            && band.identity() >= min_identity
+                            && band.sequence().size() >= min_cluster_length) {
+                            //cerr << "new ref pos " << band_ref_pos << endl;
+                            band_ref_pos.clear();
+                            // todo... step our position back just a little to match the banding
+                            // right now we're relying on the chunkiness of the graph to get this for us
+                            // strip back a little
+                            if (to_strip.size() > k+1 && to_strip[k+1].first && band.sequence().size() > to_strip[k+1].first) {
+                                auto band_chew = strip_from_end(band, to_strip[k+1].first);
+                                band_ref_pos.insert(make_pos_t(alignment_end_position(band_chew)));
+                            } else {
+                                band_ref_pos.insert(make_pos_t(alignment_end_position(band)));
+                            }
+#ifdef debug_mapper
+                            if (debug && !check_alignment(band)) {
+                                cerr << "failed band " << pb2json(band) << endl;
+                                assert(false);
+                            }
+#endif
+                        } else {
+                            //cerr << "clearing the path" << endl;
+                            band.clear_path();
+                            // TODO try to align over a bigger chunk after this
+                        }
+                    }
+                    if (band.path().mapping_size() == 0) {
+                        //cerr << "the hack" << endl;
+                        // hack to make merging work when we are unaligned
+                        band.set_score(0);
+                        band.clear_path();
+                        Mapping* m = band.mutable_path()->add_mapping();
+                        Edit* e = m->add_edit();
+                        e->set_sequence(band.sequence());
+                        e->set_to_length(band.sequence().size());
+                        if (!band_ref_pos.empty()) {
+                            *m->mutable_position() = make_position(*band_ref_pos.begin());
+                        } // should we alternatively set ourselves back to the ref_pos?
+                        // walk graph to estimate next position based on assumption we are ~ homologous to the graph
+                        set<pos_t> next_pos;
+                        for (auto& pos : band_ref_pos) {
+                            for (auto& next : positions_bp_from(pos, band.sequence().size(), false)) {
+                                next_pos.insert(next);
+                            }
+                        }
+                        band_ref_pos = next_pos;
+                    }
+                }
+                /*
+                cerr << "done bands" << endl;
+                for (auto& band : bands) {
+                    cerr << "band: " << pb2json(band) << endl;
+                }
+                */
+                patch = merge_alignments(bands);
+                if (patch.sequence() != edit.sequence()) {
+                    cerr << "sequence mismatch" << endl;
+                    cerr << "seq_expect: " << edit.sequence() << endl;
+                    cerr << "seq_got:    " << patch.sequence() << endl;
+                    assert(false);
+                }
+#ifdef debug_mapper
+                if (debug && !check_alignment(patch)) {
+                    cerr << "failed patch merge " << pb2json(patch) << endl;
+                    assert(false);
+                }
+#endif
+                //cerr << "adding " << pb2json(patch) << endl;
+                if (patched.path().mapping_size()) {
+                    extend_alignment(patched, patch);
+                } else {
+                    patched = patch;
+                }
+                /*
+                if (!check_alignment(patched)) {
+                    cerr << "failed patched extend " << pb2json(patched) << endl;
+                    assert(false);
+                }
+                */
+            }
+            read_pos += edit.to_length();
+        }
+    }
+    // finally, fix up the alignment score
+    patched.set_sequence(aln.sequence());
+    if (!aln.quality().empty()) {
+        patched.set_quality(aln.quality());
+    }
+#ifdef debug_mapper
+    if (debug && !check_alignment(patched)) {
+        cerr << "failed final alignment " << pb2json(patched) << endl;
+        assert(false);
+    }
+#endif
+    // simplify the mapping representation
+    patched = simplify(patched);
+    // set the identity
+    patched.set_identity(identity(patched.path()));
+    // recompute the score
+    patched.set_score(score_alignment(patched, true));
+    return patched;
+}
+
 // generate a score from the alignment without realigning
 // handles split alignments, where gaps of unknown length are
 // by estimating length using the positional paths embedded in the graph
-int32_t Mapper::score_alignment(const Alignment& aln) {
+int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
@@ -3943,7 +4201,11 @@ int32_t Mapper::score_alignment(const Alignment& aln) {
                 if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
             }
 #endif
-            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            int dist =
+                (use_approx_distance ?
+                 approx_distance(make_pos_t(last_pos), make_pos_t(next_pos))
+                 :
+                 graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size()));
             if (dist == aln.sequence().size()) {
 #ifdef debug_mapper
 #pragma omp critical
@@ -4535,6 +4797,212 @@ ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
     }
     return out;
 }
+
+/////// banded long read alignment resolution
+
+AlignmentChainModel::AlignmentChainModel(
+    vector<vector<Alignment> >& bands,
+    Mapper* mapper,
+    const function<double(const Alignment&, const Alignment&)>& transition_weight,
+    int band_width,
+    int position_depth,
+    int max_connections) {
+    // store the Alignments in the model
+    int offset = 0;
+    int idx = 0;
+    for (auto& band : bands) {
+        for (auto& aln : band) {
+            AlignmentChainModelVertex v;
+            v.aln = &aln;
+            v.band_begin = offset;
+            v.band_idx = idx;
+            v.weight = aln.score();
+            v.prev = nullptr;
+            v.score = 0;
+            v.approx_position = mapper->approx_alignment_position(aln);
+            model.push_back(v);
+        }
+        assert(!band.empty());
+        // save an unaligned band to fill in later
+        Alignment aln = band.front();
+        aln.clear_score(); aln.clear_path(); aln.clear_mapping_quality(); aln.clear_identity();
+        unaligned_bands.push_back(aln);
+        offset += band.front().sequence().length();
+        ++idx;
+    }
+    // index the model with the positions
+    for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
+        approx_positions[v->approx_position].push_back(v);
+    }
+    // sort the vertexes at each approx position by their matches and trim
+    for (auto& pos : approx_positions) {
+        std::sort(pos.second.begin(), pos.second.end(), [](const vector<AlignmentChainModelVertex>::iterator& v1,
+                                                           const vector<AlignmentChainModelVertex>::iterator& v2) {
+                      return v1->aln->score() > v2->aln->score();
+                  });
+        if (pos.second.size() > position_depth) {
+            for (int i = position_depth; i < pos.second.size(); ++i) {
+                redundant_vertexes.insert(pos.second[i]);
+            }
+        }
+        pos.second.resize(min(pos.second.size(), (size_t)position_depth));
+    }
+    for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
+        for (auto u = v+1; u != model.end(); ++u) {
+            if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
+                if (v->band_begin < u->band_begin) {
+                    double weight = transition_weight(*v->aln, *u->aln);
+                    if (weight > -std::numeric_limits<double>::max()) {
+                        v->next_cost.push_back(make_pair(&*u, weight));
+                        u->prev_cost.push_back(make_pair(&*v, weight));
+                    }
+                } else if (v->band_begin > u->band_begin) {
+                    double weight = transition_weight(*u->aln, *v->aln);
+                    if (weight > -std::numeric_limits<double>::max()) {
+                        u->next_cost.push_back(make_pair(&*v, weight));
+                        v->prev_cost.push_back(make_pair(&*u, weight));
+                    }
+                }
+            }            
+        }
+    }
+}
+
+void AlignmentChainModel::score(const set<AlignmentChainModelVertex*>& exclude) {
+    // propagate the scores in the model
+    for (auto& m : model) {
+        // score is equal to the max inbound + mem.weight
+        if (exclude.count(&m)) continue; // skip if vertex was whole cluster
+        m.score = m.weight;
+        for (auto& p : m.prev_cost) {
+            if (p.first == nullptr) continue; // this transition is masked out
+            double proposal = m.weight + p.second + p.first->score;
+            if (proposal > m.score) {
+                m.prev = p.first;
+                m.score = proposal;
+            }
+        }
+    }
+}
+
+AlignmentChainModelVertex* AlignmentChainModel::max_vertex(void) {
+    AlignmentChainModelVertex* maxv = nullptr;
+    for (auto& m : model) {
+        if (maxv == nullptr || m.score > maxv->score) {
+            maxv = &m;
+        }
+    }
+    return maxv;
+}
+
+void AlignmentChainModel::clear_scores(void) {
+    for (auto& m : model) {
+        m.score = 0;
+        m.prev = nullptr;
+    }
+}
+
+vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_alns, bool paired, bool debug) {
+    debug = true;
+    vector<vector<Alignment> > traces;
+    traces.reserve(alt_alns); // avoid reallocs so we can refer to pointers to the traces
+    set<AlignmentChainModelVertex*> exclude;
+    for (auto& v : redundant_vertexes) exclude.insert(&*v);
+    for (int i = 0; i < alt_alns; ++i) {
+        // score the model, accounting for excluded traces
+        clear_scores();
+        score(exclude);
+#ifdef debug_mapper
+#pragma omp critical
+        if (debug) {
+            cerr << "AlignmentChainModel::traceback " << i << endl;
+            display(cerr);
+        }
+#endif
+        vector<AlignmentChainModelVertex*> vertex_trace;
+        {
+            // find the maximum score
+            auto* vertex = max_vertex();
+            // check if we've exhausted our Alignments
+            if (vertex == nullptr || vertex->score == 0) break;
+#ifdef debug_mapper
+#pragma omp critical
+            if (debug) cerr << "maximum score " << vertex->aln->sequence() << " " << vertex << ":" << vertex->score << endl;
+#endif
+            // make trace
+            while (vertex != nullptr) {
+                vertex_trace.push_back(vertex);
+                if (vertex->prev != nullptr) {
+                    vertex = vertex->prev;
+                } else {
+                    break;
+                }
+            }
+        }
+        // if we have a singular match or reads are not paired, record not to use it again
+        if (paired && vertex_trace.size() == 1) {
+            exclude.insert(vertex_trace.front());
+        }
+        // fill this out when we're paired to help mask out in-fragment transitions
+        set<AlignmentChainModelVertex*> chain_members;
+        if (paired) for (auto v : vertex_trace) chain_members.insert(v);
+        traces.emplace_back();
+        auto& aln_trace = traces.back();
+        aln_trace = unaligned_bands;
+        for (auto v = vertex_trace.rbegin(); v != vertex_trace.rend(); ++v) {
+            auto& vertex = **v;
+            if (!paired) exclude.insert(&vertex);
+            if (v != vertex_trace.rbegin()) {
+                auto y = v - 1;
+                AlignmentChainModelVertex* prev = *y;
+                // mask out used transitions
+                for (auto& p : vertex.prev_cost) {
+                    if (p.first == prev) {
+                        p.first = nullptr;
+                    } else if (paired && p.first != nullptr
+                               && p.first->band_begin != vertex.band_begin
+                               && chain_members.count(p.first)) {
+                        p.first = nullptr;
+                    }
+                }
+            }
+            aln_trace[vertex.band_idx] = *vertex.aln;
+        }
+    }
+    vector<Alignment> alns;
+    for (auto& trace : traces) {
+        alns.emplace_back();
+        Alignment& merged = alns.back();
+        merged = merge_alignments(trace);
+        merged.set_identity(identity(merged.path()));
+        merged.set_quality(read.quality());
+        merged.set_name(read.name());
+    }
+    return alns;
+}
+
+// show model
+void AlignmentChainModel::display(ostream& out) {
+    for (auto& vertex : model) {
+        out << &vertex << ":" << vertex.band_begin << ":" << vertex.aln->sequence() << ":" << vertex.score << "@";
+        out << "prev: ";
+        for (auto& p : vertex.prev_cost) {
+            auto& next = p.first;
+            if (p.first == nullptr) continue;
+            out << p.first << ":" << p.second << "@";
+            out << " ; ";
+        }
+        out << " next: ";
+        for (auto& p : vertex.next_cost) {
+            auto& next = p.first;
+            if (p.first == nullptr) continue;
+            out << p.first << ":" << p.second << "@";
+            out << " ; ";
+        }
+        out << endl;
+    }
+}
+
     
 
 }
