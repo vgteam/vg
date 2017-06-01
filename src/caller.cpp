@@ -11,13 +11,15 @@ namespace vg {
 const double Caller::Log_zero = (double)-1e100;
 
 const char Caller::Default_default_quality = 30;
+const int Caller::Default_min_aug_support = 2;
 
 Caller::Caller(VG* graph,
                int default_quality,
-               bool bridge_alts):
+               int min_aug_support):
     _graph(graph),
     _default_quality(default_quality),
-    _bridge_alts(bridge_alts) {
+    _min_aug_support(min_aug_support) {
+    assert(_min_aug_support > 0);
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
 }
@@ -319,43 +321,43 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
     for (int i = 0; i < (int)NodeDivider::EntryCat::Last; ++i) {
         for (int j = 0; j < (int)NodeDivider::EntryCat::Last; ++j) {
             if (call_sides1[i] != NULL && call_sides2[j] != NULL) {
-                // always make an edge if the bridge flag is set
-                // otherwise, only make links between alts and reference
+                // always make links between alts and reference
                 // (be more strict on deletion edges, only linking two reference)
-                // there is a possibility of disconnecting the graph in
-                // certain cases here, maybe it should be relaxed to make
-                // at least one edge in all cases? 
-                if (_bridge_alts ||
-                    (i == (int)NodeDivider::EntryCat::Ref &&
-                     j == (int)NodeDivider::EntryCat::Ref) ||
-                    ((i == (int)NodeDivider::EntryCat::Ref || 
-                      j == (int)NodeDivider::EntryCat::Ref) &&
-                     cat != 'L')) {                    
-                    NodeSide side1(call_sides1[i]->id(), !left_side1);
-                    NodeSide side2(call_sides2[j]->id(), !left_side2);
-                    if (!_augmented_graph.graph.has_edge(side1, side2)) {
-                        Edge* edge = _augmented_graph.graph.create_edge(call_sides1[i], call_sides2[j],
-                                                             left_side1, !left_side2);
-                        StrandSupport edge_support = support >= StrandSupport() ? support :
-                            min(avgSup(call_sides1.sup(i)), avgSup(call_sides2.sup(j)));
+                bool link_edge = ((i == (int)NodeDivider::EntryCat::Ref &&
+                                  j == (int)NodeDivider::EntryCat::Ref) ||
+                                  ((i == (int)NodeDivider::EntryCat::Ref || 
+                                    j == (int)NodeDivider::EntryCat::Ref) &&
+                                   cat != 'L'));
 
-                        NodeOffSide no1(NodeSide(node1->id(), !left_side1), from_offset);
-                        NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
-                        // take augmented deletion edge support from the pileup
-                        if (cat == 'L') {
-                            edge_support = _deletion_supports[minmax(no1, no2)];
-                        }
-                        // hack to decrease support for an edge that spans an insertion, by subtracting
-                        // that insertion's copy number.  
-                        auto is_it = _insertion_supports.find(minmax(no1, no2));
-                        if (is_it != _insertion_supports.end()) {
-                            edge_support = edge_support - is_it->second;
-                        }                        
-                        // TODO: can edges be annotated more than once with
-                        // different cats? if so, last one will prevail. should
-                        // check if this can impact vcf converter...
-                        annotate_augmented_edge(edge, cat, edge_support);
-                    }
+                NodeSide side1(call_sides1[i]->id(), !left_side1);
+                NodeSide side2(call_sides2[j]->id(), !left_side2);
+                if (!_augmented_graph.graph.has_edge(side1, side2)) {
+                  StrandSupport edge_support = support >= StrandSupport() ? support :
+                     min(avgSup(call_sides1.sup(i)), avgSup(call_sides2.sup(j)));
+
+                  NodeOffSide no1(NodeSide(node1->id(), !left_side1), from_offset);
+                  NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
+                  // take augmented deletion edge support from the pileup
+                  if (cat == 'L') {
+                    edge_support = _deletion_supports[minmax(no1, no2)];
+                  }
+                  // hack to decrease support for an edge that spans an insertion, by subtracting
+                  // that insertion's copy number.  
+                  auto is_it = _insertion_supports.find(minmax(no1, no2));
+                  if (is_it != _insertion_supports.end()) {
+                    edge_support = edge_support - is_it->second;
+                  }
+
+                  if (link_edge || edge_support.total() >= _min_aug_support) {
+                        
+                    Edge* edge = _augmented_graph.graph.create_edge(call_sides1[i], call_sides2[j],
+                                                                    left_side1, !left_side2);
+
+                    // TODO: can edges be annotated more than once with
+                    // different cats? if so, last one will prevail. should
+                    // check if this can impact vcf converter...
+                    annotate_augmented_edge(edge, cat, edge_support);
+                  }
                 }
             }
         }
@@ -388,13 +390,13 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
     pair<StrandSupport, StrandSupport>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
 
-    if (top_count > 0) {
+    if (top_count >= _min_aug_support || (top_base == ref_base && top_count > 0)) {
         base_call.first = top_base != ref_base ? top_base : ".";
         support.first.fs = top_count - top_rev_count;
         support.first.rs = top_rev_count;
         support.first.qual = total_base_quality(bp, base_offsets, top_base);
     }
-    if (second_count > 0) { 
+    if (second_count >= _min_aug_support || (second_base == ref_base && second_count > 0)) { 
         base_call.second = second_base != ref_base ? second_base : ".";
         support.second.fs = second_count - second_rev_count;
         support.second.rs = second_rev_count;

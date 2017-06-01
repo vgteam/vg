@@ -159,11 +159,14 @@ public:
     static const double Log_zero;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
+    // don't augment graph without minimum support
+    static const int Default_min_aug_support;
     
     Caller(VG* graph,
            int default_quality = Default_default_quality,
-           bool bridge_alts = false);
-    ~Caller();
+           int min_aug_support = Default_min_aug_support);
+
+   ~Caller();
     void clear();
 
     // input graph
@@ -219,13 +222,8 @@ public:
     int _buffer_size;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
-    // the base-by-base calling is very limited, and adjacent
-    // variants are not properly phased according to the reads.
-    // so we choose either to add all edges between neighboring
-    // positions (true) or none except via reference (false)
-    // (default to latter as most haplotypes rarely contain
-    // pairs of consecutive alts). 
-    bool _bridge_alts;
+    // minimum support to augment graph
+    int _min_aug_support;
 
     // write the augmented graph
     void write_augmented_graph(ostream& out, bool json);

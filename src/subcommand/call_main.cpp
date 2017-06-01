@@ -30,7 +30,8 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "options:" << endl
          << "    -q, --default-read-qual N   phred quality score to use if none found in the pileup ["
          << (int)Caller::Default_default_quality << "]" << endl
-         << "    -a, --link-alts             add all possible edges between adjacent alts" << endl
+         << "    -g, --min-aug-support N     minimum support to augment graph ["
+         << Caller::Default_min_aug_support << "]" << endl
          << "    -A, --aug-graph FILE        write out the agumented graph in vg format" << endl
          << "    -U, --subgraph              expect a subgraph and ignore extra pileup entries outside it" << endl
          << "    -P, --pileup                write pileup under VCF lines (for debugging, output not valid VCF)" << endl
@@ -47,7 +48,7 @@ int main_call(int argc, char** argv) {
 
     int default_read_qual = Caller::Default_default_quality;
     string aug_file;
-    bool bridge_alts = false;
+    int min_aug_support = Caller::Default_min_aug_support;
         
     // Should we expect a subgraph and ignore pileups for missing nodes/edges?
     bool expect_subgraph = false;
@@ -65,7 +66,7 @@ int main_call(int argc, char** argv) {
     static const struct option long_options[] = {
         {"default-read-qual", required_argument, 0, 'q'},
         {"aug-graph", required_argument, 0, 'A'},
-        {"link-alts", no_argument, 0, 'a'},
+        {"min-aug-support", required_argument, 0, 'g'},
         {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
@@ -74,7 +75,7 @@ int main_call(int argc, char** argv) {
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "q:A:apvt:UPh";
+    static const char* short_options = "q:A:g:pvt:UPh";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -88,8 +89,8 @@ int main_call(int argc, char** argv) {
         case 'A':
             aug_file = optarg;
             break;
-        case 'a':
-            bridge_alts = true;
+        case'g':
+            min_aug_support = atoi(optarg);
             break;
         case 'U':
             expect_subgraph = true;
@@ -163,7 +164,7 @@ int main_call(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing augmented graph" << endl;
     }
-    Caller caller(graph, default_read_qual, bridge_alts);
+    Caller caller(graph, default_read_qual, min_aug_support);
 
     // setup pileup stream
     get_input_file(pileup_file_name, [&](istream& pileup_stream) {
