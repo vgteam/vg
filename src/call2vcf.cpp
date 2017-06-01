@@ -429,38 +429,39 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
 
 /**
  * Get the min support, total support, bp size (to divide total by for average
- * support), and min likelihood for a traversal, optionally excluding the
- * material used by another traversal.
+ * support), and min likelihood for a traversal, optionally special-casing the
+ * material used by another traversal. Material used by another traversal only
+ * makes half its coverage available to this traversal.
  */
 tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
     SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
-    const SnarlTraversal* excluded = nullptr) {
+    const SnarlTraversal* already_used = nullptr) {
 
 #ifdef debug
     cerr << "Evaluate traversal: " << endl;
     for (size_t i = 0; i < traversal.visits_size(); i++) {
         cerr << "\t" << pb2json(traversal.visits(i)) << endl;
     }
-    if (excluded != nullptr) {
-        cerr << "Exclude: " << endl;
-        for (size_t i = 0; i < excluded->visits_size(); i++) {
-            cerr << "\t" << pb2json(excluded->visits(i)) << endl;
+    if (already_used != nullptr) {
+        cerr << "Need to share: " << endl;
+        for (size_t i = 0; i < already_used->visits_size(); i++) {
+            cerr << "\t" << pb2json(already_used->visits(i)) << endl;
         }
     }
 #endif
 
-    // First work out the stuff we need to skip
-    set<id_t> skip_nodes;
-    set<Snarl> skip_children;
-    set<Edge*> skip_edges;
-    if (excluded != nullptr) {
-        // Exlcude all the nodes and edges that the traversal to exclude uses.
-        trace_traversal(*excluded, site, [&](size_t i, id_t node) {
-            skip_nodes.insert(node);
+    // First work out the stuff we need to share
+    set<id_t> shared_nodes;
+    set<Snarl> shared_children;
+    set<Edge*> shared_edges;
+    if (already_used != nullptr) {
+        // Mark all the nodes and edges that the other traverasl uses.
+        trace_traversal(*already_used, site, [&](size_t i, id_t node) {
+            shared_nodes.insert(node);
         }, [&](size_t i, NodeSide end1, NodeSide end2) {
-            skip_edges.insert(augmented.graph.get_edge(end1, end2));
+            shared_edges.insert(augmented.graph.get_edge(end1, end2));
         }, [&](size_t i, Snarl child) {
-            skip_children.insert(child);
+            shared_children.insert(child);
         });
     }
     
@@ -479,16 +480,12 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
     set<Node*> coverage_counted;
     
     trace_traversal(traversal, site, [&](size_t i, id_t node_id) {
-        if (skip_nodes.count(node_id)) {
-            // Used by the traversal we want to ignore
-            return;
-        }
-    
         // Find the node
         Node* node = augmented.graph.get_node(node_id);
     
         // Grab this node's total support along its length
-        total_supports[i] += augmented.get_support(node) * node->sequence().size();
+        // Make sure to only use half the support if the node is shared
+        total_supports[i] += augmented.get_support(node) * node->sequence().size() * (shared_nodes.count(node_id) ? 0.5 : 1.0);
         // And its size
         visit_sizes[i] += node->sequence().size();
         
@@ -500,24 +497,15 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         Edge* edge = augmented.graph.get_edge(end1, end2);
         assert(edge != nullptr);
         
-        if (skip_edges.count(edge)) {
-            // Used by the traversal we want to ignore
-            return;
-        }
-
         // Count as 1 base worth for the total/average support
-        total_supports[i] += augmented.get_support(edge);
+        // Make sure to only use half the support if the edge is shared
+        total_supports[i] += augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
         visit_sizes[i] += 1;
         
         // Min in its support
         min_supports[i] = support_min(min_supports[i], augmented.get_support(edge));
     }, [&](size_t i, Snarl child) {
         // This is a child snarl, so get its max support.
-        
-        if (skip_children.count(child)) {
-            // Used by the traversal we want to ignore
-            return;
-        }
         
         Support child_max;
         size_t child_size = 0;
@@ -542,6 +530,11 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
             cerr << "From child snarl node " << node->id() << " get "
                 << augmented.get_support(node) << " for distinct " << child_max << endl;
 #endif
+        }
+        
+        if (shared_children.count(child)) {
+            // Make sure to halve the support if the child is shared
+            child_max *= 0.5;
         }
         
         // Smoosh support over the whole child

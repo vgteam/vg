@@ -588,6 +588,21 @@ Support operator*(const Support& support, const Scalar& scale) {
     return prod;
 }
 
+/**
+ * Scale a Support by a factor, in place.
+ */
+template<typename Scalar>
+Support& operator*=(Support& support, const Scalar& scale) {
+    support.set_forward(support.forward() * scale);
+    support.set_reverse(support.reverse() * scale);
+    support.set_left(support.left() * scale);
+    support.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    support.set_quality(support.quality() * scale);
+    
+    return support;
+}
 
 /**
  * Scale a Support by a factor, the other way
@@ -622,6 +637,22 @@ Support operator/(const Support& support, const Scalar& scale) {
     scaled.set_quality(support.quality() / scale);
     
     return scaled;
+}
+
+/**
+ * Divide a Support by a factor, in place.
+ */
+template<typename Scalar>
+Support& operator/=(Support& support, const Scalar& scale) {
+    support.set_forward(support.forward() / scale);
+    support.set_reverse(support.reverse() / scale);
+    support.set_left(support.left() / scale);
+    support.set_right(support.right() / scale);
+    
+    // log-scaled quality can just be divided
+    support.set_quality(support.quality() / scale);
+    
+    return support;
 }
 
 /**
