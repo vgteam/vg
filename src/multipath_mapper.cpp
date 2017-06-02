@@ -12,6 +12,7 @@ namespace vg {
         
     }
     
+    
     MultipathAligner::multipath_align(const Alignment& alignment,
                                       const vector<MaximalExactMatch>& mems){
         
@@ -154,9 +155,6 @@ namespace vg {
             return cluster_graph_coverage[g1] > cluster_graph_coverage[g2];
         });
         
-        // we will preserve paths of up to the maximum length in the graph
-        size_t target_length = aligner.longest_detectable_gap(alignment, full_length_bonus) + alignment.sequence().size();
-        
         for (VG* vg : cluster_graphs) {
             
             // if we have a cluster graph with small enough MEM coverage compared to the best one
@@ -165,124 +163,24 @@ namespace vg {
                 break;
             }
             
-//            // pointer to the graph we are going to align against
-//            VG* align_graph = vg;
-//            
-//            // local graphs for unfolding/dagifying as necessary
-//            VG unfolded;
-//            VG dagified;
-//            
-//            bool is_acyclic = vg->is_acyclic();
-//            bool unrolled = false;
-//            unordered_map<id_t, pair<id_t, bool>> trans;
-//            
-//            if (!is_acyclic) {
-//                
-//                if (align_graph->has_inverting_edges()) {
-//                    unfolded = align_graph->unfold(target_length, trans);
-//                    align_graph = &unfolded;
-//                    unrolled = true;
-//                }
-//                
-//            }
-//            else {
-//                
-//                unordered_map<id_t, pair<id_t, bool>> unfold_trans;
-//                if (align_graph->has_inverting_edges()) {
-//                    unfolded = align_graph->unfold(target_length, unfold_trans);
-//                    align_graph = &unfolded;
-//                    unrolled = true;
-//                }
-//                
-//                dagified = align_graph->dagify(target_length, trans, target_length);
-//                align_graph = &dagified;
-//                
-//                if (!unfold_trans.empty()) {
-//                    for (pair<id_t, pair<id_t, bool>>& trans_record : trans) {
-//                        pair<id_t, bool>& unfolded_node = unfold_trans[trans_record.second.first];
-//                        trans[trans_record.first] = make_pair(unfolded_node.first,
-//                                                              trans_record.second.second != unfolded_node.second);
-//                    }
-//                }
-//            }
-//            
-//            // ensure that graph is in topological order
-//            align_graph->sort();
-//            
-//            // map to project MEMs into the dagified graph
-//            unordered_multimap<id_t, pair<id_t, bool>> backward_trans;
-//            if (trans.empty()) {
-//                const Graph& g = align_graph->graph;
-//                for (int64_t i = 0; i < g.node_size(); i++) {
-//                    id_t id = g.node(i).id();
-//                    backward_trans.insert(make_pair(id, make_pair(g.node(i).id(), false)));
-//                }
-//            }
-//            else {
-//                for (pair<id_t, pair<id_t, bool>> trans_record : trans) {
-//                    backward_trans.insert(make_pair(trans_record.second.first,
-//                                                    make_pair(trans_record.first, trans_record.second.second)));
-//                }
-//            }
-//            
-//            vector<pair<MaximalExactMatch* const, pos_t>> forward_hits;
-//            vector<pair<MaximalExactMatch* const, pos_t>> reverse_hits;
-//            
-//            for (const pair<MaximalExactMatch* const, pos_t>& mem_hit : cluster_graph_mems[vg]) {
-//                auto range = backward_trans.equal_range(id(mem_hit.second));
-//                bool added_forward = false;
-//                bool added_reverse = false;
-//                for (auto iter = range.first; iter != range.second; iter++) {
-//                    if (is_rev(mem_hit.second) == (*iter).second.second && !added_forward) {
-//                        forward_hits.push_back(mem_hit);
-//                        added_forward = true;
-//                    }
-//                    else if (is_rev(mem_hit.second) != (*iter).second.second && !added_reverse) {
-//                        reverse_hits.push_back(mem_hit);
-//                        added_reverse = true;
-//                    }
-//                }
-//            }
-//            
-//            // sort the hits in descending size order to help filter out partial MEMs
-//            
-//            std::sort(forward_hits.begin(), forward_hits.end(),
-//                      [](const pair<MaximalExactMatch* const, pos_t>& hit_1,
-//                         const pair<MaximalExactMatch* const, pos_t>& hit_2) {
-//                          return hit_1.first->length() > hit_2.first->length();
-//                      });
-//            
-//            std::sort(reverse_hits.begin(), reverse_hits.end(),
-//                      [](const pair<MaximalExactMatch* const, pos_t>& hit_1,
-//                         const pair<MaximalExactMatch* const, pos_t>& hit_2) {
-//                          return hit_1.first->length() > hit_2.first->length();
-//                      });
-//            
-//            int64_t forward_coverage = read_coverage(forward_hits);
-//            int64_t reverse_coverage = read_coverage(reverse_hits);
-//            
-//            // align to the forward strand if we've detected more hits to it than you would expect to by chance
-//            // to a string of equal length to the read (ignoring contiguity) -- this is a permissive standard
-//            // but it can be confounded by base errors/polymorphisms that are close enough together that MEMs
-//            // are dropped because of the length filter
-//            bool align_forward = read_coverage_z_score(forward_coverage, alignment) > z_score_cutoff;
-//            // if the graph has been unrolled, we can be more stringent about aligning the reverse strand
-//            // because it is likely also represented on the forward strand
-//            bool align_backward = unrolled ? reverse_coverage > forward_coverage
-//                                           : read_coverage_z_score(reverse_coverage, alignment) > z_score_cutoff;
-            
             unordered_map<id_t, pair<id_t, bool> > node_trans;
             VG align_graph = vg->split_strands(node_trans);
             
             unordered_multimap<id_t, pair<id_t, bool> > rev_trans;
             for (const auto& trans_record : node_trans) {
                 rev_trans.insert(make_pair(trans_record.second.first,
-                                           make_pair(trans_record.first, trans_record.second.second));
+                                           make_pair(trans_record.first, trans_record.second.second)));
             }
             
             vector<pair<MaximalExactMatch* const, pos_t>>& graph_mems = cluster_graph_mems[vg];
             
-            // TODO: pick up alignment routine from here
+            MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans);
+            
+            multi_aln_graph.prune_to_high_scoring_paths(aligner, max_suboptimal_path_score_diff);
+            
+            multi_aln_graph.cut_out_snarls(snarl_manager, max_snarl_cut_size);
+            
+            
         }
         
         for (VG* vg : cluster_graphs) {
@@ -328,11 +226,9 @@ namespace vg {
         return 0.5773502691896258 * (4.0 * coverage / root_len - root_len);
     }
     
-    MultipathAlignment MultipathAligner::set_up_multipath_graph(const Alignment& alignment, VG* vg,
-                                                                const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
-                                                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                                MultipathAlignmentGraph& multi_aln_graph) {
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
+                                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
 
         
         // map of node ids in the dagified graph to the indices in the matches that contain them
@@ -363,7 +259,7 @@ namespace vg {
                 // check all MEMs that traversed this node to see if this is a redundant sub-MEM
                 bool is_partial_mem = false;
                 for (int64_t j : node_matches[id(hit_pos)]) {
-                    ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+                    ExactMatchNode& match_node = match_nodes[j];
                     
                     int64_t relative_offset = begin - match_node.begin;
                     if (relative_offset < 0 || relative_offset + (end - begin) >= match_node.end - match_node.begin) {
@@ -409,7 +305,7 @@ namespace vg {
                 // stack for DFS, each record contains tuples of (read begin, node offset, next node index, next node ids)
                 vector<tuple<string::const_iterator, size_t, size_t, vector<NodeTraversal>>> stack;
                 stack.emplace_back(begin, offset(hit_pos), 0,
-                                   vector<NodeTraversal>{NodeTraversal(vg->get_node(injected_id))});
+                                   vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id))});
                 
                 while (!stack.empty()) {
                     auto back& = stack.back();
@@ -436,7 +332,7 @@ namespace vg {
                     else if (node_idx == node_seq.size()) {
                         // matched entire node
                         auto new_back = stack.emplace_back(read_iter, 0, 0, vector<NodeTraversal>());
-                        vg->nodes_next(trav, get<3>(*new_back));
+                        vg.nodes_next(trav, get<3>(*new_back));
                     }
                     else {
                         // match did not complete node or finish, this is a miss
@@ -446,8 +342,8 @@ namespace vg {
                 
                 if (!stack.empty()) {
                     // we left the trace in the stack, which means we found a complete match
-                    int64_t match_node_idx = multi_aln_graph.match_nodes.size();
-                    ExactMatchNode& match_node = *(multi_aln_graph.match_nodes.emplace_back());
+                    int64_t match_node_idx = match_nodes.size();
+                    ExactMatchNode& match_node = *(match_nodes.emplace_back());
                     Path& path = match_node.path;
                     match_node.begin = begin;
                     match_node.end = end;
@@ -482,29 +378,29 @@ namespace vg {
         // to connect with intervening alignments
         
         auto start_offset = [&](size_t idx) {
-            return multi_aln_graph.match_nodes[idx].path.mapping(0).position().offset();
+            return match_nodes[idx].path.mapping(0).position().offset();
         };
         
         auto end_offset = [&](size_t idx) {
-            Path& path = multi_aln_graph.match_nodes[idx].path;
+            Path& path = match_nodes[idx].path;
             const Mapping& mapping = path.mapping(path.mapping_size() - 1);
             return mapping.position().offset() + mapping_from_length(mapping);
         };
         
         auto start_node_id = [&](size_t idx) {
-            return multi_aln_graph.match_nodes[idx].path.mapping(0).position().node_id();
+            return match_nodes[idx].path.mapping(0).position().node_id();
         };
         
         auto end_node_id = [&](size_t idx) {
-            Path& path = multi_aln_graph.match_nodes[idx].path;
+            Path& path = match_nodes[idx].path;
             return path.mapping(path.mapping_size() - 1).position().node_id();
         };
 
         // record the start and end node ids of every exact match
         unordered_map<id_t, vector<size_t>> exact_match_starts;
         unordered_map<id_t, vector<size_t>> exact_match_ends;
-        for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
-            Path& path = multi_aln_graph.match_nodes[i].path;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            Path& path = match_nodes[i].path;
             exact_match_starts[path.mapping(0).position().node_id()].push_back(i);
             exact_match_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
@@ -542,7 +438,7 @@ namespace vg {
         
         // note: graph has been sorted into topological order
         
-        Graph& graph = vg->graph;
+        Graph& graph = vg.graph;
         for (int64_t i = 0; i < graph.node_size(); i++) {
             Node* node = graph.mutable_node(i);
             id_t node_id = node->id();
@@ -555,7 +451,7 @@ namespace vg {
             
             // we will use DP to carry reachability information forward onto the next nodes
             vector<NodeTraversal> nexts;
-            vg->nodes_from(NodeTraversal(node), nexts);
+            vg.nodes_from(NodeTraversal(node), nexts);
             
             if (contains_starts && contains_ends) {
                 // since there are both starts and ends on this node, we have to traverse both lists simultaneously
@@ -1000,12 +896,10 @@ namespace vg {
         // will use this to navigate between the MEMs in a way that respects graph reachability so that this
         // phase of the algorithm only needs to pay attention to read colinearity and transitive reducibility
         
-        vector<unordered_map<size_t, size_t>> noncolinear_shells(multi_aln_graph.match_nodes.size());
+        vector<unordered_map<size_t, size_t>> noncolinear_shells(match_nodes.size());
         
-        unordered_map<size_t, SuffixTree> suffix_trees;
-        
-        // tuples of (overlap size, index from, index onto)
-        vector<tuple<size_t, size_t, size_t>> confirmed_overlaps;
+        // tuples of (overlap size, index from, index onto, dist)
+        vector<tuple<size_t, size_t, size_t, size_t>> confirmed_overlaps;
         
         for (size_t i = 0; i < graph.node_size(); i++) {
             id_t node_id = graph.node(i).id();
@@ -1016,7 +910,7 @@ namespace vg {
             
             for (size_t start : exact_match_starts[node_id]) {
                 // traverse all of the reachable starts to find the adjacent ends that might be colinear
-                ExactMatchNode& start_node = multi_aln_graph.match_nodes[start];
+                ExactMatchNode& start_node = match_nodes[start];
                 
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
                 
@@ -1025,7 +919,7 @@ namespace vg {
                 priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> end_queue;
                 start_queue.emplace(start, 0);
                 
-                unordered_map<size_t, size_t> traversed_start;
+                unordered_set<size_t> traversed_start;
                 
                 while (!start_queue.empty()) {
                     pair<size_t, size_t> start_here = start_queue.top();
@@ -1033,8 +927,10 @@ namespace vg {
                     if (traversed_start.count(start_here.first)) {
                         continue;
                     }
-                    traversed_start[start_here.first] = start_here.second;
+                    traversed_start.insert(start_here.second);
                     
+                    // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
+                    // between them and the distance already traversed
                     for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
                         end_queue.emplace(start_here.first + end.second, end.first);
                     }
@@ -1044,21 +940,24 @@ namespace vg {
                     }
                 }
                 
-                unordered_map<size_t, size_t> traversed_end;
+                // now we've traversed all of the starts, we have the set of ends that can be reached
+                // without passing another end
+                
+                unordered_set<size_t> traversed_end;
                 
                 while (!end_queue.empty()) {
                     size_t candidate_end = end_queue.top().second;
                     size_t candidate_dist = end_queue.top().first;
-                    candidate_queue.pop();
+                    end_queue.pop();
                     if (traversed_end.count(candidate_end)) {
                         continue;
                     }
-                    traversed_end[candidate_end] = candidate_dist;
+                    traversed_end.insert(candidate_end);
                     
-                    ExactMatchNode& candidate_end_node = multi_aln_graph.match_nodes[candidate_end];
+                    ExactMatchNode& candidate_end_node = match_nodes[candidate_end];
                     
                     if (candidate_end_node.end <= start_node.begin) {
-                        // these MEMs are colinear, so connect them
+                        // these MEMs are read colinear and graph reachable, so connect them
                         candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
                         
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
@@ -1067,72 +966,59 @@ namespace vg {
                             end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
                         }
                     }
+                    else if (start_node.end > candidate_end.end && candidate_end.begin < start_node.begin) {
+                        // the MEM can be made colinear by removing an overlap, which will not threaten reachability
+                        size_t overlap = candidate_end.end - start_node.begin;
+                        confirmed_overlaps.emplace_back(overlap, candidate_end, start, candidate_dist + overlap);
+                        
+                        // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                        // this connection
+                        for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+                            end_queue.emplace(candidate_dist + shell_pred.second + overlap, shell_pred.first);
+                        }
+                    }
                     else {
-                        // could removing an overlap restore colinearity on the read?
-                        bool overlap_rescued = false;
-                        if (start_node.end > candidate_end.end && candidate_end.begin < start_node.begin) {
-                            
-                            // make a suffix tree or get a pre-made one
-                            if (!suffix_trees.count(candidate_end)) {
-                                suffix_trees[candidate_end] = SuffixTree(candidate_end_node.begin, candidate_end_node.end);
-                            }
-                            SuffixTree& suffix_tree = suffix_trees[candidate_end];
-                            
-                            // compute the overlap
-                            size_t overlap = suffix_tree.longest_overlap(start_node.begin, start_node.end);
-                            
-                            // is the overlap sufficient to restore colinearity?
-                            if (candidate_end_node.end <= start_node.begin + overlap) {
-                                confirmed_overlaps.emplace_back(overlap, candidate_end, start);
-                                overlap_rescued = true;
-                            }
+                        // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
+                        if (noncolinear_shell.count(candidate_end)) {
+                            noncolinear_shell[candidate_end] = std::min(candidate_dist, noncolinear_shell[candidate_end]);
+                        }
+                        else {
+                            noncolinear_shell[candidate_end] = candidate_dist;
                         }
                         
-                        if (!overlap_rescued) {
-                            // these MEMs are noncolinear, so add this predecessor to the shell
-                            noncolinear_shell.insert(candidate_end);
-                            
-                            // there is no connection to block further connections back, so any of this MEMs
-                            // predecessors could still be colinear
-                            
-                            // find the ends that can reach it directly
-                            unordered_set<size_t> predecessors;
-                            for (size_t pred_end : reachable_ends_from_end[candidate_end]) {
-                                predecessors.insert(pred_end);
+                        // there is no connection to block further connections back, so any of this MEMs
+                        // predecessors could still be colinear
+                        
+                        // find the ends that can reach it directly
+                        for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
+                            end_queue.emplace(candidate_dist + pred_end.second, pred_end.first);
+                        }
+                        
+                        // traverse backward through any starts to find more ends that can reach this MEM
+                        priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> pred_start_queue;
+                        
+                        // initialize the queue with the immediate start neighbors
+                        for (const pair<size_t, size_t>& pred_start : reachable_starts_from_end[candidate_end]) {
+                            pred_start_queue.emplace(candidate_dist + pred_start.second, pred_start.first);
+                        }
+                        
+                        unordered_set<size_t> pred_traversed;
+                        
+                        // traverse backwards through starts, stopping at any ends
+                        while (!pred_start_queue.empty()) {
+                            size_t start_here = pred_start_queue.top().second;
+                            size_t start_dist = pred_start_queue.top().first;
+                            pred_start_queue.pop();
+                            if (pred_traversed.count(start_here)) {
+                                continue;
                             }
+                            pred_traversed.insert(start_here);
                             
-                            // traverse backward through any starts to find more ends that can reach this MEM
-                            unordered_set<size_t> enqueued;
-                            list<size_t> queue;
-                            
-                            // initialize the queue with the immediate start neighbors
-                            for (size_t pred_start : reachable_starts_from_end[candidate_end]) {
-                                enqueued.insert(pred_start);
-                                queue.push_back(pred_start);
+                            for (const pair<size_t, size_t>& pred_end : reachable_ends_from_start[start_here]) {
+                                end_queue.emplace(start_dist + pred_end.second, pred_end.first);
                             }
-                            
-                            // traverse backwards through starts stopping at any ends
-                            while (!queue.empty()) {
-                                size_t start_here = queue.front();
-                                queue.pop_front();
-                                
-                                for (size_t pred_end : reachable_ends_from_start[start_here]) {
-                                    predecessors.insert(pred_end);
-                                }
-                                for (size_t start_next : reachable_starts_from_start[start_here]) {
-                                    if (!enqueued.count(start_here)) {
-                                        start_queue.push_back(start_next);
-                                        enqueued.insert(start_next);
-                                    }
-                                }
-                            }
-                            
-                            // add any new predecessors we discovered in the traversal to the candidate queue
-                            for (size_t pred : predecessors) {
-                                if (!adjacent_ends.count(pred)) {
-                                    adjacent_ends.insert(pred);
-                                    candidate_queue.push_back(pred);
-                                }
+                            for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here]) {
+                                pred_start_queue.emplace(start_dist + start_next.second, start_next.first);
                             }
                         }
                     }
@@ -1140,22 +1026,22 @@ namespace vg {
                 
                 // record the node IDs that this MEM's path traverses
                 unordered_set<id_t> match_path_nodes;
-                Path& match_path = multi_aln_graph.match_nodes[start].path;
+                Path& match_path = match_nodes[start].path;
                 for (size_t j = 0; j < match_path.mapping_size(); j++) {
                     match_path_nodes.insert(path.mapping(j).position().node_id());
                 }
                 
-                // each record in the queue is (start/end idx, is an end?)
-                list<pair<size_t, bool>> path_queue{make_pair(start, true)};
-                unordered_set<pair<size_t, bool>> path_enqueued{path_queue.front()};
+                // queue records are (start/end idx, distance, is an end?)
+                int64_t start_length = start_node.end - start_node.begin;
+                list<tuple<size_t, int64_t, bool>> path_queue{make_tuple(start, -start_length, true)};
+                unordered_set<pair<size_t, bool>> path_enqueued{make_pair(start, true)};
                 
-                unordered_set<size_t> candidate_overlap_preds;
+                unordered_map<size_t, int64_t> candidate_overlap_preds;
                 
                 while (!path_queue.empty()) {
-                    // TODO: should I also be adding these to the noncolinear shell?
-                    
-                    size_t idx = path_queue.front().first;
-                    bool at_end = path_queue.front().second;
+                    size_t idx = get<0>(path_queue.front());
+                    int64_t dist = get<1>(path_queue.front());
+                    bool at_end = get<2>(path_queue.front());
                     path_queue.pop_front();
                     
                     // stop searching backwards at the start of the MEM
@@ -1165,114 +1051,117 @@ namespace vg {
                     
                     if (at_end) {
                         // this end is on the path of the MEM, it might be overlap-colinear
-                        candidate_overlap_preds.insert(idx);
+                        if (idx != start) {
+                            candidate_overlap_preds[idx] = dist;
+                        }
                         
                         // add the start and end predecessors that fall on the path of the MEM to the queue
-                        for (size_t start_pred : reachable_starts_from_end[idx]) {
-                            if (!path_enqueued.count(make_pair(start_pred, false)) &&
-                                match_path_nodes.count(start_node_id(start_pred))) {
+                        // note: it is okay to not check whether the start/end is behind the start of the path on
+                        // the same node because we are guaranteed to run into the start of the path before that
+                        for (const pair<size_t, size_t>& start_pred : reachable_starts_from_end[idx]) {
+                            if (!path_enqueued.count(make_pair(start_pred.first, false)) &&
+                                match_path_nodes.count(start_node_id(start_pred.first))) {
                                 
-                                path_queue.push_back(make_pair(start_pred, false));
-                                path_enqueued.insert(path_queue.back());
+                                path_queue.emplace_back(start_pred.first, dist + (int64_t) start_pred.second, false);
+                                path_enqueued.emplace(start_pred.first, false);
                             }
                         }
-                        for (size_t end_pred : reachable_ends_from_end[idx]) {
-                            if (!path_enqueued.count(make_pair(end_pred, true)) &&
-                                match_path_nodes.count(end_node_id(end_pred))) {
+                        for (const pair<size_t, size_t>& end_pred : reachable_ends_from_end[idx]) {
+                            if (!path_enqueued.count(make_pair(end_pred.first, true)) &&
+                                match_path_nodes.count(end_node_id(end_pred.first))) {
                                 
-                                path_queue.push_back(make_pair(end_pred, true));
-                                path_enqueued.insert(path_queue.back());
+                                path_queue.emplace_back(end_pred.first, dist + (int64_t) end_pred.second, true);
+                                path_enqueued.emplace(end_pred.first, true);
                             }
                         }
                     }
                     else {
-                        // this start is on the path of the MEM, it cannot be overlap-colinear even if
-                        // the end is also on the path
                         if (candidate_overlap_preds.count(idx)) {
+                            // this start is on the path of the MEM, it cannot be overlap-colinear even if
+                            // the end is also on the path
+                            ExactMatchNode& match_node = match_nodes[idx];
                             candidate_overlap_preds.erase(idx);
+                            // it is also part of the noncolinear shell
+                            noncolinear_shell[idx] = dist + (match_node.end - match_node.begin);
                         }
                         
                         // add the start and end predecessors that fall on the path of the MEM to the queue
-                        for (size_t start_pred : reachable_starts_from_start[idx]) {
-                            if (!path_enqueued.count(make_pair(start_pred, false)) &&
-                                match_path_nodes.count(start_node_id(start_pred))) {
+                        for (const pair<size_t, size_t>& start_pred : reachable_starts_from_start[idx]) {
+                            if (!path_enqueued.count(make_pair(start_pred.first, false)) &&
+                                match_path_nodes.count(start_node_id(start_pred.first))) {
                                 
-                                path_queue.push_back(make_pair(start_pred, false));
-                                path_enqueued.insert(path_queue.back());
+                                path_queue.emplace_back(start_pred.first, dist + (int64_t) start_pred.second, false);
+                                path_enqueued.emplace(start_pred.first, false);
                             }
                         }
-                        for (size_t end_pred : reachable_ends_from_start[idx]) {
-                            if (!path_enqueued.count(make_pair(end_pred, true)) &&
-                                match_path_nodes.count(end_node_id(end_pred))) {
+                        for (const pair<size_t, size_t>& end_pred : reachable_ends_from_start[idx]) {
+                            if (!path_enqueued.count(make_pair(end_pred.first, true)) &&
+                                match_path_nodes.count(end_node_id(end_pred.first))) {
                                 
-                                path_queue.push_back(make_pair(end_pred, true));
-                                path_enqueued.insert(path_queue.back());
+                                path_queue.emplace_back(end_pred.first, dist + (int64_t) end_pred.second, true);
+                                path_enqueued.emplace(end_pred.first, true);
                             }
                         }
                     }
                 }
                 
-                for (size_t overlap_candidate : candidate_overlap_preds) {
-                    ExactMatchNode& overlap_node = multi_aln_graph.match_nodes[overlap_candidate];
+                for (const pair<size_t, int64_t>& overlap_candidate : candidate_overlap_preds) {
+                    ExactMatchNode& overlap_node = match_nodes[overlap_candidate.first];
+                    int64_t overlap_node_length = overlap_node.end - overlap_node.begin;
                     
-                    // make a suffix tree or get a pre-made one
-                    if (!suffix_trees.count(overlap_candidate)) {
-                        suffix_trees[overlap_candidate] = SuffixTree(overlap_node.begin, overlap_node.end);
+                    // how much do the paths overlap (using negative distance)?
+                    int64_t overlap = -overlap_candidate.second;
+                    
+                    // are the matches read colinear after removing the overlap?
+                    if (overlap_node.end - overlap <= start_node.begin) {
+                        confirmed_overlaps.emplace_back(overlap, overlap_candidate.first, start,
+                                                        overlap_candidate.second + overlap);
                     }
-                    SuffixTree& suffix_tree = suffix_trees[overlap_candidate];
-                    
-                    // compute the overlap
-                    size_t overlap = suffix_tree.longest_overlap(start_node.begin, start_node.end);
-                    
-                    // traverse backward down the path to find the trim point for the overlap
-                    Path& overlap_path = overlap_node.path;
-                    int64_t remaining = overlap;
-                    size_t mapping_idx = overlap_path.mapping_size() - 1;
-                    int64_t mapping_len = mapping_from_length(overlap_path.mapping(mapping_idx));
-                    while (remaining > mapping_len) {
-                        remaining -= mapping_len;
-                        mapping_idx--;
-                        mapping_len = mapping_from_length(overlap_path.mapping(mapping_idx));;
+                    else if (overlap_node.begin < start_node.begin) {
+                        // there is still an even longer read overlap we need to remove
+                        overlap = overlap_node.end - start_node.begin;
+                        confirmed_overlaps.emplace_back(overlap, overlap_candidate.first, start,
+                                                        overlap_candidate.second + overlap);
                     }
-                    
-                    // get the final position of the path prefix
-                    id_t final_id = from_path.mapping(mapping_idx).position().node_id();
-                    const Position& first_position = onto_node.path.mapping(0).position();
-                    
-                    //
-                    if (!match_path_nodes.count(final_id) ||
-                        (first_position.node_id() == final_id && mapping_len - remaining <= first_position.offset())) {
-                        
-                        confirmed_overlaps.emplace_back(overlap, overlap_candidate, start);
-                        
+                    else {
+                        // the overlapping node is still not reachable so it is in the noncolinear shell of this node
+                        noncolinear_shell[overlap_candidate.first] = overlap_candidate.second + (overlap_node_length);
                     }
                 }
             }
         }
         
+        // now we've found all overlap edges, so we can add them into the graph in an order such that they don't
+        // conflict (note that all overlap are from an earlier node onto a later one, so we don't need to worry
+        // about overlaps coming in from both directions)
+        
         // sort in descending order of overlap length
         std::sort(confirmed_overlaps.begin(), confirmed_overlaps.end(),
-                  std::greater<tuple<size_t, size_t, size_t>>());
-        
+                  std::greater<tuple<size_t, size_t, size_t, size_t>>());
         
         // split up each node with an overlap edge onto it
         for (auto overlap_record : confirmed_overlaps) {
-            ExactMatchNode& from_node = multi_aln_graph.match_nodes[get<1>(overlap_record)];
-            ExactMatchNode& onto_node = multi_aln_graph.match_nodes[get<2>(overlap_record)];
+            ExactMatchNode& from_node = match_nodes[get<1>(overlap_record)];
+            ExactMatchNode& onto_node = match_nodes[get<2>(overlap_record)];
             
-            size_t suffix_idx = multi_aln_graph.match_nodes.size();
+            size_t suffix_idx = match_nodes.size();
             
-            ExactMatchNode& suffix_node = *(multi_aln_graph.match_nodes.emplace_back());
+            ExactMatchNode& suffix_node = *(match_nodes.emplace_back());
+            
+            // divide up the match on the read
+            suffix_node.end = onto_node.end;
+            suffix_node.begin = onto_node.begin + overlap;
+            onto_node.end = suffix_node.begin;
             
             // transfer the outgoing edges onto the new node
             suffix_node.edges = std::move(onto_node.edges);
             
             // clear the old edges and add a single edge to the suffix
             onto_node.edges.clear();
-            onto_node.edges.push_back(suffix_idx);
+            onto_node.edges.emplace_back(suffix_idx, 0);
             
             // add the overlap edge
-            from_node.edges.push_back(suffix_idx);
+            from_node.edges.emplace_back(suffix_idx, get<3>(overlap_record));
             
             // store the full path and remove it from the node
             Path full_path = std::move(onto_node.path);
@@ -1314,7 +1203,142 @@ namespace vg {
                 *suffix_node.path.add_mapping() = full_path.mapping(mapping_idx);
             }
         }
+    }
+    
+    // Kahn's algorithm
+    void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
+        order_out.resize(match_nodes.size());
         
+        vector<size_t> in_degree(match_nodes.size());
+        
+        for (const ExactMatchNode& match_node : match_nodes) {
+            for (const pair<size_t, size_t>& edge : match_node.edges) {
+                in_degree[edge.first]++;
+            }
+        }
+        
+        list<size_t> source_queue;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            if (in_degree[i] == 0) {
+                source_queue.push_back(i);
+            }
+        }
+        
+        size_t next = 0;
+        while (!source_queue.empty()) {
+            size_t src = source_queue.front();
+            source_queue.pop_front();
+            
+            for (const pair<size_t, size_t>& edge : match_nodes[src].edges) {
+                in_degree[edge.first]--;
+                if (in_degree[edge.first] == 0) {
+                    source_queue.push_back(edge.first);
+                }
+            }
+            
+            order_out[next] = src;
+            next++;
+        }
+    }
+    
+    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff) {
+        vector<size_t> topological_order;
+        topological_sort(topological_order);
+        
+        unordered_map<pair<size_t, size_t>, int32_t> edge_weights;
+
+        vector<int32_t> node_weights(match_nodes.size());
+    
+        // compute the weight of edges and node matches
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            ExactMatchNode& from_node = match_nodes[i];
+            node_weights[i] = aligner.match * (from_node.end - from_node.begin);
+            
+            for (const pair<size_t, size_t>& edge : from_node.edges) {
+                ExactMatchNode& to_node = match_nodes[edge.first];
+                
+                int64_t graph_dist = edge.second;
+                int64_t read_dist = to_node.begin - from_node.end;
+                
+                if (read_dist > graph_dist) {
+                    // the read length in between the MEMs is longer than the distance, suggesting a read insert
+                    int64_t gap_length = read_dist - graph_dist;
+                    edge_weights[make_pair(i, edge.first)] = -aligner.mismatch * graph_dist - (gap_length - 1) * aligner.gap_extension
+                                                             - aligner.gap_open;
+                }
+                else if (read_dist < graph_dist) {
+                    // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
+                    int64_t gap_length = graph_dist - read_dist;
+                    edge_weights[make_pair(i, edge.first)] = -aligner.mismatch * read_dist - (gap_length - 1) * aligner.gap_extension
+                                                             - aligner.gap_open;
+                }
+                else {
+                    // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
+                    edge_weights[make_pair(i, edge.first)] = -aligner.mismatch * read_dist;
+                }
+            }
+        }
+        
+        vector<int32_t> forward_scores = node_weights;
+        vector<int32_t> backward_scores = node_weights;
+        
+        // forward DP
+        for (int64_t i = 0; i < topological_order.size(); i++) {
+            size_t idx = topological_order[i];
+            ExactMatchNode& from_node = match_nodes[idx];
+            for (const pair<size_t, size_t>& edge : from_node.edges) {
+                forward_scores[edge.first] = std::max(forward_scores[edge.first],
+                                                      forward_scores[idx] + edge_weights[make_pair(idx, edge.first)]);
+            }
+        }
+        
+        // backward DP
+        for (int64_t i = topological_order.size() - 1; i >= 0; i--) {
+            size_t idx = topological_order[i];
+            ExactMatchNode& from_node = match_nodes[idx];
+            for (const pair<size_t, size_t>& edge : from_node.edges) {
+                backward_scores[idx] = std::max(backward_scores[idx],
+                                                backward_scores[edge.first] + edge_weights[make_pair(idx, edge.first)]);
+            }
+        }
+        
+        // compute the minimum score we will require of a node or edge
+        int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) - max_suboptimal_score_diff;
+        
+        // use forward-backward to find nodes/edges on some path with a score above the minimum
+        unordered_set<size_t> keep_nodes;
+        unordered_set<pair<size_t, size_t>> keep_edges;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            ExactMatchNode& match_node = match_nodes[i];
+            if (forward_scores[i] + backward_scores[i] - node_weights[i]) {
+                keep_nodes.insert(i);
+                for (const pair<size_t, size_t>& edge : from_node.edges) {
+                    if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] >= min_path_score) {
+                        keep_edges.emplace(i, edge.first);
+                    }
+                }
+            }
+        }
+        
+        // prune down to these nodes and edges
+        size_t next = 0;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            if (keep_nodes.count(i)) {
+                if (i != next) {
+                    match_nodes[next] = std::move(match_nodes[i]);
+                }
+                ExactMatchNode& match_node = match_nodes[next];
+                auto new_end = std::remove_if(match_node.edges.begin(), match_node.edges.end(),
+                                              [&](const pair<size_t, size_t>& edge) { return keep_edges.count(make_pair(i, edge.first)) });
+                match_node.edges.resize(new_end - match_node.edges.begin());
+                next++;
+            }
+        }
+        match_nodes.resize(next);
+    }
+    
+    void MultipathAlignmentGraph::cut_out_snarls(SnarlManager& snarl_manager, size_t max_cut_size) {
+        // TODO finish this once I've refactored snarl manager
     }
     
     MultipathClusterer::MultipathClusterer(const Alignment& alignment,
