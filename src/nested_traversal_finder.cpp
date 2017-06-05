@@ -32,7 +32,6 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
         
         // Make a traversal of the path
         SnarlTraversal trav;
-        transfer_boundary_info(site, *trav.mutable_snarl());
         
         // We need to have the anchoring boundary nodes.
         assert(bubble.second.size() >= 2);
@@ -49,29 +48,16 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
             assert(site.end().node_id() == bubble.second.front().node_id());
         }
         
-        for (size_t i = 1; i < bubble.second.size(); i++) {
-            // For every visit except the first and last anchoring visits
+        for (size_t i = 0; i < bubble.second.size(); i++) {
+            // For every visit
             
-            // Which visit do we pull
-            size_t index = flip_path ? bubble.second.size() - 1 - i : i;
-            Visit v = bubble.second[index];
-            
-            if (flip_path) {
-                // If we're flipping the path around, flip all its visits in
-                // addition to going through it backward.
-                v.set_backward(!v.backward());
-            }
-            
-            // Stick the visit in the traversal
-            *trav.add_visits() = v;
+            // Stick the forward or flipped visit in the traversal
+            *trav.add_visits() = flip_path ? reverse(bubble.second[bubble.second.size() - 1 - i]) : bubble.second[i];;
         }
             
         // Now emit the actual traversal
         to_return.insert(trav);
     };
-    
-    // Index our snarl's children
-    map<NodeTraversal, const Snarl*> child_boundary_index = snarl_manager.child_boundary_index(&site, augmented.graph);
     
     // Get our contained nodes and edges
     unordered_set<Node*> nodes;
@@ -83,32 +69,32 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
     
     for(auto it = nodes.begin(); it != nodes.end(); ) {
         // For each node
-        if (child_boundary_index.count(NodeTraversal(*it, false)) ||
-            child_boundary_index.count(NodeTraversal(*it, true))) {
+        if (snarl_manager.into_which_snarl((*it)->id(), false) ||
+           snarl_manager.into_which_snarl((*it)->id(), true)) {
         
             // If the node is a child boundary, don't use it. Use visits to the
             // child instead.
             it = nodes.erase(it);
             
         } else {
-            // Not a chind boundary. Try the next one.
+            // Not a child boundary. Try the next one.
             ++it;
         }
     }  
     
     for (Node* node : nodes) {
         // Find bubbles for nodes
-        emit_path(find_bubble(node, nullptr, nullptr, site, child_boundary_index));
+        emit_path(find_bubble(node, nullptr, nullptr, site));
     }
     
     for (Edge* edge : edges) {
         // Find bubbles for edges
-        emit_path(find_bubble(nullptr, edge, nullptr, site, child_boundary_index));
+        emit_path(find_bubble(nullptr, edge, nullptr, site));
     }
     
     for (const Snarl* child : snarl_manager.children_of(&site)) {
         // Find bubbles for children
-        emit_path(find_bubble(nullptr, nullptr, child, site, child_boundary_index));
+        emit_path(find_bubble(nullptr, nullptr, child, site));
     }
     
     // Convert to a vector and return
@@ -116,7 +102,7 @@ vector<SnarlTraversal> NestedTraversalFinder::find_traversals(const Snarl& site)
     
 }
 
-pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge* edge, const Snarl* child, const Snarl& site, const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge* edge, const Snarl* child, const Snarl& site) {
 
     // What are we going to find our left and right path halves based on?
     Visit left_visit;
@@ -147,8 +133,8 @@ pair<Support, vector<Visit>> NestedTraversalFinder::find_bubble(Node* node, Edge
     
     // Find paths on both sides, anchored into the outside of our snarl. Returns
     // path lengths (in visits) and paths in pairs in a set.
-    auto left_paths = search_left(left_visit, site, child_boundary_index);
-    auto right_paths = search_right(right_visit, site, child_boundary_index);
+    auto left_paths = search_left(left_visit, site);
+    auto right_paths = search_right(right_visit, site);
     
     // Now splice the paths together to get max support.
     
@@ -228,8 +214,7 @@ Support NestedTraversalFinder::min_support_in_path(const vector<Visit>& path) {
     return min_support;
 }
 
-set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& root, const Snarl& site,
-    const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& root, const Snarl& site) {
     
     // Find paths left from the given visit to the start or end of the given
     // ultrabubble.
@@ -277,11 +262,11 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& r
             to_return.insert(make_pair(path.size(), path));
             
             // And go ahead and return it right now (since it's maximally short)
-            return to_return;
+            break;
         } else {
             // We haven't reached a boundary, so just keep searching left from
             // this visit.
-            vector<Visit> neighbors = visits_left(to_extend_from, augmented.graph, child_boundary_index);
+            vector<Visit> neighbors = snarl_manager.visits_left(to_extend_from, augmented.graph);
             
             for (auto& extension : neighbors) {
                 // For each thing off the left
@@ -318,19 +303,19 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& r
         
     }
     
-    // If we get here, no path with any support was found. Return our still-empty set.
+    // If we get here, either we broke out of search or no path with any support was found.
+    // Return the shortest path or our still-empty set.
     return to_return;
 }
 
-set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_right(const Visit& root, const Snarl& site,
-    const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_right(const Visit& root, const Snarl& site) {
 
     // Make a backwards version of the root
     Visit root_rev = root;
     root_rev.set_backward(!root_rev.backward());
 
     // Look left from the backward version of the root
-    auto to_convert = search_left(root_rev, site, child_boundary_index);
+    auto to_convert = search_left(root_rev, site);
     
     // Since we can't modify set records in place, we need to do a copy
     set<pair<size_t, list<Visit>>> to_return;
