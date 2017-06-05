@@ -527,6 +527,9 @@ public:
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
     Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
         "max imbalance factor between ref and alts to call heterozygous ref"};
+    /// Like the max het bias, but applies to novel indels.
+    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 2.5,
+        "max imbalance factor to call heterozygous on novel indels"};
     /// What's the minimum integer number of reads that must support a call? We
     /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.

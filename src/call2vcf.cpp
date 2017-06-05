@@ -612,6 +612,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // Sort of approximate because of the way nested site sizes are estimated.
     size_t longest_traversal_length = 0;
     
+    // And the shortest one?
+    size_t shortest_traversal_length = numeric_limits<size_t>::max();
+    
     // Calculate average and min support for all the traversals of this snarl.
     vector<Support> min_supports;
     vector<Support> average_supports;
@@ -638,7 +641,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #endif
 
         // Remember a new longest traversal length
-        longest_traversal_length = max(longest_traversal_length, total_size);        
+        longest_traversal_length = max(longest_traversal_length, total_size);  
+        // And a new shortest one
+        shortest_traversal_length = min(shortest_traversal_length, total_size);      
     }
     
 #ifdef debug
@@ -763,15 +768,29 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // If best and second best are close enough to be het, we call het.
         // Otherwise, we call hom best.
         
-        // We decide closeness differently depending on whether best is ref or not.
-        // In practice, we use this to slightly penalize homozygous ref calls
-        // (by setting max_ref_het_bias higher than max_het_bias) and rather make a less
-        // supported alt call instead.  This boost max sensitivity, and because
-        // everything is homozygous ref by default in VCF, any downstream filters
-        // will effectively reset these calls back to homozygous ref.
-        // TODO: This shouldn't apply when off the primary path! 
-        double bias_limit = (best_allele == 0) ? max_ref_het_bias : max_het_bias;
-
+        
+        double bias_limit;
+        if (best_allele == 0) {
+            // Use ref bias limit
+            
+            // We decide closeness differently depending on whether best is ref
+            // or not. In practice, we use this to slightly penalize homozygous
+            // ref calls (by setting max_ref_het_bias higher than max_het_bias)
+            // and rather make a less supported alt call instead.  This boost
+            // max sensitivity, and because everything is homozygous ref by
+            // default in VCF, any downstream filters will effectively reset
+            // these calls back to homozygous ref. TODO: This shouldn't apply
+            // when off the primary path!
+            bias_limit = max_ref_het_bias;
+        } else if (longest_traversal_length > shortest_traversal_length) {
+            // This is an indel
+            // Use indel bias limit
+            bias_limit = max_indel_het_bias;
+        } else {
+            // Use normal het bias limit
+            bias_limit = max_het_bias;
+        }
+        
 #ifdef debug
         cerr << best_allele << ", " << best_support << " and "
             << second_best_allele << ", " << second_best_support << endl;
