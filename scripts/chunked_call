@@ -34,7 +34,7 @@ def parse_args(args):
                         default="-r 0.9 -fu -s 2 -o 0 -q 15 --defray-ends 999",
                         help="options to pass to vg filter. wrap in \"\"")
     parser.add_argument("--pileup_opts", type=str,
-                        default="-q 10 -a",
+                        default="-q 10",
                         help="options to pass to vg pileup. wrap in \"\"")
     parser.add_argument("--call_opts", type=str,
                         default="",

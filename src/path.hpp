@@ -270,7 +270,7 @@ double identity(const Path& path);
 // compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
-void decompose(const Path& path, map<pos_t, int>& ref_positions, map<int, Edit>& edits);
+void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);

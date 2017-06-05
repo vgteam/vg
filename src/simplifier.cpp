@@ -64,20 +64,58 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
     // Now we have a list of all the leaf sites.
     create_progress("simplifying leaves", leaves.size());
     
+    // We can't use the SnarlManager after we modify the graph, so we load the
+    // contents of all the leaves we're going to modify first.
+    map<const Snarl*, pair<unordered_set<Node*>, unordered_set<Edge*>>> leaf_contents;
+    
+    // How big is each leaf in bp
+    map<const Snarl*, size_t> leaf_sizes;
+    
+    // We also need to pre-calculate the traversals for the snarls that are the
+    // right size, since the traversal finder uses the snarl manager amd might
+    // not work if we modify the graph.
+    map<const Snarl*, vector<SnarlTraversal>> leaf_traversals;
+    
     for (const Snarl* leaf : leaves) {
         // Look at all the leaves
         
         // Get the contents of the bubble, excluding the boundary nodes
-        auto contents = site_manager.deep_contents(leaf, graph, false);
-        unordered_set<Node*>& nodes = contents.first;
-        unordered_set<Edge*>& edges = contents.second;
+        leaf_contents[leaf] = site_manager.deep_contents(leaf, graph, false);
         
         // For each leaf, calculate its total size.
-        size_t total_size = 0;
+        unordered_set<Node*>& nodes = leaf_contents[leaf].first;
+        size_t& total_size = leaf_sizes[leaf];
         for (Node* node : nodes) {
             // For each node include it in the size figure
             total_size += node->sequence().size();
         }
+        
+        if (total_size == 0) {
+            // This site is just the start and end nodes, so it doesn't make
+            // sense to try and remove it.
+            continue;
+        }
+        
+        if (total_size >= min_size) {
+            // This site is too big to remove
+            continue;
+        }
+        
+        // Identify the replacement traversal for the bubble if it's the right size.
+        // We can't necessarily do this after we've modified the graph.
+        vector<SnarlTraversal>& traversals = leaf_traversals[leaf];
+        traversals = traversal_finder.find_traversals(*leaf);
+    }
+    
+    for (const Snarl* leaf : leaves) {
+        // Look at all the leaves
+        
+        // Get the contents of the bubble, excluding the boundary nodes
+        unordered_set<Node*>& nodes = leaf_contents[leaf].first;
+        unordered_set<Edge*>& edges = leaf_contents[leaf].second;
+        
+        // For each leaf, grab its total size.
+        size_t& total_size = leaf_sizes[leaf];
         
         if (total_size == 0) {
             // This site is just the start and end nodes, so it doesn't make
@@ -99,8 +137,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // Otherwise we want to simplify this site away
         
-        // Identify the replacement traversal for the bubble
-        vector<SnarlTraversal> traversals = traversal_finder.find_traversals(*leaf);
+        // Grab the replacement traversal for the bubble
+        vector<SnarlTraversal>& traversals = leaf_traversals[leaf];
         
         if (traversals.empty()) {
             // We couldn't find any paths through the site.

@@ -23,17 +23,17 @@ is "$node_matches" "CAAATAAG,G,T,TTG,A,AAATTTTCTGGAGTTCTAT," "all expected nodes
 edge_matches=$(vg find -k TAAGGTTTGAA -c 0 -d x.idx | vg view -g - | grep "^L" | cut -f2,4 | tr '\t\n' '-,')
 is "$edge_matches" "1-3,3-4,4-6,6-7,7-9," "all expected edges found via kmer find"
 
-is $(vg find -n 2 -n 3 -c 1 -d x.idx | vg view -g - | wc -l) 15 "multiple nodes can be picked using vg find"
+is $(vg find -n 2 -n 3 -c 1 -d x.idx | vg view -g - | grep "^S" | wc -l) 5 "multiple nodes can be picked using vg find"
 
-is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -d x.idx | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when seeking a sequence"
+is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -d x.idx | vg view - | wc -l) 24 "vg find returns a correctly-sized graph when seeking a sequence"
 
-is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 -d x.idx | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when using jump-kmers"
+is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 -d x.idx | vg view - | wc -l) 24 "vg find returns a correctly-sized graph when using jump-kmers"
 
-is $(vg find -p x:0-100 -d x.idx | vg view -g - | wc -l) 42 "vg find returns a subgraph corresponding to particular reference coordinates"
+is $(vg find -p x:0-100 -d x.idx | vg view -g - | wc -l) 29 "vg find returns a subgraph corresponding to particular reference coordinates"
 
 is $(vg find -p x:0-100 -d x.idx | vg view -j - | jq ".node[].sequence" | tr -d '"\n' | wc -c) 100 "vg find returns a path of the correct length"
 
-is $(vg find -p x:0-100 -c 1 -d x.idx | vg view -g - | wc -l) 70 "larger graph is returned when the reference path is queried with context"
+is $(vg find -p x:0-100 -c 1 -d x.idx | vg view -g - | wc -l) 56 "larger graph is returned when the reference path is queried with context"
 
 is $(vg find -p x -c 10 -d x.idx | vg view -g - | wc -l) $(vg view -g x.vg | wc -l) "entire graph is returned when the reference path is queried with context"
 
@@ -59,7 +59,7 @@ is $(vg find -n 17 -n 20 -D -x x.xg ) 7 "vg find -D jumps deletion"
 # TODO: improve heuristic
 is $(vg find -n 16 -n 20 -D -x x.xg ) 19 "vg find -D jumps deletion from snp"
 
-is $(vg find -n 2 -n 3 -c 1 -L -x x.xg | vg view -g - | wc -l) 15 "vg find -L finds same number of nodes (with -c 1)"
+is $(vg find -n 2 -n 3 -c 1 -L -x x.xg | vg view -g - | grep "^S" | wc -l) 5 "vg find -L finds same number of nodes (with -c 1)"
 
 is $(vg find -r 6:2 -L -x x.xg | vg view -g - | grep S | wc -l) 3 "vg find -L works with -r "
 
@@ -97,7 +97,7 @@ rm -f giab.vg giab.xg giab.gcsa
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg sim -s 1337 -n 100 -x x.xg >x.reads
-vg map -x x.xg -g x.gcsa -r x.reads >x.gam
+vg map -x x.xg -g x.gcsa -T x.reads >x.gam
 vg index -d x.db -N x.gam
 is $(vg find -o 127 -d x.db | vg view -a - | wc -l) 6 "the index can return the set of alignments mapping to a particular node"
 is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) -d x.db | vg view -a - | wc -l) 15 "a subgraph query may be used to obtain a particular subset of alignments"

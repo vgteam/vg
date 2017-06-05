@@ -296,6 +296,13 @@ void PathIndex::update_mapping_positions(VG& vg, const string& path_name) {
     }
 }
 
+bool PathIndex::path_contains_node(int64_t node_id){
+    if (by_id.find(node_id) != by_id.end()){
+        return true;
+    }
+    return false;
+}
+
 NodeSide PathIndex::at_position(size_t position) const {
     return find_position(position)->second;
 }
@@ -323,6 +330,9 @@ PathIndex::iterator PathIndex::find_position(size_t position) const {
 #ifdef debug
     cerr << "At " << position << " we have " << starts_next->second << endl;
 #endif
+
+    // Make sure we didn't fall off the ends
+    assert(position - starts_next->first < node_length(starts_next));
     
     // Return that
     return starts_next;

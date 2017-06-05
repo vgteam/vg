@@ -9,14 +9,14 @@ export LC_ALL="C" # force a consistent sort order
 
 plan tests 41
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
-    $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |  wc -l) \
+    $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^S" | wc -l) \
     "vg mod yields a graph with only a particular path"
 
 is $(vg mod -o graphs/orphans.vg | vg view - | wc -l) 8 "orphan edge removal works"
 
 vg construct -r tiny/tiny.fa >t.vg
-vg index -s -k 11 -d t.idx t.vg
+vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
 
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
 
@@ -28,7 +28,7 @@ is $(vg map -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
 
 rm t.vg
-rm -rf t.idx
+rm -rf t.idx.xg t.idx.gcsa
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') ce5d5ffaa71fea6a25cb4a5b836ccb89 "graph complexity reduction works as expected"
 
@@ -54,8 +54,8 @@ is $(vg view -Fv graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cu
 
 # shows that after mod we have == numbers of path annotations and nodes
 # in this one-path graph
-is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^P |wc -l) \
-   $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
+is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |wc -l) \
+   $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep "^S" | wc -l) \
    "vg mod removes non-path nodes and edge"
 
 set -o pipefail
@@ -63,7 +63,7 @@ vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate -
 is "$?" "0" "chopping a graph works correctly with reverse mappings"
 set +o pipefail
 
-is $(vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -B 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -x - | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
+is $(vg msga -w 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -w 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -x - | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 99caa2e7716596c7597535a6f0bc9c6e "unchop correctly handles a graph with an inversion"
 
@@ -71,14 +71,14 @@ is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - 
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 02e484f8bc83bf4f37ecda0ad684b235 "normalization works on a graph with an inversion"
 
-vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -B 16 -Nz | vg mod -u - >/dev/null
+vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
 
-is $(vg msga -B 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
+is $(vg msga -w 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
-is $(vg msga -B 20 -f msgas/s.fa | vg mod -r s1 - | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -B 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
+is $(vg msga -w 20 -f msgas/s.fa | vg mod -r s1 - | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
 
-vg msga -f msgas/l.fa -b a1 -B 8 | vg mod -X 8 - | vg validate -
+vg msga -f msgas/l.fa -b a1 -w 16 | vg mod -X 8 - | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
 
 vg mod -U 3 graphs/atgclinv2.vg | vg validate -
@@ -104,7 +104,7 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
 
-vg msga -f msgas/cycle.fa -b s1 -B 16 -t 1 | vg mod -D - | vg mod -U 10 - >c.vg
+vg msga -f msgas/cycle.fa -b s1 -w 16 -t 1 -E 4 | vg mod -N - | vg mod -D -| vg mod -U 10 - | vg mod -c - >c.vg
 is $(cat c.vg| vg mod -X 30 - | vg mod -w 100 - | vg stats -N -) 36 "dagify correctly calculates the minimum distance through the unrolled component"
 is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 2) 400 "dagify only takes one step past our component length limit"
 rm -f c.vg
@@ -114,7 +114,7 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
 vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | wc -l) 1278 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1280 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg
@@ -138,4 +138,3 @@ rm -f x.vg x.sample.vg
 is "$(vg view -Fv overlaps/two_snvs_assembly1.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "315" "bluntifying overlaps results in a graph with duplicated overlapping bases removed"
 
 is "$(vg view -Fv overlaps/two_snvs_assembly4.gfa | vg mod --bluntify - | vg stats -l - | cut -f2)" "335" "bluntifying overlaps works in a more complex graph"
-

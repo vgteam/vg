@@ -6,10 +6,12 @@
 
 #include <list>
 #include <fstream>
+#include <regex>
 
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "vg.pb.h"
 #include "../genotypekit.hpp"
 
 
@@ -24,6 +26,7 @@ void help_snarl(char** argv) {
          << "    -b, --superbubbles    describe (in text) the superbubbles of the graph" << endl
          << "    -u, --ultrabubbles    describe (in text) the ultrabubbles of the graph" << endl
          << "traversals:" << endl
+         << "    -p, --pathnames       output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only       restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level       restrict traversals to top level ultrabubbles" << endl
@@ -49,6 +52,7 @@ int main_snarl(int argc, char** argv) {
     bool legacy_ultrabubbles = false;
     bool filter_trivial_bubbles = false;
     bool sort_snarls = false;
+    bool fill_path_names = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -58,6 +62,7 @@ int main_snarl(int argc, char** argv) {
                 {"superbubbles", no_argument, 0, 'b'},
                 {"ultrabubbles", no_argument, 0, 'u'},
                 {"traversals", required_argument, 0, 'r'},
+		        {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
                 {"max-nodes", required_argument, 0, 'm'},
@@ -67,7 +72,8 @@ int main_snarl(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "bsur:ltom:h?",
+
+        c = getopt_long (argc, argv, "bsur:ltopm:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -107,6 +113,9 @@ int main_snarl(int argc, char** argv) {
             
         case 's':
             sort_snarls = true;
+            break;
+        case 'p':
+            fill_path_names = true;
             break;
             
         case 'h':
@@ -175,6 +184,19 @@ int main_snarl(int argc, char** argv) {
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+    if (fill_path_names){
+        //delete trav_finder;
+       TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+        for (const Snarl* snarl : snarl_roots ){
+           vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+           stream::write_buffered(cout, travs, 0);
+        }
+
+        exit(0);
+    }
+
+
+    TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
     
     // Sort the top level Snarls
     if (sort_snarls) {
@@ -200,8 +222,7 @@ int main_snarl(int argc, char** argv) {
         });
     }
 
-    // The only implemented traversal finder
-    TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+  
 
     // Protobuf output buffers
     vector<Snarl> snarl_buffer;

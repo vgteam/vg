@@ -252,9 +252,10 @@ string Sampler::alignment_seq(const Alignment& aln) {
         auto& m = aln.path().mapping(i);
         if (m.has_position() && m.position().node_id()) {
             auto id = aln.path().mapping(i).position().node_id();
-            xgidx->neighborhood(id, 2, sub);
+            xgidx->get_id_range(id, id, sub);
         }
     }
+    xgidx->expand_context(sub, 2, false);
     VG g; g.extend(sub);
     return g.path_string(aln.path());
 }
@@ -301,7 +302,6 @@ Alignment Sampler::alignment(size_t length) {
     char c = pos_char(pos);
     // we do something wildly inefficient but conceptually clean
     // for each position in the mapping we add a mapping
-    // at the end we will simplify the alignment, merging redundant mappings
     do {
         // add in the char for the current position
         seq += c;
@@ -356,18 +356,21 @@ Alignment Sampler::alignment_with_error(size_t length,
             aln = mutate(
                 alignment(length + 2 * ((double) length * indel_error)),
                 base_error, indel_error);
-            if (aln.sequence().size() == length) {
-                break;
-            } else if (aln.sequence().size() > length) {
-                aln = strip_from_end(aln, aln.sequence().size() - length);
-                break;
+            if (!(no_Ns && aln.sequence().find('N') != string::npos)) {
+                if (aln.sequence().size() == length) {
+                    break;
+                } else if (aln.sequence().size() > length) {
+                    aln = strip_from_end(aln, aln.sequence().size() - length);
+                    break;
+                }
             }
         }
     } else {
         size_t iter = 0;
         while (iter++ < maxiter) {
             aln = alignment(length);
-            if (aln.sequence().size() == length) {
+            if (aln.sequence().size() == length
+                && !(no_Ns && aln.sequence().find('N') != string::npos)) {
                 break;
             }
         }
@@ -393,7 +396,7 @@ char Sampler::pos_char(pos_t pos) {
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    return xg_cached_next_pos_chars(pos, xgidx, node_cache);
+    return xg_cached_next_pos_chars(pos, xgidx, node_cache, edge_cache);
 }
 
 bool Sampler::is_valid(const Alignment& aln) {

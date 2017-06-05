@@ -20,7 +20,7 @@ CWD:=$(shell pwd)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib -I$(CWD)/$(INC_DIR)/gcsa
-LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib 
+LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -51,7 +51,6 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
 OBJ =
-OBJ += cpp/vg.pb.o
 OBJ += $(OBJ_DIR)/gssw_aligner.o
 OBJ += $(OBJ_DIR)/vg.o 
 OBJ += $(OBJ_DIR)/index.o
@@ -99,6 +98,10 @@ OBJ += $(OBJ_DIR)/variant_adder.o
 OBJ += $(OBJ_DIR)/name_mapper.o
 OBJ += $(OBJ_DIR)/graph_synchronizer.o
 OBJ += $(OBJ_DIR)/vg_algorithms.o
+OBJ += $(OBJ_DIR)/nested_traversal_finder.o
+OBJ += $(OBJ_DIR)/option.o
+OBJ += $(OBJ_DIR)/haplotype_extracter.o
+OBJ += $(OBJ_DIR)/gamsorter.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
@@ -131,6 +134,8 @@ SUBCOMMAND_OBJ =
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/subcommand.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/construct_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/add_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/sift_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/srpe_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/simplify_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/index_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/mod_main.o
@@ -138,6 +143,13 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/annotate_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/chunk_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/snarls_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/explode_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/call_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/genotype_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/trace_main.o 
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/gamsort_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/msga_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/map_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/surject_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -148,6 +160,7 @@ ROCKSDB_DIR:=deps/rocksdb
 GCSA2_DIR:=deps/gcsa2
 PROGRESS_BAR_DIR:=deps/progress_bar
 FASTAHACK_DIR:=deps/fastahack
+FERMI_DIR:=deps/fermi-lite
 HTSLIB_DIR:=deps/htslib
 VCFLIB_DIR:=deps/vcflib
 XG_DIR:=deps/xg
@@ -158,35 +171,38 @@ DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
+# Dependencies that go into libvg's archive
+LIB_DEPS =
+LIB_DEPS += $(LIB_DIR)/libprotobuf.a
+LIB_DEPS += $(LIB_DIR)/libsdsl.a
+LIB_DEPS += $(LIB_DIR)/libssw.a
+LIB_DEPS += $(LIB_DIR)/libsnappy.a
+LIB_DEPS += $(LIB_DIR)/librocksdb.a
+LIB_DEPS += $(LIB_DIR)/libgcsa2.a
+LIB_DEPS += $(OBJ_DIR)/Fasta.o
+LIB_DEPS += $(LIB_DIR)/libhts.a
+LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libvcflib.a
+LIB_DEPS += $(LIB_DIR)/libgssw.a
+LIB_DEPS += $(LIB_DIR)/libvcfh.a
+LIB_DEPS += $(LIB_DIR)/libgfakluge.a
+LIB_DEPS += $(LIB_DIR)/libsupbub.a
+LIB_DEPS += $(LIB_DIR)/libsonlib.a
+LIB_DEPS += $(LIB_DIR)/libpinchesandcacti.a
+LIB_DEPS += $(LIB_DIR)/libraptor2.a
+LIB_DEPS += $(LIB_DIR)/libfml.a
+
 # common dependencies to build before all vg src files
-DEPS = 
-DEPS += $(LIB_DIR)/libprotobuf.a
+DEPS = $(LIB_DEPS)
 DEPS += $(CPP_DIR)/vg.pb.h
-DEPS += $(LIB_DIR)/libsdsl.a
-DEPS += $(LIB_DIR)/libssw.a
-DEPS += $(LIB_DIR)/libsnappy.a
-DEPS += $(LIB_DIR)/librocksdb.a
 DEPS += $(INC_DIR)/gcsa/gcsa.h
-DEPS += $(LIB_DIR)/libgcsa2.a
-DEPS += $(OBJ_DIR)/progress_bar.o
-DEPS += $(OBJ_DIR)/Fasta.o
-DEPS += $(LIB_DIR)/libhts.a
-DEPS += $(LIB_DIR)/libxg.a
-DEPS += $(LIB_DIR)/libvcflib.a
-DEPS += $(LIB_DIR)/libgssw.a
 DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
-DEPS += $(LIB_DIR)/libvcfh.a
-DEPS += $(LIB_DIR)/libgfakluge.a
 DEPS += $(INC_DIR)/gfakluge.hpp
-DEPS += $(LIB_DIR)/libsupbub.a
-DEPS += $(LIB_DIR)/libsonlib.a
-DEPS += $(LIB_DIR)/libpinchesandcacti.a
 DEPS += $(INC_DIR)/globalDefs.hpp
-DEPS += $(LIB_DIR)/libraptor2.a
 DEPS += $(INC_DIR)/sha1.hpp
-DEPS += $(OBJ_DIR)/sha1.o
+DEPS += $(INC_DIR)/progress_bar.hpp
 
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -194,7 +210,7 @@ endif
 
 .PHONY: clean get-deps test set-path static docs .pre-build
 
-$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
+$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 # We also want to present the xg binary, which tests can use.
@@ -204,8 +220,8 @@ $(BIN_DIR)/xg: $(LIB_DIR)/libxg.a $(OBJ_DIR)/xg-main.o
 static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(LIB_DIR)/libvg.a: $(OBJ)
-	ar rs $@ $^
+$(LIB_DIR)/libvg.a: $(OBJ) $(DEPS)
+	ar rs $@ $(OBJ) $(LIB_DEPS)
 
 get-deps:
 	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev
@@ -259,8 +275,11 @@ $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/*.hpp)
 	+. ./source_me.sh && cd $(GCSA2_DIR) && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a && mv libgcsa2.a $(CWD)/$(LIB_DIR) && cp -r include/gcsa $(CWD)/$(INC_DIR)/
 
+$(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
+	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)
+
 $(OBJ_DIR)/progress_bar.o:
-	+cd $(PROGRESS_BAR_DIR) && $(MAKE) && cp progress_bar.o $(CWD)/$(OBJ_DIR) && cp *.h* $(CWD)/$(INC_DIR)
+	+cd $(PROGRESS_BAR_DIR) && $(MAKE) && cp progress_bar.o $(CWD)/$(OBJ_DIR)
 
 $(OBJ_DIR)/Fasta.o:
 	+cd $(FASTAHACK_DIR) && $(MAKE) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
@@ -293,7 +312,7 @@ $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp
 	+cd $(DEP_DIR)/gfakluge && $(MAKE) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
 
 $(INC_DIR)/gfakluge.hpp:
-	cp $(DEP_DIR)/gfakluge/gfakluge.hpp $(CWD)/$(INC_DIR)/
+	cp $(DEP_DIR)/gfakluge/src/gfakluge.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a $(INC_DIR)/globalDefs.hpp
 	+. ./source_me.sh && cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/
@@ -310,9 +329,14 @@ $(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a
 $(LIB_DIR)/libraptor2.a:
 	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
-$(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
+$(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
+	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
+
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
-	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS)
+
+$(LIB_DIR)/libfml.a:
+	cd $(FERMI_DIR) && $(MAKE) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # Auto-versioning
 $(INC_DIR)/vg_git_version.hpp: .git
@@ -337,6 +361,8 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
 	+cp $@ $(INC_DIR)
 
 # For most of the .o files we just specify dependencies and use the pattern rule.
+
+$(OBJ): $(DEPS)
 
 $(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
@@ -370,13 +396,13 @@ $(OBJ_DIR)/entropy.o: $(SRC_DIR)/entropy.cpp $(SRC_DIR)/entropy.hpp $(DEPS)
 
 $(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(DEPS)
 
-$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(DEPS)
+$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/option.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
-$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(DEPS)
+$(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/option.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/json2pb.h $(DEPS) $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/utility.hpp
 
-$(OBJ_DIR)/genotypekit.o: $(SRC_DIR)/genotypekit.cpp $(SRC_DIR)/genotypekit.hpp $(DEPS) $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp
+$(OBJ_DIR)/genotypekit.o: $(SRC_DIR)/genotypekit.cpp $(SRC_DIR)/genotypekit.hpp $(DEPS) $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(DEPS)
 
@@ -409,11 +435,11 @@ $(OBJ_DIR)/chunker.o: $(SRC_DIR)/chunker.cpp $(SRC_DIR)/chunker.hpp $(SRC_DIR)/v
 
 $(OBJ_DIR)/vcf_buffer.o: $(SRC_DIR)/vcf_buffer.cpp $(SRC_DIR)/vcf_buffer.hpp $(DEPS)
 
-$(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/name_mapper.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/name_mapper.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 $(OBJ_DIR)/name_mapper.o: $(SRC_DIR)/name_mapper.cpp $(DEPS)
 
-$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/algorithms/vg_algorithms.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
@@ -429,7 +455,9 @@ $(OBJ_DIR)/snarls.o: $(SRC_DIR)/snarls.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(OBJ_DIR)/flow_sort.o: $(SRC_DIR)/flow_sort.cpp $(SRC_DIR)/flow_sort.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(OBJ_DIR)/srpe.o: $(SRC_DIR)/srpe.cpp $(SRC_DIR)/srpe.hpp $(OBJ_DIR)/filter.o $(DEPS)
+$(OBJ_DIR)/srpe.o: $(SRC_DIR)/srpe.cpp $(SRC_DIR)/srpe.hpp $(OBJ_DIR)/filter.o $(LIB_DIR)/libvcflib.a $(DEPS) $(LIB_DIR)/libfml.a
+
+$(OBJ_DIR)/gamsorter.o: $(SRC_DIR)/gamsorter.cpp $(SRC_DIR)/gamsorter.hpp $(DEPS)
 
 $(OBJ_DIR)/path_index.o: $(SRC_DIR)/path_index.cpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
@@ -437,9 +465,18 @@ $(OBJ_DIR)/phase_duplicator.o: $(SRC_DIR)/phase_duplicator.cpp $(SRC_DIR)/phase_
 
 $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/types.hpp $(DEPS)
 
-$(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
+$(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(DEPS)
 
-$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp
+$(OBJ_DIR)/nested_traversal_finder.o: $(SRC_DIR)/nested_traversal_finder.cpp $(SRC_DIR)/nested_traversal_finder.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
+
+$(OBJ_DIR)/option.o: $(SRC_DIR)/option.cpp $(SRC_DIR)/option.hpp $(DEPS)
+
+$(OBJ_DIR)/haplotype_extracter.o: $(SRC_DIR)/haplotype_extracter.cpp $(SRC_DIR)/haplotype_extracter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+### Algorithms ###
+
+$(OBJ_DIR)/vg_algorithms.o: $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
@@ -457,13 +494,13 @@ $(UNITTEST_OBJ_DIR)/banded_global_aligner.o: $(UNITTEST_SRC_DIR)/banded_global_a
 
 $(UNITTEST_OBJ_DIR)/pinned_alignment.o: $(UNITTEST_SRC_DIR)/pinned_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/genotypekit.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mapper.cpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/phased_genome.cpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/vg.o: $(UNITTEST_SRC_DIR)/vg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(DEPS)
 
@@ -481,7 +518,7 @@ $(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SR
 
 $(UNITTEST_OBJ_DIR)/aligner.o: $(UNITTEST_SRC_DIR)/aligner.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/snarls.o: $(UNITTEST_SRC_DIR)/snarls.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 $(UNITTEST_OBJ_DIR)/chunker.o: $(UNITTEST_SRC_DIR)/chunker.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/chunker.hpp $(DEPS)
@@ -508,7 +545,10 @@ $(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.c
 
 $(SUBCOMMAND_OBJ_DIR)/sift_main.o: $(SUBCOMMAND_SRC_DIR)/sift_main.cpp $(OBJ_DIR)/filter.o $(OBJ_DIR)/vg.o $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(OBJ_DIR)/srpe.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.hpp $(OBJ_DIR)/vg.o $(OBJ_DIR)/bubbles.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(OBJ_DIR)/srpe.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/vg.o $(DEPS)
+
+
+$(SUBCOMMAND_OBJ_DIR)/gamsort_main.o: $(SUBCOMMAND_SRC_DIR)/gamsort_main.cpp $(OBJ_DIR)/gamsorter.o $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/index_main.o: $(SUBCOMMAND_SRC_DIR)/index_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
@@ -520,9 +560,19 @@ $(SUBCOMMAND_OBJ_DIR)/chunk_main.o: $(SUBCOMMAND_SRC_DIR)/chunk_main.cpp $(SUBCO
 
 $(SUBCOMMAND_OBJ_DIR)/add_main.o: $(SUBCOMMAND_SRC_DIR)/add_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vcf_buffer.hpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/name_mapper.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/snarls_main.o: $(SUBCOMMAND_SRC_DIR)/snarls_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/snarls_main.o: $(SUBCOMMAND_SRC_DIR)/snarls_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/distributions.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/explode_main.o: $(SUBCOMMAND_SRC_DIR)/explode_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/call_main.o: $(SUBCOMMAND_SRC_DIR)/call_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/option.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/caller.hpp $(SRC_DIR)/nodeside.hpp $(SRC_DIR)/nodetraversal.hpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/genotype_main.o: $(SUBCOMMAND_SRC_DIR)/genotype_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/snarls.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/msga_main.o: $(SUBCOMMAND_SRC_DIR)/msga_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/map_main.o: $(SUBCOMMAND_SRC_DIR)/map_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 
 ########################
@@ -540,6 +590,9 @@ $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp
 # Protobuf stuff builds into its same directory
 $(CPP_DIR)/%.o : $(CPP_DIR)/%.cc
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
+
+$(SUBCOMMAND_OBJ_DIR)/trace_main.o: $(SUBCOMMAND_SRC_DIR)/trace_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/haplotype_extracter.hpp $(DEPS)
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 ###################################
 ## VG source code compilation ends here
@@ -589,6 +642,7 @@ clean:
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
+	cd $(DEP_DIR) && cd gfakludge && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

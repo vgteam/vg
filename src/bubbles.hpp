@@ -48,7 +48,7 @@ struct Bubble {
     // of children in chain i.  existing code that doesn't use
     // chains will be unaffected. 
     vector<int> chain_offsets;
-    bool acyclic;
+    bool dag;
 };
 
 typedef Tree<Bubble> BubbleTree;

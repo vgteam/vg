@@ -1,6 +1,8 @@
 #include "alignment.hpp"
 #include "stream.hpp"
 
+#include <regex>
+
 namespace vg {
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
@@ -463,12 +465,15 @@ string alignment_to_sam(const Alignment& alignment,
                         const int32_t matepos,
                         const int32_t tlen) {
                         
-    // Determine flags, using orientation.
+    // Determine flags, using orientation and read name suffix.
     int32_t flags = sam_flag(alignment, refrev);
     
     stringstream sam;
 
-    sam << (!alignment.name().empty() ? alignment.name() : "*") << "\t"
+    // We need to strip the /1 and /2 from paired reads so the two ends have the same name.
+    string alignment_name = regex_replace(alignment.name(), regex("/[12]$"), "");
+
+    sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
         << refpos + 1 << "\t"
@@ -609,11 +614,22 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
+    auto& name = alignment.name();
+    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/1")) {
+        // This is the first read in a pair
+        flag |= (BAM_FPAIRED | BAM_FREAD1);
+    }
+    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/2")) {
+        // This is the second read in a pair
+        flag |= (BAM_FPAIRED | BAM_FREAD2);
+    }
+
     if (alignment.score() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
-    } else {
-        // correctly aligned
+    } else if (flag & BAM_FPAIRED) {
+        // Aligned and in a pair, so assume it's properly paired.
+        // TODO: this relies on us not emitting improperly paired reads
         flag |= BAM_FPROPER_PAIR;
     }
     if (on_reverse_strand) {
@@ -622,6 +638,9 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     if (alignment.is_secondary()) {
         flag |= BAM_FSECONDARY;
     }
+    
+    
+    
     return flag;
 }
 
@@ -703,13 +722,14 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
     Alignment res;
     res.set_name(aln.name());
     res.set_score(aln.score());
-    //cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
     *res.mutable_path() = cut_path(aln.path(), drop).second;
     assert(res.has_path());
     if (alignment_to_length(res) != res.sequence().size()) {
         cerr << "failed!!! drop from start 轰" << endl;
+        cerr << "drop " << drop << " from start" << endl << pb2json(aln) << endl;
+        cerr << "wanted " << aln.sequence().size() - drop << " got " << alignment_to_length(res) << endl;
         cerr << pb2json(res) << endl << endl;
         assert(false);
     }
@@ -830,6 +850,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
     //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     a1.set_sequence(a1.sequence() + a2.sequence());
+    if (!a1.quality().empty()) a1.set_quality(a1.quality() + a2.quality());
     extend_path(*a1.mutable_path(), a2.path());
     //if (debug) cerr << "extended alignments, result is " << endl << pb2json(a1) << endl;
     return a1;
@@ -848,7 +869,7 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
     return a3;
 }
 
-void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
+void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
     Path* path = a.mutable_path();
     for(size_t i = 0; i < path->mapping_size(); i++) {
         // Grab each mapping (includes its position)
@@ -901,6 +922,19 @@ int softclip_end(const Alignment& alignment) {
     return 0;
 }
 
+int query_overlap(const Alignment& aln1, const Alignment& aln2) {
+    if (!aln1.path().mapping_size() || !aln2.path().mapping_size()
+        || aln1.sequence().size() != aln2.sequence().size()) {
+        return 0;
+    }
+    int qb1 = softclip_start(aln1);
+    int qe1 = softclip_end(aln1);
+    int qb2 = softclip_start(aln2);
+    int qe2 = softclip_end(aln2);
+    int l = aln1.sequence().size();
+    return l - ((qe1 > qe2 ? qe1 : qe2) + (qb1 > qb2 ? qb1 : qb2));
+}
+
 int edit_count(const Alignment& alignment) {
     int i = 0;
     auto& path = alignment.path();
@@ -935,6 +969,9 @@ const string hash_alignment(const Alignment& aln) {
 Alignment simplify(const Alignment& a) {
     auto aln = a;
     *aln.mutable_path() = simplify(aln.path());
+    if (!aln.path().mapping_size()) {
+        aln.clear_path();
+    }
     return aln;
 }
 

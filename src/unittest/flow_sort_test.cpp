@@ -11,7 +11,7 @@ using namespace std;
 
 TEST_CASE("sorts input graph using max flow approach", "[flow_sort]") {
     SECTION("Sort simple graph") {
-        const string graph_gfa = R"(H	VN:Z:1.0
+        const string graph_gfa = R"(H	VN:Z:0.1
 S	1	G
 L	1	+	2	+	0M
 L	1	+	4	+	0M
@@ -58,7 +58,7 @@ P	3	path2	5	+	1M)";
     }
     
     SECTION("Sort simple graph test1") {
-        const string graph_gfa = R"(H	VN:Z:1.0
+        const string graph_gfa = R"(H	VN:Z:0.1
 S	1	A
 L	1	+	2	+	0M
 S	2	A
@@ -137,7 +137,7 @@ P	13	path4	5	+	1M)";
     }
     
     SECTION("Sort simple graph test2") {
-        const string graph_gfa = R"(H	VN:Z:1.0
+        const string graph_gfa = R"(H	VN:Z:0.1
 S	1	A
 L	1	+	2	+	0M
 S	2	T

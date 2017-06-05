@@ -273,6 +273,12 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         int64_t delta = map_reverse ? -1 : 1;
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             if (pass_filter(alignment, read_offset, 1, mismatch_counts)) {
+                // Don't go outside the node
+                if (node_offset >= _graph->get_node(pileup.node_id())->sequence().size()) {
+                    cerr << "error [vg::Pileups] node_offset of " << node_offset << " on " << pileup.node_id() << " is too big for node of size " << _graph->get_node(pileup.node_id())->sequence().size() << endl;
+                    cerr << "Alignment: " << pb2json(alignment) << endl;
+                    throw runtime_error("Node offset too large in alignment");
+                }
                 BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
                 if (base_pileup->num_bases() < _max_depth) {
                     // reference_base if empty
@@ -309,6 +315,8 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                         dp_node_offset = open_del.second;
                     }
                     Node* dp_node = _graph->get_node(dp_node_id);
+                    // Don't go outside the node
+                    assert(dp_node_offset < dp_node->sequence().size());
                     NodePileup* dp_node_pileup = get_create_node_pileup(dp_node);
                     BasePileup* dp_base_pileup = get_create_base_pileup(*dp_node_pileup, dp_node_offset);
                     if (dp_base_pileup->num_bases() < _max_depth) {
@@ -349,7 +357,9 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             if (insert_offset >= 0 &&
                 // make sure we have a match before and after the insert to take it seriously
                 next_edit != NULL && last_match.first != NULL &&
-                next_edit->from_length() == next_edit->to_length()) {        
+                next_edit->from_length() == next_edit->to_length()) { 
+                // Don't go outside the node
+                assert(insert_offset < _graph->get_node(pileup.node_id())->sequence().size());       
                 BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
                 if (base_pileup->num_bases() < _max_depth) {
                     // reference_base if empty
@@ -586,6 +596,9 @@ BasePileup& Pileups::merge_base_pileups(BasePileup& p1, BasePileup& p2) {
 
 NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2) {
     assert(p1.node_id() == p2.node_id());
+    // Don't go outside the node
+    assert(p1.base_pileup_size() <= _graph->get_node(p1.node_id())->sequence().size());
+    assert(p2.base_pileup_size() <= _graph->get_node(p2.node_id())->sequence().size());
     for (int i = 0; i < p2.base_pileup_size(); ++i) {
         BasePileup* bp1 = get_create_base_pileup(p1, i);
         BasePileup* bp2 = get_base_pileup(p2, i);

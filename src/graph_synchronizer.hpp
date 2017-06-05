@@ -65,9 +65,11 @@ public:
         Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t path_offset, size_t context_bases, bool reflect);
         
         /**
-         * Create a request to lock a certain range of a certain path, from start to end.
-         * Also locks attached things that can be reached by paths of the same length or shorter.
-         * Note that the range must be nonempty.
+         * Create a request to lock a certain range of a certain path, from
+         * start to end. The start and end positions must line up with the
+         * boundaries of nodes in the graph. Also locks attached things that can
+         * be reached by paths of the same length or shorter. Note that the
+         * range must be nonempty.
          */
         Lock(GraphSynchronizer& synchronizer, const string& path_name, size_t start, size_t past_end);
         
@@ -88,6 +90,15 @@ public:
         VG& get_subgraph();
         
         /**
+         * May only be called when locked. Returns the pair of NodeSides
+         * corresponding to the start and end positions used when the lock was
+         * created.
+         *
+         * May only be called on locks that lock a start to end range.
+         */
+        pair<NodeSide, NodeSide> get_endpoints() const;
+        
+        /**
          * Get the NodeSides for nodes not in the extracted subgraph but in its
          * periphery that are attached to the given NodeSide in the subgraph.
          */
@@ -104,10 +115,31 @@ public:
          *
          * Any new nodes created are created already locked.
          *
-         * Any new nodes created on the left of the alignment will be attached
-         * to the given "dangling" NodeSides.
+         * Any new nodes created on the left of the alignment (and any existing
+         * nodes visited) will be attached to the given "dangling" NodeSides.
+         * The set will be populated with the NodeSides for the ends of nodes
+         * created/visited at the end of the alignment.
          */
-        vector<Translation> apply_edit(const Path& path, set<NodeSide> dangling = set<NodeSide>());
+        vector<Translation> apply_edit(const Path& path, set<NodeSide>& dangling);
+        
+        /**
+         * May only be called when locked. Apply a path as an edit to the base
+         * graph, leaving new nodes at the ends of the path unattached on their
+         * outer sides.
+         */
+        vector<Translation> apply_edit(const Path& path);
+        
+        /**
+         * May only be called when locked. Apply a path as an edit to the base
+         * graph, attaching the outer sides of any newly created nodes to the
+         * sides in the periphery attached to the extraction start and end
+         * sides, respectively. The lock must have been obtained on a range,
+         * rather than a radius.
+         *
+         * The alignment must be in the local forward orientation of the graph
+         * for this to make sense.
+         */
+        vector<Translation> apply_full_length_edit(const Path& path);
         
     protected:
     
@@ -118,16 +150,20 @@ public:
         string path_name;
         
         // These can be set
-        size_t path_offset;
-        size_t context_bases;
-        bool reflect; // Should we bounce off node ends?
+        size_t path_offset = 0;
+        size_t context_bases = 0;
+        bool reflect = false; // Should we bounce off node ends?
         
         // Or these can be set
-        size_t start;
-        size_t past_end;
+        size_t start = 0;
+        size_t past_end = 0;
         
         /// This is the subgraph that got extracted during the locking procedure.
         VG subgraph;
+        
+        /// These are the endpoints that the subgraph was extracted between, if
+        /// applicable.
+        pair<NodeSide, NodeSide> endpoints;
         
         /// These are the nodes connected to the subgraph but not actually
         /// available for editing. We just need no one else to edit them.

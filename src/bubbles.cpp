@@ -251,34 +251,36 @@ static void fill_ultrabubble_contents(VG& graph, Bubble& bubble) {
     // the acyclic logic derived from vg::is_acyclic()
     // but changed to make sure we only ever touch the ends of the
     // source and sink (never loop over body of the node)
-    set<NodeTraversal> seen;
-    bubble.acyclic = true;
+    // and to look for directed (as opposed to bidirected) cycles
+    set<vg::id_t> seen;
+    bubble.dag = true;
+    
     graph.dfs([&](NodeTraversal trav) {
 
             // self loops on bubble end points considered degenerate
             if (trav.node->id() != source.node->id() && trav.node->id() != sink_id &&
                 graph.is_self_looping(trav.node)) {
-                bubble.acyclic = false;
+                bubble.dag = false;
             }
             // don't step past the sink once we've reached it
             if (sinks.count(trav) == false) {
                 for (auto& next : graph.travs_from(trav)) {
                     // filter out self loop on bubble endpoints like above
                     if (trav.node->id() != source.node->id() && next.node->id() != trav.node->id() &&
-                        seen.count(next)) {
-                        bubble.acyclic = false;
+                        seen.count(next.node->id())) {
+                        bubble.dag = false;
                         break;
                     }
                 }
             }
-            if (bubble.acyclic) {
-                seen.insert(trav);
+            if (bubble.dag) {
+                seen.insert(trav.node->id());
             }
 
             contents_set.insert(trav.node->id());
         },
         [&](NodeTraversal trav) {
-            seen.erase(trav);
+            seen.erase(trav.node->id());
         },
         &sources,
         &sinks);
