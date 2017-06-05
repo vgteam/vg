@@ -768,7 +768,6 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // If best and second best are close enough to be het, we call het.
         // Otherwise, we call hom best.
         
-        
         double bias_limit;
         if (best_allele == 0) {
             // Use ref bias limit
