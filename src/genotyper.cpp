@@ -69,7 +69,7 @@ namespace vg {
                     name_to_traversal[x.name()] = x;
                     snarl_name_to_node_set[x.snarl().name()].insert( x.snarl().start().node_id() );
                     snarl_name_to_node_set[x.snarl().name()].insert( x.snarl().end().node_id() );
-                    for (int i = 0; i < x.visits_size(); i++){
+                    for (int i = 1; i < x.visits_size() - 1; i++){
                         snarl_name_to_node_set[x.snarl().name()].insert( x.visits(i).node_id());
                     }    
                 }
