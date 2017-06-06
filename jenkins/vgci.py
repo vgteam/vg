@@ -25,7 +25,7 @@ class VGCITest(TestCase):
     def setUp(self):
         self.workdir = tempfile.mkdtemp()
         
-        self.f1_threshold = 0.02
+        self.f1_threshold = 0.005
         self.auc_threshold = 0.02
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
@@ -124,6 +124,7 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
+            opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
         if misc_opts:
