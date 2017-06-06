@@ -1,4 +1,5 @@
 #include "genotypekit.hpp"
+
 namespace vg {
 
 using namespace std;
@@ -1082,7 +1083,8 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         Node* visited_node = augmented.graph.get_node(found_visit.node_id());
         
         const Snarl* child = snarl_manager.into_which_snarl(found_visit);
-        if (child != nullptr && child != managed_site) {
+        if (child != nullptr && child != managed_site
+            && snarl_manager.into_which_snarl(reverse(found_visit)) != managed_site) {
             // If the node in this orientation enters a child
         
             // Visit the child
@@ -1103,6 +1105,9 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             // TODO: the path is not allowed to end inside the snarl.
             Node* here = visited_node;
             do {
+#ifdef debug
+                cerr << "at node " << pb2json(*here) << endl;
+#endif
                 // Advance
                 ref_node_start = found->first + here->sequence().size();
                 // And look at what we get
@@ -1511,7 +1516,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         const Snarl* right_child = snarl_manager.into_which_snarl(right_visit);
         const Snarl* left_child = snarl_manager.into_which_snarl(left_visit);
         
-        if (right_child != nullptr && right_child != managed_site) {
+        if (right_child != nullptr && right_child != managed_site
+            && snarl_manager.into_which_snarl(reverse(right_visit)) != managed_site) {
             // We're reading into a child snarl on the right.
 #ifdef debug
             cerr << "Child to right of edge " << pb2json(*right_child) << endl;
@@ -1529,7 +1535,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
             right_visit = right_child_visit;
         }
         
-        if (left_child != nullptr && left_child != managed_site) {
+        if (left_child != nullptr && left_child != managed_site
+            && snarl_manager.into_which_snarl(reverse(left_visit)) != managed_site) {
             // We're reading out of a child snarl on the left.
 #ifdef debug
             cerr << "Child to left of edge " << pb2json(*left_child) << endl;
