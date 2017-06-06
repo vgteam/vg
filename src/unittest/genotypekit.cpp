@@ -519,18 +519,18 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         RepresentativeTraversalFinder finder(augmented, snarl_manager, 100, 100, 1000);
         
         SECTION("there should be two traversals of the substitution") {
-            
+                        
             vector<SnarlTraversal> traversals = finder.find_traversals(*child);
-
+            
             REQUIRE(traversals.size() == 2);
             
             SECTION("all the traversals should be size 1, with just the middle node") {
                 // TODO: this will have to change when we start to support traversals of non-ultrabubbles.
                 for (auto traversal : traversals) {
-                    REQUIRE(traversal.visits_size() == 1);
+                    REQUIRE(traversal.visits_size() == 3);
                     
                     // Make sure the middle is a node and not a child snarl
-                    REQUIRE(traversal.visits(0).node_id() != 0);
+                    REQUIRE(traversal.visits(1).node_id() != 0);
                 }
             }
             
@@ -571,7 +571,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
             SECTION("one should be empty") {
                 bool found = false;
                 for (auto traversal : traversals) {
-                    if (traversal.visits_size() == 0) {
+                    if (traversal.visits_size() == 2) {
                         found = true;
                     }
                 }
@@ -581,8 +581,8 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
             SECTION("one should visit just the child site") {
                 bool found = false;
                 for (auto traversal : traversals) {
-                    if (traversal.visits_size() == 1) {
-                        auto& visit = traversal.visits(0);
+                    if (traversal.visits_size() == 3) {
+                        auto& visit = traversal.visits(1);
                         
                         if(visit.node_id() == 0 && visit.snarl().start() == child->start() &&
                             visit.snarl().end() == child->end()) {

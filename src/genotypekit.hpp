@@ -425,7 +425,8 @@ protected:
      * (including the reference node endpoints and their edges which aren't
      * stored in the path).
      */
-    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index);
+    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index,
+                                             const Snarl& site);
         
     /**
      * Get the minimum support of all nodes and edges in path

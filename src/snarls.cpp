@@ -236,8 +236,8 @@ namespace vg {
             // record that this node is in the snarl
             to_return.first.insert(node);
             
-            const Snarl* forward_snarl = into_which_snarl(node->id, false);
-            const Snarl* backward_snarl = into_which_snarl(node->id, true);
+            const Snarl* forward_snarl = into_which_snarl(node->id(), false);
+            const Snarl* backward_snarl = into_which_snarl(node->id(), true);
             if (forward_snarl) {
                 // this node points into a snarl
                 
@@ -444,7 +444,7 @@ namespace vg {
         return &snarls.at(it->second);
     }
     
-    vector<Visit> visits_right(const Visit& visit, VG& graph) {
+    vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph) {
         
 #ifdef debug
         cerr << "Look right from " << visit << endl;
@@ -533,7 +533,8 @@ namespace vg {
                 }
             } else {
                 // We just go into a normal node
-                Visit& next_visit = *to_return.emplace_back();
+                to_return.emplace_back();
+                Visit& next_visit = to_return.back();
                 next_visit.set_node_id(attached.node);
                 next_visit.set_backward(attached.is_end);
             
@@ -548,7 +549,7 @@ namespace vg {
         
     }
     
-    vector<Visit> visits_left(const Visit& visit, VG& graph) {
+    vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph) {
         
         // Get everything right of the reversed visit
         vector<Visit> to_return = visits_right(reverse(visit), graph);
@@ -599,9 +600,6 @@ namespace vg {
     }
     
     bool operator==(const SnarlTraversal& a, const SnarlTraversal& b) {
-        if (a.snarl() != b.snarl()) {
-            return false;
-        }
         if (a.visits_size() != b.visits_size()) {
             return false;
         }
@@ -619,11 +617,6 @@ namespace vg {
     }
     
     bool operator<(const SnarlTraversal& a, const SnarlTraversal& b) {
-        if (a.snarl() < b.snarl()) {
-            return true;
-        } else if (b.snarl() < a.snarl()) {
-            return false;
-        }
         for (size_t i = 0; i < b.visits_size(); i++) {
             if (i >= a.visits_size()) {
                 // A has run out and B is still going
