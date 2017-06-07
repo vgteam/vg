@@ -28,7 +28,7 @@ void help_surject(char** argv) {
         << "    -t, --threads N         number of threads to use" << endl
         << "    -p, --into-path NAME    surject into just this path" << endl
         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
-        << "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
+        //<< "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
         //<< "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
         // todo, reenable
         // << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
@@ -166,8 +166,12 @@ int main_surject(int argc, char** argv) {
         while (std::getline(in,line)) {
             path_names.insert(line);
         }
-    } else {
+    } else if (!path_name.empty()) {
         path_names.insert(path_name);
+    }
+
+    if (path_names.empty()) {
+        cerr << "[vg surject] Warning: No path name(s) specified with -i or -p" << endl;
     }
 
     xg::XG* xgidx = nullptr;
