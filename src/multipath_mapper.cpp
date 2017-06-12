@@ -13,8 +13,9 @@ namespace vg {
     }
     
     
-    MultipathAligner::multipath_align(const Alignment& alignment,
-                                      const vector<MaximalExactMatch>& mems){
+    void MultipathAligner::multipath_align(const Alignment& alignment,
+                                           const vector<MaximalExactMatch>& mems,
+                                           list<MultipathAlignment>& multipath_alns_out){
         
         
         
@@ -155,6 +156,9 @@ namespace vg {
             return cluster_graph_coverage[g1] > cluster_graph_coverage[g2];
         });
         
+        // the longest path we could possibly align to (full gap and a full sequence)
+        size_t target_length = aligner.longest_detectable_gap(alignment, full_length_bonus) + alignment.sequence().size();
+        
         for (VG* vg : cluster_graphs) {
             
             // if we have a cluster graph with small enough MEM coverage compared to the best one
@@ -163,9 +167,20 @@ namespace vg {
                 break;
             }
             
+            // convert to a digraph
             unordered_map<id_t, pair<id_t, bool> > node_trans;
             VG align_graph = vg->split_strands(node_trans);
+            if (!align_graph.is_acylic()) {
+                unordered_map<id_t, pair<id_t, bool> > dagify_trans;
+                align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
+                                                 dagify_trans,
+                                                 target_length,
+                                                 0); // no maximum on size of component
+                node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
+            }
             
+            // create the injection translator, which maps a node in the original graph to every one of its occurrences
+            // in the dagified graph
             unordered_multimap<id_t, pair<id_t, bool> > rev_trans;
             for (const auto& trans_record : node_trans) {
                 rev_trans.insert(make_pair(trans_record.second.first,
@@ -174,13 +189,208 @@ namespace vg {
             
             vector<pair<MaximalExactMatch* const, pos_t>>& graph_mems = cluster_graph_mems[vg];
             
-            MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans);
+            // construct a graph that summarizes reachability between MEMs
+            MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans, snarl_manager, max_snarl_cut_size);
             
+            // prune this graph down the paths that have reasonably high likelihood
             multi_aln_graph.prune_to_high_scoring_paths(aligner, max_suboptimal_path_score_diff);
             
-            multi_aln_graph.cut_out_snarls(snarl_manager, max_snarl_cut_size);
+            // create a new multipath alignment object and transfer over data from alignment
+            multipath_alns_out.emplace_back();
+            MultipathAlignment& multipath_aln = multipath_alns_out.back();
+            multipath_aln.set_sequence(alignment.sequence());
+            multipath_aln.set_quality(alignment.quality());
+            multipath_aln.set_name(alignment.name());
+            multipath_aln.set_sample_name(alignment.sample_name());
+            multipath_aln.set_read_group(alignment.read_group());
             
+            // add a subpath for each of the exact match nodes
+            for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+                ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+                Subpath* subpath = multipath_aln.add_subpath();
+                *subpath->mutable_path() = match_node.path;
+                int32_t match_score = aligner.score_exact_match(match_node.begin, match_node.end,
+                                                                alignment.quality().begin() + (match_node.begin - alignment.sequence().begin()))
+                subpath->set_score(match_score + full_length_bonus * ((match_node.begin == alignment.sequence().begin()) +
+                                                                      (match_node.end == alignment.sequence().end())));
+            }
             
+            // perform alignment in the intervening sections
+            for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+                ExactMatchNode& src_match_node = multi_aln_graph.match_nodes[j];
+                Subpath* src_subpath = multipath_aln.mutable_subpath(j);
+                
+                const Path& path = src_subpath->path();
+                const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
+                // make a pos_t that points to the final base in the match
+                pos_t src_pos = make_pos_t(final_mapping.position().node_id(),
+                                           final_mapping.position().reverse(),
+                                           final_mapping.from_length() - 1);
+                
+                // check whether this is a simple split MEM, in which case we can make the connection directly
+                // and avoid making an intervening alignment
+                if (src_match_node.edges().size() == 1) {
+                    pair<size_t size_t>& edge = src_match_node.edges[0];
+                    // check whether the positions are right next to each other in both the read and the graph
+                    //
+                    // strictly speaking, there could be other paths between the match nodes if the ends of the paths
+                    // are at node boundaries, but even then the best alignment would be from the empty sequence to
+                    // the path of length 0
+                    if (src_match_node.end == multi_aln_graph.match_nodes[edge.first].begin && edge.second == 0) {
+                        // connect the supath directly without an intervening alignment
+                        src_subpath->add_next(edge.first);
+                        continue;
+                    }
+                }
+                
+                
+                // the longest gap that could be detected at this position in the read
+                size_t src_max_gap = aligner.longest_detectable_gap(alignment, src_match_node.end,
+                                                                    full_length_bonus);
+                                
+                for (const pair<size_t, size_t>& edge : src_match_node.edges) {
+                    ExactMatchNode& dest_match_node = multi_aln_graph.match_nodes[edge.first];
+                    pos_t dest_pos = make_pos_t(multipath_aln.subpath(edge.first).path().mapping(0).position());
+                    
+                    size_t max_gap = std::min(src_max_gap,
+                                              aligner.longest_detectable_gap(alignment, dest_match_node.begin,
+                                                                             full_length_bonus));
+                    
+                    // extract the graph between the matches
+                    Graph connecting_graph;
+                    unordered_map<id_t, id_t> connect_trans = extract_connecting_graph(align_graph,      // DAG with split strands
+                                                                                       connecting_graph, // graph to extract into
+                                                                                       max_gap,          // longest distance necessary
+                                                                                       src_pos,          // end of earlier match
+                                                                                       dest_pos,         // beginning of later match
+                                                                                       false,            // do not extract the end positions in the matches
+                                                                                       false,            // do not bother finding all cycles (it's a DAG)
+                                                                                       true,             // remove tips
+                                                                                       true,             // only include nodes on connecting paths
+                                                                                       true);            // enforce max distance strictly
+                    
+                    
+                    
+                    
+                    // transfer the substring between the matches to a new alignment
+                    Alignment intervening_sequence;
+                    intervening_sequence.set_sequence(alignment.sequence().substr(src_match_node.end - alignment.sequence().begin())),
+                    if (alignment.has_quality()) {
+                        intervening_sequence.set_quality(alignment.quality().substr(src_match_node.end - alignment.sequence().begin(),
+                                                                                    dest_match_node.begin - src_match_node.end));
+                    }
+                    
+                    // TODO a better way of choosing the number of alternate alignments
+                    // TODO alternate alignments restricted only to different node paths?
+                    vector<Alignment> alts_alignments;
+                    aligner.align_global_banded_multi(intervening_sequence, alts_alignments,
+                                                      connecting_graph, num_alt_alns, band_padding, true);
+                    
+                    for (Alignment& connecting_alignment : alts_alignments) {
+                        // create a subpath between the matches for this alignment
+                        Subpath* connecting_subpath = multipath_aln.add_subpath();
+                        *connecting_subpath->mutable_path() = connecting_alignment.path();
+                        connecting_subpath->set_score(connecting_alignment.score());
+                        
+                        // add the appropriate connections
+                        src_subpath->add_next(multipath_aln.subpath_size() - 1);
+                        connecting_subpath->add_next(edge.first);
+                        
+                        // translate the path into the space of the main graph
+                        translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
+                        Mapping* first_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
+                        if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
+                            first_mapping->mutable_position()->set_offset(final_mapping.from_length());
+                        }
+                    }
+                }
+            }
+            
+            vector<bool> is_source_node(multi_aln_graph.match_nodes.size(), true);
+            for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+                ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+                if (match_node.edges.empty()) {
+                    const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
+                    if (match_node.end != alignment.sequence().end()) {
+                        
+                        Subpath* sink_subpath = multipath_aln.mutable_subpath(j);
+                        
+                        Graph tail_graph;
+                        // TODODODODODODO need a new extraction algorithm
+                        
+                        // get the sequence remaining in the right tail
+                        Alignment right_tail_sequence;
+                        right_tail_sequence.set_sequence(alignment.sequence().substr(match_node.end - alignment.sequence().begin(),
+                                                                                     alignment.sequence().end() - match_node.end));
+                        if (alignment.has_quality()) {
+                            right_tail_sequence.set_quality(alignment.quality().substr(match_node.end - alignment.sequence().begin(),
+                                                                                       alignment.sequence().end() - match_node.end));
+                        }
+                        
+                        // align against
+                        vector<Alignment> alts_alignments;
+                        aligner.align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns, full_length_bonus);
+                        
+                        
+                        for (Alignment& tail_alignment : alt_alignments) {
+                            Subpath* tail_subpath = multipath_aln.add_subpath();
+                            *tail_subpath->mutable_path() = tail_alignment.path();
+                            tail_subpath->set_score(tail_alignment.score());
+                            
+                            sink_subpath->add_next(multipath_aln.subpath_size() - 1);
+                            
+                            translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
+                            Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+                            if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
+                                first_mapping->mutable_position()->set_offset(final_mapping.from_length());
+                            }
+                        }
+                    }
+                }
+                else {
+                    for (const pair<size_t, size_t>& edge : match_node.edges) {
+                        is_source_node[edge.first] = false;
+                    }
+                }
+            }
+            
+            for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+                if (is_source_node[j]) {
+                    ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+                    if (match_node.begin != alignment.sequence().begin()) {
+                        
+                        Graph tail_graph;
+                        // TODODODODODODO need a new extraction algorithm
+                        
+                        Alignment left_tail_sequence;
+                        left_tail_sequence.set_sequence(alignment.sequence().substr(0, match_node.begin - alignment.sequence().begin()));
+                        if (alignment.has_quality()) {
+                            left_tail_sequence.set_quality(alignment.quality().substr(0, match_node.begin - alignment.sequence().begin()));
+                        }
+                        
+                        vector<Alignment> alts_alignments;
+                        aligner.align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns, full_length_bonus);
+                        
+                        for (Alignment& tail_alignment : alt_alignments) {
+                            Subpath* tail_subpath = multipath_aln.add_subpath();
+                            *tail_subpath->mutable_path() = tail_alignment.path();
+                            tail_subpath->set_score(tail_alignment.score());
+                            
+                            tail_subpath->add_next(j);
+                            multipath_aln.add_start(multipath_aln.subpath_size() - 1);
+                            
+                            translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
+                        }
+                    }
+                    else {
+                        multipath_aln.add_start(j);
+                    }
+                }
+            }
+            
+            for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
+                translate_oriented_node_ids(*multipath_aln.mutable_subpath()->mutable_path(), node_trans);
+            }
         }
         
         for (VG* vg : cluster_graphs) {
@@ -228,7 +438,8 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans) {
+                                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     SnarlManager* cutting_snarls, int64_t max_snarl_cut_size)) {
 
         
         // map of node ids in the dagified graph to the indices in the matches that contain them
@@ -343,7 +554,8 @@ namespace vg {
                 if (!stack.empty()) {
                     // we left the trace in the stack, which means we found a complete match
                     int64_t match_node_idx = match_nodes.size();
-                    ExactMatchNode& match_node = *(match_nodes.emplace_back());
+                    match_nodes.emplace_back();
+                    ExactMatchNode& match_node = match_nodes.back();
                     Path& path = match_node.path;
                     match_node.begin = begin;
                     match_node.end = end;
@@ -369,6 +581,123 @@ namespace vg {
                         node_matches[node->id()].push_back(match_node_idx);
                         
                         rank++;
+                    }
+                    
+                    if (cutting_snarls) {
+                        // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
+                        
+                        // first compute the segments we want to cut out
+                        
+                        // this list holds the beginning of the current segment at each depth in the snarl hierarchy
+                        // as we traverse the exact match, beginning is recorded in both sequence distance and node index
+                        list<pair<size_t, size_t>> level_segment_begin;
+                        level_segment_begin.emplace_back(0, 0);
+                        
+                        // we record which segments we are going to cut out of the match here
+                        vector<pair<size_t, size_t>> cut_segments;
+                        
+                        auto curr_level = level_segment_begin.begin();
+                        size_t prefix_length = 0;
+                        for (size_t j = 0, last = path.mapping_size() - 1; j <= last; j++) {
+                            
+                            const Position& position = path.mapping(j).position();
+                            
+                            if (j > 0) {
+                                // we have entered this node on this iteration
+                                if (cutting_snarls->into_which_snarl(position.node_id(), !position.backward())) {
+                                    // as we enter this node, we are leaving the snarl we were in
+                                    
+                                    // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
+                                    if (prefix_length - (*curr_level).first <= max_snarl_cut_size) {
+                                        cut_segments.emplace_back((*curr_level).second, j);
+                                    }
+                                    
+                                    curr_level++;
+                                    if (curr_level == level_segment_begin.end()) {
+                                        // we were already at the highest level seen so far, so we need to add a new one
+                                        // the entire previous part of the match is contained in this level, so we start
+                                        // the segment from 0
+                                        curr_level = level_segment_begin.insert(level_segment_begin.back(), make_pair(0, 0));
+                                    }
+                                }
+                            }
+                            
+                            // cross to the other side of the node
+                            prefix_length += path.mapping(j).from_length();
+                            
+                            if (j < last) {
+                                // we are going to leave this node next iteration
+                                if (cutting_snarls->into_which_snarl(position.node_id(), position.backward())) {
+                                    // as we leave this node, we are entering a new deeper snarl
+                                    
+                                    // the segment in the new level will begin at the end of the current node
+                                    if (curr_level == level_segment_begin.begin()) {
+                                        // we are already at the lowest level seen so far, so we need to add a new one
+                                        level_segment_begin.emplace_front(prefix_length, j + 1);
+                                        curr_level--;
+                                    }
+                                    else {
+                                        // the lower level is in the record already, so we update its segment start
+                                        curr_level--;
+                                        *curr_level = make_pair(prefix_length, j + 1);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // check the final segment for a cut unless we're at the highest level in the match
+                        if (prefix_length - *(curr_level).first <= max_snarl_cut_size
+                            && curr_level != level_segment_begin.end() - 1) {
+                            cut_segments.emplace_back(*(curr_level).second, path.mapping_size());
+                        }
+                        
+                        // did we cut out any segments?
+                        if (!cut_segments.empty()) {
+                            
+                            // we may have decided to cut the segments of both a parent and child snarl, so now we
+                            // collapse the list of intervals, which is sorted on the end index by construction
+                            //
+                            // snarl nesting properties guarantee that there will be at least one node between any
+                            // cut segments that are not nested, so we don't need to deal with the case where the
+                            // segments are partially overlapping (i.e. it's a bit easier than the general interval
+                            // intersection problem)
+                            vector<pair<size_t, size_t>> keep_segments;
+                            size_t curr_keep_seg_end = path.mapping_size();
+                            for (auto riter = cut_segments.rbegin(); riter != cut_segments.rend(); riter++) {
+                                if ((*riter).second < curr_keep_seg_end) {
+                                    // this is a new interval
+                                    keep_segments.emplace_back((*riter).second, curr_keep_seg_end);
+                                    curr_keep_seg_end = (*riter).first;
+                                }
+                            }
+                            if (curr_keep_seg_end > 0) {
+                                // we are not cutting off the left tail, so add a keep segment for it
+                                keep_segments.emplace_back(0, curr_keep_seg_end);
+                                
+                            }
+                            
+                            // make a new node for all but one of the keep segments
+                            auto iter = keep_segments.begin();
+                            for (auto end = keep_segments.end() - 1; iter != end; iter++) {
+                                match_nodes.emplace_back();
+                                ExactMatchNode& cut_node = match_nodes.back();
+                                Path& cut_path = cut_node.path;
+                                // transfer over the keep segment from the main path
+                                for (size_t j = (*iter).first, size_t j_max = (*iter).second, int32_t rank = 1; j < j_max; j++, rank++) {
+                                    Mapping* mapping = cut_path.add_mapping();
+                                    *mapping = path.mapping(j);
+                                    mapping->set_rank(rank);
+                                }
+                            }
+                            // replace the path of the original node with the final keep segment
+                            Path new_path;
+                            for (size_t j = (*iter).first, size_t j_max = (*iter).second, int32_t rank = 1; j < j_max; j++, rank++) {
+                                Mapping* mapping = new_path.add_mapping();
+                                *mapping = path.mapping(j);
+                                mapping->set_rank(rank);
+                            }
+                            path = new_path;
+                        }
                     }
                 }
             }

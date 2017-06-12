@@ -4,6 +4,8 @@
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -1354,9 +1356,11 @@ void VG::normalize(int max_iter) {
     }
 }
 
-void VG::remove_non_path(void) {
-    set<Edge*> path_edges;
-    function<void(const Path&)> lambda = [this, &path_edges](const Path& path) {
+set<Edge*> VG::get_path_edges(void) {
+    // We'll populate a set with edges.
+    // This set shadows our function anme but we're not recursive so that's fine.
+    set<Edge*> edges;
+    function<void(const Path&)> lambda = [this, &edges](const Path& path) {
         for (size_t i = 1; i < path.mapping_size(); ++i) {
             auto& m1 = path.mapping(i-1);
             auto& m2 = path.mapping(i);
@@ -1366,7 +1370,7 @@ void VG::remove_non_path(void) {
             // check that we always have an edge between the two nodes in the correct direction
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
-            path_edges.insert(edge);
+            edges.insert(edge);
         }
         // if circular, include the cycle-closing edge
         if (path.is_circular()) {
@@ -1378,11 +1382,19 @@ void VG::remove_non_path(void) {
             // check that we always have an edge between the two nodes in the correct direction
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
-            path_edges.insert(edge);
+            edges.insert(edge);
 
         }
     };
     paths.for_each(lambda);
+    return edges;
+}
+
+void VG::remove_non_path(void) {
+    
+    // Determine which edges are used
+    set<Edge*> path_edges(get_path_edges());
+    
     // now determine which edges aren't used
     set<Edge*> non_path_edges;
     for_each_edge([this, &path_edges, &non_path_edges](Edge* e) {
@@ -1402,6 +1414,27 @@ void VG::remove_non_path(void) {
             }
         });
     for (auto id : non_path_nodes) {
+        destroy_node(id);
+    }
+}
+
+void VG::remove_path(void) {
+    
+    // Determine which edges are used
+    set<Edge*> path_edges(get_path_edges());
+    
+    // and destroy them
+    for (auto* e : path_edges) {
+        destroy_edge(e);
+    }
+
+    set<id_t> path_nodes;
+    for_each_node([this, &path_nodes](Node* n) {
+            if (paths.has_node_mapping(n->id())) {
+                path_nodes.insert(n->id());
+            }
+        });
+    for (auto id : path_nodes) {
         destroy_node(id);
     }
 }
@@ -2436,7 +2469,6 @@ void VG::from_gfa(istream& in, bool showp) {
 
     map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
     map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
-    map<string, vector<path_elem> > seq_to_paths = gg.get_seq_to_paths();
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
@@ -2481,13 +2513,19 @@ void VG::from_gfa(istream& in, bool showp) {
             }
             add_edge(e);
         }
-        for (path_elem p: seq_to_paths[(it->second).name]){
-            paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
-        }
+        // for (path_elem p: seq_to_paths[(it->second).name]){
+        //     paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
+        // }
         // remove overlapping sequences from the graph
     }
+    map<string, path_elem> n_to_p = gg.get_name_to_path();
+    for (auto name_path : n_to_p){
+        for (int np = 0; np < name_path.second.segment_names.size(); np++){
+            paths.append_mapping(name_path.first, stol(name_path.second.segment_names[np]), np + 1, !name_path.second.orientations[np]);
+        }
+    }
     if (reduce_overlaps) {
-        //bluntify();
+        bluntify();
     }
 }
 
@@ -4595,19 +4633,19 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
 
+    // something is off about this check.
     // with the paths sorted, let's double-check that the edges are here
     paths.for_each([&](const Path& path) {
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
-                if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                 auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    cerr << "graph path '" << path.name() << "' invalid: edge from "
-                         << s1 << " to " << s2 << " does not exist" << endl;
-                    cerr << "creating edge" << endl;
+                    //cerr << "edge missing! " << s1 << " " << s2 << endl;
+                    // force these edges in
                     create_edge(s1, s2);
                 }
             }
@@ -4647,6 +4685,12 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // Break any nodes that need to be broken. Save the map we need to translate
     // from start positions on old nodes to new nodes.
     map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
+    
+#ifdef debug
+    for(auto& kv : node_translation) {
+        cerr << "Translate old " << kv.first << " to " << (kv.second == nullptr ? (id_t)0 : (id_t)kv.second->id()) << endl;
+    }
+#endif
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
     map<pair<pos_t, string>, vector<Node*>> added_seqs;
@@ -5195,6 +5239,9 @@ void VG::add_nodes_and_edges(const Path& path,
                 // Create the new nodes, reversing it if we are reversed
                 vector<Node*> new_nodes;
                 pos_t start_pos = make_pos_t(from_path.mapping(0).position());
+                // We put in the reverse of our sdequence if we are an insert on
+                // the revers of a node, to keep the graph pointing mostly the
+                // same direction.
                 auto fwd_seq = m.position().is_reverse() ?
                     reverse_complement(e.sequence())
                     : e.sequence();
@@ -5203,6 +5250,13 @@ void VG::add_nodes_and_edges(const Path& path,
                 if (added != added_seqs.end()) {
                     // if we have the node run already, don't make it again, just use the existing one
                     new_nodes = added->second;
+#ifdef debug_edit
+                    cerr << "Re-using already added nodes: ";
+                    for (auto n : new_nodes) {
+                        cerr << n->id() << " ";
+                    }
+                    cerr << endl;
+#endif
                 } else {
                     // Make a new run of nodes of up to max_node_size each
                     
@@ -5215,6 +5269,19 @@ void VG::add_nodes_and_edges(const Path& path,
                         // Until we used up all the sequence, make nodes
                         Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
                         cursor += max_node_size;
+                        
+#ifdef debug_edit
+                        cerr << "Create new node " << pb2json(*new_node) << endl;
+#endif
+                        if (!new_nodes.empty()) {
+                            // Connect each to the previous node in the chain.
+                            Edge* e = create_edge(new_nodes.back(), new_node);
+#ifdef debug_edit
+                            cerr << "Create edge " << pb2json(*e) << endl;
+#endif
+                        }
+                        
+                        // Remember the new node
                         new_nodes.push_back(new_node);
                         
                         // Chop the front of the from path off and associate it
@@ -5234,12 +5301,17 @@ void VG::add_nodes_and_edges(const Path& path,
                         added_nodes[new_node] = front_path;
                         
                     }
-                    
+
+                    // reverse the order of the nodes if we did a rev-comp
+                    if (m.position().is_reverse()) {
+                        std::reverse(new_nodes.begin(), new_nodes.end());
+                    }
+
                     // TODO: fwd_seq can't be empty or problems will be happen
                     // because we'll have an empty vector of created nodes. I
                     // think the edit won't be an insert or sub if it is,
                     // though.
-                    
+
                     // Remember that this run belongs to this edit
                     added_seqs[novel_edit_key] = new_nodes;
                     
@@ -5267,17 +5339,23 @@ void VG::add_nodes_and_edges(const Path& path,
 
                 for (auto& dangler : dangling) {
                     // This actually referrs to a node.
+                    
+                    // Attach what was dangling to the early-in-the-alignment side of the newly created run.
+                    auto to_attach = NodeSide(m.position().is_reverse() ? new_nodes.back()->id() : new_nodes.front()->id(),
+                        m.position().is_reverse());
+                    
 #ifdef debug_edit
-                    cerr << "Connecting " << dangler << " and " << NodeSide(new_nodes.front()->id(), m.position().is_reverse()) << endl;
+                    cerr << "Connecting " << dangler << " and " << to_attach << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangler, NodeSide(new_nodes.front()->id(), m.position().is_reverse())));
+                    assert(create_edge(dangler, to_attach));
 
                 }
 
-                // Dangle the end of this run of new nodes
+                // Dangle the late-in-the-alignment end of this run of new nodes
                 dangling.clear();
-                dangling.insert(NodeSide(new_nodes.back()->id(), !m.position().is_reverse()));
+                dangling.insert(NodeSide(m.position().is_reverse() ? new_nodes.front()->id() : new_nodes.back()->id(),
+                    !m.position().is_reverse()));
 
                 // save edit into translated path
 
@@ -5342,7 +5420,7 @@ void VG::add_nodes_and_edges(const Path& path,
             // This way the next one will start at the right place.
             get_offset(edit_first_position) += e.from_length();
 
-
+//#undef debug_edut
         }
 
     }
@@ -6164,7 +6242,7 @@ void VG::to_dot(ostream& out,
 
 void VG::to_gfa(ostream& out) {
   GFAKluge gg;
-  gg.set_version();
+  gg.set_version(1.0);
 
     // TODO moving to GFAKluge
     // problem: protobuf longs don't easily go to strings....
@@ -6175,37 +6253,22 @@ void VG::to_gfa(ostream& out) {
         s_elem.name = to_string(n->id());
         s_elem.sequence = n->sequence();
         gg.add_sequence(s_elem);
-
-            auto& node_mapping = paths.get_node_mapping(n->id());
-            set<Mapping*> seen;
-            for (auto& p : node_mapping) {
-                for (auto* m : p.second) {
-                    if (seen.count(m)) continue;
-                    else seen.insert(m);
-                    const Mapping& mapping = *m;
-                    string cigar;
-                    if (mapping.edit_size() > 0) {
-                        vector<pair<int, char> > cigarv;
-                        mapping_cigar(mapping, cigarv);
-                        cigar = cigar_string(cigarv);
-                    } else {
-                        // empty mapping edit implies perfect match
-                        stringstream cigarss;
-                        cigarss << n->sequence().size() << "M";
-                        cigar = cigarss.str();
-                    }
-                    bool orientation = mapping.position().is_reverse();
-                    path_elem p_elem;
-                    p_elem.name = p.first;
-                    p_elem.source_name = to_string(n->id());
-                    p_elem.rank = mapping.rank();
-                    p_elem.is_reverse = orientation;
-                    p_elem.cigar = cigar;
-
-                    gg.add_path(p_elem.source_name, p_elem);
-                }
-            }
-
+    }
+    
+    map<string, list<Mapping> > pathmap = this->paths._paths;
+    for (auto p : pathmap){
+        path_elem p_elem;
+        p_elem.name = p.first;
+        for (auto m : p.second){
+            p_elem.segment_names.push_back( std::to_string(m.position().node_id()) );
+            p_elem.orientations.push_back( m.position().is_reverse() );
+            Node* n = get_node( m.position().node_id() );
+            stringstream cigaro;
+            //cigaro << n->sequence().size() << (p.mapping(m_ind.position().is_reverse()) ? "M" : "M");
+            cigaro << n->sequence().size() << (m.position().is_reverse() ? "M" : "M");
+            p_elem.overlaps.push_back( cigaro.str() );
+        }
+        gg.add_path(p_elem.name, p_elem);
     }
 
     for (int i = 0; i < graph.edge_size(); ++i) {
@@ -6219,54 +6282,6 @@ void VG::to_gfa(ostream& out) {
         gg.add_link(l.source_name, l);
     }
     out << gg;
-
-
-    // map<id_t, vector<string> > sorted_output;
-    // out << "H" << "\t" << "HVN:Z:1.0" << endl;
-    // for (int i = 0; i < graph.node_size(); ++i) {
-    //     Node* n = graph.mutable_node(i);
-    //     stringstream s;
-    //     s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
-    //     auto& node_mapping = paths.get_node_mapping(n->id());
-    //     set<Mapping*> seen;
-    //     for (auto& p : node_mapping) {
-    //         for (auto* m : p.second) {
-    //             if (seen.count(m)) continue;
-    //             else seen.insert(m);
-    //             const Mapping& mapping = *m;
-    //             string cigar;
-    //             if (mapping.edit_size() > 0) {
-    //                 vector<pair<int, char> > cigarv;
-    //                 mapping_cigar(mapping, cigarv);
-    //                 cigar = cigar_string(cigarv);
-    //             } else {
-    //                 // empty mapping edit implies perfect match
-    //                 stringstream cigarss;
-    //                 cigarss << n->sequence().size() << "M";
-    //                 cigar = cigarss.str();
-    //             }
-    //             string orientation = mapping.position().is_reverse() ? "-" : "+";
-    //             s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-    //               << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
-    //         }
-    //     }
-    //     sorted_output[n->id()].push_back(s.str());
-    // }
-    // for (int i = 0; i < graph.edge_size(); ++i) {
-    //     Edge* e = graph.mutable_edge(i);
-    //     stringstream s;
-    //     s << "L" << "\t" << e->from() << "\t"
-    //       << (e->from_start() ? "-" : "+") << "\t"
-    //       << e->to() << "\t"
-    //       << (e->to_end() ? "-" : "+") << "\t"
-    //       << "0M" << endl;
-    //     sorted_output[e->from()].push_back(s.str());
-    // }
-    // for (auto& chunk : sorted_output) {
-    //     for (auto& line : chunk.second) {
-    //         out << line;
-    //     }
-    // }
 }
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
@@ -6583,9 +6598,9 @@ void VG::add_start_end_markers(int length,
 
 }
 
-map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
-                                                           const map<id_t, pair<id_t, bool> >& under) {
-    map<id_t, pair<id_t, bool> > overlay = under;
+unordered_map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const unordered_map<id_t, pair<id_t, bool> >& over,
+                                                                     const unordered_map<id_t, pair<id_t, bool> >& under) {
+    unordered_map<id_t, pair<id_t, bool> > overlay = under;
     // for each over, check if we should map to the under
     // if so, adjust
     for (auto& o : over) {
@@ -6693,8 +6708,8 @@ Alignment VG::align(const Alignment& alignment,
         // run the alignment
         do_align(this->graph);
     } else {
-        map<id_t, pair<id_t, bool> > unfold_trans;
-        map<id_t, pair<id_t, bool> > dagify_trans;
+        unordered_map<id_t, pair<id_t, bool> > unfold_trans;
+        unordered_map<id_t, pair<id_t, bool> > dagify_trans;
         // Work out how long we could possibly span with an alignment.
         // TODO: we probably want to be able to span more than just the sequence
         // length if we don't get a hint. Look at scores and guess the max span
@@ -8624,161 +8639,311 @@ void VG::fill_empty_path_mappings(void) {
             }
         });
 }
+    
+VG VG::split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation) {
+    
+    VG split;
+    
+    unordered_map<id_t, id_t> forward_node;
+    unordered_map<id_t, id_t> reverse_node;
+    for (int64_t i = 0; i < graph.node_size(); i++) {
+        const Node& node = graph.node(i);
+        Node* fwd_node = split.create_node(node.sequence());
+        Node* rev_node = split.create_node(reverse_complement(node.sequence()));
+        forward_node[node.id()] = fwd_node->id();
+        reverse_node[node.id()] = rev_node->id();
+        node_translation[fwd_node->id()] = make_pair(node.id(), false);
+        node_translation[rev_node->id()] = make_pair(node.id(), true);
+    }
+    
+    for (int64_t i = 0; i < graph.edge_size(); i++) {
+        const Edge& edge = graph.edge(i);
+        if (!edge.from_start() && !edge.to_end()) {
+            split.create_edge(forward_node[edge.from()], forward_node[edge.to()]);
+            split.create_edge(reverse_node[edge.to()], reverse_node[edge.from()]);
+        }
+        else if (edge.from_start() && edge.to_end()) {
+            split.create_edge(reverse_node[edge.from()], reverse_node[edge.to()]);
+            split.create_edge(forward_node[edge.to()], forward_node[edge.from()]);
+        }
+        else if (edge.from_start()) {
+            split.create_edge(reverse_node[edge.from()], forward_node[edge.to()]);
+            split.create_edge(reverse_node[edge.to()], forward_node[edge.from()]);
+        }
+        else {
+            split.create_edge(forward_node[edge.from()], reverse_node[edge.to()]);
+            split.create_edge(forward_node[edge.to()], reverse_node[edge.from()]);
+        }
+    }
+    
+    return split;
+}
 
-// for each inverting edge
-// we walk up to max_length across the inversion
-// adding the forward complement of nodes we reach
-// stopping if we reach an inversion back to the forward graph
-// so as to ensure that sequences up to length max_length that cross the inversion
-// would align to the forward component of the resulting graph
 VG VG::unfold(uint32_t max_length,
-              map<id_t, pair<id_t, bool> >& node_translation) {
-    VG unfolded = *this;
-    unfolded.flip_doubly_reversed_edges();
-    if (!unfolded.has_inverting_edges()) return unfolded;
+              unordered_map<id_t, pair<id_t, bool> >& node_translation) {
     
-    // This is the set of oriented nodes that we want to include in a reverse orientation.
-    set<NodeTraversal> travs_to_flip;
-    // These are the edges we need to fix up
-    set<pair<NodeTraversal, NodeTraversal> > edges_to_flip;
-    // These are edges from the reverse world to the forward world
-    set<pair<NodeTraversal, NodeTraversal> > edges_to_forward;
-    // And these are edges from the forward world to the reverse worls
-    set<pair<NodeTraversal, NodeTraversal> > edges_from_forward;
-
-    // collect the set to invert
-    // and we'll copy them over
-    // then link back in according to how the inbound links work
-    // so as to eliminate the reversing edges
+    // graph we will build
+    VG unfolded;
     
-    // This stores how much length we had left when we visited each node in the
-    // original graph in each orientation.
-    map<NodeTraversal, int32_t> seen;
-    function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
-                                                     int32_t length) {
-
-#ifdef debug
-        cerr << "Visit " << curr << " with " << length << " bases remaining" << endl;
-#endif
+    // records the induced forward orientation of each node
+    unordered_map<id_t, pair<id_t, bool>> main_orientation;
+    // edges we have traversed in the forward direction
+    unordered_set<Edge*> forward_edges;
+    // edges that we find in the traversal that flip onto the reverse strand
+    unordered_set<pair<NodeTraversal, NodeTraversal>> reversing_edges;
+    
+    // initially traverse the entire graph with DFS to induce an orientation
+    for (int64_t i = 0; i < graph.node_size(); i++) {
+        // iterate along starting nodes in case there are disconnected components
         
-        set<NodeTraversal> next;
-        travs_to_flip.insert(curr);
-
-        // check if we've passed our length limit
-        // or if we've seen this node before at an earlier step
-        // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
-        if (length <= 0 || (seen.find(curr) != seen.end() && seen[curr] >= length)) {
-#ifdef debug
-            cerr << "\tDon't explore further" << endl;
-            if (seen.find(curr) != seen.end()) {
-                cerr << "\t\tBecause we already saw " << curr << " with " << seen[curr] << " remaining" << endl;
-            } else {
-                cerr << "\t\tBecuase " << length << " <= 0" << endl;
-            }
-#endif
-            return;
+        Node* node = graph.mutable_node(i);
+        if (main_orientation.count(node->id())) {
+            continue;
         }
         
-        // We can reach this node with this much length left.
-        seen[curr] = length;
-        for (auto& trav : travs_from(curr)) {
-            // Look at all the oriented nodes we can go to next
-            if (trav.backward) {
-                // We can get to this node backward from a node that's already
-                // backward, so remember to make a reverse-world version of the
-                // edge.
-                edges_to_flip.insert(make_pair(curr, trav));
-                // Flip and continue from that node with the remaining length
-                walk(trav, length-trav.node->sequence().size());
-            } else {
-                // we would not continue, but we should retain this edge because it brings
-                // us back into the forward strand
-                edges_to_forward.insert(make_pair(curr, trav));
-            }
-        }
-        for (auto& trav : travs_to(curr)) {
-            // Look at all the oriented nodes we could have come from
-            if (trav.backward) {
-                // We can get to this node backward from a node that's already
-                // backward, so remember to make a reverse-world version of the
-                // edge.
-                edges_to_flip.insert(make_pair(trav, curr));
-                // Keep looking off of that node.
-                walk(trav, length-trav.node->sequence().size());
-            } else {
-                // we would not continue, but we should retain this edge because it brings
-                // us back into the forward strand
-                edges_from_forward.insert(make_pair(trav, curr));
-            }
-        }
-    };
-
-    // run over the inverting edges
-    for_each_node([&](Node* node) {
-            // For each node
-            for (auto& trav : travs_of(NodeTraversal(node, false))) {
-                // For everything connecte dto this node in the forward orientation
-                if (trav.backward) {
-                    // If it's in the reverse orientation, look outwards from it
+        // let this node greedily induce an orientation on the entire component
+        Node* inducing_node = unfolded.create_node(node->sequence());
+        main_orientation[node->id()] = make_pair(inducing_node->id(), false);
+        
 #ifdef debug
-                    cerr << "Start walk out from " << trav << " which is reverse and attached to "
-                        << node->id() << " forward" << endl;
+        cerr << "[unfold] seeding orientation node " << inducing_node->id() << " fwd" << endl;
 #endif
-                    walk(trav,  max_length);
+        
+        // DFS
+        list<NodeTraversal> stack;
+        stack.push_back(NodeTraversal(node, false));
+        while (!stack.empty()) {
+            NodeTraversal trav = stack.back();
+            stack.pop_back();
+            
+#ifdef debug
+            cerr << "[unfold] traversing " << trav << endl;
+#endif
+            
+            auto oriented_trav = main_orientation[trav.node->id()];
+            
+            // check in the forward direction from this node
+            for (NodeTraversal next : travs_from(trav)) {
+                if (main_orientation.count(next.node->id())) {
+                    // we have seen this node before
+                    auto oriented_next = main_orientation[next.node->id()];
+                    Edge* trav_edge = get_edge(trav, next);
+                    
+                    if (next.backward != oriented_next.second) {
+                        // we've encountered this node in the opposite direction, so the edge
+                        // must have reversed the traversal relative to the induce orientation
+                        reversing_edges.emplace(trav, next);
+#ifdef debug
+                        cerr << "[unfold] new reversing edge " << trav << " -> " << next << endl;
+#endif
+                    }
+                    else if (!forward_edges.count(trav_edge)) {
+                        // we've never traversed this edge to this node, so add the edge and move on
+                        forward_edges.insert(trav_edge);
+                        unfolded.create_edge(oriented_trav.first, oriented_next.first);
+                    }
+                }
+                else {
+#ifdef debug
+                    cerr << "[unfold] orienting node " << next << endl;
+#endif
+                    // we've never seen this node before, so we induce the current orientation on it
+                    Node* new_node = unfolded.create_node(next.backward ? reverse_complement(next.node->sequence())
+                                                          : next.node->sequence());
+                    main_orientation[next.node->id()] = make_pair(new_node->id(), next.backward);
+                    
+                    // also copy the edge
+                    forward_edges.insert(get_edge(trav, next));
+                    unfolded.create_edge(oriented_trav.first, new_node->id());
+                    
+                    // add to stack to continue traversal
+                    stack.push_back(next);
                 }
             }
-        });
-    // now build out the component of the graph that's reversed
-
-    // This map is sort of the reverse of map<id_t, pair<id_t, bool> >& node_translation
-    // It maps from original NodeTranslation to the new node ID that represents it on the forward strand.
-    map<NodeTraversal, id_t> inv_translation;
-
-    // first adding nodes that we've flipped
-    for (auto t : travs_to_flip) {
-        // make a new node, add it to the flattened version
-        // record it in the translation
-        string seq = reverse_complement(t.node->sequence());
-        id_t i = unfolded.create_node(seq)->id();
-        // Remember the old node ID and orientation as where this new node came from
-        node_translation[i] = make_pair(t.node->id(), t.backward);
-        // Remember the new ID for the forward version of this NodeTraversal.
-        inv_translation[t] = i;
+            
+            // check in the reverse direction from this node
+            for (NodeTraversal prev : travs_to(trav)) {
+                if (main_orientation.count(prev.node->id())) {
+                    // we have seen this node before
+                    auto oriented_prev = main_orientation[prev.node->id()];
+                    Edge* trav_edge = get_edge(prev, trav);
+                    
+                    if (prev.backward != oriented_prev.second) {
+                        // we've encountered this node in the opposite direction, so the edge
+                        // must have reversed the traversal relative to the induce orientation
+                        reversing_edges.emplace(trav.reverse(), prev.reverse());
+#ifdef debug
+                        cerr << "[unfold] new reversing edge " << trav.reverse() << " -> " << prev.reverse() << endl;
+#endif
+                    }
+                    else if (!forward_edges.count(trav_edge)) {
+                        // we've never traversed this edge to this node, so add the edge and move on
+                        forward_edges.insert(trav_edge);
+                        unfolded.create_edge(oriented_prev.first, oriented_trav.first);
+                    }
+                }
+                else {
+#ifdef debug
+                    cerr << "[unfold] orienting node " << prev << endl;
+#endif
+                    // we've never seen this node before, so we induce the current orientation on it
+                    Node* new_node = unfolded.create_node(prev.backward ? reverse_complement(prev.node->sequence())
+                                                          : prev.node->sequence());
+                    
+                    main_orientation[prev.node->id()] = make_pair(new_node->id(), prev.backward);
+                    
+                    // also copy the edge
+                    forward_edges.insert(get_edge(prev, trav));
+                    unfolded.create_edge(new_node->id(), oriented_trav.first);
+                    
+                    // add to stack to continue traversal
+                    stack.push_back(prev);
+                }
+            }
+        }
+    }
+    
+    // as an edge case, skip traversing the reverse strand if the search length is 0
+    if (!max_length) {
+        return unfolded;
+    }
+    
+    struct DistTraversal {
+        DistTraversal(NodeTraversal trav, int64_t dist) : trav(trav), dist(dist) {}
+        NodeTraversal trav;
+        int64_t dist;
+        inline bool operator<(const DistTraversal& other) const {
+            return dist > other.dist; // opposite order so priority queue selects minimum
+        }
+    };
+    
+    // the IDs of nodes that we have duplicated in the reverse of the main orientation
+    unordered_map<id_t, id_t> reversed_nodes;
+    // edges that we have already added within the copy of the reverse strand
+    unordered_set<Edge*> reversed_edges;
+    
+    // initialize the queue with the traversals along all of the reversing edges we found
+    // during the orientation-inducing DFS
+    unordered_set<pair<id_t, bool>> queued;
+    priority_queue<DistTraversal> queue;
+    for (auto search_init : reversing_edges) {
+        NodeTraversal init_trav = search_init.first;
+        NodeTraversal init_next = search_init.second;
+        Edge* init_edge = get_edge(init_trav, init_next);
         
 #ifdef debug
-        cerr << "Transform " << t << " into new node " << i << endl;
+        cerr << "[unfold] intializing reverse strand search queue with " << init_trav << " -> " << init_next << " over edge " << pb2json(*init_edge) << endl;
 #endif
         
+        if (!reversed_nodes.count(init_next.node->id())) {
+#ifdef debug
+            cerr << "[unfold] reversed node " << init_next.node->id() << " has not been seen, adding to unfold graph" << endl;
+#endif
+            // we have not added this reverse node yet, so do it
+            Node* rev_init_node = unfolded.create_node(main_orientation[init_next.node->id()].second ? init_next.node->sequence()
+                                                       : reverse_complement(init_next.node->sequence()));
+            reversed_nodes[init_next.node->id()] = rev_init_node->id();
+        }
+        
+        if (init_trav.backward == main_orientation[init_trav.node->id()].second) {
+            unfolded.create_edge(main_orientation[init_trav.node->id()].first, reversed_nodes[init_next.node->id()]);
+        }
+        else {
+            unfolded.create_edge(reversed_nodes[init_next.node->id()], main_orientation[init_trav.node->id()].first);
+        }
+#ifdef debug
+        cerr << "[unfold] adding edge to unfold graph as " << pb2json(edge) << endl;
+#endif
+        
+        if (!queued.count(make_pair(init_next.node->id(), init_next.backward))) {
+#ifdef debug
+            cerr << "[unfold] traversal " << init_next << " has not been queued, adding to search queue" << endl;
+#endif
+            // we have not starting a traversal along this node in this direction, so add it to the queue
+            queue.emplace(init_next, 0);
+            queued.emplace(init_next.node->id(), init_next.backward);
+        }
     }
-
-    // then edges that we should translate into the reversed component
-    for (auto e : edges_to_flip) {
-        // both of the edges are now in nodes that have been flipped
-        // we need to find the new nodes and add the natural edge
-        // the edge will also be reversed
-        Edge f;
-        f.set_from(inv_translation[e.first]);
-        f.set_to(inv_translation[e.second]);
-        unfolded.add_edge(f);
+    
+    while (!queue.empty()) {
+        DistTraversal dist_trav = queue.top();
+        queue.pop();
+        
+#ifdef debug
+        cerr << "[unfold] popping traversal " << dist_trav.trav << " at distance " << dist_trav.dist << endl;
+#endif
+        
+        int64_t dist_thru = dist_trav.dist + dist_trav.trav.node->sequence().size();
+        if (dist_thru >= max_length) {
+#ifdef debug
+            cerr << "[unfold] distance is above max of " << max_length << ", not continuing traversal" << endl;
+#endif
+            continue;
+        }
+        
+        for (NodeTraversal next : travs_from(dist_trav.trav)) {
+            
+            Edge* edge = get_edge(dist_trav.trav, next);
+            
+#ifdef debug
+            cerr << "[unfold] following edge " << pb2json(*edge) << " to " << next << endl;
+#endif
+            
+            if ((next.backward == main_orientation[next.node->id()].second)
+                == (dist_trav.trav.backward == main_orientation[dist_trav.trav.node->id()].second)) {
+#ifdef debug
+                cerr << "[unfold] stays on reverse strand" << endl;
+#endif
+                if (!reversed_nodes.count(next.node->id())) {
+                    // this is the first time we've encountered this node in any direction on the reverse strand
+                    // so add the reverse node
+                    Node* rev_node = unfolded.create_node(main_orientation[next.node->id()].second ? next.node->sequence()
+                                                          : reverse_complement(next.node->sequence()));
+                    reversed_nodes[next.node->id()] = rev_node->id();
+                    
+#ifdef debug
+                    cerr << "[unfold] node has not been observed on reverse strand, adding reverse node " << rev_node->id() << endl;
+#endif
+                }
+                
+                // we haven't traversed this edge and it stays on the reverse strand
+                if (!reversed_edges.count(edge)) {
+                    if (dist_trav.trav.backward == main_orientation[dist_trav.trav.node->id()].second) {
+                        unfolded.create_edge(reversed_nodes[next.node->id()], reversed_nodes[dist_trav.trav.node->id()]);
+                    }
+                    else {
+                        unfolded.create_edge(reversed_nodes[dist_trav.trav.node->id()], reversed_nodes[next.node->id()]);
+                    }
+                    reversed_edges.insert(edge);
+#ifdef debug
+                    cerr << "[unfold] edge has not been observed on reverse strand, adding reverse edge " << pb2json(new_edge) << endl;
+#endif
+                }
+                
+                if (!queued.count(make_pair(next.node->id(), next.backward))) {
+                    // this is the first time we've encountered this node in this direction on the reverse strand
+                    // so queue it up for the search through
+#ifdef debug
+                    cerr << "[unfold] traversal " << next << " has not been seen on reverse strand, queueing up" << endl;
+#endif
+                    
+                    queue.emplace(next, dist_thru);
+                    queued.emplace(next.node->id(), next.backward);
+                }
+            }
+        }
     }
-
-    // finally the edges that take us from the reversed component back to the original graph
-    for (auto e : edges_to_forward) {
-        Edge f;
-        f.set_from(inv_translation[e.first]);
-        f.set_to(e.second.node->id());
-        unfolded.add_edge(f);
+    
+    // construct the backward node translators
+    for (auto orient_record : main_orientation) {
+        node_translation[orient_record.second.first] = make_pair(orient_record.first,
+                                                                 orient_record.second.second);
     }
-    for (auto e : edges_from_forward) {
-        Edge f;
-        f.set_from(e.first.node->id());
-        f.set_to(inv_translation[e.second]);
-        unfolded.add_edge(f);
+    for (auto rev_orient_record : reversed_nodes) {
+        node_translation[rev_orient_record.second] = make_pair(rev_orient_record.first,
+                                                               !main_orientation[rev_orient_record.first].second);
     }
-
-    // now remove all inverting edges, so we have no more folds in the graph
-    unfolded.remove_inverting_edges();
-
+    
     return unfolded;
 }
 
@@ -8819,7 +8984,7 @@ bool VG::is_self_looping(Node* node) {
 
 
 VG VG::dagify(uint32_t expand_scc_steps,
-              map<id_t, pair<id_t, bool> >& node_translation,
+              unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length,
               size_t component_length_max) {
 
@@ -9014,7 +9179,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
 // Paths cannot be maintained provided their current implementation.
 // Annotated collections of nodes, or subgraphs, may be a way to preserve the relationshp.
 VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
-                           map<id_t, pair<id_t, bool> >& node_translation) {
+                           unordered_map<id_t, pair<id_t, bool> >& node_translation) {
     VG unrolled;
     // Find the strongly connected components in the graph.
     set<set<id_t>> strong_components = strongly_connected_components();

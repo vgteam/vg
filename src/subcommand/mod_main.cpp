@@ -55,6 +55,7 @@ void help_mod(char** argv) {
          << "    -I, --retain-complement keep only paths NOT specified with -r" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
+         << "    -A, --remove-path       keep only nodes and edges which are not part of any path" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
          << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
          << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
@@ -105,6 +106,7 @@ int main_mod(int argc, char** argv) {
     bool normalize_graph = false;
     bool sort_graph = false;
     bool remove_non_path = false;
+    bool remove_path = false;
     bool compact_ranks = false;
     bool drop_paths = false;
     bool force_path_match = false;
@@ -159,6 +161,7 @@ int main_mod(int argc, char** argv) {
             {"until-normal", required_argument, 0, 'U'},
             {"sort", no_argument, 0, 'z'},
             {"remove-non-path", no_argument, 0, 'N'},
+            {"remove-path", no_argument, 0, 'A'},
             {"orient-forward", no_argument, 0, 'O'},
             {"unfold", required_argument, 0, 'f'},
             {"force-path-match", no_argument, 0, 'F'},
@@ -183,7 +186,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDFr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:",
                 long_options, &option_index);
 
 
@@ -305,6 +308,10 @@ int main_mod(int argc, char** argv) {
 
         case 'N':
             remove_non_path = true;
+            break;
+            
+        case 'A':
+            remove_path = true;
             break;
 
         case 'T':
@@ -657,6 +664,10 @@ int main_mod(int argc, char** argv) {
     if (remove_non_path) {
         graph->remove_non_path();
     }
+    
+    if (remove_path) {
+        graph->remove_path();
+    }
 
     if (force_path_match) {
         graph->force_path_match();
@@ -672,18 +683,18 @@ int main_mod(int argc, char** argv) {
     }
 
     if (dagify_steps) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
     }
 
     if (unfold_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
+        unordered_map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->unfold(unfold_to, node_translation);
     }
 

@@ -274,7 +274,11 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             if (pass_filter(alignment, read_offset, 1, mismatch_counts)) {
                 // Don't go outside the node
-                assert(node_offset < _graph->get_node(pileup.node_id())->sequence().size());
+                if (node_offset >= _graph->get_node(pileup.node_id())->sequence().size()) {
+                    cerr << "error [vg::Pileups] node_offset of " << node_offset << " on " << pileup.node_id() << " is too big for node of size " << _graph->get_node(pileup.node_id())->sequence().size() << endl;
+                    cerr << "Alignment: " << pb2json(alignment) << endl;
+                    throw runtime_error("Node offset too large in alignment");
+                }
                 BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
                 if (base_pileup->num_bases() < _max_depth) {
                     // reference_base if empty

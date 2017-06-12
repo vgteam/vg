@@ -46,6 +46,7 @@ namespace vg {
         
         xg::XG& xgindex;
         LRUCache<id_t, Node>& node_cache;
+        SnarlManager* snarl_manager;
         
         //double z_score_cutoff = -1.0;
         int8_t full_length_bonus = 0;
@@ -53,7 +54,9 @@ namespace vg {
         size_t max_expected_dist_approx_error = 8;
         double mem_coverage_min_ratio = 0.5;
         int32_t max_suboptimal_path_score_diff = 20;
-        size_t max_snarl_cut_size = 5;
+        int64_t max_snarl_cut_size = 5;
+        int32_t band_padding = 2;
+        int32_t num_alt_alns = 4;
     };
     
     class MultipathAlignmentGraph {
@@ -61,17 +64,17 @@ namespace vg {
         // removes duplicate sub-MEMs contained in parent MEMs
         MultipathAlignmentGraph(VG* vg, const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         
+        void topological_sort(vector<size_t>& order_out);
         void prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff);
         
-        void cut_out_snarls(SnarlManager& snarl_manager, size_t max_cut_size);
         
     private:
         
         vector<ExactMatchNode> match_nodes;
         
-        void topological_sort(vector<size_t>& order_out);
     };
     
     class ExactMatchNode {

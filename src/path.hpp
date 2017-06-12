@@ -270,8 +270,13 @@ double identity(const Path& path);
 // compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
-void decompose(const Path& path, map<pos_t, int>& ref_positions, map<int, Edit>& edits);
+void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
+// switches the node ids in the path to the ones indicated by the translator
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator);
+// switches the node ids and orientations in the path to the ones indicated by the translator
+void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t>>& translator);
+    
 // the first position on the path
 pos_t initial_position(const Path& path);
 // the last position on the path

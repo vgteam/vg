@@ -22,6 +22,20 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
+#ifdef debug
+    // Count our current heads and tails
+    vector<Node*> to_count;
+    
+    graph.head_nodes(to_count);
+    size_t head_expected = to_count.size();
+    to_count.clear();
+    graph.tail_nodes(to_count);
+    size_t tail_expected = to_count.size();
+    to_count.clear();
+    
+    cerr << "Starting with heads: " << head_expected << " and tails: " << tail_expected << endl;
+#endif
+    
     // Make a buffer
     WindowedVcfBuffer buffer(vcf, variant_range);
     
@@ -376,6 +390,35 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 << (used_haplotypes ? (total_graph_bases / used_haplotypes) : 0) << " bp haplotypes vs. graphs average" << endl;
         }
         
+        
+#ifdef debug
+        // Count our current heads and tails
+        graph.head_nodes(to_count);
+        size_t head_count = to_count.size();
+        cerr << "Heads: ";
+        for(auto head : to_count) {
+            cerr << head->id() << " ";
+        }
+        cerr << endl;
+        to_count.clear();
+        graph.tail_nodes(to_count);
+        cerr << "Tails: ";
+        for(auto tail : to_count) {
+            cerr << tail->id() << " ";
+        }
+        cerr << endl;
+        size_t tail_count = to_count.size();
+        to_count.clear();
+        
+        cerr << "Heads count: " << head_count << ", Tail count: " << tail_count << endl;
+
+        if (head_count != head_expected || tail_count != tail_expected) {
+            cerr << "Error! Count mismatch!" << endl;
+            // Bail out but serialize the graph
+            return;
+        }
+#endif
+        
     }
 
     // Clean up after the last contig.
@@ -567,6 +610,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     // If the aligner can't find any valid alignment in the restrictive
                     // band, we will need to knock together an alignment manually.
                     aligned_in_band = false;
+#ifdef debug
+                    cerr << "\t\tFailed." << endl;
+#endif
                 }
 
 #ifdef debug                
@@ -705,6 +751,18 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Splice left and right tails together with any remaining sequence we didn't have
         
+        // One problem we cah have is the fact that the alignments we are
+        // splicing may overlap. This can happen e.g. if we see both of the TSD
+        // copies from a mobile element insertion, and we align them both back
+        // to the reference version.
+        
+        // It's going to be much more complicated to try and prevent this from
+        // happening than it will be to just deal with the resulting cycles,
+        // which can describe real homology anyway.
+        
+        // But we do have to think about overlap between the query sequences
+        // themselves...
+        
         // How much overlap is there between the two tails? May be negative.
         int64_t overlap = (int64_t) aln_left.sequence().size() +
             (int64_t) aln_right.sequence().size() - (int64_t) to_align.size();
@@ -759,7 +817,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     return aln;
 
 }
-
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;

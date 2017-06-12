@@ -2,7 +2,7 @@
 #define VG_NODETRAVERSAL_HPP
 
 #include "vg.pb.h"
-
+#include "hash_map.hpp"
 
 
 namespace vg {
@@ -77,11 +77,11 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
 }
 
 namespace std {
-    /// hash function for Snarls
+    /// hash function for NodeTraversals
     template<>
-    struct hash<const vg::NodeTraversal> {
-        inline size_t operator()(const vg::NodeTraversal& trav) const {
-            return hash<pair<void*, bool>>()(make_pair((void*)trav.node, trav.backward));
+    struct hash<vg::NodeTraversal> {
+        size_t operator()(const vg::NodeTraversal& trav) const {
+            return hash<pair<vg::Node*, bool > >()(make_pair(trav.node, trav.backward));
         }
     };
 }

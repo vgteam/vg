@@ -188,6 +188,12 @@ public:
     /// for inversions/transversions/breakpoints?).
     // TODO: map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
     map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+
+    // This index stores the same info as alt_paths, but allows us to annotate nodes
+    // that flank the variant nodes and variant paths containing no nodes (e.g. deletion edges).
+    // The SnarlTraversals are named identically to alt_paths (_alt_[a-z0-9]*_[0-9]*). They have their parent snarl filled in
+    // as well, which contains the start and end nodes.
+    map<string, SnarlTraversal> variant_to_traversal;
                        
                        
     /// Chop up the nodes.
@@ -226,23 +232,35 @@ public:
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
     VG dagify(uint32_t expand_scc_steps,
-              map<id_t, pair<id_t, bool> >& node_translation,
+              unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
               size_t component_length_max = 0);
     /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
-                           map<id_t, pair<id_t, bool> >& node_translation);
-    /// Represent the whole graph up to max_length across an inversion on the forward strand.
+                           unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    /// Ensure that all traversals up to max_length are represented as a path on one strand or the other
+    /// without taking an inverting edge. All inverting edges are converted to non-inverting edges to
+    /// reverse complement nodes. If no inverting edges are present, the strandedness of all nodes is
+    /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
-              map<id_t, pair<id_t, bool> >& node_translation);
+              unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
+    /// edges into non-inverting edges.
+    VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
+    
     /// Assume two node translations, the over is based on the under; merge them.
-    map<id_t, pair<id_t, bool> > overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
-                                                           const map<id_t, pair<id_t, bool> >& under);
+    unordered_map<id_t, pair<id_t, bool> > overlay_node_translations(const unordered_map<id_t, pair<id_t, bool> >& over,
+                                                                     const unordered_map<id_t, pair<id_t, bool> >& under);
     /// Use our topological sort to quickly break cycles in the graph, return the edges which are removed.
     /// Very non-optimal, but fast.
     vector<Edge> break_cycles(void);
     /// Remove pieces of the graph which are not part of any path.
     void remove_non_path(void);
+    /// Remove pieces of the graph which are part of some path.
+    void remove_path(void);
+    /// Get all of the edges that are on any path.
+    set<Edge*> get_path_edges(void);
+    
     /// Convert edges that are both from_start and to_end to "regular" ones from end to start.
     void flip_doubly_reversed_edges(void);
 
