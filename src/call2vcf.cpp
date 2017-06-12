@@ -654,7 +654,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
 #endif
         // We should always have a higher average support than minumum support
-        assert(total(average_supports.at(i)) >= total(min_supports.at(i)));
+        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
     }
 
     // Decide which support vector we use to actually decide.
@@ -673,7 +673,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // Now look at all the paths for the site and pick the best one
     int best_allele = -1;
     for(size_t i = 0; i < supports.size(); i++) {
-        if(best_allele == -1 || total(supports[best_allele]) <= total(supports[i])) {
+        if(best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i])) {
             // We have a new best.
             best_allele = i;
         }
@@ -718,7 +718,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // The second best allele can't be the best allele.
             continue;
         }
-        if(second_best_allele == -1 || total(additional_supports[second_best_allele]) <= total(additional_supports[i])) {
+        if(second_best_allele == -1 || support_val(additional_supports[second_best_allele]) <= support_val(additional_supports[i])) {
             // We're the best so far, and not the best allele, so we're the second best.
             second_best_allele = i;
         }
@@ -762,7 +762,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     // We're going to make some really bad calls at low depth. We can
     // pull them out with a depth filter, but for now just elide them.
-    if (total(site_support) >= total(baseline_support) * min_fraction_for_call * ((double) copy_budget) / 2) {
+    if (support_val(site_support) >= support_val(baseline_support) * min_fraction_for_call * ((double) copy_budget) / 2) {
         // We have enough to emit a call here.
         
         // If best and second best are close enough to be het, we call het.
@@ -794,20 +794,20 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         cerr << best_allele << ", " << best_support << " and "
             << second_best_allele << ", " << second_best_support << endl;
         
-        if (total(second_best_support) > 0) {
+        if (support_val(second_best_support) > 0) {
             cerr << "Bias: (limit " << bias_limit * bias_multiple << "):"
-                << total(best_support)/total(second_best_support) << endl;
+                << support_val(best_support)/support_val(second_best_support) << endl;
         }
         
-        cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
-            << total(best_support) << endl;
+        cerr << bias_limit * bias_multiple * support_val(second_best_support) << " vs "
+            << support_val(best_support) << endl;
             
         cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
 
         if (copy_budget >= 2 &&
             second_best_allele != -1 &&
-            bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
+            bias_limit * bias_multiple * support_val(second_best_support) >= support_val(best_support) &&
             total(best_support) >= min_total_support_for_call &&
             total(second_best_support) >= min_total_support_for_call) {
             // There's a second best allele, and it's not too biased to call,
@@ -1033,7 +1033,10 @@ void Call2Vcf::call(
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     string pileup_filename) {
-    
+
+    // Toggle support counter
+    support_val = use_support_quality ? support_quality : total;
+
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();
     augmented.graph.paths.rebuild_mapping_aux();
@@ -1812,11 +1815,11 @@ void Call2Vcf::call(
                 Genotype gt;
                 
                 // TODO: use the coverage bins
-                if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.25) {
+                if (support_val(locus.support(0)) > support_val(PrimaryPath::get_average_support(primary_paths)) * 0.25) {
                     // We're closer to 1 copy than 0 copies
                     gt.add_allele(0);
                     
-                    if (total(locus.support(0)) > total(PrimaryPath::get_average_support(primary_paths)) * 0.75) {
+                    if (support_val(locus.support(0)) > support_val(PrimaryPath::get_average_support(primary_paths)) * 0.75) {
                         // We're closer to 2 copies than 1 copy
                         gt.add_allele(0);
                     }
