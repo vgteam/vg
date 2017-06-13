@@ -184,7 +184,12 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             in_read_offsets[i] = read_offset;
             for (int j = 0; j < mapping.edit_size(); ++j) {
                 const Edit& edit = mapping.edit(j);
-                const Edit* next_edit = j + 1 < mapping.edit_size() ? &mapping.edit(j + 1) : NULL;
+                const Edit* next_edit = NULL;
+                if (j + 1 < mapping.edit_size()) {
+                    next_edit = &mapping.edit(j + 1);
+                } else if (i + 1 < path.mapping_size() && path.mapping(i + 1).edit_size() > 0) {
+                    next_edit = &path.mapping(i + 1).edit(0);
+                }
                 // process all pileups in edit.
                 // update the offsets as we go
                 compute_from_edit(*pileup, node_offset, read_offset, *node,
