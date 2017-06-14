@@ -473,7 +473,17 @@ public:
      *
      * TODO: can only work by brute-force search.
      */
-    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);    
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+
+    /** 
+     * Get the amount of support.  Can use this function to toggle between unweighted (total from genotypekit)
+     * and quality-weighted (support_quality below) in one place.
+     */
+    function<double(const Support&)> support_val;
+
+    static double support_quality(const Support& support) {
+        return support.quality();
+    }
     
     // Option variables
     
@@ -583,6 +593,11 @@ public:
     /// (false)?
     Option<bool> call_other_by_coverage{this, "call-nodes-by-coverage", "cCoObB", false,
         "make calls on nodes/edges outside snarls by coverage"};
+
+    /// Use total quality (true) instead of support count (false) when choosing
+    /// top alleles and deciding gentypes based on the biases.  
+    Option<bool> use_support_quality{this, "use-support-quality", "Q", false,
+        "use total support quality instead of total support count"};
     
     /// print warnings etc. to stderr
     bool verbose = false;
