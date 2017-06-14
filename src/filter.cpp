@@ -47,7 +47,71 @@ namespace vg{
         }
     }
 
-    int64_t Filter::get_clipped_position(Alignment& a){
+    Position Filter::get_clipped_position(Alignment& a){
+        Position rPos;
+        if (a.path().mapping_size() > 0){
+            Path path = a.path();
+            Edit left_edit = path.mapping(0).edit(0);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+            int left_overhang = left_edit.to_length() - left_edit.from_length();
+            int right_overhang = right_edit.to_length() - right_edit.from_length();
+            
+            if (left_overhang > soft_clip_limit){
+                /// Get the position of the first match
+                bool tripped = false;
+                int i = 0; 
+                for (i = 0; i < path.mapping_size(); i++){
+                    Mapping m = path.mapping(i);
+                    Position pp = m.position();
+                    for (int j = 0; j < m.edit_size(); j++){
+                        Edit e = m.edit(j);
+                        if (e.to_length() == e.from_length() && e.sequence().empty()){
+                            tripped = true;
+                            rPos = pp;
+                            break;
+                        }
+                    }
+                    if (tripped){
+                        break;
+                    }
+                }
+                if (i >= path.mapping_size()){
+                    cerr << "ERROR: ALIGNMENT MATCHES ALONG WHOLE LENGTH" << a.name() << endl;
+                    exit(394);
+                }
+
+            }
+            else if (right_overhang > soft_clip_limit){
+                bool tripped = false;
+                /// Get the position of the first match
+                int i; 
+                for (i = path.mapping_size() - 1; i >= 0; i--){
+                    Mapping m = path.mapping(i);
+                    Position pp = m.position();
+                    for (int j = m.edit_size() - 1; j >= 0; j--){
+                        Edit e = m.edit(j);
+                        if (e.to_length() == e.from_length() && e.sequence().empty()){
+                            tripped = true;
+                            rPos = pp;
+                            break;
+                        }
+                    }
+                    if (tripped){
+                        break;
+                    }
+                }
+
+            }
+            else{
+                cerr << "WARNING: BOTH ENDS CLIPPED" << endl
+                << "IGNORING READ";
+            }
+
+        }
+        return rPos;
+    }
+
+    int64_t Filter::get_clipped_ref_position(Alignment& a){
         if (a.path().mapping_size() > 0){
             Path path = a.path();
             Edit left_edit = path.mapping(0).edit(0);
@@ -527,11 +591,11 @@ namespace vg{
             Position pos = mapping.position();
             bool prev = path.mapping(i - 1).position().is_reverse();
             if (prev != pos.is_reverse()){
-                return inverse ? aln : Alignment();
+                return aln;
             }
 
         }
-        return inverse ? Alignment() : aln;
+        return Alignment();
 
     }
 

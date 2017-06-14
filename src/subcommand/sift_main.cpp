@@ -31,7 +31,7 @@ void help_sift(char** argv){
         << "Sift through a GAM and select / remove reads with particular properties." << endl
         << "General Options: " << endl
         << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
-        << "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
+        //<< "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
         << "    -x / --xg  <MYXG>   An XG index (for realignment of split reads)" << endl
         << "    -p / --paired       Input reads are paired-end" << endl
         << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
@@ -45,12 +45,12 @@ void help_sift(char** argv){
         << "Single-end / individual read options:" << endl
         << "    -c / --softclip <MAXCLIPLEN>        Flag reads with softclipped sections longer than MAXCLIPLEN" << endl
         << "    -s / --split-read <SPLITLEN>        Flag reads with softclips that map independently of the anchored portion (requires -x, -g)." << endl
-        << "    -q / --quality <QUAL>               Flag reads with a single base quality below <QUAL>" << endl
-        << "    -d / --depth <DEPTH>                Flag reads which have a low-depth Pos+Edit combo." << endl
-        << "    -i / --percent-identity <PCTID>     Flag reads with percent identity to their primary path beliw <PCTID>" << endl
+        //<< "    -q / --quality <QUAL>               Flag reads with a single base quality below <QUAL>" << endl
+        //<< "    -d / --depth <DEPTH>                Flag reads which have a low-depth Pos+Edit combo." << endl
+        //<< "    -i / --percent-identity <PCTID>     Flag reads with percent identity to their primary path beliw <PCTID>" << endl
         //<< "    -a / --average" << endl
         //<< "    -w / --window <WINDOWLEN>" << endl
-        << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|--> )" << endl
+        << "    -r / --reversing                    Flag reads with sections that reverse within the read, as with small inversions ( --->|<-|-->  or ---->||<-- )" << endl
         << "Helpful helpers: " << endl
         << "    -1 / --calc-insert                  Calculate and print the insert size mean / sd every 1000 reads." << endl
         << endl;
@@ -424,15 +424,15 @@ int main_sift(int argc, char** argv){
 
         }
         if (do_reversing && !flagged){
-            //Alignment x = ff.reversing_filter(alns_first);
-            //Alignment y = ff.reversing_filter(alns_second);
-            //if (x.name() != "" || y.name() != ""){
-            //    #pragma omp critical (reversing_selected)
-            //    {
-              //      reversing_selected.push_back(alns_first);
-              //      reversing_selected.push_back(alns_second);
-            //    }
-            //}
+            Alignment x = ff.reversing_filter(alns_first);
+            Alignment y = ff.reversing_filter(alns_second);
+            if (x.name() != "" || y.name() != ""){
+               #pragma omp critical (reversing_selected)
+               {
+                   reversing_selected.push_back(alns_first);
+                   reversing_selected.push_back(alns_second);
+               }
+            }
        
 
 
@@ -475,7 +475,7 @@ int main_sift(int argc, char** argv){
             }
             
         }
-        if (!do_all && !flagged){
+        if (!flagged){
             // Check if read is perfect
 
             if (ff.perfect_filter(alns_first) && ff.perfect_filter(alns_second)){

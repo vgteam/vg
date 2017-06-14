@@ -22,13 +22,6 @@
  */
 namespace vg{
 
-struct SV_EVIDENCE{
-    int SR = 0;
-    int PE = 0;
-    bool PRECISE = false;
-
-};
-
 class Filter{
     public:
         Filter();
@@ -104,7 +97,8 @@ class Filter{
         void fill_node_to_position(string pathname);
         int64_t distance_between_positions(Position first, Position second);
         string get_clipped_seq(Alignment& a);
-        int64_t get_clipped_position(Alignment& a);
+        int64_t get_clipped_ref_position(Alignment& a);
+        Position get_clipped_position(Alignment& a);
 
         //Position: NodeID + offset
         // different edits may be present at each position.

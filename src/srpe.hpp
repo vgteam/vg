@@ -17,19 +17,37 @@ namespace vg{
 
 
     struct BREAKPOINT{
-        int64_t start = 0;
+        string name;
+        Position position;
+        vector<BREAKPOINT> mates;
+
+        string contig;
+        int64_t start = -1;
         int64_t upper_bound = 100;
         int64_t lower_bound = 100;
+
+        bool isForward;
+
         int fragl_supports = 0;
         int split_supports = 0;
         int other_supports = 0;
+
         inline int total_supports(){
             return fragl_supports + split_supports + other_supports;
         }
         inline bool overlap(BREAKPOINT p, int dist){
-            if ( abs(start - p.start) < dist){
+
+            if (start > -1 ){
+                if ( abs(start - p.start) < dist){
                     return true;
                 }
+            }
+            else{
+                if (position.node_id() == p.position.node_id() && abs(position.offset() - p.position.offset()) < dist){
+                    return true;
+                }
+            }
+            
             return false;
         }
         inline string to_string(){
@@ -38,56 +56,6 @@ namespace vg{
             return x.str();
         }
 
-    };
-
-
-struct INS_INTERVAL{
-        int64_t start = 0;
-        int64_t end = 0;
-        int64_t len = 0;
-        double start_ci = 1000.0;
-        double end_ci = 1000.0;
-        bool precise = false;
-        int fragl_supports = 0;
-        int oea_supports = 0;
-        int split_supports = 0;
-        int other_supports = 0;
-        inline int total_supports(){
-            return fragl_supports + oea_supports + split_supports + other_supports;
-        }
-        inline string to_string(){
-            stringstream ss;
-            ss << "Start: " << start <<
-            " End: " << end << " Support: " << total_supports();
-            return ss.str();
-        }
-        inline bool overlap(INS_INTERVAL other){
-            if ( (other.start >= start && other.start <= end) ||
-                  (other.end <= end && other.end >= start) ||
-                  (other.start >= start && other.end <= end)){
-                    return true;
-                  }
-            return false;
-                  
-        }
-        inline bool contained(INS_INTERVAL other){
-            if (other.end < end && start > other.start){
-                return true;
-            }
-            return false;
-        }
-        inline Interval<int> as_interval(){
-            return Interval<int>(start, end, 0);
-        }
-        inline void merge_breakpoint(BREAKPOINT b){
-            bool is_front = abs(b.start - start) < abs(b.start - end);
-            if (is_front){
-
-            }
-            else{
-
-            }
-        };
     };
 
 
@@ -211,10 +179,9 @@ public:
             // Assemble all reads that overlap a given position (within window_size bp)
             void assemble(int64_t node_id, int64_t offset, int window_size);
 
-            void intervals_to_variants(vector<INS_INTERVAL> intervals, vector<vcflib::Variant>& vars);
-            void breakpoints_to_intervals(vector<BREAKPOINT> bps, vector<INS_INTERVAL>& ret, vector<INS_INTERVAL> existing);
             // Are multiple references present in the same subgraph?
             bool overlapping_refs = false;
+
             // Maps from node-id to read depth
             DepthMap depth;
 
@@ -223,6 +190,8 @@ public:
 
             // Every SRPE also gets its own name->alignment map
             // and a name->mate map
+            map<string, Alignment> name_to_aln;
+            map<string, string> aln_to_mate;
 
             // A graph (or subgraph) for the region this SRPE is handling.
             vg::VG* graph;
