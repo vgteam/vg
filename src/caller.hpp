@@ -473,7 +473,17 @@ public:
      *
      * TODO: can only work by brute-force search.
      */
-    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);    
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+
+    /** 
+     * Get the amount of support.  Can use this function to toggle between unweighted (total from genotypekit)
+     * and quality-weighted (support_quality below) in one place.
+     */
+    function<double(const Support&)> support_val;
+
+    static double support_quality(const Support& support) {
+        return support.quality();
+    }
     
     // Option variables
     
@@ -521,10 +531,13 @@ public:
     /// homozygous instead of heterozygous. At infinity, every call will be
     /// heterozygous if even one read supports each allele.
     Option<double> max_het_bias{this, "max-het-bias", "H", 4.5,
-        "max imbalance factor between alts to call heterozygous"};
+        "max imbalance factor to call heterozygous, alt major on SNPs"};
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
     Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
-        "max imbalance factor between ref and alts to call heterozygous ref"};
+        "max imbalance factor to call heterozygous, ref major"};
+    /// Like the max het bias, but applies to novel indels.
+    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 2.5,
+        "max imbalance factor to call heterozygous, alt major on indels"};
     /// What's the minimum integer number of reads that must support a call? We
     /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
@@ -580,6 +593,11 @@ public:
     /// (false)?
     Option<bool> call_other_by_coverage{this, "call-nodes-by-coverage", "cCoObB", false,
         "make calls on nodes/edges outside snarls by coverage"};
+
+    /// Use total quality (true) instead of support count (false) when choosing
+    /// top alleles and deciding gentypes based on the biases.  
+    Option<bool> use_support_quality{this, "use-support-quality", "Q", false,
+        "use total support quality instead of total support count"};
     
     /// print warnings etc. to stderr
     bool verbose = false;
