@@ -1884,20 +1884,23 @@ double overlap(const Path& p1, const Path& p2) {
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator) {
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();
-        position->set_node_id(translator[position->node_id()]);
+        position->set_node_id(translator.at(position->node_id()));
     }
 }
 
-void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t>>& translator) {
+void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();
-        const pair<id_t, bool>& translation = translator[position->node_id()];
+        const pair<id_t, bool>& translation = translator.at(position->node_id());
         position->set_node_id(translation.first);
-        position->set_backward(translation.second != position.backward());
+        position->set_is_reverse(translation.second != position->is_reverse());
     }
 }
     
 pos_t initial_position(const Path& path) {
+    if (!path.mapping_size()) {
+        return pos_t();
+    }
     return path.mapping_size() ? make_pos_t(path.mapping(0).position()) : pos_t();
 }
 

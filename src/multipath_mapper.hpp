@@ -20,7 +20,8 @@
 #include "vg.pb.h"
 #include "position.hpp"
 #include "path.hpp"
-#include "vg_algorithms.hpp"
+#include "snarls.hpp"
+#include "algorithms/vg_algorithms.hpp"
 
 using namespace std;
 
@@ -28,18 +29,21 @@ namespace vg {
     
     class MultipathAligner  {
     public:
-        MultipathAligner();
+        MultipathAligner(xg::XG& xgindex, LRUCache<id_t, Node>& node_cache, QualAdjAligner& qual_adj_aligner,
+                         SnarlManager* snarl_manager = nullptr);
         ~MultipathAligner();
         
         
-        MultipathAlignment multipath_align(const Alignment& alignment,
-                                           const vector<MaximalExactMatch>& mems);
+        void multipath_align(const Alignment& alignment,
+                             const vector<MaximalExactMatch>& mems,
+                             list<MultipathAlignment>& multipath_alns_out,
+                             size_t max_alt_alns);
         
         
     private:
         
         /// Computes the number of read bases a cluster of MEM hits covers
-        int64_t read_coverage(const vector<pair<MaximalExactMatch* const, pos_t>>& mem_hits);
+        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment);
@@ -47,6 +51,7 @@ namespace vg {
         xg::XG& xgindex;
         LRUCache<id_t, Node>& node_cache;
         SnarlManager* snarl_manager;
+        QualAdjAligner& qual_adj_aligner;
         
         //double z_score_cutoff = -1.0;
         int8_t full_length_bonus = 0;
@@ -59,25 +64,9 @@ namespace vg {
         int32_t num_alt_alns = 4;
     };
     
-    class MultipathAlignmentGraph {
-    public:
-        // removes duplicate sub-MEMs contained in parent MEMs
-        MultipathAlignmentGraph(VG* vg, const vector<pair<MaximalExactMatch* const, pos_t>>& hits,
-                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
-        
-        void topological_sort(vector<size_t>& order_out);
-        void prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff);
-        
-        
-    private:
-        
-        vector<ExactMatchNode> match_nodes;
-        
-    };
-    
+    // TODO: put in MultipathAlignmentGraph namespace
     class ExactMatchNode {
+    public:
         string::const_iterator begin;
         string::const_iterator end;
         Path path;
@@ -86,13 +75,28 @@ namespace vg {
         vector<pair<size_t, size_t>> edges;
     };
     
+    // TODO: put in MultipathAligner namespace
+    class MultipathAlignmentGraph {
+    public:
+        // removes duplicate sub-MEMs contained in parent MEMs
+        MultipathAlignmentGraph(VG& vg, const vector<pair<const MaximalExactMatch*, pos_t>>& hits,
+                                const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
+        
+        void topological_sort(vector<size_t>& order_out);
+        void prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff);
+        
+        vector<ExactMatchNode> match_nodes;
+    };
+    
     
     
     class MultipathClusterer {
     public:
         MultipathClusterer(const Alignment& alignment,
                            const vector<MaximalExactMatch>& mems,
-                           const BaseAligner& aligner,
+                           const QualAdjAligner& aligner,
                            xg::XG& xgindex,
                            int8_t full_length_bonus = 0,
                            size_t max_strand_dist_probes = 2,
@@ -100,11 +104,12 @@ namespace vg {
         
         /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
         /// contains a pointer to the original MEM and the position of that particular hit in the graph.
-        vector<vector<pair<MaximalExactMatch* const, pos_t>>> clusters(int32_t max_qual_score = 60);
+        vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters(int32_t max_qual_score = 60);
         
     private:
         class MPCNode;
         class MPCEdge;
+        struct DPScoreComparator;
         
         /// Fills input vector with node indices of a topological sort
         void topological_order(vector<size_t>& order_out);
@@ -120,7 +125,7 @@ namespace vg {
         
         vector<MPCNode> nodes;
         
-        const BaseAligner& aligner;
+        const QualAdjAligner& aligner;
     };
     
     class MultipathClusterer::MPCNode {
@@ -130,7 +135,7 @@ namespace vg {
         MPCNode() = default;
         ~MPCNode() = default;
         
-        MaximalExactMatch* const mem;
+        MaximalExactMatch const* mem;
         
         /// Position of GCSA hit in the graph
         pos_t start_pos;

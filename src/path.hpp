@@ -275,7 +275,7 @@ void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit
 // switches the node ids in the path to the ones indicated by the translator
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator);
 // switches the node ids and orientations in the path to the ones indicated by the translator
-void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t>>& translator);
+void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
     
 // the first position on the path
 pos_t initial_position(const Path& path);

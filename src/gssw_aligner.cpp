@@ -802,14 +802,14 @@ double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
 }
 
 size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos,
-                                           int8_t full_length_bonus) {
+                                           int8_t full_length_bonus) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
     return (match * min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos)
             + full_length_bonus - gap_open) / gap_extension + 1;
     
 }
 
-size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, int8_t full_length_bonus) {
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, int8_t full_length_bonus) const {
     // longest detectable gap across entire read is in the middle
     return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2),
                                   full_length_bonus);
@@ -829,7 +829,7 @@ Aligner::Aligner(int8_t _match,
     // these are used when setting up the nodes
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
-    init_mapping_quality(gc_content);
+    BaseAligner::init_mapping_quality(gc_content);
 }
 
 
@@ -1167,7 +1167,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     match *= scale_factor;
     mismatch *= scale_factor;
     
-    init_mapping_quality(gc_content);
+    BaseAligner::init_mapping_quality(gc_content);
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
