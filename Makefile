@@ -3,7 +3,6 @@ SRC_DIR:=src
 ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
 UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
-ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
 BIN_DIR:=bin
 OBJ_DIR:=obj
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
@@ -83,7 +82,6 @@ OBJ += $(OBJ_DIR)/translator.o
 OBJ += $(OBJ_DIR)/version.o
 OBJ += $(OBJ_DIR)/banded_global_aligner.o
 OBJ += $(OBJ_DIR)/multipath_alignment.o
-OBJ += $(OBJ_DIR)/multipath_mem_aligner.o
 OBJ += $(OBJ_DIR)/phased_genome.o
 OBJ += $(OBJ_DIR)/constructor.o
 OBJ += $(OBJ_DIR)/progressive.o
@@ -94,7 +92,6 @@ OBJ += $(OBJ_DIR)/phase_duplicator.o
 OBJ += $(OBJ_DIR)/snarls.o
 OBJ += $(OBJ_DIR)/feature_set.o
 OBJ += $(OBJ_DIR)/simplifier.o
-OBJ += $(OBJ_DIR)/suffix_tree.o
 OBJ += $(OBJ_DIR)/chunker.o
 OBJ += $(OBJ_DIR)/vcf_buffer.o
 OBJ += $(OBJ_DIR)/variant_adder.o
@@ -103,6 +100,7 @@ OBJ += $(OBJ_DIR)/graph_synchronizer.o
 OBJ += $(OBJ_DIR)/vg_algorithms.o
 OBJ += $(OBJ_DIR)/nested_traversal_finder.o
 OBJ += $(OBJ_DIR)/option.o
+OBJ += $(OBJ_DIR)/multipath_mapper.o
 OBJ += $(OBJ_DIR)/haplotype_extracter.o
 OBJ += $(OBJ_DIR)/gamsorter.o
 
@@ -124,14 +122,12 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phase_duplicator.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/snarls.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/feature_set.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapping.o
-UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/suffix_tree.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/aligner.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vcf_buffer.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/path_index.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg_algorithms.o
-UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/xg.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/variant_adder.o
 
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
@@ -455,8 +451,6 @@ $(OBJ_DIR)/phased_genome.o: $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/phased_genom
 
 $(OBJ_DIR)/multipath_alignment.o: $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/multipath_alignment.hpp $(DEPS)
 
-$(OBJ_DIR)/multipath_mem_aligner.o: $(SRC_DIR)/multipath_mem_aligner.cpp $(SRC_DIR)/multipath_mem_aligner.hpp $(DEPS)
-
 $(OBJ_DIR)/snarls.o: $(SRC_DIR)/snarls.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
@@ -472,15 +466,13 @@ $(OBJ_DIR)/phase_duplicator.o: $(SRC_DIR)/phase_duplicator.cpp $(SRC_DIR)/phase_
 
 $(OBJ_DIR)/feature_set.o: $(SRC_DIR)/feature_set.cpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/types.hpp $(DEPS)
 
-$(OBJ_DIR)/suffix_tree.o: $(SRC_DIR)/suffix_tree.cpp $(SRC_DIR)/suffix_tree.hpp $(DEPS)
-
-
 $(OBJ_DIR)/simplifier.o: $(SRC_DIR)/simplifier.cpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/distributions.hpp $(DEPS)
-
 
 $(OBJ_DIR)/nested_traversal_finder.o: $(SRC_DIR)/nested_traversal_finder.cpp $(SRC_DIR)/nested_traversal_finder.hpp $(SRC_DIR)/genotypekit.hpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
 $(OBJ_DIR)/option.o: $(SRC_DIR)/option.cpp $(SRC_DIR)/option.hpp $(DEPS)
+
+$(OBJ_DIR)/multipath_mapper.o: $(SRC_DIR)/multipath_mapper.cpp $(SRC_DIR)/multipath_mapper.hpp $(DEPS)
 
 $(OBJ_DIR)/haplotype_extracter.o: $(SRC_DIR)/haplotype_extracter.cpp $(SRC_DIR)/haplotype_extracter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
@@ -523,8 +515,6 @@ $(UNITTEST_OBJ_DIR)/phase_duplicator.o: $(UNITTEST_SRC_DIR)/phase_duplicator.cpp
 
 $(UNITTEST_OBJ_DIR)/feature_set.o: $(UNITTEST_SRC_DIR)/feature_set.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/feature_set.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/suffix_tree.o: $(UNITTEST_SRC_DIR)/suffix_tree.cpp $(SRC_DIR)/suffix_tree.hpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
-
 $(UNITTEST_OBJ_DIR)/mapping.o: $(UNITTEST_SRC_DIR)/mapping.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/alignment.o: $(UNITTEST_SRC_DIR)/alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
@@ -541,8 +531,6 @@ $(UNITTEST_OBJ_DIR)/vcf_buffer.o: $(UNITTEST_SRC_DIR)/vcf_buffer.cpp $(UNITTEST_
 $(UNITTEST_OBJ_DIR)/path_index.o: $(UNITTEST_SRC_DIR)/path_index.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/vg_algorithms.o: $(UNITTEST_SRC_DIR)/vg_algorithms.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(DEPS)
-
-$(UNITTEST_OBJ_DIR)/xg.o: $(UNITTEST_SRC_DIR)/xg.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/variant_adder.o: $(UNITTEST_SRC_DIR)/variant_adder.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/name_mapper.hpp $(DEPS)
 
