@@ -359,23 +359,31 @@ namespace vg{
 
     }
 
+    Alignment Filter::unmapped_filter(Alignment& aln){
+        if (aln.score() == 0){
+            aln.set_read_mapped(false);
+            return aln;
+        }
+        return Alignment();
+    
+    }
 
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
         bool f = aln_first.mapping_quality() == 0;
         bool s = aln_second.mapping_quality() == 0;
         if ( (f && !s)){ 
-            aln_first.set_read_mapped(true);
-            aln_first.set_mate_unmapped(true);
-            aln_second.set_read_mapped(false);
-            aln_second.set_mate_unmapped(false);
-            return std::make_pair(aln_first, aln_second);
-        }
-        else if((s && !f)){
             aln_first.set_read_mapped(false);
             aln_first.set_mate_unmapped(false);
             aln_second.set_read_mapped(true);
             aln_second.set_mate_unmapped(true);
+            return std::make_pair(aln_first, aln_second);
+        }
+        else if((s && !f)){
+            aln_first.set_read_mapped(true);
+            aln_first.set_mate_unmapped(true);
+            aln_second.set_read_mapped(false);
+            aln_second.set_mate_unmapped(false);
             return std::make_pair(aln_first, aln_second);
         }
         else{

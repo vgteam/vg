@@ -341,16 +341,15 @@ int main_sift(int argc, char** argv){
         bool flagged = false;
 
         if (do_unmapped && !flagged){
-            if (alns_first.mapping_quality() == 0 &&
-                alns_second.mapping_quality() == 0){
+            if (ff.unmapped_filter(alns_first).name() != "" && ff.unmapped_filter(alns_second).name() != ""){
 
                     #pragma omp critical (unmapped_selected)
                     {
                         flagged = true;
-                        alns_first.set_read_mapped(true);
+                        alns_first.set_read_mapped(false);
                         alns_first.set_mate_unmapped(true);
-                        alns_second.set_read_mapped(true);
-                        alns_second.set_read_mapped(true);
+                        alns_second.set_read_mapped(false);
+                        alns_second.set_mate_unmapped(false);
                         unmapped_selected.push_back(alns_first);
                         unmapped_selected.push_back(alns_second);
                         

@@ -43,6 +43,7 @@ class Filter{
         Alignment avg_qual_filter(Alignment& aln);
         Alignment percent_identity_filter(Alignment& aln);
         Alignment soft_clip_filter(Alignment& aln);
+        Alignment unmapped_filter(Alignment& aln);
         Alignment split_read_filter(Alignment& aln);
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
