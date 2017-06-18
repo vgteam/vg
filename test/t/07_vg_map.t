@@ -76,11 +76,12 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp
 # I was having a problem when updating an edge due to a flipped end node made it
 # identical to an already existing edge that hadn't yet been updated. This makes
 # sure that that isn't happening.
+vg mod -D cyclic/orient_must_swap_edges.vg >e.vg
 vg index -x e.xg -g e.gcsa -k 10 cyclic/orient_must_swap_edges.vg
 vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e >/dev/null
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"
 
-rm -Rf e.xg e.gcsa
+rm -Rf e.xg e.gcsa e.vg
 
 vg index -k10 -g g.idx.gcsa -x g.idx.xg graphs/multimap.vg
 is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d g.idx -j | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
