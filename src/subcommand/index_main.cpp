@@ -541,7 +541,7 @@ int main_index(int argc, char** argv) {
 #endif
                             // assumes diploidy...
                             stringstream sn;
-                            sn << sample_names[phase_number/2] << "_" << phase_number % 2 << "_" << saved_phase_paths[phase_number];
+                            sn << "_thread_" << sample_names[phase_number/2] << "_" << phase_number % 2 << "_" << saved_phase_paths[phase_number];
                             finish_phase(phase_number, sn.str());
                         }
                     }
@@ -642,7 +642,7 @@ int main_index(int argc, char** argv) {
                             
                                 // Finish the phase thread and start a new one
                                 stringstream sn;
-                                sn << sample_names[sample_number] << "_" << phase_offset << "_" << saved_phase_paths[sample_number*2];
+                                sn << "_thread_" << sample_names[sample_number] << "_" << phase_offset << "_" << saved_phase_paths[sample_number*2];
                                 finish_phase(sample_number * 2 + phase_offset, sn.str());
                                 
                                 // Walk the cursor back so we repeat the
@@ -858,7 +858,7 @@ int main_index(int argc, char** argv) {
 
                         // And then we save all the threads
                         stringstream sn;
-                        sn << sample_names[i/2] << "_" << i%2 << "_" << saved_phase_paths[i];
+                        sn << "_thread_" << sample_names[i/2] << "_" << i%2 << "_" << saved_phase_paths[i];
                         finish_phase(i, sn.str());
                     }
                 }
