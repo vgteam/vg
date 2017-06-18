@@ -424,8 +424,12 @@ int main_index(int argc, char** argv) {
 
             // How many phases are there?
             size_t num_samples = variant_file.sampleNames.size();
+            // Remember the sample names
+            const vector<string>& sample_names = variant_file.sampleNames;
             // And how many phases?
             size_t num_phases = num_samples * 2;
+            // We'll want to keep track of names too
+            vector<string> thread_names;
 
             for (size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
                 // Find all the reference paths and loop over them. We'll just
@@ -463,7 +467,7 @@ int main_index(int argc, char** argv) {
                 vector<size_t> nonvariant_starts(num_phases, 0);
 
                 // Completed ones just get dumped into the index
-                auto finish_phase = [&](size_t phase_number) {
+                auto finish_phase = [&](size_t phase_number, string name) {
                     // We have finished a phase (because an unphased variant
                     // came up or we ran out of variants); dump it into the
                     // index under a name and make a new Path for that phase.
@@ -477,8 +481,8 @@ int main_index(int argc, char** argv) {
                         // Count this thread from this phase as being saved.
                         saved_phase_paths[phase_number]++;
 
-                        // We don't tie threads from a pahse together in the
-                        // index yet.
+                        // We use a hierarchical naming convention to tie together threads from the same phase.
+                        thread_names.push_back(name);
 
                         // Copy the thread over to our batch that we GPBWT all
                         // at once, exploiting the fact that VCF-derived graphs
@@ -535,7 +539,10 @@ int main_index(int argc, char** argv) {
                                 << new_node << (new_to_end ? "R" : "L")
                                 << " which does not exist. Splitting!" << endl;
 #endif
-                            finish_phase(phase_number);
+                            // assumes diploidy...
+                            stringstream sn;
+                            sn << sample_names[phase_number/2] << "_" << phase_number % 2 << "_" << saved_phase_paths[phase_number];
+                            finish_phase(phase_number, sn.str());
                         }
                     }
 
@@ -630,10 +637,13 @@ int main_index(int argc, char** argv) {
                                 // Make the phase thread reference up to the
                                 // start of this variant. Doesn't have to be
                                 // into the variable region.
+                                /// XXXX todo, somehow record the sample number to phase number mapping
                                 append_reference_mappings_until(sample_number * 2 + phase_offset, variant.position);
                             
                                 // Finish the phase thread and start a new one
-                                finish_phase(sample_number * 2 + phase_offset);
+                                stringstream sn;
+                                sn << sample_names[sample_number] << "_" << phase_offset << "_" << saved_phase_paths[sample_number*2];
+                                finish_phase(sample_number * 2 + phase_offset, sn.str());
                                 
                                 // Walk the cursor back so we repeat the
                                 // reference segment, which we need to do in
@@ -847,7 +857,9 @@ int main_index(int argc, char** argv) {
                         append_reference_mappings_until(i, path_length);
 
                         // And then we save all the threads
-                        finish_phase(i);
+                        stringstream sn;
+                        sn << sample_names[i/2] << "_" << i%2 << "_" << saved_phase_paths[i];
+                        finish_phase(i, sn.str());
                     }
                 }
 
@@ -874,7 +886,8 @@ int main_index(int argc, char** argv) {
                     return 1;
                 }
             } else {
-                index.insert_threads_into_dag(all_phase_threads);
+                // XXX todo make the names here
+                index.insert_threads_into_dag(all_phase_threads, thread_names);
             }
             all_phase_threads.clear();
 
