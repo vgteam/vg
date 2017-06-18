@@ -77,7 +77,7 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp
 # identical to an already existing edge that hadn't yet been updated. This makes
 # sure that that isn't happening.
 vg mod -D cyclic/orient_must_swap_edges.vg >e.vg
-vg index -x e.xg -g e.gcsa -k 10 cyclic/orient_must_swap_edges.vg
+vg index -x e.xg -g e.gcsa -k 10 e.vg
 vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e >/dev/null
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"
 
