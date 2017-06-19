@@ -22,7 +22,7 @@ namespace vg {
                                            size_t max_alt_alns) {
         
         // cluster the MEMs
-        MultipathClusterer clusterer(alignment, mems, qual_adj_aligner, xgindex, full_length_bonus, max_strand_dist_probes,
+        MultipathClusterer clusterer(alignment, mems, qual_adj_aligner, xgindex, full_length_bonus,
                                      max_expected_dist_approx_error);
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters = clusterer.clusters();
         
@@ -177,8 +177,14 @@ namespace vg {
             // construct a graph that summarizes reachability between MEMs
             MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans, snarl_manager, max_snarl_cut_size);
             
+            vector<size_t> topological_order;
+            multi_aln_graph.topological_sort(topological_order);
+            
+            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+            multi_aln_graph.remove_transitive_edges(topological_order);
+            
             // prune this graph down the paths that have reasonably high likelihood
-            multi_aln_graph.prune_to_high_scoring_paths(qual_adj_aligner, max_suboptimal_path_score_diff);
+            multi_aln_graph.prune_to_high_scoring_paths(qual_adj_aligner, max_suboptimal_path_score_diff, topological_order);
             
             // create a new multipath alignment object and transfer over data from alignment
             multipath_alns_out.emplace_back();
@@ -1589,9 +1595,65 @@ namespace vg {
         }
     }
     
-    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff) {
-        vector<size_t> topological_order;
-        topological_sort(topological_order);
+    void MultipathAlignmentGraph::remove_transitive_edges(const vector<size_t>& topological_order) {
+        vector<size_t> topological_position(topological_order.size());
+        for (size_t i = 0; i < topological_order.size(); i++) {
+            topological_position[topological_order[i]] = i;
+        }
+        
+        for (size_t i : topological_order) {
+            vector<pair<size_t, size_t>>& edges = match_nodes[i].edges;
+            std::sort(edges.begin(), edges.end(), [&](const pair<size_t, size_t>& edge_1, const pair<size_t, size_t>& edge_2) {
+                return topological_position[edge_1.first] < topological_position[edge_2.first];
+            });
+            
+            unordered_map<size_t, bool> keep_edge;
+            for (size_t j = 0; j < edges.size(); j++) {
+                keep_edge[edges[j].first] = true;
+            }
+            
+            for (const pair<size_t, size_t>& edge : edges) {
+                if (!keep_edge[edge.first]) {
+                    continue;
+                }
+                
+                vector<size_t> stack{edge.first};
+                unordered_set<size_t> traversed{edge.first};
+                while (!stack.empty()) {
+                    size_t here = stack.back();
+                    stack.pop_back();
+                    
+                    for (const pair<size_t, size_t>& next_edge : match_nodes[next_edge.first].edges) {
+                        if (keep_edge.count(next_edge.first)) {
+                            keep_edge[next_edge.first] = false;
+                        }
+                        
+                        if (!traversed.count(next_edge.first)) {
+                            traversed.insert(next_edge.first);
+                            stack.push_back(next_edge.first);
+                        }
+                    }
+                }
+            }
+            
+            size_t j = 0;
+            size_t end = edges.size();
+            while (j < end) {
+                if (keep_edge[edges[j].first]) {
+                    j++;
+                }
+                else {
+                    end--;
+                    edges[j] = edges[end];
+                }
+            }
+            edges.resize(end);
+        }
+        
+    }
+    
+    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff,
+                                                              const vector<size_t>& topological_order) {
         
         unordered_map<pair<size_t, size_t>, int32_t> edge_weights;
 
@@ -1689,7 +1751,6 @@ namespace vg {
                                            const QualAdjAligner& aligner,
                                            xg::XG& xgindex,
                                            int8_t full_length_bonus,
-                                           size_t max_strand_dist_probes,
                                            size_t max_expected_dist_approx_error) : aligner(aligner) {
         
         // the maximum graph distances to the right and left sides detectable from each node
@@ -1718,59 +1779,54 @@ namespace vg {
         // now we use the distance approximation to cluster the MEM hits according to the strand
         // they fall on using the oriented distance estimation function
         
-        // initialize with every hit in its own strand cluster
-        vector<vector<size_t>> strand_clusters(nodes.size());
-        for (size_t i = 0; i < nodes.size(); i++) {
-            strand_clusters[i].push_back(i);
-        }
-        
         // for recording the distance of any pair that we check with a finite distance
         unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
         // for recording the number of times elements of a strand cluster have been compared
         // and found an infinite distance
         map<pair<size_t, size_t>, size_t> num_infinite_dists;
         
-        // when we merge strand clusters, we add a pointer to the strand they merged into
-        // essentially, this become trees with pointers upward that we can traverse to
-        // find the unmerged strand cluster any hit currently belongs to
-        unordered_map<size_t, size_t> merged_strand;
-        auto get_merged_strand = [&merged_strand](size_t i) {
-            vector<size_t> path;
-            while (merged_strand.count(i)) {
-                path.push_back(i);
-                i = merged_strand[i];
-            }
-            // path compression (similar to union find)
-            for (size_t j : path) {
-                merged_strand[j] = i;
-            }
-            return i;
-        };
-        
-        // make a randomly shuffled list of pairs of nodes to compare distances in
-        // TODO: is there a way to do this without generating all pairs?
-        vector<pair<size_t, size_t>> comparisons;
-        comparisons.reserve((nodes.size() * (nodes.size() - 1)) / 2);
-        for (int64_t i = 1; i < nodes.size(); i++) {
-            for (int64_t j = 0; j < i; j++) {
-                comparisons.emplace_back(j, i);
-            }
+        // deterministically generate pseudo-shuffled pairs in constant time per pair
+        // method taken from https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
+        size_t num_pairs = nodes.size() * nodes.size();
+        size_t permutation_idx = 0;
+        size_t range_max = 1;
+        while (range_max < num_pairs) {
+            range_max *= 2;
         }
-        std::default_random_engine gen(std::random_device());
-        std::shuffle(comparisons.begin(), comparisons.end(), gen);
+        auto get_next_pair = [&]() {
+            pair<size_t, size_t> to_return;
+            do {
+                size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 2) + 3) & (range_max - 1);
+                to_return.first = current_pair_idx / nodes.size();
+                to_return.second = current_pair_idx % nodes.size();
+            } while (to_return.first >= to_return.second || permuted >= num_pairs);
+            return to_return;
+        }
         
-        for (pair<size_t, size_t>& node_pair : comparisons) {
+        UnionFind union_find(nodes.size());
+        
+        size_t num_possible_merges_remaining = (nodes.size() * (nodes.size() - 1)) / 2;
+        size_t pairs_checked = 0;
+        
+        // a simulated annealing parameter loosely inspired by the cutoff for an Erdos Renyi random graph
+        // to be connected with probability approaching 1
+        size_t current_max_num_probes = (size_t) (2.0 * ceil(log(nodes.size())));
+        
+        while (num_possible_merges_remaining > 0 && pairs_checked < num_pairs) {
             
-            // TODO: I don't love this component, it makes the algorithm O(n^2 log n) in number of MEM hits
-            size_t strand_1 = get_merged_strand(node_pair.first);
-            size_t strand_2 = get_merged_strand(node_pair.second);
+            pair<size_t, size_t> node_pair = get_next_pair();
+            
+            pairs_checked++;
+            
+            size_t strand_1 = union_find.find(node_pair.first);
+            size_t strand_2 = union_find.find(node_pair.second);
 
             if (strand_1 == strand_2) {
                 // these are already identified as on the same strand, don't need to do it again
                 continue;
             }
             
-            if (num_infinite_dists[make_pair(strand_1, strand_2)] >= max_strand_dist_probes) {
+            if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
                 // we've already checked multiple distances between these strand clusters and
                 // none have returned a finite distance, so we conclude that they are in fact
                 // on separate clusters and decline to check any more distances
@@ -1789,57 +1845,76 @@ namespace vg {
                 
                 num_infinite_dists[make_pair(strand_1, strand_2)]++;
                 num_infinite_dists[make_pair(strand_2, strand_1)]++;
+                
+                // this infinite distance pushed the count over the maximum number of probes, so remove
+                // these merges from the pool of potential merges remaining
+                if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
+                    size_t strand_size_1 = union_find.group_size(strand_1);
+                    size_t strand_size_2 = union_find.group_size(strand_2);
+                    
+                    num_possible_merges_remaining -= strand_size_1 * strand_size_2;
+                }
             }
             else {
                 // the distance is finite, so merge the strand clusters
                 
                 recorded_finite_dists[node_pair] = oriented_dist;
                 
-                // add the smaller cluster onto the larger one to minimize copies
-                vector<size_t>* smaller_clust, larger_clust;
+                size_t strand_size_1 = union_find.group_size(strand_1);
+                size_t strand_size_2 = union_find.group_size(strand_2);
                 
-                // ensure that the first node in the pair belongs to the larger cluster
-                if (strand_clusters[node_pair.first].size() < strand_clusters[node_pair.second].size()) {
-                    std::swap(node_pair.first, node_pair.second);
-                    std::swap(strand_1, strand_2);
-                }
+                union_find.union(node_pair.first, node_pair.second);
                 
-                auto& clust_1 = strand_clusters[node_pair.first];
-                auto& clust_2 = strand_clusters[node_pair.second];
+                // remove these from the pool of remaining merges
+                num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                 
-                clust_1.insert(clust_1.end(), clust_2.begin(), clust_2.end());
+                size_t strand_retaining = union_find.find(node_pair.first);
+                size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
                 
-                // choose one of the strand clusters at random to remove (makes the merged_strand
-                // tree have expected height O(log n))
-                size_t strand_retaining, strand_removing;
-                if (gen() % 2) {
-                    merged_strand[node_pair.second] = node_pair.first;
-                    std::swap(clust_2, strand_clusters.back());
-                    strand_removing = strand_2;
-                    strand_retaining = strand_1;
-                }
-                else {
-                    merged_strand[node_pair.first] = node_pair.second;
-                    clust_2 = std::move(clust_1);
-                    std::swap(clust_1, strand_clusters.back());
-                    strand_removing = strand_1;
-                    strand_retaining = strand_2;
-                }
-                strand_clusters.pop_back();
-                
-                // collect the number of times this strand cluster has had an infinite distance to other strand
+                // collect the number of times the strand cluster thas is being removed has had an infinite distance
+                // to other strands besides the one it's being merged into
                 vector<pair<size_t, size_t>> inf_counts;
                 auto end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
                 auto begin = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
                 for (auto iter = begin; iter != end; iter++) {
-                    inf_counts.push_back((*iter).first.second, (*iter).second);
+                    if (*iter).first.second != strand_retaining) {
+                        inf_counts.emplace_back((*iter).first.second, (*iter).second);
+                    }
                 }
                 
-                // add these counts to the other strand cluster and remove this one from the map
                 for (const pair<size_t, size_t> inf_count : inf_counts) {
-                    num_infinite_dists[make_pair(strand_retaining, inf_count.first)] += inf_count.second;
+                    size_t& curr_num_probes = num_infinite_dists[make_pair(strand_retaining, inf_count.first)];
+                    bool already_blocked = curr_num_probes >= current_max_num_probes;
+                    
+                    // transfer these counts over to the strand cluster that is being retained
+                    curr_num_probes += inf_count.second;
+                    num_infinite_dists[make_pair(inf_count.first, strand_retaining)] += inf_count.second;
+                    
+                    // remove the strand from the infinite distance counter
                     num_infinite_dists.erase(make_pair(strand_removing, inf_count.first));
                     num_infinite_dists.erase(make_pair(inf_count.first, strand_removing));
+                    
+                    // if adding these counts pushed the cluster over the strand probe max, remove these merges from
+                    // the pool remaining
+                    if (curr_num_probes >= current_max_num_probes && !already_blocked) {
+                        num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * union_find.group_size(inf_count.first);
+                    }
+                }
+            }
+            
+            // slowly lower the number of distances we need to check before we believe that two clusters are on
+            // separate strands
+            if (pairs_checked % nodes.size() == nodes.size() - 1) {
+                current_max_num_probes--;
+                
+                for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
+                    // break symmetry so we don't repeat the operation twice
+                    if (inf_dist_record.first.first < inf_dist_record.first.second && inf_dist_record.second == current_max_num_probes) {
+                        // this merge just fell below the maximum number of distance probes
+                        size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
+                        size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
+                        num_possible_merges_remaining -= strand_size_1 * strand_size_2;
+                    }
                 }
             }
         }
@@ -1884,7 +1959,7 @@ namespace vg {
                     // invert the sign of the distance if we originally measured it in the other order
                     int64_t dist = recorded_finite_dists.count(make_pair(curr, next)) ?
                                    recorded_finite_dists[make_pair(curr, next)] :
-                                   -recorded_finite_dists[make_pair(next, furr)];
+                                   -recorded_finite_dists[make_pair(next, curr)];
                     
                     // find the position relative to the previous node we just traversed
                     relative_pos[next] = curr_pos + dist;
@@ -1956,7 +2031,7 @@ namespace vg {
                     // the length of the sequence in between the MEMs (can be negative if they overlap)
                     int64_t between_length = next.mem->begin - pivot.mem->end;
                     // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                    int64_t graph_dist = max(0, sorted_pos[j].first - strand_pos - pivot_length);
+                    int64_t graph_dist = max(0ll, sorted_pos[j].first - strand_pos - pivot_length);
                     // the discrepancy between the graph distance and the read distance
                     int64_t gap_length = abs(graph_dist - between_length);
                     
@@ -1974,7 +2049,7 @@ namespace vg {
                         // so for now we just give it the benefit of the doubt but adjust the edge
                         // score so that the matches don't get double counted
                         
-                        int64_t extra_dist = max(0, gap_length);
+                        int64_t extra_dist = max(0ll, gap_length);
                         
                         edge_score = -aligner.match * between_length
                                      + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
@@ -2044,8 +2119,8 @@ namespace vg {
         }
     }
     
-    void MultipathMEMAligner::identify_sources_and_sinks(vector<size_t>& sources_out,
-                                                         vector<size_t>& sinks_out) {
+    void MultipathClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
+                                                        vector<size_t>& sinks_out) {
         
         sources_out.clear();
         sinks_out.clear();
@@ -2057,7 +2132,7 @@ namespace vg {
                 sinks_out.push_back(i);
             }
             
-            for (MultipathMEMEdge& edge : nodes[i].edges_from) {
+            for (MPCEdge& edge : nodes[i].edges_from) {
                 is_source[edge.to_idx] = false;
             }
         }
@@ -2068,8 +2143,6 @@ namespace vg {
             }
         }
     }
-    
-    
     
     void MultipathClusterer::connected_components(vector<vector<size_t>>& components_out) {
         
@@ -2090,12 +2163,12 @@ namespace vg {
             
             while (!stack.empty()) {
                 
-                MultipathMEMNode& node = nodes[stack.back()];
+                MPCNode& node = nodes[stack.back()];
                 stack.pop_back();
                 
                 // search in both forward and backward directions
                 
-                for (MultipathMEMEdge& edge : node.edges_from) {
+                for (MPCEdge& edge : node.edges_from) {
                     
                     if (!enqueued[edge.to_idx]) {
                         stack.push_back(edge.to_idx);
@@ -2104,7 +2177,7 @@ namespace vg {
                     }
                 }
                 
-                for (MultipathMEMEdge& edge : node.edges_to) {
+                for (MPCEdge& edge : node.edges_to) {
                     
                     if (!enqueued[edge.to_idx]) {
                         stack.push_back(edge.to_idx);
@@ -2144,7 +2217,7 @@ namespace vg {
     
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> MultipathClusterer::clusters(int32_t max_qual_score) {
         
-        vector<vector<const MaximalExactMatch*, pos_t>> to_return;
+        vector<vector<pair<const MaximalExactMatch*, pos_t>>> to_return;
         if (nodes.size() == 0) {
             // this should only happen if we have filtered out all MEMs, so there are none to cluster
             return to_return;
@@ -2163,7 +2236,7 @@ namespace vg {
             vector<size_t>& component = components[i];
             pair<int32_t, size_t>& traceback_end = component_traceback_ends[i];
             for (size_t j = 0; j < component.size(); j++) {
-                int32_t dp_score = nodes[component[i]].dp_score
+                int32_t dp_score = nodes[component[i]].dp_score;
                 if (dp_score > traceback_end.first) {
                     traceback_end.first = dp_score;
                     traceback_end.second = j;
@@ -2173,7 +2246,7 @@ namespace vg {
         
         // sort indices in descending order by their highest traceback score
         vector<size_t> order = range_vector(0, components.size());
-        std::sort(order.begin(), order.end() [&](const size_t i, const size_t j) {
+        std::sort(order.begin(), order.end(), [&](const size_t i, const size_t j) {
             return component_traceback_ends[i].first > component_traceback_ends[j].first;
         });
         
@@ -2188,7 +2261,7 @@ namespace vg {
             // cluster, don't bother forming it
             // TODO: this approximation could break down sometimes, need to look into it
             // TODO: is there a way to make the aligner do this? I don't like having this functionality outside of it
-            if (4.3429448190325183 * aligner.log_base * (top_score - traceback_end.first) > max_qual_score ) {
+            if (4.3429448190325183 * aligner.log_base * (top_score - component_traceback_ends[i].first) > max_qual_score ) {
                 continue;
             }
             

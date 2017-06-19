@@ -55,7 +55,6 @@ namespace vg {
         
         //double z_score_cutoff = -1.0;
         int8_t full_length_bonus = 0;
-        size_t max_strand_dist_probes = 2;
         size_t max_expected_dist_approx_error = 8;
         double mem_coverage_min_ratio = 0.5;
         int32_t max_suboptimal_path_score_diff = 20;
@@ -85,7 +84,9 @@ namespace vg {
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
         
         void topological_sort(vector<size_t>& order_out);
-        void prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff);
+        void remove_transitive_edges(const vector<size_t>& topological_order);
+        void prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff,
+                                         const vector<size_t>& topological_order);
         
         vector<ExactMatchNode> match_nodes;
     };
@@ -99,7 +100,6 @@ namespace vg {
                            const QualAdjAligner& aligner,
                            xg::XG& xgindex,
                            int8_t full_length_bonus = 0,
-                           size_t max_strand_dist_probes = 2,
                            size_t max_expected_dist_approx_error = 8);
         
         /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
