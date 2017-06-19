@@ -1788,6 +1788,7 @@ namespace vg {
         // deterministically generate pseudo-shuffled pairs in constant time per pair
         // method taken from https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
         size_t num_pairs = nodes.size() * nodes.size();
+        assert(num_pairs <= 4294967296) // 2^32, else range_max can't get large enough
         size_t permutation_idx = 0;
         size_t range_max = 1;
         while (range_max < num_pairs) {
