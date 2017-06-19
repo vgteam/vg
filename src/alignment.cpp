@@ -505,6 +505,7 @@ string alignment_to_sam(const Alignment& alignment,
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
     if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
+    sam << "\tAS:i:" << alignment.score();
     sam << "\n";
     return sam.str();
 }
