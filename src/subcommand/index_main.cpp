@@ -874,7 +874,7 @@ int main_index(int argc, char** argv) {
                     return 1;
                 }
             } else {
-                index.insert_threads_into_dag(all_phase_threads);
+                index.insert_threads_into_dag(all_phase_threads, vector<string>());
             }
             all_phase_threads.clear();
 

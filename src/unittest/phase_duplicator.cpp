@@ -71,7 +71,7 @@ TEST_CASE("PhaseDuplicator can emit a single traversal", "[phaseduplicator][inde
         {7, false},
         {9, false}
     }};
-    index.insert_threads_into_dag(threads);
+    index.insert_threads_into_dag(threads, vector<string>());
     
     // Make a duplicator
     PhaseDuplicator duplicator(index);
@@ -194,7 +194,7 @@ TEST_CASE("PhaseDuplicator can deduplicate identical traversals", "[phaseduplica
         {2, true},
         {1, true}
     }};
-    index.insert_threads_into_dag(threads);
+    index.insert_threads_into_dag(threads, vector<string>());
     
     // Make a duplicator
     PhaseDuplicator duplicator(index);
@@ -268,7 +268,7 @@ TEST_CASE("PhaseDuplicator can produce internal traversals", "[phaseduplicator][
     }, {
         {4, true}
     }};
-    index.insert_threads_into_dag(threads);
+    index.insert_threads_into_dag(threads, vector<string>());
     
     // Make a duplicator
     PhaseDuplicator duplicator(index);
