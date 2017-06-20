@@ -57,6 +57,7 @@ namespace vg {
         
         double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
         double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
+        double estimate_next_best_score(int length, double min_diffs);
         
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
@@ -68,6 +69,8 @@ namespace vg {
         double log_base = 0.0;
         
     public:
+
+        double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
@@ -117,13 +120,20 @@ namespace vg {
                                      int max_mapping_quality,
                                      bool fast_approximation,
                                      double cluster_mq,
-                                     bool use_cluster_mq);
+                                     bool use_cluster_mq,
+                                     int overlap_count,
+                                     double mq_estimate);
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
-                                            int max_mapping_quality,
+                                            int max_mapping_quality1,
+                                            int max_mapping_quality2,
                                             bool fast_approximation,
                                             double cluster_mq,
-                                            bool use_cluster_mq);
+                                            bool use_cluster_mq,
+                                            int overlap_count1,
+                                            int overlap_count2,
+                                            double mq_estimate1,
+                                            double mq_estimate2);
         
         // Convert a score to an unnormalized log likelihood for the sequence.
         // Requires log_base to have been set.

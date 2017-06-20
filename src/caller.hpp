@@ -15,6 +15,7 @@
 #include "pileup.hpp"
 #include "path_index.hpp"
 #include "genotypekit.hpp"
+#include "option.hpp"
 
 namespace vg {
 
@@ -24,10 +25,9 @@ using namespace std;
 struct StrandSupport {
     int fs; // forward support
     int rs; // reverse support
-    int os; // support for other stuff (ie errors)
-    double likelihood; // log likelihood from caller (0 if not available)
-    StrandSupport(int f = 0, int r = 0, int o = 0, double ll = -1e100) :
-        fs(f), rs(r), os(o), likelihood(ll) {}
+    double qual; // phred score (derived from sum log p-err over all observations)
+    StrandSupport(int f = 0, int r = 0, double q = 0) :
+        fs(f), rs(r), qual(q) {}
     bool operator<(const StrandSupport& other) const {
         if ((fs + rs) == (other.fs + other.rs)) {
             // more strand bias taken as less support
@@ -39,21 +39,19 @@ struct StrandSupport {
         return !(*this < other);
     }
     bool operator==(const StrandSupport& other) const {
-        return fs == other.fs && rs == other.rs && os == other.os && likelihood == other.likelihood;
+        return fs == other.fs && rs == other.rs && qual == other.qual;
     }
     // min out at 0
     StrandSupport operator-(const StrandSupport& other) const {
         return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs),
-                             max(0, os - other.os), likelihood);
+                             max(0., qual - other.qual));
     }
     StrandSupport& operator+=(const StrandSupport& other) {
         fs += other.fs;
         rs += other.rs;
-        os += other.os;
-        likelihood = max(likelihood, other.likelihood);
+        qual += other.qual;
         return *this;
     }
-    int depth() { return fs + rs + os; }
     int total() { return fs + rs; }
 };
 
@@ -63,26 +61,40 @@ inline StrandSupport minSup(vector<StrandSupport>& s) {
     }
     return *min_element(s.begin(), s.end());
 }
+inline StrandSupport maxSup(vector<StrandSupport>& s) {
+    if (s.empty()) {
+        return StrandSupport();
+    }
+    return *max_element(s.begin(), s.end());
+}
 inline StrandSupport avgSup(vector<StrandSupport>& s) {
     StrandSupport ret;
     if (!s.empty()) {
-        ret.likelihood = 0;
         for (auto sup : s) {
             ret.fs += sup.fs;
             ret.rs += sup.rs;
-            ret.os += sup.os;
-            ret.likelihood += sup.likelihood;
+            ret.qual += sup.qual;
         }
         ret.fs /= s.size();
         ret.rs /= s.size();
-        ret.os /= s.size();
-        ret.likelihood /= s.size();
+        ret.qual /= s.size();
+    }
+    return ret;
+}
+inline StrandSupport totalSup(vector<StrandSupport>& s) {
+    StrandSupport ret;
+    if (!s.empty()) {
+        for (auto sup : s) {
+            ret.fs += sup.fs;
+            ret.rs += sup.rs;
+            ret.qual += sup.qual;
+        }
     }
     return ret;
 }
 
 inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
-    return os << sup.fs << ", " << sup.rs << ", " << sup.os << ", " << sup.likelihood;
+    return os << sup.fs << ", " << sup.rs << ", " << sup.qual;
 }
 
 // We need to break apart nodes but remember where they came from to update edges.
@@ -145,34 +157,16 @@ public:
 
     // log of zero
     static const double Log_zero;
-    // heterzygous prior (from r MAQ paper)
-    static const double Default_het_prior;
-    // minimum size of pileup to call a snp
-    static const int Default_min_depth;
-    // maximum size of pileup to call a snp
-    static const int Default_max_depth;
-    // minimum number of reads that support snp required to call it
-    static const int Default_min_support;
-    // same as min_support, but as fraction of total depth
-    static const double Default_min_frac;
-    // minimum likelihood to call a snp
-    static const double Default_min_log_likelihood;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
-    // use to balance alignments to forward and reverse strand
-    static const double Default_max_strand_bias;
+    // don't augment graph without minimum support
+    static const int Default_min_aug_support;
     
     Caller(VG* graph,
-           double het_prior = Default_het_prior,
-           int min_depth = Default_min_depth,
-           int max_depth = Default_max_depth,
-           int min_support = Default_min_support,
-           double min_frac = Default_min_frac,
-           double min_log_likelihood = Default_min_log_likelihood, 
            int default_quality = Default_default_quality,
-           double max_strand_bias = Default_max_strand_bias,
-           bool bridge_alts = false);
-    ~Caller();
+           int min_aug_support = Default_min_aug_support);
+
+   ~Caller();
     void clear();
 
     // input graph
@@ -224,32 +218,12 @@ public:
     // todo: generalize augmented edge support
     EdgeSupHash _deletion_supports;
 
-    // used to favour homozygous genotype (r from MAQ paper)
-    double _het_log_prior;
-    double _hom_log_prior;
     // maximum number of nodes to call before writing out output stream
     int _buffer_size;
-    // minimum depth of pileup to call variants on
-    int _min_depth;
-    // maximum depth of pileup to call variants on
-    int _max_depth;
-    // min reads supporting snp to call it
-    int _min_support;
-    // minimum fraction of bases in pileup that nucleotide must have to be snp
-    double _min_frac;
-    // minimum log likelihood for a snp to be called
-    double _min_log_likelihood;
     // if we don't have a mapping quality for a read position, use this
     char _default_quality;
-    // min deviation from .5 in proportion of negative strand reads
-    double _max_strand_bias;
-    // the base-by-base calling is very limited, and adjacent
-    // variants are not properly phased according to the reads.
-    // so we choose either to add all edges between neighboring
-    // positions (true) or none except via reference (false)
-    // (default to latter as most haplotypes rarely contain
-    // pairs of consecutive alts). 
-    bool _bridge_alts;
+    // minimum support to augment graph
+    int _min_aug_support;
 
     // write the augmented graph
     void write_augmented_graph(ostream& out, bool json);
@@ -281,17 +255,11 @@ public:
                                  string& top_base, int& top_count, int& top_rev_count,
                                  string& second_base, int& second_count, int& second_rev_count,
                                  int& total_count, bool inserts);
-    
-    // compute a likelihood from the pileup qualities
-    // "first" and "second" are used to virtually split the pileup across two nodes:
-    // all bases == "first" are kept
-    // all bases == "second" are ignored
-    // all otherse are squarerooted (to split their probabilities evenly between the two virtual pileups)
-    // returns pair of (likelihood, effective depth), where the effective depth is the number
-    // of pileup entries that were considered in computing the likelihood
-    pair<double, int> base_log_likelihood(const BasePileup& pb,
-                                             const vector<pair<int64_t, int64_t> >& base_offsets,
-                                             const string& val, const string& first, const string& second);
+
+    // Sum up the qualities of a given symbol in a pileup
+    double total_base_quality(const BasePileup& pb,
+                              const vector<pair<int64_t, int64_t> >& base_offsets,
+                              const string& val);
 
     // write graph structure corresponding to all the calls for the current
     // node.  
@@ -339,7 +307,7 @@ ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
  * Call2Vcf: take an augmented graph from a Caller and produce actual calls in a
  * VCF.
  */
-class Call2Vcf {
+class Call2Vcf : public Configurable {
 
 public:
 
@@ -349,81 +317,289 @@ public:
     Call2Vcf() = default;
     
     /**
+     * We use this to represent a contig in the primary path, with its index and coverage info.
+     */
+    class PrimaryPath {
+    public:
+        /**
+         * Index the given path in the given augmented graph, and compute all
+         * the coverage bin information with the given bin size.
+         */
+        PrimaryPath(AugmentedGraph& augmented, const string& ref_path_name, size_t ref_bin_size); 
+    
+        /**
+         * Get the support at the bin appropriate for the given primary path
+         * offset.
+         */
+        const Support& get_support_at(size_t primary_path_offset) const;
+        
+        /**
+         * Get the index of the bin that the given path position falls in.
+         */
+        size_t get_bin_index(size_t primary_path_offset) const;
+    
+        /**
+         * Get the bin with minimal coverage.
+         */
+        size_t get_min_bin() const;
+    
+        /**
+         * Get the bin with maximal coverage.
+         */
+        size_t get_max_bin() const;
+    
+        /**
+         * Get the support in the given bin.
+         */
+        const Support& get_bin(size_t bin) const;
+        
+        /**
+         * Get the total number of bins that the path is divided into.
+         */
+        size_t get_total_bins() const;
+        
+        /**
+         * Get the average support over the path.
+         */
+        Support get_average_support() const;
+        
+        /**
+         * Get the average support over a collection of paths.
+         */
+        static Support get_average_support(const map<string, PrimaryPath>& paths);
+        
+        /**
+         * Get the total support for the path.
+         */
+        Support get_total_support() const;
+    
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        PathIndex& get_index();
+        
+        /**
+         * Get the PathIndex for this primary path.
+         */
+        const PathIndex& get_index() const;
+        
+        /**
+         * Gets the path name we are representing.
+         */
+        const string& get_name() const;
+        
+    protected:
+        /// How wide is each coverage bin along the path?
+        size_t ref_bin_size;
+        
+        /// This holds the index for this path
+        PathIndex index;
+        
+        /// This holds the name of the path
+        string name;
+        
+        /// What's the expected in each bin along the path? Coverage gets split
+        /// evenly over both strands.
+        vector<Support> binned_support;
+        
+        /// Which bin has min support?
+        size_t min_bin;
+        /// Which bin has max support?
+        size_t max_bin;
+        
+        /// What's the total Support over every bin?
+        Support total_support;
+    };
+    
+    
+    /**
      * Produce calls for the given annotated augmented graph. If a
-     * pileupFilename is provided, the pileup is loaded again and used to add
+     * pileup_filename is provided, the pileup is loaded again and used to add
      * comments describing variants
      */
-    void call(AugmentedGraph& augmented, string pileupFilename = "");
+    void call(AugmentedGraph& augmented, string pileup_filename = "");
+    
+    /**
+     * For the given snarl, find the reference traversal, the best traversal,
+     * and the second-best traversal, recursively, if any exist. These
+     * traversals will be fully filled in with nodes.
+     *
+     * Only snarls which are ultrabubbles can be called.
+     *
+     * Expects the given baseline support for a diploid call.
+     *
+     * Will not return more than 1 + copy_budget SnarlTraversals, and will
+     * return less if some copies are called as having the same traversal.
+     *
+     * Does not deduplicate agains the ref traversal; it may be the same as the
+     * best or second-best.
+     *
+     * Uses the given copy number allowance, and emits a Locus for this Snarl
+     * and any child Snarls.
+     *
+     * If no path through the Snarl can be found, emits no Locus and returns no
+     * SnarlTraversals.
+     */
+    vector<SnarlTraversal> find_best_traversals(AugmentedGraph& augmented,
+        SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
+        const Support& baseline_support, size_t copy_budget,
+        function<void(const Locus&, const Snarl*)> emit_locus);
     
     /**
      * Decide if the given SnarlTraversal is included in the original base graph
      * (true), or if it represents a novel variant (false).
      *
-     * Looks at the nodes in the traversal that aren't along the primary path,
-     * and sees if their calls are CALL_REFERENCE or not.
+     * Looks at the nodes in the traversal, and sees if their calls are
+     * CALL_REFERENCE or not.
      *
-     * Specially handles single-edge traversals.
+     * Handles single-edge traversals.
      *
-     * If given a traversal that's all primary path nodes, it assumes it is non-
-     * reference, because it assumes the caller will never pass it the all-
-     * primary-path reference traversal.
      */
-    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented, const PathIndex& primary_path);
+    bool is_reference(const SnarlTraversal& trav, AugmentedGraph& augmented);
+    
+    /**
+     * Decide if the given Path is included in the original base graph (true) or
+     * if it represents a novel variant (false).
+     *
+     * Looks at the nodes, and sees if their calls are CALL_REFERENCE or not.
+     *
+     * The path can't be empty; it has to be anchored to something (probably the
+     * start and end of the snarl it came from).
+     */
+    bool is_reference(const Path& path, AugmentedGraph& augmented);
+    
+    /**
+     * Find the primary path, if any, that the given site is threaded onto.
+     *
+     * TODO: can only work by brute-force search.
+     */
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+
+    /** 
+     * Get the amount of support.  Can use this function to toggle between unweighted (total from genotypekit)
+     * and quality-weighted (support_quality below) in one place.
+     */
+    function<double(const Support&)> support_val;
+
+    static double support_quality(const Support& support) {
+        return support.quality();
+    }
     
     // Option variables
-    // What's the name of the reference path in the graph?
-    string refPathName = "";
-    // What name should we give the contig in the VCF file?
-    string contigName = "";
-    // What name should we use for the sample in the VCF file?
-    string sampleName = "SAMPLE";
-    // How far should we offset positions of variants?
-    int64_t variantOffset = 0;
-    // How many nodes should we be willing to look at on our path back to the
-    // primary path? Keep in mind we need to look at all valid paths (and all
-    // combinations thereof) until we find a valid pair.
-    int64_t maxDepth = 10;
-    // What should the total sequence length reported in the VCF header be?
-    int64_t lengthOverride = -1;
     
-    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall = 0;
-    // What fraction of the reads supporting an alt are we willing to discount?
-    // At 2, if twice the reads support one allele as the other, we'll call
-    // homozygous instead of heterozygous. At infinity, every call will be
-    // heterozygous if even one read supports each allele.
-    double maxHetBias = 3;
-    // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefHetBias = 4;
-    // How much should we multiply the bias limits for indels?
-    double indelBiasMultiple = 1;
-    // What's the minimum integer number of reads that must support a call? We
-    // don't necessarily want to call a SNP as het because we have a single
+    /// Should we output in VCF (true) or Protobuf Locus (false) format?
+    Option<bool> convert_to_vcf{this, "no-vcf", "V", true,
+        "output variants in binary Loci format instead of text VCF format"};
+    /// How big should our output buffer be?
+    size_t locus_buffer_size = 1000;
+    
+    /// What are the names of the reference paths, if any, in the graph?
+    Option<vector<string>> ref_path_names{this, "ref", "r", {},
+        "use the path with the given name as a reference path (can repeat)"};
+    /// What name should we give each contig in the VCF file? Autodetected from
+    /// path names if empty or too short.
+    Option<vector<string>> contig_name_overrides{this, "contig", "c", {},
+        "use the given name as the VCF name for the corresponding reference path (can repeat)"};
+    /// What should the total sequence length reported in the VCF header be for
+    /// each contig? Autodetected from path lengths if empty or too short.
+    Option<vector<size_t>> length_overrides{this, "length", "l", {},
+        "override total sequence length in VCF for the corresponding reference path (can repeat)"};
+    /// What name should we use for the sample in the VCF file?
+    Option<string> sample_name{this, "sample", "S", "SAMPLE",
+        "name the sample in the VCF with the given name"};
+    /// How far should we offset positions of variants?
+    Option<int64_t> variant_offset{this, "offset", "o", 0,
+        "offset variant positions by this amount in VCF"};
+    /// How many nodes should we be willing to look at on our path back to the
+    /// primary path? Keep in mind we need to look at all valid paths (and all
+    /// combinations thereof) until we find a valid pair.
+    Option<int64_t> max_search_depth{this, "max-search-depth", "D", 1000,
+        "maximum depth for path search"};
+    /// How many search states should we allow on the DFS stack when searching
+    /// for traversals?
+    Option<int64_t> max_search_width{this, "max-search-width", "wWmMsS", 1000,
+        "maximum width for path search"};
+    
+    
+    /// What fraction of average coverage should be the minimum to call a
+    /// variant (or a single copy)? Default to 0 because vg call is still
+    /// applying depth thresholding
+    Option<double> min_fraction_for_call{this, "min-cov-frac", "F", 0,
+        "min fraction of average coverage at which to call"};
+    /// What fraction of the reads supporting an alt are we willing to discount?
+    /// At 2, if twice the reads support one allele as the other, we'll call
+    /// homozygous instead of heterozygous. At infinity, every call will be
+    /// heterozygous if even one read supports each allele.
+    Option<double> max_het_bias{this, "max-het-bias", "H", 4.5,
+        "max imbalance factor to call heterozygous, alt major on SNPs"};
+    /// Like above, but applied to ref / alt ratio (instead of alt / ref)
+    Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
+        "max imbalance factor to call heterozygous, ref major"};
+    /// Like the max het bias, but applies to novel indels.
+    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 2.5,
+        "max imbalance factor to call heterozygous, alt major on indels"};
+    /// What's the minimum integer number of reads that must support a call? We
+    /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 1;
-    // Bin size used for counting coverage along the reference path.  The
-    // bin coverage is used for computing the probability of an allele
-    // of a certain depth
-    size_t refBinSize = 250;
-    // On some graphs, we can't get the coverage because it's split over
-    // parallel paths.  Allow overriding here
-    size_t expCoverage = 0;
-    // Should we drop variants that would overlap old ones? TODO: we really need
-    // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps = false;
-    // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport = false;
-    // What's the max ref length of a site that we genotype as a whole instead
-    // of splitting?
-    size_t max_ref_length = 100;
-    // What's the maximum number of bubble path combinations we can explore
-    // while finding one with maximum support?
+    Option<size_t> min_total_support_for_call{this, "min-count", "n", 1, 
+        "min total supporting read count to call a variant"};
+    /// Bin size used for counting coverage along the reference path.  The
+    /// bin coverage is used for computing the probability of an allele
+    /// of a certain depth
+    Option<size_t> ref_bin_size{this, "bin-size", "B", 250,
+        "bin size used for counting coverage"};
+    /// On some graphs, we can't get the coverage because it's split over
+    /// parallel paths.  Allow overriding here
+    Option<double> expected_coverage{this, "avg-coverage", "C", 0.0,
+        "specify expected coverage (instead of computing on reference)"};
+    /// Should we use average support instead of minimum support for our
+    /// calculations?
+    Option<bool> use_average_support{this, "use-avg-support", "u", false,
+        "use average instead of minimum support"};
+    /// Max traversal length threshold at which we switch from minimum support
+    /// to average support (so we don't use average support on pairs of adjacent
+    /// errors and miscall them, but we do use it on long runs of reference
+    /// inside a deletion where the min support might not be representative.
+    Option<size_t> average_support_switch_threshold{this, "use-avg-support-above", "uUaAtT", 100,
+        "use average instead of minimum support for sites this long or longer"};
+    
+    /// What's the maximum number of bubble path combinations we can explore
+    /// while finding one with maximum support?
     size_t max_bubble_paths = 100;
-    // what's the minimum minimum allele depth to give a PASS in the filter column
-    // (anything below gets FAIL)    
-    size_t min_mad_for_filter = 5;
-    // print warnings etc. to stderr
+    /// what's the minimum ref or alt allele depth to give a PASS in the filter
+    /// column? Also used as a min actual support for a second-best allele call
+    Option<size_t> min_mad_for_filter{this, "min-mad", "E", 5,
+        "min. ref/alt allele depth to PASS filter or be a second-best allele"};
+    /// what's the maximum total depth to give a PASS in the filter column
+    Option<size_t> max_dp_for_filter{this, "max-dp", "MmDdAaXxPp", 0,
+        "max depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the global baseline coverage?
+    Option<double> max_dp_multiple_for_filter{this, "max-dp-multiple", "MmDdAaXxPp", 0,
+        "max portion of global expected depth to PASS filter (0 for unlimited)"};
+    /// what's the maximum total depth to give a PASS in the filter column, as a
+    /// multiple of the local baseline coverage?
+    Option<double> max_local_dp_multiple_for_filter{this, "max-local-dp-multiple", "MmLlOoDdAaXxPp", 0,
+        "max portion of local expected depth to PASS filter (0 for unlimited)"};
+    /// what's the min log likelihood for allele depth assignments to PASS?
+    Option<double> min_ad_log_likelihood_for_filter{this, "min-ad-log-likelihood", "MmAaDdLliI", -9.0,
+        "min log likelihood for AD assignments to PASS filter (0 for unlimited)"};
+        
+    Option<bool> write_trivial_calls{this, "trival", "ivtTIRV", false,
+        "write trivial vcf calls (ex 0/0 genotypes)"};
+        
+    /// Should we call on nodes/edges outside of snarls by coverage (true), or
+    /// just assert that primary path things exist and off-path things don't
+    /// (false)?
+    Option<bool> call_other_by_coverage{this, "call-nodes-by-coverage", "cCoObB", false,
+        "make calls on nodes/edges outside snarls by coverage"};
+
+    /// Use total quality (true) instead of support count (false) when choosing
+    /// top alleles and deciding gentypes based on the biases.  
+    Option<bool> use_support_quality{this, "use-support-quality", "Q", false,
+        "use total support quality instead of total support count"};
+    
+    /// print warnings etc. to stderr
     bool verbose = false;
     
 };

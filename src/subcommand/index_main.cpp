@@ -35,6 +35,7 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
+         << "    -H, --write-haps FILE  write the paths generated from the VCF file in binary to FILE (don't write gPBWT)" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
@@ -43,8 +44,6 @@ void help_index(char** argv) {
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
          << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
          << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
          << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "                           (this is required if you are using multiple graphs files)" << endl
@@ -58,6 +57,8 @@ void help_index(char** argv) {
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format, cross reference nodes by alignment traversals" << endl
+         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
          << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
@@ -68,6 +69,23 @@ void help_index(char** argv) {
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -o, --discard-overlaps if phasing vcf calls alts at overlapping variants, call all but the first one as ref" << endl;
 }
+
+bool write_phase_threads(const vector<xg::XG::thread_t>& phase_threads, const string& output_filename) {
+    ofstream output(output_filename, std::ios::binary);
+    if (!output.is_open()) return false;
+    for (auto& thread : phase_threads) {
+        for (const xg::XG::ThreadMapping& mapping : thread) {
+            int64_t i = mapping.node_id;
+            if (mapping.is_reverse) i *= -1;
+            output.write((const char*)&i, sizeof(int64_t));
+        }
+        int64_t j = 0;
+        output.write((const char*)&j, sizeof(int64_t));
+    }
+    output.close();
+    return true;
+}
+
 #define debug
 int main_index(int argc, char** argv) {
 
@@ -107,6 +125,7 @@ int main_index(int argc, char** argv) {
     size_t size_limit = 200; // in gigabytes
     bool store_threads = false; // use gPBWT to store paths
     bool discard_overlaps = false;
+    string binary_haplotype_output;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -144,11 +163,12 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {"discard-overlaps", no_argument, 0, 'o'},
+            {"write-haps", required_argument, 0, 'H'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNo",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAg:X:x:v:r:VFZ:Oi:TNoH:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -167,6 +187,10 @@ int main_index(int argc, char** argv) {
 
         case 'v':
             vcf_name = optarg;
+            break;
+
+        case 'H':
+            binary_haplotype_output = optarg;
             break;
             
         case 'r':
@@ -301,8 +325,6 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    if (edge_max == 0) edge_max = kmer_size + 1;
-
     vector<string> file_names;
     while (optind < argc) {
         string file_name = get_input_file_name(optind, argc, argv);
@@ -330,6 +352,23 @@ int main_index(int argc, char** argv) {
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
     }
+    
+    if (!gcsa_name.empty() && rocksdb_name.empty()) {
+        // We need to make a gcsa index and not a RocksDB index.
+        
+        if (edge_max != 0) {
+            // I have been passing this option to vg index -g for months
+            // thinking it worked. But it can't work. So we should tell the user
+            // they're wrong.
+            cerr << "error:[vg index] Cannot limit edge crossing (-e) when generating GCSA index (-g)."
+                << " Use vg mod -p to prune the graph instead." << endl;
+            exit(1);
+        }
+        
+    }
+    
+    // An edge_max of 0 really just means an edge_max of one edge every base
+    if (edge_max == 0) edge_max = kmer_size + 1;
 
     if (!xg_name.empty()) {
         // We need to build an xg index
@@ -829,7 +868,14 @@ int main_index(int argc, char** argv) {
 
             // Now insert all the threads in a batch into the known-DAG VCF-
             // derived graph.
-            index.insert_threads_into_dag(all_phase_threads);
+            if (!binary_haplotype_output.empty()) {
+                if (!write_phase_threads(all_phase_threads, binary_haplotype_output)) {
+                    cerr << "could not write binary haplotypes to " << binary_haplotype_output << endl;
+                    return 1;
+                }
+            } else {
+                index.insert_threads_into_dag(all_phase_threads);
+            }
             all_phase_threads.clear();
 
         }

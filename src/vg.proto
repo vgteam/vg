@@ -120,6 +120,16 @@ message Alignment {
     repeated Path fragment = 17; // An estimate of the length of the fragment, if this Alignment is paired.
     repeated Locus locus = 18; // The loci that this alignment supports. TODO: get rid of this, we have annotations in our data model again.
     repeated Position refpos = 19; // Position of the alignment in reference paths embedded in graph
+    
+    // SAMTools-style flags
+    bool read_paired = 20;
+    bool read_mapped = 21;
+    bool mate_unmapped = 22;
+    bool read_on_reverse_strand = 23;
+    bool mate_on_reverse_strand = 24;
+    bool soft_clipped = 25;
+    bool discordant_insert_size = 26;
+    double uniqueness = 27; // The fraction of bases in the alignment that are covered by MEMs with <=1 total hits in the graph
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment
@@ -218,6 +228,8 @@ message Snarl {
     // If this Snarl is nested in another, this field should be filled in with a Snarl
     // that has the start and end visits filled in (other information is optional/extraneous)
     Snarl parent = 4;
+    // Allows snarls to be named, e.g. by the hash of the VCF variant they come from.
+    string name = 5;
 }
 
 // Describes a step of a walk through a Snarl either on a node or through a child Snarl
@@ -245,6 +257,10 @@ message SnarlTraversal {
 
     // A Snarl with the start and end Visits filled in to label which Snarl these traverse.
     Snarl snarl = 2;
+    // The name of the traversal can be used for a variant allele id (e.g. <parentSnarlHash>_0, <parentSnarlHash>_1...
+    // or by some other arbitrary annotation , unique or non-unique, e.g. deleteterious, gain_of_function, etc., though these
+    // will be lost in any indices).
+    string name = 3;
 }
 
 // Describes a genetic locus with multiple possible alleles, a genotype, and observational support.
@@ -262,6 +278,9 @@ message Locus {
     // We also have a Support for the locus overall, because reads may have
     // supported multiple alleles and we want to know how many total there were.
     Support overall_support = 5;
+    // We track the likelihood of each allele individually, in addition to
+    // genotype likelihoods. Stores the likelihood natural logged.
+    repeated double allele_log_likelihood = 6;
 }
 
 // Describes a genotype at a particular locus.
@@ -279,14 +298,14 @@ message Genotype {
 message Support {
     // The overall quality of all the support, as -10 * log10(P(all support is wrong))
     double quality = 1;
-    // The number of supporting reads on the forward strand
-    int32 forward = 2;
-    // The number of supporting reads on the reverse strand
-    int32 reverse = 3;
+    // The number of supporting reads on the forward strand (which may be fractional)
+    double forward = 2;
+    // The number of supporting reads on the reverse strand (which may be fractional)
+    double reverse = 3;
     // TODO: what is this?
-    int32 left = 4;
+    double left = 4;
     // TODO: What is this?
-    int32 right = 5;
+    double right = 5;
 }
 
 // Translations map from one graph to another.

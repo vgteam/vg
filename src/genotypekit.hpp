@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <functional>
 #include <cmath>
+#include <regex>
 #include <limits>
 #include <unordered_set>
 #include <unordered_map>
@@ -55,8 +56,7 @@ public:
     
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
 };
-    
-    
+
 
 /**
  * Represents a strategy for computing consistency between Alignments and
@@ -76,6 +76,7 @@ public:
         const vector<SnarlTraversal>& traversals, const Alignment& read) const = 0;
 };
 
+
 /**
  * Represents a strategy for calculating Supports for SnarlTraversals.
  * Polymorphic base class/interface.
@@ -92,6 +93,8 @@ public:
         const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
         const vector<vector<bool>>& consistencies) const = 0;
 };
+
+
 
 // TODO: This needs to be redesigned vis a vis the Genotype object. Genotypes
 // need an accompanying Locus object in order to have the Path of the allele
@@ -156,7 +159,10 @@ public:
 };
 
 
-// And now the implementations
+
+/////////////////////////////////
+// And now the implementations //
+/////////////////////////////////
 
 // Represents an assertion that an element in the augmented graph results from
 // an event of a certain type.
@@ -181,11 +187,12 @@ struct AugmentedGraph {
     
     // This holds support info for nodes. Note that we discard the "os" other
     // support field from StrandSupport.
+    // Supports for nodes are minimum distinct reads that use the node.
     map<Node*, Support> node_supports;
     // And for edges
     map<Edge*, Support> edge_supports;
     
-    // This holds the likelihood for each node.
+    // This holds the log10 likelihood for each node.
     // TODO: what exactly does that mean?
     map<Node*, double> node_likelihoods;
     // And for edges
@@ -198,11 +205,60 @@ struct AugmentedGraph {
     vector<Translation> translations;
     
     /**
+     * Return true if we have support information, and false otherwise.
+     */
+    bool has_supports();
+    
+    /**
+     * Get the Support for a given Node, or 0 if it has no recorded support.
+     */
+    Support get_support(Node* node);
+    
+    /**
+     * Get the Support for a given Edge, or 0 if it has no recorded support.
+     */
+    Support get_support(Edge* edge);
+    
+    /**
+     * Get the log10 likelihood for a given node, or 0 if it has no recorded
+     * likelihood.
+     */
+    double get_likelihood(Node* node);
+    
+    /**
+     * Get the log10 likelihood for a edge node, or 0 if it has no recorded
+     * likelihood.
+     */
+    double get_likelihood(Edge* edge);
+    
+    /**
+     * Get the call for a given node, or CALL_UNCALLED if it has no associated
+     * call.
+     */
+    ElementCall get_call(Node* node);
+    
+    /**
+     * Get the call for a given edge, or CALL_UNCALLED if it has no associated
+     * call.
+     */
+    ElementCall get_call(Edge* edge);
+    
+    /**
      * Clear the contents.
      */
     void clear();
 };
     
+
+
+class SimpleConsistencyCalculator : public ConsistencyCalculator{
+    public:
+    ~SimpleConsistencyCalculator();
+    vector<bool> calculate_consistency(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const Alignment& read) const;
+};
+
+
 class CactusUltrabubbleFinder : public SnarlFinder {
     
     /// Holds the vg graph we are looking for sites in.
@@ -285,6 +341,15 @@ public:
     
 };
 
+class PathBasedTraversalFinder : public TraversalFinder{
+    vg::VG& graph;
+    public:
+    PathBasedTraversalFinder(vg::VG& graph);
+    virtual ~PathBasedTraversalFinder() = default;
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+};
+
 /**
  * This traversal finder finds one or more traversals through leaf sites with no
  * children. It uses a depth-first search. It doesn't work on non-leaf sites,
@@ -319,60 +384,100 @@ protected:
     AugmentedGraph& augmented;
     /// The SnarlManager managiung the snarls we use
     SnarlManager& snarl_manager;
-    /// An index of the primary path in the graph, to scaffold the produced traversals.
-    PathIndex& index;
+    
+    /// We keep around a function that can be used to get an index for the
+    /// appropriate path to use to scaffold a given site, or null if no
+    /// appropriate index exists.
+    function<PathIndex*(const Snarl&)> get_index;
     
     /// What DFS depth should we search to?
     size_t max_depth;
-    //. How many search intermediates can we allow?
+    /// How many DFS searches should we let there be on the stack at a time?
+    size_t max_width;
+    /// How many search intermediates can we allow?
     size_t max_bubble_paths;
     
     /**
+     * Find a Path that runs from the start of the given snarl to the end, which
+     * we can use to backend our traversals into when a snarl is off the primary
+     * path.
+     */
+    Path find_backbone(const Snarl& site);
+    
+    /**
      * Given an edge or node in the augmented graph, look out from the edge or
-     * node in both directions to find a shortest bubble relative to the path,
-     * with a consistent orientation. The bubble may not visit the same node
-     * twice.
+     * node or snarl in both directions to find a shortest bubble relative to
+     * the path, with a consistent orientation. The bubble may not visit the
+     * same node twice.
      *
-     * Exactly one of edge and node must be null, and one not null.
+     * Exactly one of edge and node and snarl must be not null.
      *
      * Takes a max depth for the searches producing the paths on each side.
      * 
      * Return the ordered and oriented nodes in the bubble, with the outer nodes
-     * being oriented forward along the named path, and with the first node
-     * coming before the last node in the reference.  Also return the minimum
-     * support found on any edge or node in the bubble (including the reference
-     * node endpoints and their edges which aren't stored in the path)
+     * being oriented forward along the path for which an index is provided, and
+     * with the first node coming before the last node in the reference.  Also
+     * return the minimum support found on any edge or node in the bubble
+     * (including the reference node endpoints and their edges which aren't
+     * stored in the path).
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    pair<Support, vector<NodeTraversal>> find_bubble(Node* node, Edge* edge);
+    pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* snarl, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index);
         
     /**
      * Get the minimum support of all nodes and edges in path
      */
-    Support min_support_in_path(const list<NodeTraversal>& path);
+    Support min_support_in_path(const list<Visit>& path);
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the indexed
-     * reference path. Refuses to visit nodes with no support.
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path. Refuses to visit nodes with no support, if support data is
+     * available in the augmented graph.
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_left(NodeTraversal node, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index, bool stopIfVisited = false);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the indexed
-     * reference path.
+     * lengths and paths starting at the given node and ending on the given
+     * indexed path. Refuses to visit nodes with no support, if support data is
+     * available in the augmented graph.
+     *
+     * Uses the given child_boundary_index to figure out when Visits to child
+     * snarls are needed.
      */
-    set<pair<size_t, list<NodeTraversal>>> bfs_right(NodeTraversal node, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index,
+        const map<NodeTraversal, const Snarl*>& child_boundary_index, bool stopIfVisited = false);
         
     /**
      * Get the length of a path through nodes, in base pairs.
      */
-    size_t bp_length(const list<NodeTraversal>& path);
+    size_t bp_length(const list<Visit>& path);
     
 public:
 
+    /**
+     * Make a new RepresentativeTraversalFinder to find traversals. Uses the
+     * given augmented graph as the graph with coverage annotation, and reasons
+     * about child snarls with the given SnarlManager. Explores up to max_depth
+     * in the BFS search when trying to find its way across snarls, and
+     * considers up to max_width search states at a time. When combining search
+     * results on either side of a graph element to be represented, thinks about
+     * max_bubble_paths combinations.
+     *
+     * Uses the given get_index function to try and find a PathIndex for a
+     * reference path traversing a child snarl.
+     */
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
-        PathIndex& index, size_t max_depth, size_t max_bubble_paths);
+        size_t max_depth, size_t max_width, size_t max_bubble_paths,
+        function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?
     bool verbose = false;
@@ -402,35 +507,59 @@ public:
     virtual double calculate_log_prior(const Genotype& genotype);
 };
 
+
+class SimpleTraversalSupportCalculator : public TraversalSupportCalculator{
+    // A set of traversals through the site
+    // A set of alignments to the site
+    // And a set of consistencies, one vector for each alignment,
+    //    one boolean per traversal.
+    public:
+    ~SimpleTraversalSupportCalculator();
+    vector<Support> calculate_supports(const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<Alignment*>& reads,
+        const vector<vector<bool>>& consistencies) const;
+};
+
 /**
  * TBD
  *
  */
-//class StandardVcfRecordConverter {
-//private:
+// class StandardVcfRecordConverter {
+// private:
 //    const ReferenceIndex& index;
 //    vcflib::VariantCallFile& vcf;
 //    const string& sample_name;
-//    
-//public:
+   
+// public:
 //    StandardVcfRecordConverter();
 //    virtual ~StandardVcfRecordConverter() = default;
-//    
+   
 //    virtual vcflib::Variant convert(const Locus& locus) = 0;
-//};
+// };
     
 // We also supply utility functions for working with genotyping Protobuf objects
 
 /**
+ * Create a Support for the given forward and reverse coverage and quality.
+ */
+Support make_support(double forward, double reverse, double quality);
+
+/**
  * Get the total read support in a Support.
  */
-int total(const Support& support);
+double total(const Support& support);
 
 /**
  * Get the minimum support of a pair of Supports, by taking the min in each
  * orientation.
  */
 Support support_min(const Support& a, const Support& b);
+
+/**
+ * Get the maximum support of a pair of Supports, by taking the max in each
+ * orientation.
+ */
+Support support_max(const Support& a, const Support& b);
 
 /**
  * Add two Support values together, accounting for strand.
@@ -443,15 +572,108 @@ Support operator+(const Support& one, const Support& other);
 Support& operator+=(Support& one, const Support& other);
 
 /**
- * Scale a Support by an integral factor.
+ * Scale a Support by a factor.
  */
-Support operator*(const Support& support, const size_t& scale);
+template<typename Scalar>
+Support operator*(const Support& support, const Scalar& scale) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
 
 /**
- * Scale a Support by an integral factor, the other way
+ * Scale a Support by a factor, in place.
  */
-Support operator*(const size_t& scale, const Support& support);
+template<typename Scalar>
+Support& operator*=(Support& support, const Scalar& scale) {
+    support.set_forward(support.forward() * scale);
+    support.set_reverse(support.reverse() * scale);
+    support.set_left(support.left() * scale);
+    support.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    support.set_quality(support.quality() * scale);
+    
+    return support;
+}
 
+/**
+ * Scale a Support by a factor, the other way
+ */
+template<typename Scalar>
+Support operator*(const Scalar& scale, const Support& support) {
+    Support prod;
+    prod.set_forward(support.forward() * scale);
+    prod.set_reverse(support.reverse() * scale);
+    prod.set_left(support.left() * scale);
+    prod.set_right(support.right() * scale);
+    
+    // log-scaled quality can just be multiplied
+    prod.set_quality(support.quality() * scale);
+    
+    return prod;
+}
+
+/**
+ * Divide a Support by a factor.
+ */
+template<typename Scalar>
+Support operator/(const Support& support, const Scalar& scale) {
+    Support scaled;
+    
+    scaled.set_forward(support.forward() / scale);
+    scaled.set_reverse(support.reverse() / scale);
+    scaled.set_left(support.left() / scale);
+    scaled.set_right(support.right() / scale);
+    
+    // log-scaled quality can just be divided. Maybe.
+    scaled.set_quality(support.quality() / scale);
+    
+    return scaled;
+}
+
+/**
+ * Divide a Support by a factor, in place.
+ */
+template<typename Scalar>
+Support& operator/=(Support& support, const Scalar& scale) {
+    support.set_forward(support.forward() / scale);
+    support.set_reverse(support.reverse() / scale);
+    support.set_left(support.left() / scale);
+    support.set_right(support.right() / scale);
+    
+    // log-scaled quality can just be divided
+    support.set_quality(support.quality() / scale);
+    
+    return support;
+}
+
+/**
+ * Support less-than, based on total coverage.
+ */
+bool operator< (const Support& a, const Support& b);
+
+/**
+ * Support greater-than, based on total coverage.
+ */
+bool operator> (const Support& a, const Support& b);
+
+/**
+ * Allow printing a Support.
+ */
+ostream& operator<<(ostream& stream, const Support& support);
+
+/**
+ * Get a VCF-style 1/2, 1|2|3, etc. string from a Genotype.
+ */
+string to_vcf_genotype(const Genotype& gt);
     
 }
 

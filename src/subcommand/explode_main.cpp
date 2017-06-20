@@ -126,7 +126,11 @@ int main_explode(int argc, char** argv) {
                 }
             });
             
-            component.sync_paths();
+            // We inserted mappings into the component in more or less arbitrary
+            // order, so sort them by rank.
+            component.paths.sort_by_mapping_rank();
+            // Then rebuild the other path indexes
+            component.paths.rebuild_mapping_aux();
             
             // Save the component
             string filename = output_dir + "/component" + to_string(component_index) + ".vg";

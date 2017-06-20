@@ -1,5 +1,4 @@
 #include "deconstructor.hpp"
-#include "bubbles.hpp"
 
 using namespace std;
 
@@ -8,322 +7,175 @@ namespace vg {
     Deconstructor::Deconstructor(){
 
     }
-
-    Deconstructor::Deconstructor(VG* v) {
-        my_vg = v;
-
-
-        init();
-    }
-
     Deconstructor::~Deconstructor(){
     }
 
-    void Deconstructor::init(){
-    }
-
-    void Deconstructor::set_xg(xg::XG* xindex){
-        my_xg = xindex;
-    }
-    void Deconstructor::unroll_my_vg(int steps){
-        *my_vg = my_vg->unfold(steps, my_unroll_translation);
-        if (my_translation.size() > 0){
-            my_vg->overlay_node_translations(my_unroll_translation, my_translation);
-        }
-
-    }
-
-    void Deconstructor::dagify_my_vg(int steps){
-        *my_vg = my_vg->dagify(steps, my_dagify_translation, 0, my_max_length);
-        if (my_translation.size() > 0){
-            my_vg->overlay_node_translations(my_dagify_translation, my_translation);
-        }
-    }
-
     /**
-     * detect if there are superbubbles contained within the current superbubble
-     * (defined by Start and End)
-     *
-     * This is easiest done using a simple linear search between the nodes
-     * in topologically order.
-     *
-     */
-    bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
-        /*for (auto i: my_sbs){
-          if (i.first > start_and_end.first & i.second < start_and_end.second ){
-          return true;
-          }
-          }*/
-        return false;
-    }
+    * Takes in a vector of snarltraversals
+    * returns their sequences as a vector<string>
+    * returns a boolean hasRef
+    * if a reference path is present, hasRef is set to true and the first
+    * string in the vector is the reference allele
+    * otherwise, hasRef is set to false and all strings are alt alleles.
+    */
+    pair<bool, vector<string> > Deconstructor::get_alleles(vector<SnarlTraversal> travs, string refpath, vg::VG* graph){
+        vector<string> ret;
+        vector<SnarlTraversal> ordered_traversals;
+        bool hasRef = false;
 
+        bool normalize_indels = false;
 
-    /**
-     * For each superbubble in the graph:
-     *  If a superbubble is nested and simple (contains no superbubbles),
-     *  transform it into a node.
-     *  Record the translation from new node in the graph -> old superbubble
-     *  map<id_t, SuperBubble>
-     *
-     *  At each step, find the new superbubbles of the graph and continue with this process.
-     *  
-     *
-     */
-    vg::VG* Deconstructor::compact(int compact_steps){
-        map<id_t, SuperBubble> node_to_sb;
-        for (int i = 0; i < compact_steps; i++){
-            vector<pair<int64_t, int64_t> > supbubs = get_superbubbles(*my_vg);
-            if (supbubs.size() == 0){
-                break;
-            }
-            for (pair<int64_t, int64_t> s : supbubs){
-                if (!contains_nested(s)){
-                    //Generate a SuperBubble object,
-                    //which contains the startnode, endnode, and a trace through the interior.
-                    SuperBubble bub = report_superbubble(s.first, s.second);
+        // Check if we have a PathIndex for this path
+        bool path_indexed = pindexes.find(refpath) != pindexes.end();
+        for (auto t : travs){
+            stringstream t_allele;
 
-                    // Swap out the superbubble for its start node.
-
-                    // Record the translation.
-
-
-                    // Link up the right edges
-
-
-                }
-
-            }
-
-        }
-
-        return my_vg;
-
-
-    }
-
-    SuperBubble Deconstructor::translate_id(id_t transformed){
-        return id_to_bub[transformed];
-
-    }
-
-    /**
-     *   BFS through a superbubble and fill out the corresponding SuperBubble
-     *   struct.
-     */
-    SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
-
-        SuperBubble sb;
-        sb.start_node = start;
-        sb.end_node = end;
-
-        //BFS through interior and fill out level_to_nodes
-
-        queue<id_t> nq;
-        nq.push(start);
-        int level = 0;
-        map<int, vector<id_t> > level_to_nodes;
-        while(!nq.empty()){
-            id_t current = nq.front(); nq.pop();
-            level_to_nodes[level].push_back(current);
-            vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
-            for (int j = 0; j < edges_on_end.size(); j++){
-                nq.push(edges_on_end[j].first);
-                id_t next_id = (edges_on_end[j].first);
-                if (next_id == end){
-                    sb.level_to_nodes = level_to_nodes;
-                    break;
-                }
-
-            }
-            level++;
-        }
-        return sb;
-    }
-
-    bool Deconstructor::is_nested(SuperBubble sb){
-
-
-        return false;
-    }
-
-    void Deconstructor::sb2vcf(string outfile){
-        Header h;
-        h.set_date();
-        h.set_source("VG");
-        h.set_reference("");
-        h.set_version("VCF4.2");
-
-        cout << h << endl;
-
-        // for each superbubble:
-        // Fill out a vcflib Variant
-        // Check if it is masked by an input vcf
-        // if not, print it to stdout
-
-
-
-        map<id_t, vcflib::Variant> node_to_var;
-        vcflib::VariantCallFile mask;
-        if (!mask_file.empty()){
-            //node_to_var = my_vg->get_node_to_variant(mask);
-        }
-        for (auto s : my_sbs){
-            vcflib::Variant var;
-
-            // Make subgraphs out of the superbubble:
-            // Operating on a pair<id_t, id_t>, vector<id_t>
-            // then enumerate k_paths through the SuperBubbles
-            set<Node*> nodes;
-            set<Edge*> edges;
-
-            for (int i = 0; i < s.second.size(); i++){
-                id_t n_id = s.second[i];
-                //cerr << n_id << endl;
-                Node* n_node = my_vg->get_node(n_id);
-                vector<Edge*> e_end = my_vg->edges_from(n_node);
-                nodes.insert(n_node);
-                if (i < s.second.size() - 1){
-                    edges.insert(e_end.begin(), e_end.end());
-                }
-            }
-
-            vg::VG t_graph = vg::VG(nodes, edges);
-
-            vector<Path> paths;
-
-            std::function<void(NodeTraversal)> no_op = [](NodeTraversal n){};
-            std::function<void(size_t, Path&)> extract_path = [&paths](size_t x_size, Path& path){
-                paths.push_back(path);
-            };
-
-            t_graph.for_each_kpath(10000, false, 100, no_op, no_op, extract_path);
-
-            std::function<std::vector<Path>(vector<Path>)> uniquify = [](vector<Path> v){
-                map<string, Path> unqs;
-                vector<Path> ret;
-                for (auto x: v){
-                    unqs[path_to_string(x)] = x;
-                }
-
-                for (auto y : unqs){
-                    ret.push_back(y.second);
-                }
-                return ret;
-            };
-
-            paths = uniquify(paths);
-
-            std::function<bool(Path)> all_ref = [&](Path p){
-                for (int i = 0; i < p.mapping_size(); i++){
-                    Mapping m = p.mapping(i);
-                    Position pos = m.position();
-                    vg::id_t pos_id = pos.node_id();
-                    map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
-
-                    if (path_to_mappings.size() <= 0){
-                        return false;
-                    }
-                }
-                return true;
-            };
-
-            /*
-             * This means we now have vectors for the superbubble
-             * that have the paths through the nodes within it (including end nodes)
-             * however, these paths are repeated several times.
-             * We should find a way to prevent them being inserted once for each node.
-             *
-             * Next on the agenda: use the get_path_dist thing from vg call / vg stats
-             * to get the distance to the head node.
-             * Might need an XG index for this.
-             *
-             * Also need a way to deal with GAMs for this i.e. a way to 
-             * count the number of times we see something come up in the gam
-             */
-            int first_len = (my_vg->get_node(1))->sequence().size();
-            map<string, set<Mapping*> > p_to_mappings =  my_vg->paths.get_node_mapping(s.first.first);
-            for (auto p_name : p_to_mappings){
-                var.sequenceName = p_name.first;
-            }
-            //var.position = my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
-            var.position = 1; //my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
-
-            //var.sequenceName = my_vg->paths.get_node_mapping(pos_id);
-            //
-            for (auto x : paths){
-                //cerr << path_to_string(x) << endl;
-                stringstream ref_seq;
-                stringstream alt_seq;
+            // Get ref path index
+            if (path_indexed){
+                PathIndex* pind = pindexes[refpath];
+                // Check nodes of traversals Visits
+                // if they're all on the ref path,
+                // then this Snarltraversal is the ref allele.
                 bool is_ref = true;
-
-                for (int m_i = 1; m_i < x.mapping_size() -1 ; m_i++){
-                    Mapping m = x.mapping(m_i);
-                    id_t pos_id = m.position().node_id();
-                    Node* n = my_vg->get_node(pos_id);
-                    string n_seq = n->sequence();
-                    map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
-                    if (path_to_mappings.size() == 0){
+                for (auto v : t.visits()){
+                    if (!pind->path_contains_node(v.node_id())){
                         is_ref = false;
                     }
-
-                    if (is_ref){
-                        ref_seq << n_seq;
-                    }
-                    alt_seq << n_seq;
-
-                    //cerr << " REF: " << ref_seq.str() << " ALT: " << alt_seq.str() << endl;
-
+                    t_allele << graph->get_node(v.node_id())->sequence();
                 }
 
+                string t_str = t_allele.str();
+                if (t_str == ""){
+                    normalize_indels = true;
+                }
                 if (is_ref){
-                    if(var.ref.empty()){
-                        string ref_str = ref_seq.str();
-                        var.ref = ref_str; //(ref_str.size() > 0) ? ref_str : (my_vg->get_node(s.first.first))->sequence();
-                        var.alleles.insert(var.alleles.begin(), var.ref);
-                    }
+                    ret.insert(ret.begin(), t_str);
+                    ordered_traversals.insert(ordered_traversals.begin(), t);
+                    hasRef = true;
                 }
                 else{
-                    string alt_string = alt_seq.str();
-                    var.alt.push_back(alt_string);
-                    var.alleles.push_back(alt_string);
+                    ret.push_back(t_str);
+                    ordered_traversals.push_back(t);
                 }
+                
+            }
 
+            else{
+                // All alleles are alt alleles
+                // Just make our strings and push them back.
+                for (auto v : t.visits()){
+                    t_allele << graph->get_node(v.node_id())->sequence();
+                }
+                ret.push_back(t_allele.str());
+                ordered_traversals.push_back(t);
             }
-            if (! (var.ref.empty() && var.alt.empty()) ){
-                cout << var << endl;
+        }
+            // If we haev indels to normalize, loop over our alleles
+            // normalize each string to VCF-friendly format (i.e. clip one ref base
+            // on the left side and put it in the ref field and the alt field).
+            if (normalize_indels){
+                for (int i = 0; i < ret.size(); ++i){
+                // Get the reference base to the left of the variant.
+                // If our empty allele is the reference (and we have a reference),
+                // put our new-found ref base in the 0th index of alleles vector.
+                // Then, prepend that base to each allele in our alleles vector.
+                    SnarlTraversal t = ordered_traversals[i];
+                    pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[t.snarl().start().node_id()];
+                    pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[t.snarl().end().node_id()];
+                    bool use_start = pos_orientation_start.first < pos_orientation_end.first;
+                    bool rev = use_start ? pos_orientation_start.second : pos_orientation_end.second;
+                    string pre_node_seq = use_start ? graph->get_node(t.snarl().start().node_id())->sequence() :
+                                            graph->get_node(t.snarl().end().node_id())->sequence();
+                    string pre_variant_base = rev ? string(1, pre_node_seq[0]) : string(1, pre_node_seq[pre_node_seq.length() - 1]);
+                    ret[i].insert(0, pre_variant_base);
+                }
             }
+        return make_pair(hasRef, ret);
+
+    }
+
+    void Deconstructor::deconstruct(string refpath, vg::VG* graph){
+        
+     
+
+        // Create path index for the contig if we don't have one.
+        if (pindexes.find(refpath) == pindexes.end()){
+            pindexes[refpath] = new PathIndex(*graph, refpath, false);
+        }
+
+        // Spit header
+        // Set contig to refpath
+        // Set program field
+        // Set the version and data
+        // Set info field, if needed
+        // Make the header line
+        // open a VCF file
+
+        if (!headered){
+            vcflib::VariantCallFile outvcf;
+            stringstream stream;
+            stream << "##fileformat=VCFv4.2" << endl;
+            stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << "Sample" << endl;
+            
+            string hstr = stream.str();
+            assert(outvcf.openForOutput(hstr));
+            cout << outvcf.header << endl;
+            this->headered = true;
+        }
+
+        // Find snarls
+        // Snarls are variant sites ("bubbles")
+        SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, refpath, true);
+        SnarlManager snarl_manager = snarl_finder->find_snarls();
+        vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+        SimpleConsistencyCalculator scc;
+        TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+        for (const Snarl* snarl: snarl_roots){
+            vcflib::Variant v;
+            // SnarlTraversals are the (possible) alleles of our variant site.
+            vector<SnarlTraversal> travs = trav_finder->find_traversals(*snarl);
+            // write variant's sequenceName (VCF contig)
+            v.sequenceName = refpath;
+            // Set position based on the lowest position in the snarl.
+            pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[snarl->start().node_id()];
+            pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[snarl->end().node_id()];
+            bool use_start = pos_orientation_start.first < pos_orientation_end.first;
+            size_t node_pos = (use_start ? pos_orientation_start.first : pos_orientation_end.first);
+            v.position = node_pos +(use_start ? graph->get_node(snarl->start().node_id())->sequence().length() : graph->get_node(snarl->end().node_id())->sequence().length());
+            std::pair<bool, vector<string> > t_alleles = get_alleles(travs, refpath, graph);
+            if (t_alleles.first){
+                v.alleles.insert(v.alleles.begin(), t_alleles.second[0]);
+                v.ref = t_alleles.second[0];
+                for (int i = 1; i < t_alleles.second.size(); i++){
+                    v.alleles.push_back(t_alleles.second[i]);
+                    v.alt.push_back(t_alleles.second[i]);
+                }
+            }
+            else{
+                cerr << "NO REFERENCE ALLELE FOUND" << endl;
+                v.alleles.insert(v.alleles.begin(), ".");
+                for (int i = 0; i < t_alleles.second.size(); i++){
+                    v.alleles.push_back(t_alleles.second[i]);
+                    v.alt.push_back(t_alleles.second[i]);
+                }
+            }
+            v.updateAlleleIndexes();
+            cerr << v << endl;
 
         }
+        
 
     }
 
     /**
-     * Uses a BFS between nodes in the graph
-     * labeled as the endpoints of superbubbles
-     * to enumerate the nodes between them.
-     *TODO: the dagify transform records the node translation
+    * Convenience wrapper function for deconstruction of multiple paths.
+    */
+    void Deconstructor::deconstruct(vector<string> ref_paths, vg::VG* graph){
 
-     * IDEALLY: return the topological order, the starts/ends of superbubbles,
-     * and an index from node -> location in topo order. This makes
-     * checking if things are nested trivial.
-     */
-    map<pair<id_t, id_t>, vector<id_t> >  Deconstructor::get_all_superbubbles(){
-
-        my_sbs = superbubbles(*my_vg);
-        return my_sbs;
-
-    }
-
-
-    vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){
-        vector<int64_t> ret = vector<int64_t>(nt.size(), 0);
-        int64_t count = 0;
-        for (auto n: nt){
-            ret[(n.node->id() - 1)] = count;
-            count++;
+        for (auto path : ref_paths){
+            deconstruct(path, graph);
         }
 
-        return ret;
     }
-
 }
+

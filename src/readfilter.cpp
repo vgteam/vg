@@ -607,14 +607,12 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
         int tid = omp_get_thread_num();        
         Counts& counts = counts_vec[tid];
-        bool keep = true;
         double score = (double)aln.score();
-        double denom = 2. * aln.sequence().length();
+        double denom = aln.sequence().length();
         // toggle substitution score
         if (sub_score == true) {
             // hack in ident to replace old counting logic.
             score = aln.identity() * aln.sequence().length();
-            denom = aln.sequence().length();
             assert(score <= denom);
         }
         // toggle absolute or fractional score
@@ -646,9 +644,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         int co = aln.is_secondary() ? 1 : 0;
         
         ++counts.read[co];
- 
+        bool keep = true;
         // filter (current) alignment
-        keep = true;
         if ((aln.is_secondary() && score < min_secondary) ||
             (!aln.is_secondary() && score < min_primary)) {
             ++counts.min_score[co];
@@ -667,7 +664,9 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         vector<int> aln_chunks;
         if (keep || verbose) {
             get_chunks(aln, aln_chunks);
-            keep = !aln_chunks.empty();
+            if (aln_chunks.empty()) {
+                keep = false;
+            }
         }
         
         if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
@@ -722,6 +721,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Split Read Filter (secondary):     " << counts.split[1] << endl
              << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl
              << "Repeat Ends Filter (secondary):    " << counts.repeat[1] << endl
+             << "Min Quality Filter (primary):      " << counts.min_mapq[0] << endl
+             << "Min Quality  Filter (secondary):   " << counts.min_mapq[1] << endl
+                        
+            
              << endl;
     }
     

@@ -462,5 +462,141 @@ TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") 
 
 }
 
+TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype][representativetraversalfinder]") {
+
+    SECTION("Traversal-finding should work on a substitution inside a deletion") {
+    
+        // Build a toy graph
+        // Should be a substitution (2, 3 or 4, 5) nested inside a 1 to 6 deletion
+        const string graph_json = R"(
+    
+        {
+        "node": [
+            {"id": 1, "sequence": "G"},
+            {"id": 2, "sequence": "A"},
+            {"id": 3, "sequence": "T"},
+            {"id": 4, "sequence": "GGG"},
+            {"id": 5, "sequence": "GT"},
+            {"id": 6, "sequence": "GT"}
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 5},
+            {"from": 4, "to": 5},
+            {"from": 5, "to": 6},
+            {"from": 1, "to": 6}
+        ]
+        }
+        )";
+    
+        // Make an actual graph
+        VG graph;
+        Graph chunk;
+        json2pb(chunk, graph_json.c_str(), graph_json.size());
+        graph.merge(chunk);
+
+        // Find the snarls
+        CactusUltrabubbleFinder cubs(graph);
+        SnarlManager snarl_manager = cubs.find_snarls();
+        const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+        // We should have a single root snarl
+        REQUIRE(snarl_roots.size() == 1);
+        const Snarl* parent = snarl_roots[0];
+
+        auto children = snarl_manager.children_of(parent);
+        REQUIRE(children.size() == 1);
+        const Snarl* child = children[0];
+        
+        // We need an AugmentedGraph wraping the graph to use the
+        // RepresentativeTraversalFinder
+        AugmentedGraph augmented;
+        augmented.graph = graph;
+        
+        // Make a RepresentativeTraversalFinder
+        RepresentativeTraversalFinder finder(augmented, snarl_manager, 100, 100, 1000);
+        
+        SECTION("there should be two traversals of the substitution") {
+            
+            vector<SnarlTraversal> traversals = finder.find_traversals(*child);
+
+            REQUIRE(traversals.size() == 2);
+            
+            SECTION("all the traversals should be size 1, with just the middle node") {
+                // TODO: this will have to change when we start to support traversals of non-ultrabubbles.
+                for (auto traversal : traversals) {
+                    REQUIRE(traversal.visits_size() == 1);
+                    
+                    // Make sure the middle is a node and not a child snarl
+                    REQUIRE(traversal.visits(0).node_id() != 0);
+                }
+            }
+            
+            SECTION("one should hit node 3") {
+                bool found = false;
+                for (auto traversal : traversals) {
+                    for (size_t i = 0; i < traversal.visits_size(); i++) {
+                        // Check every visit on every traversal
+                        if (traversal.visits(i).node_id() == 3) {
+                            found = true;
+                        }
+                    }
+                }
+                REQUIRE(found);
+            }
+            
+            SECTION("one should hit node 4") {
+                bool found = false;
+                for (auto traversal : traversals) {
+                    for (size_t i = 0; i < traversal.visits_size(); i++) {
+                        // Check every visit on every traversal
+                        if (traversal.visits(i).node_id() == 4) {
+                            found = true;
+                        }
+                    }
+                }
+                REQUIRE(found);
+            }
+                
+        }
+        
+        SECTION("there should be two traversals of the parent deletion") {
+            
+            vector<SnarlTraversal> traversals = finder.find_traversals(*parent);
+
+            REQUIRE(traversals.size() == 2);
+            
+            SECTION("one should be empty") {
+                bool found = false;
+                for (auto traversal : traversals) {
+                    if (traversal.visits_size() == 0) {
+                        found = true;
+                    }
+                }
+                REQUIRE(found);
+            }
+            
+            SECTION("one should visit just the child site") {
+                bool found = false;
+                for (auto traversal : traversals) {
+                    if (traversal.visits_size() == 1) {
+                        auto& visit = traversal.visits(0);
+                        
+                        if(visit.node_id() == 0 && visit.snarl().start() == child->start() &&
+                            visit.snarl().end() == child->end()) {
+                            found = true;
+                        }
+                    }
+                }
+                REQUIRE(found);
+            }
+                
+        }
+    }
+
+}
+
 }
 }
