@@ -1221,9 +1221,33 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         size_t ref_path_index = 0;
+        size_t ref_path_end = ref_path_for_site.size() - 1;
         size_t bubble_path_index = 0;
+        size_t bubble_path_end = path.size() - 1;
         
-        while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
+        // Function that returns the node visit on the on one end of a visit, even
+        // if the visit is of a child snarl
+        auto frontier_visit = [&](const Visit& visit, bool left_side) {
+            if (visit.node_id() != 0) {
+                return visit;
+            }
+            else if (visit.backward() && !left_side) {
+                return reverse(visit.snarl().start());
+            }
+            else if (!visit.backward() && !left_side) {
+                return visit.snarl().end();
+            }
+            else if (visit.backward()) {
+                return reverse(visit.snarl().end());
+            }
+            else {
+                return visit.snarl().start();
+            }
+        };
+        
+        while(frontier_visit(ref_path_for_site[ref_path_index], false) != frontier_visit(path[bubble_path_index], true) &&
+              !(path[bubble_path_index].node_id() == 0 &&
+                frontier_visit(ref_path_for_site[ref_path_index], false) == frontier_visit(path[bubble_path_index], false))) {
             // Collect NodeTraversals from the ref path until we hit the one
             // at which the bubble path starts.
 #ifdef debug
@@ -1231,6 +1255,27 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 #endif
             extended_path.push_back(ref_path_for_site[ref_path_index++]);
         }
+        
+        if (ref_path_for_site[ref_path_index].node_id() == 0) {
+            // The last Visit we traversed from the ref was a Snarl, so it already
+            // includes the first node of the path as one of its boundaries. We need
+            // to add the ref visit and exclude the bubble visit unless it is also of
+            // a child Snarl and that Snarl is different from the ref path
+            
+#ifdef debug
+            cerr << "Adding final ref child visit " << pb2json(ref_path_for_site[ref_path_index]) << endl;
+#endif
+            extended_path.push_back(ref_path_for_site[ref_path_index]);
+            
+            if (path.front().node_id() != 0 || (path.front().snarl().start() == extended_path.back().snarl().start()
+                                                && path.front().snarl().end() == extended_path.back().snarl().end())) {
+#ifdef debug
+                cerr << "Skipping bubble visit " << pb2json(path[bubble_path_index]) << endl;
+#endif
+                bubble_path_index++;
+            }
+        }
+        
         while(bubble_path_index < path.size()) {
             // Then take the whole bubble path
 #ifdef debug
@@ -1240,13 +1285,18 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         while(ref_path_index < ref_path_for_site.size()) {
             // Then skip ahead to the matching point in the ref path, which may
-            // be either a full visit match, ot a match to the exit node of a
+            // be either a full visit match, or a match to the exit node of a
             // visited child snarl.
             
             // Check each reference visit
             auto& ref_visit = ref_path_for_site.at(ref_path_index);
             
-            if (ref_visit == path.back()) {
+#ifdef debug
+            cerr << "At ref: " << pb2json(ref_visit) << " with frontier visit " << pb2json(frontier_visit(ref_visit, true)) << " looking for " << pb2json(frontier_visit(path.back(), false)) << endl;
+#endif
+            
+            if (frontier_visit(ref_visit, true) == frontier_visit(path.back(), false) ||
+                (path.back().node_id() == 0 && frontier_visit(ref_visit, false) == frontier_visit(path.back(), false))) {
                 // We found the exit node. Put the after-the-bubble visits
                 // continuing from here.
                 break;
@@ -1260,12 +1310,15 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 #endif
             ref_path_index++;
         }
+        
         if(ref_path_index == ref_path_for_site.size()) {
             // We ran out of ref path before finding the place to leave the alt.
             // This must be a backtracking loop or something; start over from the beginning.
+            cerr << "ran out of ref" << endl;
             ref_path_index = 0;
             
-            while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
+            while(ref_path_index < ref_path_for_site.size() &&
+                  frontier_visit(ref_path_for_site.at(ref_path_index), true) != frontier_visit(path.back(), false)) {
                 // Then skip ahead to the matching point in the ref path
                 ref_path_index++;
             }
@@ -1274,10 +1327,28 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 // Still couldn't find it!
                 stringstream err;
                 err << "Couldn't find " << path.back() << " in backbone path of site "
-                    << site.start()
-                    << " to " << site.end() << endl;
+                << site.start()
+                << " to " << site.end() << endl;
                 throw runtime_error(err.str());
             }
+        }
+        
+        if (ref_path_for_site[ref_path_index].node_id() == 0) {
+            // The next Visit on the ref path is to a Snarl, so the final Visit we added
+            // from the bubble will be redundant with its boundary nodes unless that Visit
+            // was also to a Snarl
+            if (extended_path.back().node_id() != 0 ||
+                (ref_path_for_site[ref_path_index].snarl().start() == extended_path.back().snarl().start()
+                 && ref_path_for_site[ref_path_index].snarl().end() == extended_path.back().snarl().end())) {
+#ifdef debug
+                cerr << "Removing bubble visit " << pb2json(extended_path.back()) << endl;
+#endif
+                extended_path.pop_back();
+            }
+#ifdef debug
+            cerr << "Adding adjacent ref child visit" << pb2json(ref_path_for_site[ref_path_index]) << endl;
+#endif
+            extended_path.push_back(ref_path_for_site[ref_path_index]);
         }
         // Skip the matching NodeTraversal
         ref_path_index++;
