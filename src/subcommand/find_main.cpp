@@ -46,7 +46,7 @@ void help_find(char** argv) {
          << "haplotypes:" << endl
          << "    -H, --haplotypes FILE  count xg threads in agreement with alignments in the GAM" << endl
          << "    -t, --extract-threads  extract the threads, writing them as paths to the .vg stream on stdout" << endl
-         << "    -q, --threads-named S  return all threads whose names are prefixed with string S" << endl; 
+         << "    -q, --threads-named S  return all threads whose names are prefixed with string S (multiple allowed)" << endl; 
 
 }
 
@@ -89,7 +89,7 @@ int main_find(int argc, char** argv) {
     int min_mem_length = 1;
     string to_graph_file;
     bool extract_threads = false;
-    string extract_pattern;
+    vector<string> extract_patterns;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -266,7 +266,7 @@ int main_find(int argc, char** argv) {
 
         case 'q':
             extract_threads = true;
-            extract_pattern = optarg;
+            extract_patterns.push_back(optarg);
             break;
             
         case 'G':
@@ -558,10 +558,14 @@ int main_find(int argc, char** argv) {
             size_t thread_number = 0;
             bool extract_reverse = false;
             map<string, list<xg::XG::thread_t> > threads;
-            if (extract_pattern.empty()) {
+            if (extract_patterns.empty()) {
                 threads = xindex.extract_threads(extract_reverse);
             } else {
-                threads = xindex.extract_threads_matching(extract_pattern, extract_reverse);
+                for (auto& pattern : extract_patterns) {
+                    for (auto& t : xindex.extract_threads_matching(pattern, extract_reverse)) {
+                        threads[t.first] = t.second;
+                    }
+                }
             }
             for(auto t : threads) {
                 // Convert to a Path
