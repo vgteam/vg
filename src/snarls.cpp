@@ -3,7 +3,7 @@
 //
 //
 
-#define debug
+//#define debug
 
 #include "snarls.hpp"
 #include "json2pb.h"

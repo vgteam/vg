@@ -1,6 +1,6 @@
 #include "genotypekit.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 

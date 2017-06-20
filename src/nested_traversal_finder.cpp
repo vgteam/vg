@@ -233,6 +233,8 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& r
     // This holds all the visits we need to look at.
     list<Visit> queue {root};
     
+    const Snarl* managed_site = snarl_manager.manage(site);
+    
     while(!queue.empty()) {
         // Keep going until we've emptied the queue
         
@@ -266,7 +268,7 @@ set<pair<size_t, list<Visit>>> NestedTraversalFinder::search_left(const Visit& r
         } else {
             // We haven't reached a boundary, so just keep searching left from
             // this visit.
-            vector<Visit> neighbors = snarl_manager.visits_left(to_extend_from, augmented.graph);
+            vector<Visit> neighbors = snarl_manager.visits_left(to_extend_from, augmented.graph, managed_site);
             
             for (auto& extension : neighbors) {
                 // For each thing off the left

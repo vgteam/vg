@@ -21,7 +21,7 @@
 #include "stream.hpp"
 #include "nested_traversal_finder.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -923,6 +923,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     for (size_t traversal_number = 0; traversal_number < here_traversals.size(); traversal_number++) {
         // For every abstract traversal of this site, starting with the ref traversal...
         auto& abstract_traversal = here_traversals[traversal_number];
+#ifdef debug
+        cerr << "Concretizing abstract traversal " << pb2json(abstract_traversal) << endl;
+#endif
+        
         // Make a "concrete", node-level traversal for every abstract, Snarl-
         // visiting traversal.
         concrete_traversals.emplace_back();
@@ -945,6 +949,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // be going through the child backward.
                 auto& child_traversal = child_traversals.at(child).at(traversal_number == 0 ? 0 : 1);
                 
+#ifdef debug
+                cerr << "Splicing in child traversal " << pb2json(child_traversal) << endl;
+#endif
+                
                 size_t trav_transfer_start = 0;
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
@@ -964,24 +972,21 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                         reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
                         child_traversal.visits(j);
                 }
-                // And last the exit node (in the correct order and orientation)
-                *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->start()) : child->end();
             }
         }
+#ifdef debug
+        cerr << "Finished concrete traversal " << pb2json(concrete_traversals.back()) << endl;
+#endif
     }
     
     for (auto& concrete_traversal : concrete_traversals) {
         // Populate the Locus with those traversals by converting to paths
         Path* converted = locus.add_allele();
         
-        // Start with the start mapping
-        *converted->add_mapping() = to_mapping(site.start(), augmented.graph);
         for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
             // Convert all the visits to Mappings and stick them in the Locus's Paths
             *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
         }
-        // Finish with the end
-        *converted->add_mapping() = to_mapping(site.end(), augmented.graph);
     }
     
     if (locus.genotype_size() > 0) {
@@ -1316,9 +1321,12 @@ void Call2Vcf::call(
             vector<bool> is_ref;
             
             for (size_t i = 0; i < locus.allele_size(); i++) {
+
                 // For each allele path in the Locus
                 auto& path = locus.allele(i);
-                
+#ifdef debug
+                cerr << "Extracting allele " << i << ": " << pb2json(path) << endl;
+#endif
                 // Make a stream for the sequence of the path
                 stringstream sequence_stream;
                 // And for the description of involved IDs
@@ -1334,7 +1342,9 @@ void Call2Vcf::call(
                         node_sequence = reverse_complement(node_sequence);
                     }
                     sequence_stream << node_sequence;
-                    
+#ifdef debug
+                    cerr << "\tMapping: " << pb2json(mapping) << ", sequence " << node_sequence << endl;
+#endif
                     if (j != 0) {
                         // Add a separator
                         id_stream << "_";
@@ -1355,6 +1365,9 @@ void Call2Vcf::call(
                 } else {
                     sequences.push_back(sequence_stream.str());
                 }
+#ifdef debug
+                cerr << "Recorded allele sequence " << sequences.back() << endl;
+#endif
                 id_lists.push_back(id_stream.str());
                 // And whether they're reference or not
                 is_ref.push_back(is_reference(path, augmented));
@@ -1438,6 +1451,9 @@ void Call2Vcf::call(
             // Trim off the shared prefix
             size_t shared_prefix = shared_prefix_length(false);
             for (auto allele : used_alleles) {
+#ifdef debug
+                cerr << "Trimming allele " << allele << " from " << sequences[allele] << " to " << sequences[allele].substr(shared_prefix) << endl;
+#endif
                 sequences[allele] = sequences[allele].substr(shared_prefix);
             }
             // Add it onto the start coordinate
@@ -1446,6 +1462,9 @@ void Call2Vcf::call(
             // Then find and trim off the shared suffix
             size_t shared_suffix = shared_prefix_length(true);
             for (auto allele : used_alleles) {
+#ifdef debug
+                cerr << "Trimming allele " << allele << " from " << sequences[allele] << " to " << sequences[allele].substr(0, sequences[allele].size() - shared_suffix) << endl;
+#endif
                 sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
             }
             
