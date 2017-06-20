@@ -21,7 +21,7 @@
 #include "stream.hpp"
 #include "nested_traversal_finder.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 

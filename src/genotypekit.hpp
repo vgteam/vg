@@ -439,7 +439,8 @@ protected:
      * indexed path. Refuses to visit nodes with no support, if support data is
      * available in the augmented graph.
      */
-    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index, bool stopIfVisited = false,
+                                            const Snarl* in_snarl = nullptr);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
@@ -447,7 +448,8 @@ protected:
      * indexed path. Refuses to visit nodes with no support, if support data is
      * available in the augmented graph.
      */
-    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index, bool stopIfVisited = false);
+    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index, bool stopIfVisited = false,
+                                             const Snarl* in_snarl = nullptr);
         
     /**
      * Get the length of a path through nodes, in base pairs.

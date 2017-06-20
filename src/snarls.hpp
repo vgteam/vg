@@ -76,11 +76,11 @@ namespace vg {
         
         /// Look left from the given visit in the given graph and gets all the
         /// attached Visits to nodes or snarls.
-        vector<Visit> visits_left(const Visit& visit, VG& graph);
+        vector<Visit> visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl);
         
         /// Look left from the given visit in the given graph and gets all the
         /// attached Visits to nodes or snarls.
-        vector<Visit> visits_right(const Visit& visit, VG& graph);
+        vector<Visit> visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl);
         
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);

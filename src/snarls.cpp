@@ -3,6 +3,8 @@
 //
 //
 
+#define debug
+
 #include "snarls.hpp"
 #include "json2pb.h"
 
@@ -444,7 +446,7 @@ namespace vg {
         return &snarls.at(it->second);
     }
     
-    vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph) {
+    vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) {
         
 #ifdef debug
         cerr << "Look right from " << visit << endl;
@@ -462,7 +464,8 @@ namespace vg {
             // we're going.
             
             const Snarl* child = into_which_snarl(right_side.node, !right_side.is_end);
-            if (child != nullptr) {
+            if (child != nullptr && child != in_snarl
+                && into_which_snarl(right_side.node, right_side.is_end) != in_snarl) {
                 // We leave the one child and immediately enter another!
                 
                 // Make a visit to it
@@ -493,7 +496,8 @@ namespace vg {
 #endif
             
             const Snarl* child = into_which_snarl(attached.node, attached.is_end);
-            if (child != nullptr) {
+            if (child != nullptr && child != in_snarl
+                && into_which_snarl(right_side.node, right_side.is_end) != in_snarl) {
                 // We're reading into a child
                 
 #ifdef debug
@@ -549,10 +553,10 @@ namespace vg {
         
     }
     
-    vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph) {
+    vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) {
         
         // Get everything right of the reversed visit
-        vector<Visit> to_return = visits_right(reverse(visit), graph);
+        vector<Visit> to_return = visits_right(reverse(visit), graph, in_snarl);
         
         // Un-reverse them so they are in the correct orientation to be seen
         // left of here.

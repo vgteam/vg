@@ -1,5 +1,7 @@
 #include "genotypekit.hpp"
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -1503,6 +1505,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     // What are we going to find our left and right path halves based on?
     Visit left_visit;
     Visit right_visit;
+    
+    const Snarl* managed_site = snarl_manager.manage(site);
 
     if (edge != nullptr) {
         // Be edge-based
@@ -1512,7 +1516,6 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         left_visit = to_visit(edge->from(), edge->from_start());
         right_visit = to_visit(edge->to(), edge->to_end());
         
-        const Snarl* managed_site = snarl_manager.manage(site);
         const Snarl* right_child = snarl_manager.into_which_snarl(right_visit);
         const Snarl* left_child = snarl_manager.into_which_snarl(left_visit);
         
@@ -1574,8 +1577,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     // Find paths on both sides, with nodes or snarls on the primary path at the
     // outsides and this visit in the middle. Returns path lengths and paths in
     // pairs in a set.
-    auto leftPaths = bfs_left(left_visit, index);
-    auto rightPaths = bfs_right(right_visit, index);
+    auto leftPaths = bfs_left(left_visit, index, managed_site);
+    auto rightPaths = bfs_right(right_visit, index, managed_site);
     
     // Find a combination of two paths which gets us to the reference in a
     // consistent orientation (meaning that when you look at the ending nodes'
@@ -1841,7 +1844,7 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
 }
 
 set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit visit,
-    PathIndex& index, bool stopIfVisited) {
+    PathIndex& index, bool stopIfVisited, const Snarl* in_snarl) {
 
     // Holds partial paths we want to return, with their lengths in bp.
     set<pair<size_t, list<Visit>>> toReturn;
@@ -1938,10 +1941,13 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
             // the max depth. Extend with all the possible extensions.
             
             // Look left, possibly entering child snarls
-            vector<Visit> prevVisits = snarl_manager.visits_left(path.front(), augmented.graph);
+            vector<Visit> prevVisits = snarl_manager.visits_left(path.front(), augmented.graph, in_snarl);
             
 #ifdef debug
             cerr << "Consider " << prevVisits.size() << " prev visits" << endl;
+            for (Visit vis : prevVisits) {
+                cerr << "\t" << vis << endl;
+            }
 #endif
             
             for (auto prevVisit : prevVisits) {
@@ -2044,10 +2050,11 @@ set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_left(Visit vis
     return toReturn;
 }
 
-set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_right(Visit visit, PathIndex& index, bool stopIfVisited) {
+set<pair<size_t, list<Visit>>> RepresentativeTraversalFinder::bfs_right(Visit visit, PathIndex& index, bool stopIfVisited,
+                                                                        const Snarl* in_snarl) {
 
     // Look left from the backward version of the visit.
-    auto toConvert = bfs_left(reverse(visit), index, stopIfVisited);
+    auto toConvert = bfs_left(reverse(visit), index, stopIfVisited, in_snarl);
     
     // Since we can't modify set records in place, we need to do a copy
     set<pair<size_t, list<Visit>>> toReturn;
