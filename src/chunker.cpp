@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unordered_set>
 #include "stream.hpp"
 #include "chunker.hpp"
 
@@ -120,11 +121,12 @@ int64_t PathChunker::extract_gam_for_id_range(vg::id_t start, vg::id_t end, Inde
         graph_ids.push_back(i);
     }
     
-    return extract_gam_for_ids(graph_ids, index, out_stream);
+    return extract_gam_for_ids(graph_ids, index, out_stream, true);
 }
 
 int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
-                                         Index& index, ostream* out_stream) {
+                                         Index& index, ostream* out_stream,
+                                         bool contiguous) {
     
     // Load all the reads matching the graph into memory
     vector<Alignment> gam_buffer;
@@ -132,6 +134,33 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
 
     function<Alignment&(uint64_t)> write_buffer_elem = [&gam_buffer](uint64_t i) -> Alignment& {
         return gam_buffer[i];
+    };
+
+    // We filter out alignments with no nodes in our id range as post-processing
+    // until for_alignment_to_nodes fixed to not return such things.
+    function<bool(vg::id_t)> check_id;
+    unordered_set<vg::id_t>* id_lookup = NULL;
+    if (contiguous) {
+        check_id = [&](vg::id_t node_id) {
+            return node_id >= graph_ids[0] && node_id <= graph_ids[graph_ids.size() - 1];
+        };
+    } else {
+        id_lookup = new unordered_set<vg::id_t>(graph_ids.begin(), graph_ids.end());
+        check_id = [&](vg::id_t node_id) {
+            return id_lookup->count(node_id) == 1;
+        };
+    }
+    int filter_count = 0;
+    function<bool(const Alignment&)> in_range = [&](const Alignment& alignment) {
+        if (alignment.has_path()) {
+            for (int i = 0; i < alignment.path().mapping_size(); ++i) {
+                if (check_id(alignment.path().mapping(i).position().node_id()) == true) {
+                    return true;
+                }
+            }
+        }
+        ++filter_count;
+        return false;
     };
 
     function<void(const Alignment&)> write_alignment = [&](const Alignment& alignment) {
@@ -143,7 +172,9 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
         }
         
         // add to buffer
-        gam_buffer.push_back(alignment);
+        if (in_range(alignment)) {
+            gam_buffer.push_back(alignment);
+        }
     };
 
     index.for_alignment_to_nodes(graph_ids, write_alignment);
@@ -153,6 +184,11 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
         stream::write(*out_stream, gam_buffer.size(), write_buffer_elem);
         gam_count += gam_buffer.size();
         gam_buffer.clear();
+    }
+
+    delete id_lookup;
+    if (filter_count > 0) {
+        cerr << "[vg chunk] Filtered " << filter_count << " erroneous hits from Rocksdb query" << endl;
     }
     
     return gam_count;

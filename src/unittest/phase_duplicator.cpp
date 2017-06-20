@@ -43,10 +43,17 @@ const string duplicator_graph_1 = R"(
         ],
         "path": [
             {"name": "hint", "mapping": [
+<<<<<<< HEAD
                 {"position": {"node_id": 1}, "rank": 1},
                 {"position": {"node_id": 6}, "rank": 2},
                 {"position": {"node_id": 8}, "rank": 3},
                 {"position": {"node_id": 9}, "rank": 4}
+=======
+                {"position": {"node_id": 1}, "rank" : 1 },
+                {"position": {"node_id": 6}, "rank" : 2 },
+                {"position": {"node_id": 8}, "rank" : 3 },
+                {"position": {"node_id": 9}, "rank" : 4 }
+>>>>>>> upstream/master
             ]}
         ]
     }
@@ -71,7 +78,7 @@ TEST_CASE("PhaseDuplicator can emit a single traversal", "[phaseduplicator][inde
         {7, false},
         {9, false}
     }};
-    index.insert_threads_into_dag(threads, vector<string>());
+    index.insert_threads_into_dag(threads, {});
     
     // Make a duplicator
     PhaseDuplicator duplicator(index);
@@ -194,7 +201,7 @@ TEST_CASE("PhaseDuplicator can deduplicate identical traversals", "[phaseduplica
         {2, true},
         {1, true}
     }};
-    index.insert_threads_into_dag(threads, vector<string>());
+    index.insert_threads_into_dag(threads, {});
     
     // Make a duplicator
     PhaseDuplicator duplicator(index);
@@ -268,7 +275,7 @@ TEST_CASE("PhaseDuplicator can produce internal traversals", "[phaseduplicator][
     }, {
         {4, true}
     }};
-    index.insert_threads_into_dag(threads, vector<string>());
+    index.insert_threads_into_dag(threads, {});
     
     // Make a duplicator
     PhaseDuplicator duplicator(index);

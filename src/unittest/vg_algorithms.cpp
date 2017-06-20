@@ -2144,5 +2144,542 @@ namespace vg {
                 REQUIRE(found_edge_1);
             }
         }
+        
+        TEST_CASE( "Extending graph extraction algorithm produces expected results",
+                  "[algorithms]" ) {
+            
+            VG vg;
+            
+            Node* n0 = vg.create_node("TGAG");
+            Node* n1 = vg.create_node("CAGATCCACCACA");
+            Node* n2 = vg.create_node("GAT");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("TGAG");
+            Node* n5 = vg.create_node("AAT");
+            Node* n6 = vg.create_node("TAAAC");
+            Node* n7 = vg.create_node("CCGTA");
+            
+            vg.create_edge(n7, n0);
+            vg.create_edge(n0, n1, false, true);
+            vg.create_edge(n2, n0, true, true);
+            vg.create_edge(n1, n2, true, false);
+            vg.create_edge(n2, n3);
+            vg.create_edge(n3, n4);
+            vg.create_edge(n4, n5, false, true);
+            vg.create_edge(n6, n4, true, true);
+            vg.create_edge(n6, n6, false, true);
+            vg.create_edge(n7, n7);
+            
+            SECTION( "Extending graph extraction algorithm only finds nodes within the maximum distance" ) {
+                
+                pos_t pos = make_pos_t(n3->id(), false, 0);
+                int64_t max_dist = 5;
+                bool search_backward = false;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 2);
+                REQUIRE(g.edge_size() == 1);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                
+                bool found_edge_0 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+            }
+            
+            SECTION( "Extending graph extraction algorithm produces same output when searching in opposite direction on opposite strand" ) {
+                
+                pos_t pos = make_pos_t(n3->id(), true, 1);
+                int64_t max_dist = 5;
+                bool search_backward = true;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 2);
+                REQUIRE(g.edge_size() == 1);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                
+                bool found_edge_0 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+            }
+            
+            SECTION( "Extending graph extraction algorithm produces same output when searching in opposite direction on opposite strand" ) {
+                
+                pos_t pos = make_pos_t(n3->id(), true, 1);
+                int64_t max_dist = 5;
+                bool search_backward = true;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 2);
+                REQUIRE(g.edge_size() == 1);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                
+                bool found_edge_0 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+            }
+            
+            SECTION( "Extending graph extraction algorithm produces expected output when searching backwards" ) {
+                
+                pos_t pos = make_pos_t(n4->id(), false, 1);
+                int64_t max_dist = 3;
+                bool search_backward = true;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 3);
+                REQUIRE(g.edge_size() == 2);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n2->id() && n.sequence() == "GAT") {
+                        found_node_1 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "T") {
+                        found_node_2 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((id_trans[e.from()] == n2->id() && !e.from_start()) || (id_trans[e.to()] == n2->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n3->id() && e.from_start()) || (id_trans[e.to()] == n3->id() && !e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+            }
+            
+            SECTION( "Extending graph extraction algorithm produces same output when searching on reverse strand as searching backwards" ) {
+                
+                pos_t pos = make_pos_t(n4->id(), true, 3);
+                int64_t max_dist = 3;
+                bool search_backward = false;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 3);
+                REQUIRE(g.edge_size() == 2);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n2->id() && n.sequence() == "GAT") {
+                        found_node_1 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "T") {
+                        found_node_2 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((id_trans[e.from()] == n2->id() && !e.from_start()) || (id_trans[e.to()] == n2->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n3->id() && e.from_start()) || (id_trans[e.to()] == n3->id() && !e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+            }
+            
+            SECTION( "Extending graph extraction algorithm can traverse every type of edge" ) {
+                
+                pos_t pos = make_pos_t(n5->id(), false, 0);
+                int64_t max_dist = 100;
+                bool search_backward = false;
+                bool preserve_cycles = false;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 7);
+                REQUIRE(g.edge_size() == 8);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                bool found_node_3 = false;
+                bool found_node_4 = false;
+                bool found_node_5 = false;
+                bool found_node_6 = false;
+
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n0->id() && n.sequence() == "TGAG") {
+                        found_node_0 = true;
+                    }
+                    else if (id_trans[n.id()] == n1->id() && n.sequence() == "CAGATCCACCACA") {
+                        found_node_1 = true;
+                    }
+                    else if (id_trans[n.id()] == n2->id() && n.sequence() == "GAT") {
+                        found_node_2 = true;
+                    }
+                    else if (id_trans[n.id()] == n3->id() && n.sequence() == "A") {
+                        found_node_3 = true;
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_4 = true;
+                    }
+                    else if (id_trans[n.id()] == n5->id() && n.sequence() == "AAT") {
+                        found_node_5 = true;
+                    }
+                    else if (id_trans[n.id()] == n7->id() && n.sequence() == "CCGTA") {
+                        found_node_6 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                REQUIRE(found_node_3);
+                REQUIRE(found_node_4);
+                REQUIRE(found_node_5);
+                REQUIRE(found_node_6);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                bool found_edge_2 = false;
+                bool found_edge_3 = false;
+                bool found_edge_4 = false;
+                bool found_edge_5 = false;
+                bool found_edge_6 = false;
+                bool found_edge_7 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((id_trans[e.from()] == n7->id() && !e.from_start()) || (id_trans[e.to()] == n7->id() && e.to_end())) &&
+                        ((id_trans[e.from()] == n7->id() && e.from_start()) || (id_trans[e.to()] == n7->id() && !e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((id_trans[e.from()] == n7->id() && !e.from_start()) || (id_trans[e.to()] == n7->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n0->id() && e.from_start()) || (id_trans[e.to()] == n0->id() && !e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                    else if (((id_trans[e.from()] == n0->id() && !e.from_start()) || (id_trans[e.to()] == n0->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n1->id() && !e.from_start()) || (id_trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_2 = true;
+                    }
+                    else if (((id_trans[e.from()] == n0->id() && !e.from_start()) || (id_trans[e.to()] == n0->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n2->id() && e.from_start()) || (id_trans[e.to()] == n2->id() && !e.to_end()))) {
+                        found_edge_3 = true;
+                    }
+                    else if (((id_trans[e.from()] == n1->id() && e.from_start()) || (id_trans[e.to()] == n1->id() && !e.to_end())) &&
+                             ((id_trans[e.from()] == n2->id() && e.from_start()) || (id_trans[e.to()] == n2->id() && !e.to_end()))) {
+                        found_edge_4 = true;
+                    }
+                    else if (((id_trans[e.from()] == n2->id() && !e.from_start()) || (id_trans[e.to()] == n2->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n3->id() && e.from_start()) || (id_trans[e.to()] == n3->id() && !e.to_end()))) {
+                        found_edge_5 = true;
+                    }
+                    else if (((id_trans[e.from()] == n3->id() && !e.from_start()) || (id_trans[e.to()] == n3->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n4->id() && e.from_start()) || (id_trans[e.to()] == n4->id() && !e.to_end()))) {
+                        found_edge_6 = true;
+                    }
+                    else if (((id_trans[e.from()] == n4->id() && !e.from_start()) || (id_trans[e.to()] == n4->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n5->id() && !e.from_start()) || (id_trans[e.to()] == n5->id() && e.to_end()))) {
+                        found_edge_7 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+                REQUIRE(found_edge_2);
+                REQUIRE(found_edge_3);
+                REQUIRE(found_edge_4);
+                REQUIRE(found_edge_5);
+                REQUIRE(found_edge_6);
+                REQUIRE(found_edge_7);
+            }
+            
+            SECTION( "Extending graph extraction algorithm correctly duplicates a node in a reversing cycle" ) {
+                
+                pos_t pos = make_pos_t(n6->id(), false, 2);
+                int64_t max_dist = 10;
+                bool search_backward = false;
+                bool preserve_cycles = true;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                
+                REQUIRE(g.node_size() == 3);
+                REQUIRE(g.edge_size() == 4);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                
+                id_t original_src;
+                id_t duplicate_src;
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n6->id() && n.sequence() == "TAAAC") {
+                        found_node_0 = true;
+                        duplicate_src = n.id();
+                    }
+                    else if (id_trans[n.id()] == n6->id() && n.sequence() == "AAC") {
+                        found_node_1 = true;
+                        original_src = n.id();
+                    }
+                    else if (id_trans[n.id()] == n4->id() && n.sequence() == "TGAG") {
+                        found_node_2 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                bool found_edge_2 = false;
+                bool found_edge_3 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((e.from() == duplicate_src && !e.from_start()) || (e.to() == duplicate_src && e.to_end())) &&
+                        ((e.from() == original_src && !e.from_start()) || (e.to() == original_src && e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((e.from() == original_src && !e.from_start()) || (e.to() == original_src && e.to_end())) &&
+                             ((e.from() == original_src && !e.from_start()) || (e.to() == original_src && e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                    else if (((e.from() == duplicate_src && !e.from_start()) || (e.to() == duplicate_src && e.to_end())) &&
+                             ((e.from() == duplicate_src && !e.from_start()) || (e.to() == duplicate_src && e.to_end()))) {
+                        found_edge_2 = true;
+                    }
+                    else if (((e.from() == duplicate_src && e.from_start()) || (e.to() == duplicate_src && !e.to_end())) &&
+                             ((id_trans[e.from()] == n4->id() && !e.from_start()) || (id_trans[e.to()] == n4->id() && e.to_end()))) {
+                        found_edge_3 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+                REQUIRE(found_edge_2);
+                REQUIRE(found_edge_3);
+            }
+            
+            
+            
+            SECTION( "Extending graph extraction algorithm correctly duplicates a node in a non-reversing cycle" ) {
+                
+                pos_t pos = make_pos_t(n7->id(), false, 3);
+                int64_t max_dist = 7;
+                bool search_backward = false;
+                bool preserve_cycles = true;
+                
+                Graph g;
+                
+                auto id_trans = algorithms::extract_extending_graph(vg, g, max_dist, pos, search_backward, preserve_cycles);
+                                
+                REQUIRE(g.node_size() == 5);
+                REQUIRE(g.edge_size() == 6);
+                
+                bool found_node_0 = false;
+                bool found_node_1 = false;
+                bool found_node_2 = false;
+                bool found_node_3 = false;
+                bool found_node_4 = false;
+                
+                id_t original_src;
+                id_t duplicate_src;
+                for (size_t i = 0; i < g.node_size(); i++) {
+                    const Node& n = g.node(i);
+                    if (id_trans[n.id()] == n7->id() && n.sequence() == "CCGTA") {
+                        found_node_0 = true;
+                        duplicate_src = n.id();
+                    }
+                    else if (id_trans[n.id()] == n7->id() && n.sequence() == "TA") {
+                        found_node_1 = true;
+                        original_src = n.id();
+                    }
+                    else if (id_trans[n.id()] == n0->id() && n.sequence() == "TGAG") {
+                        found_node_2 = true;
+                    }
+                    else if (id_trans[n.id()] == n1->id() && n.sequence() == "CAGATCCACCACA") {
+                        found_node_3 = true;
+                    }
+                    else if (id_trans[n.id()] == n2->id() && n.sequence() == "GAT") {
+                        found_node_4 = true;
+                    }
+                }
+                
+                REQUIRE(found_node_0);
+                REQUIRE(found_node_1);
+                REQUIRE(found_node_2);
+                REQUIRE(found_node_3);
+                REQUIRE(found_node_4);
+                
+                bool found_edge_0 = false;
+                bool found_edge_1 = false;
+                bool found_edge_2 = false;
+                bool found_edge_3 = false;
+                bool found_edge_4 = false;
+                bool found_edge_5 = false;
+                
+                for (size_t i = 0; i < g.edge_size(); i++) {
+                    const Edge& e = g.edge(i);
+                    if (((e.from() == duplicate_src && e.from_start()) || (e.to() == duplicate_src && !e.to_end())) &&
+                        ((e.from() == original_src && !e.from_start()) || (e.to() == original_src && e.to_end()))) {
+                        found_edge_0 = true;
+                    }
+                    else if (((e.from() == duplicate_src && e.from_start()) || (e.to() == duplicate_src && !e.to_end())) &&
+                             ((e.from() == duplicate_src && !e.from_start()) || (e.to() == duplicate_src && e.to_end()))) {
+                        found_edge_1 = true;
+                    }
+                    else if (((e.from() == original_src && !e.from_start()) || (e.to() == original_src && e.to_end())) &&
+                             ((id_trans[e.from()] == n0->id() && e.from_start()) || (id_trans[e.to()] == n0->id() && !e.to_end()))) {
+                        found_edge_2 = true;
+                    }
+                    else if (((e.from() == duplicate_src && !e.from_start()) || (e.to() == duplicate_src && e.to_end())) &&
+                             ((id_trans[e.from()] == n0->id() && e.from_start()) || (id_trans[e.to()] == n0->id() && !e.to_end()))) {
+                        found_edge_3 = true;
+                    }
+                    else if (((id_trans[e.from()] == n0->id() && !e.from_start()) || (id_trans[e.to()] == n0->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n1->id() && !e.from_start()) || (id_trans[e.to()] == n1->id() && e.to_end()))) {
+                        found_edge_4 = true;
+                    }
+                    else if (((id_trans[e.from()] == n0->id() && !e.from_start()) || (id_trans[e.to()] == n0->id() && e.to_end())) &&
+                             ((id_trans[e.from()] == n2->id() && e.from_start()) || (id_trans[e.to()] == n2->id() && !e.to_end()))) {
+                        found_edge_5 = true;
+                    }
+                }
+                
+                REQUIRE(found_edge_0);
+                REQUIRE(found_edge_1);
+                REQUIRE(found_edge_2);
+                REQUIRE(found_edge_3);
+                REQUIRE(found_edge_4);
+                REQUIRE(found_edge_5);
+            }
+        }
     }
 }
