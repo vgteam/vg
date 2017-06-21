@@ -71,7 +71,7 @@ namespace algorithms {
     
     /// Fills graph g with the subgraph of the VG graph vg that contains all of the positions in
     /// the positions vector and all other nodes and edges that can be reached within a maximum
-    /// distance from any of these positions.
+    /// distance from any of these positions. Node IDs in the subgraph are retained from the full graph.
     ///
     /// Args:
     ///  vg                         graph to extract subgraph from
@@ -112,6 +112,26 @@ namespace algorithms {
                                   const vector<size_t>& position_forward_max_dist,
                                   const vector<size_t>& position_backward_max_dist,
                                   LRUCache<id_t, Node>* node_cache = nullptr);
+    
+    /// Fills graph g with the subgraph of the VG graph vg that extends in one direction from a given
+    /// position, up to a maximum distance. The node containing the position will be "cut" so that only
+    /// the portion that is forward in the search direction remains.
+    ///
+    /// Args:
+    ///  vg                      graph to extract subgraph from
+    ///  g                       graph to extract into
+    ///  max_dist                include all nodes and edges that can be reached in at most this distance
+    ///  pos                     extend from this position
+    ///  backward                extend in this direction
+    ///  preserve_cycles_on_src  if necessary, duplicate starting node to preserve cycles after cutting it
+    unordered_map<id_t, id_t> extract_extending_graph(VG& vg, Graph& g, int64_t max_dist, pos_t pos,
+                                                      bool backward, bool preserve_cycles_on_src);
+    
+    /// Same semantics as previous, but accesses graph through an XG instead of a VG. Optionally uses
+    /// an LRUCache to speed up Node queries.
+    unordered_map<id_t, id_t> extract_extending_graph(xg::XG& xg_index, Graph& g, int64_t max_dist, pos_t pos,
+                                                      bool backward, bool preserve_cycles_on_src,
+                                                      LRUCache<id_t, Node>* node_cache = nullptr);
     
 }
 }

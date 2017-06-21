@@ -89,10 +89,10 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
         ],
         "path": [
             {"name": "hint", "mapping": [
-                {"position": {"node_id": 1}},
-                {"position": {"node_id": 6}},
-                {"position": {"node_id": 8}},
-                {"position": {"node_id": 9}}
+                {"position": {"node_id": 1}, "rank" : 1 },
+                {"position": {"node_id": 6}, "rank" : 2 },
+                {"position": {"node_id": 8}, "rank" : 3 },
+                {"position": {"node_id": 9}, "rank" : 4 }
             ]}
         ]
     }
@@ -268,10 +268,10 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
         ],
         "path": [
             {"name": "hint", "mapping": [
-                {"position": {"node_id": 1}},
-                {"position": {"node_id": 6}},
-                {"position": {"node_id": 8}},
-                {"position": {"node_id": 9}}
+                {"position": {"node_id": 1}, "rank" : 1 },
+                {"position": {"node_id": 6}, "rank" : 2 },
+                {"position": {"node_id": 8}, "rank" : 3 },
+                {"position": {"node_id": 9}, "rank" : 4 }
             ]}
         ]
     }

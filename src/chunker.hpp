@@ -57,7 +57,8 @@ public:
     int64_t extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index, ostream* out_stream);
 
     /** More general interface used by above two functions */
-    int64_t extract_gam_for_ids(const vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream);
+    int64_t extract_gam_for_ids(const vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream,
+                                bool contiguous = false);
 };
 
 

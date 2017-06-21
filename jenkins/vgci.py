@@ -24,8 +24,9 @@ class VGCITest(TestCase):
     """
     def setUp(self):
         self.workdir = tempfile.mkdtemp()
+        self.tempdir = tempfile.mkdtemp()
         
-        self.f1_threshold = 0.02
+        self.f1_threshold = 0.005
         self.auc_threshold = 0.02
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
@@ -37,6 +38,7 @@ class VGCITest(TestCase):
         self.loadCFG()
                 
     def tearDown(self):
+        shutil.rmtree(self.tempdir)        
         if self.do_teardown:
             shutil.rmtree(self.workdir)
 
@@ -88,7 +90,7 @@ class VGCITest(TestCase):
 
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
-        if self.baseline[:5] == 's3://':
+        if self.baseline.startswith('s3://'):
             toks = self.baseline[5:].split('/')
             bname = toks[0]
             keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
@@ -98,6 +100,48 @@ class VGCITest(TestCase):
         else:
             with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
                 return f.read()
+
+    def _get_remote_file(self, src, tgt):
+        """ get a file from a store """
+        if not os.path.exists(os.path.dirname(tgt)):
+            os.makedirs(os.path.dirname(tgt))
+        if src.startswith('s3://'):
+            toks = src[5:].split('/')
+            bname = toks[0]
+            keyname = '/' + '/'.join(toks[1:])
+            bucket = S3Connection().get_bucket(bname)
+            key = bucket.get_key(keyname)
+            with open(tgt, 'w') as f:
+                return key.get_contents_to_file(f)
+        else:
+            shutil.copy2(src, tgt_file)
+
+    def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
+        """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
+        job_store = self._jobstore(dir_tag)
+        out_store = self._outstore(dir_tag)
+        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        if self.vg_docker:
+            opts += '--vg_docker {} '.format(self.vg_docker)
+        if chrom:
+            opts += '--chroms {} '.format(chrom)
+        if graph_path:
+            opts += '--graphs {} '.format(graph_path)
+        if xg_path:
+            opts += '--skip_xg '
+            self._get_remote_file(xg_path, os.path.join(out_store, os.path.basename(xg_path)))
+        if gcsa_path:
+            opts += '--skip_gcsa '
+            self._get_remote_file(gcsa_path, os.path.join(out_store, os.path.basename(gcsa_path)))
+            self._get_remote_file(gcsa_path + '.lcp', os.path.join(out_store, os.path.basename(gcsa_path) + '.lcp'))
+        opts += '--index_name {}'.format(file_tag)
+        if misc_opts:
+            opts += misc_opts + ' '
+        
+        cmd = 'toil-vg index {} {} {}'.format(job_store, out_store, opts)
+        
+        subprocess.check_call(cmd, shell=True)        
+        
         
     def _toil_vg_run(self, sample_name, chrom, graph_path, xg_path, gcsa_path, fq_path,
                      true_vcf_path, fasta_path, interleaved, misc_opts, tag):
@@ -124,6 +168,7 @@ class VGCITest(TestCase):
         if true_vcf_path:
             opts += '--vcfeval_baseline {} '.format(true_vcf_path)
             opts += '--vcfeval_fasta {} '.format(fasta_path)
+            opts += '--vcfeval_opts \" --ref-overlap\" '
         if interleaved:
             opts += '--interleaved '
         if misc_opts:
@@ -158,9 +203,9 @@ class VGCITest(TestCase):
     def _test_bakeoff(self, region, graph, skip_indexing):
         """ Run bakeoff F1 test for NA12878 """
         tag = '{}-{}'.format(region, graph)
-        chrom, offset = self._bakeoff_coords(region)
+        chrom, offset = self._bakeoff_coords(region)        
         if skip_indexing:
-            xg_path = self._input('{}-{}.xg'.format(graph, region))
+            xg_path = None
             gcsa_path = self._input('{}-{}.gcsa'.format(graph, region))
         else:
             xg_path = None
@@ -243,9 +288,22 @@ class VGCITest(TestCase):
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs):
         """ Run simulation on a bakeoff graph """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
-        xg_path = self._input('{}-{}.xg'.format(baseline_graph, region))
+        
+        # compute the xg indexes from scratch
+        index_bases = []
+        for graph in set([baseline_graph] + test_graphs):
+            chrom, offset = self._bakeoff_coords(region)        
+            vg_path = self._input('{}-{}.vg'.format(graph, region))
+            self._toil_vg_index(chrom, vg_path, None, self._input('{}-{}.gcsa'.format(graph, region)),
+                                None, tag, '{}-{}'.format(graph, region))
+            
         fasta_path = self._input('{}.fa'.format(region))
-        test_index_bases = [self._input('{}-{}'.format(x, region)) for x in test_graphs]
+        xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
+        test_index_bases = []
+        for test_graph in test_graphs:
+            test_tag = '{}-{}'.format(test_graph, region)
+            test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
+        test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, fasta_path, test_index_bases,
                              test_graphs, tag)
 
@@ -279,20 +337,20 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for BRCA1 cactus graph """
         self._test_bakeoff('BRCA1', 'cactus', True)
 
-    @timeout_decorator.timeout(300)        
+    @timeout_decorator.timeout(900)        
     def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
-        self._test_bakeoff('BRCA2', 'primary', True)
+        self._test_bakeoff('BRCA2', 'primary', False)
 
-    @timeout_decorator.timeout(300)        
+    @timeout_decorator.timeout(900)        
     def test_full_brca2_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 snp1kg graph """
-        self._test_bakeoff('BRCA2', 'snp1kg', True)
+        self._test_bakeoff('BRCA2', 'snp1kg', False)
 
-    @timeout_decorator.timeout(300)        
+    @timeout_decorator.timeout(900)        
     def test_full_brca2_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 cactus graph """
-        self._test_bakeoff('BRCA2', 'cactus', True)
+        self._test_bakeoff('BRCA2', 'cactus', False)
 
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(2000)        
