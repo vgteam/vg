@@ -1472,9 +1472,6 @@ void Call2Vcf::call(
             // Trim off the shared prefix
             size_t shared_prefix = shared_prefix_length(false);
             for (auto allele : used_alleles) {
-#ifdef debug
-                cerr << "Trimming allele " << allele << " from " << sequences[allele] << " to " << sequences[allele].substr(shared_prefix) << endl;
-#endif
                 sequences[allele] = sequences[allele].substr(shared_prefix);
             }
             // Add it onto the start coordinate
@@ -1483,9 +1480,6 @@ void Call2Vcf::call(
             // Then find and trim off the shared suffix
             size_t shared_suffix = shared_prefix_length(true);
             for (auto allele : used_alleles) {
-#ifdef debug
-                cerr << "Trimming allele " << allele << " from " << sequences[allele] << " to " << sequences[allele].substr(0, sequences[allele].size() - shared_suffix) << endl;
-#endif
                 sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
             }
             

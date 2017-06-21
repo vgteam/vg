@@ -497,7 +497,7 @@ namespace vg {
             
             const Snarl* child = into_which_snarl(attached.node, attached.is_end);
             if (child != nullptr && child != in_snarl
-                && into_which_snarl(right_side.node, right_side.is_end) != in_snarl) {
+                && into_which_snarl(attached.node, !attached.is_end) != in_snarl) {
                 // We're reading into a child
                 
 #ifdef debug

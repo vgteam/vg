@@ -1578,7 +1578,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     Visit right_visit;
     
     const Snarl* managed_site = snarl_manager.manage(site);
-
+    
     if (edge != nullptr) {
         // Be edge-based
         
@@ -1648,8 +1648,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     // Find paths on both sides, with nodes or snarls on the primary path at the
     // outsides and this visit in the middle. Returns path lengths and paths in
     // pairs in a set.
-    auto leftPaths = bfs_left(left_visit, index, managed_site);
-    auto rightPaths = bfs_right(right_visit, index, managed_site);
+    auto leftPaths = bfs_left(left_visit, index, false, managed_site);
+    auto rightPaths = bfs_right(right_visit, index, false, managed_site);
     
     // Find a combination of two paths which gets us to the reference in a
     // consistent orientation (meaning that when you look at the ending nodes'
