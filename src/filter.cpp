@@ -50,9 +50,10 @@ namespace vg{
     Alignment Filter::remove_clipped_portion(Alignment& a){
         Alignment ret = a;
         ret.clear_path();
+        Path* rpath = ret.mutable_path();
         for (int i = 0; i < a.path().mapping_size(); i++){
             Mapping m = a.path().mapping(i);
-            Mapping* n_m = ret.path().add_mapping();
+            Mapping* n_m = rpath->add_mapping();
             Position pp = m.position();
             int offset = pp.offset();
             bool edits_match = true;
@@ -72,8 +73,9 @@ namespace vg{
                 }
             }
             if (edits_match){
-                n_m->position().set_node_id(pp.node_id());
-                n_m->position().set_offset(pp.offset());
+                Position* rposition = n_m->mutable_position();
+                rposition->set_node_id(pp.node_id());
+                rposition->set_offset(pp.offset());
             }
 
         }

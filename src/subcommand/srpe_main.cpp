@@ -307,12 +307,12 @@ int main_srpe(int argc, char** argv){
                     b.mates.push_back(other);
                     bps.push_back(other);
                      Alignment a;
-                     a.set_name(a.name())
+                     a.set_name(a.name());
                      a.set_sequence(a.sequence());
                      a.set_quality(a.quality());
                      // Tidy up our new path by removing the clipped region and replacing with
                      // remapped portion's path
-                     Position 
+
 
                 }
             }

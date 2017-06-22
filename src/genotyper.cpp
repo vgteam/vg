@@ -16,6 +16,7 @@ namespace vg {
     // - Output as vcf or as native format
 
 
+
     /**
      * run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa 
      */
@@ -29,6 +30,16 @@ namespace vg {
         set<int64_t> variant_nodes;
 
         bool use_snarls = false;
+
+        std::function<double(int, int)> scale_read_counts = [&](int allele_len, int read_len){
+            double scale = (double) allele_len / (double) read_len;
+            if (scale < 1.0){
+                return 1.0;
+            }
+            else{
+                return scale;
+            }
+        };
 
         // Store a list of node IDs each variant covers
         map<string, unordered_set<int64_t> > allele_name_to_node_id;
@@ -361,6 +372,14 @@ namespace vg {
         }
 
     }
+
+    // void Genotyper::genotype(void Genotyper::variant_recall(VG* graph,
+    //         vcflib::VariantCallFile* vars,
+    //         FastaReference* ref_genome,
+    //         vector<FastaReference*> insertions,
+    //         string gamfile, bool isIndex){
+
+    //         }
 
 
     void Genotyper::run(VG& graph,
