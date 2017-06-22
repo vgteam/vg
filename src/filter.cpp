@@ -22,6 +22,51 @@ namespace vg{
         return abs(rp - fp);
     }
 
+    Alignment Filter::refactor_split_alignment(Alignment& a){
+        // Get the clipped portion
+        string clipseq = get_clipped_seq(a);
+        // Remap it
+        vector<Alignment> remaps = remap(clipseq);
+        if (remaps.size() < 1){
+            return a;
+        }
+        // Tack the new split's path onto the anchored bit, depending on which side it came from.
+        bool l_clipped = is_left_clipped(a);
+        Path anchor = trim_hanging_ends(a.path());
+        Path remap_path = remaps[0].path();
+        Path* new_path = a.mutable_path();
+        if (l_clipped){
+            // Prepend our remapped alignment portion
+            new_path->CopyFrom( append_path(remap_path, anchor));
+        }
+        else if (!l_clipped){
+            // Append our remapped alignment portion
+
+            new_path->CopyFrom( append_path(anchor, remap_path));
+        }
+
+        return a;
+
+    }
+
+    bool Filter::is_left_clipped(Alignment& a){
+        Path path = a.path();
+        Edit left_edit = path.mapping(0).edit(0);
+        Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
+        int left_overhang = left_edit.to_length() - left_edit.from_length();
+        int right_overhang = right_edit.to_length() - right_edit.from_length();
+        if (left_overhang > soft_clip_limit){
+            return true;
+        }
+        else if (right_overhang > soft_clip_limit){
+            return false;
+        }
+        else{
+            cerr << "ALignment is not softclipped" << endl;
+            exit(999);
+        }
+    }
+
     string Filter::get_clipped_seq(Alignment& a){
         if (a.path().mapping_size() > 0){
             Path path = a.path();
@@ -50,35 +95,15 @@ namespace vg{
     Alignment Filter::remove_clipped_portion(Alignment& a){
         Alignment ret = a;
         ret.clear_path();
-        Path* rpath = ret.mutable_path();
-        for (int i = 0; i < a.path().mapping_size(); i++){
-            Mapping m = a.path().mapping(i);
-            Mapping* n_m = rpath->add_mapping();
-            Position pp = m.position();
-            int offset = pp.offset();
-            bool edits_match = true;
-            for (int j = 0; j < m.edit_size(); j++){
-                Edit e = m.edit(j);
-                offset += e.from_length();
-                if (e.to_length() == e.from_length() && !e.sequence().empty() && (j == 0 | j == m.edit_size() - 1)){
-                    edits_match = false;
-                    continue;
-                }
-                else{
-                    edits_match = true;
-                    Edit* n_e = n_m->add_edit();
-                    n_e->set_to_length(e.to_length());
-                    n_e->set_from_length(e.from_length());
-                    n_e->set_sequence(e.sequence());
-                }
-            }
-            if (edits_match){
-                Position* rposition = n_m->mutable_position();
-                rposition->set_node_id(pp.node_id());
-                rposition->set_offset(pp.offset());
-            }
+        Path clipped = trim_hanging_ends(a.path());
+        ret.mutable_path()->CopyFrom(clipped);
+        // Path* rpath = ret.mutable_path();
 
-        }
+        // for(int i = 0; i < clipped.mapping_size(); i++){
+        //     Mapping m = clipped.mapping(i);
+
+        //     for (int j = 0; j < )
+        // }
         return ret;
     }
 

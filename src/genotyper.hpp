@@ -144,6 +144,10 @@ public:
                                 FastaReference* ref_genome,
                                 vector<FastaReference*> insertions,
                                 string gamfile, bool isIndex = false);
+    // Genotype new SVs from a GAM
+    void genotype_svs(VG* graph, 
+                        string gamfile);
+
     // Process and write output
     void run(VG& graph,
              vector<Alignment>& alignments,

@@ -83,71 +83,22 @@ public:
   int8_t* depths;
   uint64_t size;
   inline DepthMap(int64_t sz) { depths = new int8_t[sz]; };
-  inline DepthMap() { depths = new int8_t[1000]; };
-  inline int8_t get_depth(int64_t node_id) { return depths[node_id]; };
-  inline void set_depth(int64_t node_id, int8_t d) { depths[node_id] = d; };
-  inline void fill(vector<Alignment> alns){
-    for (auto a : alns){
-        for (int i = 0; i < a.path().mapping_size(); ++i){
-            Mapping m = a.path().mapping(i);
-            for (int j = 0; j < m.edit_size(); j++){
-                if (m.edit(j).to_length() == m.edit(j).from_length() &&
-                     m.edit(j).sequence().empty()){
-                        depths[m.position().node_id()] += 1;
-                        break;
-                     }
-            }
-        }
-    }
-  };
-  inline void fill(vector<Path> paths){
-    #pragma omp parallel for
-    for (int p_ind = 0; p_ind < paths.size(); ++p_ind){
-        Path p = paths[p_ind];
-        for (int i=0; i<p.mapping_size(); ++i){
-            Mapping m = p.mapping(i);
-            bool match = false;
-            for (int j = 0; j < m.edit_size(); ++j){
-                if (m.edit(j).from_length() == m.edit(j).to_length() &&
-                        m.edit(j).sequence().empty()){
-                            match = true;
-                        }
-            }
-            if (match){
-                #pragma omp atomic
-                depths[m.position().node_id()] += 1;
-            }
-            
-        }
-    }
-  };
-  inline void fill(Path path){
-        for (int i=0; i<path.mapping_size(); ++i){
-            Mapping m = path.mapping(i);
-            for (int j = 0; j < m.edit_size(); ++j){
-                if (m.edit(j).from_length() == m.edit(j).to_length() &&
-                        m.edit(j).sequence().empty()){
-                            depths[m.position().node_id()] == 1;
-                            break;
-                        }
-            }
-            
-        }
-  };
-  inline void fill(Mapping m){
-    #pragma omp atomic
-    depths[m.position().node_id()]++;
-  };
-  inline void fill(int64_t node_id) {
-    if (node_id < size) {
-        #pragma omp atomic
-        depths[node_id] += 1;
-    } else {
-        cerr << "WARNING: INVALID NODE" << node_id << endl;
-    }
-  }
-};
+  inline DepthMap() {};
+  inline DepthMap(vg::VG* graph){
 
+    int64_t tot_size = 0;
+    std::function<void(Node*)> count_size = [&](Node* n){
+        #pragma omp critical
+        tot_size += n->sequence().length();
+    };
+    graph->for_each_node(count_size);
+    size = tot_size;
+    depths = new int8_t(size);
+  };
+  inline int8_t get_depth(int64_t node_id, int64_t offset) { return depths[node_id + offset]; };
+  inline void set_depth(int64_t node_id, int64_t offset, int8_t d) { depths[node_id + offset] = d; };
+
+};
 
     class SRPE{
 

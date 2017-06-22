@@ -312,7 +312,7 @@ int main_srpe(int argc, char** argv){
                      a.set_quality(a.quality());
                      // Tidy up our new path by removing the clipped region and replacing with
                      // remapped portion's path
-
+                     
 
                 }
             }

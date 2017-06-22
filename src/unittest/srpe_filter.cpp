@@ -80,7 +80,6 @@ TEST_CASE("Softclipped portions can be trimmed from reads.", "[sift]") {
 
     SECTION("Soft clip filter removes clipped portions"){
         Alignment a = ff.remove_clipped_portion(first);
-        cout << pb2json(a);
         REQUIRE(ff.soft_clip_filter(a).name() == "");
     }
 

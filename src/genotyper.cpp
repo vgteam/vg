@@ -15,8 +15,18 @@ namespace vg {
     // - Compute diploid genotypes for each site
     // - Output as vcf or as native format
 
-
-
+    void genotype_svs(VG* graph, 
+                        string gamfile){
+            // Open up our GAM file
+            // Pull out all of our boring reads and just load them in a depth map
+            // Then, collect our SV-supporting reads and load them into a local map for PE manipulation
+            // This includes:
+            // Softclipped (later split) reads
+            // One end anchored (one mate is mapped)
+            // Unmapped reads
+            // Reads with internal mismatches (cleanly anchored reads)
+            // 
+    }
     /**
      * run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa 
      */

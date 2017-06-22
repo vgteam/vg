@@ -51,6 +51,9 @@ class Filter{
         vector<Alignment> remap(Alignment& aln);
         vector<Alignment> remap(string seq);
 
+        bool is_left_clipped(Alignment& a);
+        Alignment refactor_split_alignment(Alignment& a);
+
         Alignment path_length_filter(Alignment& aln);
 
         /*PE Functions*/
