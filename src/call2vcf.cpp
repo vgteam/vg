@@ -375,6 +375,12 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t)> handle_node,
     function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
 
+    // Must at least have start and end
+    assert(traversal.visits_size() >= 2);
+    
+    // Look at the edge leading from the start (also handles deletion traversals)
+    handle_edge(0, to_right_side(traversal.visits(0)), to_left_side(traversal.visits(1)));
+    
     for(int64_t i = 1; i < traversal.visits_size() - 1; i++) {
         // For all the (internal) visits...
         auto& visit = traversal.visits(i);
@@ -389,40 +395,22 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             handle_child(i - 1, visit.snarl());
         }
         
-        // Account for the edge out
-        if (i + 1 < traversal.visits_size()) {
-            // There's a next visit
-            auto& next_visit = traversal.visits(i + 1);
-            
-            if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
-                to_right_side(visit).flip() == to_left_side(next_visit)) {
-                
-                // These are two back-to-back child snarl visits, which
-                // share a node and have no connecting edge.
-#ifdef debug
-                cerr << "No edge needed for back-to-back child snarls" << endl;
-#endif
-                
-            } else {
-                // Do the edge to it
-                handle_edge(i - 1, to_right_side(visit), to_left_side(next_visit));
-            }
-        } else {
-            // Do the edge to the end of the snarl.
-            handle_edge(i - 1, to_right_side(visit), to_left_side(site.end()));
-        }
+        auto& next_visit = traversal.visits(i + 1);
         
-        // And for the edge in, if necessary
-        if (i == 0) {
-            // This is the first visit, so we need to connect to the left end of the snarl.
-            handle_edge(i - 1, to_right_side(site.start()), to_left_side(visit));
+        if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+            to_right_side(visit).flip() == to_left_side(next_visit)) {
+            
+            // These are two back-to-back child snarl visits, which
+            // share a node and have no connecting edge.
+#ifdef debug
+            cerr << "No edge needed for back-to-back child snarls" << endl;
+#endif
+            
         }
-    }
-    
-    if(traversal.visits_size() == 0) {
-        // We just have the anchoring nodes and the edge between them.
-        // Look at that edge specially.
-        handle_edge(0, to_right_side(site.start()), to_left_side(site.end()));
+        else {
+            // Do the edge to it
+            handle_edge(i - 1, to_right_side(visit), to_left_side(next_visit));
+        }
     }
 
 }
