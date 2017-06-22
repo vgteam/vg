@@ -47,6 +47,40 @@ namespace vg{
         }
     }
 
+    Alignment Filter::remove_clipped_portion(Alignment& a){
+        Alignment ret = a;
+        ret.clear_path();
+        for (int i = 0; i < a.path().mapping_size(); i++){
+            Mapping m = a.path().mapping(i);
+            Mapping* n_m = ret.path().add_mapping();
+            Position pp = m.position();
+            int offset = pp.offset();
+            bool edits_match = true;
+            for (int j = 0; j < m.edit_size(); j++){
+                Edit e = m.edit(j);
+                offset += e.from_length();
+                if (e.to_length() == e.from_length() && !e.sequence().empty() && (j == 0 | j == m.edit_size() - 1)){
+                    edits_match = false;
+                    continue;
+                }
+                else{
+                    edits_match = true;
+                    Edit* n_e = n_m->add_edit();
+                    n_e->set_to_length(e.to_length());
+                    n_e->set_from_length(e.from_length());
+                    n_e->set_sequence(e.sequence());
+                }
+            }
+            if (edits_match){
+                n_m->position().set_node_id(pp.node_id());
+                n_m->position().set_offset(pp.offset());
+            }
+
+        }
+        return ret;
+    }
+
+
     Position Filter::get_clipped_position(Alignment& a){
         Position rPos;
         if (a.path().mapping_size() > 0){

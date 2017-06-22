@@ -11,6 +11,8 @@ namespace vg{
 
     }
 
+    
+
     void SRPE::aln_to_bseq(Alignment& a, bseq1_t* read){
         read->seq = (char*) a.sequence().c_str();
         read->qual = (char*) a.quality().c_str();

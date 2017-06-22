@@ -100,7 +100,7 @@ class Filter{
         string get_clipped_seq(Alignment& a);
         int64_t get_clipped_ref_position(Alignment& a);
         Position get_clipped_position(Alignment& a);
-
+        Alignment remove_clipped_portion(Alignment& a);
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?

@@ -273,6 +273,8 @@ int main_srpe(int argc, char** argv){
         return ret;
     };
 
+
+
     // Set up path index
     srpe.ff.set_my_vg(graph);
     srpe.ff.soft_clip_limit = 20;
@@ -290,7 +292,8 @@ int main_srpe(int argc, char** argv){
         //cerr << a.DebugString() << endl;
         //cerr << a_clip << endl;
         if (a_clip.length() > 25){
-            //cerr << "Remapping " << a_clip << endl;
+            cerr << "Remapping " << a_clip << endl;
+            
             BREAKPOINT b;
             b.position = srpe.ff.get_clipped_position(a);
             b.split_supports += 1;
@@ -303,6 +306,14 @@ int main_srpe(int argc, char** argv){
                     other.mates.push_back(b);
                     b.mates.push_back(other);
                     bps.push_back(other);
+                     Alignment a;
+                     a.set_name(a.name())
+                     a.set_sequence(a.sequence());
+                     a.set_quality(a.quality());
+                     // Tidy up our new path by removing the clipped region and replacing with
+                     // remapped portion's path
+                     Position 
+
                 }
             }
         }
