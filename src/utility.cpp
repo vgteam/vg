@@ -223,17 +223,6 @@ vector<size_t> range_vector(size_t begin, size_t end) {
     }
     return range;
 }
-    
-struct UnionFind::UFNode {
-    UFNode(size_t index) index(index), head(index) {}
-    ~UFNode();
-    
-    size_t rank = 1;
-    size_t size = 1;
-    size_t index;
-    size_t head;
-    unordered_set<size_t> children;
-}
 
 UnionFind::UnionFind(size_t size) {
     uf_nodes.reserve(size);
@@ -241,12 +230,16 @@ UnionFind::UnionFind(size_t size) {
         uf_nodes.emplace_back(i);
     }
 }
+    
+UnionFind::~UnionFind() {
+    // nothing to do
+}
 
 size_t UnionFind::size() {
     return uf_nodes.size();
 }
 
-size_t UnionFind::find(size_t i) {
+size_t UnionFind::find_group(size_t i) {
     vector<size_t> path;
     // traverse tree upwards
     while (uf_nodes[i].head != i) {
@@ -266,9 +259,10 @@ size_t UnionFind::find(size_t i) {
     return i;
 }
 
-void UnionFind::union(size_t i, size_t j) {
-    size_t head_i = find(i);
-    size_t head_j = find(j);
+void UnionFind::union_groups(size_t i, size_t j) {
+    size_t head_i = find_group(i);
+    size_t head_j = find_group(j);
+    //cerr << "union " << i << ", " << j << " in groups " << head_i << ", " << j << endl;
     if (head_i == head_j) {
         // the indices are already in the same group
         return;
@@ -281,27 +275,30 @@ void UnionFind::union(size_t i, size_t j) {
             node_j.head = head_i;
             node_i.children.insert(head_j);
             node_i.size += node_j.size;
+            //cerr << head_j << " head to " << head_i << ", " << head_i << " size to " << node_i.size << endl;
         }
         else {
             node_i.head = head_j;
             node_j.children.insert(head_i);
             node_j.size += node_i.size;
+            //cerr << head_i << " head to " << head_j << ", " << head_j << " size to " << node_j.size << endl;
             
             if (node_j.rank == node_i.rank) {
                 node_j.rank++;
+                //cerr << head_j << " rank to " << node_j.rank << endl;
             }
         }
     }
 }
 
 size_t UnionFind::group_size(size_t i) {
-    return uf_nodes[find(i)].size;
+    return uf_nodes[find_group(i)].size;
 }
 
 vector<size_t> UnionFind::group(size_t i) {
     vector<size_t> to_return;
     // go to head of group
-    vector<size_t> stack{find(i)};
+    vector<size_t> stack{find_group(i)};
     // traverse tree downwards to find all indices in group
     while (!stack.empty()) {
         size_t curr = stack.back();
@@ -318,12 +315,31 @@ vector<size_t> UnionFind::group(size_t i) {
 vector<vector<size_t>> UnionFind::all_groups() {
     vector<vector<size_t>> to_return(uf_nodes.size());
     for (size_t i = 0; i < uf_nodes.size(); i++) {
-        to_return[find(i)].push_back(i);
+        to_return[find_group(i)].push_back(i);
     }
     auto new_end = std::remove_if(to_return.begin(), to_return.end(),
                                   [](const vector<size_t>& grp) { return grp.empty(); });
     to_return.resize(new_end - to_return.begin());
     return to_return;
+}
+    
+string UnionFind::current_state() {
+    stringstream strm;
+    for (size_t i = 0; i < uf_nodes.size(); i++) {
+        strm << "Node " << i << ": " << endl;
+        strm << "\tHead: " << uf_nodes[i].head << endl;
+        strm << "\tRank: " << uf_nodes[i].rank << endl;
+        if (uf_nodes[i].head == i) {
+            strm << "\tSize: " << uf_nodes[i].size << endl;
+        }
+        if (!uf_nodes[i].children.empty()) {
+            strm << "\tChildren:" << endl;
+            for (size_t child : uf_nodes[i].children) {
+                strm << "\t\t" << child << endl;
+            }
+        }
+    }
+    return strm.str();
 }
 
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {

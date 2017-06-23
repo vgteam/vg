@@ -375,7 +375,13 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t)> handle_node,
     function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
 
-    for(int64_t i = 0; i < traversal.visits_size(); i++) {
+    // Must at least have start and end
+    assert(traversal.visits_size() >= 2);
+    
+    // Look at the edge leading from the start (also handles deletion traversals)
+    handle_edge(0, to_right_side(traversal.visits(0)), to_left_side(traversal.visits(1)));
+    
+    for(int64_t i = 1; i < traversal.visits_size() - 1; i++) {
         // For all the (internal) visits...
         auto& visit = traversal.visits(i);
         
@@ -383,46 +389,28 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             // This is a visit to a node
             
             // Find the node
-            handle_node(i, visit.node_id());
+            handle_node(i - 1, visit.node_id());
         } else {
             // This is a snarl
-            handle_child(i, visit.snarl());
+            handle_child(i - 1, visit.snarl());
         }
         
-        // Account for the edge out
-        if (i + 1 < traversal.visits_size()) {
-            // There's a next visit
-            auto& next_visit = traversal.visits(i + 1);
+        auto& next_visit = traversal.visits(i + 1);
+        
+        if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+            to_right_side(visit).flip() == to_left_side(next_visit)) {
             
-            if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
-                to_right_side(visit).flip() == to_left_side(next_visit)) {
-                
-                // These are two back-to-back child snarl visits, which
-                // share a node and have no connecting edge.
+            // These are two back-to-back child snarl visits, which
+            // share a node and have no connecting edge.
 #ifdef debug
-                cerr << "No edge needed for back-to-back child snarls" << endl;
+            cerr << "No edge needed for back-to-back child snarls" << endl;
 #endif
-                
-            } else {
-                // Do the edge to it
-                handle_edge(i, to_right_side(visit), to_left_side(next_visit));
-            }
-        } else {
-            // Do the edge to the end of the snarl.
-            handle_edge(i, to_right_side(visit), to_left_side(site.end()));
+            
         }
-        
-        // And for the edge in, if necessary
-        if (i == 0) {
-            // This is the first visit, so we need to connect to the left end of the snarl.
-            handle_edge(i, to_right_side(site.start()), to_left_side(visit));
+        else {
+            // Do the edge to it
+            handle_edge(i - 1, to_right_side(visit), to_left_side(next_visit));
         }
-    }
-    
-    if(traversal.visits_size() == 0) {
-        // We just have the anchoring nodes and the edge between them.
-        // Look at that edge specially.
-        handle_edge(0, to_right_side(site.start()), to_left_side(site.end()));
     }
 
 }
@@ -468,7 +456,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
     
     // Compute min and total supports, and bp sizes, for all the visits by
     // number.
-    size_t record_count = max(1, traversal.visits_size());
+    size_t record_count = max(1, traversal.visits_size() - 2);
     // What's the min support observed at every visit (inclusing edges)?
     vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
     // And the total support (ignoring edges)?
@@ -899,7 +887,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // asserting
         SnarlTraversal& traversal = here_traversals.at(genotype.allele(i));
         
-        for (size_t j = 0; j < traversal.visits_size(); j++) {
+        for (size_t j = 1; j < traversal.visits_size() - 1; j++) {
             // For each visit to a child snarl
             auto& visit = traversal.visits(j);
             if (visit.node_id() != 0) {
@@ -919,7 +907,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // even the ones called as CN 0, because we need the fully-specified
     // traversals to build our Locus (which needs the alleles we rejected as
     // having no copies).
-    map<const Snarl*, vector<SnarlTraversal>> child_traversals;
+    unordered_map<const Snarl*, vector<SnarlTraversal>> child_traversals;
     for (const Snarl* child : snarl_manager.children_of(&site)) {
         // Recurse on each child, giving a copy number budget according to the
         // usage count call at this site. This produces fully realized
@@ -941,13 +929,14 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     for (size_t traversal_number = 0; traversal_number < here_traversals.size(); traversal_number++) {
         // For every abstract traversal of this site, starting with the ref traversal...
         auto& abstract_traversal = here_traversals[traversal_number];
+#ifdef debug
+        cerr << "Concretizing abstract traversal " << pb2json(abstract_traversal) << endl;
+#endif
+        
         // Make a "concrete", node-level traversal for every abstract, Snarl-
         // visiting traversal.
         concrete_traversals.emplace_back();
         auto& concrete_traversal = concrete_traversals.back();
-        
-        // Copy over the snarl info
-        *concrete_traversal.mutable_snarl() = abstract_traversal.snarl();
         
         for (size_t i = 0; i < abstract_traversal.visits_size(); i++) {
             // Go through all the visits in the abstract traversal
@@ -966,6 +955,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // be going through the child backward.
                 auto& child_traversal = child_traversals.at(child).at(traversal_number == 0 ? 0 : 1);
                 
+#ifdef debug
+                cerr << "Splicing in child traversal " << pb2json(child_traversal) << endl;
+#endif
+                
+                size_t trav_transfer_start = 0;
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
                     // back-to-back snarl.
@@ -975,38 +969,30 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #ifdef debug
                         cerr << "Skip entry node for back-to-back sites" << endl;
 #endif
-                    } else {
-                        
-                        *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
+                        trav_transfer_start++;
                     }
-                } else {
-                    // First the entry node (in the correct order and orientation)
-                    *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
                 }
-                for (size_t j = 0; j < child_traversal.visits_size(); j++) {
+                for (size_t j = trav_transfer_start; j < child_traversal.visits_size(); j++) {
                     // All the internal visits, in the correct order 
                     *concrete_traversal.add_visits() = abstract_visit.backward() ?
                         reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
                         child_traversal.visits(j);
                 }
-                // And last the exit node (in the correct order and orientation)
-                *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->start()) : child->end();
             }
         }
+#ifdef debug
+        cerr << "Finished concrete traversal " << pb2json(concrete_traversals.back()) << endl;
+#endif
     }
     
     for (auto& concrete_traversal : concrete_traversals) {
         // Populate the Locus with those traversals by converting to paths
         Path* converted = locus.add_allele();
         
-        // Start with the start mapping
-        *converted->add_mapping() = to_mapping(site.start(), augmented.graph);
         for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
             // Convert all the visits to Mappings and stick them in the Locus's Paths
             *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
         }
-        // Finish with the end
-        *converted->add_mapping() = to_mapping(site.end(), augmented.graph);
     }
     
     if (locus.genotype_size() > 0) {
@@ -1344,9 +1330,12 @@ void Call2Vcf::call(
             vector<bool> is_ref;
             
             for (size_t i = 0; i < locus.allele_size(); i++) {
+
                 // For each allele path in the Locus
                 auto& path = locus.allele(i);
-                
+#ifdef debug
+                cerr << "Extracting allele " << i << ": " << pb2json(path) << endl;
+#endif
                 // Make a stream for the sequence of the path
                 stringstream sequence_stream;
                 // And for the description of involved IDs
@@ -1362,7 +1351,9 @@ void Call2Vcf::call(
                         node_sequence = reverse_complement(node_sequence);
                     }
                     sequence_stream << node_sequence;
-                    
+#ifdef debug
+                    cerr << "\tMapping: " << pb2json(mapping) << ", sequence " << node_sequence << endl;
+#endif
                     if (j != 0) {
                         // Add a separator
                         id_stream << "_";
@@ -1383,6 +1374,9 @@ void Call2Vcf::call(
                 } else {
                     sequences.push_back(sequence_stream.str());
                 }
+#ifdef debug
+                cerr << "Recorded allele sequence " << sequences.back() << endl;
+#endif
                 id_lists.push_back(id_stream.str());
                 // And whether they're reference or not
                 is_ref.push_back(is_reference(path, augmented));
@@ -1961,21 +1955,11 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
         return true;
     };
     
-    // Make sure we visit a ref start node
-    if (!experience_visit(trav.snarl().start())) {
-        return false;
-    }
-    
-    // Then all the internal nodes
+    // Experience the entire traversal from start to end
     for (size_t i = 0; i < trav.visits_size(); i++) {
         if (!experience_visit(trav.visits(i))) {
             return false;
         }
-    }
-    
-    // And finally the end node
-    if (!experience_visit(trav.snarl().end())) {
-        return false;
     }
     
     // And if we make it through it's a reference traversal.

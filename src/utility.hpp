@@ -293,16 +293,20 @@ struct TreeNode {
  */
 class UnionFind {
 public:
+    /// Construct UnionFind for this many indices
     UnionFind(size_t size);
+    
+    /// Destructor
+    ~UnionFind();
     
     /// Returns the number of indices in the UnionFind
     size_t size();
     
     /// Returns the group ID that index i belongs to (can change after calling union)
-    size_t find(size_t i);
+    size_t find_group(size_t i);
     
     /// Merges the group containing index i with the group containing index j
-    void union(size_t i, size_t j);
+    void union_groups(size_t i, size_t j);
     
     /// Returns the size of the group containing index i
     size_t group_size(size_t i);
@@ -313,12 +317,26 @@ public:
     /// Returns all of the groups, each in a separate vector
     vector<vector<size_t>> all_groups();
     
+    /// A string representation of the current state for debugging
+    string current_state();
+    
 private:
     
     struct UFNode;
     vector<UFNode> uf_nodes;
 };
 
+struct UnionFind::UFNode {
+    UFNode(size_t index) : head(index) {}
+    ~UFNode() {}
+    
+    size_t rank = 0;
+    size_t size = 1;
+    size_t head;
+    unordered_set<size_t> children;
+};
+
+    
 template<typename T>
 struct Tree {
     typedef TreeNode<T> Node;

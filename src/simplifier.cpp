@@ -150,7 +150,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         
         // Determine the length of the new traversal
         size_t new_site_length = 0;
-        for (size_t i = 0; i < traversal.visits_size(); i++) {
+        for (size_t i = 1; i < traversal.visits_size() - 1; i++) {
             // For every non-anchoring node
             const Visit& visit = traversal.visits(i);
             // Total up the lengths of all the nodes that are newly visited.

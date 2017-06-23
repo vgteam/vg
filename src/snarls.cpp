@@ -3,6 +3,8 @@
 //
 //
 
+//#define debug
+
 #include "snarls.hpp"
 #include "json2pb.h"
 
@@ -47,7 +49,7 @@ namespace vg {
         
         // get the offset of this snarl in the master list
         int64_t offset = (intptr_t) snarl - (intptr_t) snarls.data();
-        // make sure this pointer is aligned to the
+        // make sure this pointer is aligned to the vector
         if (offset % sizeof(Snarl) != 0) {
             cerr << "error:[SnarlManager] attempted to flip a Snarl with a pointer that is not owned by SnarlManager" << endl;
             assert(0);
@@ -79,31 +81,16 @@ namespace vg {
         // Update index index
         index_of[key_form(snarl)] = std::move(index_of[old_key]);
         index_of.erase(old_key);
+        
+        // note: snarl_into index is invariant to flipping
     }
     
-    map<NodeTraversal, const Snarl*> SnarlManager::child_boundary_index(const Snarl* snarl, VG& graph) {
-        map<NodeTraversal, const Snarl*> index;
-        for (const Snarl* child : children_of(snarl)) {
-            index[to_node_traversal(child->start(), graph)] = child;
-            index[to_rev_node_traversal(child->end(), graph)] = child;
-        }
-        return index;
+    const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) {
+        return snarl_into.count(make_pair(id, reverse)) ? snarl_into[make_pair(id, reverse)] : nullptr;
     }
     
-    map<NodeTraversal, const Snarl*> SnarlManager::child_start_index(const Snarl* snarl, VG& graph) {
-        map<NodeTraversal, const Snarl*> index;
-        for (const Snarl* child : children_of(snarl)) {
-            index[to_node_traversal(child->start(), graph)] = child;
-        }
-        return index;
-    }
-    
-    map<NodeTraversal, const Snarl*> SnarlManager::child_end_index(const Snarl* snarl, VG& graph) {
-        map<NodeTraversal, const Snarl*> index;
-        for (const Snarl* child : children_of(snarl)) {
-            index[to_rev_node_traversal(child->end(), graph)] = child;
-        }
-        return index;
+    const Snarl* SnarlManager::into_which_snarl(const Visit& visit) {
+        return visit.has_snarl() ? manage(visit.snarl()) : into_which_snarl(visit.node_id(), visit.backward());
     }
     
     unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_index() {
@@ -137,6 +124,7 @@ namespace vg {
                          make_pair(snarl->end().node_id(), snarl->end().backward()));
     }
     
+
     void SnarlManager::build_indexes() {
         
         for (size_t i = 0; i < snarls.size(); i++) {
@@ -160,6 +148,10 @@ namespace vg {
                 roots.push_back(&snarl);
                 parent[key_form(&snarl)] = nullptr;
             }
+            
+            // add the boundaries into the indices
+            snarl_into[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
+            snarl_into[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
         }
         
         for (Snarl& snarl : snarls) {
@@ -178,9 +170,6 @@ namespace vg {
     
     pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
                                                                                      bool include_boundary_nodes) {
-        
-        // construct the map that lets us skip over child snarls
-        map<NodeTraversal, const Snarl*> child_index = child_boundary_index(snarl, graph);
         
         pair<unordered_set<Node*>, unordered_set<Edge*> > to_return;
         
@@ -274,18 +263,13 @@ namespace vg {
             // record that this node is in the snarl
             to_return.first.insert(node);
             
-            // are either the ends of the node facing into a snarl?
-            bool forward_is_snarl = false;
-            bool backward_is_snarl = false;
-            
-            if (child_index.count(NodeTraversal(node, false))) {
-                // this node forward reads into a snarl
-                forward_is_snarl = true;
-                
-                const Snarl* snarl = child_index[NodeTraversal(node, false)];
+            const Snarl* forward_snarl = into_which_snarl(node->id(), false);
+            const Snarl* backward_snarl = into_which_snarl(node->id(), true);
+            if (forward_snarl) {
+                // this node points into a snarl
                 
                 // What's on the other side of the snarl?
-                id_t other_id = snarl->start().node_id() == node->id() ? snarl->end().node_id(): snarl->start().node_id();
+                id_t other_id = forward_snarl->start().node_id() == node->id() ? forward_snarl->end().node_id() : forward_snarl->start().node_id();
                 
                 // stack up the node on the opposite side of the snarl
                 // rather than traversing it
@@ -296,14 +280,11 @@ namespace vg {
                 }
             }
             
-            if (child_index.count(NodeTraversal(node, true))) {
-                // this node reverse reads into a snarl
-                backward_is_snarl = true;
-                
-                const Snarl* snarl = child_index[NodeTraversal(node, true)];
+            if (backward_snarl) {
+                // the reverse of this node points into a snarl
                 
                 // What's on the other side of the snarl?
-                id_t other_id = snarl->end().node_id() == node->id() ? snarl->start().node_id(): snarl->end().node_id();
+                id_t other_id = backward_snarl->end().node_id() == node->id() ? backward_snarl->start().node_id(): backward_snarl->end().node_id();
                 
                 // stack up the node on the opposite side of the snarl
                 // rather than traversing it
@@ -320,8 +301,8 @@ namespace vg {
                 // which end of the edge is the current node?
                 if (edge->from() == node->id()) {
                     // does this edge point forward or backward?
-                    if ((edge->from_start() && !backward_is_snarl) ||
-                        (!edge->from_start() && !forward_is_snarl)) {
+                    if ((edge->from_start() && !backward_snarl) ||
+                        (!edge->from_start() && !forward_snarl)) {
                         
                         to_return.second.insert(edge);
                         Node* next_node = graph.get_node(edge->to());
@@ -335,8 +316,8 @@ namespace vg {
                 }
                 else {
                     // does this edge point forward or backward?
-                    if ((edge->to_end() && !forward_is_snarl) ||
-                        (!edge->to_end() && !backward_is_snarl)) {
+                    if ((edge->to_end() && !forward_snarl) ||
+                        (!edge->to_end() && !backward_snarl)) {
                         
                         to_return.second.insert(edge);
                         Node* next_node = graph.get_node(edge->from());
@@ -490,15 +471,10 @@ namespace vg {
         return &snarls.at(it->second);
     }
     
-    vector<Visit> visits_right(const Visit& visit, VG& graph,
-        const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+    vector<Visit> SnarlManager::visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl) {
         
 #ifdef debug
         cerr << "Look right from " << visit << endl;
-        cerr << "\tChild index:" << endl;
-        for (auto& kv : child_boundary_index) {
-            cerr << "\t\t" << kv.first << " -> " << *kv.second << endl;
-        }
 #endif
         
         // We'll populate this
@@ -512,25 +488,24 @@ namespace vg {
             // another child snarl shares this boundary node in the direction
             // we're going.
             
-            // Make a node traversal for going towards that right side
-            NodeTraversal out_of_child(graph.get_node(right_side.node), !right_side.is_end);
-            
-            if (child_boundary_index.count(out_of_child)) {
+            const Snarl* child = into_which_snarl(right_side.node, !right_side.is_end);
+            if (child != nullptr && child != in_snarl
+                && into_which_snarl(right_side.node, right_side.is_end) != in_snarl) {
                 // We leave the one child and immediately enter another!
                 
                 // Make a visit to it
                 Visit child_visit;
-                transfer_boundary_info(*child_boundary_index.at(out_of_child), *child_visit.mutable_snarl());
+                transfer_boundary_info(*child, *child_visit.mutable_snarl());
                 
-                if (right_side.node == child_visit.snarl().end().node_id()) {
+                if (right_side.node == child->end().node_id()) {
                     // We came in its end
                     child_visit.set_backward(true);
                 } else {
                     // We should have come in its start
-                    assert(right_side.node == child_visit.snarl().start().node_id());
+                    assert(right_side.node == child->start().node_id());
                 }
                 
-                // Bail right now, so we don'ttry to explore inside this child snarl.
+                // Bail right now, so we don't try to explore inside this child snarl.
                 to_return.push_back(child_visit);
                 return to_return;
                 
@@ -541,18 +516,14 @@ namespace vg {
         for (auto attached : graph.sides_of(right_side)) {
             // For every NodeSide attached to the right side of this visit
             
-            // Make it a NodeTraversal reading away from that side
-            NodeTraversal attached_traversal(graph.get_node(attached.node), attached.is_end);
-            
 #ifdef debug
-            cerr << "\tFind NodeTraversal " << attached_traversal << endl;
+            cerr << "\tFind NodeSide " << attached << endl;
 #endif
             
-            if (child_boundary_index.count(attached_traversal)) {
+            const Snarl* child = into_which_snarl(attached.node, attached.is_end);
+            if (child != nullptr && child != in_snarl
+                && into_which_snarl(attached.node, !attached.is_end) != in_snarl) {
                 // We're reading into a child
-                
-                // Which child is it?
-                const Snarl* child = child_boundary_index.at(attached_traversal);
                 
 #ifdef debug
                 cerr << "\t\tGoes to Snarl " << *child << endl;
@@ -591,7 +562,10 @@ namespace vg {
                 }
             } else {
                 // We just go into a normal node
-                to_return.push_back(to_visit(attached_traversal));
+                to_return.emplace_back();
+                Visit& next_visit = to_return.back();
+                next_visit.set_node_id(attached.node);
+                next_visit.set_backward(attached.is_end);
             
 #ifdef debug
                 cerr << "\t\tProduces Visit " << to_return.back() << endl;
@@ -604,15 +578,10 @@ namespace vg {
         
     }
     
-    vector<Visit> visits_left(const Visit& visit, VG& graph,
-        const map<NodeTraversal, const Snarl*>& child_boundary_index) {
+    vector<Visit> SnarlManager::visits_left(const Visit& visit, VG& graph, const Snarl* in_snarl) {
         
-        // Reverse the visit
-        Visit reversed = visit;
-        reversed.set_backward(!reversed.backward());
-        
-        // Get everything right of the reversed version
-        vector<Visit> to_return = visits_right(reversed, graph, child_boundary_index);
+        // Get everything right of the reversed visit
+        vector<Visit> to_return = visits_right(reverse(visit), graph, in_snarl);
         
         // Un-reverse them so they are in the correct orientation to be seen
         // left of here.
@@ -660,9 +629,6 @@ namespace vg {
     }
     
     bool operator==(const SnarlTraversal& a, const SnarlTraversal& b) {
-        if (a.snarl() != b.snarl()) {
-            return false;
-        }
         if (a.visits_size() != b.visits_size()) {
             return false;
         }
@@ -680,11 +646,6 @@ namespace vg {
     }
     
     bool operator<(const SnarlTraversal& a, const SnarlTraversal& b) {
-        if (a.snarl() < b.snarl()) {
-            return true;
-        } else if (b.snarl() < a.snarl()) {
-            return false;
-        }
         for (size_t i = 0; i < b.visits_size(); i++) {
             if (i >= a.visits_size()) {
                 // A has run out and B is still going

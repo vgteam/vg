@@ -1785,10 +1785,10 @@ namespace vg {
         // and found an infinite distance
         map<pair<size_t, size_t>, size_t> num_infinite_dists;
         
-        // deterministically generate pseudo-shuffled pairs in constant time per pair
-        // method taken from https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
+        // deterministically generate pseudo-shuffled pairs in constant time per pair, method taken from
+        // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
         size_t num_pairs = nodes.size() * nodes.size();
-        assert(num_pairs <= 4294967296) // 2^32, else range_max can't get large enough
+        assert(num_pairs < 4294967296); // 2^32, else range_max can't get large enough
         size_t permutation_idx = 0;
         size_t range_max = 1;
         while (range_max < num_pairs) {
@@ -1798,11 +1798,11 @@ namespace vg {
             pair<size_t, size_t> to_return;
             do {
                 size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 2) + 3) & (range_max - 1);
-                to_return.first = current_pair_idx / nodes.size();
-                to_return.second = current_pair_idx % nodes.size();
-            } while (to_return.first >= to_return.second || permuted >= num_pairs);
+                to_return.first = permuted / nodes.size();
+                to_return.second = permuted % nodes.size();
+            } while (to_return.first >= to_return.second || to_return.first >= nodes.size());
             return to_return;
-        }
+        };
         
         UnionFind union_find(nodes.size());
         
@@ -1819,8 +1819,8 @@ namespace vg {
             
             pairs_checked++;
             
-            size_t strand_1 = union_find.find(node_pair.first);
-            size_t strand_2 = union_find.find(node_pair.second);
+            size_t strand_1 = union_find.find_group(node_pair.first);
+            size_t strand_2 = union_find.find_group(node_pair.second);
 
             if (strand_1 == strand_2) {
                 // these are already identified as on the same strand, don't need to do it again
@@ -1864,12 +1864,12 @@ namespace vg {
                 size_t strand_size_1 = union_find.group_size(strand_1);
                 size_t strand_size_2 = union_find.group_size(strand_2);
                 
-                union_find.union(node_pair.first, node_pair.second);
+                union_find.union_groups(node_pair.first, node_pair.second);
                 
                 // remove these from the pool of remaining merges
                 num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                 
-                size_t strand_retaining = union_find.find(node_pair.first);
+                size_t strand_retaining = union_find.find_group(node_pair.first);
                 size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
                 
                 // collect the number of times the strand cluster thas is being removed has had an infinite distance
@@ -1878,8 +1878,8 @@ namespace vg {
                 auto end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
                 auto begin = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
                 for (auto iter = begin; iter != end; iter++) {
-                    if (*iter).first.second != strand_retaining) {
-                        inf_counts.emplace_back((*iter).first.second, (*iter).second);
+                    if (iter->first.second != strand_retaining) {
+                        inf_counts.emplace_back(iter->first.second, iter->second);
                     }
                 }
                 
@@ -1911,7 +1911,7 @@ namespace vg {
                 for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
                     // break symmetry so we don't repeat the operation twice
                     if (inf_dist_record.first.first < inf_dist_record.first.second && inf_dist_record.second == current_max_num_probes) {
-                        // this merge just fell below the maximum number of distance probes
+                        // this merge just fell below the new maximum number of distance probes
                         size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
                         size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
                         num_possible_merges_remaining -= strand_size_1 * strand_size_2;
@@ -1931,13 +1931,13 @@ namespace vg {
         // now approximate the relative positions along the strand by traversing each tree and
         // treating the distances we estimated as transitive
         vector<unordered_map<size_t, int64_t>> strand_relative_position;
-        vector<bool> processed(nodes.size());
+        vector<bool> processed(nodes.size(), false);
         for (const auto& adjacency_record : strand_distance_tree) {
             if (processed[adjacency_record.first]) {
                 continue;
             }
             
-            size_t strand = get_merged_strand(adjacency_record.first);
+            size_t strand = union_find.find_group(adjacency_record.first);
             unordered_map<size_t, int64_t>& relative_pos = strand_relative_position[strand];
             
             // arbitrarily make this node the 0 point

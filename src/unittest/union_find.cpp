@@ -54,18 +54,18 @@ namespace vg {
         
         TEST_CASE("Union-Find produces correct groups in a hand-selected case", "[unionfind]") {
             
-            UnionFind union_find(10);
             
             SECTION("Union-Find maintains invariants after a single union") {
                 
-                REQUIRE(union_find.find(0) != union_find.find(1));
+                UnionFind union_find(10);
+                REQUIRE(union_find.find_group(0) != union_find.find_group(1));
                 
                 REQUIRE(union_find.group_size(0) == 1);
                 REQUIRE(union_find.group_size(1) == 1);
                 
-                union_find.union(0, 1);
+                union_find.union_groups(0, 1);
                 
-                REQUIRE(union_find.find(0) == union_find.find(1));
+                REQUIRE(union_find.find_group(0) == union_find.find_group(1));
                 
                 REQUIRE(union_find.group_size(0) == 2);
                 REQUIRE(union_find.group_size(1) == 2);
@@ -73,26 +73,39 @@ namespace vg {
             
             SECTION("Union-Find maintains invariants after several more unions") {
                 
-                union_find.union(2, 3);
-                union_find.union(3, 4);
-                
-                union_find.union(5, 6);
+                UnionFind union_find(10);
+                union_find.union_groups(0, 1);
+                union_find.union_groups(2, 3);
+                union_find.union_groups(3, 4);
+                union_find.union_groups(5, 6);
                 
                 REQUIRE(union_find.group_size(4) == 3);
-                REQUIRE(union_find.find(2) == union_find.find(3));
-                REQUIRE(union_find.find(5) == union_find.find(6));
+                REQUIRE(union_find.find_group(2) == union_find.find_group(3));
+                REQUIRE(union_find.find_group(5) == union_find.find_group(6));
             }
             
             SECTION("Union-Find maintains invariants after a null union") {
                 
-                union_find.union(2, 4);
+                UnionFind union_find(10);
+                union_find.union_groups(0, 1);
+                union_find.union_groups(2, 3);
+                union_find.union_groups(3, 4);
+                union_find.union_groups(5, 6);
+                union_find.union_groups(2, 4);
                 
                 REQUIRE(union_find.group_size(4) == 3);
-                REQUIRE(union_find.find(2) == union_find.find(3));
-                REQUIRE(union_find.find(3) == union_find.find(4));
+                REQUIRE(union_find.find_group(2) == union_find.find_group(3));
+                REQUIRE(union_find.find_group(3) == union_find.find_group(4));
             }
             
             SECTION("Union-Find can correctly extract a group") {
+                
+                UnionFind union_find(10);
+                union_find.union_groups(0, 1);
+                union_find.union_groups(2, 3);
+                union_find.union_groups(3, 4);
+                union_find.union_groups(5, 6);
+                union_find.union_groups(2, 4);
                 
                 vector<size_t> correct_group{2, 3, 4};
                 vector<size_t> group = union_find.group(3);
@@ -109,21 +122,21 @@ namespace vg {
                 UnionFind union_find_1(10);
                 UnionFind union_find_2(10);
                 
-                union_find_1.union(0, 1);
-                union_find_1.union(2, 1);
-                union_find_1.union(3, 2);
-                union_find_1.union(4, 5);
-                union_find_1.union(7, 6);
-                union_find_1.union(7, 8);
-                union_find_1.union(7, 9);
+                union_find_1.union_groups(0, 1);
+                union_find_1.union_groups(2, 1);
+                union_find_1.union_groups(3, 2);
+                union_find_1.union_groups(4, 5);
+                union_find_1.union_groups(7, 6);
+                union_find_1.union_groups(7, 8);
+                union_find_1.union_groups(7, 9);
                 
-                union_find_2.union(0, 1);
-                union_find_2.union(2, 1);
-                union_find_2.union(3, 2);
-                union_find_2.union(4, 5);
-                union_find_2.union(7, 6);
-                union_find_2.union(7, 8);
-                union_find_2.union(7, 9);
+                union_find_2.union_groups(0, 1);
+                union_find_2.union_groups(2, 1);
+                union_find_2.union_groups(3, 2);
+                union_find_2.union_groups(4, 5);
+                union_find_2.union_groups(7, 6);
+                union_find_2.union_groups(7, 8);
+                union_find_2.union_groups(7, 9);
                 
                 vector<size_t> group_of_0_1 = union_find_1.group(0);
                 vector<size_t> group_of_4_1 = union_find_1.group(4);
@@ -213,21 +226,21 @@ namespace vg {
                 UnionFind union_find_1(10);
                 UnionFind union_find_2(10);
                 
-                union_find_1.union(0, 1);
-                union_find_1.union(2, 1);
-                union_find_1.union(3, 2);
-                union_find_1.union(4, 5);
-                union_find_1.union(7, 6);
-                union_find_1.union(7, 8);
-                union_find_1.union(7, 9);
+                union_find_1.union_groups(0, 1);
+                union_find_1.union_groups(2, 1);
+                union_find_1.union_groups(3, 2);
+                union_find_1.union_groups(4, 5);
+                union_find_1.union_groups(7, 6);
+                union_find_1.union_groups(7, 8);
+                union_find_1.union_groups(7, 9);
                 
-                union_find_2.union(0, 1);
-                union_find_2.union(2, 1);
-                union_find_2.union(3, 2);
-                union_find_2.union(4, 5);
-                union_find_2.union(7, 6);
-                union_find_2.union(7, 8);
-                union_find_2.union(7, 9);
+                union_find_2.union_groups(0, 1);
+                union_find_2.union_groups(2, 1);
+                union_find_2.union_groups(3, 2);
+                union_find_2.union_groups(4, 5);
+                union_find_2.union_groups(7, 6);
+                union_find_2.union_groups(7, 8);
+                union_find_2.union_groups(7, 9);
                 
                 REQUIRE(union_find_1.group_size(0) == union_find_2.group(0).size());
                 REQUIRE(union_find_2.group_size(0) == union_find_1.group(0).size());
@@ -248,18 +261,37 @@ namespace vg {
         
         TEST_CASE("Union-Find maintains invariants in many randomized sequences of unions", "[unionfind]") {
             
-            for (size_t repetition = 0; repetition < 3000; repetition++) {
+            for (size_t repetition = 0; repetition < 1000; repetition++) {
                 
-                UnionFind union_find(50);
+                UnionFind union_find(30);
                 
                 vector<pair<size_t, size_t>> unions = random_unions(union_find.size());
                 
+                vector<unordered_set<size_t>*> group_set_of(union_find.size());
+                vector<unordered_set<size_t>> group_sets(union_find.size());
+                for (size_t i = 0; i < union_find.size(); i++) {
+                    group_set_of[i] = &group_sets[i];
+                    group_sets[i].insert(i);
+                }
+                
                 for (pair<size_t, size_t> idxs : unions) {
-                    union_find.union(idxs.first, idxs.second);
+                    union_find.union_groups(idxs.first, idxs.second);
+                    
+                    auto group_set_1 = group_set_of[idxs.first];
+                    auto group_set_2 = group_set_of[idxs.second];
+                    if (group_set_1 == group_set_2) {
+                        continue;
+                    }
+                    for (size_t i : *group_set_2) {
+                        group_set_1->insert(i);
+                        group_set_of[i] = group_set_1;
+                    }
+                    group_set_2->clear();
                 }
                 
                 vector<vector<size_t>> groups_direct(union_find.size());
                 vector<vector<size_t>> groups_from_all(union_find.size());
+                vector<vector<size_t>> groups_orthogonal(union_find.size());
                 // alternate the order these operations are done in just in case the
                 // internal changes during find functions affects the outcome
                 if (repetition % 2 == 0) {
@@ -288,9 +320,23 @@ namespace vg {
                 }
                 
                 for (size_t i = 0; i < union_find.size(); i++) {
+                    vector<size_t>& group = groups_orthogonal[i];
+                    for (size_t j : *group_set_of[i]) {
+                        group.push_back(j);
+                    }
+                }
+                
+                for (size_t i = 0; i < union_find.size(); i++) {
                     
+                    std::sort(groups_orthogonal[i].begin(), groups_orthogonal[i].end());
                     std::sort(groups_from_all[i].begin(), groups_from_all[i].end());
                     std::sort(groups_direct[i].begin(), groups_direct[i].end());
+                    
+                    
+                    REQUIRE(union_find.group_size(i) == groups_from_all[i].size());
+                    REQUIRE(union_find.group_size(i) == groups_direct[i].size());
+                    REQUIRE(groups_from_all[i].size() == groups_direct[i].size());
+                    REQUIRE(groups_orthogonal[i].size() == groups_direct[i].size());
                     
                     if (!std::equal(groups_from_all[i].begin(), groups_from_all[i].end(),
                                     groups_direct[i].begin())) {
@@ -305,19 +351,17 @@ namespace vg {
                             cerr << j << " ";
                         }
                         cerr << endl;
-                        cerr << "groups formed by unions: "
+                        cerr << "groups formed by unions: ";
                         for (pair<size_t, size_t> idxs : unions) {
                             cerr << "(" << idxs.first << "," << idxs.second << ") ";
                         }
                         cerr << endl;
                     }
                     
-                    REQUIRE(union_find.group_size(i) == groups_from_all[i].size());
-                    REQUIRE(union_find.group_size(i) == groups_direct[i].size());
-                    REQUIRE(groups_from_all[i].size() == groups_direct[i].size());
-                    
                     REQUIRE(std::equal(groups_from_all[i].begin(), groups_from_all[i].end(),
                                        groups_direct[i].begin()));
+                    REQUIRE(std::equal(groups_from_all[i].begin(), groups_from_all[i].end(),
+                                       groups_orthogonal	[i].begin()));
                 }
             }
         }
