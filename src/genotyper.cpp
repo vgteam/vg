@@ -18,15 +18,32 @@ namespace vg {
     void genotype_svs(VG* graph, 
                         string gamfile){
             // Open up our GAM file
+            ifstream gamstream;
+            gamstream.open(gamfile);
+            if (!gamstream.good()){
+                cerr << "GAM file is no good" << endl;
+                exit(2);
+            }
+            SRPE srrp;
+            DepthMap dm(graph);
+            vector<pair<Alignment, Alignment> > sv_reads;
             // Pull out all of our boring reads and just load them in a depth map
-            // Then, collect our SV-supporting reads and load them into a local map for PE manipulation
+            // Collect our SV-supporting reads and load them into a local map for PE manipulation
             // This includes:
             // Softclipped (later split) reads
             // One end anchored (one mate is mapped)
             // Unmapped reads
             // Reads with internal mismatches (cleanly anchored reads)
-            // 
+            // everted pairs and split-flips
+            // We trust that the relevant flags are set by FILTER
+            std::function<void(Alignment&, Alignment&)> readfunc = [&](Alignment& a, Alignment& b){
+
+            };
+            stream::for_each_interleaved_pair_parallel(gamstream, readfunc);
+
     }
+
+    
     /**
      * run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa 
      */

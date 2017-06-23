@@ -315,7 +315,7 @@ namespace vg{
         }
         return true;
     }
-    bool Filter::simple_filter(Alignment& aln){
+    bool Filter::anchored_filter(Alignment& aln){
         int min_match_len = 10;
         if (aln.path().mapping_size() > 2){
             return false;
@@ -421,7 +421,7 @@ namespace vg{
     }
 
     Alignment Filter::unmapped_filter(Alignment& aln){
-        if (aln.score() == 0){
+        if (aln.score() == 0 || aln.path().mapping_size() == 0){
             aln.set_read_mapped(false);
             return aln;
         }
@@ -431,8 +431,8 @@ namespace vg{
 
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
-        bool f = aln_first.mapping_quality() == 0;
-        bool s = aln_second.mapping_quality() == 0;
+        bool f = unmapped_filter(aln_first).name() != "";
+        bool s = unmapped_filter(aln_second).name() != "";
         if ( (f && !s)){ 
             aln_first.set_read_mapped(false);
             aln_first.set_mate_unmapped(false);
@@ -522,23 +522,41 @@ namespace vg{
         for (int i = 0; i < f_path.mapping_size(); i++){
             if (f_path.mapping(i).position().is_reverse()){
                 f_rev = true;
+                aln_first.set_read_on_reverse_strand(true);
+                aln_second.set_mate_on_reverse_strand(true);
+                aln_first.set_read_mapped(true);
+                aln_second.set_mate_unmapped(false);
             }
         }
 
         for (int j = 0; j < s_path.mapping_size(); j++){
             if (s_path.mapping(j).position().is_reverse()){
                 s_rev = true;
+                aln_second.set_read_mapped(true);
+                aln_first.set_mate_unmapped(false);
+                aln_second.set_read_on_reverse_strand(true);
+                aln_first.set_mate_on_reverse_strand(true);
             }
         }
 
+        if (!f_rev){
+            aln_second.set_mate_on_reverse_strand(false);
+            aln_first.set_read_on_reverse_strand(false);
+        }
+        if (!s_rev){
+            aln_first.set_mate_on_reverse_strand(false);
+            aln_second.set_read_on_reverse_strand(false);
+        }
         if (f_rev == s_rev){
             return make_pair(aln_first, aln_second);
         }
-        else if ((f_rev == true && s_rev == false) && flipped){
+        else if ( ((f_rev != s_rev) && flipped)){
             return make_pair(aln_first, aln_second);
         }
         else{
-            return make_pair(Alignment(), Alignment());
+            Alignment r;
+            Alignment s;
+            return make_pair(r, s);
         }
 
     }
@@ -769,10 +787,13 @@ namespace vg{
             int left_overhang = left_edit.to_length() - left_edit.from_length();
             int right_overhang = right_edit.to_length() - right_edit.from_length();
             if (left_overhang > soft_clip_limit || right_overhang > soft_clip_limit){
-                return inverse ? Alignment() : aln;
+                aln.set_soft_clipped(true);
+                return aln;
             }
             else{
-                return inverse ?  aln : Alignment();
+                Alignment ret;
+                ret.set_soft_clipped(false);
+                return ret;
             }
         }
         else{

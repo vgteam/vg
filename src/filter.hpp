@@ -36,7 +36,7 @@ class Filter{
          * modified alignments.
          */
         bool perfect_filter(Alignment& aln);
-        bool simple_filter(Alignment& aln);
+        bool anchored_filter(Alignment& aln);
         Alignment depth_filter(Alignment& aln);
         Alignment qual_filter(Alignment& aln);
         Alignment coverage_filter(Alignment& aln);

@@ -75,9 +75,9 @@ namespace vg{
           
 class DepthMap {
     /**
-    *  Map <node_id : depth>
-    *  or
     *  Map <node_id : offset : depth>
+    *  or
+    *  Map <SnarlTraversal : support count>
     */
 public:
   int8_t* depths;
