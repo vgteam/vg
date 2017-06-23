@@ -27,6 +27,7 @@ public:
     bool frac_score = false;
     bool sub_score = false;
     int max_overhang = 99999;
+    int min_end_matches = 0;
     int context_size = 0;
     bool verbose = false;
     double min_mapq = 0.;
@@ -47,12 +48,13 @@ public:
         vector<size_t> filtered;
         vector<size_t> min_score;
         vector<size_t> max_overhang;
+        vector<size_t> min_end_matches;
         vector<size_t> min_mapq;
         vector<size_t> split;
         vector<size_t> repeat;
         vector<size_t> defray;
         Counts() : read(2, 0), filtered(2, 0), min_score(2, 0),
-                   max_overhang(2, 0), min_mapq(2, 0),
+                   max_overhang(2, 0), min_end_matches(2, 0), min_mapq(2, 0),
                    split(2, 0), repeat(2, 0), defray(2, 0) {}
         Counts& operator+=(const Counts& other) {
             for (int i = 0; i < 2; ++i) {
@@ -60,6 +62,7 @@ public:
                 filtered[i] += other.filtered[i];
                 min_score[i] += other.min_score[i];
                 max_overhang[i] += other.max_overhang[i];
+                min_end_matches[i] += other.min_end_matches[i];
                 min_mapq[i] += other.min_mapq[i];
                 split[i] += other.split[i];
                 repeat[i] += other.repeat[i];
