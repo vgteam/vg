@@ -675,7 +675,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     mapping_quality *= identity;
 
     if (mq_estimate < mapping_quality) {
-        mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
+        mapping_quality = mq_estimate;
     }
 
     if (mapping_quality > max_mapping_quality) {
@@ -741,10 +741,10 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     mapping_quality2 *= identity2;
 
     if (mq_estimate1 < mapping_quality2) {
-        mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
+        mapping_quality1 = mq_estimate1;
     }
     if (mq_estimate2 < mapping_quality2) {
-        mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
+        mapping_quality2 = mq_estimate2;
     }
 
     if (mapping_quality1 > max_mapping_quality1) {
