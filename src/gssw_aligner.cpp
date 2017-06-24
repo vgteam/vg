@@ -672,7 +672,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 
     double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
-    mapping_quality *= identity;
+    mapping_quality *= pow(identity, 4);
 
     if (mq_estimate < mapping_quality) {
         mapping_quality = mq_estimate;
@@ -736,9 +736,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality2 = mapping_quality;
 
     double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
-    mapping_quality1 *= identity1;
+    mapping_quality1 *= pow(identity1, 4);
     double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
-    mapping_quality2 *= identity2;
+    mapping_quality2 *= pow(identity2, 4);
 
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = mq_estimate1;
