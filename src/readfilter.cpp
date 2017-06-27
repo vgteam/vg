@@ -639,6 +639,35 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         } else {
             overhang = aln.sequence().length();
         }
+        // compute end matches.
+        int end_matches = 0;
+        // from the left
+        for (int i = 0; i < aln.path().mapping_size() && end_matches < min_end_matches; ++i) {
+            for (int j = 0; j < aln.path().mapping(i).edit_size() && end_matches < min_end_matches; ++j) {
+                const Edit& edit = aln.path().mapping(i).edit(j);
+                if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
+                    end_matches += edit.to_length();
+                } else {
+                    i = aln.path().mapping_size();
+                    break;
+                }
+            }
+        }
+        if (end_matches >= min_end_matches) {
+            end_matches = 0;
+            // from the right
+            for (int i = aln.path().mapping_size() - 1; i >= 0 && end_matches < min_end_matches; --i) {
+                for (int j = aln.path().mapping(i).edit_size() - 1; j >= 0 && end_matches < min_end_matches; --j) {
+                    const Edit& edit = aln.path().mapping(i).edit(j);
+                    if (edit.from_length() == edit.to_length() && edit.sequence().empty()) {
+                        end_matches += edit.to_length();
+                    } else {
+                        i = -1;
+                        break;
+                    }
+                }
+            }
+        }                
 
         // offset in count tuples
         int co = aln.is_secondary() ? 1 : 0;
@@ -653,6 +682,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         }
         if ((keep || verbose) && overhang > max_overhang) {
             ++counts.max_overhang[co];
+            keep = false;
+        }
+        if ((keep || verbose) && end_matches < min_end_matches) {
+            ++counts.min_end_matches[co];
             keep = false;
         }
         if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
@@ -717,6 +750,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Min Identity Filter (secondary):   " << counts.min_score[1] << endl
              << "Max Overhang Filter (primary):     " << counts.max_overhang[0] << endl
              << "Max Overhang Filter (secondary):   " << counts.max_overhang[1] << endl
+             << "Min End Match Filter (primary):    " << counts.min_end_matches[0] << endl
+             << "Min End Match Filter (secondary):  " << counts.min_end_matches[1] << endl            
              << "Split Read Filter (primary):       " << counts.split[0] << endl
              << "Split Read Filter (secondary):     " << counts.split[1] << endl
              << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl

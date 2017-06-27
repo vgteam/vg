@@ -200,6 +200,7 @@ void help_filter(char** argv) {
          << "    -f, --frac-score        normalize score based on length" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
+         << "    -m, --min-end-matches N filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
@@ -240,6 +241,7 @@ int main_filter(int argc, char** argv) {
                 {"frac-score", required_argument, 0, 'f'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
+                {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
@@ -256,7 +258,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:Ac:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -280,6 +282,9 @@ int main_filter(int argc, char** argv) {
         case 'o':
             filter.max_overhang = atoi(optarg);
             break;
+        case 'm':
+            filter.min_end_matches = atoi(optarg);
+            break;            
         case 'S':
             filter.drop_split = true;
         case 'x':
