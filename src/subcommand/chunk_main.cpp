@@ -34,19 +34,20 @@ void help_chunk(char** argv) {
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (1-based inclusive)\n"
          << "                             path range TARGET=path[:pos1[-pos2]]" << endl
-         << "    -P, --path-list FILE     write chunks for all path regions in (newline or whitespace\n"
-         << "                             separated file). format for each as in -p\n" << endl
-         << "    -s, --chunk-size N       create chunks spanning N bases. applies to all regions specified with other flags.\n"
-         << "    -o, --overlap N          overlap between chunks when using -s [defaul = 0]" << endl
-         << "                             (all paths chunked unless otherwise specified)" << endl
-         << "    -r, --input-bed FILE     write chunks for all (0-based) bed regions" << endl
-         << "    -R, --output-bed FILE    write all created chunks to a bed file" << endl
+         << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format\n"
+         << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
+         << "    -e, --input-bed FILE     write chunks for all (0-based) bed regions" << endl
+         << "id range chunking:" << endl
+         << "    -r, --node-range N:M     write the chunk for the specified node range\n"
+         << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file\n" 
+         << "general:" << endl
+         << "    -s, --chunk-size N       create chunks spanning N bases (or nodes with -r/-R) for all input regions.\n"
+         << "    -o, --overlap N          overlap between chunks when using -s [default = 0]" << endl        
+         << "    -E, --output-bed FILE    write all created chunks to a bed file" << endl
          << "    -b, --prefix PATH        prefix output chunk paths with PATH. each chunk will have the following name:\n"
          << "                             <PATH>-<i>-<name>-<start>-<length>. <i> is the line# of the chunk in the\n"
          << "                             output bed. [default=./chunk]" << endl
-         << "    -c, --context STEPS      expand the context of the chunk this many steps [10]" << endl
-         << "    -i, --id-range           treat positional path coordinates as inclusive node id ranges" << endl        
-         << "general:" << endl
+         << "    -c, --context STEPS      expand the context of the chunk this many steps [0]" << endl       
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -68,8 +69,10 @@ int main_chunk(int argc, char** argv) {
     string in_bed_file;
     string out_bed_file;
     string out_chunk_prefix = "./chunk";
-    int context_steps = 10;
+    int context_steps = 0;
     bool id_range = false;
+    string node_range_string;
+    string node_ranges_file;
     int threads = 1;
     
     int c;
@@ -85,17 +88,18 @@ int main_chunk(int argc, char** argv) {
             {"path-names", required_argument, 0, 'P'},
             {"chunk-size", required_argument, 0, 's'},
             {"overlap", required_argument, 0, 'o'},
-            {"input-bed", required_argument, 0, 'r'},
-            {"output-bed", required_argument, 0, 'R'},
+            {"input-bed", required_argument, 0, 'e'},
+            {"output-bed", required_argument, 0, 'E'},
             {"prefix", required_argument, 0, 'b'},
             {"context", required_argument, 0, 'c'},
-            {"id-range", no_argument, 0, 'i'},
+            {"id-ranges", no_argument, 0, 'r'},
+            {"id-range", no_argument, 0, 'R'},            
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:r:R:b:c:it:",
+        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:t:",
                 long_options, &option_index);
 
 
@@ -134,11 +138,11 @@ int main_chunk(int argc, char** argv) {
             overlap = atoi(optarg);
             break;
 
-        case 'r':
+        case 'e':
             in_bed_file = optarg;
             break;
 
-        case 'R':
+        case 'E':
             out_bed_file = optarg;
             break;
 
@@ -150,7 +154,13 @@ int main_chunk(int argc, char** argv) {
             context_steps = atoi(optarg);
             break;
 
-        case 'i':
+        case 'r':
+            node_range_string = optarg;
+            id_range = true;
+            break;
+
+        case 'R':
+            node_ranges_file = optarg;
             id_range = true;
             break;
             
@@ -176,9 +186,10 @@ int main_chunk(int argc, char** argv) {
         cerr << "error:[vg chunk] xg index (-x) required" << endl;
         return 1;
     }
-    // need at most one of -p, -P, -r as an input
-    if ((region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) > 1) {
-        cerr << "error:[vg chunk] at most one of {-p, -P, -r} required to specify input regions" << endl;
+    // need at most one of -p, -P, -r, -E, -e,  as an input
+    if ((region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
+        (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) > 1) {
+        cerr << "error:[vg chunk] at most one of {-p, -P, -r, -E, -e} required to specify input regions" << endl;
         return 1;
     }
 
@@ -225,12 +236,40 @@ int main_chunk(int argc, char** argv) {
                 Region region;
                 parse_region(buf, region);
                 regions.push_back(region);
-                cerr << "push " << buf << endl;
             }
         }
     }
     else if (!in_bed_file.empty()) {
         parse_bed_regions(in_bed_file, regions);
+    }
+    else if (id_range) {
+        istream* range_stream;
+        if (!node_range_string.empty()) {
+            range_stream = new stringstream(node_range_string);
+        } else {
+            range_stream = new ifstream(node_ranges_file);
+            if (!(*range_stream)) {
+                cerr << "error:[vg chunk] unable to open id ranges file: " << node_ranges_file << endl;
+                return 1;
+            }
+        }
+        do {
+            string range;
+            *range_stream >> range;
+            if (!range.empty() && isdigit(range[0])) {
+                Region region;
+                vector<string> parts = split_delims(range, ":");
+                if (parts.size() == 1) {
+                    convert(parts.front(), region.start);
+                    region.end = region.start;
+                } else {
+                    convert(parts.front(), region.start);
+                    convert(parts.back(), region.end);
+                }
+                regions.push_back(region);
+            }
+        } while (*range_stream);
+        delete range_stream;
     }
     else {
         // every path
@@ -243,21 +282,23 @@ int main_chunk(int argc, char** argv) {
     }
 
     // validate and fill in sizes for regions that span entire path
-    for (auto& region : regions) {
-        size_t rank = xindex.path_rank(region.seq);
-        if (rank == 0) {
-            cerr << "error[vg chunk]: input path " << region.seq << " not found in xg index" << endl;
-            return 1;
-        }
-        if (region.start == 0 || region.end == -1) {
-            region.start = 1;
-            region.end = xindex.path_length(rank);
-        } else if (!id_range) {
-            if (region.start < 0 || region.end >= xindex.path_length(rank)) {
-                cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
-                     << " is out of bounds of path " << region.seq << " which has length "<< xindex.path_length(rank)
-                     << endl;
-                return -1;
+    if (!id_range) {
+        for (auto& region : regions) {
+            size_t rank = xindex.path_rank(region.seq);
+            if (rank == 0) {
+                cerr << "error[vg chunk]: input path " << region.seq << " not found in xg index" << endl;
+                return 1;
+            }
+            if (region.start == 0 || region.end == -1) {
+                region.start = 1;
+                region.end = xindex.path_length(rank);
+            } else if (!id_range) {
+                if (region.start < 0 || region.end >= xindex.path_length(rank)) {
+                    cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
+                         << " is out of bounds of path " << region.seq << " which has length "<< xindex.path_length(rank)
+                         << endl;
+                    return -1;
+                }
             }
         }
     }
@@ -286,7 +327,8 @@ int main_chunk(int argc, char** argv) {
     function<string(int, const Region&, bool)> chunk_name =
         [&out_chunk_prefix](int i, const Region& region, bool gam) -> string {
         stringstream chunk_name;
-        chunk_name << out_chunk_prefix << "_" << i << "_" << region.seq << "_"
+        string seq = region.seq.empty() ? "ids" : region.seq;
+        chunk_name << out_chunk_prefix << "_" << i << "_" << seq << "_"
         << (region.start - 1) << "_" << region.end << (gam ? ".gam" : ".vg");
         return chunk_name.str();
     };
@@ -327,7 +369,8 @@ int main_chunk(int argc, char** argv) {
         ofstream out_file;
         ostream* out_stream = NULL;
         if (chunk_graph) {
-            if (!region_string.empty() && regions.size() == 1 && chunk_size == 0) {
+            if ((!region_string.empty() || !node_range_string.empty()) &&
+                regions.size() == 1 && chunk_size == 0) {
                 // if only one chunk passed in using -p, we output chunk to stdout
                 out_stream = &cout;
             } else {
@@ -371,7 +414,8 @@ int main_chunk(int argc, char** argv) {
         }
         for (int i = 0; i < regions.size(); ++i) {
             const Region& oregion = output_regions[i];
-            obed << oregion.seq << "\t" << (oregion.start - 1) << "\t" << oregion.end
+            string seq = id_range ? "ids" : oregion.seq;
+            obed << seq << "\t" << (oregion.start - 1) << "\t" << oregion.end
                  << "\t" << chunk_name(i, oregion, chunk_gam) << "\n";
         }
     }
