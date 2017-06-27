@@ -5,6 +5,7 @@
 #include <Variant.h>
 #include "filter.hpp"
 #include "index.hpp"
+#include "path_index.hpp"
 #include "IntervalTree.h"
 #include "vg.pb.h"
 #include "fml.h"
@@ -26,8 +27,16 @@ namespace vg{
         int64_t upper_bound = 100;
         int64_t lower_bound = 100;
 
+        // Does the breakpoint point this way --->>
+        // or this way <<---
         bool isForward;
+        // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+        int SV_TYPE = 0;
+        // 
 
+        int normal_supports = 0;
+        int tumor_supports = 0;
+        
         int fragl_supports = 0;
         int split_supports = 0;
         int other_supports = 0;
@@ -82,14 +91,19 @@ class DepthMap {
 public:
   int8_t* depths;
   uint64_t size;
+  map<int64_t, uint64_t> node_pos;
+  vg::VG* g_graph;
   inline DepthMap(int64_t sz) { depths = new int8_t[sz]; };
   inline DepthMap() {};
   inline DepthMap(vg::VG* graph){
-
+    g_graph = graph;
     int64_t tot_size = 0;
     std::function<void(Node*)> count_size = [&](Node* n){
         #pragma omp critical
-        tot_size += n->sequence().length();
+        {
+            node_pos[n->id()] = tot_size;
+            tot_size += n->sequence().length();
+        }
     };
     graph->for_each_node(count_size);
     size = tot_size;
@@ -97,6 +111,26 @@ public:
   };
   inline int8_t get_depth(int64_t node_id, int64_t offset) { return depths[node_id + offset]; };
   inline void set_depth(int64_t node_id, int64_t offset, int8_t d) { depths[node_id + offset] = d; };
+  inline void increment_depth(int64_t node_id, int64_t offset) {
+    
+    depths[node_pos [node_id] + offset] += 1;
+};
+  inline void fill_depth(const vg::Path& p){
+    for (int i = 0; i < p.mapping_size(); i++){
+        Mapping m = p.mapping(i);
+        Position p = m.position();
+        int64_t nodeid = p.node_id();
+        int offset = p.offset();
+        for (int j = 0; j < m.edit_size(); j++){
+            Edit e = m.edit(j);
+            if (e.from_length() == e.to_length() && e.sequence().empty()){
+                for (int x = 0; x < e.from_length(); ++x){
+                    increment_depth(nodeid, offset + x);
+                }
+            }
+        }
+    }
+  };
 
 };
 
@@ -107,6 +141,7 @@ public:
 
         public:
             vector<string> ref_names;
+            map<string, PathIndex> pindexes;
 
             vector<pair<int, int> > intervals;
 

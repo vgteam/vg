@@ -37,6 +37,7 @@ class Filter{
          */
         bool perfect_filter(Alignment& aln);
         bool anchored_filter(Alignment& aln);
+        bool mark_alignments(Alignment& a, Alignment& b);
         Alignment depth_filter(Alignment& aln);
         Alignment qual_filter(Alignment& aln);
         Alignment coverage_filter(Alignment& aln);
@@ -52,7 +53,14 @@ class Filter{
         vector<Alignment> remap(string seq);
 
         bool is_left_clipped(Alignment& a);
-        Alignment refactor_split_alignment(Alignment& a);
+
+        // Returns a new alignment which doesn't have a split path
+        // and an integer indicating the SV type it might support
+        // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+        pair<Alignment, int> refactor_split_alignment(Alignment& a);
+
+        // Returns whether a split read supports a DEL, INS, or INV
+        // int split_read_type(Alignment& a);
 
         Alignment path_length_filter(Alignment& aln);
 
@@ -71,7 +79,7 @@ class Filter{
         pair<Alignment, Alignment> deletion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> insertion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> duplication_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Locus, Locus> inversion_filter(Alignment& aln_first, Alignment& aln_second);
+        bool inversion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> breakend_filter(Alignment& aln_first, Alignment& aln_second);
 
         void set_min_depth(int depth);

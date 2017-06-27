@@ -41,6 +41,9 @@ namespace vg {
                     if (!pind->path_contains_node(v.node_id())){
                         is_ref = false;
                     }
+                    if (v.node_id() == 0){
+                        continue;
+                    }
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
 
@@ -64,6 +67,7 @@ namespace vg {
                 // All alleles are alt alleles
                 // Just make our strings and push them back.
                 for (auto v : t.visits()){
+                    
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
                 ret.push_back(t_allele.str());

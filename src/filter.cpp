@@ -12,6 +12,10 @@ namespace vg{
 
     }
 
+    // int Filter::split_read_type(Alignment& a){
+
+    // }
+
     // to expand to multiple paths, we'll need to maintain a map of maps
     // pathname -> map<node_id, int> >
     int64_t Filter::distance_between_positions(Position first, Position second){
@@ -22,30 +26,57 @@ namespace vg{
         return abs(rp - fp);
     }
 
-    Alignment Filter::refactor_split_alignment(Alignment& a){
+    pair<Alignment, int> Filter::refactor_split_alignment(Alignment& a){
         // Get the clipped portion
         string clipseq = get_clipped_seq(a);
         // Remap it
         vector<Alignment> remaps = remap(clipseq);
         if (remaps.size() < 1){
-            return a;
+            return make_pair(a, 0);
         }
+        Alignment ret = a;
         // Tack the new split's path onto the anchored bit, depending on which side it came from.
         bool l_clipped = is_left_clipped(a);
         Path anchor = trim_hanging_ends(a.path());
         Path remap_path = remaps[0].path();
-        Path* new_path = a.mutable_path();
+        Path* new_path = ret.mutable_path();
         if (l_clipped){
             // Prepend our remapped alignment portion
             new_path->CopyFrom( append_path(remap_path, anchor));
         }
         else if (!l_clipped){
             // Append our remapped alignment portion
-
             new_path->CopyFrom( append_path(anchor, remap_path));
         }
 
-        return a;
+        // Determine if the new alignment's path represents an inversion, deletion, or insertion
+        // We do this by checking the distance and relative orientation between Anchor
+        // and remap_path.
+        // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+
+        int sv_indicator = 0;
+        Alignment bogus;
+        Path* b_path = bogus.mutable_path();
+        b_path->CopyFrom(anchor);
+        Alignment bogus_right;
+        Path* br_path = bogus_right.mutable_path();
+        br_path->CopyFrom(remap_path);
+        if ( !pair_orientation_filter(bogus, bogus_right).first.name().empty()){
+            sv_indicator = 3;
+        }
+        if (!node_to_position.empty()){
+            Position other = l_clipped ? last_path_position(remap_path) : first_path_position(remap_path);
+            int dist = distance_between_positions(get_clipped_position(a), other);
+            int internal_homology_limit = 25;
+            if (dist > internal_homology_limit){
+                sv_indicator = 2;
+            }
+            else{
+                sv_indicator = 1;
+            }
+        }
+
+        return make_pair(ret, sv_indicator);
 
     }
 
@@ -97,13 +128,7 @@ namespace vg{
         ret.clear_path();
         Path clipped = trim_hanging_ends(a.path());
         ret.mutable_path()->CopyFrom(clipped);
-        // Path* rpath = ret.mutable_path();
 
-        // for(int i = 0; i < clipped.mapping_size(); i++){
-        //     Mapping m = clipped.mapping(i);
-
-        //     for (int j = 0; j < )
-        // }
         return ret;
     }
 
@@ -314,6 +339,12 @@ namespace vg{
             }
         }
         return true;
+    }
+
+    bool Filter::mark_alignments(Alignment& a, Alignment& b){
+        pair<Alignment, Alignment> filt;
+
+        return false;
     }
     bool Filter::anchored_filter(Alignment& aln){
         int min_match_len = 10;
@@ -608,8 +639,10 @@ namespace vg{
     * instead of ---->    <-----
     * we'll see  <----    <----- or ---->    ----->
     */
-    pair<Locus, Locus> Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
-
+    bool Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
+        if (pair_orientation_filter(aln_first, aln_second).first.name() != ""){
+            return true;
+        }
     }
 
     /**

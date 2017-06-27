@@ -12,6 +12,8 @@ namespace vg
 namespace unittest
 {
 
+
+
 TEST_CASE("filter correctly handles inverted read pairs", "[sift"){
     Filter ff;
     const string one_json = R"(
@@ -175,16 +177,19 @@ TEST_CASE("Softclipped portions can be trimmed from reads.", "[sift]") {
                      "identity": 0.63200000000000001, "fragment": [{"name": "Random", "length": 1000}]}
                 )";
 
+
     Alignment first;
     Alignment second;
     json2pb(first, one_json.c_str(), one_json.size());
     json2pb(second, two_json.c_str(), two_json.size());
 
-    SECTION("Soft clip filter removes clipped portions"){
+
+    SECTION("Soft clip trimmer removes clipped portions"){
         Alignment a = ff.remove_clipped_portion(first);
         REQUIRE(ff.soft_clip_filter(a).name() == "");
         REQUIRE(ff.soft_clip_filter(a).soft_clipped() == false);
     }
+
 
 }
 
@@ -217,7 +222,7 @@ TEST_CASE("Unmapped reads are caught by filter and mapped ones ignored.", "[sift
 
 
     SECTION("Unmapped filter catches reads with no score"){
-    REQUIRE(ff.unmapped_filter(first).name() != "");
+        REQUIRE(ff.unmapped_filter(first).name() != "");
 
     }
     SECTION("Unmapped filter ignores reads with no score"){
