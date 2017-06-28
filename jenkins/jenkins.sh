@@ -66,7 +66,7 @@ export PATH=$PATH:${PWD}/bin
 pip install numpy scipy sklearn dateutils requests timeout_decorator pytest boto
 
 # Install toil-vg itself
-pip install toil[aws,mesos] "toil-vg==1.2.0a1.dev400"
+pip install toil[aws,mesos] "toil-vg==1.2.1a1.dev409"
 if [ "$?" -ne 0 ]
 then
     echo "pip install toil-vg fail"
