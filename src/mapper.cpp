@@ -2921,7 +2921,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             // are we reseeding?
             if (reseed_length
                 && mem_length >= min_mem_length
-                && mem_length >= reseed_length) {
+                && max_lcp >= reseed_length) {
                 if (fast_reseed) {
                     find_sub_mems_fast(mems,
                                        match.end,
@@ -3015,7 +3015,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 if (reseed_length
                     && !prev_iter_jumped_lcp
                     && mem_length >= min_mem_length
-                    && mem_length >= reseed_length) {
+                    && max_lcp >= reseed_length) {
                     if (fast_reseed) {
                         find_sub_mems_fast(mems,
                                            match.end,
@@ -3073,7 +3073,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         // are we reseeding?
         if (reseed_length
             && mem_length >= min_mem_length
-            && mem_length >= reseed_length) {
+            && max_lcp >= reseed_length) {
             if (fast_reseed) {
                 find_sub_mems_fast(mems,
                                    match.begin,
