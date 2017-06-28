@@ -640,7 +640,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           double cluster_mq,
                                           bool use_cluster_mq,
                                           int overlap_count,
-                                          double mq_estimate) {
+                                          double mq_estimate,
+                                          double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -672,7 +673,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 
     double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
-    mapping_quality *= pow(identity, 4);
+    mapping_quality *= pow(identity, identity_weight);
 
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
@@ -698,7 +699,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  int overlap_count1,
                                                  int overlap_count2,
                                                  double mq_estimate1,
-                                                 double mq_estimate2) {
+                                                 double mq_estimate2,
+                                                 double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -736,9 +738,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality2 = mapping_quality;
 
     double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
-    mapping_quality1 *= pow(identity1, 4);
+    mapping_quality1 *= pow(identity1, identity_weight);
     double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
-    mapping_quality2 *= pow(identity2, 4);
+    mapping_quality2 *= pow(identity2, identity_weight);
 
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));

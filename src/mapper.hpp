@@ -529,6 +529,7 @@ public:
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
+    double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths
