@@ -128,6 +128,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/chunker.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vcf_buffer.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/path_index.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg_algorithms.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/union_find.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/variant_adder.o
 
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
@@ -151,6 +152,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/gamsort_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/msga_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/map_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/surject_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/mpmap_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/find_main.o
 
 RAPTOR_DIR:=deps/raptor
@@ -533,6 +535,8 @@ $(UNITTEST_OBJ_DIR)/path_index.o: $(UNITTEST_SRC_DIR)/path_index.cpp $(UNITTEST_
 
 $(UNITTEST_OBJ_DIR)/vg_algorithms.o: $(UNITTEST_SRC_DIR)/vg_algorithms.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.cpp $(DEPS)
 
+$(UNITTEST_OBJ_DIR)/union_find.o: $(UNITTEST_SRC_DIR)/union_find.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/utility.hpp $(DEPS)
+
 $(UNITTEST_OBJ_DIR)/variant_adder.o: $(UNITTEST_SRC_DIR)/variant_adder.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/variant_adder.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/name_mapper.hpp $(DEPS)
 
 ###################################
@@ -575,6 +579,8 @@ $(SUBCOMMAND_OBJ_DIR)/genotype_main.o: $(SUBCOMMAND_SRC_DIR)/genotype_main.cpp $
 $(SUBCOMMAND_OBJ_DIR)/msga_main.o: $(SUBCOMMAND_SRC_DIR)/msga_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/map_main.o: $(SUBCOMMAND_SRC_DIR)/map_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/mpmap_main.o: $(SUBCOMMAND_SRC_DIR)/mpmap_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/multipath_mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
