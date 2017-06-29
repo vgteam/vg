@@ -50,10 +50,12 @@ double stdev(const T& v) {
 // Φ is the normal cumulative distribution function
 // https://en.wikipedia.org/wiki/Cumulative_distribution_function
 double phi(double x1, double x2);
-
+    
+/// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
+double normal_inverse_cdf(double quantile);
+    
 inline double add_log(double log_x, double log_y) {
     return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
-
 }
  
 /**
@@ -327,11 +329,11 @@ private:
 };
 
 struct UnionFind::UFNode {
-    UFNode(size_t index) : head(index) {}
+    UFNode(size_t index) : head(index), rank(0), size(1) {}
     ~UFNode() {}
     
-    size_t rank = 0;
-    size_t size = 1;
+    size_t rank;
+    size_t size;
     size_t head;
     unordered_set<size_t> children;
 };

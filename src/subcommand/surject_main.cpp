@@ -193,8 +193,7 @@ int main_surject(int argc, char** argv) {
     vector<Mapper*> mapper;
     mapper.resize(thread_count);
     for (int i = 0; i < thread_count; ++i) {
-        Mapper* m = new Mapper;
-        m->xindex = xgidx;
+        Mapper* m = new Mapper(xgidx, nullptr, nullptr);
         m->context_depth = context_depth;
         mapper[i] = m;
     }

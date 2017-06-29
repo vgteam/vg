@@ -361,7 +361,7 @@ namespace vg {
                     REQUIRE(std::equal(groups_from_all[i].begin(), groups_from_all[i].end(),
                                        groups_direct[i].begin()));
                     REQUIRE(std::equal(groups_from_all[i].begin(), groups_from_all[i].end(),
-                                       groups_orthogonal	[i].begin()));
+                                       groups_orthogonal[i].begin()));
                 }
             }
         }

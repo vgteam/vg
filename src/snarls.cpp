@@ -9,6 +9,18 @@
 #include "json2pb.h"
 
 namespace vg {
+    // TODO: this is duplicative with the other constructor, but protobuf won't let me make
+    // a deserialization iterator to match its signature because its internal file streams
+    // disallow copy constructors
+    SnarlManager::SnarlManager(istream& in) {
+        // add snarls to master list
+        for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
+            snarls.push_back(*iter);
+        }
+        // record the tree structure and build the other indexes
+        build_indexes();
+    }
+    
     const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) {
         return children[key_form(snarl)];
     }

@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <fstream>
+#include "stream.hpp"
 #include "vg.hpp"
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -31,6 +33,9 @@ namespace vg {
         /// Construct a SnarlManager for the snarls returned by an iterator
         template <typename SnarlIterator>
         SnarlManager(SnarlIterator begin, SnarlIterator end);
+        
+        /// Construct a SnarlManager for the snarls contained in an input stream
+        SnarlManager(istream& in);
         
         /// Default constructor
         SnarlManager() = default;

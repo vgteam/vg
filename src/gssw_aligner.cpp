@@ -801,18 +801,16 @@ double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
     return log_base * score;
 }
 
-size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos,
-                                           int8_t full_length_bonus) const {
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
     return (match * min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos)
             + full_length_bonus - gap_open) / gap_extension + 1;
     
 }
 
-size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, int8_t full_length_bonus) const {
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
     // longest detectable gap across entire read is in the middle
-    return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2),
-                                  full_length_bonus);
+    return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2));
     
 }
 
@@ -820,12 +818,14 @@ Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
                  int8_t _gap_open,
                  int8_t _gap_extension,
+                 int8_t _full_length_bonus,
                  double gc_content)
 {
     match = _match;
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
+    full_length_bonus = _full_length_bonus;
     // these are used when setting up the nodes
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
@@ -834,8 +834,7 @@ Aligner::Aligner(int8_t _match,
 
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                             bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
-                             bool print_score_matrices) {
+                             bool pinned, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
 
     // check input integrity
     if (pin_left && !pinned) {
@@ -1000,25 +999,25 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     gssw_graph_destroy(graph);
 }
 
-void Aligner::align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, full_length_bonus, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, print_score_matrices);
 }
 
-void Aligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus) {
+void Aligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
     
-    align_internal(alignment, nullptr, g, true, pin_left, 1, full_length_bonus, false);
+    align_internal(alignment, nullptr, g, true, pin_left, 1, false);
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                 bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus) {
+                                 bool pin_left, int32_t max_alt_alns) {
     
     if (alt_alignments.size() != 0) {
         cerr << "error:[Aligner::align_pinned_multi] output vector must be empty for pinned multi-aligning" << endl;
         exit(EXIT_FAILURE);
     }
     
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, full_length_bonus, false);
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, false);
 }
 
 void Aligner::align_global_banded(Alignment& alignment, Graph& g,
@@ -1146,6 +1145,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,
                                int8_t _gap_extension,
+                               int8_t _full_length_bonus,
                                int8_t _max_scaled_score,
                                uint8_t _max_qual_score,
                                double gc_content)
@@ -1156,6 +1156,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
+    full_length_bonus = _full_length_bonus;
     
     int8_t original_gap_open = gap_open;
     
@@ -1166,13 +1167,13 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     scale_factor = gap_open / original_gap_open;
     match *= scale_factor;
     mismatch *= scale_factor;
+    full_length_bonus *= scale_factor;
     
     BaseAligner::init_mapping_quality(gc_content);
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                                    bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
-                                    bool print_score_matrices) {
+                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
     
     // check input integrity
     if (pin_left && !pinned) {
@@ -1187,9 +1188,6 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         cerr << "error:[Aligner] cannot specify maximum number of alignments in single alignment" << endl;
         exit(EXIT_FAILURE);
     }
-    
-    // scale up the full length bonus
-    full_length_bonus *= scale_factor;
     
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
@@ -1354,20 +1352,20 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, full_length_bonus, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, print_score_matrices);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus) {
+void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
 
-    align_internal(alignment, nullptr, g, true, pin_left, 1, full_length_bonus, false);
+    align_internal(alignment, nullptr, g, true, pin_left, 1, false);
 
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                        bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus) {
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, full_length_bonus, false);
+                                        bool pin_left, int32_t max_alt_alns) {
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, false);
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,

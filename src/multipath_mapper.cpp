@@ -2046,7 +2046,7 @@ namespace vg {
                         // the MEMs overlap, but this can occur in some insertions and deletions
                         // because the SMEM algorithm is "greedy" in taking up as much of the read
                         // as possible
-                        // we can check if this happened with the SuffixTree, but it's expensive
+                        // we can check if this happened directly, but it's expensive
                         // so for now we just give it the benefit of the doubt but adjust the edge
                         // score so that the matches don't get double counted
                         

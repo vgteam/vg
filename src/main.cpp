@@ -648,17 +648,16 @@ int main_vectorize(int argc, char** argv){
         lcp_index.load(in_lcp);
     }
 
-    Mapper mapper;
+    Mapper* mapper = nullptr;
     if (mem_sketch) {
         if (gcsa_name.empty()) {
             cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
             return 1;
         } else {
-            mapper.gcsa = &gcsa_index;
-            mapper.lcp = &lcp_index;
+            mapper = new Mapper(xg_index, &gcsa_index, &lcp_index);
         }
         if (mem_hit_max) {
-            mapper.hit_max = mem_hit_max;
+            mapper->hit_max = mem_hit_max;
         }
     }
 
@@ -694,8 +693,8 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_mems_simple(a.sequence().begin(), a.sequence().end(),
-                                                max_mem_length, mapper.min_mem_length);
+            auto mems = mapper->find_mems_simple(a.sequence().begin(), a.sequence().end(),
+                                                 max_mem_length, mapper->min_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -754,6 +753,7 @@ int main_vectorize(int argc, char** argv){
     }
 
 
+    delete mapper;
 
     return 0;
 }
@@ -2810,8 +2810,8 @@ int main_align(int argc, char** argv) {
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
-        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
+        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left,
             banded_global, 0, max(seq.size(), graph->length()), debug);
     }
 
@@ -3168,7 +3168,7 @@ int main_view(int argc, char** argv) {
         case 'R':
             input_type = "snarls";
             if (output_type.empty()) {
-                // Default to Locus -> JSON
+                // Default to Snarl -> JSON
                 output_type = "json";
             }
             break;
