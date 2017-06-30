@@ -61,7 +61,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
-         << "    -X, --compare           realign GAM input (-G), writing: name, overlap with input, identity, score, mq, time" << endl
+         << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
@@ -888,20 +888,12 @@ int main_map(int argc, char** argv) {
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (print_fragment_model) {
                     // do nothing
-                } else if (compare_gam) {
-#pragma omp critical (cout)
-                    {
-                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path())
-                                            << "\t" << alnp.first.front().identity()
-                                            << "\t" << alnp.first.front().score()
-                                            << "\t" << alnp.first.front().mapping_quality() << endl
-                             << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path())
-                                            << "\t" << alnp.second.front().identity()
-                                            << "\t" << alnp.second.front().score()
-                                            << "\t" << alnp.second.front().mapping_quality() << endl;
-                    }
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
+                    if (compare_gam) {
+                        alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
+                        alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
+                    }
                     output_alignments(alnp.first);
                     output_alignments(alnp.second);
                 }
@@ -975,17 +967,11 @@ int main_map(int argc, char** argv) {
                 if(alignments.empty()) {
                     alignments.push_back(alignment);
                 }
+                // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
-#pragma omp critical (cout)
-                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
-                                             << "\t" << alignments.front().identity()
-                                             << "\t" << alignments.front().score()
-                                             << "\t" << alignments.front().mapping_quality()
-                                             << "\t" << elapsed_seconds.count() << endl;
-                } else {
-                    // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments);
+                    alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
                 }
+                output_alignments(alignments);
             };
             stream::for_each_parallel(gam_in, lambda);
         }
