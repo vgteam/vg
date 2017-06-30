@@ -418,7 +418,18 @@ public:
      * comments describing variants
      */
     void call(AugmentedGraph& augmented, string pileup_filename = "");
-    
+
+    /** 
+     * Get the support and size for each traversal in a list. Discount support
+     * of minus_traversal if it's specified.  Use average_support_switch_threshold and
+     * use_average_support to decide whether to return min or avg supports
+     */
+    tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
+        AugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        const vector<SnarlTraversal>& traversals,
+        const SnarlTraversal* minus_traversal = NULL);
+
+
     /**
      * For the given snarl, find the reference traversal, the best traversal,
      * and the second-best traversal, recursively, if any exist. These

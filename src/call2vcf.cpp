@@ -478,7 +478,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         visit_sizes[i] += node->sequence().size();
         
         // And update its min support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(node));
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * (shared_nodes.count(node_id) ? 0.5 : 1.0));
         
     }, [&](size_t i, NodeSide end1, NodeSide end2) {
         // This is an edge
@@ -491,7 +491,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         visit_sizes[i] += 1;
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge));
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));
     }, [&](size_t i, Snarl child) {
         // This is a child snarl, so get its max support.
         
@@ -566,6 +566,69 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         
 }
 
+/** Get the support for each traversal in a list, using average_support_switch_threshold
+    to decide if we use the minimum or average */
+tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_sizes(
+    AugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+    const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
+
+    // How long is the longest traversal?
+    // Sort of approximate because of the way nested site sizes are estimated.
+    size_t longest_traversal_length = 0;
+    
+    // And the shortest one?
+    size_t shortest_traversal_length = numeric_limits<size_t>::max();
+
+    // Calculate average and min support for all the traversals of this snarl.
+    vector<Support> min_supports;
+    vector<Support> average_supports;
+    vector<size_t> sizes;
+    for(auto& traversal : traversals) {
+        // Go through all the SnarlTraversals for this Snarl
+        
+        // What's the total support for this traversal?
+        Support total_support;
+        // And the length over which we have it (for averaging)
+        size_t total_size;
+        // And the min support?
+        Support min_support;
+        // Trace the traversal and get its support
+        tie(min_support, total_support, total_size) = get_traversal_support(
+            augmented, snarl_manager, site, traversal, minus_traversal);
+            
+        // Add average and min supports to vectors. Note that average support
+        // ignores edges.
+        min_supports.push_back(min_support);
+        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
+        
+#ifdef debug
+        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
+#endif
+
+        // Remember a new longest traversal length
+        longest_traversal_length = max(longest_traversal_length, total_size);  
+        // And a new shortest one
+        shortest_traversal_length = min(shortest_traversal_length, total_size);
+        // and the current size
+        sizes.push_back(total_size);
+    }
+    
+#ifdef debug
+    cerr << "Min vs. average" << endl;
+#endif
+    for (size_t i = 0; i < average_supports.size(); i++) {
+#ifdef debug
+        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
+#endif
+        // We should always have a higher average support than minumum support
+        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
+    }
+
+    return (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        tie(average_supports, sizes) :
+        tie(min_supports, sizes);
+}
+
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
@@ -596,61 +659,12 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // path.
     Locus locus;
     
-    // How long is the longest traversal?
-    // Sort of approximate because of the way nested site sizes are estimated.
-    size_t longest_traversal_length = 0;
-    
-    // And the shortest one?
-    size_t shortest_traversal_length = numeric_limits<size_t>::max();
-    
-    // Calculate average and min support for all the traversals of this snarl.
-    vector<Support> min_supports;
-    vector<Support> average_supports;
-    for(auto& traversal : here_traversals) {
-        // Go through all the SnarlTraversals for this Snarl
+    vector<Support> supports;
+    vector<size_t> traversal_sizes;
+    // Calculate the support for all the traversals of this snarl.
+    tie(supports, traversal_sizes) = get_traversal_supports_and_sizes(
+        augmented, snarl_manager, site, here_traversals);
         
-        // What's the total support for this traversal?
-        Support total_support;
-        // And the length over which we have it (for averaging)
-        size_t total_size;
-        // And the min support?
-        Support min_support;
-        // Trace the traversal and get its support
-        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
-            snarl_manager, site, traversal);
-            
-        // Add average and min supports to vectors. Note that average support
-        // ignores edges.
-        min_supports.push_back(min_support);
-        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
-        
-#ifdef debug
-        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
-#endif
-
-        // Remember a new longest traversal length
-        longest_traversal_length = max(longest_traversal_length, total_size);  
-        // And a new shortest one
-        shortest_traversal_length = min(shortest_traversal_length, total_size);      
-    }
-    
-#ifdef debug
-    cerr << "Min vs. average" << endl;
-#endif
-    for (size_t i = 0; i < average_supports.size(); i++) {
-#ifdef debug
-        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
-#endif
-        // We should always have a higher average support than minumum support
-        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
-    }
-
-    // Decide which support vector we use to actually decide.
-    // Use average support for long sites where dropout might be expected, and min support otherwise.
-    vector<Support>& supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
-        average_supports :
-        min_supports;
-    
     for (auto& support : supports) {
         // Blit supports over to the locus
         *locus.add_support() = support;
@@ -660,10 +674,15 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     // Now look at all the paths for the site and pick the best one
     int best_allele = -1;
+    int best_alt_allele = -1;
     for(size_t i = 0; i < supports.size(); i++) {
         if(best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i])) {
             // We have a new best.
             best_allele = i;
+        }
+        if(i > 0 && (best_allele == -1 || support_val(supports[best_alt_allele]) <= support_val(supports[i]))) {
+          // We have a new best alt
+          best_alt_allele = i;
         }
     }
     // We should always have a best allele; we may sometimes have a second best.
@@ -674,30 +693,9 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #endif
     
     // Then recalculate supports assuming we can't count anything shared with that best traversal
-    vector<Support> min_additional_supports;
-    vector<Support> average_additional_supports;
-    for(auto& traversal : here_traversals) {
-        // Go through all the SnarlTraversals for this Snarl
-        
-        // Get all these again, modulo the best allele
-        Support total_support;
-        size_t total_size;
-        Support min_support;
-        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
-            snarl_manager, site, traversal, &here_traversals.at(best_allele));
-            
-        // Add average and min supports to vectors.
-        min_additional_supports.push_back(min_support);
-        average_additional_supports.push_back(total_size != 0 ? total_support / total_size : Support());
-        
-#ifdef debug
-        cerr << "Additional: Min: " << min_support << " Total: " << total_support << " Average: "
-            << average_additional_supports.back() << endl;
-#endif
-    }
-    vector<Support>& additional_supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
-        average_additional_supports :
-        min_additional_supports;
+    vector<Support> additional_supports;
+    tie(additional_supports, traversal_sizes) = get_traversal_supports_and_sizes(
+        augmented, snarl_manager, site, here_traversals, &here_traversals.at(best_allele));
     
     // Then pick the second best one
     int second_best_allele = -1;
@@ -715,6 +713,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #ifdef debug
     cerr << "Choose second best allele: " << second_best_allele << endl;
 #endif
+
+    // Decide if we're an indel by looking at the traversal sizes
+    bool is_indel = traversal_sizes[best_allele] != traversal_sizes[0] ||
+        (second_best_allele != -1 && traversal_sizes[0] != traversal_sizes[second_best_allele]);
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -769,7 +771,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // these calls back to homozygous ref. TODO: This shouldn't apply
             // when off the primary path!
             bias_limit = max_ref_het_bias;
-        } else if (longest_traversal_length > shortest_traversal_length) {
+        } else if (is_indel) {
             // This is an indel
             // Use indel bias limit
             bias_limit = max_indel_het_bias;
