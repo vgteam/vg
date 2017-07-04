@@ -688,6 +688,10 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
+    for (int i = 0; i < alignments.size(); ++i) {
+        if (max_idx == i) continue;
+        alignments[max_idx].add_secondary_score(alignments[i].score());
+    }
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
@@ -765,6 +769,16 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
     alignment_pairs.second[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality2)));
+
+    for (int i = 0; i < alignment_pairs.first.size(); ++i) {
+        if (max_idx == i) continue;
+        alignment_pairs.first[max_idx].add_secondary_score(alignment_pairs.first[i].score());
+    }
+    for (int i = 0; i < alignment_pairs.second.size(); ++i) {
+        if (max_idx == i) continue;
+        alignment_pairs.second[max_idx].add_secondary_score(alignment_pairs.second[i].score());
+    }
+
 }
 
 double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
