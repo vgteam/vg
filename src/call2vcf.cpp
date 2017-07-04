@@ -629,7 +629,6 @@ tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_siz
         tie(min_supports, sizes);
 }
 
-
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
@@ -671,20 +670,23 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     }
     
     ////////////////////////////////////////////////////////////////////////////
-    
+
+    // look at all the paths for the site and pick the best one    
+    function<int(const vector<Support>&, vector<int>)> get_best_allele = [this](
+        const vector<Support>& supports, vector<int> skips) {
+        int best_allele = -1;
+        for(size_t i = 0; i < supports.size(); i++) {
+            if(std::find(skips.begin(), skips.end(), i) == skips.end() && (
+                   best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i]))) {
+                best_allele = i;
+            }
+        }
+        return best_allele;
+    };
+
     // Now look at all the paths for the site and pick the best one
-    int best_allele = -1;
-    int best_alt_allele = -1;
-    for(size_t i = 0; i < supports.size(); i++) {
-        if(best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i])) {
-            // We have a new best.
-            best_allele = i;
-        }
-        if(i > 0 && (best_allele == -1 || support_val(supports[best_alt_allele]) <= support_val(supports[i]))) {
-          // We have a new best alt
-          best_alt_allele = i;
-        }
-    }
+    int best_allele = get_best_allele(supports, {});
+    
     // We should always have a best allele; we may sometimes have a second best.
     assert(best_allele != -1);
     
@@ -694,29 +696,31 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     
     // Then recalculate supports assuming we can't count anything shared with that best traversal
     vector<Support> additional_supports;
-    tie(additional_supports, traversal_sizes) = get_traversal_supports_and_sizes(
+    tie(additional_supports, std::ignore) = get_traversal_supports_and_sizes(
         augmented, snarl_manager, site, here_traversals, &here_traversals.at(best_allele));
     
     // Then pick the second best one
-    int second_best_allele = -1;
-    for(size_t i = 0; i < additional_supports.size(); i++) {
-        if (best_allele == i) {
-            // The second best allele can't be the best allele.
-            continue;
-        }
-        if(second_best_allele == -1 || support_val(additional_supports[second_best_allele]) <= support_val(additional_supports[i])) {
-            // We're the best so far, and not the best allele, so we're the second best.
-            second_best_allele = i;
-        }
-    }
-    
+    int second_best_allele = get_best_allele(additional_supports, {best_allele});
+
 #ifdef debug
     cerr << "Choose second best allele: " << second_best_allele << endl;
 #endif
 
+    // Hack for special case where we want to call a multiallelic alt even if the reference
+    // has better support than one or both alts
+    vector<Support> tertiary_supports;
+    int third_best_allele = -1;
+    if (second_best_allele != -1) {
+        tie(tertiary_supports, std::ignore) = get_traversal_supports_and_sizes(
+            augmented, snarl_manager, site, here_traversals, &here_traversals.at(second_best_allele));
+        third_best_allele = get_best_allele(tertiary_supports, {best_allele, second_best_allele});
+    }    
+
     // Decide if we're an indel by looking at the traversal sizes
     bool is_indel = traversal_sizes[best_allele] != traversal_sizes[0] ||
         (second_best_allele != -1 && traversal_sizes[0] != traversal_sizes[second_best_allele]);
+    bool is_indel_ma_2 = (second_best_allele != -1 && traversal_sizes[0] != traversal_sizes[second_best_allele]);
+    bool is_indel_ma_3 = (third_best_allele != -1 && traversal_sizes[0] != traversal_sizes[third_best_allele]);
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -737,6 +741,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     Support second_best_support; // Defaults to 0
     if(second_best_allele != -1) {
         second_best_support = supports.at(second_best_allele);
+    }
+    Support third_best_support;
+    if (third_best_allele != -1) {
+        third_best_support = supports.at(third_best_allele);
     }
     
     // As we do the genotype, we also compute the likelihood. Holds
@@ -795,7 +803,33 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
 
+        // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
         if (copy_budget >= 2 &&
+            best_allele == 0 && 
+            third_best_allele > 0 &&
+            is_indel_ma_3 &&
+            max_indel_ma_bias * bias_multiple * support_val(third_best_support) >= support_val(best_support) &&
+            total(second_best_support) >= min_total_support_for_call &&
+            total(third_best_support) >= min_total_support_for_call) {
+            // There's a second best allele and third best allele, and it's not too biased to call,
+            // and both alleles exceed the minimum to call them present, and the
+            // second-best and third-best alleles have enough support that it won't torpedo the
+            // variant.
+            
+#ifdef debug
+            cerr << "Call as second best/third best" << endl;
+#endif
+            // Say both are present
+            genotype.add_allele(second_best_allele);
+            genotype.add_allele(third_best_allele);
+                        
+            // Get minimum support for filter (not assuming it's second_best just to be sure)
+            min_site_support = min(total(second_best_support), total(third_best_support));
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+        }
+        else if (copy_budget >= 2 &&
             second_best_allele != -1 &&
             bias_limit * bias_multiple * support_val(second_best_support) >= support_val(best_support) &&
             total(best_support) >= min_total_support_for_call &&
