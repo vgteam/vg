@@ -15,7 +15,7 @@
 
 #!/bin/bash
 
-usage() { printf "Usage: $0 [Options] \nOptions:\n\t-l\t Build vg locally (instead in Docker). Non-python dependencies must be installed\n" 1>&2; exit 1; }
+usage() { printf "Usage: $0 [Options] \nOptions:\n\t-l\t Build vg locally (instead of in Docker) and don't use Docker at all. Non-python dependencies must be installed\n" 1>&2; exit 1; }
 
 while getopts "l" o; do
     case "${o}" in
@@ -29,6 +29,13 @@ while getopts "l" o; do
 done
 
 shift $((OPTIND-1))
+
+if [ ! -e ~/.aws/credentials ]; then
+    >&2 echo "WARNING: No AWS credentials at ~/.aws/credentials; test data may not be able to be downloaded!"
+fi
+
+# Most of the script, we want to die on error
+set -e
 
 # Maximum number of minutes that can have passed since new vg docker image built
 NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
@@ -61,9 +68,20 @@ virtualenv --never-download awscli && awscli/bin/pip install awscli
 ln -snf ${PWD}/awscli/bin/aws bin/
 export PATH=$PATH:${PWD}/bin
 
+# Upgrade pip so that it can use the wheels for numpy & scipy, so that they
+# don't try to build from source
+pip install --upgrade pip
+
 # Dependencies for running tests.  Need numpy, scipy and sklearn
 # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-pip install numpy scipy sklearn dateutils requests timeout_decorator pytest boto
+pip install numpy
+pip install scipy
+pip install sklearn
+pip install dateutils
+pip install requests
+pip install timeout_decorator
+pip install pytest
+pip install boto
 
 # Install toil-vg itself
 pip install toil[aws,mesos] "toil-vg==1.2.1a1.dev409"
@@ -101,6 +119,7 @@ then
     fi
     VG_VERSION=`vg version`
     printf "vg-docker-version None\n" >> vgci_cfg.tsv
+    printf "container None\n" >> vgci_cfg.tsv
 else
     # Build a docker image locally.  Can be useful when don't
     # have priveleges to easily install dependencies
@@ -121,6 +140,9 @@ else
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
 fi
 
+# For the actual test and the cleanup, continue on error
+set +e
+
 # run the tests, output the junit report for Jenkins
 pytest -vv jenkins/vgci.py --junitxml=test-report.xml
 PYRET="$?"
@@ -139,8 +161,9 @@ then
     aws s3 cp vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
 fi
 
-# clean working copy to satisfy corresponding check in Makefile
-rm -rf bin awscli s3am
+# clean up changes to bin
+# Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
+rm -rf awscli s3am bin/aws bin/s3am
 
 rm -rf .env vgci-work
 if [ -d "/mnt/ephemeral" ]

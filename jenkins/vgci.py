@@ -30,6 +30,7 @@ class VGCITest(TestCase):
         self.auc_threshold = 0.02
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
+        self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
         self.do_teardown = True
         self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
@@ -53,6 +54,9 @@ class VGCITest(TestCase):
                         # override vg docker (which defaults to value from vg_config.py)
                         if toks[0] == 'vg-docker-version':
                             self.vg_docker = toks[1]
+                        # can use "Docker", "Singularity" or "None" (the string) as a container system
+                        if toks[0] == 'container':
+                            self.container = toks[1]
                         # dont verify output.  tests will pass if they dont crash or timeout
                         elif toks[0] == 'verify' and toks[1].lower() == 'false':
                             self.verify = False
@@ -123,6 +127,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         if chrom:
             opts += '--chroms {} '.format(chrom)
         if graph_path:
@@ -155,6 +161,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         if chrom:
             opts += '--chroms {} '.format(chrom)
         if graph_path:
@@ -233,6 +241,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
@@ -245,6 +255,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo '        
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         opts += '--maxCores {} '.format(self.cores)
         opts += '--bwa --bwa-paired --vg-paired '
         opts += '--fasta {} '.format(fasta_path)
