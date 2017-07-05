@@ -231,7 +231,29 @@ class VGCITest(TestCase):
 
     def _mapeval_vg_run(self, reads, base_xg_path, fasta_path, test_index_bases,
                         test_names, tag):
-        """ Wrap toil-vg mapeval as a shell command.  
+        """ Wrap toil-vg mapeval as a shell command. 
+        
+        Evaluates realignments (to the linear reference and to a set of graphs)
+        of reads simulated from a single "base" graph. Realignments are
+        evaluated based on how close the realignments are to the original
+        simulated source position. Simulations are done inside this function.
+        
+        Simulates the given number of reads (reads), from the given XG file
+        (base_xg_path). Uses the given FASTA (fasta_path) as a BWA reference for
+        comparing vg and BWA alignments within mapeval. (Basically, BWA against
+        the linear reference functions as a negative control "graph" to compare
+        against the real test graphs.)
+        
+        test_index_bases specifies a list of basenames (without extension) for a .xg,
+        .gcsa, and .gcsa.lcp file set, one per of graph that is to be compared.
+        
+        test_names has one entry per graph to be compared, and specifies where
+        the realigned read GAM files should be saved.
+        
+        tag is a unique slug for this test/run, which determines the Toil job
+        store name to use, and the location where the output files should be
+        saved.
+        
         """
 
         job_store = self._jobstore(tag)
