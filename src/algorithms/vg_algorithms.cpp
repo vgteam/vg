@@ -1471,8 +1471,20 @@ namespace algorithms {
                                                        bool no_additional_tips,
                                                        bool only_paths,
                                                        bool strict_max_len,
-                                                       LRUCache<id_t, Node>* node_cache) {
-        if (node_cache) {
+                                                       LRUCache<id_t, Node>* node_cache,
+                                                       LRUCache<id_t, vector<Edge>>* edge_cache) {
+        if (node_cache && edge_cache) {
+            return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
+                                                     include_terminal_positions,
+                                                     detect_terminal_cycles,
+                                                     no_additional_tips,
+                                                     only_paths,
+                                                     strict_max_len,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (node_cache) {
             return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
                                                      include_terminal_positions,
                                                      detect_terminal_cycles,
@@ -1481,8 +1493,18 @@ namespace algorithms {
                                                      strict_max_len,
                                                      [&](id_t id) {return xg_index.edges_on_start(id);},
                                                      [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index,
-                                                                                                  *node_cache);});
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (edge_cache) {
+            return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
+                                                     include_terminal_positions,
+                                                     detect_terminal_cycles,
+                                                     no_additional_tips,
+                                                     only_paths,
+                                                     strict_max_len,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_index.node_sequence(id);});
         }
         else {
             return extract_connecting_graph_internal(g, max_len, pos_1, pos_2,
@@ -1514,6 +1536,13 @@ namespace algorithms {
             cerr << "error:[extract_containing_graph] must extract into an empty graph" << endl;
             assert(false);
         }
+        
+#ifdef debug_vg_algorithms
+        cerr << "[extract_containing_graph] extracting containing graph from the following points:" << endl;
+        for (size_t i = 0; i < positions.size(); i ++) {
+            cerr << "\t" << positions[i] << ", forward dist " << forward_search_lengths[i] << ", backward dist " << backward_search_lengths[i] << endl;
+        }
+#endif
         
         // TODO: these structs are duplicative with extract_connecting_graph
         
@@ -1727,16 +1756,27 @@ namespace algorithms {
     }
     
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions, size_t max_dist,
-                                  LRUCache<id_t, Node>* node_cache) {
+                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
         
         // make a dummy vector for all positions at the same distance
         vector<size_t> dists(positions.size(), max_dist);
-        if (node_cache) {
+        if (node_cache && edge_cache) {
+            return extract_containing_graph_internal(g, positions, dists, dists,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (node_cache) {
             return extract_containing_graph_internal(g, positions, dists, dists,
                                                      [&](id_t id) {return xg_index.edges_on_start(id);},
                                                      [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index,
-                                                                                                  *node_cache);});
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (edge_cache) {
+            return extract_containing_graph_internal(g, positions, dists, dists,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_index.node_sequence(id);});
         }
         else {
             return extract_containing_graph_internal(g, positions, dists, dists,
@@ -1748,14 +1788,25 @@ namespace algorithms {
     
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_max_dist,
-                                  LRUCache<id_t, Node>* node_cache) {
+                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
         
-        if (node_cache) {
+        if (node_cache && edge_cache) {
+            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (node_cache) {
             return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
                                                      [&](id_t id) {return xg_index.edges_on_start(id);},
                                                      [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index,
-                                                                                                  *node_cache);});
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (edge_cache) {
+            return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_index.node_sequence(id);});
         }
         else {
             return extract_containing_graph_internal(g, positions, position_max_dist, position_max_dist,
@@ -1768,14 +1819,25 @@ namespace algorithms {
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_forward_max_dist,
                                   const vector<size_t>& position_backward_max_dist,
-                                  LRUCache<id_t, Node>* node_cache) {
+                                  LRUCache<id_t, Node>* node_cache, LRUCache<id_t, vector<Edge>>* edge_cache) {
         
-        if (node_cache) {
+        if (node_cache && edge_cache) {
+            return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (node_cache) {
             return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
                                                      [&](id_t id) {return xg_index.edges_on_start(id);},
                                                      [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index,
-                                                                                                  *node_cache);});
+                                                     [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (edge_cache) {
+            return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
+                                                     [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                     [&](id_t id) {return xg_index.node_sequence(id);});
         }
         else {
             return extract_containing_graph_internal(g, positions, position_forward_max_dist, position_backward_max_dist,
@@ -2036,13 +2098,26 @@ namespace algorithms {
     
     unordered_map<id_t, id_t> extract_extending_graph(xg::XG& xg_index, Graph& g, int64_t max_dist, pos_t pos,
                                                       bool backward, bool preserve_cycles_on_src,
-                                                      LRUCache<id_t, Node>* node_cache) {
+                                                      LRUCache<id_t, Node>* node_cache,
+                                                      LRUCache<id_t, vector<Edge>>* edge_cache) {
+        
+        if (node_cache && edge_cache) {
+            return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
+                                                    [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                    [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                    [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
         if (node_cache) {
             return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
                                                     [&](id_t id) {return xg_index.edges_on_start(id);},
                                                     [&](id_t id) {return xg_index.edges_on_end(id);},
-                                                    [&](id_t id) {return xg_cached_node_sequence(id, &xg_index,
-                                                                                                 *node_cache);});
+                                                    [&](id_t id) {return xg_cached_node_sequence(id, &xg_index, *node_cache);});
+        }
+        else if (edge_cache) {
+            return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
+                                                    [&](id_t id) {return xg_cached_edges_on_start(id, &xg_index, *edge_cache);},
+                                                    [&](id_t id) {return xg_cached_edges_on_end(id, &xg_index, *edge_cache);},
+                                                    [&](id_t id) {return xg_index.node_sequence(id);});
         }
         else {
             return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,

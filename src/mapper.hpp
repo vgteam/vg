@@ -208,6 +208,63 @@ private:
 };
     
 class BaseMapper : public Progressive {
+    
+public:
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    BaseMapper(void);
+    ~BaseMapper(void);
+    
+    double estimate_gc_content(void);
+    
+    int random_match_length(double chance_random);
+    
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+    
+    // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
+    void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
+                                          double robust_estimation_fraction = 0.95, bool deterministic = true);
+    
+    /// Set the alignment thread count, updating internal data structures that
+    /// are per thread. Note that this resets aligner scores to their default values!
+    void set_alignment_threads(int new_thread_count);
+    
+    void set_cache_size(int cache_size);
+    
+    // MEM-based mapping
+    // find maximal exact matches
+    // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
+    // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
+    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
+    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
+    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
+    
+    vector<MaximalExactMatch>
+    find_mems_deep(string::const_iterator seq_begin,
+                   string::const_iterator seq_end,
+                   double& lcp_avg,
+                   int max_mem_length = 0,
+                   int min_mem_length = 1,
+                   int reseed_length = 0);
+    
+    // Use the GCSA2 index to find super-maximal exact matches.
+    vector<MaximalExactMatch>
+    find_mems_simple(string::const_iterator seq_begin,
+                     string::const_iterator seq_end,
+                     int max_mem_length = 0,
+                     int min_mem_length = 1,
+                     int reseed_length = 0);
+    
+    
+    int min_mem_length; // a mem must be >= this length
+    int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
+    bool fast_reseed; // use the fast reseed algorithm
+    int fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    int hit_max;       // ignore or MEMs with more than this many hits
+    
+    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
+    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+    
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
@@ -293,61 +350,6 @@ protected:
     Aligner* regular_aligner = nullptr;
     
     FragmentLengthDistribution fragment_length_distr;
-    
-public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
-    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
-    BaseMapper(void);
-    ~BaseMapper(void);
-    
-    double estimate_gc_content(void);
-    
-    int random_match_length(double chance_random);
-    
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
-    
-    // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
-    void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
-                                          double robust_estimation_fraction = 0.95, bool deterministic = true);
-    
-    /// Set the alignment thread count, updating internal data structures that
-    /// are per thread. Note that this resets aligner scores to their default values!
-    void set_alignment_threads(int new_thread_count);
-    
-    void set_cache_size(int cache_size);
-    
-    // MEM-based mapping
-    // find maximal exact matches
-    // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
-    // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
-    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
-    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
-    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
-    
-    vector<MaximalExactMatch>
-    find_mems_deep(string::const_iterator seq_begin,
-                   string::const_iterator seq_end,
-                   double& lcp_avg,
-                   int max_mem_length = 0,
-                   int min_mem_length = 1,
-                   int reseed_length = 0);
-    
-    // Use the GCSA2 index to find super-maximal exact matches.
-    vector<MaximalExactMatch>
-    find_mems_simple(string::const_iterator seq_begin,
-                     string::const_iterator seq_end,
-                     int max_mem_length = 0,
-                     int min_mem_length = 1,
-                     int reseed_length = 0);
-    
-    
-    int min_mem_length; // a mem must be >= this length
-    int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
-    bool fast_reseed; // use the fast reseed algorithm
-    int hit_max;       // ignore or MEMs with more than this many hits
-    
-    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
-    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
 };
 
 class Mapper : public BaseMapper {

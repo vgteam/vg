@@ -14,6 +14,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , min_mem_length(0)
     , mem_reseed_length(0)
     , fast_reseed(true)
+    , fast_reseed_length_diff(4)
     , hit_max(0)
     , cache_size(128)
     , alignment_threads(1)
@@ -94,8 +95,7 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
     
     // an empty sequence matches the entire bwt
     if (seq_begin == seq_end) {
-        mems.emplace_back(
-                          MaximalExactMatch(seq_begin, seq_end,
+        mems.emplace_back(MaximalExactMatch(seq_begin, seq_end,
                                             gcsa::range_type(0, gcsa->size() - 1)));
         return mems;
     }
@@ -380,7 +380,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 if (fast_reseed) {
                     find_sub_mems_fast(mems,
                                        match.end,
-                                       max(min_mem_length, (int) mem_length / 2),
+                                       max(min_mem_length, ((int) mem_length) - fast_reseed_length_diff),
                                        sub_mems);
                 }
                 else {
@@ -474,7 +474,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     if (fast_reseed) {
                         find_sub_mems_fast(mems,
                                            match.end,
-                                           max(min_mem_length, (int) mem_length / 2),
+                                           max(min_mem_length, ((int) mem_length) - fast_reseed_length_diff),
                                            sub_mems);
                     }
                     else {
@@ -532,7 +532,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             if (fast_reseed) {
                 find_sub_mems_fast(mems,
                                    match.begin,
-                                   max(min_mem_length, (int) mem_length / 2),
+                                   max(min_mem_length, ((int) mem_length) - fast_reseed_length_diff),
                                    sub_mems);
             }
             else {

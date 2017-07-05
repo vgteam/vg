@@ -4,31 +4,116 @@
 //
 //
 
+#define debug_multipath_mapper
+
 #include "multipath_mapper.hpp"
 
 namespace vg {
     
-    MultipathAligner::MultipathAligner(xg::XG& xgindex, LRUCache<id_t, Node>& node_cache,
-                                       QualAdjAligner& qual_adj_aligner, SnarlManager* snarl_manager) :
-                                       xgindex(xgindex), node_cache(node_cache), snarl_manager(snarl_manager),
-                                       qual_adj_aligner(qual_adj_aligner) {
+    MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+                                     SnarlManager* snarl_manager) :
+        BaseMapper(xg_index, gcsa_index, lcp_array),
+        snarl_manager(snarl_manager)
+    {
         // nothing to do
     }
     
+    MultipathMapper::~MultipathMapper() {
+        
+    }
     
-    void MultipathAligner::multipath_align(const Alignment& alignment,
-                                           const vector<MaximalExactMatch>& mems,
-                                           list<MultipathAlignment>& multipath_alns_out,
-                                           size_t max_alt_alns) {
+    void MultipathMapper::multipath_map(const Alignment& alignment,
+                                        list<MultipathAlignment>& multipath_alns_out,
+                                        size_t max_alt_alns) {
+    
+#ifdef debug_multipath_mapper
+        cerr << "multipath mapping read " << pb2json(alignment) << endl;
+        cerr << "querying MEMs..." << endl;
+#endif
+    
+        // query MEMs using GCSA2
+        double dummy;
+        vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(),
+                                                        dummy, 0, min_mem_length, mem_reseed_length);
+        
+#ifdef debug_multipath_mapper
+        cerr << "obtained MEMs:" << endl;
+        for (MaximalExactMatch mem : mems) {
+            cerr << "\t" << mem << endl;
+        }
+        cerr << "clustering MEMs..." << endl;
+#endif
         
         // cluster the MEMs
-        MultipathClusterer clusterer(alignment, mems, qual_adj_aligner, xgindex, full_length_bonus,
-                                     max_expected_dist_approx_error);
+        MultipathClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters = clusterer.clusters();
         
-        // subgraphs around each cluster
+        
+#ifdef debug_multipath_mapper
+        cerr << "obtained clusters:" << endl;
+        for (int i = 0; i < clusters.size(); i++) {
+            cerr << "\tcluster " << i + 1 << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
+                cerr << "\t\t" << hit.second << " " <<  *hit.first << endl;
+            }
+        }
+        cerr << "extracting subgraphs..." << endl;
+#endif
+        
+        // extract graphs around the clusters
         vector<VG*> cluster_graphs;
-        cluster_graphs.reserve(clusters.size());
+        unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems;
+        query_cluster_graphs(alignment, mems, clusters, cluster_graphs, cluster_graph_mems);
+        
+        // record the sequence coverage of each cluster
+        unordered_map<VG*, int64_t> cluster_graph_coverage;
+        for (VG* vg : cluster_graphs) {
+            cluster_graph_coverage[vg] = read_coverage(cluster_graph_mems[vg]);
+        }
+        
+        // sort the cluster graphs descending by unique sequence coverage
+        // TODO: figure out relationship between this and the clustering filter
+        std::sort(cluster_graphs.begin(), cluster_graphs.end(), [&](VG* g1, VG* g2) {
+            return cluster_graph_coverage[g1] > cluster_graph_coverage[g2];
+        });
+        
+#ifdef debug_multipath_mapper
+        cerr << "aligning to subgraphs..." << endl;
+#endif
+        
+        // align to each cluster subgraph
+        size_t num_alns = 0;
+        for (VG* vg : cluster_graphs) {
+            // if we have a cluster graph with small enough MEM coverage compared to the best one or we've made
+            // the maximum number of alignments we stop producing alternate alignments
+            if (cluster_graph_coverage[vg] < mem_coverage_min_ratio * cluster_graph_coverage[cluster_graphs[0]]
+                || num_alns >= max_alt_alns) {
+                break;
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "performing alignment to subgraph " << pb2json(vg->graph) << endl;
+#endif
+            
+            vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = cluster_graph_mems[vg];
+            multipath_align(alignment, vg, graph_mems, multipath_alns_out);
+            
+            num_alt_alns++;
+        }
+        
+        for (VG* vg : cluster_graphs) {
+            delete vg;
+        }
+    }
+    
+    void MultipathMapper::query_cluster_graphs(const Alignment& alignment,
+                                               const vector<MaximalExactMatch>& mems,
+                                               const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
+                                               vector<VG*>& cluster_graphs_out,
+                                               unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out){
+        
+        // subgraphs around each cluster
+        cluster_graphs_out.reserve(clusters.size());
         
         // we will ensure that nodes are in only one cluster, use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
@@ -37,7 +122,7 @@ namespace vg {
             
             // gather the parameters for subgraph extraction from the MEM hits
             
-            vector<pair<const MaximalExactMatch*, pos_t>>& cluster = clusters[i];
+            const vector<pair<const MaximalExactMatch*, pos_t>>& cluster = clusters[i];
             vector<pos_t> positions;
             vector<size_t> forward_max_dist;
             vector<size_t> backward_max_dist;
@@ -50,9 +135,9 @@ namespace vg {
                 // get the start position of the MEM
                 positions.push_back(mem_hit.second);
                 // search far enough away to get any hit detectable without soft clipping
-                forward_max_dist.push_back(qual_adj_aligner.longest_detectable_gap(alignment, mem_hit.first->end, full_length_bonus)
+                forward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->end)
                                            + (mem_hit.first->end - mem_hit.first->begin));
-                backward_max_dist.push_back(qual_adj_aligner.longest_detectable_gap(alignment, mem_hit.first->begin, full_length_bonus));
+                backward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->begin));
             }
             
             // TODO: a progressive expansion of the subgraph if the MEM hit is already contained in
@@ -64,8 +149,8 @@ namespace vg {
             Graph& graph = cluster_graph->graph;
             
             // extract the protobuf Graph in place in the VG
-            algorithms::extract_containing_graph(xgindex, graph, positions, forward_max_dist,
-                                                 backward_max_dist, &node_cache);
+            algorithms::extract_containing_graph(*xindex, graph, positions, forward_max_dist,
+                                                 backward_max_dist, &get_node_cache());
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
@@ -83,7 +168,7 @@ namespace vg {
             if (overlapping_graphs.empty()) {
                 // there is no overlap with any other graph, suggesting a new unique hit
                 
-                cluster_graphs.push_back(cluster_graph);
+                cluster_graphs_out.push_back(cluster_graph);
                 
                 // now that we know we're going to save the graph, manually trigger the index building since
                 // we circumvented the constructors
@@ -95,20 +180,20 @@ namespace vg {
                 size_t min_idx_cluster = *std::min_element(overlapping_graphs.begin(), overlapping_graphs.end());
                 
                 // merge in the new graph
-                cluster_graphs[min_idx_cluster]->extend(graph);
+                cluster_graphs_out[min_idx_cluster]->extend(graph);
                 delete cluster_graph;
                 
                 // if this subgraph chains together multiple clusters, merge them and remove them from the list
                 overlapping_graphs.erase(min_idx_cluster);
                 for (size_t j : overlapping_graphs) {
-                    std::swap(cluster_graphs[j], cluster_graphs.back());
-                    cluster_graphs[min_idx_cluster]->extend(cluster_graphs.back()->graph);
-                    delete cluster_graphs.back();
-                    cluster_graphs.pop_back();
+                    std::swap(cluster_graphs_out[j], cluster_graphs_out.back());
+                    cluster_graphs_out[min_idx_cluster]->extend(cluster_graphs_out.back()->graph);
+                    delete cluster_graphs_out.back();
+                    cluster_graphs_out.pop_back();
                 }
                 
                 // relabel the cluster of any nodes that were not in the graph we merged into
-                Graph& merged_graph = cluster_graphs[min_idx_cluster]->graph;
+                Graph& merged_graph = cluster_graphs_out[min_idx_cluster]->graph;
                 for (size_t j = 0; j < merged_graph.node_size(); j++) {
                     node_id_to_cluster[merged_graph.node(j).id()] = min_idx_cluster;
                 }
@@ -116,299 +201,314 @@ namespace vg {
         }
         
         // which MEMs are in play for which cluster?
-        unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems;
         for (const MaximalExactMatch& mem : mems) {
             for (gcsa::node_type hit : mem.nodes) {
-                size_t cluster_idx = node_id_to_cluster[gcsa::Node::id(hit)];
-                cluster_graph_mems[cluster_graphs[cluster_idx]].push_back(make_pair(&mem, make_pos_t(hit)));
+                id_t node_id = gcsa::Node::id(hit);
+                if (node_id_to_cluster.count(node_id)) {
+                    size_t cluster_idx = node_id_to_cluster[node_id];
+                    cluster_graph_mems_out[cluster_graphs_out[cluster_idx]].push_back(make_pair(&mem, make_pos_t(hit)));
+                }
             }
         }
-        
-        // record the sequence coverage of each cluster
-        unordered_map<VG*, int64_t> cluster_graph_coverage;
-        for (VG* vg : cluster_graphs) {
-            cluster_graph_coverage[vg] = read_coverage(cluster_graph_mems[vg]);
-        }
-        
-        // sort the cluster graphs descending by unique sequence coverage
-        // TODO: figure out relationship between this and the clustering filter
-        std::sort(cluster_graphs.begin(), cluster_graphs.end(), [&](VG* g1, VG* g2) {
-            return cluster_graph_coverage[g1] > cluster_graph_coverage[g2];
-        });
+    }
+    
+    void MultipathMapper::multipath_align(const Alignment& alignment, VG* vg,
+                                          vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
+                                          list<MultipathAlignment>& multipath_alns_out) {
+#ifdef debug_multipath_mapper
+        cerr << "constructing alignment graph" << endl;
+#endif
         
         // the longest path we could possibly align to (full gap and a full sequence)
-        size_t target_length = qual_adj_aligner.longest_detectable_gap(alignment, full_length_bonus) + alignment.sequence().size();
+        size_t target_length = qual_adj_aligner->longest_detectable_gap(alignment) + alignment.sequence().size();
         
-        size_t num_alns = 0;
-        for (VG* vg : cluster_graphs) {
+        // convert from bidirected to directed
+        unordered_map<id_t, pair<id_t, bool> > node_trans;
+        VG align_graph = vg->split_strands(node_trans);
+        // if necessary, convert from cyclic to acylic
+        if (!align_graph.is_acyclic()) {
+            unordered_map<id_t, pair<id_t, bool> > dagify_trans;
+            align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
+                                             dagify_trans,
+                                             target_length,
+                                             0); // no maximum on size of component
+            node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
+        }
+        
+        align_graph.sort();
+        
+        // create the injection translator, which maps a node in the original graph to every one of its occurrences
+        // in the dagified graph
+        unordered_multimap<id_t, pair<id_t, bool> > rev_trans;
+        for (const auto& trans_record : node_trans) {
+            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
+            rev_trans.insert(make_pair(trans_record.second.first,
+                                       make_pair(trans_record.first, trans_record.second.second)));
+        }
+#ifdef debug_multipath_mapper
+        cerr << "making multipath alignment MEM graph" << endl;
+#endif
+        // construct a graph that summarizes reachability between MEMs
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans, snarl_manager, max_snarl_cut_size);
+        
+        vector<size_t> topological_order;
+        multi_aln_graph.topological_sort(topological_order);
+        
+        cerr << "computed topological sort" << endl;
+        
+        // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+        multi_aln_graph.remove_transitive_edges(topological_order);
+        
+        cerr << "removed transitive edges" << endl;
+        
+        // prune this graph down the paths that have reasonably high likelihood
+        multi_aln_graph.prune_to_high_scoring_paths(*qual_adj_aligner, max_suboptimal_path_score_diff, topological_order);
+        
+        cerr << "pruned to high scoring paths" << endl;
+        
+        // create a new multipath alignment object and transfer over data from alignment
+        multipath_alns_out.emplace_back();
+        MultipathAlignment& multipath_aln = multipath_alns_out.back();
+        multipath_aln.set_sequence(alignment.sequence());
+        multipath_aln.set_quality(alignment.quality());
+        multipath_aln.set_name(alignment.name());
+        multipath_aln.set_sample_name(alignment.sample_name());
+        multipath_aln.set_read_group(alignment.read_group());
+        
+        cerr << "transferred over read information" << endl;
+        
+        // add a subpath for each of the exact match nodes
+        for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+            ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+            Subpath* subpath = multipath_aln.add_subpath();
+            *subpath->mutable_path() = match_node.path;
+            int32_t match_score = qual_adj_aligner->score_exact_match(match_node.begin, match_node.end,
+                                                                     alignment.quality().begin() + (match_node.begin - alignment.sequence().begin()));
+            subpath->set_score(match_score + qual_adj_aligner->full_length_bonus * ((match_node.begin == alignment.sequence().begin()) +
+                                                                                   (match_node.end == alignment.sequence().end())));
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "doing DP between MEMs" << endl;
+#endif
+        
+        // perform alignment in the intervening sections
+        for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+#ifdef debug_multipath_mapper
+            cerr << "checking for intervening alignments for match node " << j << endl;
+#endif
             
-            // if we have a cluster graph with small enough MEM coverage compared to the best one or we've made
-            // the maximum number of alignmetns we stop producing alternate alignments
-            if (cluster_graph_coverage[vg] < mem_coverage_min_ratio * cluster_graph_coverage[cluster_graphs[0]]
-                || num_alns >= max_alt_alns) {
-                break;
+            ExactMatchNode& src_match_node = multi_aln_graph.match_nodes[j];
+            Subpath* src_subpath = multipath_aln.mutable_subpath(j);
+            
+            // check whether this is a simple split MEM, in which case we can make the connection directly
+            // and avoid making an intervening alignment
+            if (src_match_node.edges.size() == 1) {
+                pair<size_t, size_t>& edge = src_match_node.edges[0];
+                // check whether the positions are right next to each other in both the read and the graph
+                //
+                // strictly speaking, there could be other paths between the match nodes if the ends of the paths
+                // are at node boundaries, but even then the best alignment would be from the empty sequence to
+                // the path of length 0
+                if (src_match_node.end == multi_aln_graph.match_nodes[edge.first].begin && edge.second == 0) {
+#ifdef debug_multipath_mapper
+                    cerr << "match node has a simple split connection onto node " << edge.first << endl;
+#endif
+                    // connect the supath directly without an intervening alignment
+                    src_subpath->add_next(edge.first);
+                    continue;
+                }
             }
             
-            // convert from bidirected to directed
-            unordered_map<id_t, pair<id_t, bool> > node_trans;
-            VG align_graph = vg->split_strands(node_trans);
-            // if necessary, convert from cyclic to acylic
-            if (!align_graph.is_acyclic()) {
-                unordered_map<id_t, pair<id_t, bool> > dagify_trans;
-                align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
-                                                 dagify_trans,
-                                                 target_length,
-                                                 0); // no maximum on size of component
-                node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
-            }
+            const Path& path = src_subpath->path();
+            const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
+            // make a pos_t that points to the final base in the match
+            pos_t src_pos = make_pos_t(final_mapping.position().node_id(),
+                                       final_mapping.position().is_reverse(),
+                                       mapping_from_length(final_mapping) - 1);
             
-            align_graph.sort();
+            // the longest gap that could be detected at this position in the read
+            size_t src_max_gap = qual_adj_aligner->longest_detectable_gap(alignment, src_match_node.end);
             
-            // create the injection translator, which maps a node in the original graph to every one of its occurrences
-            // in the dagified graph
-            unordered_multimap<id_t, pair<id_t, bool> > rev_trans;
-            for (const auto& trans_record : node_trans) {
-                rev_trans.insert(make_pair(trans_record.second.first,
-                                           make_pair(trans_record.first, trans_record.second.second)));
-            }
-            
-            vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = cluster_graph_mems[vg];
-            
-            // construct a graph that summarizes reachability between MEMs
-            MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, rev_trans, node_trans, snarl_manager, max_snarl_cut_size);
-            
-            vector<size_t> topological_order;
-            multi_aln_graph.topological_sort(topological_order);
-            
-            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
-            multi_aln_graph.remove_transitive_edges(topological_order);
-            
-            // prune this graph down the paths that have reasonably high likelihood
-            multi_aln_graph.prune_to_high_scoring_paths(qual_adj_aligner, max_suboptimal_path_score_diff, topological_order);
-            
-            // create a new multipath alignment object and transfer over data from alignment
-            multipath_alns_out.emplace_back();
-            MultipathAlignment& multipath_aln = multipath_alns_out.back();
-            multipath_aln.set_sequence(alignment.sequence());
-            multipath_aln.set_quality(alignment.quality());
-            multipath_aln.set_name(alignment.name());
-            multipath_aln.set_sample_name(alignment.sample_name());
-            multipath_aln.set_read_group(alignment.read_group());
-            
-            // add a subpath for each of the exact match nodes
-            for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
-                ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
-                Subpath* subpath = multipath_aln.add_subpath();
-                *subpath->mutable_path() = match_node.path;
-                int32_t match_score = qual_adj_aligner.score_exact_match(match_node.begin, match_node.end,
-                                                                         alignment.quality().begin() + (match_node.begin - alignment.sequence().begin()));
-                subpath->set_score(match_score + full_length_bonus * ((match_node.begin == alignment.sequence().begin()) +
-                                                                      (match_node.end == alignment.sequence().end())));
-            }
-            
-            // perform alignment in the intervening sections
-            for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
-                ExactMatchNode& src_match_node = multi_aln_graph.match_nodes[j];
-                Subpath* src_subpath = multipath_aln.mutable_subpath(j);
+            for (const pair<size_t, size_t>& edge : src_match_node.edges) {
+                ExactMatchNode& dest_match_node = multi_aln_graph.match_nodes[edge.first];
+                pos_t dest_pos = make_pos_t(multipath_aln.subpath(edge.first).path().mapping(0).position());
                 
-                const Path& path = src_subpath->path();
-                const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
-                // make a pos_t that points to the final base in the match
-                pos_t src_pos = make_pos_t(final_mapping.position().node_id(),
-                                           final_mapping.position().is_reverse(),
-                                           mapping_from_length(final_mapping) - 1);
+                size_t max_gap = std::min(src_max_gap, qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin));
                 
-                // check whether this is a simple split MEM, in which case we can make the connection directly
-                // and avoid making an intervening alignment
-                if (src_match_node.edges.size() == 1) {
-                    pair<size_t, size_t>& edge = src_match_node.edges[0];
-                    // check whether the positions are right next to each other in both the read and the graph
-                    //
-                    // strictly speaking, there could be other paths between the match nodes if the ends of the paths
-                    // are at node boundaries, but even then the best alignment would be from the empty sequence to
-                    // the path of length 0
-                    if (src_match_node.end == multi_aln_graph.match_nodes[edge.first].begin && edge.second == 0) {
-                        // connect the supath directly without an intervening alignment
-                        src_subpath->add_next(edge.first);
-                        continue;
-                    }
+                // extract the graph between the matches
+                Graph connecting_graph;
+                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(align_graph,      // DAG with split strands
+                                                                                               connecting_graph, // graph to extract into
+                                                                                               max_gap,          // longest distance necessary
+                                                                                               src_pos,          // end of earlier match
+                                                                                               dest_pos,         // beginning of later match
+                                                                                               false,            // do not extract the end positions in the matches
+                                                                                               false,            // do not bother finding all cycles (it's a DAG)
+                                                                                               true,             // remove tips
+                                                                                               true,             // only include nodes on connecting paths
+                                                                                               true);            // enforce max distance strictly
+                
+                
+                
+                
+                // transfer the substring between the matches to a new alignment
+                Alignment intervening_sequence;
+                intervening_sequence.set_sequence(alignment.sequence().substr(src_match_node.end - alignment.sequence().begin(),
+                                                                              dest_match_node.begin - src_match_node.end));
+                if (!alignment.quality().empty()) {
+                    intervening_sequence.set_quality(alignment.quality().substr(src_match_node.end - alignment.sequence().begin(),
+                                                                                dest_match_node.begin - src_match_node.end));
                 }
                 
+#ifdef debug_multipath_mapper
+                cerr << "aligning to connecting graph: " << pb2json(connecting_graph) << endl;
+#endif
                 
-                // the longest gap that could be detected at this position in the read
-                size_t src_max_gap = qual_adj_aligner.longest_detectable_gap(alignment, src_match_node.end,
-                                                                             full_length_bonus);
-                                
-                for (const pair<size_t, size_t>& edge : src_match_node.edges) {
-                    ExactMatchNode& dest_match_node = multi_aln_graph.match_nodes[edge.first];
-                    pos_t dest_pos = make_pos_t(multipath_aln.subpath(edge.first).path().mapping(0).position());
+                // TODO a better way of choosing the number of alternate alignments
+                // TODO alternate alignments restricted only to distinct node paths?
+                vector<Alignment> alts_alignments;
+                qual_adj_aligner->align_global_banded_multi(intervening_sequence, alts_alignments,
+                                                           connecting_graph, num_alt_alns, band_padding, true);
+                
+                for (Alignment& connecting_alignment : alts_alignments) {
+                    // create a subpath between the matches for this alignment
+                    Subpath* connecting_subpath = multipath_aln.add_subpath();
+                    *connecting_subpath->mutable_path() = connecting_alignment.path();
+                    connecting_subpath->set_score(connecting_alignment.score());
                     
-                    size_t max_gap = std::min(src_max_gap,
-                                              qual_adj_aligner.longest_detectable_gap(alignment, dest_match_node.begin,
-                                                                                      full_length_bonus));
+                    // add the appropriate connections
+                    src_subpath->add_next(multipath_aln.subpath_size() - 1);
+                    connecting_subpath->add_next(edge.first);
                     
-                    // extract the graph between the matches
-                    Graph connecting_graph;
-                    unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(align_graph,      // DAG with split strands
-                                                                                                   connecting_graph, // graph to extract into
-                                                                                                   max_gap,          // longest distance necessary
-                                                                                                   src_pos,          // end of earlier match
-                                                                                                   dest_pos,         // beginning of later match
-                                                                                                   false,            // do not extract the end positions in the matches
-                                                                                                   false,            // do not bother finding all cycles (it's a DAG)
-                                                                                                   true,             // remove tips
-                                                                                                   true,             // only include nodes on connecting paths
-                                                                                                   true);            // enforce max distance strictly
+                    // translate the path into the space of the main graph
+                    translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
+                    Mapping* first_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
+                    if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
+                        first_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
+                    }
+                }
+            }
+        }
+        
+        vector<bool> is_source_node(multi_aln_graph.match_nodes.size(), true);
+        for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+            ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+            if (match_node.edges.empty()) {
+                const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
+                if (match_node.end != alignment.sequence().end()) {
                     
+                    Subpath* sink_subpath = multipath_aln.mutable_subpath(j);
                     
+                    int64_t target_length = qual_adj_aligner->longest_detectable_gap(alignment, match_node.end) + (alignment.sequence().end() - match_node.end);
+                    pos_t end_pos = final_position(match_node.path);
                     
+                    Graph tail_graph;
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                                                                                               tail_graph,
+                                                                                               target_length,
+                                                                                               end_pos,
+                                                                                               false,         // search forward
+                                                                                               false);        // no need to preserve cycles (in a DAG)
                     
-                    // transfer the substring between the matches to a new alignment
-                    Alignment intervening_sequence;
-                    intervening_sequence.set_sequence(alignment.sequence().substr(src_match_node.end - alignment.sequence().begin(),
-                                                                                  dest_match_node.begin - src_match_node.end));
+                    // get the sequence remaining in the right tail
+                    Alignment right_tail_sequence;
+                    right_tail_sequence.set_sequence(alignment.sequence().substr(match_node.end - alignment.sequence().begin(),
+                                                                                 alignment.sequence().end() - match_node.end));
                     if (!alignment.quality().empty()) {
-                        intervening_sequence.set_quality(alignment.quality().substr(src_match_node.end - alignment.sequence().begin(),
-                                                                                    dest_match_node.begin - src_match_node.end));
+                        right_tail_sequence.set_quality(alignment.quality().substr(match_node.end - alignment.sequence().begin(),
+                                                                                   alignment.sequence().end() - match_node.end));
                     }
                     
-                    // TODO a better way of choosing the number of alternate alignments
-                    // TODO alternate alignments restricted only to distinct node paths?
-                    vector<Alignment> alts_alignments;
-                    qual_adj_aligner.align_global_banded_multi(intervening_sequence, alts_alignments,
-                                                               connecting_graph, num_alt_alns, band_padding, true);
+#ifdef debug_multipath_mapper
+                    cerr << "aligning to right tail graph: " << pb2json(tail_graph) << endl;
+#endif
                     
-                    for (Alignment& connecting_alignment : alts_alignments) {
-                        // create a subpath between the matches for this alignment
-                        Subpath* connecting_subpath = multipath_aln.add_subpath();
-                        *connecting_subpath->mutable_path() = connecting_alignment.path();
-                        connecting_subpath->set_score(connecting_alignment.score());
+                    // align against the graph
+                    vector<Alignment> alt_alignments;
+                    qual_adj_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                    
+                    for (Alignment& tail_alignment : alt_alignments) {
+                        Subpath* tail_subpath = multipath_aln.add_subpath();
+                        *tail_subpath->mutable_path() = tail_alignment.path();
+                        tail_subpath->set_score(tail_alignment.score());
                         
-                        // add the appropriate connections
-                        src_subpath->add_next(multipath_aln.subpath_size() - 1);
-                        connecting_subpath->add_next(edge.first);
+                        sink_subpath->add_next(multipath_aln.subpath_size() - 1);
                         
-                        // translate the path into the space of the main graph
-                        translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
-                        Mapping* first_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
+                        translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
+                        Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
                         if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
                         }
                     }
                 }
             }
-            
-            vector<bool> is_source_node(multi_aln_graph.match_nodes.size(), true);
-            for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+            else {
+                for (const pair<size_t, size_t>& edge : match_node.edges) {
+                    is_source_node[edge.first] = false;
+                }
+            }
+        }
+        
+        for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+            if (is_source_node[j]) {
                 ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
-                if (match_node.edges.empty()) {
-                    const Mapping& final_mapping = match_node.path.mapping(match_node.path.mapping_size() - 1);
-                    if (match_node.end != alignment.sequence().end()) {
+                if (match_node.begin != alignment.sequence().begin()) {
+                    
+                    int64_t target_length = qual_adj_aligner->longest_detectable_gap(alignment, match_node.begin) + (match_node.begin - alignment.sequence().begin());
+                    pos_t begin_pos = initial_position(match_node.path);
+                    
+                    Graph tail_graph;
+                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
+                                                                                               tail_graph,
+                                                                                               target_length,
+                                                                                               begin_pos,
+                                                                                               true,          // search backward
+                                                                                               false);        // no need to preserve cycles (in a DAG)
+                    
+                    
+                    Alignment left_tail_sequence;
+                    left_tail_sequence.set_sequence(alignment.sequence().substr(0, match_node.begin - alignment.sequence().begin()));
+                    if (!alignment.quality().empty()) {
+                        left_tail_sequence.set_quality(alignment.quality().substr(0, match_node.begin - alignment.sequence().begin()));
+                    }
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "aligning to left tail graph: " << pb2json(tail_graph) << endl;
+#endif
+                    
+                    vector<Alignment> alt_alignments;
+                    qual_adj_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                    
+                    for (Alignment& tail_alignment : alt_alignments) {
+                        Subpath* tail_subpath = multipath_aln.add_subpath();
+                        *tail_subpath->mutable_path() = tail_alignment.path();
+                        tail_subpath->set_score(tail_alignment.score());
                         
-                        Subpath* sink_subpath = multipath_aln.mutable_subpath(j);
+                        tail_subpath->add_next(j);
+                        multipath_aln.add_start(multipath_aln.subpath_size() - 1);
                         
-                        int64_t target_length = qual_adj_aligner.longest_detectable_gap(alignment, match_node.end) + (alignment.sequence().end() - match_node.end);
-                        pos_t end_pos = final_position(match_node.path);
-                        
-                        Graph tail_graph;
-                        unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
-                                                                                                   tail_graph,
-                                                                                                   target_length,
-                                                                                                   end_pos,
-                                                                                                   false,         // search forward
-                                                                                                   false);        // no need to preserve cycles (in a DAG)
-                        
-                        // get the sequence remaining in the right tail
-                        Alignment right_tail_sequence;
-                        right_tail_sequence.set_sequence(alignment.sequence().substr(match_node.end - alignment.sequence().begin(),
-                                                                                     alignment.sequence().end() - match_node.end));
-                        if (!alignment.quality().empty()) {
-                            right_tail_sequence.set_quality(alignment.quality().substr(match_node.end - alignment.sequence().begin(),
-                                                                                       alignment.sequence().end() - match_node.end));
-                        }
-                        
-                        // align against the graph
-                        vector<Alignment> alt_alignments;
-                        qual_adj_aligner.align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns, full_length_bonus);
-                        
-                        for (Alignment& tail_alignment : alt_alignments) {
-                            Subpath* tail_subpath = multipath_aln.add_subpath();
-                            *tail_subpath->mutable_path() = tail_alignment.path();
-                            tail_subpath->set_score(tail_alignment.score());
-                            
-                            sink_subpath->add_next(multipath_aln.subpath_size() - 1);
-                            
-                            translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
-                            Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
-                            if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
-                                first_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
-                            }
-                        }
+                        translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
                     }
                 }
                 else {
-                    for (const pair<size_t, size_t>& edge : match_node.edges) {
-                        is_source_node[edge.first] = false;
-                    }
+                    multipath_aln.add_start(j);
                 }
             }
-            
-            for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
-                if (is_source_node[j]) {
-                    ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
-                    if (match_node.begin != alignment.sequence().begin()) {
-                        
-                        int64_t target_length = qual_adj_aligner.longest_detectable_gap(alignment, match_node.begin) + (match_node.begin - alignment.sequence().begin());
-                        pos_t begin_pos = initial_position(match_node.path);
-                        
-                        Graph tail_graph;
-                        unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
-                                                                                                   tail_graph,
-                                                                                                   target_length,
-                                                                                                   begin_pos,
-                                                                                                   true,          // search backward
-                                                                                                   false);        // no need to preserve cycles (in a DAG)
-                        
-                        
-                        Alignment left_tail_sequence;
-                        left_tail_sequence.set_sequence(alignment.sequence().substr(0, match_node.begin - alignment.sequence().begin()));
-                        if (!alignment.quality().empty()) {
-                            left_tail_sequence.set_quality(alignment.quality().substr(0, match_node.begin - alignment.sequence().begin()));
-                        }
-                        
-                        vector<Alignment> alt_alignments;
-                        qual_adj_aligner.align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns, full_length_bonus);
-                        
-                        for (Alignment& tail_alignment : alt_alignments) {
-                            Subpath* tail_subpath = multipath_aln.add_subpath();
-                            *tail_subpath->mutable_path() = tail_alignment.path();
-                            tail_subpath->set_score(tail_alignment.score());
-                            
-                            tail_subpath->add_next(j);
-                            multipath_aln.add_start(multipath_aln.subpath_size() - 1);
-                            
-                            translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
-                        }
-                    }
-                    else {
-                        multipath_aln.add_start(j);
-                    }
-                }
-            }
-            
-            for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
-                translate_oriented_node_ids(*multipath_aln.mutable_subpath(j)->mutable_path(), node_trans);
-            }
-            
-            num_alns++;
         }
         
-        for (VG* vg : cluster_graphs) {
-            delete vg;
+        for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
+            translate_oriented_node_ids(*multipath_aln.mutable_subpath(j)->mutable_path(), node_trans);
+            
+#ifdef debug_multipath_mapper
+            cerr << "completed multipath alignment: " << pb2json(multipath_aln) << endl;
+#endif
+            
         }
+        
     }
     
-    int64_t MultipathAligner::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) {
+    int64_t MultipathMapper::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) {
         if (mem_hits.empty()) {
             return 0;
         }
@@ -433,7 +533,7 @@ namespace vg {
         return total + (curr_end - curr_begin);
     }
     
-    double MultipathAligner::read_coverage_z_score(int64_t coverage, const Alignment& alignment) {
+    double MultipathMapper::read_coverage_z_score(int64_t coverage, const Alignment& alignment) {
         /* algebraically equivalent to
          *
          *      Coverage - ReadLen / 4
@@ -450,7 +550,9 @@ namespace vg {
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      SnarlManager* cutting_snarls, int64_t max_snarl_cut_size) {
-
+#ifdef debug_multipath_mapper
+        cerr << "walking out MEMs in graph" << endl;
+#endif
         
         // map of node ids in the dagified graph to the indices in the matches that contain them
         unordered_map<int64_t, vector<int64_t>> node_matches;
@@ -467,6 +569,10 @@ namespace vg {
             // the start of the hit in the original graph
             const pos_t& hit_pos = hit.second;
             
+#ifdef debug_multipath_mapper
+            cerr << "walking MEM hit " << hit_pos << " " << *hit.first << endl;
+#endif
+            
             auto hit_range = injection_trans.equal_range(id(hit_pos));
             for (auto iter = hit_range.first; iter != hit_range.second; iter++) {
                 // this graph is unrolled/dagified, so all orientations should match
@@ -475,12 +581,20 @@ namespace vg {
                 }
                 
                 // an id that corresponds to the original node
-                id_t injected_id = (*iter).first;
+                id_t injected_id = (*iter).second.first;
+                
+#ifdef debug_multipath_mapper
+                cerr << "hit node exists in graph as " << injected_id << endl;
+#endif
                 
                 // check all MEMs that traversed this node to see if this is a redundant sub-MEM
                 bool is_partial_mem = false;
                 for (int64_t j : node_matches[id(hit_pos)]) {
                     ExactMatchNode& match_node = match_nodes[j];
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "there is a previous node that visited this hit, checking whether it is a parent MEM" << endl;
+#endif
                     
                     int64_t relative_offset = begin - match_node.begin;
                     if (relative_offset < 0 || relative_offset + (end - begin) >= match_node.end - match_node.begin) {
@@ -523,6 +637,11 @@ namespace vg {
                     continue;
                 }
                 
+#ifdef debug_multipath_mapper
+                cerr << "performing DFS to walk out match" << endl;
+                cerr << pb2json(vg.graph) << endl;
+#endif
+                
                 // stack for DFS, each record contains tuples of (read begin, node offset, next node index, next node ids)
                 vector<tuple<string::const_iterator, size_t, size_t, vector<NodeTraversal>>> stack;
                 stack.emplace_back(begin, offset(hit_pos), 0,
@@ -561,169 +680,237 @@ namespace vg {
                     }
                 }
                 
-                if (!stack.empty()) {
-                    // we left the trace in the stack, which means we found a complete match
-                    int64_t match_node_idx = match_nodes.size();
-                    match_nodes.emplace_back();
-                    ExactMatchNode& match_node = match_nodes.back();
-                    Path& path = match_node.path;
-                    match_node.begin = begin;
-                    match_node.end = end;
-                    int64_t length_remaining = end - begin;
+                // we left the trace in the stack, which means we found a complete match
+                if (stack.empty()) {
+                    cerr << "error:[MultipathMapper] Couldn't find a match for MEM " << *hit.first << endl;
+                    exit(1);
+                }
+                
+#ifdef debug_multipath_mapper
+                cerr << "converting into a Path" << endl;
+#endif
+                
+                int64_t match_node_idx = match_nodes.size();
+                match_nodes.emplace_back();
+                ExactMatchNode* match_node = &match_nodes.back();
+                Path* path = &match_node->path;
+                match_node->begin = begin;
+                match_node->end = end;
+                int64_t length_remaining = end - begin;
+                
+                // walk out the match
+                int32_t rank = 1;
+                for (auto search_record : stack) {
+                    int64_t offset = get<1>(search_record);
+                    Node* node = get<3>(search_record)[get<2>(search_record)].node;
+                    int64_t length = std::min((int64_t) node->sequence().size() - offset, length_remaining);
                     
-                    // walk out the match
-                    int32_t rank = 1;
-                    for (auto search_record : stack) {
-                        int64_t offset = get<1>(search_record);
-                        Node* node = get<3>(search_record)[get<2>(search_record)].node;
-                        int64_t length = std::min((int64_t) node->sequence().size() - offset, length_remaining);
+                    Mapping* mapping = path->add_mapping();
+                    mapping->set_rank(rank);
+                    
+                    Edit* edit = mapping->add_edit();
+                    edit->set_from_length(length);
+                    edit->set_to_length(length);
+                    
+                    // note: the graph is dagified and unrolled, so all hits should be on the forward strand
+                    Position* position = mapping->mutable_position();
+                    position->set_node_id(node->id());
+                    position->set_offset(offset);
+                    
+                    // record that each node occurs in this match so we can filter out sub-MEMs
+                    node_matches[node->id()].push_back(match_node_idx);
+                    
+                    rank++;
+                    length_remaining -= length;
+                }
+                
+#ifdef debug_multipath_mapper
+                cerr << pb2json(*path) << endl;
+#endif
+                
+                if (cutting_snarls) {
+#ifdef debug_multipath_mapper
+                    cerr << "cutting with snarls" << endl;
+#endif
+                    // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
+                    
+                    // first compute the segments we want to cut out
+                    
+                    // this list holds the beginning of the current segment at each depth in the snarl hierarchy
+                    // as we traverse the exact match, the beginning is recorded in both sequence distance and node index
+                    list<pair<size_t, size_t>> level_segment_begin;
+                    level_segment_begin.emplace_back(0, 0);
+                    
+                    // we record which segments we are going to cut out of the match here
+                    vector<pair<size_t, size_t>> cut_segments;
+                    
+                    auto curr_level = level_segment_begin.begin();
+                    size_t prefix_length = 0;
+                    for (size_t j = 0, last = path->mapping_size() - 1; j <= last; j++) {
+                        const Position& position = path->mapping(j).position();
+                        const auto& projection = projection_trans.at(position.node_id());
+                        id_t projected_id = projection.first;
+                        id_t projected_rev = projection.second != position.is_reverse();
                         
-                        Mapping* mapping = path.add_mapping();
-                        mapping->set_rank(rank);
+                        if (j > 0) {
+                            // we have entered this node on this iteration
+                            if (cutting_snarls->into_which_snarl(projected_id, !projected_rev)) {
+                                // as we enter this node, we are leaving the snarl we were in
+                                
+                                // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
+                                if (prefix_length - curr_level->first <= max_snarl_cut_size) {
+                                    cut_segments.emplace_back(curr_level->second, j);
+                                }
+                                
+                                curr_level++;
+                                if (curr_level == level_segment_begin.end()) {
+                                    // we were already at the highest level seen so far, so we need to add a new one
+                                    // the entire previous part of the match is contained in this level, so we start
+                                    // the segment from 0
+                                    curr_level = level_segment_begin.insert(level_segment_begin.end(), make_pair(0, 0));
+                                }
+                            }
+                        }
                         
-                        Edit* edit = mapping->add_edit();
-                        edit->set_from_length(length);
-                        edit->set_to_length(length);
+                        // cross to the other side of the node
+                        prefix_length += mapping_from_length(path->mapping(j));
                         
-                        // note: the graph is dagified and unrolled, so all hits should be on the forward strand
-                        Position* position = mapping->mutable_position();
-                        position->set_node_id(node->id());
-                        position->set_offset(offset);
-                        
-                        // record that each node occurs in this match so we can filter out sub-MEMs
-                        node_matches[node->id()].push_back(match_node_idx);
-                        
-                        rank++;
-                        length_remaining -= length;
+                        if (j < last) {
+                            // we are going to leave this node next iteration
+                            if (cutting_snarls->into_which_snarl(projected_id, projected_rev)) {
+                                // as we leave this node, we are entering a new deeper snarl
+                                
+                                // the segment in the new level will begin at the end of the current node
+                                if (curr_level == level_segment_begin.begin()) {
+                                    // we are already at the lowest level seen so far, so we need to add a new one
+                                    level_segment_begin.emplace_front(prefix_length, j + 1);
+                                    curr_level--;
+                                }
+                                else {
+                                    // the lower level is in the record already, so we update its segment start
+                                    curr_level--;
+                                    *curr_level = make_pair(prefix_length, j + 1);
+                                }
+                            }
+                        }
                     }
                     
-                    if (cutting_snarls) {
-                        // we indicated a snarl manager that owns the snarls we want to cut out of exact matches
+                    // check the final segment for a cut unless we're at the highest level in the match
+                    auto last = level_segment_begin.end();
+                    last--;
+                    if (prefix_length - curr_level->first <= max_snarl_cut_size && curr_level != last) {
+                        cut_segments.emplace_back(curr_level->second, path->mapping_size());
+                    }
+                    
+                    // did we cut out any segments?
+                    if (!cut_segments.empty()) {
+#ifdef debug_multipath_mapper
+                        cerr << "found cut segments:" << endl;
+                        for (auto seg : cut_segments) {
+                            cerr << "\t" << seg.first << " " << seg.second << endl;
+                        }
+#endif
                         
-                        // first compute the segments we want to cut out
-                        
-                        // this list holds the beginning of the current segment at each depth in the snarl hierarchy
-                        // as we traverse the exact match, beginning is recorded in both sequence distance and node index
-                        list<pair<size_t, size_t>> level_segment_begin;
-                        level_segment_begin.emplace_back(0, 0);
-                        
-                        // we record which segments we are going to cut out of the match here
-                        vector<pair<size_t, size_t>> cut_segments;
-                        
-                        auto curr_level = level_segment_begin.begin();
+                        // we may have decided to cut the segments of both a parent and child snarl, so now we
+                        // collapse the list of intervals, which is sorted on the end index by construction
+                        //
+                        // snarl nesting properties guarantee that there will be at least one node between any
+                        // cut segments that are not nested, so we don't need to deal with the case where the
+                        // segments are partially overlapping (i.e. it's a bit easier than the general interval
+                        // intersection problem)
+                        vector<pair<size_t, size_t>> keep_segments;
+                        size_t curr_keep_seg_end = path->mapping_size();
+                        auto riter = cut_segments.rbegin();
+                        if (riter->second == curr_keep_seg_end) {
+                            // don't add an empty keep segment in the first position
+                            curr_keep_seg_end = riter->first;
+                            riter++;
+                        }
+                        for (; riter != cut_segments.rend(); riter++) {
+                            if (riter->second < curr_keep_seg_end) {
+                                // this is a new interval
+                                keep_segments.emplace_back(riter->second, curr_keep_seg_end);
+                                curr_keep_seg_end = riter->first;
+                            }
+                        }
+                        if (curr_keep_seg_end > 0) {
+                            // we are not cutting off the left tail, so add a keep segment for it
+                            keep_segments.emplace_back(0, curr_keep_seg_end);
+                        }
+
+                        // make a new node for all but one of the keep segments
                         size_t prefix_length = 0;
-                        for (size_t j = 0, last = path.mapping_size() - 1; j <= last; j++) {
+                        size_t prefix_idx = 0;
+                        for (auto iter = keep_segments.end() - 1; iter != keep_segments.begin(); iter--) {
+#ifdef debug_multipath_mapper
+                            cerr << "making path for keep segment " << iter->first << " " << iter->second << " of path " << pb2json(*path) << endl;
+#endif
+                            match_nodes.emplace_back();
                             
-                            const Position& position = path.mapping(j).position();
+                            // update pointers in case the vector reallocates
+                            match_node = &match_nodes[match_node_idx];
+                            path = &match_node->path;
                             
-                            if (j > 0) {
-                                // we have entered this node on this iteration
-                                if (cutting_snarls->into_which_snarl(position.node_id(), !position.is_reverse())) {
-                                    // as we enter this node, we are leaving the snarl we were in
-                                    
-                                    // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
-                                    if (prefix_length - (*curr_level).first <= max_snarl_cut_size) {
-                                        cut_segments.emplace_back((*curr_level).second, j);
-                                    }
-                                    
-                                    curr_level++;
-                                    if (curr_level == level_segment_begin.end()) {
-                                        // we were already at the highest level seen so far, so we need to add a new one
-                                        // the entire previous part of the match is contained in this level, so we start
-                                        // the segment from 0
-                                        curr_level = level_segment_begin.insert(level_segment_begin.end(), make_pair(0, 0));
-                                    }
-                                }
+                            // measure the length of path between this keep segment and the last one
+                            while (prefix_idx < iter->first) {
+                                prefix_length += mapping_from_length(path->mapping(prefix_idx));
+                                prefix_idx++;
                             }
                             
-                            // cross to the other side of the node
-                            prefix_length += mapping_from_length(path.mapping(j));
-                            
-                            if (j < last) {
-                                // we are going to leave this node next iteration
-                                if (cutting_snarls->into_which_snarl(position.node_id(), position.is_reverse())) {
-                                    // as we leave this node, we are entering a new deeper snarl
-                                    
-                                    // the segment in the new level will begin at the end of the current node
-                                    if (curr_level == level_segment_begin.begin()) {
-                                        // we are already at the lowest level seen so far, so we need to add a new one
-                                        level_segment_begin.emplace_front(prefix_length, j + 1);
-                                        curr_level--;
-                                    }
-                                    else {
-                                        // the lower level is in the record already, so we update its segment start
-                                        curr_level--;
-                                        *curr_level = make_pair(prefix_length, j + 1);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // check the final segment for a cut unless we're at the highest level in the match
-                        auto last = level_segment_begin.end();
-                        last--;
-                        if (prefix_length - (*curr_level).first <= max_snarl_cut_size && curr_level != last) {
-                            cut_segments.emplace_back((*curr_level).second, path.mapping_size());
-                        }
-                        
-                        // did we cut out any segments?
-                        if (!cut_segments.empty()) {
-                            
-                            // we may have decided to cut the segments of both a parent and child snarl, so now we
-                            // collapse the list of intervals, which is sorted on the end index by construction
-                            //
-                            // snarl nesting properties guarantee that there will be at least one node between any
-                            // cut segments that are not nested, so we don't need to deal with the case where the
-                            // segments are partially overlapping (i.e. it's a bit easier than the general interval
-                            // intersection problem)
-                            vector<pair<size_t, size_t>> keep_segments;
-                            size_t curr_keep_seg_end = path.mapping_size();
-                            auto riter = cut_segments.rbegin();
-                            if ((*riter).second == curr_keep_seg_end) {
-                                // don't add an empty keep segment in the first position
-                                curr_keep_seg_end = (*riter).first;
-                                riter++;
-                            }
-                            for (; riter != cut_segments.rend(); riter++) {
-                                if ((*riter).second < curr_keep_seg_end) {
-                                    // this is a new interval
-                                    keep_segments.emplace_back((*riter).second, curr_keep_seg_end);
-                                    curr_keep_seg_end = (*riter).first;
-                                }
-                            }
-                            if (curr_keep_seg_end > 0) {
-                                // we are not cutting off the left tail, so add a keep segment for it
-                                keep_segments.emplace_back(0, curr_keep_seg_end);
-                            }
-                            
-                            // make a new node for all but one of the keep segments
-                            auto last = keep_segments.end() - 1;
-                            for (auto iter = keep_segments.begin(); iter != last; iter++) {
-                                match_nodes.emplace_back();
-                                ExactMatchNode& cut_node = match_nodes.back();
-                                Path& cut_path = cut_node.path;
-                                // transfer over the keep segment from the main path
-                                int32_t rank = 1;
-                                for (size_t j = (*iter).first; j < (*iter).second; j++, rank++) {
-                                    Mapping* mapping = cut_path.add_mapping();
-                                    *mapping = path.mapping(j);
-                                    mapping->set_rank(rank);
-                                }
-                            }
-                            // replace the path of the original node with the final keep segment
-                            Path new_path;
+                            size_t keep_segment_length = 0;
+                            ExactMatchNode& cut_node = match_nodes.back();
+                            Path& cut_path = cut_node.path;
+                            // transfer over the keep segment from the main path and measure the length
                             int32_t rank = 1;
-                            for (size_t j = (*last).first; j < (*last).second; j++, rank++) {
-                                Mapping* mapping = new_path.add_mapping();
-                                *mapping = path.mapping(j);
+                            for (size_t j = iter->first; j < iter->second; j++, rank++) {
+                                Mapping* mapping = cut_path.add_mapping();
+                                *mapping = path->mapping(j);
                                 mapping->set_rank(rank);
+                                keep_segment_length += mapping_from_length(*mapping);
                             }
-                            path = new_path;
+                            
+                            // identify the substring of the MEM that stays on this node
+                            cut_node.begin = match_node->begin + prefix_length;
+                            cut_node.end = cut_node.begin + keep_segment_length;
+                            
+                            prefix_length += keep_segment_length;
+                            prefix_idx = iter->second;
+#ifdef debug_multipath_mapper
+                            cerr << "new cut path: " << pb2json(cut_path) << endl;
+#endif
+                            
                         }
+                        
+                        while (prefix_idx < keep_segments.front().first) {
+                            prefix_length += mapping_from_length(path->mapping(prefix_idx));
+                            prefix_idx++;
+                        }
+                        
+                        size_t keep_segment_length = 0;
+                        // replace the path of the original node with the final keep segment
+                        Path new_path;
+                        int32_t rank = 1;
+                        for (size_t j = keep_segments.front().first; j < keep_segments.front().second; j++, rank++) {
+                            Mapping* mapping = new_path.add_mapping();
+                            *mapping = path->mapping(j);
+                            mapping->set_rank(rank);
+                            keep_segment_length += mapping_from_length(*mapping);
+                        }
+                        *path = new_path;
+                        
+                        match_node->begin += prefix_length;
+                        match_node->end = match_node->begin + keep_segment_length;
+#ifdef debug_multipath_mapper
+                        cerr << "new cut path: " << pb2json(new_path) << endl;
+#endif
                     }
                 }
             }
         }
+        
+#ifdef debug_multipath_mapper
+        cerr << "computing reachability" << endl;
+#endif
         
         // now we calculate reachability between the walked matches so we know which ones
         // to connect with intervening alignments
@@ -745,6 +932,14 @@ namespace vg {
         auto end_node_id = [&](size_t idx) {
             Path& path = match_nodes[idx].path;
             return path.mapping(path.mapping_size() - 1).position().node_id();
+        };
+        
+        auto endpoint_offset = [&](size_t idx, bool end) {
+            return end ? end_offset(idx) : start_offset(idx);
+        };
+        
+        auto endpoint_node_id = [&](size_t idx, bool end) {
+            return end ? end_node_id(idx) : start_node_id(idx);
         };
 
         // record the start and end node ids of every exact match
@@ -794,6 +989,10 @@ namespace vg {
             Node* node = graph.mutable_node(i);
             id_t node_id = node->id();
             
+#ifdef debug_multipath_mapper
+            cerr << "DP step for node " << node_id << endl;
+#endif
+            
             size_t node_length = node->sequence().size();
             
             // do any MEMs start or end on this node?
@@ -807,6 +1006,10 @@ namespace vg {
             if (contains_starts && contains_ends) {
                 // since there are both starts and ends on this node, we have to traverse both lists simultaneously
                 // to assess reachability within the same node
+                
+#ifdef debug_multipath_mapper
+                cerr << "node " << node_id << " contains both starts and ends of MEMs" << endl;
+#endif
                 
                 vector<size_t>& ends = exact_match_starts[node_id];
                 vector<size_t>& starts = exact_match_starts[node_id];
@@ -822,7 +1025,6 @@ namespace vg {
                 size_t curr_end_offset = end_offset(ends[end_range_begin]);
                 size_t prev_offset = 0;
                 
-                bool prev_is_end = curr_end_offset <= curr_start_offset;
                 while (end_offset(starts[start_range_end]) == curr_end_offset) {
                     end_range_end++;
                     if (end_range_end == ends.size()) {
@@ -836,347 +1038,297 @@ namespace vg {
                     }
                 }
                 
+#ifdef debug_multipath_mapper
+                cerr << "first starts in range " << start_range_begin << ":" << start_range_end << " are located at initial offset " << curr_start_offset << endl;
+                cerr << "first ends in range " << end_range_begin << ":" << end_range_end << " are located at initial offset " << curr_end_offset << endl;
+#endif
+                
                 // connect the first range of starts or ends to the incoming starts and ends
                 
                 size_t prev_end_range_begin = end_range_begin;
                 size_t prev_start_range_begin = start_range_begin;
-                if (prev_is_end) {
-                    for (size_t j = end_range_begin; j < end_range_end; j++) {
-                        for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
-                            reachable_ends_from_end[ends[j]].push_back(incoming_end);
-                        }
-                        for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
-                            reachable_starts_from_end[ends[j]].push_back(incoming_start);
-                        }
-                    }
+                
+                bool at_end = (curr_end_offset <= curr_start_offset);
+                unordered_map<id_t, unordered_map<size_t, size_t>>* reachable_endpoints;
+                unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_ends_from_endpoint;
+                unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_starts_from_endpoint;
+                vector<size_t>* endpoints;
+                size_t* range_begin;
+                size_t* range_end;
+                size_t* prev_range_begin;
+                size_t* curr_offset;
+                if (at_end) {
+                    reachable_endpoints = &reachable_ends;
+                    reachable_starts_from_endpoint = &reachable_starts_from_end;
+                    reachable_ends_from_endpoint = &reachable_ends_from_end;
+                    endpoints = &ends;
+                    range_begin = &end_range_begin;
+                    range_end = &end_range_end;
+                    prev_range_begin = &prev_end_range_begin;
+                    curr_offset = &curr_end_offset;
                     
-                    end_range_begin = end_range_end;
-                    prev_offset = curr_end_offset;
-                    curr_end_offset = end_offset(ends[end_range_begin]);
-                    if (end_range_begin != ends.size()) {
-                        while (end_offset(starts[start_range_end]) == curr_end_offset) {
-                            end_range_end++;
-                            if (end_range_end == ends.size()) {
-                                break;
-                            }
-                        }
-                    }
+#ifdef debug_multipath_mapper
+                    cerr << "first endpoint is an end" << endl;
+#endif
                 }
                 else {
-                    for (size_t j = start_range_begin; j < start_range_end; j++) {
-                        for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
-                            reachable_ends_from_start[starts[j]].push_back(incoming_end);
-                        }
-                        for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
-                            reachable_starts_from_start[starts[j]].push_back(incoming_start);
-                        }
-                    }
+                    reachable_endpoints = &reachable_starts;
+                    reachable_starts_from_endpoint = &reachable_starts_from_start;
+                    reachable_ends_from_endpoint = &reachable_ends_from_start;
+                    endpoints = &starts;
+                    range_begin = &start_range_begin;
+                    range_end = &start_range_end;
+                    prev_range_begin = &prev_start_range_begin;
+                    curr_offset = &curr_start_offset;
                     
-                    start_range_begin = start_range_end;
-                    prev_offset = curr_start_offset;
-                    curr_start_offset = start_offset(starts[start_range_begin]);
-                    if (start_range_begin != starts.size()) {
-                        while (start_offset(starts[start_range_end]) == curr_start_offset) {
-                            start_range_end++;
-                            if (start_range_end == starts.size()) {
-                                break;
-                            }
+#ifdef debug_multipath_mapper
+                    cerr << "first endpoint is a start" << endl;
+#endif
+                }
+                
+                for (size_t j = *range_begin; j < *range_end; j++) {
+                    for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
+                        (*reachable_ends_from_endpoint)[endpoints->at(j)].emplace_back(incoming_end.first, incoming_end.second + *curr_offset);
+                    }
+                    for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
+                        (*reachable_starts_from_endpoint)[endpoints->at(j)].emplace_back(incoming_start.first, incoming_start.second + *curr_offset);
+                    }
+                }
+                
+                
+                bool prev_is_end = at_end;
+                *range_begin = *range_end;
+                prev_offset = *curr_offset;
+                if (*range_begin != endpoints->size()) {
+                    *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
+                    while (endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                        (*range_end)++;
+                        if (*range_end == endpoints->size()) {
+                            break;
                         }
                     }
                 }
+                
+#ifdef debug_multipath_mapper
+                cerr << "next range is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
+#endif
                 
                 // iterate along ranges of starts or ends in order of their offsets
                 
                 while (start_range_begin < starts.size() && end_range_begin < ends.size()) {
-                    if (curr_end_offset <= curr_start_offset) {
-                        
-                        size_t dist_between = curr_end_offset - prev_offset;
-                        
-                        // connect this range to the previous range
-                        if (prev_is_end) {
-                            for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
-                                for (size_t k = end_range_begin; k < end_range_end; k++) {
-                                    reachable_ends_from_end[ends[k]].push_back(make_pair(ends[j], dist_between));
-                                }
-                            }
-                        }
-                        else {
-                            for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
-                                for (size_t k = end_range_begin; k < end_range_end; k++) {
-                                    reachable_starts_from_end[ends[k]].push_back(make_pair(starts[j], dist_between));
-                                }
-                            }
-                        }
-                        
-                        // record the properties of this range
-                        prev_end_range_begin = end_range_begin;
-                        prev_is_end = true;
-                        
-                        // advance to the next range
-                        end_range_begin = end_range_end;
-                        prev_offset = curr_end_offset;
-                        curr_end_offset = end_offset(ends[end_range_begin]);
-                        if (end_range_begin != ends.size()) {
-                            while (end_offset(starts[start_range_end]) == curr_end_offset) {
-                                end_range_end++;
-                                if (end_range_end == ends.size()) {
-                                    break;
-                                }
-                            }
-                        }
+                    at_end = (curr_end_offset <= curr_start_offset);
+                    if (at_end) {
+                        reachable_endpoints = &reachable_ends;
+                        reachable_starts_from_endpoint = &reachable_starts_from_end;
+                        reachable_ends_from_endpoint = &reachable_ends_from_end;
+                        endpoints = &ends;
+                        range_begin = &end_range_begin;
+                        range_end = &end_range_end;
+                        prev_range_begin = &prev_end_range_begin;
+                        curr_offset = &curr_end_offset;
                     }
                     else {
-                        
-                        size_t dist_between = curr_end_offset - prev_offset;
-                        
-                        // connect this range to the previous range
-                        if (prev_is_end) {
-                            for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
-                                for (size_t k = start_range_begin; k < start_range_end; k++) {
-                                    reachable_ends_from_start[starts[k]].push_back(make_pair(ends[j], dist_between));
-                                }
-                            }
-                        }
-                        else {
-                            for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
-                                for (size_t k = start_range_begin; k < start_range_end; k++) {
-                                    reachable_starts_from_start[starts[k]].push_back(make_pair(starts[j], dist_between));
-                                }
-                            }
-                        }
-                        
-                        // record the properties of this range
-                        prev_start_range_begin = start_range_begin;
-                        prev_is_end = false;
-                        
-                        // advance to the next range
-                        start_range_begin = start_range_end;
-                        prev_offset = curr_start_offset;
-                        curr_start_offset = start_offset(starts[start_range_begin]);
-                        if (start_range_begin != starts.size()) {
-                            while (start_offset(starts[start_range_end]) == curr_start_offset) {
-                                start_range_end++;
-                                if (start_range_end == starts.size()) {
-                                    break;
-                                }
-                            }
-                        }
+                        reachable_endpoints = &reachable_starts;
+                        reachable_starts_from_endpoint = &reachable_starts_from_start;
+                        reachable_ends_from_endpoint = &reachable_ends_from_start;
+                        endpoints = &starts;
+                        range_begin = &start_range_begin;
+                        range_end = &start_range_end;
+                        prev_range_begin = &prev_start_range_begin;
+                        curr_offset = &curr_start_offset;
                     }
-                }
-                
-                // finish off the list of starts on this node
-                
-                while (start_range_begin < starts.size()) {
                     
-                    size_t dist_between = curr_start_offset - prev_offset;
+                    size_t dist_between = *curr_offset - prev_offset;
                     
+                    // connect this range to the previous range
                     if (prev_is_end) {
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
-                            for (size_t k = start_range_begin; k < start_range_end; k++) {
-                                reachable_ends_from_start[starts[k]].push_back(make_pair(ends[j], dist_between));
-                            }
-                        }
-                    }
-                    else {
-                        for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
-                            for (size_t k = start_range_begin; k < start_range_end; k++) {
-                                reachable_starts_from_start[starts[k]].push_back(make_pair(starts[j], dist_between));
-                            }
-                        }
-                    }
-                    
-                    prev_start_range_begin = start_range_begin;
-                    start_range_begin = start_range_end;
-                    prev_offset = curr_start_offset;
-                    curr_start_offset = start_offset(starts[start_range_begin]);
-                    prev_is_end = false;
-                    
-                    if (start_range_begin != starts.size()) {
-                        while (start_offset(starts[start_range_end]) == curr_start_offset) {
-                            start_range_end++;
-                            if (start_range_end == starts.size()) {
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // finish off the list of ends on this node
-                
-                while (end_range_begin < ends.size()) {
-                    
-                    size_t dist_between = curr_start_offset - prev_offset;
-                    
-                    if (prev_is_end) {
-                        for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
-                            for (size_t k = end_range_begin; k < end_range_end; k++) {
-                                reachable_ends_from_end[ends[k]].push_back(make_pair(ends[j], dist_between));
+                            for (size_t k = *range_begin; k < *range_end; k++) {
+                                (*reachable_ends_from_endpoint)[endpoints->at(k)].emplace_back(ends[j], dist_between);
                             }
                         }
                     }
                     else {
                         for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                             for (size_t k = end_range_begin; k < end_range_end; k++) {
-                                reachable_starts_from_end[ends[k]].push_back(make_pair(starts[j], dist_between));
+                                (*reachable_starts_from_endpoint)[endpoints->at(k)].emplace_back(starts[j], dist_between);
                             }
                         }
                     }
                     
-                    prev_end_range_begin = end_range_begin;
-                    end_range_begin = end_range_end;
-                    prev_offset = curr_end_offset;
-                    curr_end_offset = end_offset(ends[end_range_begin]);
-                    prev_is_end = true;
+                    // record the properties of this range
+                    *prev_range_begin = *range_begin;
+                    prev_is_end = at_end;
                     
-                    if (end_range_begin != ends.size()) {
-                        while (end_offset(starts[start_range_end]) == curr_end_offset) {
-                            end_range_end++;
-                            if (end_range_end == ends.size()) {
+                    // advance to the next range
+                    *range_begin = *range_end;
+                    prev_offset = *curr_offset;
+                    if (*range_begin != endpoints->size()) {
+                        *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
+                        while (endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                            (*range_end)++;
+                            if (*range_end == endpoints->size()) {
                                 break;
                             }
                         }
                     }
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "next range is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
+#endif
+                }
+                
+                // finish off the list of starts or ends on this node
+                
+                at_end = (end_range_begin < ends.size());
+                if (at_end) {
+                    reachable_endpoints = &reachable_ends;
+                    reachable_starts_from_endpoint = &reachable_starts_from_end;
+                    reachable_ends_from_endpoint = &reachable_ends_from_end;
+                    endpoints = &ends;
+                    range_begin = &end_range_begin;
+                    range_end = &end_range_end;
+                    prev_range_begin = &prev_end_range_begin;
+                    curr_offset = &curr_end_offset;
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "final endpoint(s) are end(s)" << endl;
+#endif
+                }
+                else {
+                    reachable_endpoints = &reachable_starts;
+                    reachable_starts_from_endpoint = &reachable_starts_from_start;
+                    reachable_ends_from_endpoint = &reachable_ends_from_start;
+                    endpoints = &starts;
+                    range_begin = &start_range_begin;
+                    range_end = &start_range_end;
+                    prev_range_begin = &prev_start_range_begin;
+                    curr_offset = &curr_start_offset;
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "final endpoint(s) are start(s)" << endl;
+#endif
+                }
+                
+                while (*range_begin < endpoints->size()) {
+                    
+                    size_t dist_between = *curr_offset - prev_offset;
+                    
+                    if (prev_is_end) {
+                        for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
+                            for (size_t k = *range_begin; k < *range_end; k++) {
+                                (*reachable_ends_from_endpoint)[endpoints->at(k)].push_back(make_pair(ends[j], dist_between));
+                            }
+                        }
+                    }
+                    else {
+                        for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
+                            for (size_t k = *range_begin; k < *range_end; k++) {
+                                (*reachable_starts_from_endpoint)[endpoints->at(k)].push_back(make_pair(starts[j], dist_between));
+                            }
+                        }
+                    }
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "moving to next endpoint range" << endl;
+#endif
+                    
+                    *prev_range_begin = *range_begin;
+                    *range_begin = *range_end;
+                    prev_offset = *curr_offset;
+                    prev_is_end = at_end;
+                    
+                    if (*range_begin != endpoints->size()) {
+                        *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
+                        while (endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                            (*range_end)++;
+                            if (*range_end == endpoints->size()) {
+                                break;
+                            }
+                        }
+                    }
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "next range  is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
+#endif
                 }
                 
                 // carry forward the reachability of the last range onto the next nodes
-                size_t dist_thru = node_length - std::max(curr_end_offset, curr_start_offset);
+                size_t dist_thru = node_length - *curr_offset;
                 
-                if (prev_is_end) {
-                    for (NodeTraversal next : nexts) {
-                        unordered_map<size_t, size_t> reachable_ends_next = reachable_ends[next.node->id()];
-                        for (size_t j = prev_end_range_begin; j < ends.size(); j++) {
-                            if (reachable_ends_next.count(ends[j])) {
-                                reachable_ends_next[ends[j]] = std::min(reachable_ends_next[ends[j]], dist_thru);
-                            }
-                            else {
-                                reachable_ends_next[ends[j]] = dist_thru;
-                            }
+                for (NodeTraversal next : nexts) {
+                    unordered_map<size_t, size_t>& reachable_endpoints_next = (*reachable_endpoints)[next.node->id()];
+                    for (size_t j = *prev_range_begin; j < endpoints->size(); j++) {
+                        if (reachable_endpoints_next.count(endpoints->at(j))) {
+                            reachable_endpoints_next[endpoints->at(j)] = std::min(reachable_endpoints_next[endpoints->at(j)], dist_thru);
                         }
-                    }
-                }
-                else {
-                    for (NodeTraversal next : nexts) {
-                        unordered_map<size_t, size_t> reachable_starts_next = reachable_starts[next.node->id()];
-                        for (size_t j = prev_start_range_begin; j < starts.size(); j++) {
-                            if (reachable_starts_next.count(ends[j])) {
-                                reachable_starts_next[starts[j]] = std::min(reachable_starts_next[starts[j]], dist_thru);
-                            }
-                            else {
-                                reachable_starts_next[starts[j]] = dist_thru;
-                            }
+                        else {
+                            reachable_endpoints_next[endpoints->at(j)] = dist_thru;
                         }
                     }
                 }
             }
-            else if (contains_starts) {
+            else if (contains_starts || contains_ends) {
+                // this nodes contains at least one start or end, but either all starts or all ends
                 
-                // record the incoming starts/ends for the starts on this node
+#ifdef debug_multipath_mapper
+                cerr << "node " << node_id << " contains only starts or only ends of MEMs" << endl;
+#endif
                 
-                vector<size_t>& starts = exact_match_starts[node_id];
+                // record the incoming starts/ends for the starts/ends on this node
+                
+                unordered_map<id_t, unordered_map<size_t, size_t>>* reachable_endpoints;
+                unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_ends_from_endpoint;
+                unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_starts_from_endpoint;
+                unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_endpoints_from_endpoint;
+                vector<size_t>* endpoints;
+                if (contains_ends) {
+                    reachable_endpoints = &reachable_ends;
+                    reachable_starts_from_endpoint = &reachable_starts_from_end;
+                    reachable_ends_from_endpoint = &reachable_ends_from_end;
+                    reachable_endpoints_from_endpoint = &reachable_ends_from_end;
+                    endpoints = &exact_match_ends[node_id];
+                }
+                else {
+                    reachable_endpoints = &reachable_starts;
+                    reachable_starts_from_endpoint = &reachable_starts_from_start;
+                    reachable_ends_from_endpoint = &reachable_ends_from_start;
+                    reachable_endpoints_from_endpoint = &reachable_starts_from_start;
+                    endpoints = &exact_match_starts[node_id];
+                }
                 
                 // the starts/ends coming into this node from outside
                 size_t range_begin = 0;
                 size_t range_end = 0;
-                size_t curr_offset = start_offset(starts[range_begin]);
+                size_t curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
                 size_t prev_offset = curr_offset;
-                // find the range of starts that are at the first offset
-                while (start_offset(starts[range_end]) == curr_offset) {
+                // find the range of endpoints that are at the first offset
+                while (endpoint_offset(endpoints->at(range_end), contains_ends)) {
                     range_end++;
-                    if (range_end == starts.size()) {
+                    if (range_end == endpoints->size()) {
                         break;
                     }
                 }
                 // connect the range to the incoming starts/ends
                 for (size_t j = range_begin; j < range_end; j++) {
                     for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
-                        reachable_starts_from_start[starts[j]].push_back(incoming_start);
+                        reachable_starts_from_endpoint->at(endpoints->at(j)).emplace_back(incoming_start.first, incoming_start.second + curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
-                        reachable_ends_from_start[starts[j]].push_back(incoming_end);
+                        reachable_ends_from_endpoint->at(endpoints->at(j)).emplace_back(incoming_end.first, incoming_end.second + curr_offset);
                     }
                 }
                 
-                // the reachable starts internal to this node
-                size_t prev_range_begin = 0;
-                range_begin = range_end;
-                while (range_begin < starts.size()) {
-                    // find the range of starts at this offset
-                    prev_offset = curr_offset;
-                    curr_offset = start_offset(starts[range_begin]);
-                    while (start_offset(starts[range_end]) == curr_offset) {
-                        range_end++;
-                        if (range_end == starts.size()) {
-                            break;
-                        }
-                    }
-                    
-                    size_t dist_between = curr_offset - prev_offset;
-                    
-                    // connect this range to the previous range
-                    for (size_t j = range_begin; j < range_end; j++) {
-                        for (size_t k = prev_range_begin; k < range_begin; k++) {
-                            reachable_starts_from_start[starts[j]].push_back(make_pair(starts[k], dist_between));
-                        }
-                    }
-                    prev_range_begin = range_begin;
-                    range_begin = range_end;
-                }
-                
-                // this node contains at least one start of a MEM, so carry forward the reachability of all
-                // starts at the final offset onto the next nodes
-                
-                size_t dist_thru = node_length - curr_offset;
-                
-                for (NodeTraversal next : nexts) {
-                    unordered_map<size_t, size_t> reachable_starts_next = reachable_starts[next.node->id()];
-                    for (size_t j = prev_range_begin; j < starts.size(); j++) {
-                        if (reachable_starts_next.count(starts[j])) {
-                            reachable_starts_next[starts[j]] = std::min(reachable_starts_next[starts[j]], dist_thru);
-                        }
-                        else {
-                            reachable_starts_next[starts[j]] = dist_thru;
-                        }
-                    }
-                }
-            }
-            else if (contains_ends) {
-                
-                // record the incoming starts/ends for the ends on this node
-                
-                vector<size_t>& ends = exact_match_ends[node_id];
-                
-                // the ends coming into this node from outside
-                size_t range_begin = 0;
-                size_t range_end = 0;
-                size_t curr_offset = end_offset(ends[range_begin]);
-                size_t prev_offset = curr_offset;
-                // find the range of ends that are at the first offset
-                while (end_offset(ends[range_end]) == curr_offset) {
-                    range_end++;
-                    if (range_end == ends.size()) {
-                        break;
-                    }
-                }
-                // connect the range to the incoming ends
-                for (size_t j = range_begin; j < range_end; j++) {
-                    for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
-                        reachable_ends_from_end[ends[j]].push_back(incoming_end);
-                    }
-                    for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
-                        reachable_starts_from_end[ends[j]].push_back(incoming_start);
-                    }
-                }
-                
-                // the reachable ends internal to this node
+                // the reachable endpoints internal to this node
                 size_t prev_range_begin = range_begin;
                 range_begin = range_end;
-                while (range_begin < ends.size()) {
-                    // find the range of ends at this offset
+                while (range_begin < endpoints->size()) {
+                    // find the range of endpoints at this offset
                     prev_offset = curr_offset;
-                    curr_offset = end_offset(ends[range_begin]);
-                    while (end_offset(ends[range_end]) == curr_offset) {
+                    curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
+                    while (endpoint_offset(endpoints->at(range_begin), contains_ends) == curr_offset) {
                         range_end++;
-                        if (range_end == ends.size()) {
+                        if (range_end == endpoints->size()) {
                             break;
                         }
                     }
@@ -1186,38 +1338,45 @@ namespace vg {
                     // connect this range to the previous range
                     for (size_t j = range_begin; j < range_end; j++) {
                         for (size_t k = prev_range_begin; k < range_begin; k++) {
-                            reachable_ends_from_end[ends[j]].push_back(make_pair(ends[k], dist_between));
+                            reachable_endpoints_from_endpoint->at(endpoints->at(j)).push_back(make_pair(endpoints->at(k), dist_between));
                         }
                     }
                     prev_range_begin = range_begin;
                     range_begin = range_end;
                 }
                 
-                // this node contains at least one end of a MEM, so carry forward the reachability of all
-                // ends at the final offset onto the next nodes
+                // this node contains at least one endpoint of a MEM, so carry forward the reachability of all
+                // endpoints at the final offset onto the next nodes
                 
                 size_t dist_thru = node_length - curr_offset;
                 
                 for (NodeTraversal next : nexts) {
-                    unordered_map<size_t, size_t> reachable_ends_next = reachable_ends[next.node->id()];
-                    for (size_t j = prev_range_begin; j < ends.size(); j++) {
-                        if (reachable_ends_next.count(ends[j])) {
-                            reachable_ends_next[ends[j]] = std::min(reachable_ends_next[ends[j]], dist_thru);
+                    unordered_map<size_t, size_t>& reachable_endpoints_next = reachable_endpoints->at(next.node->id());
+                    for (size_t j = prev_range_begin; j < endpoints->size(); j++) {
+                        if (reachable_endpoints_next.count(endpoints->at(j))) {
+                            reachable_endpoints_next[endpoints->at(j)] = std::min(reachable_endpoints_next[endpoints->at(j)], dist_thru);
                         }
                         else {
-                            reachable_ends_next[ends[j]] = dist_thru;
+                            reachable_endpoints_next[endpoints->at(j)] = dist_thru;
                         }
                     }
                 }
             }
             else {
-                // this doesn't contain the start or end of any MEM, so we carry forward the reachability
+                // this node doesn't contain the start or end of any MEM, so we carry forward the reachability
                 // into this node onto the next nodes
+                
+#ifdef debug_multipath_mapper
+                cerr << "node " << node_id << " does not contain starts or ends of MEMs, carrying forward reachability" << endl;
+#endif
                 
                 for (NodeTraversal next : nexts) {
                     unordered_map<size_t, size_t>& reachable_ends_next = reachable_ends[next.node->id()];
                     for (const pair<size_t, size_t>& reachable_end : reachable_ends[node_id]) {
                         size_t dist_thru = reachable_end.second + node_length;
+#ifdef debug_multipath_mapper
+                        cerr << "\tend " << reachable_end.first << " at dist " << dist_thru << endl;
+#endif
                         if (reachable_ends_next.count(reachable_end.first)) {
                             reachable_ends_next[reachable_end.first] = std::min(reachable_ends_next[reachable_end.first],
                                                                                 dist_thru);
@@ -1230,6 +1389,9 @@ namespace vg {
                     unordered_map<size_t, size_t>& reachable_starts_next = reachable_starts[next.node->id()];
                     for (const pair<size_t, size_t>& reachable_start : reachable_starts[node_id]) {
                         size_t dist_thru = reachable_start.second + node_length;
+#ifdef debug_multipath_mapper
+                        cerr << "\tend " << reachable_start.first << " at dist " << dist_thru << endl;
+#endif
                         if (reachable_starts_next.count(reachable_start.first)) {
                             reachable_starts_next[reachable_start.first] = std::min(reachable_starts_next[reachable_start.first],
                                                                                     dist_thru);
@@ -1241,6 +1403,10 @@ namespace vg {
                 }
             }
         }
+        
+#ifdef debug_multipath_mapper
+        cerr << "setting up structure of MEM graph" << endl;
+#endif
         
         // now we have the reachability information for the start and end of every MEM in the graph. we
         // will use this to navigate between the MEMs in a way that respects graph reachability so that this
@@ -1481,6 +1647,10 @@ namespace vg {
             }
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "breaking nodes at overlap edges" << endl;
+#endif
+        
         // now we've found all overlap edges, so we can add them into the graph in an order such that they don't
         // conflict (note that all overlap are from an earlier node onto a later one, so we don't need to worry
         // about overlaps coming in from both directions)
@@ -1557,6 +1727,23 @@ namespace vg {
                 *suffix_node.path.add_mapping() = full_path.mapping(mapping_idx);
             }
         }
+        
+#ifdef debug_multipath_mapper
+        cerr << "final mem graph:" << endl;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            ExactMatchNode& match_node = match_nodes[i];
+            cerr << i << " " << pb2json(match_node.path) << " ";
+            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            cerr << "\t";
+            for (auto edge : match_node.edges) {
+                cerr << "(to:" << edge.first << ", dist:" << edge.second << ") ";
+            }
+            cerr << endl;
+        }
+#endif
     }
     
     // Kahn's algorithm
@@ -1595,61 +1782,72 @@ namespace vg {
         }
     }
     
-    void MultipathAlignmentGraph::remove_transitive_edges(const vector<size_t>& topological_order) {
-        vector<size_t> topological_position(topological_order.size());
-        for (size_t i = 0; i < topological_order.size(); i++) {
-            topological_position[topological_order[i]] = i;
+    void MultipathAlignmentGraph::reorder_adjacency_lists(const vector<size_t>& order) {
+        vector<vector<pair<size_t, size_t>>> reverse_graph(match_nodes.size());
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            for (const pair<size_t, size_t>& edge : match_nodes[i].edges) {
+                reverse_graph[edge.first].emplace_back(i, edge.second);
+            }
         }
+        for (ExactMatchNode& match_node : match_nodes) {
+            size_t out_degree = match_node.edges.size();
+            match_node.edges.clear();
+            match_node.edges.reserve(out_degree);
+        }
+        for (size_t i : order) {
+            for (const pair<size_t, size_t>& edge : reverse_graph[i]) {
+                match_nodes[edge.first].edges.emplace_back(i, edge.second);
+            }
+        }
+    }
+    
+    void MultipathAlignmentGraph::remove_transitive_edges(const vector<size_t>& topological_order) {
+        // algorithm assumes edges are also sorted in topological order, which guarantees that we will
+        // traverse a path that reveals an edge as transitive before actually traversing the transitive edge
+        reorder_adjacency_lists(topological_order);
         
         for (size_t i : topological_order) {
             vector<pair<size_t, size_t>>& edges = match_nodes[i].edges;
-            std::sort(edges.begin(), edges.end(), [&](const pair<size_t, size_t>& edge_1, const pair<size_t, size_t>& edge_2) {
-                return topological_position[edge_1.first] < topological_position[edge_2.first];
-            });
             
-            unordered_map<size_t, bool> keep_edge;
+            vector<bool> keep(edges.size(), true);
+            unordered_set<size_t> traversed;
+            
             for (size_t j = 0; j < edges.size(); j++) {
-                keep_edge[edges[j].first] = true;
-            }
-            
-            for (const pair<size_t, size_t>& edge : edges) {
-                if (!keep_edge[edge.first]) {
+                const pair<size_t, size_t>& edge = edges[j];
+                if (traversed.count(edge.first)) {
+                    // we can reach the target of this edge by another path, so it is transitive
+                    keep[j] = false;
                     continue;
                 }
                 
+                // DFS to mark all reachable nodes from this edge
                 vector<size_t> stack{edge.first};
-                unordered_set<size_t> traversed{edge.first};
+                traversed.insert(edge.first);
                 while (!stack.empty()) {
-                    size_t here = stack.back();
+                    size_t idx = stack.back();
                     stack.pop_back();
-                    
-                    for (const pair<size_t, size_t>& next_edge : match_nodes[next_edge.first].edges) {
-                        if (keep_edge.count(next_edge.first)) {
-                            keep_edge[next_edge.first] = false;
-                        }
-                        
-                        if (!traversed.count(next_edge.first)) {
-                            traversed.insert(next_edge.first);
-                            stack.push_back(next_edge.first);
+                    for (const pair<size_t, size_t>& edge_from : match_nodes[idx].edges) {
+                        if (!traversed.count(edge_from.first)) {
+                            stack.push_back(edge_from.first);
+                            traversed.insert(edge_from.first);
                         }
                     }
                 }
             }
             
-            size_t j = 0;
-            size_t end = edges.size();
-            while (j < end) {
-                if (keep_edge[edges[j].first]) {
-                    j++;
+            // remove the transitive edges we found
+            size_t next_idx = 0;
+            for (size_t j = 0; j < edges.size(); j++) {
+                if (keep[j] && j != next_idx) {
+                    edges[next_idx] = edges[j];
+                    next_idx++;
                 }
-                else {
-                    end--;
-                    edges[j] = edges[end];
+                else if (keep[j]) {
+                    next_idx++;
                 }
             }
-            edges.resize(end);
+            edges.resize(next_idx);
         }
-        
     }
     
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff,
@@ -1749,8 +1947,7 @@ namespace vg {
     MultipathClusterer::MultipathClusterer(const Alignment& alignment,
                                            const vector<MaximalExactMatch>& mems,
                                            const QualAdjAligner& aligner,
-                                           xg::XG& xgindex,
-                                           int8_t full_length_bonus,
+                                           xg::XG* xgindex,
                                            size_t max_expected_dist_approx_error) : aligner(aligner) {
         
         // the maximum graph distances to the right and left sides detectable from each node
@@ -1763,8 +1960,8 @@ namespace vg {
         for (const MaximalExactMatch& mem : mems) {
             
             // calculate the longest gaps we could detect to the left and right of this MEM
-            pair<size_t, size_t> max_gaps(aligner.longest_detectable_gap(alignment, mem.begin, full_length_bonus),
-                                          aligner.longest_detectable_gap(alignment, mem.end, full_length_bonus));
+            pair<size_t, size_t> max_gaps(aligner.longest_detectable_gap(alignment, mem.begin),
+                                          aligner.longest_detectable_gap(alignment, mem.end));
             
             
             int32_t mem_score = aligner.score_exact_match(mem.begin, mem.end,
@@ -1837,8 +2034,8 @@ namespace vg {
             pos_t& pos_1 = nodes[node_pair.first].start_pos;
             pos_t& pos_2 = nodes[node_pair.second].start_pos;
             
-            int64_t oriented_dist = xgindex.closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                                  id(pos_2), offset(pos_2), is_rev(pos_2));
+            int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                                   id(pos_2), offset(pos_2), is_rev(pos_2));
             
             if (oriented_dist == std::numeric_limits<int64_t>::max()) {
                 // distance is estimated at infinity, so these are either on different strands
@@ -2077,7 +2274,7 @@ namespace vg {
             }
         }
     }
-
+    
     void MultipathClusterer::topological_order(vector<size_t>& order_out) {
         
         // initialize return value
