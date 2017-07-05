@@ -244,8 +244,9 @@ class VGCITest(TestCase):
         the linear reference functions as a negative control "graph" to compare
         against the real test graphs.)
         
-        test_index_bases specifies a list of basenames (without extension) for a .xg,
-        .gcsa, and .gcsa.lcp file set, one per of graph that is to be compared.
+        test_index_bases specifies a list of basenames (without extension) for a
+        .xg, .gcsa, and .gcsa.lcp file set, one per of graph that is to be
+        compared.
         
         test_names has one entry per graph to be compared, and specifies where
         the realigned read GAM files should be saved.
@@ -320,7 +321,18 @@ class VGCITest(TestCase):
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
         
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs):
-        """ Run simulation on a bakeoff graph """
+        """ Run simulation on a bakeoff graph
+        
+        Simulate the given number of reads from the given baseline_graph
+        (snp1kg, primary, etc.) and realign them against all the graphs in the
+        test_graph list.
+        
+        Needs to know the bekeoff region that is being run, in order to look up
+        the actual graphs files for each graph type.
+        
+        Verifies that the realignments are sufficiently good.
+        
+        """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
         
         # compute the xg indexes from scratch
@@ -347,6 +359,9 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
+        # Using 50k simulated reads from snp1kg BRCA1, realign against all these
+        # other BRCA1 graphs and make sure the realignments are sufficiently
+        # good.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'])
 
