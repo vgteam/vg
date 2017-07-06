@@ -418,7 +418,18 @@ public:
      * comments describing variants
      */
     void call(AugmentedGraph& augmented, string pileup_filename = "");
-    
+
+    /** 
+     * Get the support and size for each traversal in a list. Discount support
+     * of minus_traversal if it's specified.  Use average_support_switch_threshold and
+     * use_average_support to decide whether to return min or avg supports
+     */
+    tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
+        AugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        const vector<SnarlTraversal>& traversals,
+        const SnarlTraversal* minus_traversal = NULL);
+
+
     /**
      * For the given snarl, find the reference traversal, the best traversal,
      * and the second-best traversal, recursively, if any exist. These
@@ -530,14 +541,17 @@ public:
     /// At 2, if twice the reads support one allele as the other, we'll call
     /// homozygous instead of heterozygous. At infinity, every call will be
     /// heterozygous if even one read supports each allele.
-    Option<double> max_het_bias{this, "max-het-bias", "H", 4.5,
+    Option<double> max_het_bias{this, "max-het-bias", "H", 10,
         "max imbalance factor to call heterozygous, alt major on SNPs"};
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
     Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
         "max imbalance factor to call heterozygous, ref major"};
     /// Like the max het bias, but applies to novel indels.
-    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 2.5,
+    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 3,
         "max imbalance factor to call heterozygous, alt major on indels"};
+    /// Like the max het bias, but applies to multiallelic indels.
+    Option<double> max_indel_ma_bias{this, "max-indel-ma-bias", "G", 6,
+        "max imbalance factor between ref and alt2 to call 1/2 double alt on indels"};
     /// What's the minimum integer number of reads that must support a call? We
     /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
