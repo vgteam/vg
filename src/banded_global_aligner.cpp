@@ -2210,7 +2210,6 @@ void BandedGlobalAligner<IntType>::align(int8_t* score_mat, int8_t* nt_table, in
     
     
     // fill each nodes matrix in topological order
-    //for (Node* node : topological_order) {
     for (int64_t i = 0; i < topological_order.size(); i++) {
         Node* node = topological_order[i];
         int64_t node_idx = node_id_to_idx.at(node->id());
@@ -2252,7 +2251,7 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
     int32_t empty_score = read_length > 0 ? -gap_open - (read_length - 1) * gap_extend : 0;
     
     // find the optimal alignment(s) and initialize stack
-    AltTracebackStack traceback_stack(max_multi_alns, empty_score, source_node_matrices, sink_node_matrices);
+    AltTracebackStack traceback_stack(max_multi_alns, empty_score, source_node_matrices, sink_node_matrices, min_inf);
     
     while (traceback_stack.has_next()) {
         int64_t end_node_id;
@@ -2314,7 +2313,8 @@ template <class IntType>
 BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_multi_alns,
                                                                    int32_t empty_score,
                                                                    unordered_set<BAMatrix*>& source_node_matrices,
-                                                                   unordered_set<BAMatrix*>& sink_node_matrices) :
+                                                                   unordered_set<BAMatrix*>& sink_node_matrices,
+                                                                   IntType min_inf) :
                                                                    empty_score(empty_score),
                                                                    max_multi_alns(max_multi_alns)
 {
@@ -2382,12 +2382,18 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
                 int64_t final_idx = final_row * ncols + final_col;
                 
                 // let the insert routine figure out which one is the best and which ones to keep in the stack
-                insert_traceback(null_prefix, band_matrix->match[final_idx],
-                                 node_id, final_row, final_col, node_id, Match, path);
-                insert_traceback(null_prefix, band_matrix->insert_row[final_idx],
-                                 node_id, final_row, final_col, node_id, InsertRow, path);
-                insert_traceback(null_prefix, band_matrix->insert_col[final_idx],
-                                 node_id, final_row, final_col, node_id, InsertCol, path);
+                if (band_matrix->match[final_idx] != min_inf) {
+                    insert_traceback(null_prefix, band_matrix->match[final_idx],
+                                     node_id, final_row, final_col, node_id, Match, path);
+                }
+                if (band_matrix->insert_row[final_idx] != min_inf) {
+                    insert_traceback(null_prefix, band_matrix->insert_row[final_idx],
+                                     node_id, final_row, final_col, node_id, InsertRow, path);
+                }
+                if (band_matrix->insert_col[final_idx] != min_inf) {
+                    insert_traceback(null_prefix, band_matrix->insert_col[final_idx],
+                                     node_id, final_row, final_col, node_id, InsertCol, path);
+                }
             }
         }
     }

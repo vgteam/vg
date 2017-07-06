@@ -221,7 +221,8 @@ namespace vg {
     public:
         AltTracebackStack(int64_t max_multi_alns, int32_t empty_score,
                           unordered_set<BAMatrix*>& source_node_matrices,
-                          unordered_set<BAMatrix*>& sink_node_matrices);
+                          unordered_set<BAMatrix*>& sink_node_matrices,
+                          IntType min_inf);
         ~AltTracebackStack();
         
         /// Get the start position of the current alignment and advance deflection pointer to the first deflection
