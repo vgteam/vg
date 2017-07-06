@@ -231,7 +231,30 @@ class VGCITest(TestCase):
 
     def _mapeval_vg_run(self, reads, base_xg_path, fasta_path, test_index_bases,
                         test_names, tag):
-        """ Wrap toil-vg mapeval as a shell command.  
+        """ Wrap toil-vg mapeval as a shell command. 
+        
+        Evaluates realignments (to the linear reference and to a set of graphs)
+        of reads simulated from a single "base" graph. Realignments are
+        evaluated based on how close the realignments are to the original
+        simulated source position. Simulations are done inside this function.
+        
+        Simulates the given number of reads (reads), from the given XG file
+        (base_xg_path). Uses the given FASTA (fasta_path) as a BWA reference for
+        comparing vg and BWA alignments within mapeval. (Basically, BWA against
+        the linear reference functions as a negative control "graph" to compare
+        against the real test graphs.)
+        
+        test_index_bases specifies a list of basenames (without extension) for a
+        .xg, .gcsa, and .gcsa.lcp file set, one per of graph that is to be
+        compared.
+        
+        test_names has one entry per graph to be compared, and specifies where
+        the realigned read GAM files should be saved.
+        
+        tag is a unique slug for this test/run, which determines the Toil job
+        store name to use, and the location where the output files should be
+        saved.
+        
         """
 
         job_store = self._jobstore(tag)
@@ -298,7 +321,18 @@ class VGCITest(TestCase):
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
         
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs):
-        """ Run simulation on a bakeoff graph """
+        """ Run simulation on a bakeoff graph
+        
+        Simulate the given number of reads from the given baseline_graph
+        (snp1kg, primary, etc.) and realign them against all the graphs in the
+        test_graph list.
+        
+        Needs to know the bekeoff region that is being run, in order to look up
+        the actual graphs files for each graph type.
+        
+        Verifies that the realignments are sufficiently good.
+        
+        """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
         
         # compute the xg indexes from scratch
@@ -325,6 +359,9 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
+        # Using 50k simulated reads from snp1kg BRCA1, realign against all these
+        # other BRCA1 graphs and make sure the realignments are sufficiently
+        # good.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'])
 
