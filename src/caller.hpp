@@ -541,16 +541,16 @@ public:
     /// At 2, if twice the reads support one allele as the other, we'll call
     /// homozygous instead of heterozygous. At infinity, every call will be
     /// heterozygous if even one read supports each allele.
-    Option<double> max_het_bias{this, "max-het-bias", "H", 4.5,
+    Option<double> max_het_bias{this, "max-het-bias", "H", 10,
         "max imbalance factor to call heterozygous, alt major on SNPs"};
     /// Like above, but applied to ref / alt ratio (instead of alt / ref)
     Option<double> max_ref_het_bias{this, "max-ref-bias", "R", 4.5,
         "max imbalance factor to call heterozygous, ref major"};
     /// Like the max het bias, but applies to novel indels.
-    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 2.5,
+    Option<double> max_indel_het_bias{this, "max-indel-het-bias", "I", 3,
         "max imbalance factor to call heterozygous, alt major on indels"};
     /// Like the max het bias, but applies to multiallelic indels.
-    Option<double> max_indel_ma_bias{this, "max-indel-ma-bias", "G", 5.5,
+    Option<double> max_indel_ma_bias{this, "max-indel-ma-bias", "G", 6,
         "max imbalance factor between ref and alt2 to call 1/2 double alt on indels"};
     /// What's the minimum integer number of reads that must support a call? We
     /// don't necessarily want to call a SNP as het because we have a single
