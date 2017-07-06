@@ -54,7 +54,7 @@ namespace vg {
         for (int i = 0; i < clusters.size(); i++) {
             cerr << "\tcluster " << i + 1 << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
-                cerr << "\t\t" << hit.second << " " <<  *hit.first << endl;
+                cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
         }
         cerr << "extracting subgraphs..." << endl;
@@ -322,10 +322,11 @@ namespace vg {
             
             const Path& path = src_subpath->path();
             const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
+            const Position& final_mapping_position = final_mapping.position();
             // make a pos_t that points to the final base in the match
-            pos_t src_pos = make_pos_t(final_mapping.position().node_id(),
-                                       final_mapping.position().is_reverse(),
-                                       mapping_from_length(final_mapping) - 1);
+            pos_t src_pos = make_pos_t(final_mapping_position.node_id(),
+                                       final_mapping_position.is_reverse(),
+                                       final_mapping_position.offset() + mapping_from_length(final_mapping) - 1);
             
             // the longest gap that could be detected at this position in the read
             size_t src_max_gap = qual_adj_aligner->longest_detectable_gap(alignment, src_match_node.end);
@@ -333,6 +334,10 @@ namespace vg {
             for (const pair<size_t, size_t>& edge : src_match_node.edges) {
                 ExactMatchNode& dest_match_node = multi_aln_graph.match_nodes[edge.first];
                 pos_t dest_pos = make_pos_t(multipath_aln.subpath(edge.first).path().mapping(0).position());
+                
+#ifdef debug_multipath_mapper
+                cerr << "forming intervening alignment for edge to node " << edge.first << endl;
+#endif
                 
                 size_t max_gap = std::min(src_max_gap, qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin));
                 
@@ -367,15 +372,38 @@ namespace vg {
                 
                 // TODO a better way of choosing the number of alternate alignments
                 // TODO alternate alignments restricted only to distinct node paths?
-                vector<Alignment> alts_alignments;
-                qual_adj_aligner->align_global_banded_multi(intervening_sequence, alts_alignments,
+                vector<Alignment> alt_alignments;
+                qual_adj_aligner->align_global_banded_multi(intervening_sequence, alt_alignments,
                                                            connecting_graph, num_alt_alns, band_padding, true);
                 
-                for (Alignment& connecting_alignment : alts_alignments) {
+                for (Alignment& connecting_alignment : alt_alignments) {
                     // create a subpath between the matches for this alignment
                     Subpath* connecting_subpath = multipath_aln.add_subpath();
-                    *connecting_subpath->mutable_path() = connecting_alignment.path();
                     connecting_subpath->set_score(connecting_alignment.score());
+                    Path* subpath_path = connecting_subpath->mutable_path();
+                    const Path& aligned_path = connecting_alignment.path();
+                    const Mapping& first_mapping = aligned_path.mapping(0);
+                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
+                    int32_t rank = 1;
+                    // check to make sure the first is not an empty anchoring mapping
+                    if (mapping_from_length(first_mapping) != 0 || mapping_to_length(first_mapping) != 0) {
+                        *subpath_path->add_mapping() = first_mapping;
+                        rank++;
+                    }
+                    // add all mapping in between the ends
+                    for (size_t j = 1; j < aligned_path.mapping_size() - 1; j++) {
+                        Mapping* mapping = subpath_path->add_mapping();
+                        *mapping = aligned_path.mapping(j);
+                        mapping->set_rank(rank);
+                        rank++;
+                    }
+                    // check to make sure the last is not an empty anchoring mapping or the same as the first
+                    if ((mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0)
+                        && aligned_path.mapping_size() > 1) {
+                        Mapping* mapping = subpath_path->add_mapping();
+                        *mapping = last_mapping;
+                        mapping->set_rank(rank);
+                    }
                     
                     // add the appropriate connections
                     src_subpath->add_next(multipath_aln.subpath_size() - 1);
@@ -383,9 +411,9 @@ namespace vg {
                     
                     // translate the path into the space of the main graph
                     translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
-                    Mapping* first_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
-                    if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
-                        first_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
+                    Mapping* firste_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
+                    if (firste_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
+                        firste_subpath_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
                     }
                 }
             }
@@ -497,14 +525,15 @@ namespace vg {
             }
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "multipath alignment before translation: " << pb2json(multipath_aln) << endl;
+#endif
         for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln.mutable_subpath(j)->mutable_path(), node_trans);
-            
-#ifdef debug_multipath_mapper
-            cerr << "completed multipath alignment: " << pb2json(multipath_aln) << endl;
-#endif
-            
         }
+#ifdef debug_multipath_mapper
+        cerr << "completed multipath alignment: " << pb2json(multipath_aln) << endl;
+#endif
         
     }
     
@@ -843,7 +872,7 @@ namespace vg {
                         size_t prefix_idx = 0;
                         for (auto iter = keep_segments.end() - 1; iter != keep_segments.begin(); iter--) {
 #ifdef debug_multipath_mapper
-                            cerr << "making path for keep segment " << iter->first << " " << iter->second << " of path " << pb2json(*path) << endl;
+                            cerr << "making path for keep segment " << iter->first << " " << iter->second << endl;
 #endif
                             match_nodes.emplace_back();
                             
@@ -886,8 +915,8 @@ namespace vg {
                             prefix_idx++;
                         }
                         
-                        size_t keep_segment_length = 0;
                         // replace the path of the original node with the final keep segment
+                        size_t keep_segment_length = 0;
                         Path new_path;
                         int32_t rank = 1;
                         for (size_t j = keep_segments.front().first; j < keep_segments.front().second; j++, rank++) {
@@ -898,10 +927,11 @@ namespace vg {
                         }
                         *path = new_path;
                         
+                        // update the substring of MEM to match the path
                         match_node->begin += prefix_length;
                         match_node->end = match_node->begin + keep_segment_length;
 #ifdef debug_multipath_mapper
-                        cerr << "new cut path: " << pb2json(new_path) << endl;
+                        cerr << "new in place cut path: " << pb2json(new_path) << endl;
 #endif
                     }
                 }
@@ -1088,9 +1118,15 @@ namespace vg {
                 
                 for (size_t j = *range_begin; j < *range_end; j++) {
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
+#ifdef debug_multipath_mapper
+                        cerr << "identifying end " << incoming_end.first << " as reachable from endpoint " << endpoints->at(j) << endl;
+#endif
                         (*reachable_ends_from_endpoint)[endpoints->at(j)].emplace_back(incoming_end.first, incoming_end.second + *curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
+#ifdef debug_multipath_mapper
+                        cerr << "identifying start " << incoming_start.first << " as reachable from endpoint " << endpoints->at(j) << endl;
+#endif
                         (*reachable_starts_from_endpoint)[endpoints->at(j)].emplace_back(incoming_start.first, incoming_start.second + *curr_offset);
                     }
                 }
@@ -1144,6 +1180,9 @@ namespace vg {
                     if (prev_is_end) {
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
+#ifdef debug_multipath_mapper
+                                cerr << "identifying end " << ends[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
+#endif
                                 (*reachable_ends_from_endpoint)[endpoints->at(k)].emplace_back(ends[j], dist_between);
                             }
                         }
@@ -1151,6 +1190,9 @@ namespace vg {
                     else {
                         for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                             for (size_t k = end_range_begin; k < end_range_end; k++) {
+#ifdef debug_multipath_mapper
+                                cerr << "identifying start " << starts[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
+#endif
                                 (*reachable_starts_from_endpoint)[endpoints->at(k)].emplace_back(starts[j], dist_between);
                             }
                         }
@@ -1217,6 +1259,9 @@ namespace vg {
                     if (prev_is_end) {
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
+#ifdef debug_multipath_mapper
+                                cerr << "identifying end " << ends[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
+#endif
                                 (*reachable_ends_from_endpoint)[endpoints->at(k)].push_back(make_pair(ends[j], dist_between));
                             }
                         }
@@ -1224,6 +1269,9 @@ namespace vg {
                     else {
                         for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
+#ifdef debug_multipath_mapper
+                                cerr << "identifying start " << starts[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
+#endif
                                 (*reachable_starts_from_endpoint)[endpoints->at(k)].push_back(make_pair(starts[j], dist_between));
                             }
                         }
@@ -1255,6 +1303,10 @@ namespace vg {
                 
                 // carry forward the reachability of the last range onto the next nodes
                 size_t dist_thru = node_length - *curr_offset;
+                
+#ifdef debug_multipath_mapper
+                cerr << "carrying forward reachability onto next nodes at distance " << dist_thru << endl;
+#endif
                 
                 for (NodeTraversal next : nexts) {
                     unordered_map<size_t, size_t>& reachable_endpoints_next = (*reachable_endpoints)[next.node->id()];
@@ -1312,9 +1364,15 @@ namespace vg {
                 // connect the range to the incoming starts/ends
                 for (size_t j = range_begin; j < range_end; j++) {
                     for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
+#ifdef debug_multipath_mapper
+                        cerr << "identifying start " << incoming_start.first << " as reachable from endpoint " << endpoints->at(j) << endl;
+#endif
                         reachable_starts_from_endpoint->at(endpoints->at(j)).emplace_back(incoming_start.first, incoming_start.second + curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
+#ifdef debug_multipath_mapper
+                        cerr << "identifying end " << incoming_end.first << " as reachable from endpoint " << endpoints->at(j) << endl;
+#endif
                         reachable_ends_from_endpoint->at(endpoints->at(j)).emplace_back(incoming_end.first, incoming_end.second + curr_offset);
                     }
                 }
@@ -1338,6 +1396,9 @@ namespace vg {
                     // connect this range to the previous range
                     for (size_t j = range_begin; j < range_end; j++) {
                         for (size_t k = prev_range_begin; k < range_begin; k++) {
+#ifdef debug_multipath_mapper
+                            cerr << "identifying endpoint " << endpoints->at(k) << " as reachable from endpoint " << endpoints->at(j) << endl;
+#endif
                             reachable_endpoints_from_endpoint->at(endpoints->at(j)).push_back(make_pair(endpoints->at(k), dist_between));
                         }
                     }
@@ -1349,6 +1410,10 @@ namespace vg {
                 // endpoints at the final offset onto the next nodes
                 
                 size_t dist_thru = node_length - curr_offset;
+                
+#ifdef debug_multipath_mapper
+                cerr << "carrying forward reachability onto next nodes at distance " << dist_thru << endl;
+#endif
                 
                 for (NodeTraversal next : nexts) {
                     unordered_map<size_t, size_t>& reachable_endpoints_next = reachable_endpoints->at(next.node->id());
@@ -1405,6 +1470,39 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
+        cerr << "final reachability:" << endl;
+        cerr << "\tstarts from starts" << endl;
+        for (const auto& record : reachable_starts_from_start) {
+            cerr << "\t\t" << record.first << ":";
+            for (const auto& endpoint : record.second) {
+                cerr << " " << endpoint.first << "(" << endpoint.second << ")";
+            }
+            cerr << endl;
+        }
+        cerr << "\tends from starts" << endl;
+        for (const auto& record : reachable_ends_from_start) {
+            cerr << "\t\t" << record.first << ":";
+            for (const auto& endpoint : record.second) {
+                cerr << " " << endpoint.first << "(" << endpoint.second << ")";
+            }
+            cerr << endl;
+        }
+        cerr << "\tstarts from ends" << endl;
+        for (const auto& record : reachable_starts_from_end) {
+            cerr << "\t\t" << record.first << ":";
+            for (const auto& endpoint : record.second) {
+                cerr << " " << endpoint.first << "(" << endpoint.second << ")";
+            }
+            cerr << endl;
+        }
+        cerr << "\tends from ends" << endl;
+        for (const auto& record : reachable_ends_from_end) {
+            cerr << "\t\t" << record.first << ":";
+            for (const auto& endpoint : record.second) {
+                cerr << " " << endpoint.first << "(" << endpoint.second << ")";
+            }
+            cerr << endl;
+        }
         cerr << "setting up structure of MEM graph" << endl;
 #endif
         
@@ -1420,20 +1518,30 @@ namespace vg {
         for (size_t i = 0; i < graph.node_size(); i++) {
             id_t node_id = graph.node(i).id();
             
+#ifdef debug_multipath_mapper
+            cerr << "looking for edges for starts on node " << node_id << endl;
+#endif
+            
             if (!exact_match_starts.count(node_id)) {
+#ifdef debug_multipath_mapper
+                cerr << "there are no starts on this node" << endl;
+#endif
                 continue;
             }
             
             for (size_t start : exact_match_starts[node_id]) {
                 // traverse all of the reachable starts to find the adjacent ends that might be colinear
-                ExactMatchNode& start_node = match_nodes[start];
+#ifdef debug_multipath_mapper
+                cerr << "at start " << start << endl;
+#endif
                 
+                ExactMatchNode& start_node = match_nodes[start];
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
                 
                 // pairs of (dist, index)
                 priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> start_queue;
                 priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> end_queue;
-                start_queue.emplace(start, 0);
+                start_queue.emplace(0, start);
                 
                 unordered_set<size_t> traversed_start;
                 
@@ -1449,6 +1557,9 @@ namespace vg {
                     // between them and the distance already traversed
                     for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
                         end_queue.emplace(start_here.first + end.second, end.first);
+#ifdef debug_multipath_mapper
+                        cerr << "found reachable end " << end.first << " at distance " << start_here.first + end.second << endl;
+#endif
                     }
                     
                     for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
@@ -1465,9 +1576,13 @@ namespace vg {
                     size_t candidate_end = end_queue.top().second;
                     size_t candidate_dist = end_queue.top().first;
                     end_queue.pop();
+                    
                     if (traversed_end.count(candidate_end)) {
                         continue;
                     }
+#ifdef debug_multipath_mapper
+                    cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
+#endif
                     traversed_end.insert(candidate_end);
                     
                     ExactMatchNode& candidate_end_node = match_nodes[candidate_end];
@@ -1476,9 +1591,16 @@ namespace vg {
                         // these MEMs are read colinear and graph reachable, so connect them
                         candidate_end_node.edges.push_back(make_pair(start, candidate_dist));
                         
+#ifdef debug_multipath_mapper
+                        cerr << "connection is read colinear, adding edge" << endl;
+#endif
+                        
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
                         // this connection
                         for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+#ifdef debug_multipath_mapper
+                            cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second << " from noncolinear shell" << endl;
+#endif
                             end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
                         }
                     }
@@ -1487,9 +1609,16 @@ namespace vg {
                         size_t overlap = candidate_end_node.end - start_node.begin;
                         confirmed_overlaps.emplace_back(overlap, candidate_end, start, candidate_dist + overlap);
                         
+#ifdef debug_multipath_mapper
+                        cerr << "connection is overlap colinear, recording to add edge later" << endl;
+#endif
+                        
                         // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
                         // this connection
                         for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+#ifdef debug_multipath_mapper
+                            cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second << " from noncolinear shell" << endl;
+#endif
                             end_queue.emplace(candidate_dist + shell_pred.second + overlap, shell_pred.first);
                         }
                     }
@@ -1502,12 +1631,19 @@ namespace vg {
                             noncolinear_shell[candidate_end] = candidate_dist;
                         }
                         
+#ifdef debug_multipath_mapper
+                        cerr << "connection is noncolinear, add to shell and continue to search backwards" << endl;
+#endif
+                        
                         // there is no connection to block further connections back, so any of this MEMs
                         // predecessors could still be colinear
                         
                         // find the ends that can reach it directly
                         for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
                             end_queue.emplace(candidate_dist + pred_end.second, pred_end.first);
+#ifdef debug_multipath_mapper
+                            cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
+#endif
                         }
                         
                         // traverse backward through any starts to find more ends that can reach this MEM
@@ -1532,9 +1668,15 @@ namespace vg {
                             
                             for (const pair<size_t, size_t>& pred_end : reachable_ends_from_start[start_here]) {
                                 end_queue.emplace(start_dist + pred_end.second, pred_end.first);
+#ifdef debug_multipath_mapper
+                                cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
+#endif
                             }
                             for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here]) {
                                 pred_start_queue.emplace(start_dist + start_next.second, start_next.first);
+#ifdef debug_multipath_mapper
+                                cerr << "traverse intermediate start " << start_next.first << " at distance " << start_dist + start_next.second << endl;
+#endif
                             }
                         }
                     }
@@ -1895,8 +2037,7 @@ namespace vg {
             size_t idx = topological_order[i];
             ExactMatchNode& from_node = match_nodes[idx];
             for (const pair<size_t, size_t>& edge : from_node.edges) {
-                forward_scores[edge.first] = std::max(forward_scores[edge.first],
-                                                      forward_scores[idx] + edge_weights[make_pair(idx, edge.first)]);
+                forward_scores[edge.first] += std::max(0, forward_scores[idx] + edge_weights[make_pair(idx, edge.first)]);
             }
         }
         
@@ -1905,8 +2046,7 @@ namespace vg {
             size_t idx = topological_order[i];
             ExactMatchNode& from_node = match_nodes[idx];
             for (const pair<size_t, size_t>& edge : from_node.edges) {
-                backward_scores[idx] = std::max(backward_scores[idx],
-                                                backward_scores[edge.first] + edge_weights[make_pair(idx, edge.first)]);
+                backward_scores[idx] += std::max(0, backward_scores[edge.first] + edge_weights[make_pair(idx, edge.first)]);
             }
         }
         
@@ -1917,7 +2057,7 @@ namespace vg {
         unordered_set<size_t> keep_nodes;
         unordered_set<pair<size_t, size_t>> keep_edges;
         for (size_t i = 0; i < match_nodes.size(); i++) {
-            if (forward_scores[i] + backward_scores[i] - node_weights[i]) {
+            if (forward_scores[i] + backward_scores[i] - node_weights[i] >= min_path_score) {
                 keep_nodes.insert(i);
                 for (const pair<size_t, size_t>& edge : match_nodes[i].edges) {
                     if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] >= min_path_score) {
@@ -1936,12 +2076,29 @@ namespace vg {
                 }
                 ExactMatchNode& match_node = match_nodes[next];
                 auto new_end = std::remove_if(match_node.edges.begin(), match_node.edges.end(),
-                                              [&](const pair<size_t, size_t>& edge) { return keep_edges.count(make_pair(i, edge.first)); });
+                                              [&](const pair<size_t, size_t>& edge) { return !keep_edges.count(make_pair(i, edge.first)); });
                 match_node.edges.resize(new_end - match_node.edges.begin());
                 next++;
             }
         }
         match_nodes.resize(next);
+        
+#ifdef debug_multipath_mapper
+        cerr << "mem graph after pruning:" << endl;
+        for (size_t i = 0; i < match_nodes.size(); i++) {
+            ExactMatchNode& match_node = match_nodes[i];
+            cerr << i << " " << pb2json(match_node.path) << " ";
+            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            cerr << "\t";
+            for (auto edge : match_node.edges) {
+                cerr << "(to:" << edge.first << ", dist:" << edge.second << ") ";
+            }
+            cerr << endl;
+        }
+#endif
     }
     
     MultipathClusterer::MultipathClusterer(const Alignment& alignment,
@@ -1982,7 +2139,7 @@ namespace vg {
         // and found an infinite distance
         map<pair<size_t, size_t>, size_t> num_infinite_dists;
         
-        // deterministically generate pseudo-shuffled pairs in constant time per pair, method taken from
+        // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
         // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
         size_t num_pairs = nodes.size() * nodes.size();
         assert(num_pairs < 4294967296); // 2^32, else range_max can't get large enough
@@ -1997,10 +2154,12 @@ namespace vg {
                 size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 2) + 3) & (range_max - 1);
                 to_return.first = permuted / nodes.size();
                 to_return.second = permuted % nodes.size();
+                permutation_idx++;
             } while (to_return.first >= to_return.second || to_return.first >= nodes.size());
             return to_return;
         };
         
+        // we use a union find to keep track of which MEMs have been identified as being on the same strand
         UnionFind union_find(nodes.size());
         
         size_t num_possible_merges_remaining = (nodes.size() * (nodes.size() - 1)) / 2;
@@ -2008,19 +2167,26 @@ namespace vg {
         
         // a simulated annealing parameter loosely inspired by the cutoff for an Erdos Renyi random graph
         // to be connected with probability approaching 1
-        size_t current_max_num_probes = (size_t) (2.0 * ceil(log(nodes.size())));
+        size_t current_max_num_probes = 2 * ((size_t) ceil(log(nodes.size())));
         
-        while (num_possible_merges_remaining > 0 && pairs_checked < num_pairs) {
+        while (num_possible_merges_remaining > 0 && permutation_idx < range_max) {
             
             pair<size_t, size_t> node_pair = get_next_pair();
-            
+        
             pairs_checked++;
             
             size_t strand_1 = union_find.find_group(node_pair.first);
             size_t strand_2 = union_find.find_group(node_pair.second);
+            
+#ifdef debug_multipath_mapper
+            cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << endl;
+#endif
 
             if (strand_1 == strand_2) {
                 // these are already identified as on the same strand, don't need to do it again
+#ifdef debug_multipath_mapper
+                cerr << "already on same strand" << endl;
+#endif
                 continue;
             }
             
@@ -2028,6 +2194,9 @@ namespace vg {
                 // we've already checked multiple distances between these strand clusters and
                 // none have returned a finite distance, so we conclude that they are in fact
                 // on separate clusters and decline to check any more distances
+#ifdef debug_multipath_mapper
+                cerr << "already have checked distance above maximum number of probes" << endl;
+#endif
                 continue;
             }
             
@@ -2037,20 +2206,29 @@ namespace vg {
             int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                    id(pos_2), offset(pos_2), is_rev(pos_2));
             
+#ifdef debug_multipath_mapper
+            cerr << "distance between " << pos_1 << " and " << pos_2 << " estimated at " << oriented_dist << endl;
+#endif
+            
             if (oriented_dist == std::numeric_limits<int64_t>::max()) {
                 // distance is estimated at infinity, so these are either on different strands
                 // or the path heuristic failed to find a shared path
                 
-                num_infinite_dists[make_pair(strand_1, strand_2)]++;
+                size_t& num_failed_probes = num_infinite_dists[make_pair(strand_1, strand_2)];
+                num_failed_probes++;
                 num_infinite_dists[make_pair(strand_2, strand_1)]++;
                 
                 // this infinite distance pushed the count over the maximum number of probes, so remove
                 // these merges from the pool of potential merges remaining
-                if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
+                if (num_failed_probes >= current_max_num_probes) {
                     size_t strand_size_1 = union_find.group_size(strand_1);
                     size_t strand_size_2 = union_find.group_size(strand_2);
                     
                     num_possible_merges_remaining -= strand_size_1 * strand_size_2;
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "this probe crossed max threshold of " << current_max_num_probes << ", reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
+#endif
                 }
             }
             else {
@@ -2065,6 +2243,10 @@ namespace vg {
                 
                 // remove these from the pool of remaining merges
                 num_possible_merges_remaining -= strand_size_1 * strand_size_2;
+                
+#ifdef debug_multipath_mapper
+                cerr << "probe triggered group merge, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
+#endif
                 
                 size_t strand_retaining = union_find.find_group(node_pair.first);
                 size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
@@ -2096,6 +2278,10 @@ namespace vg {
                     // the pool remaining
                     if (curr_num_probes >= current_max_num_probes && !already_blocked) {
                         num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * union_find.group_size(inf_count.first);
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "after merge, the total number of probes against strand " << inf_count.first << " increased to " << curr_num_probes << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * union_find.group_size(inf_count.first) << " to " << num_possible_merges_remaining << endl;
+#endif
                     }
                 }
             }
@@ -2104,7 +2290,9 @@ namespace vg {
             // separate strands
             if (pairs_checked % nodes.size() == nodes.size() - 1) {
                 current_max_num_probes--;
-                
+#ifdef debug_multipath_mapper
+                cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
+#endif
                 for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
                     // break symmetry so we don't repeat the operation twice
                     if (inf_dist_record.first.first < inf_dist_record.first.second && inf_dist_record.second == current_max_num_probes) {
@@ -2112,14 +2300,21 @@ namespace vg {
                         size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
                         size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
                         num_possible_merges_remaining -= strand_size_1 * strand_size_2;
+#ifdef debug_multipath_mapper
+                        cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above current, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
+#endif
                     }
                 }
             }
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "constructing strand distance tree" << endl;
+#endif
+        
         // build the graph of relative distances in adjacency list representation
         // by construction each strand cluster will be an undirected, unrooted tree
-        unordered_map<size_t, vector<size_t>> strand_distance_tree;
+        vector<vector<size_t>> strand_distance_tree(nodes.size());
         for (const auto& dist_record : recorded_finite_dists) {
             strand_distance_tree[dist_record.first.first].push_back(dist_record.first.second);
             strand_distance_tree[dist_record.first.second].push_back(dist_record.first.first);
@@ -2129,20 +2324,23 @@ namespace vg {
         // treating the distances we estimated as transitive
         vector<unordered_map<size_t, int64_t>> strand_relative_position;
         vector<bool> processed(nodes.size(), false);
-        for (const auto& adjacency_record : strand_distance_tree) {
-            if (processed[adjacency_record.first]) {
+        for (size_t i = 0; i < nodes.size(); i++) {
+            if (processed[i]) {
                 continue;
             }
             
-            size_t strand = union_find.find_group(adjacency_record.first);
-            unordered_map<size_t, int64_t>& relative_pos = strand_relative_position[strand];
+#ifdef debug_multipath_mapper
+            cerr << "beginning a distance tree traversal at MEM " << i << endl;
+#endif
+            strand_relative_position.emplace_back();
+            unordered_map<size_t, int64_t>& relative_pos = strand_relative_position.back();
             
             // arbitrarily make this node the 0 point
-            relative_pos[adjacency_record.first] = 0;
-            processed[adjacency_record.first] = true;
+            relative_pos[i] = 0;
+            processed[i] = true;
             
             // traverse the strand's tree with DFS
-            list<size_t> queue{adjacency_record.first};
+            list<size_t> queue{i};
             while (!queue.empty()) {
                 size_t curr = queue.back();
                 queue.pop_back();
@@ -2166,7 +2364,14 @@ namespace vg {
                     queue.push_back(next);
                 }
             }
+#ifdef debug_multipath_mapper
+            cerr << "strand reconstruction: "  << endl;
+            for (const auto& record : relative_pos) {
+                cerr << "\t" << record.first << ": " << record.second << endl;
+            }
+#endif
         }
+        
         
         // now we use the strand clusters and the estimated distances to make the DAG for the
         // approximate MEM alignment
@@ -2216,6 +2421,10 @@ namespace vg {
                         hi++;
                     }
                 }
+                
+#ifdef debug_multipath_mapper
+                cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
+#endif
                 
                 for (int64_t j = low; j <= hi; j++) {
                     int64_t next_idx = sorted_pos[j].second;
@@ -2434,7 +2643,7 @@ namespace vg {
             vector<size_t>& component = components[i];
             pair<int32_t, size_t>& traceback_end = component_traceback_ends[i];
             for (size_t j = 0; j < component.size(); j++) {
-                int32_t dp_score = nodes[component[i]].dp_score;
+                int32_t dp_score = nodes[component[j]].dp_score;
                 if (dp_score > traceback_end.first) {
                     traceback_end.first = dp_score;
                     traceback_end.second = j;

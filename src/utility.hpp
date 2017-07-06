@@ -291,7 +291,7 @@ struct TreeNode {
  * A custom Union-Find data structure that supports merging a set of indices in
  * disjoint sets in amortized nearly linear time. This implementation also supports
  * querying the size of the group containing an index in constant time and querying
- * the group containing an index in linear time in the size of the group.
+ * the members of the group containing an index in linear time in the size of the group.
  */
 class UnionFind {
 public:
