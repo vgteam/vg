@@ -295,7 +295,7 @@ namespace vg {
         // perform alignment in the intervening sections
         for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
 #ifdef debug_multipath_mapper
-            cerr << "checking for intervening alignments for match node " << j << endl;
+            cerr << "checking for intervening alignments from match node " << j << endl;
 #endif
             
             ExactMatchNode& src_match_node = multi_aln_graph.match_nodes[j];
@@ -339,7 +339,8 @@ namespace vg {
                 cerr << "forming intervening alignment for edge to node " << edge.first << endl;
 #endif
                 
-                size_t max_gap = std::min(src_max_gap, qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin));
+                size_t intervening_length = dest_match_node.begin - src_match_node.end;
+                size_t max_gap = intervening_length + std::min(src_max_gap, qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin));
                 
                 // extract the graph between the matches
                 Graph connecting_graph;
@@ -428,7 +429,8 @@ namespace vg {
                     
                     Subpath* sink_subpath = multipath_aln.mutable_subpath(j);
                     
-                    int64_t target_length = qual_adj_aligner->longest_detectable_gap(alignment, match_node.end) + (alignment.sequence().end() - match_node.end);
+                    int64_t tail_length = alignment.sequence().end() - match_node.end;
+                    int64_t target_length = tail_length + qual_adj_aligner->longest_detectable_gap(alignment, match_node.end) + (alignment.sequence().end() - match_node.end);
                     pos_t end_pos = final_position(match_node.path);
                     
                     Graph tail_graph;
@@ -483,7 +485,8 @@ namespace vg {
                 ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
                 if (match_node.begin != alignment.sequence().begin()) {
                     
-                    int64_t target_length = qual_adj_aligner->longest_detectable_gap(alignment, match_node.begin) + (match_node.begin - alignment.sequence().begin());
+                    int64_t tail_length = match_node.begin - alignment.sequence().begin();
+                    int64_t target_length = tail_length + qual_adj_aligner->longest_detectable_gap(alignment, match_node.begin) + (match_node.begin - alignment.sequence().begin());
                     pos_t begin_pos = initial_position(match_node.path);
                     
                     Graph tail_graph;
@@ -2301,7 +2304,7 @@ namespace vg {
                         size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
                         num_possible_merges_remaining -= strand_size_1 * strand_size_2;
 #ifdef debug_multipath_mapper
-                        cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above current, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above max, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                 }
