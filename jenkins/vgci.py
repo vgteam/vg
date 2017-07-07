@@ -11,8 +11,10 @@ from urlparse import urlparse
 from uuid import uuid4
 import os, sys
 import argparse
+import collections
 import timeout_decorator
 from boto.s3.connection import S3Connection
+import tsv
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +30,9 @@ class VGCITest(TestCase):
         
         self.f1_threshold = 0.005
         self.auc_threshold = 0.02
+        # What (additional) portion of reads are allowed to get worse scores
+        # when moving to a more inclusive reference?
+        self.worse_threshold = 0.01
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
@@ -315,17 +320,46 @@ class VGCITest(TestCase):
             stats_tsv = stats.read()
         baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
 
+        # Dict from aligner to a list of float stat values, in order
         stats_dict = self._tsv_to_dict(stats_tsv)
+        # Dict from aligner to a list of float stat values, in order
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
-        for key, val in baseline_dict.items():
+        for key, val in baseline_dict.iteritems():
             print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
                 key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+            
         
+        score_stats_path = os.path.join(self._outstore(tag), 'score.stats.tsv')
+        if os.path.exists(score_stats_path):
+            # If the score comparison was run, make sure not too many reads get
+            # worse moving from linear reference or BWA to a graph.
+            
+            try:
+                # Parse out the baseline stat values (not for the baseline
+                # graph, we shouldn't have called these both "baseline")
+                baseline_tsv = self._read_baseline_file(tag, 'score.stats.tsv')
+                baseline_dict = self._tsv_to_dict(baseline_tsv)
+            except:
+                # Maybe there's no baseline file saved yet
+                # Synthesize one of the right shape
+                baseline_dict = collections.defaultdict(lambda: [0, 0])
+                
+            # Parse out the real stat values
+            score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                
+            for key in score_stats_dict.iterkeys():
+                print '{}  Worse: {} Baseline: {}  Threshold: {}'.format(
+                    key, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
+                # Make sure all the reads came through
+                assert score_stats_dict[key][0] == reads
+                # Make sure not too many got worse
+                assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+            
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None):
         """ Run simulation on a bakeoff graph
         

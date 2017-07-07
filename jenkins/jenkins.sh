@@ -190,7 +190,11 @@ fi
 # Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
 rm -rf awscli s3am bin/aws bin/s3am
 
-rm -rf .env vgci-work
+if [ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]; then
+    # On anything other than a failed local run, clean up.
+    rm -rf .env vgci-work
+fi
+
 if [ -d "/mnt/ephemeral" ]
 then
     rm -rf $TMPDIR
