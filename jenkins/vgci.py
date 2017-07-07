@@ -413,7 +413,7 @@ class VGCITest(TestCase):
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
-        """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """        
+        """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
                            score_baseline_graph='primary')    
