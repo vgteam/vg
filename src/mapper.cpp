@@ -73,7 +73,7 @@ Mapper::Mapper(Index* idex,
     , maybe_mq_threshold(10)
     , min_banded_mq(0)
     , max_band_jump(0)
-    , identity_weight(4)
+    , identity_weight(1)
 {
     init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
