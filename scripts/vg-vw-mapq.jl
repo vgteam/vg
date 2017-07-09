@@ -100,7 +100,10 @@ function kmers_of(k::Int, j::Int, s::String)
 end
 
 function seq_embedding(s::String, k::Int, j::Int)
-    kmers = kmers_of(k, j, s)
+    function in_vocab(kmer::String)
+        haskey(embedding.vocab_hash, kmer)
+    end
+    kmers = filter(in_vocab, kmers_of(k, j, s))
     reduce(+, [get_vector(embedding, kmer) for kmer in kmers])/length(kmers)
 end
 

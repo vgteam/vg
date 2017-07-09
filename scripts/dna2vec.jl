@@ -78,7 +78,7 @@ elseif model_file != ""
     model = wordvectors(model_file)
     if query != ""
         kmers = kmers_of(kmer_size, kmer_stride, query)
-        mean_vec = reduce(+, [(in_vocabulary(model, kmer) ? get_vector(model, kmer) : 0) for kmer in kmers])/length(kmers)
+        mean_vec = reduce(+, [(haskey(model.vocab_hash, kmer) ? get_vector(model, kmer) : 0) for kmer in kmers])/length(kmers)
         println("$query ", mean_vec)
     end
 end
