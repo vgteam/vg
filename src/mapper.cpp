@@ -73,7 +73,7 @@ Mapper::Mapper(Index* idex,
     , maybe_mq_threshold(10)
     , min_banded_mq(0)
     , max_band_jump(0)
-    , identity_weight(1)
+    , identity_weight(4)
 {
     init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
@@ -2886,7 +2886,29 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     bool prev_iter_jumped_lcp = false;
 
     int max_lcp = 0;
+    size_t mem_length = 0;
     vector<int> lcp_maxima;
+    bool break_mem = false;
+
+    auto should_reseed = [&]() {
+        return (reseed_length
+                && mem_length >= min_mem_length
+                && max_lcp >= reseed_length);
+    };
+    
+    auto do_reseed = [&]() {
+        if (fast_reseed) {
+            find_sub_mems_fast(mems,
+                               match.begin,
+                               min_mem_length,
+                               sub_mems);
+        } else {
+            find_sub_mems(mems,
+                          match.begin,
+                          min_mem_length,
+                          sub_mems);
+        }
+    };
     
     // loop maintains invariant that match.range contains the hits for seq[cursor+1:match.end]
     while (cursor >= seq_begin) {
@@ -2896,7 +2918,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         if (*cursor == 'N') {
             match.begin = cursor + 1;
             
-            size_t mem_length = match.length();
+            mem_length = match.length();
             
             if (mem_length >= min_mem_length) {
                 mems.push_back(match);
@@ -2920,22 +2942,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             --cursor;
             
             // are we reseeding?
-            if (reseed_length
-                && mem_length >= min_mem_length
-                && max_lcp >= reseed_length) {
-                if (fast_reseed) {
-                    find_sub_mems_fast(mems,
-                                       match.end,
-                                       min_mem_length,
-                                       sub_mems);
-                }
-                else {
-                    find_sub_mems(mems,
-                                  match.end,
-                                  min_mem_length,
-                                  sub_mems);
-                }
-            }
+            if (should_reseed()) do_reseed();
 
             prev_iter_jumped_lcp = false;
             lcp_maxima.push_back(max_lcp);
@@ -2952,7 +2959,11 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         
         if (gcsa::Range::empty(match.range)
             || (max_mem_length && match.end - cursor > max_mem_length)
-            || match.end - cursor > gcsa->order()) {
+            || match.end - cursor > gcsa->order()
+            || break_mem) {
+
+            // unset breaker
+            break_mem = false;
             
             // we've exhausted our BWT range, so the last match range was maximal
             // or: we have exceeded the order of the graph (FPs if we go further)
@@ -2981,7 +2992,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             else {
                 match.begin = cursor + 1;
                 match.range = last_range;
-                size_t mem_length = match.end - match.begin;
+                mem_length = match.end - match.begin;
                 
                 // record the last MEM, but check to make sure were not actually still searching
                 // for the end of the next MEM
@@ -3013,24 +3024,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 max_lcp = (int)parent.lcp();
                 
                 // are we reseeding?
-                if (reseed_length
-                    && !prev_iter_jumped_lcp
-                    && mem_length >= min_mem_length
-                    && max_lcp >= reseed_length) {
-                    if (fast_reseed) {
-                        find_sub_mems_fast(mems,
-                                           match.end,
-                                           min_mem_length,
-                                           sub_mems);
-                    }
-                    else {
-                        find_sub_mems(mems,
-                                      match.end,
-                                      min_mem_length,
-                                      sub_mems);
-                    }
-                }
-                
+                if (should_reseed()) do_reseed();
                 
                 prev_iter_jumped_lcp = true;
                 lcp_maxima.push_back(max_lcp);
@@ -3041,6 +3035,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             prev_iter_jumped_lcp = false;
             //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
             max_lcp = (int)lcp->parent(match.range).lcp();
+            ++mem_length;
+            if (should_reseed()) break_mem = true;
             lcp_maxima.push_back(max_lcp);
             // just step to the next position
             --cursor;
@@ -3052,7 +3048,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     
     // if we have a MEM at the beginning of the read, record it
     match.begin = seq_begin;
-    size_t mem_length = match.end - match.begin;
+    mem_length = match.end - match.begin;
     if (mem_length >= min_mem_length) {
         //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
         max_lcp = (int)lcp->parent(match.range).lcp();
@@ -3072,22 +3068,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
 #endif
         
         // are we reseeding?
-        if (reseed_length
-            && mem_length >= min_mem_length
-            && max_lcp >= reseed_length) {
-            if (fast_reseed) {
-                find_sub_mems_fast(mems,
-                                   match.begin,
-                                   min_mem_length,
-                                   sub_mems);
-            }
-            else {
-                find_sub_mems(mems,
-                              match.begin,
-                              min_mem_length,
-                              sub_mems);
-            }
-        }
+        if (should_reseed()) do_reseed();
+
     }
     lcp_maxima.push_back(max_lcp);
     longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
