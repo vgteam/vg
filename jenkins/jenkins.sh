@@ -18,7 +18,7 @@
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@a5976b8cf5d90bd80bee28d9886d9fefd1d66c0d"
+TOIL_VG_PACKAGE="git+https://github.com/bd2kgenomics/toil-vg.git@a5976b8cf5d90bd80bee28d9886d9fefd1d66c0d"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
