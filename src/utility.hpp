@@ -1,5 +1,5 @@
-#ifndef UTILITY_H
-#define UTILITY_H
+#ifndef VG_UTILITY_H
+#define VG_UTILITY_H
 
 #include <string>
 #include <vector>

@@ -1,5 +1,5 @@
-#ifndef INDEX_H
-#define INDEX_H
+#ifndef VG_INDEX_H
+#define VG_INDEX_H
 
 #include <iostream>
 #include <exception>

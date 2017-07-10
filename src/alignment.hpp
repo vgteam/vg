@@ -1,5 +1,5 @@
-#ifndef ALIGNMENT_H
-#define ALIGNMENT_H
+#ifndef VG_ALIGNMENT_H
+#define VG_ALIGNMENT_H
 
 #include <iostream>
 #include <functional>
