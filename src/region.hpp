@@ -1,5 +1,5 @@
-#ifndef VG_UTILITY_H
-#define VG_UTILITY_H
+#ifndef VG_REGION_H
+#define VG_REGION_H
 
 #include <string>
 #include <vector>
