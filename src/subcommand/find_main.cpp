@@ -75,7 +75,7 @@ int main_find(int argc, char** argv) {
     string xg_name;
     bool get_mems = false;
     int mem_reseed_length = 0;
-    bool use_fast_reseed = false;
+    bool use_fast_reseed = true;
     bool get_alignments = false;
     bool get_mappings = false;
     string node_id_range;
@@ -772,6 +772,7 @@ int main_find(int argc, char** argv) {
                 // get the mems
                 double lcp_avg;
                 auto mems = mapper.find_mems_deep(sequence.begin(), sequence.end(), lcp_avg, max_mem_length, min_mem_length, mem_reseed_length);
+
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
 

@@ -17,7 +17,7 @@ void help_map(char** argv) {
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
-         << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
+         << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [21]" << endl
          << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
@@ -25,7 +25,7 @@ void help_map(char** argv) {
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
-         << "    -m, --id-mq-weight N    scale mapping quality by the alignment score identity to this power [4]" << endl
+         << "    -m, --id-mq-weight N    scale mapping quality by the alignment score identity to this power [1]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
@@ -102,7 +102,7 @@ int main_map(int argc, char** argv) {
     bool always_rescue = false;
     bool top_pairs_only = false;
     int max_mem_length = 0;
-    int min_mem_length = -1;
+    int min_mem_length = 21;
     int min_cluster_length = 0;
     float random_match_chance = 0.05;
     float mem_reseed_factor = 1.5;
@@ -120,7 +120,7 @@ int main_map(int argc, char** argv) {
     int max_mapping_quality = 60;
     int method_code = 1;
     int maybe_mq_threshold = 60;
-    double identity_weight = 4;
+    double identity_weight = 1;
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;

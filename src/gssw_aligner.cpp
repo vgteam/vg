@@ -631,7 +631,7 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     
     *max_idx_out = max_idx;
 
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
+    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0))) / max(1.0, (double) next_count * (next_score / max_score));
 }
 
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
@@ -672,12 +672,12 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
-    mapping_quality *= pow(identity, identity_weight);
-
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
+
+    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
+    mapping_quality *= pow(identity, identity_weight);
 
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
@@ -741,17 +741,17 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
-    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
-    mapping_quality1 *= pow(identity1, identity_weight);
-    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
-    mapping_quality2 *= pow(identity2, identity_weight);
-
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
+
+    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
+    mapping_quality1 *= pow(identity1, identity_weight);
+    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
+    mapping_quality2 *= pow(identity2, identity_weight);
 
     if (mapping_quality1 > max_mapping_quality1) {
         mapping_quality1 = max_mapping_quality1;
