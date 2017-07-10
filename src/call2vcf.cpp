@@ -1057,7 +1057,7 @@ void Call2Vcf::call(
     string pileup_filename) {
 
     // Toggle support counter
-    support_val = use_support_quality ? support_quality : total;
+    support_val = use_support_count ? total : support_quality;
 
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();

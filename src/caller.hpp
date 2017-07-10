@@ -608,10 +608,10 @@ public:
     Option<bool> call_other_by_coverage{this, "call-nodes-by-coverage", "cCoObB", false,
         "make calls on nodes/edges outside snarls by coverage"};
 
-    /// Use total quality (true) instead of support count (false) when choosing
+    /// Use total support count (true) instead of total support quality (false) when choosing
     /// top alleles and deciding gentypes based on the biases.  
-    Option<bool> use_support_quality{this, "use-support-quality", "Q", false,
-        "use total support quality instead of total support count"};
+    Option<bool> use_support_count{this, "use-support-count", "T", false,
+        "use total support count instead of total support quality for selecting top alleles"};
     
     /// print warnings etc. to stderr
     bool verbose = false;
