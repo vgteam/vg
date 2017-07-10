@@ -73,7 +73,7 @@ Mapper::Mapper(Index* idex,
     , maybe_mq_threshold(10)
     , min_banded_mq(0)
     , max_band_jump(0)
-    , identity_weight(4)
+    , identity_weight(1)
 {
     init_aligner(alignment_match, alignment_mismatch, alignment_gap_open, alignment_gap_extension);
     init_node_cache();
@@ -936,14 +936,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     auto to_drop = clusters_to_drop(clusters);
     vector<pair<Alignment, Alignment> > alns;
     //pair<vector<Alignment>, vector<Alignment> > alns;
+    vector<vector<MaximalExactMatch>*> cluster_ptrs;
+    map<vector<MaximalExactMatch>*, int> cluster_cov;
     int multimaps = 0;
     for (auto& cluster : clusters) {
+        if (multimaps > total_multimaps) { break; }
         // skip if we've filtered the cluster
         if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
-        // stop if we have enough multimaps
-        if (multimaps > total_multimaps) { break; }
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
+        int coverage = cluster_coverage(cluster);
+        if (min_cluster_length && coverage < min_cluster_length && alns.size() > 1) continue;
+        cluster_cov[&cluster] = coverage;
+        cluster_ptrs.push_back(&cluster);
+        ++multimaps;
+    }
+    /*
+    sort(cluster_ptrs.begin(), cluster_ptrs.end(),
+         [&](vector<MaximalExactMatch>* c1, vector<MaximalExactMatch>* c2) {
+             return cluster_cov[c1] > cluster_cov[c2]; });
+    */
+    for (auto& cluster_ptr : cluster_ptrs) {
+        auto& cluster = *cluster_ptr;
         // break the cluster into two pieces
         vector<MaximalExactMatch> cluster1, cluster2;
         bool seen1=false, seen2=false;
@@ -977,9 +990,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.second.clear_identity();
             p.second.clear_path();
         }
-
-        ++multimaps;
-
     }
 
     auto sort_and_dedup = [&](void) {
@@ -1278,8 +1288,8 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
     }
 }
 
-bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                      const vector<MaximalExactMatch>& cluster2) {
+bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
+                              const vector<MaximalExactMatch>& cluster2) {
     for (auto& mem1 : cluster1) {
         for (auto& mem2 : cluster2) {
             if (mems_overlap(mem1, mem2)) {
@@ -1288,6 +1298,30 @@ bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
         }
     }
     return false;
+}
+
+vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster) {
+    vector<pos_t> nodes;
+    for (auto& mem : cluster) {
+        for (auto& node : mem.nodes) {
+            nodes.push_back(make_pos_t(node));
+            auto& pos = nodes.back();
+            get_offset(pos) = 0;
+        }
+    }
+    sort(nodes.begin(), nodes.end());
+    return nodes;
+}
+
+bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
+                               const vector<MaximalExactMatch>& cluster2) {
+    vector<pos_t> pos1 = cluster_nodes(cluster1);
+    vector<pos_t> pos2 = cluster_nodes(cluster2);
+    vector<pos_t> comm;
+    set_intersection(pos1.begin(), pos1.end(),
+                     pos2.begin(), pos2.end(),
+                     std::back_inserter(comm));
+    return comm.size() > 0;
 }
 
 int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction) {
@@ -1323,7 +1357,9 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
             if (j == i) continue;
             // are we overlapping?
             auto& other_cluster = clusters[j];
-            if (clusters_overlap(this_cluster, other_cluster)) {
+            if (to_drop.count(&other_cluster)) continue;
+            if (clusters_overlap_in_read(this_cluster, other_cluster)
+                || clusters_overlap_in_graph(this_cluster, other_cluster)) {
                 int c = cluster_cov[&other_cluster];
                 if (c > l) {
                     l = c;
@@ -1433,6 +1469,13 @@ Mapper::align_mem_multi(const Alignment& aln,
         clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
+    /*
+    map<const vector<MaximalExactMatch>*, int> cluster_cov;
+    for (auto& cluster : clusters) {
+        cluster_cov[&cluster] = cluster_coverage(cluster);
+    }
+    */
+
     // don't attempt to align if we reach the maximum number of multimaps
     //if (clusters.size() == total_multimaps) clusters.clear();
 
@@ -1490,14 +1533,27 @@ Mapper::align_mem_multi(const Alignment& aln,
     // make the perfect-match alignment for the SMEM cluster
     // then fix it up with DP on the little bits between the alignments
     vector<Alignment> alns;
+    vector<vector<MaximalExactMatch>*> cluster_ptrs;
+    map<vector<MaximalExactMatch>*, int> cluster_cov;
     int multimaps = 0;
     for (auto& cluster : clusters) {
-        // filtered out due to overlap with longer chain
+        if (multimaps > total_multimaps) { break; }
+        // skip if we've filtered the cluster
         if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
-        if (++multimaps > total_multimaps) { break; }
-        // skip this if we don't have sufficient cluster coverage and we have at least two alignments
-        // which we can use to estimate mapping quality
-        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
+        // skip if we've got enough multimaps to get MQ and we're under the min cluster length
+        int coverage = cluster_coverage(cluster);
+        if (min_cluster_length && coverage < min_cluster_length && alns.size() > 1) continue;
+        cluster_cov[&cluster] = coverage;
+        cluster_ptrs.push_back(&cluster);
+        ++multimaps;
+    }
+    /*
+    sort(cluster_ptrs.begin(), cluster_ptrs.end(),
+         [&](vector<MaximalExactMatch>* c1, vector<MaximalExactMatch>* c2) {
+             return cluster_cov[c1] > cluster_cov[c2]; });
+    */
+    for (auto& cluster_ptr : cluster_ptrs) {
+        auto& cluster = *cluster_ptr;
         // get the candidate graph
         // align to it
         Alignment candidate = align_cluster(aln, cluster);
@@ -3071,6 +3127,10 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         if (should_reseed()) do_reseed();
 
     }
+    if (mems.size() == 1) {
+        match = mems.back();
+        do_reseed();
+    }
     lcp_maxima.push_back(max_lcp);
     longest_lcp = *max_element(lcp_maxima.begin(), lcp_maxima.end());
 
@@ -3083,7 +3143,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
             // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
             // it may be necessary to impose the cap on mem hits
-            if (mem.nodes.size() > hit_max) mem.nodes.clear();
+            if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
         }
     }
     
@@ -3106,7 +3166,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 gcsa->locate(mem.range, mem.nodes);
                 // it may be necessary to impose the cap on mem hits
                 // todo: should we downsample?
-                if (mem.nodes.size() > hit_max) mem.nodes.clear();
+                if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
             }
         }
 

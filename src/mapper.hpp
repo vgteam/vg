@@ -566,9 +566,11 @@ bool mems_overlap(const MaximalExactMatch& mem1,
 int mems_overlap_length(const MaximalExactMatch& mem1,
                         const MaximalExactMatch& mem2);
 // helper to tell if clusters have any overlap
-bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                      const vector<MaximalExactMatch>& cluster2);
-
+bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
+                              const vector<MaximalExactMatch>& cluster2);
+bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
+                               const vector<MaximalExactMatch>& cluster2);
+vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster);
 int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction);
 
 }
