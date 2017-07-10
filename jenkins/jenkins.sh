@@ -15,12 +15,36 @@
 
 #!/bin/bash
 
-usage() { printf "Usage: $0 [Options] \nOptions:\n\t-l\t Build vg locally (instead of in Docker) and don't use Docker at all. Non-python dependencies must be installed\n" 1>&2; exit 1; }
+# Should we build and run locally, or should we use Docker?
+LOCAL_BUILD=0
+# What toil-vg should we install?
+TOIL_VG_PACKAGE="git+https://github.com/bd2kgenomics/toil-vg.git@a5976b8cf5d90bd80bee28d9886d9fefd1d66c0d"
+# What tests should we run?
+# Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
+PYTEST_TEST_SPEC="jenkins/vgci.py"
 
-while getopts "l" o; do
+usage() {
+    # Print usage to stderr
+    exec 1>&2
+    printf "Usage: $0 [Options] \n"
+    printf "Options:\n\n"
+    printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all. \n"
+    printf "\t\t\tNon-Python dependencies must be installed\n"
+    printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg\n"
+    printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run\n"
+    exit 1
+}
+
+while getopts "p:t:l" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
+            ;;
+        p)
+            TOIL_VG_PACKAGE="${OPTARG}"
+            ;;
+        t)
+            PYTEST_TEST_SPEC="${OPTARG}"
             ;;
         *)
             usage
@@ -53,6 +77,10 @@ then
      export TMPDIR
 fi
 
+# Upgrade pip so that it can use the wheels for numpy & scipy, so that they
+# don't try to build from source
+pip install --upgrade pip
+
 # Create s3am venv
 rm -rf s3am
 virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
@@ -68,10 +96,6 @@ virtualenv --never-download awscli && awscli/bin/pip install awscli
 ln -snf ${PWD}/awscli/bin/aws bin/
 export PATH=$PATH:${PWD}/bin
 
-# Upgrade pip so that it can use the wheels for numpy & scipy, so that they
-# don't try to build from source
-pip install --upgrade pip
-
 # Dependencies for running tests.  Need numpy, scipy and sklearn
 # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
 pip install numpy
@@ -81,10 +105,11 @@ pip install dateutils
 pip install requests
 pip install timeout_decorator
 pip install pytest
-pip install boto
+# Don't manually install boto since toil-vg just installs its preferred version
 
 # Install toil-vg itself
-pip install toil[aws,mesos] "toil-vg==1.2.1a1.dev409"
+echo "Installing toil-vg from ${TOIL_VG_PACKAGE}"
+pip install toil[aws,mesos] "${TOIL_VG_PACKAGE}"
 if [ "$?" -ne 0 ]
 then
     echo "pip install toil-vg fail"
@@ -106,7 +131,7 @@ printf "workdir ./vgci-work\n" >> vgci_cfg.tsv
 rm -rf vgci-work
 mkdir vgci-work
 
-if [ -n "${LOCAL_BUILD}" ]
+if [ "${LOCAL_BUILD}" == "1" ]
 then
     # Just build vg here
     . ./source_me.sh
@@ -144,7 +169,7 @@ fi
 set +e
 
 # run the tests, output the junit report for Jenkins
-pytest -vv jenkins/vgci.py --junitxml=test-report.xml
+pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml
 PYRET="$?"
 
 # we publish the results to the archive
@@ -165,7 +190,11 @@ fi
 # Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
 rm -rf awscli s3am bin/aws bin/s3am
 
-rm -rf .env vgci-work
+if [ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]; then
+    # On anything other than a failed local run, clean up.
+    rm -rf .env vgci-work
+fi
+
 if [ -d "/mnt/ephemeral" ]
 then
     rm -rf $TMPDIR
