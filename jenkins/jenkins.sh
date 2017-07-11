@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Run some CI tests on vg using toil-vg
 
