@@ -14,8 +14,7 @@ void output_haplotype_counts(ostream& annotation_ostream,
   }
 }
 
-void output_graph_with_embedded_paths(ostream& subgraph_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index, bool json) {
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
   Graph g;
   set<int64_t> nodes;
   set<pair<int,int> > edges;
@@ -29,6 +28,13 @@ void output_graph_with_embedded_paths(ostream& subgraph_ostream,
     p.set_name(to_string(i));
     *(g.add_path()) = move(p);
   }
+  return g;
+}
+ 
+void output_graph_with_embedded_paths(ostream& subgraph_ostream,
+            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index, bool json) {
+  Graph g = output_graph_with_embedded_paths(haplotype_list, index);
+
   if (json) {
     subgraph_ostream << pb2json(g);
   } else {

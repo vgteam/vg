@@ -28,6 +28,8 @@ vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,
 // Paths.  Will output in JSON format if json set to true and Protobuf otherwise.
 void output_graph_with_embedded_paths(ostream& subgraph_ostream,
             vector<pair<thread_t,int>>& haplotype_list, xg::XG& index, bool json = true);
+// get the graph directly
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, xg::XG& index);
 
 // writes to annotation_ostream the list of counts of identical subhaplotypes
 // using the same ordering as the Paths from output_graph_with_embedded_paths
