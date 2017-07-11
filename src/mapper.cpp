@@ -3178,10 +3178,12 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     std::sort(mems.begin(), mems.end(), [](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
         return m1.begin < m2.begin ? true : (m1.begin == m2.begin ? m1.end < m2.end : false);
     });
-    
+    // remove non-unique MEMs
+    mems.erase(unique(mems.begin(), mems.end()), mems.end());
+    // remove MEMs that are overlapping positionally (they may be redundant)
     return mems;
 }
-    
+
 void Mapper::find_sub_mems(vector<MaximalExactMatch>& mems,
                            string::const_iterator next_mem_end,
                            int min_mem_length,
