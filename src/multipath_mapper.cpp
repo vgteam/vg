@@ -48,7 +48,6 @@ namespace vg {
         MultipathClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters = clusterer.clusters();
         
-        
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
@@ -340,13 +339,13 @@ namespace vg {
 #endif
                 
                 size_t intervening_length = dest_match_node.begin - src_match_node.end;
-                size_t max_gap = intervening_length + std::min(src_max_gap, qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin));
+                size_t max_dist = intervening_length + std::min(src_max_gap, qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin)) + 1;
                 
                 // extract the graph between the matches
                 Graph connecting_graph;
                 unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(align_graph,      // DAG with split strands
                                                                                                connecting_graph, // graph to extract into
-                                                                                               max_gap,          // longest distance necessary
+                                                                                               max_dist,         // longest distance necessary
                                                                                                src_pos,          // end of earlier match
                                                                                                dest_pos,         // beginning of later match
                                                                                                false,            // do not extract the end positions in the matches
@@ -602,7 +601,7 @@ namespace vg {
             const pos_t& hit_pos = hit.second;
             
 #ifdef debug_multipath_mapper
-            cerr << "walking MEM hit " << hit_pos << " " << *hit.first << endl;
+            cerr << "walking MEM hit " << hit_pos << " " << hit.first->sequence() << endl;
 #endif
             
             auto hit_range = injection_trans.equal_range(id(hit_pos));
@@ -671,7 +670,6 @@ namespace vg {
                 
 #ifdef debug_multipath_mapper
                 cerr << "performing DFS to walk out match" << endl;
-                cerr << pb2json(vg.graph) << endl;
 #endif
                 
                 // stack for DFS, each record contains tuples of (read begin, node offset, next node index, next node ids)
@@ -1058,7 +1056,7 @@ namespace vg {
                 size_t curr_end_offset = end_offset(ends[end_range_begin]);
                 size_t prev_offset = 0;
                 
-                while (end_offset(starts[start_range_end]) == curr_end_offset) {
+                while (end_offset(ends[end_range_end]) == curr_end_offset) {
                     end_range_end++;
                     if (end_range_end == ends.size()) {
                         break;
@@ -1300,7 +1298,7 @@ namespace vg {
                     }
                     
 #ifdef debug_multipath_mapper
-                    cerr << "next range  is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
+                    cerr << "next range is " << *range_begin << ":" << *range_end << " at offset " << *curr_offset << endl;
 #endif
                 }
                 
@@ -2038,18 +2036,20 @@ namespace vg {
         // forward DP
         for (int64_t i = 0; i < topological_order.size(); i++) {
             size_t idx = topological_order[i];
-            ExactMatchNode& from_node = match_nodes[idx];
-            for (const pair<size_t, size_t>& edge : from_node.edges) {
-                forward_scores[edge.first] += std::max(0, forward_scores[idx] + edge_weights[make_pair(idx, edge.first)]);
+            int32_t from_score = forward_scores[idx];
+            for (const pair<size_t, size_t>& edge : match_nodes[idx].edges) {
+                forward_scores[edge.first] = std::max(forward_scores[edge.first],
+                                                      node_weights[edge.first] + from_score + edge_weights[make_pair(idx, edge.first)]);
             }
         }
         
         // backward DP
         for (int64_t i = topological_order.size() - 1; i >= 0; i--) {
             size_t idx = topological_order[i];
-            ExactMatchNode& from_node = match_nodes[idx];
-            for (const pair<size_t, size_t>& edge : from_node.edges) {
-                backward_scores[idx] += std::max(0, backward_scores[edge.first] + edge_weights[make_pair(idx, edge.first)]);
+            int32_t score_here = node_weights[idx];
+            for (const pair<size_t, size_t>& edge : match_nodes[idx].edges) {
+                backward_scores[idx] = std::max(backward_scores[idx],
+                                                score_here + backward_scores[edge.first] + edge_weights[make_pair(idx, edge.first)]);
             }
         }
         
@@ -2154,7 +2154,7 @@ namespace vg {
         auto get_next_pair = [&]() {
             pair<size_t, size_t> to_return;
             do {
-                size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 2) + 3) & (range_max - 1);
+                size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 6) + 0x9e3779b9) & (range_max - 1);
                 to_return.first = permuted / nodes.size();
                 to_return.second = permuted % nodes.size();
                 permutation_idx++;
@@ -2172,7 +2172,47 @@ namespace vg {
         // to be connected with probability approaching 1
         size_t current_max_num_probes = 2 * ((size_t) ceil(log(nodes.size())));
         
-        while (num_possible_merges_remaining > 0 && permutation_idx < range_max) {
+        while (num_possible_merges_remaining > 0 && permutation_idx < range_max && current_max_num_probes > 0) {
+            // slowly lower the number of distances we need to check before we believe that two clusters are on
+            // separate strands
+#ifdef debug_multipath_mapper
+            size_t direct_merges_remaining = 0;
+            vector<vector<size_t>> groups = union_find.all_groups();
+            for (size_t i = 1; i < groups.size(); i++) {
+                for (size_t j = 0; j < i; j++) {
+                    size_t strand_1 = union_find.find_group(groups[i].front());
+                    size_t strand_2 = union_find.find_group(groups[j].front());
+                    
+                    if (num_infinite_dists.count(make_pair(strand_1, strand_2))) {
+                        if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
+                            continue;
+                        }
+                    }
+                    direct_merges_remaining += groups[i].size() * groups[j].size();
+                }
+            }
+            cerr << "at permutation index " << permutation_idx << " with directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
+#endif
+            
+            if (pairs_checked % nodes.size() == 0 && pairs_checked != 0) {
+                current_max_num_probes--;
+#ifdef debug_multipath_mapper
+                cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
+#endif
+                for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
+                    // break symmetry so we don't repeat the operation twice
+                    if (inf_dist_record.first.first < inf_dist_record.first.second && inf_dist_record.second == current_max_num_probes) {
+                        // this merge just fell below the new maximum number of distance probes
+                        size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
+                        size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
+                        num_possible_merges_remaining -= strand_size_1 * strand_size_2;
+#ifdef debug_multipath_mapper
+                        cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above max, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
+#endif
+                    }
+                }
+            }
+            
             
             pair<size_t, size_t> node_pair = get_next_pair();
         
@@ -2193,7 +2233,8 @@ namespace vg {
                 continue;
             }
             
-            if (num_infinite_dists[make_pair(strand_1, strand_2)] >= current_max_num_probes) {
+            auto num_failed_probes = num_infinite_dists.find(make_pair(strand_1, strand_2));
+            if (num_failed_probes == num_infinite_dists.end() ? false : num_failed_probes->second >= current_max_num_probes) {
                 // we've already checked multiple distances between these strand clusters and
                 // none have returned a finite distance, so we conclude that they are in fact
                 // on separate clusters and decline to check any more distances
@@ -2217,20 +2258,26 @@ namespace vg {
                 // distance is estimated at infinity, so these are either on different strands
                 // or the path heuristic failed to find a shared path
                 
-                size_t& num_failed_probes = num_infinite_dists[make_pair(strand_1, strand_2)];
-                num_failed_probes++;
-                num_infinite_dists[make_pair(strand_2, strand_1)]++;
+                if (num_failed_probes == num_infinite_dists.end()) {
+                    num_failed_probes = num_infinite_dists.insert(pair<pair<size_t, size_t>, size_t>(make_pair(strand_1, strand_2), 1)).first;
+                    num_infinite_dists[make_pair(strand_2, strand_1)] = 1;
+                }
+                else {
+                    num_failed_probes->second++;
+                    num_infinite_dists[make_pair(strand_2, strand_1)]++;
+                }
+                
                 
                 // this infinite distance pushed the count over the maximum number of probes, so remove
                 // these merges from the pool of potential merges remaining
-                if (num_failed_probes >= current_max_num_probes) {
+                if (num_failed_probes->second >= current_max_num_probes) {
                     size_t strand_size_1 = union_find.group_size(strand_1);
                     size_t strand_size_2 = union_find.group_size(strand_2);
                     
                     num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                     
 #ifdef debug_multipath_mapper
-                    cerr << "this probe crossed max threshold of " << current_max_num_probes << ", reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
+                    cerr << "number of probes " << num_failed_probes->second << " crossed max threshold of " << current_max_num_probes << ", reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
             }
@@ -2247,65 +2294,139 @@ namespace vg {
                 // remove these from the pool of remaining merges
                 num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                 
-#ifdef debug_multipath_mapper
-                cerr << "probe triggered group merge, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
-#endif
-                
                 size_t strand_retaining = union_find.find_group(node_pair.first);
                 size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
                 
-                // collect the number of times the strand cluster thas is being removed has had an infinite distance
-                // to other strands besides the one it's being merged into
-                vector<pair<size_t, size_t>> inf_counts;
-                auto end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
-                auto begin = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
-                for (auto iter = begin; iter != end; iter++) {
-                    if (iter->first.second != strand_retaining) {
-                        inf_counts.emplace_back(iter->first.second, iter->second);
+#ifdef debug_multipath_mapper
+                cerr << "probe triggered group merge, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << " and retaining strand " << strand_retaining << endl;
+#endif
+                
+                // get the ranges in the counter for failed distance probe records for both of the strands
+                auto removing_iter = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
+                auto removing_end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
+                auto retaining_iter = num_infinite_dists.lower_bound(make_pair(strand_retaining, 0));
+                auto retaining_end = num_infinite_dists.upper_bound(make_pair(strand_retaining, numeric_limits<size_t>::max()));
+                
+                vector<pair<size_t, size_t>> unseen_comparisons;
+                while (removing_iter != removing_end && retaining_iter != retaining_end) {
+                    if (removing_iter->first.second == retaining_iter->first.second) {
+                        // both the removing and the retaining strand cluster have failed probes against this cluster so
+                        // we need to combine the records
+                        
+                        // check if we've already marked some of these merges as off limits
+                        bool retaining_already_blocked = retaining_iter->second >= current_max_num_probes;
+                        bool removing_already_blocked = removing_iter->second >= current_max_num_probes;
+                        
+                        // add the counts together
+                        retaining_iter->second += removing_iter->second;
+                        num_infinite_dists[make_pair(retaining_iter->first.second, strand_retaining)] += removing_iter->second;
+                        
+                        // update the number of possible merges remaining
+                        if (retaining_already_blocked && !removing_already_blocked) {
+                            num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(removing_iter->first.second);
+                            
+#ifdef debug_multipath_mapper
+                            cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+#endif
+                        }
+                        else if (removing_already_blocked && !retaining_already_blocked) {
+                            num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(removing_iter->first.second);
+                            
+#ifdef debug_multipath_mapper
+                            cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+#endif
+                        }
+                        else if (!retaining_already_blocked && !removing_already_blocked && retaining_iter->second >= current_max_num_probes) {
+                            num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * union_find.group_size(removing_iter->first.second);
+                            
+#ifdef debug_multipath_mapper
+                            cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+#endif
+                            
+                        }
+                        removing_iter++;
+                        retaining_iter++;
+                    }
+                    else if (removing_iter->first.second < retaining_iter->first.second) {
+                        // the strand being removed has probes against this strand cluster, but the strand being
+                        // retained does not, mark this and save it for later so that we don't invalidate the range
+                        //
+                        unseen_comparisons.emplace_back(removing_iter->first.second, removing_iter->second);
+                        removing_iter++;
+                    }
+                    else {
+                        // the strand being retained has probes against this strand cluster, but the strand being
+                        // removed does not, check if we need to add the removing strand to the remaining merges
+                        // counter
+                        if (retaining_iter->second >= current_max_num_probes) {
+                            num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second);
+                            
+#ifdef debug_multipath_mapper
+                            cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+#endif
+                        }
+                        retaining_iter++;
                     }
                 }
                 
-                for (const pair<size_t, size_t> inf_count : inf_counts) {
-                    size_t& curr_num_probes = num_infinite_dists[make_pair(strand_retaining, inf_count.first)];
-                    bool already_blocked = curr_num_probes >= current_max_num_probes;
-                    
-                    // transfer these counts over to the strand cluster that is being retained
-                    curr_num_probes += inf_count.second;
-                    num_infinite_dists[make_pair(inf_count.first, strand_retaining)] += inf_count.second;
-                    
-                    // remove the strand from the infinite distance counter
-                    num_infinite_dists.erase(make_pair(strand_removing, inf_count.first));
-                    num_infinite_dists.erase(make_pair(inf_count.first, strand_removing));
-                    
-                    // if adding these counts pushed the cluster over the strand probe max, remove these merges from
-                    // the pool remaining
-                    if (curr_num_probes >= current_max_num_probes && !already_blocked) {
-                        num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * union_find.group_size(inf_count.first);
+                // finish off either range
+                while (removing_iter != removing_end) {
+                    unseen_comparisons.emplace_back(removing_iter->first.second, removing_iter->second);
+                    removing_iter++;
+                }
+                while (retaining_iter != retaining_end) {
+                    if (retaining_iter->second >= current_max_num_probes) {
+                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second);
                         
 #ifdef debug_multipath_mapper
-                        cerr << "after merge, the total number of probes against strand " << inf_count.first << " increased to " << curr_num_probes << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * union_find.group_size(inf_count.first) << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
+#endif
+                    }
+                    retaining_iter++;
+                }
+                
+                // add the probes between the removing strands and clusters that had never been compared to the retaining strand
+                for (const pair<size_t, size_t>& unseen_comparison : unseen_comparisons) {
+                    num_infinite_dists[make_pair(unseen_comparison.first, strand_retaining)] = unseen_comparison.second;
+                    num_infinite_dists[make_pair(strand_retaining, unseen_comparison.first)] = unseen_comparison.second;
+                    
+                    if (unseen_comparison.second >= current_max_num_probes) {
+                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first);
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                 }
-            }
-            
-            // slowly lower the number of distances we need to check before we believe that two clusters are on
-            // separate strands
-            if (pairs_checked % nodes.size() == nodes.size() - 1) {
-                current_max_num_probes--;
-#ifdef debug_multipath_mapper
-                cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
-#endif
-                for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
-                    // break symmetry so we don't repeat the operation twice
-                    if (inf_dist_record.first.first < inf_dist_record.first.second && inf_dist_record.second == current_max_num_probes) {
-                        // this merge just fell below the new maximum number of distance probes
-                        size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
-                        size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
-                        num_possible_merges_remaining -= strand_size_1 * strand_size_2;
-#ifdef debug_multipath_mapper
-                        cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above max, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
-#endif
+                
+                // find the range containing the records with the removings strand again (they may have changed)
+                removing_iter = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
+                removing_end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
+                if (removing_iter != removing_end) {
+                    // move the end so that it is an inclusive range (prevents the "end" value from changing if we insert
+                    // something between the last and the past-the-last positions)
+                    removing_end--;
+                    
+                    // erase the range
+                    if (removing_iter == removing_end) {
+                        num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                        num_infinite_dists.erase(removing_iter);
+                    }
+                    else {
+                        // erase the previous position on each iteration so that we don't invalidate the iterator before
+                        // we use it to move to the next position
+                        auto removing_iter_prev = removing_iter;
+                        removing_iter++;
+                        while (removing_iter != removing_end) {
+                            num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                            num_infinite_dists.erase(removing_iter_prev);
+                            removing_iter_prev = removing_iter;
+                            removing_iter++;
+                        }
+                        num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                        num_infinite_dists.erase(removing_iter_prev);
+                        num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                        num_infinite_dists.erase(removing_iter);
                     }
                 }
             }
@@ -2437,6 +2558,10 @@ namespace vg {
                         // the MEMs cannot be colinear along the read (also filters out j == i)
                         continue;
                     }
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
+#endif
                     
                     // the length of the sequence in between the MEMs (can be negative if they overlap)
                     int64_t between_length = next.mem->begin - pivot.mem->end;
@@ -2633,13 +2758,20 @@ namespace vg {
             return to_return;
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "performing approximate DP across MEMs" << endl;
+#endif
         perform_dp();
         
+#ifdef debug_multipath_mapper
+        cerr << "finding top tracebacks within connected components" << endl;
+#endif
         // find the weakly connected components, which should correspond to mappings
         vector<vector<size_t>> components;
         connected_components(components);
         
         // find the node with the highest DP score in each connected component
+        // each record is a pair of (score, node index)
         vector<pair<int32_t, size_t>> component_traceback_ends(components.size(),
                                                                pair<int32_t, size_t>(numeric_limits<int32_t>::min(), 0));
         for (size_t i = 0; i < components.size(); i++) {
@@ -2649,39 +2781,47 @@ namespace vg {
                 int32_t dp_score = nodes[component[j]].dp_score;
                 if (dp_score > traceback_end.first) {
                     traceback_end.first = dp_score;
-                    traceback_end.second = j;
+                    traceback_end.second = component[j];
                 }
             }
         }
         
-        // sort indices in descending order by their highest traceback score
-        vector<size_t> order = range_vector(0, components.size());
-        std::sort(order.begin(), order.end(), [&](const size_t i, const size_t j) {
-            return component_traceback_ends[i].first > component_traceback_ends[j].first;
-        });
+        std::make_heap(component_traceback_ends.begin(), component_traceback_ends.end());
         
-        int32_t top_score = component_traceback_ends[order[0]].first;
+        int32_t top_score = component_traceback_ends.front().first;
         
-        for (size_t i : order) {
-            // get the component and the traceback end
-            vector<size_t>& component = components[i];
-            size_t trace_idx = component[component_traceback_ends[i].second];
+        while (!component_traceback_ends.empty()) {
+            // get the next highest scoring traceback end
+            auto traceback_end = component_traceback_ends.front();
+            std::pop_heap(component_traceback_ends.begin(), component_traceback_ends.end());
+            component_traceback_ends.pop_back();
             
+            // get the index of the node
+            size_t trace_idx = traceback_end.second;
+            
+#ifdef debug_multipath_mapper
+            cerr << "checking traceback of component starting at " << traceback_end.second << endl;
+#endif
             // if this cluster does not look like it even affect the mapping quality of the top scoring
             // cluster, don't bother forming it
             // TODO: this approximation could break down sometimes, need to look into it
             // TODO: is there a way to make the aligner do this? I don't like having this functionality outside of it
-            if (4.3429448190325183 * aligner.log_base * (top_score - component_traceback_ends[i].first) > max_qual_score ) {
-                continue;
+            if (4.3429448190325183 * aligner.log_base * (top_score - traceback_end.first) > max_qual_score ) {
+#ifdef debug_multipath_mapper
+                cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << endl;
+#endif
+                break;
             }
             
             // traceback until hitting a node that has its own score (indicates beginning of a local alignment)
             vector<size_t> trace{trace_idx};
             while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
+                int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
                 for (MPCEdge& edge : nodes[trace_idx].edges_to) {
-                    if (nodes[edge.to_idx].dp_score + edge.weight == nodes[trace_idx].dp_score) {
+                    if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score) {
                         trace_idx = edge.to_idx;
                         trace.push_back(trace_idx);
+                        break;
                     }
                 }
             }
