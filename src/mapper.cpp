@@ -2944,7 +2944,7 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
     int max_lcp = 0;
     size_t mem_length = 0;
     vector<int> lcp_maxima;
-    bool break_mem = false;
+    bool reseed_mem = false;
 
     auto should_reseed = [&]() {
         return (reseed_length
@@ -3015,12 +3015,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         
         if (gcsa::Range::empty(match.range)
             || (max_mem_length && match.end - cursor > max_mem_length)
-            || match.end - cursor > gcsa->order()
-            || break_mem) {
+            || match.end - cursor > gcsa->order()) {
 
-            // unset breaker
-            break_mem = false;
-            
             // we've exhausted our BWT range, so the last match range was maximal
             // or: we have exceeded the order of the graph (FPs if we go further)
             // or: we have run over our parameter-defined MEM limit
@@ -3080,8 +3076,8 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
                 max_lcp = (int)parent.lcp();
                 
                 // are we reseeding?
-                if (should_reseed()) do_reseed();
-                
+                if (reseed_mem || should_reseed()) do_reseed();
+                reseed_mem = false;
                 prev_iter_jumped_lcp = true;
                 lcp_maxima.push_back(max_lcp);
                 max_lcp = 0;
@@ -3089,10 +3085,9 @@ vector<MaximalExactMatch> Mapper::find_mems_deep(string::const_iterator seq_begi
         }
         else {
             prev_iter_jumped_lcp = false;
-            //max_lcp = max((int)lcp->parent(match.range).lcp(), max_lcp);
             max_lcp = (int)lcp->parent(match.range).lcp();
             ++mem_length;
-            if (should_reseed()) break_mem = true;
+            if (should_reseed()) reseed_mem = true;
             lcp_maxima.push_back(max_lcp);
             // just step to the next position
             --cursor;
