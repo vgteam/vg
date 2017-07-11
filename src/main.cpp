@@ -3713,7 +3713,7 @@ int main_locify(int argc, char** argv){
                 } else {
                     name_int = f->second;
                 }
-                string allele_name = convert(name_int);
+                string allele_name = vg::convert(name_int);
                 Path p;
                 p.set_name(allele_name);
                 *matching.add_allele() = p;
@@ -3812,7 +3812,7 @@ int main_locify(int argc, char** argv){
                     string s; allele.SerializeToString(&s);
                     auto& name = allele_names[s];
                     if (to_keep.count(name)) {
-                        allele.set_name(convert(name));
+                        allele.set_name(vg::convert(name));
                         alleles_to_keep.push_back(allele);
                     }
                 }
