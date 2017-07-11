@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <algorithm>
 #include <random>
+#include <iostream>
 
 #include "gssw.h"
 #include "gcsa/gcsa.h"
