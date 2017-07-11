@@ -23,15 +23,15 @@ Path path_from_thread_t(thread_t& t);
 vector<pair<thread_t,int> > list_haplotypes(xg::XG& index,
             xg::XG::ThreadMapping start_node, int extend_distance);
 
-// writes to json_ofstream the json representation of the subgraph covered by
+// writes to subgraph_ostream the subgraph covered by
 // the haplotypes in haplotype_list, as well as these haplotypes embedded as
-// Paths
-void output_graph_with_embedded_paths(ofstream& json_ofstream,
-            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index);
+// Paths.  Will output in JSON format if json set to true and Protobuf otherwise.
+void output_graph_with_embedded_paths(ostream& subgraph_ostream,
+            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index, bool json = true);
 
-// writes to annotation_ofstream the list of counts of identical subhaplotypes
+// writes to annotation_ostream the list of counts of identical subhaplotypes
 // using the same ordering as the Paths from output_graph_with_embedded_paths
-void output_haplotype_counts(ofstream& annotation_ofstream,
+void output_haplotype_counts(ostream& annotation_ostream,
             vector<pair<thread_t,int>>& haplotype_list, xg::XG& index);
 
 // Adds to a Graph the nodes and edges touched by a thread_t
