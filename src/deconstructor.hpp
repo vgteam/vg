@@ -1,5 +1,5 @@
-#ifndef DECON_HPP
-#define DECON_HPP
+#ifndef VG_DECONSTRUCTOR_H
+#define VG_DECONSTRUCTOR_H
 #include <vector>
 #include <string>
 #include <sstream>

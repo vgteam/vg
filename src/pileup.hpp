@@ -1,5 +1,5 @@
-#ifndef PILEUP_H
-#define PILEUP_H
+#ifndef VG_PILEUP_H
+#define VG_PILEUP_H
 
 #include <iostream>
 #include <algorithm>

@@ -1,6 +1,6 @@
-#ifndef BUBBLES_H
+#ifndef VG_BUBBLES_H
 
-#define BUBBLES_H
+#define VG_BUBBLES_H
 
 #include <vector>
 #include <map>

@@ -1,5 +1,5 @@
-#ifndef SSW_ALIGNER_H
-#define SSW_ALIGNER_H
+#ifndef VG_SSW_ALIGNER_H
+#define VG_SSW_ALIGNER_H
 
 #include <vector>
 #include <set>

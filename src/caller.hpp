@@ -1,5 +1,5 @@
-#ifndef CALLER_H
-#define CALLER_H
+#ifndef VG_CALLER_H
+#define VG_CALLER_H
 
 #include <iostream>
 #include <algorithm>

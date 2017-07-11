@@ -1,5 +1,5 @@
-#ifndef GAMSORT_H
-#define GAMSORT_H
+#ifndef VG_GAMSORTER_H
+#define VG_GAMSORTER_H
 
 #include "vg.pb.h"
 #include "stream.hpp"

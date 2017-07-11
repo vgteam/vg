@@ -1,5 +1,5 @@
-#ifndef CHUNKER_H
-#define CHUNKER_H
+#ifndef VG_CHUNKER_H
+#define VG_CHUNKER_H
 
 #include <iostream>
 #include <map>

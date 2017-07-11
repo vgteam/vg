@@ -5,8 +5,8 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef __JSON2PB_H__
-#define __JSON2PB_H__
+#ifndef VG__JSON2PB_H__
+#define VG__JSON2PB_H__
 
 #include <string>
 #include <cstdio>

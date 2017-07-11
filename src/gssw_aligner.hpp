@@ -1,5 +1,5 @@
-#ifndef GSSW_ALIGNER_H
-#define GSSW_ALIGNER_H
+#ifndef VG_GSSW_ALIGNER_H
+#define VG_GSSW_ALIGNER_H
 
 #include <algorithm>
 #include <vector>

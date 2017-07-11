@@ -1,5 +1,5 @@
-#ifndef SWAP_REMOVE_H
-#define SWAP_REMOVE_H
+#ifndef VG_SWAP_REMOVE_H
+#define VG_SWAP_REMOVE_H
 
 #include <vector>
 #include <algorithm>

@@ -1,5 +1,5 @@
-#ifndef MAPPER_H
-#define MAPPER_H
+#ifndef VG_MAPPER_H
+#define VG_MAPPER_H
 
 #include <iostream>
 #include <map>

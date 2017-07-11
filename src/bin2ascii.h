@@ -5,8 +5,8 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef __BIN2ASCII_H__
-#define __BIN2ASCII_H__
+#ifndef VG__BIN2ASCII_H__
+#define VG__BIN2ASCII_H__
 
 #include <string>
 #include <stdexcept>
@@ -131,4 +131,4 @@ inline std::string b64_decode(const std::string &s)
 	return r;
 }
 
-#endif//__BIN2ASCII_H__
+#endif//VG__BIN2ASCII_H__

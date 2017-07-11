@@ -1,5 +1,5 @@
-#ifndef HAPLOTYPE_EXTRACTER_H
-#define HAPLOTYPE_EXTRACTER_H
+#ifndef VG_HAPLOTYPE_EXTRACTER_H
+#define VG_HAPLOTYPE_EXTRACTER_H
 
 #include <cstdio>
 #include <cstdlib>
