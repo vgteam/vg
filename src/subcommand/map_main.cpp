@@ -17,9 +17,9 @@ void help_map(char** argv) {
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
-         << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [21]" << endl
+         << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.0001]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
@@ -102,9 +102,9 @@ int main_map(int argc, char** argv) {
     bool always_rescue = false;
     bool top_pairs_only = false;
     int max_mem_length = 0;
-    int min_mem_length = 21;
+    int min_mem_length = -1;
     int min_cluster_length = 0;
-    float random_match_chance = 0.05;
+    float random_match_chance = 0.0001;
     float mem_reseed_factor = 1.5;
     bool mem_chaining = true;
     int max_target_factor = 100;
