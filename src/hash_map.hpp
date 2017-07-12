@@ -1,5 +1,5 @@
-#ifndef VG_HASH_MAP_H
-#define VG_HASH_MAP_H
+#ifndef VG_HASH_MAP_HPP_INCLUDED
+#define VG_HASH_MAP_HPP_INCLUDED
 
 #include "sparsehash/sparse_hash_map"
 #include "sparsehash/dense_hash_map"

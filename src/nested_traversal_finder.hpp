@@ -1,5 +1,5 @@
-#ifndef VG_NESTED_TRAVERSAL_FINDER_H
-#define VG_NESTED_TRAVERSAL_FINDER_H
+#ifndef VG_NESTED_TRAVERSAL_FINDER_HPP_INCLUDED
+#define VG_NESTED_TRAVERSAL_FINDER_HPP_INCLUDED
 
 /// \file nested_traversal_finder.hpp: Defines a TraversalFinder that produces
 /// covering paths, with an awareness of nested Snarls.

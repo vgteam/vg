@@ -1,5 +1,5 @@
-#ifndef VG_INDEX_H
-#define VG_INDEX_H
+#ifndef VG_INDEX_HPP_INCLUDED
+#define VG_INDEX_HPP_INCLUDED
 
 #include <iostream>
 #include <exception>
