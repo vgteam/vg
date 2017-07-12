@@ -17,6 +17,8 @@
 
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
+# Should we re-use and keep around the same virtualenv?
+REUSE_VENV=0
 # What toil-vg should we install?
 TOIL_VG_PACKAGE="git+https://github.com/bd2kgenomics/toil-vg.git@a5976b8cf5d90bd80bee28d9886d9fefd1d66c0d"
 # What tests should we run?
@@ -28,17 +30,21 @@ usage() {
     exec 1>&2
     printf "Usage: $0 [Options] \n"
     printf "Options:\n\n"
-    printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all. \n"
-    printf "\t\t\tNon-Python dependencies must be installed\n"
-    printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg\n"
-    printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run\n"
+    printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
+    printf "\t\t\tNon-Python dependencies must be installed.\n"
+    printf "\t-r\t\tRe-use a single virtualenv. \n"
+    printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
+    printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run.\n"
     exit 1
 }
 
-while getopts "p:t:l" o; do
+while getopts "lrp:t:" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
+            ;;
+        r)
+            REUSE_VENV=1
             ;;
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -64,8 +70,12 @@ set -e
 # Maximum number of minutes that can have passed since new vg docker image built
 NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
 # Create Toil venv
-rm -rf .env
-virtualenv  .env
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf .env
+fi
+if [ ! -e .env ]; then
+    virtualenv  .env
+fi
 . .env/bin/activate
 
 # Prepare directory for temp files (assuming cgcloud file structure)
@@ -82,16 +92,24 @@ fi
 pip install --upgrade pip
 
 # Create s3am venv
-rm -rf s3am
-virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf s3am
+fi
+if [ ! -e s3am ]; then
+    virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+fi
 mkdir -p bin
 # Expose binaries to the PATH
 ln -snf ${PWD}/s3am/bin/s3am bin/
 export PATH=$PATH:${PWD}/bin
 
 # Create awscli venv
-rm -rf awscli
-virtualenv --never-download awscli && awscli/bin/pip install awscli
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf awscli
+fi
+if [ ! -e awscli ]; then
+    virtualenv --never-download awscli && awscli/bin/pip install awscli
+fi
 # Expose binaries to the PATH
 ln -snf ${PWD}/awscli/bin/aws bin/
 export PATH=$PATH:${PWD}/bin
@@ -105,11 +123,12 @@ pip install dateutils
 pip install requests
 pip install timeout_decorator
 pip install pytest
-# Don't manually install boto since toil-vg just installs its preferred version
+pip install toil[aws,mesos]
+# Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself
 echo "Installing toil-vg from ${TOIL_VG_PACKAGE}"
-pip install toil[aws,mesos] "${TOIL_VG_PACKAGE}"
+pip install --upgrade "${TOIL_VG_PACKAGE}"
 if [ "$?" -ne 0 ]
 then
     echo "pip install toil-vg fail"
@@ -188,11 +207,18 @@ fi
 
 # clean up changes to bin
 # Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
-rm -rf awscli s3am bin/aws bin/s3am
+rm bin/aws bin/s3am
+
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf awscli s3am
+fi
 
 if [ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]; then
     # On anything other than a failed local run, clean up.
-    rm -rf .env vgci-work
+    rm -rf vgci-work
+    if [ ! "${REUSE_VENV}" == "1" ]; then
+        rm -rf .env
+    fi
 fi
 
 if [ -d "/mnt/ephemeral" ]
