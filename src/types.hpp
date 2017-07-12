@@ -1,5 +1,5 @@
-#ifndef VG_TYPES_H
-#define VG_TYPES_H
+#ifndef VG_TYPES_HPP_INCLUDED
+#define VG_TYPES_HPP_INCLUDED
 
 #include <tuple>
 

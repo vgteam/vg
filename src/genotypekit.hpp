@@ -1,5 +1,5 @@
-#ifndef VG_GENOTYPEKIT_H
-#define VG_GENOTYPEKIT_H
+#ifndef VG_GENOTYPEKIT_HPP_INCLUDED
+#define VG_GENOTYPEKIT_HPP_INCLUDED
 // genotypekit.hpp: defines pluggable modules for building the genotyper
 
 // The basic idea here is we're going to create a few of these classes, fill in

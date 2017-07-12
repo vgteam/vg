@@ -1,5 +1,5 @@
-#ifndef VG_STREAM_H
-#define VG_STREAM_H
+#ifndef VG_STREAM_HPP_INCLUDED
+#define VG_STREAM_HPP_INCLUDED
 
 // de/serialization of protobuf objects from/to a length-prefixed, gzipped binary stream
 // from http://www.mail-archive.com/protobuf@googlegroups.com/msg03417.html

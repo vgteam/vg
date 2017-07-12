@@ -1,5 +1,5 @@
-#ifndef VG_PICTOGRAPHS_H
-#define VG_PICTOGRAPHS_H
+#ifndef VG_PICTOGRAPHS_HPP_INCLUDED
+#define VG_PICTOGRAPHS_HPP_INCLUDED
 
 #include <vector>
 #include <random>

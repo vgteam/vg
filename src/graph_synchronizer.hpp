@@ -1,5 +1,5 @@
-#ifndef VG_GRAPH_SYNCHRONIZER_H
-#define VG_GRAPH_SYNCHRONIZER_H
+#ifndef VG_GRAPH_SYNCHRONIZER_HPP_INCLUDED
+#define VG_GRAPH_SYNCHRONIZER_HPP_INCLUDED
 
 /**
  * \file graph_synchronizer.hpp: define a GraphSynchronizer that can manage

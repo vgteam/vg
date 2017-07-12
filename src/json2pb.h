@@ -5,8 +5,8 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef VG_JSON2PB_H
-#define VG_JSON2PB_H
+#ifndef VG_JSON2PB_H_INCLUDED
+#define VG_JSON2PB_H_INCLUDED
 
 #include <string>
 #include <cstdio>
@@ -131,4 +131,4 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
 }
 
 
-#endif//VG_JSON2PB_H
+#endif//VG_JSON2PB_H_INCLUDED
