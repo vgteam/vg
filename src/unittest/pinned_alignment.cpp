@@ -25,8 +25,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -44,6 +42,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -82,8 +81,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("GGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -101,6 +98,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -138,8 +136,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("CGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -157,6 +153,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -199,8 +196,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("TGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -218,6 +213,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -258,8 +254,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("CGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -277,6 +271,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -318,8 +313,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("CGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -337,6 +330,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -378,8 +372,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("CGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -397,6 +389,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -433,8 +426,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("NNNG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -452,6 +443,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -487,8 +479,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("CCCAGTT");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -506,6 +496,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -547,8 +538,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGATG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -566,6 +555,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -611,8 +601,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -630,6 +618,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -675,8 +664,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAAACCCAGC");
                 Node* n1 = graph.create_node("CA");
                 Node* n2 = graph.create_node("AT");
@@ -694,6 +681,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -739,8 +727,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAAACCCAGC");
                 Node* n1 = graph.create_node("CA");
                 Node* n2 = graph.create_node("TT");
@@ -758,6 +744,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -799,8 +786,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAAAA");
                 
                 string read = string("CCC");
@@ -810,6 +795,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -830,8 +816,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAAAA");
                 
                 string read = string("CCC");
@@ -841,6 +825,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -865,8 +850,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -884,6 +867,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -925,8 +909,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -944,6 +926,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -985,8 +968,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1004,6 +985,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1036,8 +1018,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCTGAACGTAGAGGCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1054,6 +1034,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1096,8 +1077,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("TGACTGGATAAGT");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1115,6 +1094,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1147,8 +1127,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("A");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1165,6 +1143,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1207,8 +1186,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1226,6 +1203,7 @@ namespace vg {
                 Node* pinned_node = n3;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1262,8 +1240,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("TGACTGGATAAGT");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1281,6 +1257,7 @@ namespace vg {
                 Node* pinned_node = n0;
                 bool pin_left = true;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1317,8 +1294,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1337,6 +1312,7 @@ namespace vg {
                 Node* pinned_node = n2;
                 bool pin_left = false;
                 
+                Aligner aligner;
                 aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
@@ -1373,8 +1349,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1393,7 +1367,8 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 3;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                Aligner aligner(1, 4, 6, 1, full_length_bonus);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1441,8 +1416,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1461,7 +1434,8 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 3;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                Aligner aligner(1, 4, 6, 1, full_length_bonus);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1509,8 +1483,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1529,7 +1501,8 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 5;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                Aligner aligner(1, 4, 6, 1, full_length_bonus);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                                 
                 const Path& path = aln.path();
                 
@@ -1573,8 +1546,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner(1, 4, 6, 1);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1593,7 +1564,8 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 2;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                Aligner aligner(1, 4, 6, 1, full_length_bonus);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1641,8 +1613,6 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 6);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1665,7 +1635,8 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 5;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1706,8 +1677,6 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 6);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1730,7 +1699,8 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1771,8 +1741,6 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 6);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1794,7 +1762,8 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1835,8 +1804,6 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 64);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1858,7 +1825,9 @@ namespace vg {
                 bool pin_left = false;
                 int8_t full_length_bonus = 5;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1899,8 +1868,6 @@ namespace vg {
                 
                 VG graph;
                 
-                QualAdjAligner aligner(1, 4, 6, 1, 64);
-                
                 Node* n0 = graph.create_node("AAACCCAGG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
@@ -1922,7 +1889,8 @@ namespace vg {
                 bool pin_left = true;
                 int8_t full_length_bonus = 3;
                 
-                aligner.align_pinned(aln, graph.graph, pin_left, full_length_bonus);
+                QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
+                aligner.align_pinned(aln, graph.graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1971,8 +1939,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("CA");
                 Node* n2 = graph.create_node("TT");
@@ -1991,6 +1957,7 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 20;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 
@@ -2018,8 +1985,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("CA");
                 Node* n2 = graph.create_node("TT");
@@ -2038,6 +2003,7 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 2;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 
@@ -2061,8 +2027,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("CA");
                 Node* n2 = graph.create_node("TT");
@@ -2081,6 +2045,7 @@ namespace vg {
                 bool pin_left = true;
                 int max_multi_alns = 2;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 
@@ -2162,8 +2127,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("ACGTAGTCTGAA");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("T");
@@ -2182,6 +2145,7 @@ namespace vg {
                 bool pin_left = true;
                 int max_multi_alns = 20;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 
@@ -2212,8 +2176,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("CA");
                 
                 string read = string("A");
@@ -2224,6 +2186,7 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 100;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 
@@ -2233,8 +2196,6 @@ namespace vg {
             SECTION( "Pinned multi-alignment can identify an alternate alignment that branches from another alternate alignment at a node boundary" ) {
                 
                 VG graph;
-                
-                Aligner aligner;
                 
                 Node* n0 = graph.create_node("AAAAAAAA");
                 Node* n1 = graph.create_node("GGG");
@@ -2261,6 +2222,7 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 3;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 
@@ -2351,8 +2313,6 @@ namespace vg {
                 
                 VG graph;
                 
-                Aligner aligner;
-                
                 Node* n0 = graph.create_node("AAAAAAAAAA");
                 Node* n1 = graph.create_node("CGGC");
                 Node* n2 = graph.create_node("CGGT");
@@ -2371,6 +2331,7 @@ namespace vg {
                 bool pin_left = false;
                 int max_multi_alns = 10;
                 
+                Aligner aligner;
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
                 

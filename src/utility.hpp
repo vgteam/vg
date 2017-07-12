@@ -1,5 +1,5 @@
-#ifndef VG_UTILITY_H
-#define VG_UTILITY_H
+#ifndef UTILITY_H
+#define UTILITY_H
 
 #include <string>
 #include <vector>
@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <numeric>
 #include <cmath>
+#include <unordered_set>
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
@@ -49,10 +50,12 @@ double stdev(const T& v) {
 // Φ is the normal cumulative distribution function
 // https://en.wikipedia.org/wiki/Cumulative_distribution_function
 double phi(double x1, double x2);
-
+    
+/// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
+double normal_inverse_cdf(double quantile);
+    
 inline double add_log(double log_x, double log_y) {
     return log_x > log_y ? log_x + log(1.0 + exp(log_y - log_x)) : log_y + log(1.0 + exp(log_x - log_y));
-
 }
  
 /**
@@ -283,7 +286,59 @@ struct TreeNode {
         lambda(this);
     }
 };
+    
+/**
+ * A custom Union-Find data structure that supports merging a set of indices in
+ * disjoint sets in amortized nearly linear time. This implementation also supports
+ * querying the size of the group containing an index in constant time and querying
+ * the members of the group containing an index in linear time in the size of the group.
+ */
+class UnionFind {
+public:
+    /// Construct UnionFind for this many indices
+    UnionFind(size_t size);
+    
+    /// Destructor
+    ~UnionFind();
+    
+    /// Returns the number of indices in the UnionFind
+    size_t size();
+    
+    /// Returns the group ID that index i belongs to (can change after calling union)
+    size_t find_group(size_t i);
+    
+    /// Merges the group containing index i with the group containing index j
+    void union_groups(size_t i, size_t j);
+    
+    /// Returns the size of the group containing index i
+    size_t group_size(size_t i);
+    
+    /// Returns a vector of the indices in the same group as index i
+    vector<size_t> group(size_t i);
+    
+    /// Returns all of the groups, each in a separate vector
+    vector<vector<size_t>> all_groups();
+    
+    /// A string representation of the current state for debugging
+    string current_state();
+    
+private:
+    
+    struct UFNode;
+    vector<UFNode> uf_nodes;
+};
 
+struct UnionFind::UFNode {
+    UFNode(size_t index) : head(index), rank(0), size(1) {}
+    ~UFNode() {}
+    
+    size_t rank;
+    size_t size;
+    size_t head;
+    unordered_set<size_t> children;
+};
+
+    
 template<typename T>
 struct Tree {
     typedef TreeNode<T> Node;
@@ -297,6 +352,46 @@ struct Tree {
        if (root) root->for_each_postorder(lambda);
     }
 
+};
+    
+vector<size_t> range_vector(size_t begin, size_t end);
+
+struct IncrementIter {
+public:
+    IncrementIter(size_t number) : current(number) {
+        
+    }
+    
+    inline IncrementIter& operator=(const IncrementIter& other) {
+        current = other.current;
+        return *this;
+    }
+    
+    inline bool operator==(const IncrementIter& other) const {
+        return current == other.current;
+    }
+    
+    inline bool operator!=(const IncrementIter& other) const {
+        return current != other.current;
+    }
+    
+    inline IncrementIter operator++() {
+        current++;
+        return *this;
+    }
+    
+    inline IncrementIter operator++( int ) {
+        IncrementIter temp = *this;
+        current++;
+        return temp;
+    }
+    
+    inline size_t operator*(){
+        return current;
+    }
+    
+private:
+    size_t current;
 };
 
 // Get a callback with an istream& to an open file if a file name argument is
