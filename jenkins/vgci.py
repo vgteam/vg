@@ -13,9 +13,7 @@ import os, sys
 import argparse
 import collections
 import timeout_decorator
-import urllib2
-import shutil
-
+from boto.s3.connection import S3Connection
 import tsv
 
 from toil_vg.vg_mapeval import mapeval_main
@@ -39,7 +37,7 @@ class VGCITest(TestCase):
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.01
-        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
+        self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
@@ -109,39 +107,27 @@ class VGCITest(TestCase):
             toks = self.baseline[5:].split('/')
             bname = toks[0]
             keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
-            
-            # Convert to a public HTTPS URL
-            url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
-            # And download it
-            connection = urllib2.urlopen(url)
-            return connection.read()
+            bucket = S3Connection().get_bucket(bname)
+            key = bucket.get_key(keyname)
+            return key.get_contents_as_string()
         else:
-            # Assume it's a raw path.
             with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
                 return f.read()
 
     def _get_remote_file(self, src, tgt):
-        """
-        get a file from a store
-        
-        src must be a URL.
-        
-        """
+        """ get a file from a store """
         if not os.path.exists(os.path.dirname(tgt)):
             os.makedirs(os.path.dirname(tgt))
-            
         if src.startswith('s3://'):
             toks = src[5:].split('/')
             bname = toks[0]
             keyname = '/' + '/'.join(toks[1:])
-
-            # Convert to a public HTTPS URL
-            src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
-        
-        with open(tgt, 'w') as f:
-            # Download the file from the URL
-            connection = urllib2.urlopen(src)
-            shutil.copyfileobj(connection, f)
+            bucket = S3Connection().get_bucket(bname)
+            key = bucket.get_key(keyname)
+            with open(tgt, 'w') as f:
+                return key.get_contents_to_file(f)
+        else:
+            shutil.copy2(src, tgt_file)
 
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
