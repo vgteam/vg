@@ -1,5 +1,5 @@
-#ifndef VG_SET_H
-#define VG_SET_H
+#ifndef VG_SET_HPP_INCLUDED
+#define VG_SET_HPP_INCLUDED
 
 #include <set>
 #include <regex>

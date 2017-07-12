@@ -1,5 +1,5 @@
-#ifndef VG_DISTRIBUTIONS_H
-#define VG_DISTRIBUTIONS_H
+#ifndef VG_DISTRIBUTIONS_HPP_INCLUDED
+#define VG_DISTRIBUTIONS_HPP_INCLUDED
 
 // distributions.hpp: contains functions for probability distributions used in genotyping.
 

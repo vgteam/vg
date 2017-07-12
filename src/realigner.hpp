@@ -1,5 +1,5 @@
-#ifndef VG_REALIGNER_H
-#define VG_REALIGNER_H
+#ifndef VG_REALIGNER_HPP_INCLUDED
+#define VG_REALIGNER_HPP_INCLUDED
 
 #include <iostream>
 #include <map>

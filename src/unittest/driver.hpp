@@ -1,5 +1,5 @@
-#ifndef VG_UNITTEST_DRIVER_H
-#define VG_UNITTEST_DRIVER_H
+#ifndef VG_UNITTEST_DRIVER_HPP_INCLUDED
+#define VG_UNITTEST_DRIVER_HPP_INCLUDED
 
 namespace vg {
 namespace unittest {

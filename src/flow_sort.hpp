@@ -1,5 +1,5 @@
-#ifndef VG_FLOW_SORT_H
-#define VG_FLOW_SORT_H
+#ifndef VG_FLOW_SORT_HPP_INCLUDED
+#define VG_FLOW_SORT_HPP_INCLUDED
 
 #include "vg.pb.h"
 
@@ -109,5 +109,5 @@ private:
 };
 }
 
-#endif /* VG_FLOW_SORT_H */
+#endif /* VG_FLOW_SORT_HPP_INCLUDED*/
 

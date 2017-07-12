@@ -1,5 +1,5 @@
-#ifndef VG_CONVERT_H
-#define VG_CONVERT_H
+#ifndef VG_CONVERT_HPP_INCLUDED
+#define VG_CONVERT_HPP_INCLUDED
 
 #include <sstream>
 

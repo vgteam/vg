@@ -1,5 +1,5 @@
-#ifndef VG_REGION_H
-#define VG_REGION_H
+#ifndef VG_REGION_HPP_INCLUDED
+#define VG_REGION_HPP_INCLUDED
 
 #include <string>
 #include <vector>
