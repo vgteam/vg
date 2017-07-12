@@ -379,6 +379,7 @@ public:
                                   int max_mem_length = 0,
                                   int band_width = 1000);
     
+    
     // paired-end based
     
     // Both vectors of alignments will be sorted in order of increasing score.

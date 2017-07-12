@@ -1730,6 +1730,7 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     return graph;
 }
 
+    
 // estimate the fragment length as the difference in mean positions of both alignments
 map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     map<string, int> lengths;
