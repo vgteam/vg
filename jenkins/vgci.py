@@ -308,9 +308,7 @@ class VGCITest(TestCase):
             
         # Now parse the command line
         args = cmd.strip().split(' ')
-        print(args)
         options = parse_args(args[1:])
-        print(options)
         # Make a toil-vg context with these options as the configuration
         context = Context(options.out_store, options)
         
