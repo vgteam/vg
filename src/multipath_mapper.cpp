@@ -2399,7 +2399,8 @@ namespace vg {
                     }
                 }
                 
-                // find the range containing the records with the removings strand again (they may have changed)
+                // find the range containing the records with the removing strand again (it may have changed since we
+                // altered the map)
                 removing_iter = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
                 removing_end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
                 if (removing_iter != removing_end) {
