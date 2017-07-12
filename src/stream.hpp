@@ -219,7 +219,7 @@ void for_each(std::istream& in,
 // is invoked on pairs is undefined (concurrent). lambda1 is invoked on an odd
 // last element of the stream, if any.
 template <typename T>
-void __for_each_parallel_impl(std::istream& in,
+void for_each_parallel_impl(std::istream& in,
                               const std::function<void(T&,T&)>& lambda2,
                               const std::function<void(T&)>& lambda1,
                               const std::function<void(uint64_t)>& handle_count) {
@@ -342,7 +342,7 @@ void for_each_interleaved_pair_parallel(std::istream& in,
     std::function<void(T&)> err1 = [](T&){
         throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
     };
-    __for_each_parallel_impl(in, lambda2, err1, [](uint64_t) { });
+    for_each_parallel_impl(in, lambda2, err1, [](uint64_t) { });
 }
 
 // parallelized for each individual element
@@ -351,7 +351,7 @@ void for_each_parallel(std::istream& in,
                        const std::function<void(T&)>& lambda1,
                        const std::function<void(uint64_t)>& handle_count) {
     std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
-    __for_each_parallel_impl(in, lambda2, lambda1, handle_count);
+    for_each_parallel_impl(in, lambda2, lambda1, handle_count);
 }
 
 template <typename T>
