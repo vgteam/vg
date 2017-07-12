@@ -64,7 +64,7 @@ Mapper::Mapper(Index* idex,
     , drop_chain(0.2)
     , mq_overlap(0.2)
     , cache_size(128)
-    , mate_rescues(32)
+    , mate_rescues(0)
     , alignment_match(1)
     , alignment_mismatch(4)
     , alignment_gap_open(6)
@@ -493,7 +493,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
         && mate1.identity() >= hang_threshold
         && mate2.identity() < retry_threshold) {
         // retry off mate1
-#ifdef debug_mapper
+#ifdef debueg_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 2 off of read 1" << endl;
@@ -774,9 +774,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             mq_cap1 = maybe_min;
             mq_cap2 = maybe_min;
         }
-        if (min_multimaps < max_multimaps) {
-            total_multimaps = max(min_multimaps, (int)round(total_multimaps/min(maybe_max1,maybe_max2)));
-        }
+        total_multimaps = max(min_multimaps, (int)round(total_multimaps/min(maybe_max1,maybe_max2)));
+        if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_max1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << endl;
+        if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_max2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << endl;
     }
 
 //#ifdef debug_mapper
@@ -928,37 +928,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #pragma omp critical
     {
         if (debug) {
-            cerr << "### clusters:" << endl;
+            cerr << "### clusters before filtering:" << endl;
             show_clusters();
         }
     }
 
-    auto to_drop = clusters_to_drop(clusters);
-    vector<pair<Alignment, Alignment> > alns;
-    //pair<vector<Alignment>, vector<Alignment> > alns;
-    vector<vector<MaximalExactMatch>*> cluster_ptrs;
-    map<vector<MaximalExactMatch>*, int> cluster_cov;
-    int multimaps = 0;
+    vector<vector<MaximalExactMatch> > clusters1;
+    vector<vector<MaximalExactMatch> > clusters2;
     for (auto& cluster : clusters) {
-        if (multimaps > total_multimaps) { break; }
-        // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
-        // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        int coverage = cluster_coverage(cluster);
-        if (min_cluster_length && coverage < min_cluster_length && alns.size() > 1) continue;
-        cluster_cov[&cluster] = coverage;
-        cluster_ptrs.push_back(&cluster);
-        ++multimaps;
-    }
-    /*
-    sort(cluster_ptrs.begin(), cluster_ptrs.end(),
-         [&](vector<MaximalExactMatch>* c1, vector<MaximalExactMatch>* c2) {
-             return cluster_cov[c1] > cluster_cov[c2]; });
-    */
-    for (auto& cluster_ptr : cluster_ptrs) {
-        auto& cluster = *cluster_ptr;
-        // break the cluster into two pieces
-        vector<MaximalExactMatch> cluster1, cluster2;
+        // break the clusters into their fragments
+        clusters1.emplace_back();
+        auto& cluster1 = clusters1.back();
+        clusters2.emplace_back();
+        auto& cluster2 = clusters2.back();
         bool seen1=false, seen2=false;
         for (auto& mem : cluster) {
             if (!seen2 && mem.fragment == 1) {
@@ -972,6 +954,68 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 assert(false);
             }
         }
+    }
+    
+    auto to_drop1 = clusters_to_drop(clusters1);
+    auto to_drop2 = clusters_to_drop(clusters2);
+    vector<pair<Alignment, Alignment> > alns;
+    vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > cluster_ptrs;
+    for (int i = 0; i < clusters1.size(); ++i) {
+        auto& cluster1 = clusters1[i];
+        auto& cluster2 = clusters2[i];
+        if ((to_drop1.count(&cluster1) || to_drop2.count(&cluster2)) && cluster_ptrs.size() >= min_multimaps) {
+            continue;
+        }
+        cluster_ptrs.push_back(make_pair(&cluster1, &cluster2));
+    }
+
+    auto show_paired_clusters = [&](void) {
+        cerr << "clusters: " << endl;
+        for (auto& cluster_ptr : cluster_ptrs) {
+            auto& cluster1 = *cluster_ptr.first;
+            auto& cluster2 = *cluster_ptr.second;
+            cerr << cluster1.size() << " " << cluster2.size() << " MEMs covering " << cluster_coverage(cluster1) << " " << cluster_coverage(cluster2) << " @ ";
+            cerr << " cluster1: ";
+            for (auto& mem : cluster1) {
+                size_t len = mem.begin - mem.end;
+                for (auto& node : mem.nodes) {
+                    id_t id = gcsa::Node::id(node);
+                    size_t offset = gcsa::Node::offset(node);
+                    bool is_rev = gcsa::Node::rc(node);
+                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << "," << mem.fragment << ",";
+                }
+                cerr << mem.sequence() << " ";
+            }
+            cerr << " cluster2: ";
+            for (auto& mem : cluster2) {
+                size_t len = mem.begin - mem.end;
+                for (auto& node : mem.nodes) {
+                    id_t id = gcsa::Node::id(node);
+                    size_t offset = gcsa::Node::offset(node);
+                    bool is_rev = gcsa::Node::rc(node);
+                    cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << "," << mem.fragment << ",";
+                }
+                cerr << mem.sequence() << " ";
+            }
+            cerr << endl;
+        }
+    };
+
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "### clusters after filtering:" << endl;
+            show_paired_clusters();
+        }
+    }
+
+    set<pair<string, string> > seen_alignments;
+    int multimaps = 0;
+    for (auto& cluster_ptr : cluster_ptrs) {
+        if (multimaps > total_multimaps) { break; }
+        // break the cluster into two pieces
+        auto& cluster1 = *cluster_ptr.first;
+        auto& cluster2 = *cluster_ptr.second;
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
@@ -992,8 +1036,35 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
+    auto show_alignments = [&](const string& arg) {
+        if (debug) {
+            for (auto& p : alns) {
+                cerr << arg << " ";
+                auto& aln1 = p.first;
+                cerr << "1:" << aln1.score();
+                if (aln1.score()) cerr << "@" << aln1.path().mapping(0).position().node_id() << " ";
+                //cerr << endl;
+                //cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
+                if (!check_alignment(aln1)) {
+                    cerr << "alignment failure " << pb2json(aln1) << endl;
+                    assert(false);
+                }
+                auto& aln2 = p.second;
+                cerr << " 2:" << aln2.score();
+                if (aln2.score()) cerr << "@" << aln2.path().mapping(0).position().node_id() << " ";
+                //cerr << endl;
+                //cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
+                if (!check_alignment(aln2)) {
+                    cerr << "alignment failure " << pb2json(aln2) << endl;
+                    assert(false);
+                }
+                cerr << endl;
+            }
+        }
+    };
+
     auto sort_and_dedup = [&](void) {
-        // sort the aligned pairs
+        // sort the aligned pairs by score
         std::sort(alns.begin(), alns.end(),
                   [&](const pair<Alignment, Alignment>& pair1,
                       const pair<Alignment, Alignment>& pair2) {
@@ -1008,70 +1079,44 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               bonus2 = fragment_length_pdf(dist2) * cached_fragment_length_mean;
                           }
                       }
-                      return (pair1.first.score() + pair1.second.score()) + bonus1
-                      > (pair2.first.score() + pair2.second.score()) + bonus2;
+                      return ((pair1.first.score() + pair1.second.score()) + bonus1
+                              > (pair2.first.score() + pair2.second.score()) + bonus2);
                   });
+        seen_alignments.clear();
         // remove duplicates (same score and same start position of both pairs)
         alns.erase(
-            std::unique(
-                alns.begin(), alns.end(),
-                [&](const pair<Alignment, Alignment>& pair1,
-                    const pair<Alignment, Alignment>& pair2) {
-                    bool same = true;
-                    if (pair1.first.score() && pair2.first.score()) {
-                        same &= make_pos_t(pair1.first.path().mapping(0).position())
-                            == make_pos_t(pair2.first.path().mapping(0).position());
-                    }
-                    if (pair1.second.score() && pair2.second.score()) {
-                        same &= make_pos_t(pair1.second.path().mapping(0).position())
-                            == make_pos_t(pair2.second.path().mapping(0).position());
-                    }
-                    if (!(pair1.first.score() && pair2.first.score()
-                          || pair1.second.score() && pair2.second.score())) {
-                        same = false;
-                    }
-                    return same;
-                }),
+            std::remove_if(alns.begin(), alns.end(),
+                           [&](const pair<Alignment, Alignment>& p) {
+                               auto pair_sig = signature(p.first, p.second);
+                               if (seen_alignments.count(pair_sig)) {
+                                   return true;
+                               } else {
+                                   seen_alignments.insert(pair_sig);
+                                   return false;
+                               }
+                           }),
             alns.end());
     };
+    #pragma omp critical
+    show_alignments("raw");
+    
     sort_and_dedup();
-    if (fragment_size) {
+    if (mate_rescues && fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
         int j = 0;
         for (auto& p : alns) {
-            rescued |= pair_rescue(p.first, p.second);
-            if (++j == mate_rescues) break;
+            if (++j > mate_rescues) break;
+            if (pair_rescue(p.first, p.second)) {
+                rescued = true;
+            }
         }
+        show_alignments("rescue");
         if (rescued) sort_and_dedup();
     }
 
-#pragma omp critical
-    {
-        if (debug) {
-            for (auto& p : alns) {
-                auto& aln1 = p.first;
-                cerr << "1:" << aln1.score();
-                if (aln1.score()) cerr << "@" << aln1.path().mapping(0).position().node_id() << " ";
-                //cerr << endl;
-                //cerr << "cluster aln 1 ------- " << pb2json(aln1) << endl;
-                if (!check_alignment(aln1)) {
-                    cerr << "alignment failure " << pb2json(aln1) << endl;
-                    assert(false);
-                }
-                auto& aln2 = p.second;
-                cerr << "2:" << aln2.score();
-                if (aln2.score()) cerr << "@" << aln2.path().mapping(0).position().node_id() << " ";
-                //cerr << endl;
-                //cerr << "cluster aln 2 ------- " << pb2json(aln2) << endl;
-                if (!check_alignment(aln2)) {
-                    cerr << "alignment failure " << pb2json(aln2) << endl;
-                    assert(false);
-                }
-                cerr << endl;
-            }
-        }
-    }
+    #pragma omp critical
+    show_alignments("dedup");
 
     // calculate cluster mapping quality
     if (use_cluster_mq) {
@@ -1357,13 +1402,20 @@ set<const vector<MaximalExactMatch>* > Mapper::clusters_to_drop(const vector<vec
             if (j == i) continue;
             // are we overlapping?
             auto& other_cluster = clusters[j];
-            if (to_drop.count(&other_cluster)) continue;
-            if (clusters_overlap_in_read(this_cluster, other_cluster)
-                || clusters_overlap_in_graph(this_cluster, other_cluster)) {
+            //if (to_drop.count(&other_cluster)) continue;
+            if (clusters_overlap_in_graph(this_cluster, other_cluster)) {
+                to_drop.insert(&this_cluster);
+                break;
+            }
+            if (clusters_overlap_in_read(this_cluster, other_cluster)) {
                 int c = cluster_cov[&other_cluster];
                 if (c > l) {
                     l = c;
                     b = j;
+                }
+                if (b >= 0 && (float) t / (float) l < drop_chain) {
+                    to_drop.insert(&this_cluster);
+                    break;
                 }
             }
         }
@@ -1419,9 +1471,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         if (maybe_max < maybe_mq_threshold) {
             mq_cap = maybe_max;
         }
-        if (min_multimaps < max_multimaps) {
-            total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
-        }
+        total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
         if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << endl;
     }
 

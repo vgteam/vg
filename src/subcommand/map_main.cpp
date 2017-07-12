@@ -22,13 +22,13 @@ void help_map(char** argv) {
          << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.0001]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
          << "    -m, --id-mq-weight N    scale mapping quality by the alignment score identity to this power [1]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
-         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
+         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
@@ -40,7 +40,7 @@ void help_map(char** argv) {
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
-         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [0]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -115,8 +115,8 @@ int main_map(int argc, char** argv) {
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 64;
-    int min_multimaps = 4;
+    int extra_multimaps = 512;
+    int min_multimaps = 16;
     int max_mapping_quality = 60;
     int method_code = 1;
     int maybe_mq_threshold = 60;
@@ -133,12 +133,12 @@ int main_map(int argc, char** argv) {
     bool use_cluster_mq = false;
     float chance_match = 0.05;
     bool use_fast_reseed = true;
-    float drop_chain = 0.4;
-    float mq_overlap = 0.4;
+    float drop_chain = 0.5;
+    float mq_overlap = 0.5;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
-    int mate_rescues = 64;
+    int mate_rescues = 0;
     bool fixed_fragment_model = false;
     bool print_fragment_model = false;
     int fragment_model_update = 10;
