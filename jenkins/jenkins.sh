@@ -20,7 +20,7 @@ LOCAL_BUILD=0
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/bd2kgenomics/toil-vg.git@a5976b8cf5d90bd80bee28d9886d9fefd1d66c0d"
+TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@3adb2390156887bad052da0240bf92ff3dc24edc"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
