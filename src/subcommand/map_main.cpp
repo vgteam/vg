@@ -18,8 +18,8 @@ void help_map(char** argv) {
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
          << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
-         << "    -c, --hit-max N         ignore kmers or MEMs who have >N hits in our index [512]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by by chance [0.05]" << endl
+         << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [512]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
@@ -598,7 +598,7 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->mem_chaining = mem_chaining;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;
@@ -614,7 +614,6 @@ int main_map(int argc, char** argv) {
             m->cached_fragment_direction = fragment_direction;
         }
         m->fragment_model_update_interval = fragment_model_update;
-        m->full_length_alignment_bonus = full_length_bonus;
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
         m->mate_rescues = mate_rescues;
