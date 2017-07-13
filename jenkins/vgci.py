@@ -16,6 +16,10 @@ import timeout_decorator
 from boto.s3.connection import S3Connection
 import tsv
 
+from toil_vg.vg_mapeval import mapeval_main
+from toil_vg.vg_toil import parse_args
+from toil_vg.context import Context
+
 log = logging.getLogger(__name__)
 
 class VGCITest(TestCase):
@@ -301,8 +305,17 @@ class VGCITest(TestCase):
         
         cmd = 'toil-vg mapeval {} {} {} {}'.format(
             job_store, out_store, os.path.join(out_store, 'true.pos'), opts)
-        subprocess.check_call(cmd, shell=True)
-
+            
+        # Now parse the command line
+        args = cmd.strip().split(' ')
+        options = parse_args(args[1:])
+        # Make a toil-vg context with these options as the configuration
+        context = Context(options.out_store, options)
+        
+        # Run the whole mapeval workflow. Internally sets up Toil using the
+        # passed options.
+        mapeval_main(context, options)
+            
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
         stats_dict = dict()
