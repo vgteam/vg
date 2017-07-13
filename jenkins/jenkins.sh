@@ -199,7 +199,7 @@ aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inpu
 if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
 then
     echo "Tests passed. Updating baseline"
-    aws s3 sync ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
+    aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
     printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
     printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
     aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
