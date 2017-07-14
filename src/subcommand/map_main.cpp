@@ -17,17 +17,18 @@ void help_map(char** argv) {
          << "    -g, --gcsa-name FILE    use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "algorithm:" << endl
          << "    -t, --threads N         number of compute threads to use" << endl
-         << "    -k, --min-seed INT      minimum seed (MEM) length [estimated given -e]" << endl
+         << "    -k, --min-seed INT      minimum seed (MEM) length (set to -1 to estimate given -e) [-1]" << endl
          << "    -c, --hit-max N         ignore MEMs who have >N hits in our index [512]" << endl
-         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.05]" << endl
+         << "    -e, --seed-chance FLOAT set {-k} such that this fraction of {-k} length hits will by chance [0.0001]" << endl
          << "    -Y, --max-seed INT      ignore seeds longer than this length [0]" << endl
          << "    -r, --reseed-x FLOAT    look for internal seeds inside a seed longer than {-k} * FLOAT [1.5]" << endl
-         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [64]" << endl
-         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [4]" << endl
+         << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
+         << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
+         << "    -m, --id-mq-weight N    scale mapping quality by the alignment score identity to this power [1]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
-         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.4]" << endl
-         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.4]" << endl
+         << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
+         << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
@@ -39,7 +40,7 @@ void help_map(char** argv) {
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
-         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [64]" << endl
+         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [0]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -60,7 +61,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
-         << "    -X, --compare           realign GAM input (-G), writing: name, overlap with input, identity, score, mq, time" << endl
+         << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
@@ -103,7 +104,7 @@ int main_map(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = -1;
     int min_cluster_length = 0;
-    float random_match_chance = 0.05;
+    float random_match_chance = 0.0001;
     float mem_reseed_factor = 1.5;
     bool mem_chaining = true;
     int max_target_factor = 100;
@@ -114,11 +115,12 @@ int main_map(int argc, char** argv) {
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
     bool qual_adjust_alignments = false;
-    int extra_multimaps = 64;
-    int min_multimaps = 4;
+    int extra_multimaps = 512;
+    int min_multimaps = 16;
     int max_mapping_quality = 60;
     int method_code = 1;
     int maybe_mq_threshold = 60;
+    double identity_weight = 1;
     string gam_input;
     bool compare_gam = false;
     int fragment_max = 1e4;
@@ -131,12 +133,12 @@ int main_map(int argc, char** argv) {
     bool use_cluster_mq = false;
     float chance_match = 0.05;
     bool use_fast_reseed = true;
-    float drop_chain = 0.4;
-    float mq_overlap = 0.4;
+    float drop_chain = 0.5;
+    float mq_overlap = 0.5;
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
-    int mate_rescues = 64;
+    int mate_rescues = 0;
     bool fixed_fragment_model = false;
     bool print_fragment_model = false;
     int fragment_model_update = 10;
@@ -200,11 +202,12 @@ int main_map(int argc, char** argv) {
                 {"fixed-frag-model", no_argument, 0, 'U'},
                 {"print-frag-model", no_argument, 0, 'p'},
                 {"frag-calc", required_argument, 0, 'F'},
+                {"id-mq-weight", required_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:m:",
                          long_options, &option_index);
 
 
@@ -240,6 +243,10 @@ int main_map(int argc, char** argv) {
 
         case 'M':
             max_multimaps = atoi(optarg);
+            break;
+
+        case 'm':
+            identity_weight = atof(optarg);
             break;
 
         case 'Q':
@@ -618,6 +625,7 @@ int main_map(int argc, char** argv) {
         m->use_cluster_mq = use_cluster_mq;
         m->mate_rescues = mate_rescues;
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
+        m->identity_weight = identity_weight;
         mapper[i] = m;
     }
 
@@ -879,20 +887,12 @@ int main_map(int argc, char** argv) {
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (print_fragment_model) {
                     // do nothing
-                } else if (compare_gam) {
-#pragma omp critical (cout)
-                    {
-                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path())
-                                            << "\t" << alnp.first.front().identity()
-                                            << "\t" << alnp.first.front().score()
-                                            << "\t" << alnp.first.front().mapping_quality() << endl
-                             << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path())
-                                            << "\t" << alnp.second.front().identity()
-                                            << "\t" << alnp.second.front().score()
-                                            << "\t" << alnp.second.front().mapping_quality() << endl;
-                    }
                 } else {
                     // Output the alignments in JSON or protobuf as appropriate.
+                    if (compare_gam) {
+                        alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
+                        alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
+                    }
                     output_alignments(alnp.first);
                     output_alignments(alnp.second);
                 }
@@ -966,17 +966,11 @@ int main_map(int argc, char** argv) {
                 if(alignments.empty()) {
                     alignments.push_back(alignment);
                 }
+                // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
-#pragma omp critical (cout)
-                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path())
-                                             << "\t" << alignments.front().identity()
-                                             << "\t" << alignments.front().score()
-                                             << "\t" << alignments.front().mapping_quality()
-                                             << "\t" << elapsed_seconds.count() << endl;
-                } else {
-                    // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments);
+                    alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
                 }
+                output_alignments(alignments);
             };
             stream::for_each_parallel(gam_in, lambda);
         }

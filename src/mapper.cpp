@@ -963,7 +963,6 @@ void BaseMapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& pare
                 
                 first_hit_positions_by_index(parent_mem, positions_by_index[parent_idx]);
                 
-            }
             // the index along the parent MEM that sub MEM starts
             size_t offset = sub_mem.begin - parent_mem.begin;
             first_parent_mem_hit_positions.push_back(&(positions_by_index[parent_idx][offset]));
@@ -2664,6 +2663,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (multimaps > total_multimaps) { break; }
         // skip if we've filtered the cluster
+        if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
         int coverage = cluster_coverage(cluster);
         if (min_cluster_length && coverage < min_cluster_length && alns.size() > 1) continue;
@@ -3276,6 +3276,7 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     // split the alignment up into overlapping chunks of band_width size
     // force used bandwidth to be divisible by 4
     // round up so we have > band_width
+
 #ifdef debug_mapper
 #pragma omp critical
     {
