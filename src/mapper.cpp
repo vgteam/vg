@@ -228,7 +228,7 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
                 while (reseeds == 0 && reseed_to >= min_mem_length) {
 #ifdef debug_mapper
 #pragma omp critical
-                    if (debug) cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
+                    cerr << "reseeding " << mem.sequence() << " with " << reseed_to << endl;
 #endif
                     vector<MaximalExactMatch> remems = find_mems_simple(mem.begin,
                                                                         mem.end,
@@ -963,6 +963,8 @@ void BaseMapper::fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& pare
                 
                 first_hit_positions_by_index(parent_mem, positions_by_index[parent_idx]);
                 
+            }
+            
             // the index along the parent MEM that sub MEM starts
             size_t offset = sub_mem.begin - parent_mem.begin;
             first_parent_mem_hit_positions.push_back(&(positions_by_index[parent_idx][offset]));
@@ -4390,7 +4392,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // get start and end nodes in path
     // get range between +/- window
     if (!source.has_path() || source.path().mapping_size() == 0) {
-#ifdef debug
+#ifdef debug_mapper
 
 #pragma omp critical (cerr)
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
@@ -4435,7 +4437,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     auto surjection_forward = align_to_graph(surjection, graph, max_query_graph_ratio);
     auto surjection_reverse = align_to_graph(surjection_rc, graph, max_query_graph_ratio);
 
-#ifdef debug
+#ifdef debug_mapper
 #pragma omp critical (cerr)
     cerr << surjection.name() << " " << surjection_forward.score() << " forward score, " << surjection_reverse.score() << " reverse score" << endl;
 #endif
@@ -4448,7 +4450,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     }
     
     
-#ifdef debug
+#ifdef debug_mapper
 
 #pragma omp critical (cerr)
         cerr << surjection.path().mapping_size() << " mappings, " << kept_paths.size() << " paths" << endl;
@@ -4502,7 +4504,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     } else {
 
         surjection = source;
-#ifdef debug
+#ifdef debug_mapper
 
 #pragma omp critical (cerr)
         cerr << "Alignment " << source.name() << " did not align to the surjection subgraph" << endl;
@@ -4511,6 +4513,14 @@ Alignment Mapper::surject_alignment(const Alignment& source,
 
     }
 
+#ifdef debug_mapper
+    
+#pragma omp critical (cerr)
+    cerr << "Surjection on reverse strand? " << path_reverse << endl;
+    cerr << "Surjected alignment: " << pb2json(surjection) << endl;
+    
+#endif
+    
     return surjection;
 }
 

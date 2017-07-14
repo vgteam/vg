@@ -614,12 +614,11 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
-    auto& name = alignment.name();
-    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/1")) {
+    if (alignment.has_fragment_next()) {
         // This is the first read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD1);
     }
-    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/2")) {
+    if (alignment.has_fragment_prev()) {
         // This is the second read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD2);
     }
