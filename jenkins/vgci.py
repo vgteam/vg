@@ -433,7 +433,7 @@ class VGCITest(TestCase):
                 
                 if not baseline_dict.has_key(key):
                     # We might get new graphs that aren't in the baseline file.
-                    log.warning('Key {} missing from score baseline dict. Inserting...')
+                    log.warning('Key {} missing from score baseline dict. Inserting...'.format(key))
                     baseline_dict[key] = [0, 0]
                 
                 # Report on its stats after dumping reads, so that if there are
