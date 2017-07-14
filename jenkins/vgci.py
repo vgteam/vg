@@ -351,7 +351,14 @@ class VGCITest(TestCase):
             # Output files all live in the out_store, but if we wanted to we could export them also/instead.
             
             # Run the root job
-            toil.start(main_job)
+            returned = toil.start(main_job)
+            
+            # TODO: I want to do the evaluation here, working with file IDs, but
+            # since we put the results in the out store maybe it really does
+            # make sense to just go through the files in the out store.
+                
+            
+            
             
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
@@ -402,14 +409,44 @@ class VGCITest(TestCase):
             # Parse out the real stat values
             score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
                 
-            for key in baseline_dict.iterkeys():
-                # Iterate the baseline to make sure all the expected things exist
+            # Make sure nothing has been removed
+            assert len(score_stats_dict) >= len(baseline_dict)
+                
+            for key in score_stats_dict.iterkeys():
+                # For every kind of graph
+                
+                 # Guess where the file for individual read score differences for this graph is
+                # TODO: get this file's name/ID from the actual Toil code
+                read_comparison_path = os.path.join(self._outstore(tag), '{}.compare.scores'.format(key))
+                for line in open(read_comparison_path):
+                    if line.strip() == '':
+                        continue
+                    # Break each line of the CSV
+                    parts = line.split(', ')
+                    # Fields are read name, score difference, aligned score, baseline score
+                    read_name = parts[0]
+                    score_diff = parts[1]
+                    
+                    if score_diff < 0:
+                        # Complain about anyone who goes below 0.
+                        log.warning('Read {} has a negative score increase of {} on graph {}'.format(read_name, score_diff, key))
+                
+                if not baseline_dict.has_key(key):
+                    # We might get new graphs that aren't in the baseline file.
+                    log.warning('Key {} missing from score baseline dict. Inserting...')
+                    baseline_dict[key] = [0, 0]
+                
+                # Report on its stats after dumping reads, so that if there are
+                # too many bad reads and the stats are terrible we still can see
+                # the reads.
                 print '{}  Worse: {} Baseline: {}  Threshold: {}'.format(
                     key, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
                 # Make sure all the reads came through
                 assert score_stats_dict[key][0] == reads
                 # Make sure not too many got worse
                 assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+                
+               
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None):
         """ Run simulation on a bakeoff graph
