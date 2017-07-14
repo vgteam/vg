@@ -22,7 +22,7 @@ REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
 KEEP_OUTPUT=0
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@563fd24048b6dc1b1b09e86443b9a9aea9acc996"
+TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@a3a2fa11217887cc7eaa88604f953bb43b41db6e"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
