@@ -594,6 +594,7 @@ public:
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
+    double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths
@@ -624,9 +625,11 @@ bool mems_overlap(const MaximalExactMatch& mem1,
 int mems_overlap_length(const MaximalExactMatch& mem1,
                         const MaximalExactMatch& mem2);
 // helper to tell if clusters have any overlap
-bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                      const vector<MaximalExactMatch>& cluster2);
-
+bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
+                              const vector<MaximalExactMatch>& cluster2);
+bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
+                               const vector<MaximalExactMatch>& cluster2);
+vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster);
 int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction);
 
 }

@@ -631,7 +631,7 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     
     *max_idx_out = max_idx;
 
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
+    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0))) / max(1.0, (double) next_count * (next_score / max_score));
 }
 
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
@@ -640,7 +640,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           double cluster_mq,
                                           bool use_cluster_mq,
                                           int overlap_count,
-                                          double mq_estimate) {
+                                          double mq_estimate,
+                                          double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -667,24 +668,16 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
-    double max_weight = scaled_scores[max_idx];
-    int max_count = 0;
-    for (auto& score : scaled_scores) if (score == max_weight) ++max_count;
-    if (max_count > 1) {
-        double best_chance = prob_to_phred(1.0-(1.0/max_count));
-        mapping_quality = max(best_chance, mapping_quality);
-    }
-
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
-    mapping_quality *= identity;
-
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
+
+    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
+    mapping_quality *= pow(identity, identity_weight);
 
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
@@ -695,6 +688,10 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
+    for (int i = 0; i < alignments.size(); ++i) {
+        if (max_idx == i) continue;
+        alignments[max_idx].add_secondary_score(alignments[i].score());
+    }
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
@@ -706,7 +703,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  int overlap_count1,
                                                  int overlap_count2,
                                                  double mq_estimate1,
-                                                 double mq_estimate2) {
+                                                 double mq_estimate2,
+                                                 double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -736,14 +734,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
     
-    double max_weight = scaled_scores[max_idx];
-    int max_count = 0;
-    for (auto& score : scaled_scores) if (score == max_weight) ++max_count;
-    if (max_count > 1) {
-        double best_chance = prob_to_phred(1.0-(1.0/max_count));
-        mapping_quality = max(best_chance, mapping_quality);
-    }
-    
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
@@ -751,17 +741,17 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
-    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
-    mapping_quality1 *= identity1;
-    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
-    mapping_quality2 *= identity2;
-
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
+
+    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
+    mapping_quality1 *= pow(identity1, identity_weight);
+    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
+    mapping_quality2 *= pow(identity2, identity_weight);
 
     if (mapping_quality1 > max_mapping_quality1) {
         mapping_quality1 = max_mapping_quality1;
@@ -779,6 +769,16 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
 
     alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
     alignment_pairs.second[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality2)));
+
+    for (int i = 0; i < alignment_pairs.first.size(); ++i) {
+        if (max_idx == i) continue;
+        alignment_pairs.first[max_idx].add_secondary_score(alignment_pairs.first[i].score());
+    }
+    for (int i = 0; i < alignment_pairs.second.size(); ++i) {
+        if (max_idx == i) continue;
+        alignment_pairs.second[max_idx].add_secondary_score(alignment_pairs.second[i].score());
+    }
+
 }
 
 double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
