@@ -425,7 +425,7 @@ class VGCITest(TestCase):
                     parts = line.split(', ')
                     # Fields are read name, score difference, aligned score, baseline score
                     read_name = parts[0]
-                    score_diff = parts[1]
+                    score_diff = int(parts[1])
                     
                     if score_diff < 0:
                         # Complain about anyone who goes below 0.
