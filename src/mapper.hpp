@@ -5,6 +5,7 @@
 #include <map>
 #include <chrono>
 #include <ctime>
+#include "omp.h"
 #include "vg.hpp"
 #include "xg.hpp"
 #include "index.hpp"
@@ -150,23 +151,217 @@ public:
     void clear_scores(void);
 };
 
+/*
+ * A threadsafe class that keeps a running estimation of a fragment length distribution
+ * using a robust estimation formula in order to be insensitive to outliers.
+ */
+class FragmentLengthDistribution {
+public:
+    
+    /// Initialize distribution
+    ///
+    /// Args:
+    ///  maximum_sample_size         sample size at which reestimation stops
+    ///  reestimation_frequency      update running estimate after this many samples
+    ///  robust_estimation_fraction  robustly estimate using this fraction of samples
+    FragmentLengthDistribution(size_t maximum_sample_size,
+                               size_t reestimation_frequency,
+                               double robust_estimation_fraction);
+    FragmentLengthDistribution(void);
+    ~FragmentLengthDistribution();
+    
+    /// Switches the entire program to single-threaded mode until reaching the maximum
+    /// sample size so that estimation is deterministic. After reaching the maximum, the
+    /// thread count is automaticaly switched back.
+    void determinize_estimation();
+    
+    /// Manually switches back to multithreaded mode
+    void unlock_determinization();
+    
+    /// Record an observed fragment length
+    void register_fragment_length(size_t length);
 
-class Mapper : public Progressive {
+    /// Robust mean of the distribution observed so far
+    double mean();
+    
+    /// Robust standard deviation of the distribution observed so far
+    double stdev();
+    
+    /// Returns true if the maximum sample size has been reached, which finalizes the
+    /// distribution estimate
+    bool is_finalized();
+    
+private:
+    multiset<double> lengths;
+    bool is_fixed = false;
+    
+    double robust_estimation_fraction;
+    size_t maximum_sample_size;
+    size_t reestimation_frequency;
+    
+    double mu = 0.0;
+    double sigma = 0.0;
+    
+    int multithread_reset = 0;
+    
+    void estimate_distribution();
+};
+    
+class BaseMapper : public Progressive {
+    
+public:
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    BaseMapper(void);
+    ~BaseMapper(void);
+    
+    double estimate_gc_content(void);
+    
+    int random_match_length(double chance_random);
+    
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+    
+    // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
+    void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
+                                          double robust_estimation_fraction = 0.95, bool deterministic = true);
+    
+    /// Set the alignment thread count, updating internal data structures that
+    /// are per thread. Note that this resets aligner scores to their default values!
+    void set_alignment_threads(int new_thread_count);
+    
+    void set_cache_size(int cache_size);
+    
+    // MEM-based mapping
+    // find maximal exact matches
+    // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
+    // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
+    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
+    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
+    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
+    
+    vector<MaximalExactMatch>
+    find_mems_deep(string::const_iterator seq_begin,
+                   string::const_iterator seq_end,
+                   double& lcp_avg,
+                   int max_mem_length = 0,
+                   int min_mem_length = 1,
+                   int reseed_length = 0);
+    
+    // Use the GCSA2 index to find super-maximal exact matches.
+    vector<MaximalExactMatch>
+    find_mems_simple(string::const_iterator seq_begin,
+                     string::const_iterator seq_end,
+                     int max_mem_length = 0,
+                     int min_mem_length = 1,
+                     int reseed_length = 0);
+    
+    
+    int min_mem_length; // a mem must be >= this length
+    int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
+    bool fast_reseed; // use the fast reseed algorithm
+    int fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    int hit_max;       // ignore or MEMs with more than this many hits
+    
+    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
+    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+    
+protected:
+    /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
+    /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
+    /// that contain it
+    void find_sub_mems(vector<MaximalExactMatch>& mems,
+                       string::const_iterator next_mem_end,
+                       int min_mem_length,
+                       vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
+    
+    /// Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
+    /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
+    /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
+    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+                            string::const_iterator next_mem_end,
+                            int min_sub_mem_length,
+                            vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
+    
+    /// finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
+    /// with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
+    void fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
+                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
+                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end);
+    
+    /// fills a vector where each element contains the set of positions in the graph that the
+    /// MEM touches at that index for the first MEM hit in the GCSA array
+    void first_hit_positions_by_index(MaximalExactMatch& mem,
+                                      vector<set<pos_t>>& positions_by_index_out);
+    
+    /// fills a vector where each element contains the set of positions in the graph that the
+    /// MEM touches at that index starting at a given hit
+    void mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
+                                vector<set<pos_t>>& positions_by_index_out);
+    
+    // use the xg index to get a character at a particular position (rc or foward)
+    char pos_char(pos_t pos);
+    
+    // the next positions and their characters following the same strand of the graph
+    map<pos_t, char> next_pos_chars(pos_t pos);
+    
+    // get the positions some specific distance from the given position (in the forward direction)
+    set<pos_t> positions_bp_from(pos_t pos, int distance, bool rev);
+    
+    // Use the GCSA index to look up the sequence
+    set<pos_t> sequence_positions(const string& seq);
+    
+    // debugging, checking of mems using find interface to gcsa
+    void check_mems(const vector<MaximalExactMatch>& mems);
+    
+    int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
+    int cache_size;
+    
+    // match walking support to prevent repeated calls to the xg index for the same node
+    vector<LRUCache<id_t, Node>* > node_cache;
+    LRUCache<id_t, Node>& get_node_cache(void);
+    void init_node_cache(void);
+    
+    // node start cache for fast approximate position estimates
+    vector<LRUCache<id_t, size_t>* > node_start_cache;
+    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    void init_node_start_cache(void);
+    
+    // match node traversals to path positions
+    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
+    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
+    void init_node_pos_cache(void);
+    
+    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
+    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
+    void init_edge_cache(void);
+    
+    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
+    void clear_aligners(void);
+    
+    // xg index
+    xg::XG* xindex = nullptr;
+    
+    // GCSA index and its LCP array
+    gcsa::GCSA* gcsa = nullptr;
+    gcsa::LCPArray* lcp = nullptr;
+    
+    // GSSW aligners
+    QualAdjAligner* qual_adj_aligner = nullptr;
+    Aligner* regular_aligner = nullptr;
+    
+    FragmentLengthDistribution fragment_length_distr;
+};
+
+class Mapper : public BaseMapper {
 
 
 private:
-
-    // Private constructor to delegate everything to. It might have all these
-    // indexing structures null, for example if being called from the default
-    // constructor.
-    Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     
     Alignment align_to_graph(const Alignment& aln,
                              VG& vg,
                              size_t max_query_graph_ratio,
                              bool pinned_alignment = false,
                              bool pin_left = false,
-                             int8_t full_length_bonus = 0,
                              bool global = false);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
@@ -200,80 +395,15 @@ private:
                                       int max_mem_length,
                                       int keep_multimaps,
                                       int additional_multimaps);
-
-    // Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
-    // before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
-    // that contain it
-    void find_sub_mems(vector<MaximalExactMatch>& mems,
-                       string::const_iterator next_mem_end,
-                       int min_mem_length,
-                       vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
-    
-    // Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
-    // min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
-    // the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
-    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
-                            string::const_iterator next_mem_end,
-                            int min_sub_mem_length,
-                            vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
-    
-    // finds the nodes of sub MEMs that do not occur inside parent MEMs, each sub MEM should be associated
-    // with a vector of the indices of the SMEMs that contain it in the parent MEMs vector
-    void fill_nonredundant_sub_mem_nodes(vector<MaximalExactMatch>& parent_mems,
-                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_begin,
-                                         vector<pair<MaximalExactMatch, vector<size_t> > >::iterator sub_mem_records_end);
-    
-    // fills a vector where each element contains the set of positions in the graph that the
-    // MEM touches at that index for the first MEM hit in the GCSA array
-    void first_hit_positions_by_index(MaximalExactMatch& mem,
-                                      vector<set<pos_t>>& positions_by_index_out);
-    
-    // fills a vector where each element contains the set of positions in the graph that the
-    // MEM touches at that index starting at a given hit
-    void mem_positions_by_index(MaximalExactMatch& mem, pos_t hit_pos,
-                                vector<set<pos_t>>& positions_by_index_out);
     
 public:
-    // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
-    Mapper(Index* idex, gcsa::GCSA* g = nullptr, gcsa::LCPArray* a = nullptr);
     // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
     Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     Mapper(void);
     ~Mapper(void);
-    // rocksdb index
-    Index* index;
-    // xg index
-    xg::XG* xindex;
-    // GCSA index and its LCP array
-    gcsa::GCSA* gcsa;
-    gcsa::LCPArray* lcp;
-    // GSSW aligner(s)
-    vector<QualAdjAligner*> qual_adj_aligners;
-    vector<Aligner*> regular_aligners;
-    void clear_aligners(void);
-    QualAdjAligner* get_qual_adj_aligner(void);
-    Aligner* get_regular_aligner(void);
 
-    // match walking support to prevent repeated calls to the xg index for the same node
-    vector<LRUCache<id_t, Node>* > node_cache;
-    LRUCache<id_t, Node>& get_node_cache(void);
-    void init_node_cache(void);
-
-    // node start cache for fast approximate position estimates
-    vector<LRUCache<id_t, size_t>* > node_start_cache;
-    LRUCache<id_t, size_t>& get_node_start_cache(void);
-    void init_node_start_cache(void);
-
-    // match node traversals to path positions
-    vector<LRUCache<gcsa::node_type, map<string, vector<size_t> > >* > node_pos_cache;
-    LRUCache<gcsa::node_type, map<string, vector<size_t> > >& get_node_pos_cache(void);
-    void init_node_pos_cache(void);
     map<string, vector<size_t> > node_positions_in_paths(gcsa::node_type node);
-
-    vector<LRUCache<id_t, vector<Edge> >* > edge_cache;
-    LRUCache<id_t, vector<Edge> >& get_edge_cache(void);
-    void init_edge_cache(void);
-
+    
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
@@ -294,12 +424,8 @@ public:
     bool cached_fragment_direction;
     int since_last_fragment_length_estimate;
     int fragment_model_update_interval;
-
-    double estimate_gc_content(void);
-    int random_match_length(double chance_random);
+    
     double graph_entropy(void);
-    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend);
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
@@ -406,32 +532,7 @@ public:
                                 bool& path_reverse,
                                 int window);
 
-    // MEM-based mapping
-    // find maximal exact matches
-    // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
-    // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
-    // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
-    // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
-    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
     
-    vector<MaximalExactMatch>
-    find_mems_deep(string::const_iterator seq_begin,
-                   string::const_iterator seq_end,
-                   double& lcp_avg,
-                   int max_mem_length = 0,
-                   int min_mem_length = 1,
-                   int reseed_length = 0);
-
-    // Use the GCSA2 index to find super-maximal exact matches.
-    vector<MaximalExactMatch>
-    find_mems_simple(string::const_iterator seq_begin,
-                     string::const_iterator seq_end,
-                     int max_mem_length = 0,
-                     int min_mem_length = 1,
-                     int reseed_length = 0);
-    
-    // debugging, checking of mems using find interface to gcsa
-    void check_mems(const vector<MaximalExactMatch>& mems);
     // compute a mapping quality component based only on the MEMs we've obtained
     double compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters, int read_length);
     // use an average length of an LCP to a parent in the suffix tree to estimate a mapping quality
@@ -452,19 +553,11 @@ public:
     pos_t likely_mate_position(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
     id_t node_approximately_at(int approx_pos);
-    // use the xg index to get a character at a particular position (rc or foward)
-    char pos_char(pos_t pos);
-    // the next positions and their characters following the same strand of the graph
-    map<pos_t, char> next_pos_chars(pos_t pos);
-    // get the positions some specific distance from the given position (in the forward direction)
-    set<pos_t> positions_bp_from(pos_t pos, int distance, bool rev);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
     vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
-    // Use the GCSA index to look up the sequence
-    set<pos_t> sequence_positions(const string& seq);
 
     // fargment length estimation
     map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
@@ -472,38 +565,12 @@ public:
     double average_node_length(void);
     
     bool debug;
-    int alignment_threads; // how many threads will *this* mapper use when running banded alignments. Should not be set directly.
 
-    /// Set the alignment thread count, updating internal data structures that
-    /// are per thread. Note that this resets aligner scores to their default values!
-    void set_alignment_threads(int new_thread_count);
-
-    // kmer/"threaded" mapper parameters
-    //
-    set<int> kmer_sizes; // taken from rocksdb index
-    int best_clusters; // use up to this many clusters to build threads
-    int cluster_min; // minimum number of hits nearby before we test local alignment
-    int hit_size_threshold; // This is in bytes. TODO: Make it not in bytes, guessing at rocksdb records per byte.
-    float min_kmer_entropy; // exclude kmers with less that this entropy/base
-    int kmer_min; // don't decrease kmer size below this level when trying shorter kmers
-    int max_thread_gap; // maximum number of nodes in id space to extend a thread (assumes semi partial order on graph ids)
-    int kmer_sensitivity_step; // size to decrease the kmer length if we fail alignment
-    bool prefer_forward; // attempt alignment of forward complement of the read against the graph (forward) first
-    bool greedy_accept; // if we make an OK forward alignment, accept it
-    float accept_identity; // for early bailout; target alignment score as a fraction of the score of a perfect match
-
-    // mem mapper parameters (it is _much_ simpler)
+    // mem mapper parameters
     //
     //int max_mem_length; // a mem must be <= this length
-    int min_mem_length; // a mem must be >= this length
     int min_cluster_length; // a cluster needs this much sequence in it for us to consider it
     bool mem_chaining; // whether to use the mem threading mapper or not
-    int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
-    bool fast_reseed; // use the fast reseed algorithm
-
-    // general parameters, applying to both types of mapping
-    //
-    int hit_max;       // ignore kmers or MEMs (TODO) with more than this many hits
     int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
@@ -523,8 +590,6 @@ public:
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
-    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
-    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
@@ -542,13 +607,7 @@ public:
     int max_band_jump; // the maximum length edit we can detect via banded alignment
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
-    int cache_size;
     int mate_rescues;
-    int8_t alignment_match;
-    int8_t alignment_mismatch;
-    int8_t alignment_gap_open;
-    int8_t alignment_gap_extension;
-    int8_t full_length_alignment_bonus;
 
 };
 

@@ -537,16 +537,13 @@ int main_msga(int argc, char** argv) {
             mapper->fast_reseed = use_fast_reseed;
             mapper->mem_chaining = mem_chaining;
             mapper->max_target_factor = max_target_factor;
-            mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+            mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
             //mapper->adjust_alignments_for_base_quality = qual_adjust_alignments;
             mapper->extra_multimaps = extra_multimaps;
             mapper->mapping_quality_method = mapping_quality_method;
-            mapper->full_length_alignment_bonus = full_length_bonus;
             mapper->max_mapping_quality = max_mapping_quality;
             // set up the multi-threaded alignment interface
             mapper->set_alignment_threads(alignment_threads);
-            // Set scores after setting threads, since thread count changing resets scores
-            mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
             mapper->show_progress = show_align_progress;
         }
     };
