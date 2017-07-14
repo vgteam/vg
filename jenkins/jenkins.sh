@@ -20,7 +20,7 @@ LOCAL_BUILD=0
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@3adb2390156887bad052da0240bf92ff3dc24edc"
+TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@563fd24048b6dc1b1b09e86443b9a9aea9acc996"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -199,7 +199,7 @@ aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inpu
 if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
 then
     echo "Tests passed. Updating baseline"
-    aws s3 sync ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
+    aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
     printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
     printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
     aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/

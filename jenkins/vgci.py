@@ -16,9 +16,13 @@ import timeout_decorator
 from boto.s3.connection import S3Connection
 import tsv
 
-from toil_vg.vg_mapeval import mapeval_main
+from toil_vg.vg_mapeval import get_default_mapeval_options, make_mapeval_plan, run_mapeval
 from toil_vg.vg_toil import parse_args
 from toil_vg.context import Context
+from toil_vg.vg_common import make_url
+
+from toil.common import Toil
+from toil.job import Job
 
 log = logging.getLogger(__name__)
 
@@ -240,7 +244,7 @@ class VGCITest(TestCase):
 
     def _mapeval_vg_run(self, reads, base_xg_path, fasta_path, test_index_bases,
                         test_names, score_baseline_name, tag):
-        """ Wrap toil-vg mapeval as a shell command. 
+        """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
         of reads simulated from a single "base" graph. Realignments are
@@ -288,33 +292,66 @@ class VGCITest(TestCase):
         subprocess.check_call(cmd, shell=True)
 
         # then run mapeval
-        opts = '--realTimeLogging --logInfo '        
-        if self.vg_docker:
-            opts += '--vg_docker {} '.format(self.vg_docker)
-        if self.container:
-            opts += '--container {} '.format(self.container)
-        opts += '--maxCores {} '.format(self.cores)
-        opts += '--bwa --bwa-paired --vg-paired '
-        opts += '--fasta {} '.format(fasta_path)
-        opts += '--index-bases {} '.format(' '.join(test_index_bases))
-        opts += '--gam-names {} '.format(' '.join(test_names))
-        opts += '--gam_input_reads {} '.format(os.path.join(out_store, 'sim.gam'))
-        opts += '--alignment_cores {} '.format(self.cores)
+        
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            # toil-vg options
+            vg_docker = self.vg_docker,
+            container = self.container,
+            alignment_cores = self.cores,
+            # Toil options
+            realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+        
+        # Make the context
+        context = Context(out_store, overrides)
+        
+        # And what options to configure the mapeval run do we want? These have
+        # to get turned into a plan in order to import all the files with names
+        # derived algorithmically from the names given here. TODO: move
+        # positional/required arguments out of this somehow? So we can just use
+        # this to get the default optional settings and fill in the required
+        # things as file IDs?
+        mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
+        mapeval_options.bwa = True
+        mapeval_options.bwa_paired = True
+        mapeval_options.fasta = make_url(fasta_path)
+        mapeval_options.vg_paired = True
+        mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
+        mapeval_options.gam_names = test_names
+        mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
         if score_baseline_name is not None:
-            opts += '--compare-gam-scores {} '.format(score_baseline_name)
+            mapeval_options.compare_gam_scores = score_baseline_name
         
-        cmd = 'toil-vg mapeval {} {} {} {}'.format(
-            job_store, out_store, os.path.join(out_store, 'true.pos'), opts)
+        # Make Toil
+        with context.get_toil(job_store) as toil:
             
-        # Now parse the command line
-        args = cmd.strip().split(' ')
-        options = parse_args(args[1:])
-        # Make a toil-vg context with these options as the configuration
-        context = Context(options.out_store, options)
-        
-        # Run the whole mapeval workflow. Internally sets up Toil using the
-        # passed options.
-        mapeval_main(context, options)
+            # Make a plan by importing those files specified in the mapeval
+            # options
+            plan = make_mapeval_plan(toil, mapeval_options)
+            
+            # Make a job to run the mapeval workflow, using all these various imported files.
+            main_job = Job.wrapJobFn(run_mapeval,
+                                     context, 
+                                     mapeval_options, 
+                                     plan.xg_file_ids,
+                                     plan.gcsa_file_ids, 
+                                     plan.id_range_file_ids,
+                                     plan.vg_file_ids, 
+                                     plan.gam_file_ids, 
+                                     plan.reads_gam_file_id, 
+                                     plan.fasta_file_id, 
+                                     plan.bwa_index_ids, 
+                                     plan.bam_file_ids,
+                                     plan.pe_bam_file_ids, 
+                                     plan.true_read_stats_file_id)
+                
+            # Output files all live in the out_store, but if we wanted to we could export them also/instead.
+            
+            # Run the root job
+            toil.start(main_job)
             
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
@@ -365,7 +402,8 @@ class VGCITest(TestCase):
             # Parse out the real stat values
             score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
                 
-            for key in score_stats_dict.iterkeys():
+            for key in baseline_dict.iterkeys():
+                # Iterate the baseline to make sure all the expected things exist
                 print '{}  Worse: {} Baseline: {}  Threshold: {}'.format(
                     key, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
                 # Make sure all the reads came through
