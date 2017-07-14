@@ -21,6 +21,8 @@ LOCAL_BUILD=0
 REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
 KEEP_OUTPUT=0
+# Should we show stdout and stderr from tests? If so, set to "-s".
+SHOW_OPT=""
 # What toil-vg should we install?
 TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@a3a2fa11217887cc7eaa88604f953bb43b41db6e"
 # What tests should we run?
@@ -35,13 +37,14 @@ usage() {
     printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
     printf "\t\t\tNon-Python dependencies must be installed.\n"
     printf "\t-r\t\tRe-use a single virtualenv. \n"
-    printf "\t-k\t\tKeep output. \n"
+    printf "\t-k\t\tKeep on-disk output. \n"
+    printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run.\n"
     exit 1
 }
 
-while getopts "lrkp:t:" o; do
+while getopts "lrksp:t:" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
@@ -51,6 +54,9 @@ while getopts "lrkp:t:" o; do
             ;;
         k)
             KEEP_OUTPUT=1
+            ;;
+        s) 
+            SHOW_OPT="-s"
             ;;
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -194,7 +200,7 @@ fi
 set +e
 
 # run the tests, output the junit report for Jenkins
-pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml
+pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
 PYRET="$?"
 
 # we publish the results to the archive
