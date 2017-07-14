@@ -317,8 +317,8 @@ class VGCITest(TestCase):
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
         mapeval_options.bwa_paired = True
-        mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.vg_paired = True
+        mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
         mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
