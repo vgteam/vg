@@ -505,6 +505,17 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
     return variant.alleles.size() - 1;
 }
 
+// https://stackoverflow.com/a/19039500/238609
+double slope(const std::vector<double>& x, const std::vector<double>& y) {
+    const auto n    = x.size();
+    const auto s_x  = std::accumulate(x.begin(), x.end(), 0.0);
+    const auto s_y  = std::accumulate(y.begin(), y.end(), 0.0);
+    const auto s_xx = std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
+    const auto s_xy = std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
+    const auto a    = (n * s_xy - s_x * s_y) / (n * s_xx - s_x * s_x);
+    return a;
+}
+
 //https://stats.stackexchange.com/a/7459/14524
 // returns alpha parameter of zipf distribution
 double fit_zipf(const vector<double>& y) {
@@ -521,19 +532,7 @@ double fit_zipf(const vector<double>& y) {
     for (int i = 1; i <= lx.size(); ++i) {
         lx[i-1] = log(i);
     }
-    auto p = fit_linear(lx, ly);
-    return -p.second;
-}
-
-pair<double, double> fit_linear(const vector<double>& x, const vector<double>& y) {
-    //cerr << "fit lin" << endl;
-    assert(x.size() == y.size());
-    /*for (int i = 0; i < x.size(); ++i) {
-        cerr << x[i] << " " << y[i] << endl;
-        }*/
-    double c0, c1, cov00, cov01, cov11, sumsq;
-    gsl_fit_linear (x.data(), 1, y.data(), 1, x.size(), &c0, &c1, &cov00, &cov01, &cov11, &sumsq);
-    return make_pair(c0, c1);
+    return -slope(lx, ly);
 }
 
 }
