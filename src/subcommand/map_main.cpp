@@ -104,7 +104,6 @@ int main_map(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = -1;
     int min_cluster_length = 0;
-    float random_match_chance = 0.0001;
     float mem_reseed_factor = 1.5;
     bool mem_chaining = true;
     int max_target_factor = 100;
