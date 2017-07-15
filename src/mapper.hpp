@@ -281,11 +281,13 @@ public:
     deque<double> fragment_lengths;
     deque<bool> fragment_orientations;
     deque<bool> fragment_directions;
+    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2);
     void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
     string fragment_model_str(void);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
     double fragment_length_pdf(double length);
+    double fragment_length_pval(double length);
     bool fragment_orientation(void);
     bool fragment_direction(void);
     double cached_fragment_length_mean;
@@ -468,6 +470,7 @@ public:
 
     // fargment length estimation
     map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    int first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
