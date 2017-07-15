@@ -505,4 +505,35 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
     return variant.alleles.size() - 1;
 }
 
+//https://stats.stackexchange.com/a/7459/14524
+// returns alpha parameter of zipf distribution
+double fit_zipf(const vector<double>& y) {
+    // assume input is log-scaled
+    // fit a log-log model
+    assert(y.size());
+    vector<double> ly(y.size());
+    for (int i = 0; i < ly.size(); ++i) {
+        //cerr << y[i] << " ";
+        ly[i] = log(y[i]);
+    }
+    //cerr << endl;
+    vector<double> lx(y.size());
+    for (int i = 1; i <= lx.size(); ++i) {
+        lx[i-1] = log(i);
+    }
+    auto p = fit_linear(lx, ly);
+    return -p.second;
+}
+
+pair<double, double> fit_linear(const vector<double>& x, const vector<double>& y) {
+    //cerr << "fit lin" << endl;
+    assert(x.size() == y.size());
+    /*for (int i = 0; i < x.size(); ++i) {
+        cerr << x[i] << " " << y[i] << endl;
+        }*/
+    double c0, c1, cov00, cov01, cov11, sumsq;
+    gsl_fit_linear (x.data(), 1, y.data(), 1, x.size(), &c0, &c1, &cov00, &cov01, &cov11, &sumsq);
+    return make_pair(c0, c1);
+}
+
 }

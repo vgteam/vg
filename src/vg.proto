@@ -133,6 +133,7 @@ message Alignment {
 
     double correct = 28; // Correctness metric 1 = perfectly aligned to truth, 0 = not overlapping true alignment
     repeated int32 secondary_score = 29; // The ordered list of scores of secondary mappings
+    double fragment_score = 30; // Score under the given fragment model, assume higher is better
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment

@@ -24,13 +24,13 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq gcc-4.9 g++-4.9; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9; fi
   - gcc --version && g++ --version
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq bc rs jq samtools; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq bc rs jq samtools libgsl-dev libblas-dev; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap homebrew/science; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew tap homebrew/versions; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal gtk-doc bison raptor rasqal gperftools autogen gcc49; brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal gtk-doc bison raptor rasqal gsl openblas gperftools autogen gcc49; brew link bison --force; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew uninstall libtool; brew install libtool; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi

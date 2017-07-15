@@ -11,6 +11,7 @@
 #include <cmath>
 #include <unordered_set>
 #include <unistd.h>
+#include <gsl/gsl_fit.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
 #include "Variant.h"
@@ -413,6 +414,9 @@ string get_output_file_name(int& optind, int argc, char** argv);
 // indicating standard input. The reference passed is guaranteed to be valid
 // only until the callback returns.
 void get_input_file(const string& file_name, function<void(istream&)> callback);
+
+double fit_zipf(const vector<double>& y);
+pair<double, double> fit_linear(const vector<double>& x, const vector<double>& y);
 
 }
 
