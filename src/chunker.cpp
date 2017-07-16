@@ -127,7 +127,7 @@ int64_t PathChunker::extract_gam_for_id_range(vg::id_t start, vg::id_t end, Inde
 int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
                                          Index& index, ostream* out_stream,
                                          bool contiguous) {
-    
+  
     // Load all the reads matching the graph into memory
     vector<Alignment> gam_buffer;
     int64_t gam_count = 0;

@@ -1,5 +1,5 @@
-#ifndef VG_OPTION_H
-#define VG_OPTION_H
+#ifndef VG_OPTION_HPP_INCLUDED
+#define VG_OPTION_HPP_INCLUDED
 
 /**
  * \file option.hpp: Command-line options that can be attached to configurable thing-doer calsses (variant callers, mappers, etc.)

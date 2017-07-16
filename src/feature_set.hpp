@@ -1,5 +1,5 @@
-#ifndef VG_FEATURE_SET_H
-#define VG_FEATURE_SET_H
+#ifndef VG_FEATURE_SET_HPP_INCLUDED
+#define VG_FEATURE_SET_HPP_INCLUDED
 
 /** \file
  *

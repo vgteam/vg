@@ -1,6 +1,6 @@
-#ifndef VG_VG_H
+#ifndef VG_VG_HPP_INCLUDED
 
-#define VG_VG_H
+#define VG_VG_HPP_INCLUDED
 
 #include <vector>
 #include <set>

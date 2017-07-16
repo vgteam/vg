@@ -1,5 +1,5 @@
-#ifndef PATH_H
-#define PATH_H
+#ifndef VG_PATH_HPP_INCLUDED
+#define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
 #include <algorithm>

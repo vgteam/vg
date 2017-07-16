@@ -1,22 +1,20 @@
 #include <iostream>
+#include "vg.hpp"
 #include "haplotype_extracter.hpp"
-#include "vg.pb.h"
 #include "json2pb.h"
 #include "xg.hpp"
 
 using namespace std;
 using namespace vg;
 
-void output_haplotype_counts(ofstream& annotation_ofstream,
+void output_haplotype_counts(ostream& annotation_ostream,
             vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
   for(int i = 0; i < haplotype_list.size(); i++) {
-    annotation_ofstream << i << "\t" << haplotype_list[i].second << endl;
+    annotation_ostream << i << "\t" << haplotype_list[i].second << endl;
   }
-  annotation_ofstream.close();
 }
 
-void output_graph_with_embedded_paths(ofstream& json_ofstream,
-            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
   Graph g;
   set<int64_t> nodes;
   set<pair<int,int> > edges;
@@ -30,8 +28,20 @@ void output_graph_with_embedded_paths(ofstream& json_ofstream,
     p.set_name(to_string(i));
     *(g.add_path()) = move(p);
   }
-  json_ofstream << pb2json(g);
-  json_ofstream.close();
+  return g;
+}
+ 
+void output_graph_with_embedded_paths(ostream& subgraph_ostream,
+            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index, bool json) {
+  Graph g = output_graph_with_embedded_paths(haplotype_list, index);
+
+  if (json) {
+    subgraph_ostream << pb2json(g);
+  } else {
+    VG subgraph;
+    subgraph.extend(g);
+    subgraph.serialize_to_ostream(subgraph_ostream);
+  }
 }
 
 void thread_to_graph_spanned(thread_t& t, Graph& g, xg::XG& index) {

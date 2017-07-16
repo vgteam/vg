@@ -1,5 +1,5 @@
-#ifndef ENTROPY_H
-#define ENTROPY_H
+#ifndef VG_ENTROPY_HPP_INCLUDED
+#define VG_ENTROPY_HPP_INCLUDED
 
 #include <iostream>
 #include <set>

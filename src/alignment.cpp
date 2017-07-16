@@ -473,6 +473,14 @@ string alignment_to_sam(const Alignment& alignment,
     // We need to strip the /1 and /2 from paired reads so the two ends have the same name.
     string alignment_name = regex_replace(alignment.name(), regex("/[12]$"), "");
 
+    // Newer Illumina reads have pair flags in the form, ex, NAME 1:N:0:CGATG or NAME 2:N:0:CGATG
+    // so just cut off after the space if last word begins with [1/2]:
+    size_t sp = alignment_name.find_last_of(" ");
+    if (sp != string::npos && sp < alignment_name.size() - 3 && alignment_name[sp+2] == ':'
+        && (alignment_name[sp+1] == '1' || alignment_name[sp+1] == '2')) {
+        alignment_name = alignment_name.substr(0, sp);
+    }
+
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
@@ -497,6 +505,7 @@ string alignment_to_sam(const Alignment& alignment,
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
     if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
+    sam << "\tAS:i:" << alignment.score();
     sam << "\n";
     return sam.str();
 }
@@ -614,12 +623,11 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
-    auto& name = alignment.name();
-    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/1")) {
+    if (alignment.has_fragment_next()) {
         // This is the first read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD1);
     }
-    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/2")) {
+    if (alignment.has_fragment_prev()) {
         // This is the second read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD2);
     }
