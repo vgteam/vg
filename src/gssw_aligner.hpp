@@ -56,7 +56,7 @@ namespace vg {
                                        bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
-        double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
+        double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale);
         double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale);
         double estimate_next_best_score(int length, double min_diffs);
         

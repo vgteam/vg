@@ -25,7 +25,7 @@ is $? 0 "vg map takes -d as input without a variant graph"
 
 is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -j | jq . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
 
-is $(vg map -r <(vg sim -s 69 -n 1000 -l 100 x.vg) -x x.xg -g x.gcsa  | vg view -a - | jq -c '.score == 100 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment works on a small graph"
+is $(vg map -G <(vg sim -s 69 -n 1000 -l 100 -x x.xg -a) -x x.xg -g x.gcsa  | vg view -a - | jq -c '.score == 100 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment works on a small graph"
 
 seq=TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG
 is $(vg map -s $seq -x x.xg -g x.gcsa | vg view -a - | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
@@ -118,7 +118,7 @@ vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -j -A | jq 
 is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') 10 "base quality adjusted alignment produces higher scores if mismatches have low quality"
 rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
 
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -I 1000:300:20:0:1 -j | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -I 1000:300:20:0:1 -j | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 7478 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
 
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/NONEXISTENT -u 4 -j
 is $? 1 "error on vg map -f <nonexistent-file> (unpaired)"

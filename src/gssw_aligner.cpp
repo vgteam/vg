@@ -519,7 +519,7 @@ void BaseAligner::init_mapping_quality(double gc_content) {
     log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
 }
 
-double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
+double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale) {
     size_t size = scaled_scores.size();
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
@@ -537,7 +537,8 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
     }
     
     *max_idx_out = max_idx;
-    
+
+    double qual = 0;
     if (max_score * size < exp_overflow_limit) {
         // no risk of double overflow, sum exp directly (half as many transcendental function evals)
         double numer = 0.0;
@@ -547,7 +548,7 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
             }
             numer += exp(scaled_scores[i]);
         }
-        return -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
+        qual = -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
     }
     else {
         // work in log transformed valued to avoid risk of overflow
@@ -555,8 +556,17 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
         for (size_t i = 1; i < size; i++) {
             log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
         }
-        return -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
+        qual = -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
     }
+
+    double alpha = 1;
+    if (zipf_scale) {
+        auto rescaled_scores = scaled_scores;
+        for (auto& s : rescaled_scores) s /= max_score;
+        alpha = min(alpha, fit_zipf(rescaled_scores));
+    }
+
+    return qual * alpha;
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
@@ -672,7 +682,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     double mapping_quality;
     size_t max_idx;
     if (!fast_approximation) {
-        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
+        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx, zipf_scale);
     }
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, zipf_scale);
@@ -744,7 +754,7 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     size_t max_idx;
     double mapping_quality;
     if (!fast_approximation) {
-        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
+        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx, zipf_scale);
     }
     else {
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, zipf_scale);
