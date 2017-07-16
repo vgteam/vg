@@ -754,8 +754,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    mapping_quality /= 2;
-
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
