@@ -2047,20 +2047,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         cluster_ptrs.push_back(make_pair(&cluster1, &cluster2));
     }
-    /*
+
     vector<MaximalExactMatch> nullcluster;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
     for (int i = 0; i < clusters1.size(); ++i) {
         auto& cluster1 = clusters1[i];
         auto& cluster2 = clusters2[i];
-        se_cluster_ptrs.push_back(make_pair(&cluster1, &nullcluster));
-        se_cluster_ptrs.push_back(make_pair(&nullcluster, &cluster2));
+        if (cluster1.size() && cluster2.size()) {
+            se_cluster_ptrs.push_back(make_pair(&cluster1, &nullcluster));
+            se_cluster_ptrs.push_back(make_pair(&nullcluster, &cluster2));
+        }
     }
     // merge the cluster ptrs
     for (auto& p : se_cluster_ptrs) {
         cluster_ptrs.push_back(p);
     }
-    */
     
     auto show_paired_clusters = [&](void) {
         cerr << "clusters: " << endl;
