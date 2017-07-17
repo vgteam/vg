@@ -3867,9 +3867,9 @@ int main_locify(int argc, char** argv){
 
 void help_deconstruct(char** argv){
     cerr << "usage: " << argv[0] << " deconstruct [options] -p <PATH> <my_graph>.vg" << endl
-         << "Outputs VCF records for Snarls present in a graph." << endl
+         << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
-         << "--path / -p     A reference path to deconstruct against." << endl
+         << "--path / -p     REQUIRED: A reference path to deconstruct against." << endl
          << endl;
 }
 
