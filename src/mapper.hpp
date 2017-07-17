@@ -431,6 +431,7 @@ public:
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
+    void annotate_with_mean_path_positions(vector<Alignment>& alns);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -439,13 +440,14 @@ public:
 
     // use the fragment length annotations to assess if the pair is consistent or not
     bool pair_consistent(const Alignment& aln1,
-                         const Alignment& aln2);
+                         const Alignment& aln2,
+                         double pval);
 
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
     // use the fragment configuration statistics to rescue more precisely
-    bool pair_rescue(Alignment& mate1, Alignment& mate2);
+    bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,

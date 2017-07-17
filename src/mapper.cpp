@@ -1558,12 +1558,15 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     //return make_pos_t(target, target_is_rev, 0);
 }
 
-bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
+bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
-    double hang_threshold = 0.9;
-    double retry_threshold = 0.7;
-    //double hang_threshold = mate1.sequence().size() * aligner->match * 0.9;
+    //double hang_threshold = 0.9;
+    //double retry_threshold = 0.7;
+    double perfect_score = mate1.sequence().size() * match_score;
+    double hang_threshold = perfect_score * 0.9;
+    double retry_threshold = perfect_score * 0.7;
+    bool consistent = !(mate1.score() > 0 && mate2.score() > 0) || pair_consistent(mate1, mate2, 0.0001);
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
     //cerr << mate1.score() << " " << mate2.score() << endl;
@@ -1571,10 +1574,10 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
     // get the subgraph overlapping the likely candidate position of the second alignment
     bool rescue_off_first = false;
     bool rescue_off_second = false;
+    double mate1_id = (double) mate1.score() / perfect_score;
+    double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (mate1.identity() > mate2.identity()
-        && mate1.identity() >= hang_threshold
-        && mate2.identity() < retry_threshold) {
+    if (mate1_id >= mate2_id && mate1_id > hang_threshold && (!consistent || mate2_id < retry_threshold)) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -1585,9 +1588,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2) {
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
-    } else if (mate2.identity() > mate1.identity()
-               && mate2.identity() >= hang_threshold
-               && mate1.identity() < retry_threshold) {
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && (!consistent || mate1_id < retry_threshold)) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
@@ -1745,7 +1746,8 @@ bool Mapper::alignments_consistent(const map<string, double>& pos1,
 }
 
 bool Mapper::pair_consistent(const Alignment& aln1,
-                             const Alignment& aln2) {
+                             const Alignment& aln2,
+                             double pval) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
     if (aln1.fragment_size() == 0) {
@@ -1760,7 +1762,8 @@ bool Mapper::pair_consistent(const Alignment& aln1,
         assert(aln1.fragment_size() == aln2.fragment_size());
         for (size_t i = 0; i < aln1.fragment_size(); ++i) {
             int len = abs(aln1.fragment(i).length());
-            if (len > 0 && len < fragment_size
+            if (fragment_size && len > 0 && (pval > 0 && fragment_length_pval(len) > pval
+                                             || len < fragment_size)
                 || !fragment_size && len > 0 && len < fragment_max) {
                 length_ok = true;
                 break;
@@ -1898,7 +1901,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 return -std::numeric_limits<double>::max();
             } else {
                 if (xindex->path_count) {
-                    dist = xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos));
+                    dist = abs(xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos)));
                 }
 #ifdef debug_mapper
 #pragma omp critical
@@ -1917,7 +1920,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         || dist > fragment_size) {
                         return -std::numeric_limits<double>::max();
                     } else {
-                        return fragment_length_pval(dist);
+                        return fragment_length_pval(dist) * read1.sequence().size();
                     }
                 } else {
                     return 1.0/dist;
@@ -1979,7 +1982,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               transition_weight,
                               max((int)(read1.sequence().size() + read2.sequence().size()),
                                   (int)(fragment_size ? fragment_size : fragment_max)));
-        clusters = chainer.traceback(total_multimaps, true, debug);
+        clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
     // don't attempt to align if we reach the maximum number of multimaps
@@ -2062,7 +2065,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& p : se_cluster_ptrs) {
         cluster_ptrs.push_back(p);
     }
-    
+    // sort the clusters by "interestingness"
+    map<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>, int> cluster_cov;
+    for (auto& p : cluster_ptrs) {
+        cluster_cov[p] = cluster_coverage(*p.first) + cluster_coverage(*p.second);
+    }
+    sort(cluster_ptrs.begin(),
+         cluster_ptrs.end(), [&](const pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>& p1,
+                                 const pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>& p2) {
+             return cluster_cov[p1] > cluster_cov[p2];
+         });
+
     auto show_paired_clusters = [&](void) {
         cerr << "clusters: " << endl;
         for (auto& cluster_ptr : cluster_ptrs) {
@@ -2215,7 +2228,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         int j = 0;
         for (auto& p : alns) {
             if (++j > mate_rescues) break;
-            if (pair_rescue(p.first, p.second)) {
+            if (pair_rescue(p.first, p.second, match)) {
                 rescued = true;
                 p.first.clear_fragment();
                 p.second.clear_fragment();
@@ -2342,8 +2355,22 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.set_quality(read2.quality());
     }
 
+    // if we have references, annotate the alignments with their reference positions
+    annotate_with_mean_path_positions(results.first);
+    annotate_with_mean_path_positions(results.second);
+
     return results;
 
+}
+
+void Mapper::annotate_with_mean_path_positions(vector<Alignment>& alns) {
+    for (auto& aln : alns) {
+        for (auto& ref : alignment_mean_path_positions(aln)) {
+            Position* refpos = aln.add_refpos();
+            refpos->set_name(ref.first);
+            refpos->set_offset(round(ref.second));
+        }
+    }
 }
 
 // rank the clusters by the number of unique read bases they cover
@@ -2985,7 +3012,7 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
         fragment.set_length(length);
         *aln1.add_fragment() = fragment;
         *aln2.add_fragment() = fragment;
-        if (fragment_size && pair_consistent(aln1, aln2)) {
+        if (fragment_size && pair_consistent(aln1, aln2, 0)) {
             double pval = fragment_length_pval(abs(length));
             double score = pval > 0.001 ? 20 : 0;
             //auto p = signature(aln1, aln2);
@@ -3807,6 +3834,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
         }
     }
     
+    annotate_with_mean_path_positions(alignments);
+
     return alignments;
 }
 
