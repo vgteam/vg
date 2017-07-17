@@ -2261,7 +2261,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.first.push_back(p.first);
         results.second.push_back(p.second);
     }
-    compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
+
+    if (pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
+        compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
+    } else {
+        compute_mapping_qualities(results.first, cluster_mq, mq_cap1, max_mapping_quality);
+        compute_mapping_qualities(results.second, cluster_mq, mq_cap2, max_mapping_quality);
+    }
 
     // remove the extra pair used to compute mapping quality if necessary
     if (results.first.size() > max_multimaps) {
@@ -3015,7 +3021,7 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
         *aln2.add_fragment() = fragment;
         if (fragment_size && pair_consistent(aln1, aln2, 0)) {
             double pval = fragment_length_pval(abs(length));
-            double score = pval > 0.001 ? 20 : 0;
+            double score = pval > 0.001 ? 10 + pval : 0;
             //auto p = signature(aln1, aln2);
             //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << cached_fragment_length_mean << endl;
             aln1.set_fragment_score(score);
