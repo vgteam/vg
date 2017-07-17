@@ -11,7 +11,64 @@ namespace vg{
 
     }
 
+    void SRPE::call_svs_paired_end(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){
+
+    }
+
+    void SRPE::call_svs_split_read(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){
+        // We're going to do a bunch of split-read mappings now,
+        // then decide if our orientations support an inversion, an insertion,
+        // or a deletion.
+    }
+
+
+    void SRPE::call_svs(string graphfile, string gamfile, string refpath){
+        vg::VG* graph;
+        if (!graphfile.empty()){
+            ifstream in(graphfile);
+            graph = new VG(in, false);
+        }
+        ifstream gamstream;
+        gamstream.open(gamfile);
+        // Set up path index
+        ff.set_my_vg(graph);
+        ff.soft_clip_limit = 20;
+        ff.fill_node_to_position(refpath);
     
+        std::function<vector<BREAKPOINT> (vector<BREAKPOINT>)> merge_breakpoints = [](vector<BREAKPOINT> bps){
+        vector<BREAKPOINT> ret;
+        BREAKPOINT sent;
+        sent.start = -100;
+        ret.push_back(sent);
+        for (int i = 0; i < bps.size(); i++){
+            BREAKPOINT a = bps[i];
+            bool merged = false;
+            for (int j = 0; j < ret.size(); j++){
+                if (ret[j].overlap(a, 20)){
+                    ret[j].other_supports += 1;
+                    merged = true;
+                }
+            }
+            if (!merged){
+                ret.push_back(a);
+            }
+        }
+        return ret;
+    };
+
+    vector<BREAKPOINT> pe_bps;
+    vector<BREAKPOINT> sr_bps;
+
+    call_svs_paired_end(graph, gamstream, pe_bps, refpath);
+    call_svs_split_read(graph, gamstream, sr_bps, refpath);
+    vector<BREAKPOINT> pe_merged = merge_breakpoints(pe_bps);
+    vector<BREAKPOINT> sr_merged = merge_breakpoints(sr_bps);
+    vector<BREAKPOINT> merged;
+    merged.insert(merged.begin(), pe_merged.begin(), pe_merged.end());
+    merged.insert(merged.begin(), sr_merged.begin(), sr_merged.end());
+    merged = merge_breakpoints(merged);
+
+    }
 
     void SRPE::aln_to_bseq(Alignment& a, bseq1_t* read){
         read->seq = (char*) a.sequence().c_str();

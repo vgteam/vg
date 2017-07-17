@@ -12,6 +12,7 @@ namespace vg{
 
     }
 
+
     // to expand to multiple paths, we'll need to maintain a map of maps
     // pathname -> map<node_id, int> >
     int64_t Filter::distance_between_positions(Position first, Position second){
@@ -22,30 +23,58 @@ namespace vg{
         return abs(rp - fp);
     }
 
-    Alignment Filter::refactor_split_alignment(Alignment& a){
+    pair<Alignment, int> Filter::refactor_split_alignment(Alignment& a){
         // Get the clipped portion
         string clipseq = get_clipped_seq(a);
         // Remap it
+        // TODO switch out for Banded Aligner to speed things up
         vector<Alignment> remaps = remap(clipseq);
         if (remaps.size() < 1){
-            return a;
+            return make_pair(a, 0);
         }
+        Alignment ret = a;
         // Tack the new split's path onto the anchored bit, depending on which side it came from.
         bool l_clipped = is_left_clipped(a);
         Path anchor = trim_hanging_ends(a.path());
         Path remap_path = remaps[0].path();
-        Path* new_path = a.mutable_path();
+        Path* new_path = ret.mutable_path();
         if (l_clipped){
             // Prepend our remapped alignment portion
             new_path->CopyFrom( append_path(remap_path, anchor));
         }
         else if (!l_clipped){
             // Append our remapped alignment portion
-
             new_path->CopyFrom( append_path(anchor, remap_path));
         }
 
-        return a;
+        // Determine if the new alignment's path represents an inversion, deletion, or insertion
+        // We do this by checking the distance and relative orientation between Anchor
+        // and remap_path.
+        // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+
+        int sv_indicator = 0;
+        Alignment bogus;
+        Path* b_path = bogus.mutable_path();
+        b_path->CopyFrom(anchor);
+        Alignment bogus_right;
+        Path* br_path = bogus_right.mutable_path();
+        br_path->CopyFrom(remap_path);
+        if ( pair_orientation_filter(bogus, bogus_right)){
+            sv_indicator = 3;
+        }
+        if (!node_to_position.empty()){
+            Position other = l_clipped ? last_path_position(remap_path) : first_path_position(remap_path);
+            int dist = distance_between_positions(get_clipped_position(a), other);
+            int internal_homology_limit = 25;
+            if (dist > internal_homology_limit){
+                sv_indicator = 2;
+            }
+            else{
+                sv_indicator = 1;
+            }
+        }
+
+        return make_pair(ret, sv_indicator);
 
     }
 
@@ -97,13 +126,7 @@ namespace vg{
         ret.clear_path();
         Path clipped = trim_hanging_ends(a.path());
         ret.mutable_path()->CopyFrom(clipped);
-        // Path* rpath = ret.mutable_path();
 
-        // for(int i = 0; i < clipped.mapping_size(); i++){
-        //     Mapping m = clipped.mapping(i);
-
-        //     for (int j = 0; j < )
-        // }
         return ret;
     }
 
@@ -315,6 +338,22 @@ namespace vg{
         }
         return true;
     }
+
+    bool Filter::mark_smallVariant_alignments(Alignment& a, Alignment& b){
+        return (perfect_filter(a) || perfect_filter(b) || anchored_filter(a) || anchored_filter(b) );
+    }
+
+    bool Filter::mark_sv_alignments(Alignment& a, Alignment& b){
+        bool ret = false;
+        ret = (ret | soft_clip_filter(a));
+        ret = (ret | soft_clip_filter(b));
+        ret = (ret | interchromosomal_filter(a, b));
+        ret = (ret | one_end_anchored_filter(a, b));
+        ret = (ret | (unmapped_filter(a) & unmapped_filter(b)));
+        ret = (ret | insert_size_filter(a, b));
+        ret = (ret | pair_orientation_filter(a, b));
+        return ret;
+    }
     bool Filter::anchored_filter(Alignment& aln){
         int min_match_len = 10;
         if (aln.path().mapping_size() > 2){
@@ -420,48 +459,49 @@ namespace vg{
 
     }
 
-    Alignment Filter::unmapped_filter(Alignment& aln){
+    bool Filter::unmapped_filter(Alignment& aln){
         if (aln.score() == 0 || aln.path().mapping_size() == 0){
             aln.set_read_mapped(false);
-            return aln;
+            return true;
         }
-        return Alignment();
+        aln.set_read_mapped(true);
+        return false;
     
     }
 
     /*PE Functions*/
-    pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
-        bool f = unmapped_filter(aln_first).name() != "";
-        bool s = unmapped_filter(aln_second).name() != "";
+    bool Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
+        bool f = unmapped_filter(aln_first);
+        bool s = unmapped_filter(aln_second);
         if ( (f && !s)){ 
             aln_first.set_read_mapped(false);
             aln_first.set_mate_unmapped(false);
             aln_second.set_read_mapped(true);
             aln_second.set_mate_unmapped(true);
-            return std::make_pair(aln_first, aln_second);
+            return true;
         }
         else if((s && !f)){
             aln_first.set_read_mapped(true);
             aln_first.set_mate_unmapped(true);
             aln_second.set_read_mapped(false);
             aln_second.set_mate_unmapped(false);
-            return std::make_pair(aln_first, aln_second);
+            return true;
         }
         else{
-            return std::make_pair(Alignment(), Alignment());
+            return false;
         }
     }
 
-    pair<Alignment, Alignment> Filter::interchromosomal_filter(Alignment& aln_first, Alignment& aln_second){
+    bool Filter::interchromosomal_filter(Alignment& aln_first, Alignment& aln_second){
         if (aln_first.path().name() != aln_second.path().name() && !aln_first.path().name().empty() && !aln_second.path().name().empty()){
-            return std::make_pair(aln_first, aln_second);
+            return true;
         }
         else{
-            return std::make_pair(Alignment(), Alignment());
+            return false;
         }
     }
 
-    pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
+    bool Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
 
         double zed;
         bool check_first = true;
@@ -479,18 +519,18 @@ namespace vg{
         else if (check_second){
             zed = ((double) aln_second.fragment(0).length() - (double) insert_mean) / (double) insert_sd;
         }else{
-            return make_pair(Alignment(), Alignment());
+            return false;
         }
 
-        if (zed >= 2.95 || zed <= -2.95){
-            return std::make_pair(aln_first, aln_second);
+        if (zed >= 1.95 || zed <= -1.95){
+            return true;
         }
         else{
-            return std::make_pair(Alignment(), Alignment());
+            return false;
         }
     }
 
-    pair<Alignment, Alignment> Filter::pair_orientation_filter(Alignment& aln_first, Alignment& aln_second){
+    bool Filter::pair_orientation_filter(Alignment& aln_first, Alignment& aln_second){
 
         // TODO need to check the innie/outie case
         // --->    <--- normal
@@ -503,7 +543,7 @@ namespace vg{
         bool s_rev = false;
         
         if (! (aln_first.mapping_quality() > 0 && aln_second.mapping_quality() > 0)){
-            return std::make_pair(Alignment(), Alignment());
+            return false;
         }
 
         Path f_path = aln_first.path();
@@ -548,15 +588,13 @@ namespace vg{
             aln_second.set_read_on_reverse_strand(false);
         }
         if (f_rev == s_rev){
-            return make_pair(aln_first, aln_second);
+            return true;
         }
         else if ( ((f_rev != s_rev) && flipped)){
-            return make_pair(aln_first, aln_second);
+            return true;
         }
         else{
-            Alignment r;
-            Alignment s;
-            return make_pair(r, s);
+            return false;
         }
 
     }
@@ -608,8 +646,10 @@ namespace vg{
     * instead of ---->    <-----
     * we'll see  <----    <----- or ---->    ----->
     */
-    pair<Locus, Locus> Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
-
+    bool Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
+        if (pair_orientation_filter(aln_first, aln_second)){
+            return true;
+        }
     }
 
     /**
@@ -777,7 +817,7 @@ namespace vg{
     }
 
 
-    Alignment Filter::soft_clip_filter(Alignment& aln){
+    bool Filter::soft_clip_filter(Alignment& aln){
         //Find overhangs - portions of the read that
         // are inserted at the ends.
         if (aln.path().mapping_size() > 0){
@@ -788,22 +828,22 @@ namespace vg{
             int right_overhang = right_edit.to_length() - right_edit.from_length();
             if (left_overhang > soft_clip_limit || right_overhang > soft_clip_limit){
                 aln.set_soft_clipped(true);
-                return aln;
+                return true;
             }
             else{
-                Alignment ret;
-                ret.set_soft_clipped(false);
-                return ret;
+                aln.set_soft_clipped(false);
+                return false;
             }
         }
         else{
             if (aln.sequence().length() > soft_clip_limit){
-                return Alignment();
+                aln.set_soft_clipped(false);
+                return false;
             }
             cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
                 << "WITH NO MAPPINGS TO REFERENCE" << endl
                 << "CONSIDER REMOVING IT FROM ANALYSIS" << endl;
-            return Alignment();
+            return false;
         }
 
     }
@@ -843,7 +883,7 @@ namespace vg{
      * They're super important for detecting structural variants, so we may want to
      * filter them out or collect only split reads.
      */
-    Alignment Filter::split_read_filter(Alignment& aln){
+    bool Filter::split_read_filter(Alignment& aln){
 
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
             cerr << "An XG and GCSA are required for split read processing." << endl;
@@ -852,7 +892,7 @@ namespace vg{
         bool flagged = false;
         // Check softclips
 
-        if (soft_clip_filter(aln).name() != ""){
+        if (soft_clip_filter(aln)){
             flagged = true;
             string clipseq = get_clipped_seq(aln);
             Alignment clipmatch = my_mapper->align(clipseq);
@@ -866,10 +906,10 @@ namespace vg{
         }
 
         if (flagged){
-            return aln;
+            return true;
         }
 
-        return Alignment();
+        return false;
 
 
     

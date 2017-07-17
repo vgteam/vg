@@ -17,6 +17,8 @@
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "translator.hpp"
+#include "deconstructor.hpp"
+#include "srpe.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
@@ -147,7 +149,7 @@ public:
                                 string gamfile, bool isIndex = false);
     // Genotype new SVs from a GAM
     void genotype_svs(VG* graph, 
-                        string gamfile);
+                        string gamfile, string refpath);
 
     // Process and write output
     void run(VG& graph,
