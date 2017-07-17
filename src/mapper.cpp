@@ -1979,7 +1979,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               transition_weight,
                               max((int)(read1.sequence().size() + read2.sequence().size()),
                                   (int)(fragment_size ? fragment_size : fragment_max)));
-        clusters = chainer.traceback(total_multimaps, false, debug);
+        clusters = chainer.traceback(total_multimaps, true, debug);
     }
 
     // don't attempt to align if we reach the maximum number of multimaps
