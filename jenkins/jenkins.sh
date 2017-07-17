@@ -19,8 +19,12 @@
 LOCAL_BUILD=0
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
+# Should we keep our test output around after uploading the new baseline?
+KEEP_OUTPUT=0
+# Should we show stdout and stderr from tests? If so, set to "-s".
+SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@3adb2390156887bad052da0240bf92ff3dc24edc"
+TOIL_VG_PACKAGE="git+https://github.com/bd2kgenomics/toil-vg.git@7ad7533bf908ade8bee5e1da21545c9288af3cda"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -33,18 +37,26 @@ usage() {
     printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
     printf "\t\t\tNon-Python dependencies must be installed.\n"
     printf "\t-r\t\tRe-use a single virtualenv. \n"
+    printf "\t-k\t\tKeep on-disk output. \n"
+    printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run.\n"
     exit 1
 }
 
-while getopts "lrp:t:" o; do
+while getopts "lrksp:t:" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
             ;;
         r)
             REUSE_VENV=1
+            ;;
+        k)
+            KEEP_OUTPUT=1
+            ;;
+        s) 
+            SHOW_OPT="-s"
             ;;
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -188,7 +200,7 @@ fi
 set +e
 
 # run the tests, output the junit report for Jenkins
-pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml
+pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
 PYRET="$?"
 
 # we publish the results to the archive
@@ -213,12 +225,13 @@ if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf awscli s3am
 fi
 
-if [ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]; then
-    # On anything other than a failed local run, clean up.
+if ([ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]) && [ ! "${KEEP_OUTPUT}" == "1" ]; then
+    # On anything other than a failed local run, and if we haven't been told not to, clean up the test output.
     rm -rf vgci-work
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf .env
-    fi
+fi
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    # If we aren't re-using the virtualenv, clean it up
+    rm -rf .env
 fi
 
 if [ -d "/mnt/ephemeral" ]
