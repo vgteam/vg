@@ -1559,14 +1559,15 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 }
 
 bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
+    auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
     //double hang_threshold = 0.9;
     //double retry_threshold = 0.7;
     double perfect_score = mate1.sequence().size() * match_score;
-    double hang_threshold = perfect_score * 0.9;
-    double retry_threshold = perfect_score * 0.7;
-    bool consistent = !(mate1.score() > 0 && mate2.score() > 0) || pair_consistent(mate1, mate2, 0.0001);
+    double hang_threshold = 0.6;
+    //double retry_threshold = perfect_score * 0.5;
+    bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
     //cerr << mate1.score() << " " << mate2.score() << endl;
@@ -1577,7 +1578,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (mate1_id >= mate2_id && mate1_id > hang_threshold && (!consistent || mate2_id < retry_threshold)) {
+    if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -1588,7 +1589,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
-    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && (!consistent || mate1_id < retry_threshold)) {
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && !consistent) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
