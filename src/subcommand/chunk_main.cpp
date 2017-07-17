@@ -243,7 +243,7 @@ int main_chunk(int argc, char** argv) {
     }
 
     // Hold trace starting information
-    vector<xg::XG::ThreadMapping> trace_regions;
+    vector<int64_t> trace_starts;
     
     // parse the regions into a list
     vector<Region> regions;
@@ -303,10 +303,7 @@ int main_chunk(int argc, char** argv) {
     else if (trace_mode) {
         if (trace_start > 0) {
             // one trace
-            xg::XG::ThreadMapping tm;
-            tm.node_id = trace_start;
-            tm.is_reverse = false;
-            trace_regions.push_back(tm);
+            trace_starts.push_back(trace_start);
         } else {
             // file full of traces
             ifstream trace_stream(trace_file);
@@ -314,11 +311,10 @@ int main_chunk(int argc, char** argv) {
                 cerr << "[vg chunk] unable to open traces file: " << trace_file << endl;
                 return 1;
             }
-            while (trace_stream) { 
-                xg::XG::ThreadMapping tm;
-                tm.is_reverse = false;
-                if (trace_stream >> tm.node_id) {
-                    trace_regions.push_back(tm);
+            while (trace_stream) {
+                int64_t ts;
+                if (trace_stream >> ts) {
+                    trace_starts.push_back(ts);
                 }
             }
         }
@@ -385,7 +381,7 @@ int main_chunk(int argc, char** argv) {
         return chunk_name.str();
     };
 
-    int num_regions = trace_mode ? trace_regions.size() : regions.size();
+    int num_regions = trace_mode ? trace_starts.size() : regions.size();
 
     // because we are expanding context, and not cutting nodes, our output
     // chunks are going to cover larger regions that what was asked for.
@@ -406,16 +402,17 @@ int main_chunk(int argc, char** argv) {
         Region& region = regions[i];
         PathChunker& chunker = chunkers[tid];
         VG* subgraph = NULL;
-        vector<pair<thread_t,int> > haplotype_list;
+        map<string, int> trace_thread_frequencies;
         if (trace_mode == true) {
-            haplotype_list = list_haplotypes(xindex, trace_regions[i], trace_extend);
+            Graph g;
+            trace_haplotypes_and_paths(xindex, trace_starts[i], trace_extend,
+                                       g, trace_thread_frequencies);
             subgraph = new VG();
-            Graph g = output_graph_with_embedded_paths(haplotype_list, xindex);
             subgraph->extend(g);
             
             // shoehorn trace info into region, just for sake of naming output chunk files
             output_regions[i].seq = "trace";
-            output_regions[i].start = trace_regions[i].node_id + 1; // because we -1 in chunk_name()
+            output_regions[i].start = trace_starts[i] + 1; // because we -1 in chunk_name()
             output_regions[i].end = trace_extend;
         }
         else if (id_range == false) {
@@ -437,7 +434,7 @@ int main_chunk(int argc, char** argv) {
         ostream* out_stream = NULL;
         if (chunk_graph) {
             if ((!region_string.empty() || !node_range_string.empty() || trace_start > 0) &&
-                (regions.size() + trace_regions.size() == 1) && chunk_size == 0) {
+                (regions.size() + trace_starts.size() == 1) && chunk_size == 0) {
                 // if only one chunk passed in using -p, we output chunk to stdout
                 out_stream = &cout;
             } else {
@@ -478,7 +475,9 @@ int main_chunk(int argc, char** argv) {
                 cerr << "error[vg chunk]: can't open output trace annotation file " << annot_name << endl;
                 exit(1);
             }
-            output_haplotype_counts(out_annot_file, haplotype_list, xindex);
+            for (auto tf : trace_thread_frequencies) {
+                out_annot_file << tf.first << "\t" << tf.second << endl;
+            }
         }
 
         delete subgraph;
