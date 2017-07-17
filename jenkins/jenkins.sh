@@ -36,7 +36,7 @@ usage() {
     printf "Options:\n\n"
     printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
     printf "\t\t\tNon-Python dependencies must be installed.\n"
-    printf "\t-r\t\tRe-use a single virtualenv. \n"
+    printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
     printf "\t-k\t\tKeep on-disk output. \n"
     printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
@@ -203,19 +203,26 @@ set +e
 pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
 PYRET="$?"
 
-# we publish the results to the archive
-tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
-aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
-
-# if success and we're merging the PR, we publish results to the baseline
-if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
+if [ ! -z "${BUILD_NUMBER}" ]
 then
-    echo "Tests passed. Updating baseline"
-    aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
-    printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
-    printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
-    aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
+    # We are running on Jenkins (and not manually running the Jenkins tests), so
+    # we probably have AWS credentials and can upload stuff to S3.
+
+    # we publish the results to the archive
+    tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
+    aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
+
+    # if success and we're merging the PR (and not just testing it), we publish results to the baseline
+    if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
+    then
+        echo "Tests passed. Updating baseline"
+        aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
+        printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
+        printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
+        aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
+    fi
 fi
+    
 
 # clean up changes to bin
 # Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
