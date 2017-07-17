@@ -23,6 +23,7 @@
 #include "utility.hpp"
 #include "types.hpp"
 #include "genotypekit.hpp"
+#include "srpe.hpp"
 #include "path_index.hpp"
 #include "index.hpp"
 #include "bubbles.hpp"
