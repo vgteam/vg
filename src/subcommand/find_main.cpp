@@ -764,10 +764,7 @@ int main_find(int argc, char** argv) {
                 }
             } else {
                 // for mems we need to load up the gcsa and lcp structures into the mapper
-                Mapper mapper;
-                mapper.gcsa = &gcsa_index;
-                mapper.lcp = &lcp_index;
-                mapper.xindex = &xindex;
+                Mapper mapper(&xindex, &gcsa_index, &lcp_index);
                 mapper.fast_reseed = use_fast_reseed;
                 // get the mems
                 double lcp_avg;

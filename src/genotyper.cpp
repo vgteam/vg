@@ -105,10 +105,8 @@ namespace vg {
                 name_to_snarl[snarl->name()] = *snarl;
                 for (auto x : travs){
                     name_to_traversal[x.name()] = x;
-                    snarl_name_to_node_set[x.snarl().name()].insert( x.snarl().start().node_id() );
-                    snarl_name_to_node_set[x.snarl().name()].insert( x.snarl().end().node_id() );
                     for (int i = 0; i < x.visits_size(); i++){
-                        snarl_name_to_node_set[x.snarl().name()].insert( x.visits(i).node_id());
+                        snarl_name_to_node_set[snarl->name()].insert( x.visits(i).node_id());
                     }    
                 }
             }

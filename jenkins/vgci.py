@@ -11,8 +11,14 @@ from urlparse import urlparse
 from uuid import uuid4
 import os, sys
 import argparse
+import collections
 import timeout_decorator
 from boto.s3.connection import S3Connection
+import tsv
+
+from toil_vg.vg_mapeval import mapeval_main
+from toil_vg.vg_toil import parse_args
+from toil_vg.context import Context
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +34,12 @@ class VGCITest(TestCase):
         
         self.f1_threshold = 0.005
         self.auc_threshold = 0.02
+        # What (additional) portion of reads are allowed to get worse scores
+        # when moving to a more inclusive reference?
+        self.worse_threshold = 0.01
         self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
         self.vg_docker = None
+        self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
         self.do_teardown = True
         self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
@@ -53,6 +63,9 @@ class VGCITest(TestCase):
                         # override vg docker (which defaults to value from vg_config.py)
                         if toks[0] == 'vg-docker-version':
                             self.vg_docker = toks[1]
+                        # can use "Docker", "Singularity" or "None" (the string) as a container system
+                        if toks[0] == 'container':
+                            self.container = toks[1]
                         # dont verify output.  tests will pass if they dont crash or timeout
                         elif toks[0] == 'verify' and toks[1].lower() == 'false':
                             self.verify = False
@@ -123,6 +136,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         if chrom:
             opts += '--chroms {} '.format(chrom)
         if graph_path:
@@ -155,6 +170,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         if chrom:
             opts += '--chroms {} '.format(chrom)
         if graph_path:
@@ -222,17 +239,46 @@ class VGCITest(TestCase):
             self._verify_f1('NA12878', tag)
 
     def _mapeval_vg_run(self, reads, base_xg_path, fasta_path, test_index_bases,
-                        test_names, tag):
-        """ Wrap toil-vg mapeval as a shell command.  
+                        test_names, score_baseline_name, tag):
+        """ Wrap toil-vg mapeval as a shell command. 
+        
+        Evaluates realignments (to the linear reference and to a set of graphs)
+        of reads simulated from a single "base" graph. Realignments are
+        evaluated based on how close the realignments are to the original
+        simulated source position. Simulations are done inside this function.
+        
+        Simulates the given number of reads (reads), from the given XG file
+        (base_xg_path). Uses the given FASTA (fasta_path) as a BWA reference for
+        comparing vg and BWA alignments within mapeval. (Basically, BWA against
+        the linear reference functions as a negative control "graph" to compare
+        against the real test graphs.)
+        
+        test_index_bases specifies a list of basenames (without extension) for a
+        .xg, .gcsa, and .gcsa.lcp file set, one per of graph that is to be
+        compared.
+        
+        test_names has one entry per graph to be compared, and specifies where
+        the realigned read GAM files should be saved.
+        
+        score_baseline_name, if not None, is a name from test_names to be used
+        as a score baseline for comparing all the realignment scores against.
+        
+        tag is a unique slug for this test/run, which determines the Toil job
+        store name to use, and the location where the output files should be
+        saved.
+        
         """
 
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
 
         # start by simulating some reads
+        # TODO: why are we using strings here when we could use much safer lists???
         opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
@@ -245,6 +291,8 @@ class VGCITest(TestCase):
         opts = '--realTimeLogging --logInfo '        
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
+        if self.container:
+            opts += '--container {} '.format(self.container)
         opts += '--maxCores {} '.format(self.cores)
         opts += '--bwa --bwa-paired --vg-paired '
         opts += '--fasta {} '.format(fasta_path)
@@ -252,11 +300,22 @@ class VGCITest(TestCase):
         opts += '--gam-names {} '.format(' '.join(test_names))
         opts += '--gam_input_reads {} '.format(os.path.join(out_store, 'sim.gam'))
         opts += '--alignment_cores {} '.format(self.cores)
+        if score_baseline_name is not None:
+            opts += '--compare-gam-scores {} '.format(score_baseline_name)
         
         cmd = 'toil-vg mapeval {} {} {} {}'.format(
             job_store, out_store, os.path.join(out_store, 'true.pos'), opts)
-        subprocess.check_call(cmd, shell=True)
-
+            
+        # Now parse the command line
+        args = cmd.strip().split(' ')
+        options = parse_args(args[1:])
+        # Make a toil-vg context with these options as the configuration
+        context = Context(options.out_store, options)
+        
+        # Run the whole mapeval workflow. Internally sets up Toil using the
+        # passed options.
+        mapeval_main(context, options)
+            
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
         stats_dict = dict()
@@ -274,19 +333,62 @@ class VGCITest(TestCase):
             stats_tsv = stats.read()
         baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
 
+        # Dict from aligner to a list of float stat values, in order
         stats_dict = self._tsv_to_dict(stats_tsv)
+        # Dict from aligner to a list of float stat values, in order
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
-        for key, val in baseline_dict.items():
+        for key, val in baseline_dict.iteritems():
             print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
                 key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+            
         
-    def _test_mapeval(self, reads, region, baseline_graph, test_graphs):
-        """ Run simulation on a bakeoff graph """
+        score_stats_path = os.path.join(self._outstore(tag), 'score.stats.tsv')
+        if os.path.exists(score_stats_path):
+            # If the score comparison was run, make sure not too many reads get
+            # worse moving from linear reference or BWA to a graph.
+            
+            try:
+                # Parse out the baseline stat values (not for the baseline
+                # graph, we shouldn't have called these both "baseline")
+                baseline_tsv = self._read_baseline_file(tag, 'score.stats.tsv')
+                baseline_dict = self._tsv_to_dict(baseline_tsv)
+            except:
+                # Maybe there's no baseline file saved yet
+                # Synthesize one of the right shape
+                baseline_dict = collections.defaultdict(lambda: [0, 0])
+                
+            # Parse out the real stat values
+            score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                
+            for key in score_stats_dict.iterkeys():
+                print '{}  Worse: {} Baseline: {}  Threshold: {}'.format(
+                    key, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
+                # Make sure all the reads came through
+                assert score_stats_dict[key][0] == reads
+                # Make sure not too many got worse
+                assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+            
+    def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None):
+        """ Run simulation on a bakeoff graph
+        
+        Simulate the given number of reads from the given baseline_graph
+        (snp1kg, primary, etc.) and realign them against all the graphs in the
+        test_graph list.
+        
+        Needs to know the bekeoff region that is being run, in order to look up
+        the actual graphs files for each graph type.
+        
+        Verifies that the realignments are sufficiently good.
+        
+        If score_baseline is set to a graph name from test_graphs, computes
+        score differences for reach read against that baseline.
+        
+        """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
         
         # compute the xg indexes from scratch
@@ -305,7 +407,7 @@ class VGCITest(TestCase):
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, fasta_path, test_index_bases,
-                             test_graphs, tag)
+                             test_graphs, score_baseline_graph, tag)
 
         if self.verify:
             self._verify_mapeval(reads, tag)
@@ -313,14 +415,21 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
+        # Using 50k simulated reads from snp1kg BRCA1, realign against all these
+        # other BRCA1 graphs and make sure the realignments are sufficiently
+        # good.
+        # Compare all realignment scores agaisnt the scores for the primary
+        # graph.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus'])
+                           ['primary', 'snp1kg', 'cactus'],
+                           score_baseline_graph='primary')
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
-        """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """        
+        """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus'])    
+                           ['primary', 'snp1kg', 'cactus'],
+                           score_baseline_graph='primary')    
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):

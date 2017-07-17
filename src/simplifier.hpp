@@ -1,5 +1,5 @@
-#ifndef VG_SIMPLIFIER_H
-#define VG_SIMPLIFIER_H
+#ifndef VG_SIMPLIFIER_HPP_INCLUDED
+#define VG_SIMPLIFIER_HPP_INCLUDED
 
 
 #include "progressive.hpp"

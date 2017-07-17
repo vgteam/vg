@@ -1,5 +1,5 @@
-#ifndef VG_NESTED_TRAVERSAL_FINDER_H
-#define VG_NESTED_TRAVERSAL_FINDER_H
+#ifndef VG_NESTED_TRAVERSAL_FINDER_HPP_INCLUDED
+#define VG_NESTED_TRAVERSAL_FINDER_HPP_INCLUDED
 
 /// \file nested_traversal_finder.hpp: Defines a TraversalFinder that produces
 /// covering paths, with an awareness of nested Snarls.
@@ -39,7 +39,7 @@ protected:
      * possibly empty Path.
      */
     pair<Support, vector<Visit>> find_bubble(Node* node, Edge* edge, const Snarl* child,
-        const Snarl& site, const map<NodeTraversal, const Snarl*>& child_boundary_index);
+        const Snarl& site);
         
     /**
      * Get the minimum support of all nodes and edges used in the given path
@@ -54,8 +54,7 @@ protected:
      *
      * Lengths are included so that shorter paths sort first.
      */
-    set<pair<size_t, list<Visit>>> search_left(const Visit& root, const Snarl& site,
-        const map<NodeTraversal, const Snarl*>& child_boundary_index);
+    set<pair<size_t, list<Visit>>> search_left(const Visit& root, const Snarl& site);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
@@ -64,8 +63,7 @@ protected:
      *
      * Lengths are included so that shorter paths sort first.
      */
-    set<pair<size_t, list<Visit>>> search_right(const Visit& root, const Snarl& site,
-        const map<NodeTraversal, const Snarl*>& child_boundary_index);
+    set<pair<size_t, list<Visit>>> search_right(const Visit& root, const Snarl& site);
         
     /**
      * Get the length of a path through nodes and child sites, in base pairs.

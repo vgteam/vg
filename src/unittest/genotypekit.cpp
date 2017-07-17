@@ -298,15 +298,15 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
         
         REQUIRE(!site_traversals.empty());
         
-        SECTION("the path must visit 1 node to span the site") {
-            REQUIRE(site_traversals.front().visits_size() == 1);
+        SECTION("the path must visit 3 node to span the site") {
+            REQUIRE(site_traversals.front().visits_size() == 3);
             
             SECTION("the site must follow one of the two paths in the correct orientation") {
-                bool followed_path_1 = site_traversals.front().visits(0).node_id() == 3 &&
-                                       site_traversals.front().visits(0).backward() == false;
+                bool followed_path_1 = site_traversals.front().visits(1).node_id() == 3 &&
+                                       site_traversals.front().visits(1).backward() == false;
                 
-                bool followed_path_2 = site_traversals.front().visits(0).node_id() == 4 &&
-                                       site_traversals.front().visits(0).backward() == false;
+                bool followed_path_2 = site_traversals.front().visits(1).node_id() == 4 &&
+                                       site_traversals.front().visits(1).backward() == false;
                 
                 REQUIRE(followed_path_1 != followed_path_2);
             }
@@ -346,11 +346,11 @@ TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverte
     for (auto snarl : manager.top_level_snarls()) {
         auto travs = finder.find_traversals(*snarl);
         for (SnarlTraversal trav : travs) {
-            if (trav.visits_size() == 1) {
-                if (trav.visits(0).node_id() == n1->id() && trav.visits(0).backward()) {
+            if (trav.visits_size() == 3) {
+                if (trav.visits(1).node_id() == n1->id() && trav.visits(1).backward()) {
                     found_trav_1 = true;
                 }
-                else if (trav.visits(0).node_id() == n2->id() && !trav.visits(0).backward()) {
+                else if (trav.visits(1).node_id() == n2->id() && !trav.visits(1).backward()) {
                     found_trav_2 = true;
                 }
             }
@@ -519,18 +519,18 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
         RepresentativeTraversalFinder finder(augmented, snarl_manager, 100, 100, 1000);
         
         SECTION("there should be two traversals of the substitution") {
-            
+                        
             vector<SnarlTraversal> traversals = finder.find_traversals(*child);
-
+            
             REQUIRE(traversals.size() == 2);
             
             SECTION("all the traversals should be size 1, with just the middle node") {
                 // TODO: this will have to change when we start to support traversals of non-ultrabubbles.
                 for (auto traversal : traversals) {
-                    REQUIRE(traversal.visits_size() == 1);
+                    REQUIRE(traversal.visits_size() == 3);
                     
                     // Make sure the middle is a node and not a child snarl
-                    REQUIRE(traversal.visits(0).node_id() != 0);
+                    REQUIRE(traversal.visits(1).node_id() != 0);
                 }
             }
             
@@ -571,7 +571,7 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
             SECTION("one should be empty") {
                 bool found = false;
                 for (auto traversal : traversals) {
-                    if (traversal.visits_size() == 0) {
+                    if (traversal.visits_size() == 2) {
                         found = true;
                     }
                 }
@@ -581,8 +581,8 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
             SECTION("one should visit just the child site") {
                 bool found = false;
                 for (auto traversal : traversals) {
-                    if (traversal.visits_size() == 1) {
-                        auto& visit = traversal.visits(0);
+                    if (traversal.visits_size() == 3) {
+                        auto& visit = traversal.visits(1);
                         
                         if(visit.node_id() == 0 && visit.snarl().start() == child->start() &&
                             visit.snarl().end() == child->end()) {

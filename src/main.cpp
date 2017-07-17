@@ -200,6 +200,7 @@ void help_filter(char** argv) {
          << "    -f, --frac-score        normalize score based on length" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
+         << "    -m, --min-end-matches N filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
@@ -240,6 +241,7 @@ int main_filter(int argc, char** argv) {
                 {"frac-score", required_argument, 0, 'f'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
+                {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
@@ -256,7 +258,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:Ac:vq:E:D:C:t:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -280,6 +282,9 @@ int main_filter(int argc, char** argv) {
         case 'o':
             filter.max_overhang = atoi(optarg);
             break;
+        case 'm':
+            filter.min_end_matches = atoi(optarg);
+            break;            
         case 'S':
             filter.drop_split = true;
         case 'x':
@@ -647,17 +652,16 @@ int main_vectorize(int argc, char** argv){
         lcp_index.load(in_lcp);
     }
 
-    Mapper mapper;
+    Mapper* mapper = nullptr;
     if (mem_sketch) {
         if (gcsa_name.empty()) {
             cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
             return 1;
         } else {
-            mapper.gcsa = &gcsa_index;
-            mapper.lcp = &lcp_index;
+            mapper = new Mapper(xg_index, &gcsa_index, &lcp_index);
         }
         if (mem_hit_max) {
-            mapper.hit_max = mem_hit_max;
+            mapper->hit_max = mem_hit_max;
         }
     }
 
@@ -693,8 +697,8 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_mems_simple(a.sequence().begin(), a.sequence().end(),
-                                                max_mem_length, mapper.min_mem_length);
+            auto mems = mapper->find_mems_simple(a.sequence().begin(), a.sequence().end(),
+                                                 max_mem_length, mapper->min_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -753,6 +757,7 @@ int main_vectorize(int argc, char** argv){
     }
 
 
+    delete mapper;
 
     return 0;
 }
@@ -2809,8 +2814,8 @@ int main_align(int argc, char** argv) {
         SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
-        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left, full_length_bonus,
+        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left,
             banded_global, 0, max(seq.size(), graph->length()), debug);
     }
 
@@ -3167,7 +3172,7 @@ int main_view(int argc, char** argv) {
         case 'R':
             input_type = "snarls";
             if (output_type.empty()) {
-                // Default to Locus -> JSON
+                // Default to Snarl -> JSON
                 output_type = "json";
             }
             break;
@@ -3707,7 +3712,7 @@ int main_locify(int argc, char** argv){
                 } else {
                     name_int = f->second;
                 }
-                string allele_name = convert(name_int);
+                string allele_name = vg::convert(name_int);
                 Path p;
                 p.set_name(allele_name);
                 *matching.add_allele() = p;
@@ -3806,7 +3811,7 @@ int main_locify(int argc, char** argv){
                     string s; allele.SerializeToString(&s);
                     auto& name = allele_names[s];
                     if (to_keep.count(name)) {
-                        allele.set_name(convert(name));
+                        allele.set_name(vg::convert(name));
                         alleles_to_keep.push_back(allele);
                     }
                 }

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Run some CI tests on vg using toil-vg
 
@@ -15,12 +15,42 @@
 
 #!/bin/bash
 
-usage() { printf "Usage: $0 [Options] \nOptions:\n\t-l\t Build vg locally (instead in Docker). Non-python dependencies must be installed\n" 1>&2; exit 1; }
+# Should we build and run locally, or should we use Docker?
+LOCAL_BUILD=0
+# Should we re-use and keep around the same virtualenv?
+REUSE_VENV=0
+# What toil-vg should we install?
+TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@3adb2390156887bad052da0240bf92ff3dc24edc"
+# What tests should we run?
+# Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
+PYTEST_TEST_SPEC="jenkins/vgci.py"
 
-while getopts "l" o; do
+usage() {
+    # Print usage to stderr
+    exec 1>&2
+    printf "Usage: $0 [Options] \n"
+    printf "Options:\n\n"
+    printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
+    printf "\t\t\tNon-Python dependencies must be installed.\n"
+    printf "\t-r\t\tRe-use a single virtualenv. \n"
+    printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
+    printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run.\n"
+    exit 1
+}
+
+while getopts "lrp:t:" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
+            ;;
+        r)
+            REUSE_VENV=1
+            ;;
+        p)
+            TOIL_VG_PACKAGE="${OPTARG}"
+            ;;
+        t)
+            PYTEST_TEST_SPEC="${OPTARG}"
             ;;
         *)
             usage
@@ -30,11 +60,22 @@ done
 
 shift $((OPTIND-1))
 
+if [ ! -e ~/.aws/credentials ]; then
+    >&2 echo "WARNING: No AWS credentials at ~/.aws/credentials; test data may not be able to be downloaded!"
+fi
+
+# Most of the script, we want to die on error
+set -e
+
 # Maximum number of minutes that can have passed since new vg docker image built
 NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
 # Create Toil venv
-rm -rf .env
-virtualenv  .env
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf .env
+fi
+if [ ! -e .env ]; then
+    virtualenv  .env
+fi
 . .env/bin/activate
 
 # Prepare directory for temp files (assuming cgcloud file structure)
@@ -46,27 +87,48 @@ then
      export TMPDIR
 fi
 
+# Upgrade pip so that it can use the wheels for numpy & scipy, so that they
+# don't try to build from source
+pip install --upgrade pip
+
 # Create s3am venv
-rm -rf s3am
-virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf s3am
+fi
+if [ ! -e s3am ]; then
+    virtualenv --never-download s3am && s3am/bin/pip install s3am==2.0
+fi
 mkdir -p bin
 # Expose binaries to the PATH
 ln -snf ${PWD}/s3am/bin/s3am bin/
 export PATH=$PATH:${PWD}/bin
 
 # Create awscli venv
-rm -rf awscli
-virtualenv --never-download awscli && awscli/bin/pip install awscli
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf awscli
+fi
+if [ ! -e awscli ]; then
+    virtualenv --never-download awscli && awscli/bin/pip install awscli
+fi
 # Expose binaries to the PATH
 ln -snf ${PWD}/awscli/bin/aws bin/
 export PATH=$PATH:${PWD}/bin
 
 # Dependencies for running tests.  Need numpy, scipy and sklearn
 # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-pip install numpy scipy sklearn dateutils requests timeout_decorator pytest boto
+pip install numpy
+pip install scipy
+pip install sklearn
+pip install dateutils
+pip install requests
+pip install timeout_decorator
+pip install pytest
+pip install toil[aws,mesos]
+# Don't manually install boto since toil just installs its preferred version
 
 # Install toil-vg itself
-pip install toil[aws,mesos] "toil-vg==1.2.0a1.dev400"
+echo "Installing toil-vg from ${TOIL_VG_PACKAGE}"
+pip install --upgrade "${TOIL_VG_PACKAGE}"
 if [ "$?" -ne 0 ]
 then
     echo "pip install toil-vg fail"
@@ -88,7 +150,7 @@ printf "workdir ./vgci-work\n" >> vgci_cfg.tsv
 rm -rf vgci-work
 mkdir vgci-work
 
-if [ -n "${LOCAL_BUILD}" ]
+if [ "${LOCAL_BUILD}" == "1" ]
 then
     # Just build vg here
     . ./source_me.sh
@@ -101,6 +163,7 @@ then
     fi
     VG_VERSION=`vg version`
     printf "vg-docker-version None\n" >> vgci_cfg.tsv
+    printf "container None\n" >> vgci_cfg.tsv
 else
     # Build a docker image locally.  Can be useful when don't
     # have priveleges to easily install dependencies
@@ -121,28 +184,43 @@ else
     printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
 fi
 
+# For the actual test and the cleanup, continue on error
+set +e
+
 # run the tests, output the junit report for Jenkins
-pytest -vv jenkins/vgci.py --junitxml=test-report.xml
+pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml
 PYRET="$?"
 
 # we publish the results to the archive
 tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
-aws s3 cp "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
+aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
 
 # if success and we're merging the PR, we publish results to the baseline
-if [ "$PYRET" -eq 0 ] && [[ ${ghprbActualCommit+x} ]]
+if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
 then
     echo "Tests passed. Updating baseline"
-    aws s3 sync ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
+    aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
     printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
     printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
-    aws s3 cp vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
+    aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
 fi
 
-# clean working copy to satisfy corresponding check in Makefile
-rm -rf bin awscli s3am
+# clean up changes to bin
+# Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
+rm bin/aws bin/s3am
 
-rm -rf .env vgci-work
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    rm -rf awscli s3am
+fi
+
+if [ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]; then
+    # On anything other than a failed local run, clean up.
+    rm -rf vgci-work
+    if [ ! "${REUSE_VENV}" == "1" ]; then
+        rm -rf .env
+    fi
+fi
+
 if [ -d "/mnt/ephemeral" ]
 then
     rm -rf $TMPDIR

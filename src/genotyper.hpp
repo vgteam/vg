@@ -1,5 +1,5 @@
-#ifndef VG_GENOTYPER_H
-#define VG_GENOTYPER_H
+#ifndef VG_GENOTYPER_HPP_INCLUDED
+#define VG_GENOTYPER_HPP_INCLUDED
 // genotyper.hpp: defines the Genotyper, which is used to genotype from a graph
 // and a collection of indexed alignments.
 

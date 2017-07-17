@@ -1,5 +1,5 @@
-#ifndef VG_SUBCOMMAND_SUBCOMMAND_H
-#define VG_SUBCOMMAND_SUBCOMMAND_H
+#ifndef VG_SUBCOMMAND_SUBCOMMAND_HPP_INCLUDED
+#define VG_SUBCOMMAND_SUBCOMMAND_HPP_INCLUDED
 
 /** \file
  * subcommand.hpp: defines a system for registering subcommands of the vg

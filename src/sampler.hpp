@@ -1,5 +1,5 @@
-#ifndef VG_SIMULATOR_H
-#define VG_SIMULATOR_H
+#ifndef VG_SIMULATOR_HPP_INCLUDED
+#define VG_SIMULATOR_HPP_INCLUDED
 
 #include <iostream>
 #include <map>

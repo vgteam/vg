@@ -6637,7 +6637,6 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
-                    int8_t full_length_bonus,
                     bool banded_global,
                     size_t band_padding_override,
                     size_t max_span,
@@ -6655,7 +6654,7 @@ Alignment VG::align(const Alignment& alignment,
 
 #ifdef debug
     cerr << "aligning read of " << alignment.sequence().size() << " to graph of " << length() << endl;
-    //cerr << pinned_alignment << " " << pin_left << " " << (int)full_length_bonus << " " << banded_global << " " << band_padding_override << " "  << max_span << endl;
+    //cerr << pinned_alignment << " " << pin_left << " " << " " << banded_global << " " << band_padding_override << " "  << max_span << endl;
 #endif
 
     auto do_align = [&](Graph& g) {
@@ -6687,15 +6686,15 @@ Alignment VG::align(const Alignment& alignment,
             }
         } else if (pinned_alignment) {
             if (aligner && !qual_adj_aligner) {
-                aligner->align_pinned(aln, g, pin_left, full_length_bonus);
+                aligner->align_pinned(aln, g, pin_left);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align_pinned(aln, g, pin_left, full_length_bonus);
+                qual_adj_aligner->align_pinned(aln, g, pin_left);
             }
         } else {
             if (aligner && !qual_adj_aligner) {
-                aligner->align(aln, g, full_length_bonus, print_score_matrices);
+                aligner->align(aln, g, print_score_matrices);
             } else if (qual_adj_aligner && !aligner) {
-                qual_adj_aligner->align(aln, g, full_length_bonus, print_score_matrices);
+                qual_adj_aligner->align(aln, g, print_score_matrices);
             }
         }
     };
@@ -6772,14 +6771,13 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
-                    int8_t full_length_bonus,
                     bool banded_global,
                     size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, max_query_graph_ratio,
-                 pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, band_padding_override, max_span, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6787,7 +6785,6 @@ Alignment VG::align(const string& sequence,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
-                    int8_t full_length_bonus,
                     bool banded_global,
                     size_t band_padding_override,
                     size_t max_span,
@@ -6795,30 +6792,28 @@ Alignment VG::align(const string& sequence,
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, max_query_graph_ratio,
-                 pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, band_padding_override, max_span, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
-                    int8_t full_length_bonus,
                     bool banded_global,
                     size_t band_padding_override,
                     size_t max_span,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, max_query_graph_ratio,
-                 pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, band_padding_override, max_span, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
                     size_t max_query_graph_ratio,
                     bool pinned_alignment,
                     bool pin_left,
-                    int8_t full_length_bonus,
                     bool banded_global,
                     size_t band_padding_override,
                     size_t max_span,
@@ -6826,8 +6821,8 @@ Alignment VG::align(const string& sequence,
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, max_query_graph_ratio,
-                 pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, band_padding_override, max_span, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
@@ -6835,14 +6830,13 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t max_query_graph_ratio,
                                   bool pinned_alignment,
                                   bool pin_left,
-                                  int8_t full_length_bonus,
                                   bool banded_global,
                                   size_t band_padding_override,
                                   size_t max_span,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, max_query_graph_ratio,
-                 pinned_alignment, pin_left, full_length_bonus,
-                 banded_global, band_padding_override, max_span, print_score_matrices);
+                 pinned_alignment, pin_left, banded_global, band_padding_override,
+                 max_span, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
@@ -6850,7 +6844,6 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   size_t max_query_graph_ratio,
                                   bool pinned_alignment,
                                   bool pin_left,
-                                  int8_t full_length_bonus,
                                   bool banded_global,
                                   size_t band_padding_override,
                                   size_t max_span,
@@ -6858,8 +6851,8 @@ Alignment VG::align_qual_adjusted(const string& sequence,
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio,
-                               pinned_alignment, pin_left, full_length_bonus,
-                               banded_global, band_padding_override, max_span, print_score_matrices);
+                               pinned_alignment, pin_left, banded_global, band_padding_override,
+                               max_span, print_score_matrices);
 }
 
 const string VG::hash(void) {

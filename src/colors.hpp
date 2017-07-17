@@ -1,5 +1,5 @@
-#ifndef VG_COLORS_H
-#define VG_COLORS_H
+#ifndef VG_COLORS_HPP_INCLUDED
+#define VG_COLORS_HPP_INCLUDED
 
 #include <vector>
 #include <random>
