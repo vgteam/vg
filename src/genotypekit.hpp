@@ -347,8 +347,9 @@ public:
 
 class PathBasedTraversalFinder : public TraversalFinder{
     vg::VG& graph;
+    SnarlManager snarlmanager;
     public:
-    PathBasedTraversalFinder(vg::VG& graph);
+    PathBasedTraversalFinder(vg::VG& graph, SnarlManager& sm);
     virtual ~PathBasedTraversalFinder() = default;
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 

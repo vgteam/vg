@@ -32,7 +32,7 @@ namespace vg {
 
     //void smart_augment(VG* graph, string gamfile);
 
-    void genotype_svs(VG* graph, 
+    void Genotyper::genotype_svs(VG* graph,
                         string gamfile,
                         string refpath){
             // Open up our GAM file
@@ -44,7 +44,7 @@ namespace vg {
             }
             SRPE srrp;
 
-            DepthMap dm(graph);
+            //DepthMap dm(graph);
             vector<pair<Alignment, Alignment> > sv_reads;
             // Pull out all of our boring reads and just load them in a depth map
             // Collect our SV-supporting reads and load them into a local map for PE manipulation
@@ -59,49 +59,29 @@ namespace vg {
             set<NodeSide> spare_nodesides;
             std::function<void(Alignment&, Alignment&)> readfunc = [&](Alignment& a, Alignment& b){
                 bool toss_into_sv_map = false;
-                
-                if (srrp.ff.perfect_filter(a)){
-                    direct_ins.push_back(a.path());
-                    //dm.fill_depth(a.path());
-                }
-                else if (srrp.ff.anchored_filter(a)){
-                    direct_ins.push_back(a.path());
-                }
-                if (srrp.ff.perfect_filter(b)){
-                    direct_ins.push_back(b.path());
-                    //dm.fill_depth(b.path());
-                }
-                else if (srrp.ff.anchored_filter(b)){
-                    direct_ins.push_back(b.path());
-                }
 
 
-                // one_end_anchoreds
-                pair<Alignment, Alignment> filt;
-                filt = srrp.ff.one_end_anchored_filter(a,b);
-                if (filt.first.name() != ""){
-                    sv_reads.push_back(std::make_pair(a,b));
+                if (srrp.ff.mark_sv_alignments(a,b)){
+                    sv_reads.push_back(make_pair(a, b));
                 }
-                else if (srrp.ff.unmapped_filter(a).name() != "" && srrp.ff.unmapped_filter(b).name() != ""){
-                    sv_reads.push_back(std::make_pair(a, b));
-                }
-                else if (srrp.ff.soft_clip_filter(a).name() != "" || srrp.ff.soft_clip_filter(b).name() != ""){
-                    sv_reads.push_back(std::make_pair(a,b));
-                }
-                else if (srrp.ff.pair_orientation_filter(a, b).first.name() != ""){
-                    sv_reads.push_back(std::make_pair(a,b));
+                                
+                else if (srrp.ff.mark_smallVariant_alignments(a, b)){
+                    direct_ins.push_back(a.path());
+                    direct_ins.push_back(b.path());
                 }
 
             };
             stream::for_each_interleaved_pair_parallel(gamstream, readfunc);
-
+            vector<Translation> transls;
             if (refpath != ""){
-                vector<Translation> transl = graph->edit(direct_ins); // TODO could maybe use edit_fast??
+                transls = graph->edit(direct_ins); // TODO could maybe use edit_fast??
                
                 Deconstructor decon;
                 decon.deconstruct(refpath, graph);
             }
             direct_ins.clear();
+
+
 
             // Now the weird bit
             // Transform our SV reads into clean calls
@@ -117,7 +97,11 @@ namespace vg {
 
             // Detect INV, DEL, INS using split-reads
             std::function<void(Alignment& first, Alignment& second)> splitreadfunc = [&](Alignment& first, Alignment& second){
+                
+            };
 
+            std::function<void(Alignment& first)> se_splitreadfunc = [&](Alignment& first){
+                
             };
             // Detect INV, DEL, INS using paired-ends
             // Includes local assembly using fermilite
@@ -185,7 +169,7 @@ namespace vg {
             SnarlManager snarl_manager = snarl_finder->find_snarls();
             vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
             SimpleConsistencyCalculator scc;
-            TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+            TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
             for (const Snarl* snarl : snarl_roots ){
                 vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
                 snarl_name_to_traversals[ snarl->name() ] = travs;

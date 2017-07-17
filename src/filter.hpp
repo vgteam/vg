@@ -37,15 +37,17 @@ class Filter{
          */
         bool perfect_filter(Alignment& aln);
         bool anchored_filter(Alignment& aln);
-        bool mark_alignments(Alignment& a, Alignment& b);
+        bool mark_sv_alignments(Alignment& a, Alignment& b);
+        bool mark_smallVariant_alignments(Alignment& a, Alignment& b);
         Alignment depth_filter(Alignment& aln);
         Alignment qual_filter(Alignment& aln);
         Alignment coverage_filter(Alignment& aln);
         Alignment avg_qual_filter(Alignment& aln);
         Alignment percent_identity_filter(Alignment& aln);
-        Alignment soft_clip_filter(Alignment& aln);
-        Alignment unmapped_filter(Alignment& aln);
-        Alignment split_read_filter(Alignment& aln);
+       
+        bool soft_clip_filter(Alignment& aln);
+        bool unmapped_filter(Alignment& aln);
+        bool split_read_filter(Alignment& aln);
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
 
@@ -65,12 +67,12 @@ class Filter{
         Alignment path_length_filter(Alignment& aln);
 
         /*PE Functions*/
-        pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
+        bool one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
+       bool interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
         
         // // TODO should give this one an insert size arg
-        pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
+        bool insert_size_filter(Alignment& aln_first, Alignment& aln_second);
+        bool pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
 
         // pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
 

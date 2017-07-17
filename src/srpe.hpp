@@ -145,6 +145,10 @@ public:
 
             vector<pair<int, int> > intervals;
 
+            void call_svs_paired_end(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath="");
+            void call_svs_split_read(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath="");
+            void call_svs(string graphfile, string gamfile, string refpath);
+
             // Calculate a proxy for discordance between a set of Alginments
             // and a subgraph (e.g. one that's been modified with a candidate variant)
             // Useful for deciding which variant is closest to what's represented in reads
