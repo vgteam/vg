@@ -1579,6 +1579,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
     if (debug) cerr << "pair rescue: mate1 " << mate1_id << " mate2 " << mate2_id << " consistent? " << consistent << endl;
+    if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
+    if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
         // retry off mate1
 //#ifdef debug_mapper
