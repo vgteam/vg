@@ -20,7 +20,8 @@ using thread_t = vector<xg::XG::ThreadMapping>;
 void trace_haplotypes_and_paths(xg::XG& index,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
-                                map<string, int>& out_thread_frequencies);
+                                map<string, int>& out_thread_frequencies,
+                                bool expand_graph = true);
 
 // Turns an (xg-based) thread_t into a (vg-based) Path
 Path path_from_thread_t(thread_t& t);

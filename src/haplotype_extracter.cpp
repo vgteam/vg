@@ -10,14 +10,17 @@ using namespace vg;
 void trace_haplotypes_and_paths(xg::XG& index,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
-                                map<string, int>& out_thread_frequencies) {
+                                map<string, int>& out_thread_frequencies,
+                                bool expand_graph) {
   // get our haplotypes
   xg::XG::ThreadMapping n = {start_node, false};
   vector<pair<thread_t,int> > haplotypes = list_haplotypes(index, n, extend_distance);
 
-  // get our subgraph and "regular" paths by expanding forward
-  *out_graph.add_node() = index.node(start_node);
-  index.expand_context(out_graph, extend_distance, true, true, true, false);
+  if (expand_graph) {
+    // get our subgraph and "regular" paths by expanding forward
+    *out_graph.add_node() = index.node(start_node);
+    index.expand_context(out_graph, extend_distance, true, true, true, false);
+  }
 
   // add a frequency of 1 for each normal path
   for (int i = 0; i < out_graph.path_size(); ++i) {
