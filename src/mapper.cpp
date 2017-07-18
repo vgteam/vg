@@ -3845,7 +3845,7 @@ int64_t Mapper::approx_position(pos_t pos) {
     if (is_rev(pos)) {
         pos = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
     }
-    return xg_cached_node_start(id(pos), xindex, get_node_start_cache()) + (int64_t)(offset(pos));
+    return (int64_t)xg_cached_node_start(id(pos), xindex, get_node_start_cache()) + (int64_t)offset(pos);
 }
 
 int64_t Mapper::approx_distance(pos_t pos1, pos_t pos2) {
