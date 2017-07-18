@@ -79,7 +79,7 @@ public:
     vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int approx_position;
+    int64_t approx_position;
     MEMChainModelVertex* prev;
     MEMChainModelVertex(void) = default;                                      // Copy constructor
     MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
@@ -119,7 +119,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int approx_position;
+    int64_t approx_position;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -542,21 +542,21 @@ public:
     // use an average length of an LCP to a parent in the suffix tree to estimate a mapping quality
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
     // walks the graph one base at a time from pos1 until we find pos2
-    int graph_distance(pos_t pos1, pos_t pos2, int maximum = 1e3);
+    int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
     // use the offset in the sequence array to give an approximate distance
-    int approx_distance(pos_t pos1, pos_t pos2);
+    int64_t approx_distance(pos_t pos1, pos_t pos2);
     // use the offset in the sequence array to get an approximate position
-    int approx_position(pos_t pos);
+    int64_t approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
-    int approx_alignment_position(const Alignment& aln);
+    int64_t approx_alignment_position(const Alignment& aln);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
-    int approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    int64_t approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
     pos_t likely_mate_position(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
-    id_t node_approximately_at(int approx_pos);
+    id_t node_approximately_at(int64_t approx_pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
     vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);

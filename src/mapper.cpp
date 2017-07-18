@@ -1503,6 +1503,7 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
     int aln_pos = approx_alignment_position(aln);
+    if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
     bool same_orientation = cached_fragment_orientation;
@@ -3835,11 +3836,11 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
     return s.str();
 }
 
-int Mapper::graph_distance(pos_t pos1, pos_t pos2, int maximum) {
+int64_t Mapper::graph_distance(pos_t pos1, pos_t pos2, int64_t maximum) {
     return xg_cached_distance(pos1, pos2, maximum, xindex, get_node_cache(), get_edge_cache());
 }
 
-int Mapper::approx_position(pos_t pos) {
+int64_t Mapper::approx_position(pos_t pos) {
     // get nodes on the forward strand
     if (is_rev(pos)) {
         pos = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
@@ -3847,13 +3848,13 @@ int Mapper::approx_position(pos_t pos) {
     return xg_cached_node_start(id(pos), xindex, get_node_start_cache()) + offset(pos);
 }
 
-int Mapper::approx_distance(pos_t pos1, pos_t pos2) {
+int64_t Mapper::approx_distance(pos_t pos1, pos_t pos2) {
     return approx_position(pos1) - approx_position(pos2);
 }
 
 /// returns approximate position of alignnment start in xindex
 /// or -1.0 if alignment is unmapped
-int Mapper::approx_alignment_position(const Alignment& aln) {
+int64_t Mapper::approx_alignment_position(const Alignment& aln) {
     if (aln.path().mapping_size()) {
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             auto& mbeg = aln.path().mapping(i);
@@ -3867,9 +3868,9 @@ int Mapper::approx_alignment_position(const Alignment& aln) {
 
 /// returns approximate distance between alignment starts
 /// or -1.0 if not possible to determine
-int Mapper::approx_fragment_length(const Alignment& aln1, const Alignment& aln2) {
-    int pos1 = approx_alignment_position(aln1);
-    int pos2 = approx_alignment_position(aln2);
+int64_t Mapper::approx_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+    int64_t pos1 = approx_alignment_position(aln1);
+    int64_t pos2 = approx_alignment_position(aln2);
     if (pos1 != -1 && pos2 != -1) {
         return abs(pos1 - pos2);
     } else {
@@ -3877,10 +3878,10 @@ int Mapper::approx_fragment_length(const Alignment& aln1, const Alignment& aln2)
     }
 }
 
-id_t Mapper::node_approximately_at(int approx_pos) {
+id_t Mapper::node_approximately_at(int64_t approx_pos) {
     return xindex->node_at_seq_pos(
         min(xindex->seq_length,
-            (size_t)max(approx_pos, 1)));
+            (size_t)max(approx_pos, (int64_t)1)));
 }
 
 // use LRU caching to get the most-recent node positions
