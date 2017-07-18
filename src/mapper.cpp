@@ -1502,13 +1502,13 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
-    int aln_pos = approx_alignment_position(aln);
+    int64_t aln_pos = approx_alignment_position(aln);
     if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
     bool same_orientation = cached_fragment_orientation;
     bool forward_direction = cached_fragment_direction;
-    int delta = cached_fragment_length_mean;
+    int64_t delta = cached_fragment_length_mean;
     // which way is our delta?
     // we are on the forward strand
     id_t target;

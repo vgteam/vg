@@ -131,7 +131,6 @@ int64_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, int64_t>& no
     pair<int64_t, bool> cached = node_start_cache.retrieve(id);
     if(!cached.second) {
         cached.first = (int64_t)xgidx->node_start(id);
-        assert(cached.first > 0);
         node_start_cache.put(id, cached.first);
     }
     return cached.first;
