@@ -1503,6 +1503,8 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
     int aln_pos = approx_alignment_position(aln);
+    // can't find the alignment position
+    if (aln_pos < 0) return make_pos_t(0, false, 0);
     bool same_orientation = cached_fragment_orientation;
     bool forward_direction = cached_fragment_direction;
     int delta = cached_fragment_length_mean;
@@ -1576,38 +1578,39 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (debug) cerr << mate1_id << " " << mate2_id << " " << consistent << endl;
+    if (debug) cerr << "pair rescue: mate1 " << mate1_id << " mate2 " << mate2_id << " consistent? " << consistent << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
         // retry off mate1
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         }
-#endif
+//#endif
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
     } else if (mate2_id > mate1_id && mate2_id > hang_threshold && !consistent) {
         // retry off mate2
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         }
-#endif
+//#endif
         rescue_off_second = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate2, false);
     } else {
         return false;
     }
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "aiming for " << mate_pos << endl;
     }
-#endif
+    if (id(mate_pos) == 0) return false; // can't rescue because the selected mate is unaligned
+//#endif
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     VG graph;
@@ -1617,20 +1620,20 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
-    if (debug) cerr << "got graph " << pb2json(graph.graph) << endl;
+    if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
         bool flip = !mate1.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate1.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
         Alignment aln2 = align_maybe_flip(mate2, graph, flip);
-#ifdef debug_mapper
+//#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
         }
-#endif
+//#endif
         if (aln2.score() > mate2.score()) {
             mate2 = aln2;
         } else {
@@ -3850,15 +3853,14 @@ int Mapper::approx_distance(pos_t pos1, pos_t pos2) {
 /// or -1.0 if alignment is unmapped
 int Mapper::approx_alignment_position(const Alignment& aln) {
     if (aln.path().mapping_size()) {
-        auto& mbeg = aln.path().mapping(0);
-        if (mbeg.has_position()) {
-            return approx_position(make_pos_t(mbeg.position()));
-        } else {
-            return -1.0;
+        for (int i = 0; i < aln.path().mapping_size(); ++i) {
+            auto& mbeg = aln.path().mapping(i);
+            if (mbeg.has_position()) {
+                return approx_position(make_pos_t(mbeg.position()));
+            }
         }
-    } else {
-        return -1.0;
     }
+    return -1.0;
 }
 
 /// returns approximate distance between alignment starts
