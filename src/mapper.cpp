@@ -2199,7 +2199,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.second.push_back(p.second);
     }
 
-    if (pair_consistent(results.first.front(), results.second.front(), 0.01)) {
+    if (results.first.size() && results.second.size()
+        && pair_consistent(results.first.front(), results.second.front(), 0.01)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
         compute_mapping_qualities(results.first, cluster_mq, mq_cap1, max_mapping_quality);
