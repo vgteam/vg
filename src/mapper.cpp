@@ -1891,7 +1891,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             } else {
                 // we may want to switch back to exact measurement, although the approximate metric is simpler and more reliable despite being less precise
                 // int distance = graph_distance(m1_pos, m2_pos, max_length); // enable for exact distance calculation
-                int distance = approx_dist;
+                int64_t distance = approx_dist;
 #ifdef debug_mapper
 #pragma omp critical
                 {
@@ -2844,7 +2844,7 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
     set<pos_t> seen;
     set<pos_t> nexts;
     nexts.insert(pos);
-    int distance = -offset(pos); // don't count what we won't traverse
+    int64_t distance = -offset(pos); // don't count what we won't traverse
     while (!nexts.empty()) {
         set<pos_t> todo;
         int nextd = 0;
@@ -3399,9 +3399,9 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         }
         auto aln1_end = path_end(aln1.path());
         auto aln2_begin = path_start(aln2.path());
-        int path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
-        int graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
-        int dist = min(path_dist, graph_dist);
+        int64_t path_dist = xindex->min_approx_path_distance({}, aln1_end.node_id(), aln2_begin.node_id());
+        int64_t graph_dist = graph_distance(make_pos_t(aln1_end), make_pos_t(aln2_begin), max_band_jump);
+        int64_t dist = min(path_dist, graph_dist);
         if (dist >= max_band_jump) {
             return -std::numeric_limits<double>::max();
         } else {
@@ -3514,8 +3514,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
                     // and in the same orientation
-                    //int dist = approx_distance(make_pos_t(prev_end), make_pos_t(curr_start));
-                    int dist = xindex->min_approx_path_distance({}, prev_end.node_id(), curr_start.node_id());
+                    int64_t dist = xindex->min_approx_path_distance({}, prev_end.node_id(), curr_start.node_id());
                     if (dist < max_band_jump || max_band_jump == 0) {
                         dist = graph_distance(make_pos_t(prev_end), make_pos_t(curr_start), max_band_jump);
                         if (dist < max_band_jump || max_band_jump == 0) {
