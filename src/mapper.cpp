@@ -1569,8 +1569,6 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     //double retry_threshold = perfect_score * 0.5;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
-    //cerr << "hang " << hang_threshold << " retry " << retry_threshold << endl;
-    //cerr << mate1.score() << " " << mate2.score() << endl;
     // based on our statistics about the alignments
     // get the subgraph overlapping the likely candidate position of the second alignment
     bool rescue_off_first = false;
@@ -1578,6 +1576,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
+    if (debug) cerr << mate1_id << " " << mate2_id << " " << consistent << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
         // retry off mate1
 #ifdef debug_mapper
@@ -1618,44 +1617,13 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
-    //cerr << "got graph " << pb2json(graph.graph) << endl;
+    if (debug) cerr << "got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
-        Alignment aln2;
         bool flip = !mate1.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate1.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
-        // do we expect the alignment to be on the reverse strand?
-        if (flip) {
-            aln2.set_sequence(reverse_complement(mate2.sequence()));
-            if (!mate2.quality().empty()) {
-                aln2.set_quality(mate2.quality());
-                reverse(aln2.mutable_quality()->begin(),
-                        aln2.mutable_quality()->end());
-            }
-        } else {
-            aln2.set_sequence(mate2.sequence());
-            if (!mate2.quality().empty()) {
-                aln2.set_quality(mate2.quality());
-            }
-        }
-        bool banded_global = false;
-        bool pinned_alignment = false;
-        bool pinned_reverse = false;
-        aln2 = align_to_graph(aln2,
-                              graph,
-                              max_query_graph_ratio,
-                              pinned_alignment,
-                              pinned_reverse,
-                              banded_global);
-        aln2.set_score(score_alignment(aln2));
-        if (flip) {
-            aln2 = reverse_complement_alignment(
-                aln2,
-                (function<int64_t(int64_t)>) ([&](int64_t id) {
-                        return (int64_t)graph.get_node(id)->sequence().size();
-                    }));
-        }
+        Alignment aln2 = align_maybe_flip(mate2, graph, flip);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -1669,41 +1637,9 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
             return false;
         }
     } else if (rescue_off_second) {
-        Alignment aln1;
         bool flip = !mate2.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate2.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
-        if (flip) {
-            aln1.set_sequence(reverse_complement(mate1.sequence()));
-            if (!mate1.quality().empty()) {
-                aln1.set_quality(mate1.quality());
-                reverse(aln1.mutable_quality()->begin(),
-                        aln1.mutable_quality()->end());
-            }
-        } else {
-            aln1.set_sequence(mate1.sequence());
-            if (!mate1.quality().empty()) {
-                aln1.set_quality(mate1.quality());
-            }
-        }
-        bool banded_global = false;
-        bool pinned_alignment = false;
-        bool pinned_reverse = false;
-        aln1 = align_to_graph(aln1,
-                              graph,
-                              max_query_graph_ratio,
-                              pinned_alignment,
-                              pinned_reverse,
-                              banded_global);
-        //cerr << "score was " << aln1.score() << endl;
-        aln1.set_score(score_alignment(aln1));
-        //cerr << "score became " << aln1.score() << endl;
-        if (flip) {
-            aln1 = reverse_complement_alignment(
-                aln1,
-                (function<int64_t(int64_t)>) ([&](int64_t id) {
-                        return (int64_t)graph.get_node(id)->sequence().size();
-                    }));
-        }
+        Alignment aln1 = align_maybe_flip(mate1, graph, flip);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -2227,16 +2163,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
         int j = 0;
+        vector<pair<Alignment, Alignment> > rescues;
         for (auto& p : alns) {
             if (++j > mate_rescues) break;
             if (pair_rescue(p.first, p.second, match)) {
                 rescued = true;
-                p.first.clear_fragment();
-                p.second.clear_fragment();
             }
         }
         show_alignments("rescue");
-        if (rescued) sort_and_dedup();
+        if (rescued) {
+            sort_and_dedup();
+        }
     }
 
 #pragma omp critical
@@ -2262,7 +2199,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.second.push_back(p.second);
     }
 
-    if (pair_consistent(results.first.front(), results.second.front(), 0.0001)) {
+    if (pair_consistent(results.first.front(), results.second.front(), 0.01)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
         compute_mapping_qualities(results.first, cluster_mq, mq_cap1, max_mapping_quality);
@@ -3021,7 +2958,7 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
         *aln2.add_fragment() = fragment;
         if (fragment_size && pair_consistent(aln1, aln2, 0)) {
             double pval = fragment_length_pval(abs(length));
-            double score = pval > 0.001 ? 10 + pval : 0;
+            double score = pval > 0.01 ? 10 + pval : 0;
             //auto p = signature(aln1, aln2);
             //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << cached_fragment_length_mean << endl;
             aln1.set_fragment_score(score);
