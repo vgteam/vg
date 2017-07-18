@@ -75,7 +75,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, bool forwa
     out_region.end = out_region.start - 1;
     // Is there a better way to get path length? 
     Path output_path = subgraph.paths.path(out_region.seq);
-    for (int j = 0; j < output_path.mapping_size(); ++j) {
+    for (size_t j = 0; j < output_path.mapping_size(); ++j) {
       int64_t op_node = output_path.mapping(j).position().node_id();
       out_region.end += subgraph.get_node(op_node)->sequence().length();
     }
@@ -155,7 +155,7 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
     int filter_count = 0;
     function<bool(const Alignment&)> in_range = [&](const Alignment& alignment) {
         if (alignment.has_path()) {
-            for (int i = 0; i < alignment.path().mapping_size(); ++i) {
+            for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
                 if (check_id(alignment.path().mapping(i).position().node_id()) == true) {
                     return true;
                 }
