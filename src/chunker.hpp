@@ -54,15 +54,17 @@ public:
 
     /** Extract all alignments that touch a node in a subgraph and write them 
      * to an output stream using the rocksdb index (and this->gam_buffer_size) */
-    int64_t extract_gam_for_subgraph(VG& subgraph, Index& index, ostream* out_stream);
-
+    int64_t extract_gam_for_subgraph(VG& subgraph, Index& index, ostream* out_stream,
+                                     bool only_fully_contained = false);
+    
     /** Like above, but for (inclusive) node id range */
-    int64_t extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index, ostream* out_stream);
+    int64_t extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index, ostream* out_stream,
+                                     bool only_fully_contained = false);
 
     /** More general interface used by above two functions */
     int64_t extract_gam_for_ids(const vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream,
-                                bool contiguous = false);
-
+                                bool contiguous = false, bool only_fully_contained = false);
+    
 };
 
 

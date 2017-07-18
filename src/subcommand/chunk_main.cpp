@@ -50,6 +50,7 @@ void help_chunk(char** argv) {
          << "                             output bed. [default=./chunk]" << endl
          << "    -c, --context STEPS      expand the context of the chunk this many steps [0]" << endl
          << "    -T, --trace              Trace haplotype threads in chunks (and only expand forward from input coordinates)" << endl
+         << "    -f, --fully-contained    Only return GAM alignments that are fully contained within chunk" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -77,6 +78,7 @@ int main_chunk(int argc, char** argv) {
     string node_ranges_file;
     int threads = 1;
     bool trace = false;
+    bool fully_contained = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -98,12 +100,13 @@ int main_chunk(int argc, char** argv) {
             {"id-ranges", no_argument, 0, 'r'},
             {"id-range", no_argument, 0, 'R'},
             {"trace", required_argument, 0, 'T'},
+            {"fully-contained", no_argument, 0, 'f'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:Tt:",
+        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:Tft:",
                 long_options, &option_index);
 
 
@@ -171,6 +174,10 @@ int main_chunk(int argc, char** argv) {
         case 'T':
             trace = true;
             break;
+
+        case 'f':
+            fully_contained = true;
+            break;
             
         case 't':
             threads = atoi(optarg);
@@ -198,6 +205,11 @@ int main_chunk(int argc, char** argv) {
     if ((region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) > 1) {
         cerr << "error:[vg chunk] at most one of {-p, -P, -r, -E, -e} required to specify input regions" << endl;
+        return 1;
+    }
+    // need -a if using -f
+    if (fully_contained && gam_file.empty()) {
+        cerr << "error:[vg chunk] gam file must be specified with -a when using -f" << endl;
         return 1;
     }
 
@@ -431,10 +443,11 @@ int main_chunk(int argc, char** argv) {
                 exit(1);
             }
             if (subgraph != NULL) {
-                chunker.extract_gam_for_subgraph(*subgraph, gam_index, &out_gam_file);
+                chunker.extract_gam_for_subgraph(*subgraph, gam_index, &out_gam_file, fully_contained);
             } else {
                 assert(id_range == true);
-                chunker.extract_gam_for_id_range(region.start, region.end, gam_index, &out_gam_file);
+                chunker.extract_gam_for_id_range(region.start, region.end, gam_index, &out_gam_file,
+                                                 fully_contained);
             }
         }
 

@@ -103,7 +103,8 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
 }
 
 int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index,
-                                              ostream* out_stream) {
+                                              ostream* out_stream,
+                                              bool only_fully_contained) {
 
     // Build the set of all the node IDs to operate on
     vector<vg::id_t> graph_ids;
@@ -112,23 +113,27 @@ int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index,
         graph_ids.push_back(node->id());
     });
 
-    return extract_gam_for_ids(graph_ids, index, out_stream);
+    return extract_gam_for_ids(graph_ids, index, out_stream, false,
+                               only_fully_contained);
 }
 
 int64_t PathChunker::extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index,
-                                              ostream* out_stream) {
+                                              ostream* out_stream,
+                                              bool only_fully_contained) {
     
     vector<vg::id_t> graph_ids;
     for (vg::id_t i = start; i <= end; ++i) {
         graph_ids.push_back(i);
     }
     
-    return extract_gam_for_ids(graph_ids, index, out_stream, true);
+    return extract_gam_for_ids(graph_ids, index, out_stream, true,
+                               only_fully_contained);
 }
 
 int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
                                          Index& index, ostream* out_stream,
-                                         bool contiguous) {
+                                         bool contiguous,
+                                         bool only_fully_contained) {
   
     // Load all the reads matching the graph into memory
     vector<Alignment> gam_buffer;
@@ -156,13 +161,20 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
     function<bool(const Alignment&)> in_range = [&](const Alignment& alignment) {
         if (alignment.has_path()) {
             for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
-                if (check_id(alignment.path().mapping(i).position().node_id()) == true) {
+                bool check = check_id(alignment.path().mapping(i).position().node_id());
+                if (only_fully_contained && check == false) {
+                    return false;
+                } else if (!only_fully_contained && check == true) {
                     return true;
                 }
             }
         }
-        ++filter_count;
-        return false;
+        if (only_fully_contained) {
+            return true;
+        } else {
+            ++filter_count;
+            return false;
+        }
     };
 
     function<void(const Alignment&)> write_alignment = [&](const Alignment& alignment) {
