@@ -1826,13 +1826,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         //double uniqueness = 2.0 / (m1.match_count + m2.match_count);
 
         // approximate distance by node lengths
-        int approx_dist = approx_distance(m1_pos, m2_pos);
+        int64_t approx_dist = approx_distance(m1_pos, m2_pos);
 
         // are the two mems in a different fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int max_length = fragment_max;
-            int dist = abs(approx_dist);
+            int64_t dist = abs(approx_dist);
             int unique_coverage = m1.length() + m2.length();
 #ifdef debug_mapper
 #pragma omp critical
@@ -2565,7 +2565,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int max_length = aln.sequence().size();
-        int approx_dist = abs(approx_distance(m1_pos, m2_pos));
+        int64_t approx_dist = abs(approx_distance(m1_pos, m2_pos));
         
 #ifdef debug_mapper
 #pragma omp critical
@@ -4657,7 +4657,7 @@ MEMChainModel::MEMChainModel(
     }
     // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
     // scan forward
-    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
+    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         for (auto& v1 : p->second) {
             if (redundant_vertexes.count(v1)) continue;
@@ -4679,7 +4679,7 @@ MEMChainModel::MEMChainModel(
         }
     }
     // scan reverse
-    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = approx_positions.rbegin();
+    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = approx_positions.rbegin();
          p != approx_positions.rend(); ++p) {
         for (auto& v1 : p->second) {
             if (redundant_vertexes.count(v1)) continue;
@@ -4701,7 +4701,7 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
-    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
+    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         // look bandwidth before and bandwidth after in the approx positions
         // after

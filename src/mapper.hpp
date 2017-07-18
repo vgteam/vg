@@ -92,7 +92,7 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
@@ -134,7 +134,7 @@ public:
 class AlignmentChainModel {
 public:
     vector<AlignmentChainModelVertex> model;
-    map<int, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
+    map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
     set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
     vector<Alignment> unaligned_bands;
     AlignmentChainModel(
