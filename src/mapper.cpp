@@ -1179,7 +1179,7 @@ void BaseMapper::init_node_start_cache(void) {
     }
     node_start_cache.clear();
     for (int i = 0; i < alignment_threads; ++i) {
-        node_start_cache.push_back(new LRUCache<id_t, size_t>(cache_size));
+        node_start_cache.push_back(new LRUCache<id_t, int64_t>(cache_size));
     }
 }
 
@@ -1216,7 +1216,7 @@ LRUCache<id_t, Node>& BaseMapper::get_node_cache(void) {
     return *node_cache[tid];
 }
 
-LRUCache<id_t, size_t>& BaseMapper::get_node_start_cache(void) {
+LRUCache<id_t, int64_t>& BaseMapper::get_node_start_cache(void) {
     int tid = node_start_cache.size() > 1 ? omp_get_thread_num() : 0;
     return *node_start_cache[tid];
 }

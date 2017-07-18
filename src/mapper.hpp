@@ -322,8 +322,8 @@ protected:
     void init_node_cache(void);
     
     // node start cache for fast approximate position estimates
-    vector<LRUCache<id_t, size_t>* > node_start_cache;
-    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    vector<LRUCache<id_t, int64_t>* > node_start_cache;
+    LRUCache<id_t, int64_t>& get_node_start_cache(void);
     void init_node_start_cache(void);
     
     // match node traversals to path positions
