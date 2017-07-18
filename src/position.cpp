@@ -127,7 +127,7 @@ size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_
     return node.sequence().size();
 }
 
-size_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, size_t>& node_start_cache) {
+int64_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, int64_t>& node_start_cache) {
     pair<size_t, bool> cached = node_start_cache.retrieve(id);
     if(!cached.second) {
         cached.first = xgidx->node_start(id);
