@@ -111,25 +111,29 @@ int main_trace(int argc, char** argv) {
   xg::XG xindex;  
   ifstream in(xg_name.c_str());
   xindex.load(in);
-  
-  xg::XG::ThreadMapping n;
-  n.node_id = start_node;
-  n.is_reverse = backwards;
-  int64_t offset = 0;
-  
-  // what subhaplotypes of length extend_distance starting at n are embedded
-  // in xindex? How many identical copies of each subhaplotype?
-  vector<pair<thread_t,int> > haplotype_list =
-     list_haplotypes(xindex, n, extend_distance);
 
-  if (!annotation_path.empty()) {
-    // haplotype counts go into annotation_ofstream
-    ofstream annotation_ofstream(annotation_path);
-    output_haplotype_counts(annotation_ofstream, haplotype_list, xindex);
+  // trace out our graph and paths from the start node
+  Graph trace_graph;
+  map<string, int> haplotype_frequences;
+  trace_haplotypes_and_paths(xindex, start_node, extend_distance, trace_graph,
+                             haplotype_frequences);
+
+  // dump our graph to stdout
+  if (json) {
+    cout << pb2json(trace_graph);
+  } else {
+    VG vg_graph;
+    vg_graph.extend(trace_graph);
+    vg_graph.serialize_to_ostream(cout);
   }
-    
-  // graph and paths go to cout
-  output_graph_with_embedded_paths(cout, haplotype_list, xindex, json);
+
+  // if requested, write thread frequencies to a file
+  if (!annotation_path.empty()) {
+    ofstream annotation_file(annotation_path);
+    for (auto tf : haplotype_frequences) {
+      annotation_file << tf.first << "\t" << tf.second << endl;
+    }
+  }
 
   return 0;
 }

@@ -40,6 +40,6 @@ is $(vg chunk -x x.xg -r 1:3 | vg view - -j | jq .node | grep id |  wc -l) 3 "id
 is $(vg chunk -x x.xg -r 1 | vg view - -j | jq .node | grep id | wc -l) 1 "id chunker produces correct single chunk"
 
 #check that traces work
-is $(vg chunk -x x.xg -n 1 -d 2 | vg view - -j | jq .node | grep id | wc -l) 3 "id chunker traces correct chunk size"
+is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
 rm -rf x.gam.index x.gam.unsrt.index _chunk_test_bed.bed _chunk_test*
 rm -f x.vg x.xg x.gam x.gam.json filter_chunk*.gam chunks.bed
