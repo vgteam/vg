@@ -201,10 +201,10 @@ int main_chunk(int argc, char** argv) {
         cerr << "error:[vg chunk] xg index (-x) required" << endl;
         return 1;
     }
-    // need at most one of -p, -P, -r, -E, -e,  as an input
+    // need at most one of -p, -P, -e, -r, -R,  as an input
     if ((region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) > 1) {
-        cerr << "error:[vg chunk] at most one of {-p, -P, -r, -E, -e} required to specify input regions" << endl;
+        cerr << "error:[vg chunk] at most one of {-p, -P, -e, -r, -R} required to specify input regions" << endl;
         return 1;
     }
     // need -a if using -f
