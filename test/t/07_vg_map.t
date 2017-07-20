@@ -16,9 +16,9 @@ is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq '.path.map
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "global alignment traverses the correct path"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "alignment score is as expected"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "scoring parameters are respected"
 
 is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 58 "full length bonus works"
 
