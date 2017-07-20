@@ -1987,12 +1987,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (int i = 0; i < clusters1.size(); ++i) {
         auto& cluster1 = clusters1[i];
         auto& cluster2 = clusters2[i];
-        if ((to_drop1.count(&cluster1) || to_drop2.count(&cluster2)) && cluster_ptrs.size() >= min_multimaps) {
-            continue;
-        }
         cluster_ptrs.push_back(make_pair(&cluster1, &cluster2));
     }
 
+    // to improve rescue, make single-ended clusters for those that are double ended
     vector<MaximalExactMatch> nullcluster;
     vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
     for (int i = 0; i < clusters1.size(); ++i) {
@@ -2007,7 +2005,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for (auto& p : se_cluster_ptrs) {
         cluster_ptrs.push_back(p);
     }
-    // sort the clusters by "interestingness"
+    // sort the clusters by unique coverage in the read
     map<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>, int> cluster_cov;
     for (auto& p : cluster_ptrs) {
         cluster_cov[p] = cluster_coverage(*p.first) + cluster_coverage(*p.second);
@@ -2059,12 +2057,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     
     set<pair<string, string> > seen_alignments;
-    int multimaps = 0;
     for (auto& cluster_ptr : cluster_ptrs) {
-        if (multimaps > total_multimaps) { break; }
+        if (alns.size() >= total_multimaps) { break; }
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
+        if ((to_drop1.count(&cluster1) || to_drop2.count(&cluster2)) && alns.size() >= min_multimaps) {
+            continue;
+        }
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
@@ -2082,6 +2082,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.second.clear_score();
             p.second.clear_identity();
             p.second.clear_path();
+        }
+        auto pair_sig = signature(p.first, p.second);
+        if (seen_alignments.count(pair_sig)) {
+            alns.pop_back();
+        } else {
+            seen_alignments.insert(pair_sig);
         }
     }
     
@@ -2133,17 +2139,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                       double score1 = (pair1.first.score() + pair1.second.score());
                       double score2 = (pair2.first.score() + pair2.second.score());
                       return score1 + weight1 > score2 + weight2;
-                      /*
-                      if (score1 == score2) {
-                      return weight1 > weight2;
-                      } else {
-                          return score1 > score2;
-                      }
-                      */
-                      /*
-                      return (((pair1.first.score() + pair1.second.score()) * weight1)
-                              (pair2.first.score() + pair2.second.score() + weight2));
-                      */
                   });
         seen_alignments.clear();
         // remove duplicates (same score and same start position of both pairs)
@@ -2663,31 +2658,20 @@ Mapper::align_mem_multi(const Alignment& aln,
     // then fix it up with DP on the little bits between the alignments
     vector<Alignment> alns;
     vector<vector<MaximalExactMatch>*> cluster_ptrs;
-    map<vector<MaximalExactMatch>*, int> cluster_cov;
+    //map<vector<MaximalExactMatch>*, int> cluster_cov;
+    set<string> seen_alignments;
     int multimaps = 0;
     for (auto& cluster : clusters) {
-        if (multimaps > total_multimaps) { break; }
+        if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && multimaps >= min_multimaps) continue;
+        if (to_drop.count(&cluster) && alns.size() >= min_multimaps) continue;
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        int coverage = cluster_coverage(cluster);
-        if (min_cluster_length && coverage < min_cluster_length && alns.size() > 1) continue;
-        cluster_cov[&cluster] = coverage;
-        cluster_ptrs.push_back(&cluster);
-        ++multimaps;
-    }
-    /*
-    sort(cluster_ptrs.begin(), cluster_ptrs.end(),
-          [&](vector<MaximalExactMatch>* c1, vector<MaximalExactMatch>* c2) {
-              return cluster_cov[c1] > cluster_cov[c2]; });
-    */
-    for (auto& cluster_ptr : cluster_ptrs) {
-        auto& cluster = *cluster_ptr;
-        // get the candidate graph
-        // align to it
+        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         Alignment candidate = align_cluster(aln, cluster);
-        if (candidate.identity() > min_identity) {
-            alns.emplace_back(candidate);
+        string sig = signature(candidate);
+        if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
+            alns.push_back(candidate);
+            seen_alignments.insert(sig);
         }
     }
 
