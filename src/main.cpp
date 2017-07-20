@@ -4084,7 +4084,6 @@ void vg_help(char** argv) {
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
          << "  -- mod           filter, transform, and edit the graph" << endl
-         << "  -- homogenize    homogenize long variants in the graph to improve genotyping" << endl
          << "  -- pileup        build a pileup from a set of alignments" << endl
          << "  -- genotype      compute genotypes from aligned reads" << endl
          << "  -- compare       compare the kmer space of two graphs" << endl
