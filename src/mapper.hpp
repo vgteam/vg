@@ -265,7 +265,7 @@ public:
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     
-    bool report_bonuses; // keep the bonuses used by the aligners in the final reported scores
+    bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
     
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions

@@ -22,7 +22,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , regular_aligner(nullptr)
     , adjust_alignments_for_base_quality(false)
     , mapping_quality_method(Approx)
-    , report_bonuses(true)
+    , strip_bonuses(false)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
                  default_gap_extension, default_full_length_bonus);
@@ -2672,7 +2672,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
                          pinned_alignment,
                          pinned_reverse,
                          banded_global);
-    if (!report_bonuses && !banded_global) aln.set_score(rescore_without_full_length_bonus(aln));
+    if (strip_bonuses && !banded_global) aln.set_score(rescore_without_full_length_bonus(aln));
     if (flip) {
         aln = reverse_complement_alignment(
             aln,
@@ -4185,7 +4185,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
             }
         }
     }
-    if (report_bonuses) {
+    if (!strip_bonuses) {
         // We should report any bonuses used in the DP in the final score
         if (!softclip_start(aln)) {
             score += (adjust_alignments_for_base_quality ?
