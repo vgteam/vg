@@ -4194,6 +4194,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
 }
 
 int32_t Mapper::rescore_without_full_length_bonus(const Alignment& aln) {
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        cerr << "dropping full length bonus" << endl;
+    }
+#endif
     int32_t score = aln.score();
     if (softclip_start(aln) == 0) {
         score -= (adjust_alignments_for_base_quality ? qual_adj_aligner->full_length_bonus : regular_aligner->full_length_bonus);
