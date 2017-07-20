@@ -440,6 +440,18 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    // flip doubly reversing edges b/c gssw doesn't like them
+                    for (size_t k = 0; k < tail_graph.edge_size(); k++) {
+                        Edge* edge = tail_graph.mutable_edge(k);
+                        if (edge->from_start() && edge->to_end()) {
+                            id_t tmp = edge->from();
+                            edge->set_from(edge->to());
+                            edge->set_to(tmp);
+                            edge->set_from_start(false);
+                            edge->set_to_end(false);
+                        }
+                    }
+                    
                     // get the sequence remaining in the right tail
                     Alignment right_tail_sequence;
                     right_tail_sequence.set_sequence(alignment.sequence().substr(match_node.end - alignment.sequence().begin(),
@@ -449,13 +461,13 @@ namespace vg {
                                                                                    alignment.sequence().end() - match_node.end));
                     }
                     
-#ifdef debug_multipath_mapper
-                    cerr << "aligning to right tail graph: " << pb2json(tail_graph) << endl;
-#endif
-                    
                     // align against the graph
                     vector<Alignment> alt_alignments;
                     qual_adj_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "aligning sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
+#endif
                     
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln.add_subpath();
@@ -496,6 +508,17 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
+                    // flip doubly reversing edges b/c gssw doesn't like them
+                    for (size_t k = 0; k < tail_graph.edge_size(); k++) {
+                        Edge* edge = tail_graph.mutable_edge(k);
+                        if (edge->from_start() && edge->to_end()) {
+                            id_t tmp = edge->from();
+                            edge->set_from(edge->to());
+                            edge->set_to(tmp);
+                            edge->set_from_start(false);
+                            edge->set_to_end(false);
+                        }
+                    }
                     
                     Alignment left_tail_sequence;
                     left_tail_sequence.set_sequence(alignment.sequence().substr(0, match_node.begin - alignment.sequence().begin()));
@@ -504,7 +527,7 @@ namespace vg {
                     }
                     
 #ifdef debug_multipath_mapper
-                    cerr << "aligning to left tail graph: " << pb2json(tail_graph) << endl;
+                    cerr << "aligning sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
 #endif
                     
                     vector<Alignment> alt_alignments;
@@ -982,6 +1005,27 @@ namespace vg {
             exact_match_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "recorded starts: " << endl;
+        for (const auto& rec : exact_match_starts) {
+            cerr << "\t" << rec.first << ": ";
+            for (auto l : rec.second) {
+                cerr << l << " ";
+            }
+            cerr << endl;
+        }
+        
+        cerr << "recorded ends: " << endl;
+        for (const auto& rec : exact_match_ends) {
+            cerr << "\t" << rec.first << ": ";
+            for (auto l : rec.second) {
+                cerr << l << " ";
+            }
+            cerr << endl;
+        }
+#endif
+
+        
         // sort the MEMs starting and ending on each node in node sequence order
         for (pair<const id_t, vector<size_t>>& node_match_starts : exact_match_starts) {
             std::sort(node_match_starts.second.begin(), node_match_starts.second.end(),
@@ -1042,8 +1086,9 @@ namespace vg {
                 cerr << "node " << node_id << " contains both starts and ends of MEMs" << endl;
 #endif
                 
-                vector<size_t>& ends = exact_match_starts[node_id];
+                vector<size_t>& ends = exact_match_ends[node_id];
                 vector<size_t>& starts = exact_match_starts[node_id];
+                
                 
                 // find the range of starts and ends in the list with the same offset
                 
@@ -1323,11 +1368,6 @@ namespace vg {
             }
             else if (contains_starts || contains_ends) {
                 // this nodes contains at least one start or end, but either all starts or all ends
-                
-#ifdef debug_multipath_mapper
-                cerr << "node " << node_id << " contains only starts or only ends of MEMs" << endl;
-#endif
-                
                 // record the incoming starts/ends for the starts/ends on this node
                 
                 unordered_map<id_t, unordered_map<size_t, size_t>>* reachable_endpoints;
@@ -1336,6 +1376,9 @@ namespace vg {
                 unordered_map<size_t, vector<pair<size_t, size_t>>>* reachable_endpoints_from_endpoint;
                 vector<size_t>* endpoints;
                 if (contains_ends) {
+#ifdef debug_multipath_mapper
+                    cerr << "node " << node_id << " contains only ends of MEMs" << endl;
+#endif
                     reachable_endpoints = &reachable_ends;
                     reachable_starts_from_endpoint = &reachable_starts_from_end;
                     reachable_ends_from_endpoint = &reachable_ends_from_end;
@@ -1343,6 +1386,9 @@ namespace vg {
                     endpoints = &exact_match_ends[node_id];
                 }
                 else {
+#ifdef debug_multipath_mapper
+                    cerr << "node " << node_id << " contains only ends of MEMs" << endl;
+#endif
                     reachable_endpoints = &reachable_starts;
                     reachable_starts_from_endpoint = &reachable_starts_from_start;
                     reachable_ends_from_endpoint = &reachable_ends_from_start;
@@ -1368,13 +1414,13 @@ namespace vg {
 #ifdef debug_multipath_mapper
                         cerr << "identifying start " << incoming_start.first << " as reachable from endpoint " << endpoints->at(j) << endl;
 #endif
-                        reachable_starts_from_endpoint->at(endpoints->at(j)).emplace_back(incoming_start.first, incoming_start.second + curr_offset);
+                        (*reachable_starts_from_endpoint)[endpoints->at(j)].emplace_back(incoming_start.first, incoming_start.second + curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
 #ifdef debug_multipath_mapper
                         cerr << "identifying end " << incoming_end.first << " as reachable from endpoint " << endpoints->at(j) << endl;
 #endif
-                        reachable_ends_from_endpoint->at(endpoints->at(j)).emplace_back(incoming_end.first, incoming_end.second + curr_offset);
+                        (*reachable_ends_from_endpoint)[endpoints->at(j)].emplace_back(incoming_end.first, incoming_end.second + curr_offset);
                     }
                 }
                 
@@ -1417,7 +1463,8 @@ namespace vg {
 #endif
                 
                 for (NodeTraversal next : nexts) {
-                    unordered_map<size_t, size_t>& reachable_endpoints_next = reachable_endpoints->at(next.node->id());
+
+                    unordered_map<size_t, size_t>& reachable_endpoints_next = (*reachable_endpoints)[next.node->id()];
                     for (size_t j = prev_range_begin; j < endpoints->size(); j++) {
                         if (reachable_endpoints_next.count(endpoints->at(j))) {
                             reachable_endpoints_next[endpoints->at(j)] = std::min(reachable_endpoints_next[endpoints->at(j)], dist_thru);
@@ -1804,13 +1851,31 @@ namespace vg {
         
         // split up each node with an overlap edge onto it
         for (auto overlap_record : confirmed_overlaps) {
-            ExactMatchNode& from_node = match_nodes[get<1>(overlap_record)];
-            ExactMatchNode& onto_node = match_nodes[get<2>(overlap_record)];
+#ifdef debug_multipath_mapper
+            cerr << "performing an overlap split from node " << get<1>(overlap_record) << " onto " << get<2>(overlap_record) << " of length " << get<0>(overlap_record) << " at distance " << get<3>(overlap_record) << endl;
+#endif
             
             size_t suffix_idx = match_nodes.size();
             
             match_nodes.emplace_back();
+            ExactMatchNode& from_node = match_nodes[get<1>(overlap_record)];
+            ExactMatchNode& onto_node = match_nodes[get<2>(overlap_record)];
             ExactMatchNode& suffix_node = match_nodes.back();
+            
+#ifdef debug_multipath_mapper
+            cerr << "before splitting:" << endl;
+            cerr << "from node:" << endl << "\t";
+            for (auto iter = from_node.begin; iter != from_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            cerr << "\t" << pb2json(from_node.path) << endl;
+            cerr << "onto node:" << endl << "\t";
+            for (auto iter = onto_node.begin; iter != onto_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl << "\t" << pb2json(onto_node.path) << endl;
+#endif
             
             // divide up the match on the read
             suffix_node.end = onto_node.end;
@@ -1869,6 +1934,25 @@ namespace vg {
             for (; mapping_idx < full_path.mapping_size(); mapping_idx) {
                 *suffix_node.path.add_mapping() = full_path.mapping(mapping_idx);
             }
+            
+#ifdef debug_multipath_mapper
+            cerr << "after splitting:" << endl;
+            cerr << "from node:" << endl << "\t";
+            for (auto iter = from_node.begin; iter != from_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl << "\t" << pb2json(from_node.path) << endl;
+            cerr << "onto node:" << endl << "\t";
+            for (auto iter = onto_node.begin; iter != onto_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl << "\t" << pb2json(onto_node.path) << endl;
+            cerr << "suffix node:" << endl << "\t";
+            for (auto iter = suffix_node.begin; iter != suffix_node.end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl << "\t" << pb2json(suffix_node.path) << endl;
+#endif
         }
         
 #ifdef debug_multipath_mapper
@@ -1951,6 +2035,12 @@ namespace vg {
         
         for (size_t i : topological_order) {
             vector<pair<size_t, size_t>>& edges = match_nodes[i].edges;
+            
+            // if there is only one edge out of a node, that edge can never be transitive
+            // (this optimization covers most cases)
+            if (edges.size() <= 1) {
+                continue;
+            }
             
             vector<bool> keep(edges.size(), true);
             unordered_set<size_t> traversed;
@@ -2621,8 +2711,8 @@ namespace vg {
         size_t order_idx = nodes.size() - 1;
         
         // initialize iteration structures
-        vector<bool> enqueued = vector<bool>(nodes.size());
-        vector<size_t> edge_index = vector<size_t>(nodes.size());
+        vector<bool> enqueued(nodes.size(), false);
+        vector<size_t> edge_index(nodes.size(), 0);
         vector<size_t> stack;
         
         // iterate through starting nodes
@@ -2635,8 +2725,9 @@ namespace vg {
             enqueued[init_node_idx] = true;
             while (!stack.empty()) {
                 size_t node_idx = stack.back();
-                if (edge_index[node_idx] < nodes[node_idx].edges_from.size()) {
-                    int64_t target_idx = nodes[node_idx].edges_from[node_idx].to_idx;
+                size_t& edge_idx = edge_index[node_idx];
+                if (edge_idx < nodes[node_idx].edges_from.size()) {
+                    size_t target_idx = nodes[node_idx].edges_from[edge_idx].to_idx;
                     if (enqueued[target_idx]) {
                         edge_index[node_idx]++;
                     }
@@ -2731,6 +2822,10 @@ namespace vg {
         for (size_t i = 0; i < nodes.size(); i++) {
             nodes[i].dp_score = nodes[i].score;
         }
+        
+#ifdef debug_multipath_mapper
+        cerr << "computing topological order for clustering DP" << endl;
+#endif
         
         vector<size_t> order;
         topological_order(order);
