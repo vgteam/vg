@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $# -ne 11 ];
+if [ $# -ne 12 ];
 then
     echo "usage: "$(basename $0) "[output-dir] [fasta-ref] [vg-ref] [vg-pan] [hap0-base] [hap1-base] [sim-base] [threads] [sim-read-spec] [sim-seed] [bp-threshold] [vg-map-opts]"
     echo "example: "$(basename $0) 'SGRP2/SGD_2010.fasta SGRP2/SGRP2-cerevisiae.pathonly SGRP2/SGRP2-cerevisiae SGRP2/SGRP2-cerevisiae BC187-haps0 BC187-haps1 BC187 4 "-n 50000 -e 0.01 -i 0.002 -l 150 -p 500 -v 50" 27 150 "-u 16"'
