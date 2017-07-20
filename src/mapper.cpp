@@ -4184,6 +4184,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
             }
         }
     }
+    if (!softclip_start(aln)) {
+        score += full_length_alignment_bonus;
+    }
+    if (!softclip_end(aln)) {
+        score += full_length_alignment_bonus;
+    }
 #ifdef debug_mapper
 #pragma omp critical
     {
