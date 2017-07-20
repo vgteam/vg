@@ -1833,7 +1833,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (m1.fragment < m2.fragment) {
             int max_length = fragment_max;
             int64_t dist = abs(approx_dist);
-            int unique_coverage = m1.length() + m2.length();
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1877,7 +1876,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             int max_length = max(read1.sequence().size(), read2.sequence().size());
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
-            int unique_coverage = (m1.length() + m2.length()) - mems_overlap_length(m1, m2);
+            int duplicate_coverage = mems_overlap_length(m1, m2);
             approx_dist = abs(approx_dist);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1908,9 +1907,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                     // accepted transition
                     double jump = abs((m2.begin - m1.begin) - distance);
                     if (jump) {
-                        return (double) unique_coverage * match - (gap_open + jump * gap_extension);
+                        return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
                     } else {
-                        return (double) unique_coverage * match;
+                        return (double) -duplicate_coverage * match;
                     }
                 }
             }
@@ -2561,7 +2560,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     // find the alignments that are the best-scoring walks through it
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
-        int unique_coverage = m1.length() + m2.length() - mems_overlap_length(m1, m2);
+        int duplicate_coverage = mems_overlap_length(m1, m2);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
         int max_length = aln.sequence().size();
@@ -2570,7 +2569,7 @@ Mapper::align_mem_multi(const Alignment& aln,
 #ifdef debug_mapper
 #pragma omp critical
         {
-            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << endl;
+            if (debug) cerr << "mems " << &m1 << ":" << m1 << " -> " << &m2 << ":" << m2 << " approx_dist " << approx_dist << " duplicate_coverage " << duplicate_coverage << endl;
         }
 #endif
         if (approx_dist > max_length) {
@@ -2584,9 +2583,9 @@ Mapper::align_mem_multi(const Alignment& aln,
                 // accepted transition
                 double jump = abs((m2.begin - m1.begin) - approx_dist);
                 if (jump) {
-                    return (double) unique_coverage * match - (gap_open + jump * gap_extension);
+                    return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
                 } else {
-                    return (double) unique_coverage * match;
+                    return (double) -duplicate_coverage * match;
                 }
             }
         }
