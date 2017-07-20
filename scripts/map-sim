@@ -1,9 +1,9 @@
 #!/bin/bash
 
-if [ $# -ne 10 ];
+if [ $# -ne 11 ];
 then
-    echo "usage: "$(basename $0) "[output-dir] [fasta-ref] [vg-ref] [vg-pan] [hap0-base] [hap1-base] [sim-base] [threads] [sim-read-spec] [vg-map-opts]"
-    echo "example: "$(basename $0) 'SGRP2/SGD_2010.fasta SGRP2/SGRP2-cerevisiae.pathonly SGRP2/SGRP2-cerevisiae SGRP2/SGRP2-cerevisiae BC187-haps0 BC187-haps1 BC187 4 "-s 271 -n 50000 -e 0.01 -i 0.002 -l 100 -p 500 -v 50" "-u 16"'
+    echo "usage: "$(basename $0) "[output-dir] [fasta-ref] [vg-ref] [vg-pan] [hap0-base] [hap1-base] [sim-base] [threads] [sim-read-spec] [sim-seed] [vg-map-opts]"
+    echo "example: "$(basename $0) 'SGRP2/SGD_2010.fasta SGRP2/SGRP2-cerevisiae.pathonly SGRP2/SGRP2-cerevisiae SGRP2/SGRP2-cerevisiae BC187-haps0 BC187-haps1 BC187 4 "-n 50000 -e 0.01 -i 0.002 -l 100 -p 500 -v 50" 27 "-u 16"'
     exit
 fi
 
@@ -16,7 +16,8 @@ haps2=$6
 sim=$7
 threads=$8
 read_spec=$9
-vg_map_opts=${10}
+seed=${10}
+vg_map_opts=${11}
 
 pan_xg=$pan.xg
 pan_gcsa=$pan.gcsa
@@ -40,7 +41,12 @@ then
     # Generate 500k read pairs (1M reads) and their "true" positions from the vg graph:
     echo generating simulated reads
     # -s 271 -n $num_reads -e 0.01 -i 0.002 -l 150 -p 500 -v 50
-    time (vg sim $read_spec -x $haps1_xg -a ; vg sim $read_spec -x $haps2_xg -a ) | tee $output/sim.gam | vg annotate -p -x $sim_xg -a - | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >$output/true.pos
+    vg sim $read_spec -s $seed -x $haps1_xg -a >$output/sim1.gam &
+    vg sim $read_spec -s $(echo "$seed + 1" | bc) -x $haps2_xg -a >$output/sim2.gam &
+    wait
+    cat $output/sim1.gam $output/sim2.gam >$output/sim.gam    
+    rm -f $output/sim1.gam $output/sim2.gam
+    vg annotate -p -x $sim_xg -a $output/sim.gam | vg view -a - | jq -c -r '[ .name, .refpos[0].name, .refpos[0].offset ] | @tsv' | pv -l | sort >$output/true.pos
     # split the file into the mates
     vg view -a $output/sim.gam | jq -cr 'select(.name | test("_1$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_1$// | gzip >$output/sim_1.fq.gz
     vg view -a $output/sim.gam | jq -cr 'select(.name | test("_2$"))' | pv -l | vg view -JaG - | vg view -X - | sed s/_2$// | gzip >$output/sim_2.fq.gz
