@@ -170,22 +170,46 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
+    // Make a sample to sample reads with
     Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
+    
+    // Make a Mapper to score reads, with the default parameters
+    Mapper rescorer;
+    // We define a function to score a generated alignment under the mapper
+    auto rescore = [&] (Alignment& aln) {
+        // Score using a dummy distance estimator.
+        aln.set_score(rescorer.score_alignment(aln, (function<size_t(pos_t, pos_t, size_t)>) ([&](pos_t from, pos_t to, size_t limit) -> size_t {
+            return (size_t) 0;
+        })));
+    };
+    
     size_t max_iter = 1000;
     int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
+        // For each read we are going to generate
+        
         if (fragment_length) {
+            // fragment_lenght is nonzero so make it two paired reads
             auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+            
             size_t iter = 0;
             while (iter++ < max_iter) {
+                // For up to max_iter iterations
                 if (alns.front().sequence().size() < read_length
                     || alns.back().sequence().size() < read_length) {
+                    // If our read was too short, try again
                     alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                 }
             }
+            
             // write the alignment or its string
             if (align_out) {
                 // write it out as requested
+                
+                // We will need scores
+                rescore(alns.front());
+                rescore(alns.back());
+                
                 if (json_out) {
                     cout << pb2json(alns.front()) << endl;
                     cout << pb2json(alns.back()) << endl;
@@ -197,19 +221,29 @@ int main_sim(int argc, char** argv) {
                 cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
             }
         } else {
+            // Do single-end reads
             auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+            
             size_t iter = 0;
             while (iter++ < max_iter) {
+                // For up to max_iter iterations
                 if (aln.sequence().size() < read_length) {
+                    // If our read is too short, try again
                     auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
                     if (aln_prime.sequence().size() > aln.sequence().size()) {
+                        // But only keep the new try if it is longer
                         aln = aln_prime;
                     }
                 }
             }
+            
             // write the alignment or its string
             if (align_out) {
                 // write it out as requested
+                
+                // We will need scores
+                rescore(aln);
+                
                 if (json_out) {
                     cout << pb2json(aln) << endl;
                 } else {

@@ -4117,6 +4117,32 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
 // handles split alignments, where gaps of unknown length are
 // by estimating length using the positional paths embedded in the graph
 int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
+    if (use_approx_distance) {
+        // Use an approximation
+        return score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+            return approx_distance(last, next);
+        });
+    } else {
+        // Use the exact method, and if we hit the limit, fall back to the approximate method.
+        return score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+            auto dist = graph_distance(last, next, max_search);
+            if (dist == max_search) {
+#ifdef debug_mapper
+#pragma omp critical
+                {
+                    if (debug) cerr << "could not find distance to next target, using approximation" << endl;
+                }
+#endif
+                dist = abs(approx_distance(last, next));
+            }
+            return dist;
+        });
+    }
+}
+
+// generate a score from the alignment without realigning
+// handles split alignments with a callback that estimates distance (with a max search limit)
+int32_t Mapper::score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance) {
     int score = 0;
     int read_offset = 0;
     auto& path = aln.path();
@@ -4160,20 +4186,7 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
                 if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
             }
 #endif
-            int dist =
-                (use_approx_distance ?
-                 approx_distance(make_pos_t(last_pos), make_pos_t(next_pos))
-                 :
-                 graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size()));
-            if (dist == aln.sequence().size()) {
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "could not find distance to next target, using approximation" << endl;
-                }
-#endif
-                dist = abs(approx_distance(make_pos_t(last_pos), make_pos_t(next_pos)));
-            }
+            int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
 #ifdef debug_mapper
 #pragma omp critical
             {
