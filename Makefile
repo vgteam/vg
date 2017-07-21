@@ -153,6 +153,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/align_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/surject_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/find_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/sim_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/view_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -585,7 +586,9 @@ $(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(S
 
 $(SUBCOMMAND_OBJ_DIR)/find_main.o: $(SUBCOMMAND_SRC_DIR)/find_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/sim_main.o: $(SUBCOMMAND_SRC_DIR)/sim_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/sampler.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/sim_main.o: $(SUBCOMMAND_SRC_DIR)/sim_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/sampler.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/view_main.o: $(SUBCOMMAND_SRC_DIR)/view_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
 
 
 ########################
