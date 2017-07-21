@@ -21,12 +21,13 @@ import tsv
 from toil_vg.vg_mapeval import get_default_mapeval_options, make_mapeval_plan, run_mapeval
 from toil_vg.vg_toil import parse_args
 from toil_vg.context import Context
-from toil_vg.vg_common import make_url
+from toil_vg.vg_common import make_url, toil_call
 
 from toil.common import Toil
 from toil.job import Job
 
 log = logging.getLogger(__name__)
+
 
 class VGCITest(TestCase):
     """
@@ -106,7 +107,7 @@ class VGCITest(TestCase):
             return 19, 54025633
         elif region == 'MHC':
             return 6, 28510119
-
+        
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
         if self.baseline.startswith('s3://'):
@@ -163,13 +164,13 @@ class VGCITest(TestCase):
         if xg_path:
             opts += '--skip_xg '
             self._get_remote_file(xg_path, os.path.join(out_store, os.path.basename(xg_path)))
-        if gcsa_path:
+        if gcsa_path and (not misc_opts or '--skip_gcsa' not in misc_opts):
             opts += '--skip_gcsa '
             self._get_remote_file(gcsa_path, os.path.join(out_store, os.path.basename(gcsa_path)))
             self._get_remote_file(gcsa_path + '.lcp', os.path.join(out_store, os.path.basename(gcsa_path) + '.lcp'))
         opts += '--index_name {}'.format(file_tag)
         if misc_opts:
-            opts += misc_opts + ' '
+            opts += ' {} '.format(misc_opts)
         
         cmd = 'toil-vg index {} {} {}'.format(job_store, out_store, opts)
         
@@ -207,14 +208,95 @@ class VGCITest(TestCase):
         if interleaved:
             opts += '--interleaved '
         if misc_opts:
-            opts += misc_opts + ' '
+            opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} --kmers_cores {} \
         --alignment_cores {} --calling_cores {} --vcfeval_cores {} '.format(
             self.cores, self.cores, self.cores, self.cores, self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
         
-        subprocess.check_call(cmd, shell=True)        
+        subprocess.check_call(cmd, shell=True)
+
+    def _make_thread_indexes(self, sample, vg_file, vcf_file, region, tag=''):
+        """ Given a graph, then we extract two threads from the
+        given sample as their own graphs, then return an xg index for each.
+        this only supports one chromosome at a time, presently.
+        the indexes are written as thread_0.xg and thread_1.xg in the
+        output store (derived from tag parameter like other methods)
+        """
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            # toil-vg options
+            vg_docker = self.vg_docker,
+            container = self.container,
+            # Toil options
+            realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+
+        # Make the context
+        context = Context(out_store, overrides)
+    
+        # Get the inputs
+        self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
+        self._get_remote_file(vcf_file, os.path.join(out_store, os.path.basename(vcf_file)))
+        self._get_remote_file(vcf_file, os.path.join(out_store, os.path.basename(vcf_file + '.tbi')))
+        
+        # Make the xg with gpbwt of the input graph
+        index_name = 'index-gpbwt'
+        chrom, offset = self._bakeoff_coords(region)
+        self._toil_vg_index(chrom, vg_file, None, None,
+                            '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
+                                vcf_file, self.cores), tag, index_name)
+        index_path = os.path.join(out_store, index_name + '.xg')
+
+        # want to input outstore files relative to work dir below
+        def work_relpath(p):            
+            # we assume out_store is a subdirectory of work_dir            
+            return os.path.join(os.path.abspath(out_store), os.path.basename(p)).replace(
+                os.path.abspath(self.workdir), '').lstrip('/')
+        
+        # Extract both haplotypes of the given sample as their own graphs
+        # (this is done through vg directly)
+        for hap in [0, 1]:
+            tmp_thread_path = os.path.abspath(os.path.join(self.workdir, 'thread_{}.vg'.format(hap)))
+
+            # This is straght from Erik.  We mush together the original graph
+            # (without paths) and the thread path from the xg index
+            with context.get_toil(job_store) as toil:
+                cmd = ['vg', 'mod', '-D', work_relpath(vg_file)]
+                toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                         work_dir = os.path.abspath(self.workdir),
+                                         out_path = tmp_thread_path))
+
+                # note: I'm not sure why that _0 is there but all threads seem
+                # to have names like _thread_NA12878_17_0_0 and _thread_NA12878_17_1_0
+                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
+                       '-x', work_relpath(index_path)]
+                toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                         work_dir = os.path.abspath(self.workdir),
+                                         out_path = tmp_thread_path,
+                                         out_append = True))
+
+                # Then we trim out anything other than our thread path
+                cmd = ['vg', 'mod', '-N', os.path.basename(tmp_thread_path)]
+                toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                         work_dir = os.path.abspath(self.workdir),
+                                         out_path = tmp_thread_path + '.drop'))
+
+            # Index the thread graphs so we can simulate from them
+            self._toil_vg_index(chrom, tmp_thread_path + '.drop', None, None,
+                                '--skip_gcsa', tag, 'thread_{}'.format(hap))
+
+            # They're in a tmp work dir so this is probably overkill
+            os.remove(tmp_thread_path)
+            os.remove(tmp_thread_path + '.drop')
+
+        return os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
 
     def _verify_f1(self, sample, tag='', threshold=None):
         # grab the f1.txt file from the output store
@@ -256,14 +338,17 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_f1('NA12878', tag)
 
-    def _mapeval_vg_run(self, reads, base_xg_path, fasta_path, test_index_bases,
-                        test_names, score_baseline_name, tag):
+    def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
+                        test_index_bases, test_names, score_baseline_name, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
         of reads simulated from a single "base" graph. Realignments are
         evaluated based on how close the realignments are to the original
         simulated source position. Simulations are done inside this function.
+
+        sim_xg_paths are used for simulation. base_xg_path is used for everything
+        else like annotation and mapping.  sim_xg_paths can be [base_xg_path]
         
         Simulates the given number of reads (reads), from the given XG file
         (base_xg_path). Uses the given FASTA (fasta_path) as a BWA reference for
@@ -301,8 +386,9 @@ class VGCITest(TestCase):
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
         opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
+        opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
-            job_store, base_xg_path, reads / 2, out_store, opts)
+            job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
         subprocess.check_call(cmd, shell=True)
 
         # then run mapeval
@@ -485,7 +571,8 @@ class VGCITest(TestCase):
                     
                
             
-    def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None):
+    def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
+                      sample = None):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -499,26 +586,41 @@ class VGCITest(TestCase):
         
         If score_baseline_graph is set to a graph name from test_graphs,
         computes score differences for reach read against that baseline.
+
+        If a sample name is specified, extract a thread for each of its haplotype
+        from the baseline graph using the gpbwt and simulate only from the threads
         
         """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
         
         # compute the xg indexes from scratch
         index_bases = []
-        for graph in set([baseline_graph] + test_graphs):
+        graph_set = set(test_graphs)
+        if not sample:
+            graph_set.add(baseline_graph)
+        for graph in graph_set:
             chrom, offset = self._bakeoff_coords(region)        
             vg_path = self._input('{}-{}.vg'.format(graph, region))
             self._toil_vg_index(chrom, vg_path, None, self._input('{}-{}.gcsa'.format(graph, region)),
                                 None, tag, '{}-{}'.format(graph, region))
+
+        xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
+        
+        # compute the haplotype graphs to simulate from
+        if sample:
+            vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
+            vcf_path = self._input('1kg_hg38_{}.vcf.gz'.format(region))
+            sim_xg_paths = self._make_thread_indexes(sample, vg_path, vcf_path, region, tag)
+        else:
+            sim_xg_paths = [xg_path]
             
         fasta_path = self._input('{}.fa'.format(region))
-        xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
         test_index_bases = []
         for test_graph in test_graphs:
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
-        self._mapeval_vg_run(reads, xg_path, fasta_path, test_index_bases,
+        self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
                              test_graphs, score_baseline_graph, tag)
 
         if self.verify:
@@ -535,6 +637,7 @@ class VGCITest(TestCase):
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
                            score_baseline_graph='primary')
+
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
