@@ -155,6 +155,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/find_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/sim_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/view_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/stats_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -381,7 +382,7 @@ $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.h
 
 $(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/stream.hpp $(DEPS) $(SRC_DIR)/utility.hpp $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/readfilter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/stream.hpp $(DEPS) $(SRC_DIR)/utility.hpp $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/readfilter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp
 
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(DEPS)
 
@@ -592,6 +593,8 @@ $(SUBCOMMAND_OBJ_DIR)/sim_main.o: $(SUBCOMMAND_SRC_DIR)/sim_main.cpp $(SUBCOMMAN
 $(SUBCOMMAND_OBJ_DIR)/view_main.o: $(SUBCOMMAND_SRC_DIR)/view_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/stats_main.o: $(SUBCOMMAND_SRC_DIR)/stats_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/vectorize_main.o: $(SUBCOMMAND_SRC_DIR)/vectorize_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/vectorizer.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 
 ########################
