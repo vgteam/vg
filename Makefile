@@ -156,6 +156,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/sim_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/view_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/stats_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/filter_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -595,6 +596,8 @@ $(SUBCOMMAND_OBJ_DIR)/view_main.o: $(SUBCOMMAND_SRC_DIR)/view_main.cpp $(SUBCOMM
 $(SUBCOMMAND_OBJ_DIR)/stats_main.o: $(SUBCOMMAND_SRC_DIR)/stats_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o: $(SUBCOMMAND_SRC_DIR)/vectorize_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/vectorizer.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/filter_main.o: $(SUBCOMMAND_SRC_DIR)/filter_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
 
 
 ########################
