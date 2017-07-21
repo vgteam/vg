@@ -384,8 +384,17 @@ class VGCITest(TestCase):
                 stats_dict[toks[0]] = [float(x) for x in toks[1:]]
         return stats_dict
 
-    def _verify_mapeval(self, reads, tag):
-        """ Check the simulated mapping evaluation results """
+    def _verify_mapeval(self, reads, score_baseline_name, tag):
+        """
+        Check the simulated mapping evaluation results.
+        
+        score_baseline_name is the name of the graph we compared scores against;
+        we will chack that reads increase in score in the other graphs against
+        that graph and complain if they don't. It may be None, in which case
+        scores are only compared against the scores the reads got when
+        simulated.
+        
+        """
 
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
         with open(stats_path) as stats:
@@ -405,62 +414,75 @@ class VGCITest(TestCase):
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
             
-        
-        score_stats_path = os.path.join(self._outstore(tag), 'score.stats.tsv')
-        if os.path.exists(score_stats_path):
-            # If the score comparison was run, make sure not too many reads get
-            # worse moving from linear reference or BWA to a graph.
+        # This holds the condition names we want a better score than
+        score_baselines = ['input']
+        if score_baseline_name is not None:
+            score_baselines.append(score_baseline_name)
             
-            try:
-                # Parse out the baseline stat values (not for the baseline
-                # graph, we shouldn't have called these both "baseline")
-                baseline_tsv = self._read_baseline_file(tag, 'score.stats.tsv')
-                baseline_dict = self._tsv_to_dict(baseline_tsv)
-            except:
-                # Maybe there's no baseline file saved yet
-                # Synthesize one of the right shape
-                baseline_dict = collections.defaultdict(lambda: [0, 0])
+        for compare_against in score_baselines:
+            # For each graph/condition we want to compare scores against
+        
+            # Now look at the stats for comparing scores on all graphs vs. scores on this particular graph.
+            score_stats_path = os.path.join(self._outstore(tag), 'score.stats.{}.tsv'.format(compare_against))
+            if os.path.exists(score_stats_path):
+                # If the score comparison was run, make sure not too many reads get
+                # worse moving from linear reference or BWA to a graph.
                 
-            # Parse out the real stat values
-            score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
-                
-            # Make sure nothing has been removed
-            assert len(score_stats_dict) >= len(baseline_dict)
-                
-            for key in score_stats_dict.iterkeys():
-                # For every kind of graph
-                
-                 # Guess where the file for individual read score differences for this graph is
-                # TODO: get this file's name/ID from the actual Toil code
-                read_comparison_path = os.path.join(self._outstore(tag), '{}.compare.scores'.format(key))
-                for line in open(read_comparison_path):
-                    if line.strip() == '':
-                        continue
-                    # Break each line of the CSV
-                    parts = line.split(', ')
-                    # Fields are read name, score difference, aligned score, baseline score
-                    read_name = parts[0]
-                    score_diff = int(parts[1])
+                try:
+                    # Parse out the baseline stat values (not for the baseline
+                    # graph, we shouldn't have called these both "baseline")
+                    baseline_tsv = self._read_baseline_file(tag, 'score.stats.{}.tsv'.format(compare_against))
+                    baseline_dict = self._tsv_to_dict(baseline_tsv)
+                except:
+                    # Maybe there's no baseline file saved yet
+                    # Synthesize one of the right shape
+                    baseline_dict = collections.defaultdict(lambda: [0, 0])
                     
-                    if score_diff < 0:
-                        # Complain about anyone who goes below 0.
-                        log.warning('Read {} has a negative score increase of {} on graph {}'.format(read_name, score_diff, key))
+                # Parse out the real stat values
+                score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                    
+                # Make sure nothing has been removed
+                assert len(score_stats_dict) >= len(baseline_dict)
+                    
+                for key in score_stats_dict.iterkeys():
+                    # For every kind of graph
+                    
+                    # Guess where the file for individual read score differences for this graph is
+                    # TODO: get this file's name/ID from the actual Toil code
+                    read_comparison_path = os.path.join(self._outstore(tag), '{}.compare.{}.scores'.format(key, compare_against))
+                    for line in open(read_comparison_path):
+                        if line.strip() == '':
+                            continue
+                        # Break each line of the CSV
+                        parts = line.split(', ')
+                        # Fields are read name, score difference, aligned score, baseline score
+                        read_name = parts[0]
+                        score_diff = int(parts[1])
+                        
+                        if score_diff < 0:
+                            # Complain about anyone who goes below 0.
+                            log.warning('Read {} has a negative score increase of {} on graph {} vs. {}'.format(
+                                read_name, score_diff, key, compare_against))
                 
-                if not baseline_dict.has_key(key):
-                    # We might get new graphs that aren't in the baseline file.
-                    log.warning('Key {} missing from score baseline dict. Inserting...'.format(key))
-                    baseline_dict[key] = [0, 0]
-                
-                # Report on its stats after dumping reads, so that if there are
-                # too many bad reads and the stats are terrible we still can see
-                # the reads.
-                print '{}  Worse: {} Baseline: {}  Threshold: {}'.format(
-                    key, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
-                # Make sure all the reads came through
-                assert score_stats_dict[key][0] == reads
-                # Make sure not too many got worse
-                assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
-                
+                    if not baseline_dict.has_key(key):
+                        # We might get new graphs that aren't in the baseline file.
+                        log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
+                        baseline_dict[key] = [0, 0]
+                    
+                    # Report on its stats after dumping reads, so that if there are
+                    # too many bad reads and the stats are terrible we still can see
+                    # the reads.
+                    print '{} vs. {} Worse: {} Baseline: {}  Threshold: {}'.format(
+                        key, compare_against, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
+                    # Make sure all the reads came through
+                    assert score_stats_dict[key][0] == reads
+                    
+                    if compare_against == 'primary':
+                        # We actually enforce a constraint comparing primary against the other graphs
+                    
+                        # Make sure not too many got worse
+                        assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+                    
                
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None):
@@ -475,8 +497,8 @@ class VGCITest(TestCase):
         
         Verifies that the realignments are sufficiently good.
         
-        If score_baseline is set to a graph name from test_graphs, computes
-        score differences for reach read against that baseline.
+        If score_baseline_graph is set to a graph name from test_graphs,
+        computes score differences for reach read against that baseline.
         
         """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
@@ -500,7 +522,7 @@ class VGCITest(TestCase):
                              test_graphs, score_baseline_graph, tag)
 
         if self.verify:
-            self._verify_mapeval(reads, tag)
+            self._verify_mapeval(reads, score_baseline_graph, tag)
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg(self):
