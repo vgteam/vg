@@ -692,6 +692,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
+    mapping_quality /= 2;
+
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
@@ -762,6 +764,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
+
+    mapping_quality /= 2;
 
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;

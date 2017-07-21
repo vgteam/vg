@@ -2866,7 +2866,8 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     auto start_pos = make_pos_t(start_mem.nodes.front());
     auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
     float expansion = 1.61803;
-    int get_before = max((int)(aln.sequence().size()), (int)(expansion * (int)(start_mem.begin - aln.sequence().begin())));
+    //int get_before = max((int)(round((double)aln.sequence().size()/expansion)), (int)(expansion * (int)(start_mem.begin - aln.sequence().begin())));
+    int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
         //if (debug) cerr << "Getting " << get_before << " before " << start_mem << endl;
@@ -2876,7 +2877,9 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
         auto& mem = mems[i];
         auto pos = make_pos_t(mem.nodes.front());
         int get_after = (i+1 == mems.size() ?
-                         max((int)(aln.sequence().size()), (int)(expansion * (int)(aln.sequence().end() - mem.begin)))
+                         //max((int)(round((double)aln.sequence().size()/expansion)), (int)(expansion * (int)(aln.sequence().end() - mem.begin)))
+                         //max((int)(round((double)aln.sequence().size()/expansion)), (int)
+                         expansion * (int)(aln.sequence().end() - mem.begin)
                          : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
         //if (debug) cerr << pos << " " << mem << " getting after " << get_after << endl;
         cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
