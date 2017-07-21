@@ -174,13 +174,11 @@ int main_sim(int argc, char** argv) {
     Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
     
     // Make a Mapper to score reads, with the default parameters
-    Mapper rescorer;
+    Mapper rescorer(xgidx, nullptr, nullptr);
     // We define a function to score a generated alignment under the mapper
     auto rescore = [&] (Alignment& aln) {
-        // Score using a dummy distance estimator.
-        aln.set_score(rescorer.score_alignment(aln, (function<size_t(pos_t, pos_t, size_t)>) ([&](pos_t from, pos_t to, size_t limit) -> size_t {
-            return (size_t) 0;
-        })));
+        // Score using exact distance.
+        aln.set_score(rescorer.score_alignment(aln, false));
     };
     
     size_t max_iter = 1000;
