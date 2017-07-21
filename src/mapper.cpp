@@ -22,7 +22,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , regular_aligner(nullptr)
     , adjust_alignments_for_base_quality(false)
     , mapping_quality_method(Approx)
-    , strip_bonuses(false)
+    , strip_bonuses(true)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
                  default_gap_extension, default_full_length_bonus);

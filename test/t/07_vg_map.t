@@ -16,22 +16,22 @@ is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -j - | jq '.path.map
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "global alignment traverses the correct path"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "alignment score is as expected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 106 "scoring parameters are respected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
 
-is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 58 "full length bonus works"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 48 "full length bonus is stripped by default"
 
-is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 --strip-bonuses -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 48 "full length bonus can be stripped"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 --include-bonuses -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 58 "full length bonus can be included"
 
-is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 96 "full length bonus can be set to 0"
+is "$(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 --include-bonuses -x x.xg -g x.gcsa -j | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }')" 96 "full length bonus can be set to 0"
 
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -d x >/dev/null
 is $? 0 "vg map takes -d as input without a variant graph"
 
 is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -j | jq . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
 
-is $(vg map --strip-bonuses --reads <(vg sim -s 69 -n 1000 -l 100 -x x.xg) -x x.xg -g x.gcsa  | vg view -a - | jq -c '.score == 100 // [.score, .sequence]' | grep true | wc -l) 1000 "alignment works on a small graph"
+is $(vg map --reads <(vg sim -s 69 -n 1000 -l 100 -x x.xg) -x x.xg -g x.gcsa  | vg view -a - | jq -c '.score == 100 // [.score, .sequence]' | grep true | wc -l) 1000 "alignment works on a small graph"
 
 seq=TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG
 is $(vg map -s $seq -x x.xg -g x.gcsa | vg view -a - | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
