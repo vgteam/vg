@@ -650,7 +650,7 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
         alpha = min(alpha, fit_zipf(rescaled_scores));
     }
 
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0))) / max(1.0, (double) next_count * (next_score / max_score)) * alpha;
+    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0))) * alpha;
 }
 
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
