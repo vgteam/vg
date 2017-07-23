@@ -644,11 +644,13 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     // assume the quality scores are drawn from a zipfian distribution
     // fit the distribution parameter and use it to scale the quality
     double alpha = 1;
+    /*
     if (zipf_scale) {
         auto rescaled_scores = scaled_scores;
         for (auto& s : rescaled_scores) s /= max_score;
         alpha = min(alpha, fit_zipf(rescaled_scores));
     }
+    */
 
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0))) * alpha;
 }
