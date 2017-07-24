@@ -135,6 +135,7 @@ pip install dateutils
 pip install requests
 pip install timeout_decorator
 pip install pytest
+pip install pygithub
 pip install toil[aws,mesos]
 # Don't manually install boto since toil just installs its preferred version
 

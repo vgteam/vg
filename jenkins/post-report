@@ -55,7 +55,24 @@ echo "Uploaded HTML as ${REPORT_URL}"
 # TODO: upload Markdown
 # In the Markdown, "{{REPORT_URL}}" will be replaced with the URL to the uploaded HTML report.
 echo "Markdown to post:"
-cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g"
+cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
+
+if [ ! -z "${BUILD_NUMBER}" ]; then
+    # On Jenkins, so actually post a comment
+    
+    if [ -z ${ghprbActualCommit} ]; then
+        # Normal master build
+                
+        # Comment on the commit we built
+        jenkins/post-comment.py vgteam/vg --in_file processed.md --commit "${GIT_COMMIT}" || true        
+    else
+        # PR build so we comment on the PR
+        # Won't work until GH_TOKEN env var is exposed on Jenkins
+        jenkins/post-comment.py vgteam/vg --in_file processed.md --pr "${ghprbPullId}" || true
+    fi
+    
+fi
+
 
 
 
