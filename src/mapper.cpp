@@ -1340,7 +1340,7 @@ Mapper::Mapper(xg::XG* xidex,
     , maybe_mq_threshold(10)
     , min_banded_mq(0)
     , max_band_jump(0)
-    , identity_weight(1)
+    , identity_weight(0)
 {
     
 }
