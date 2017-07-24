@@ -56,8 +56,8 @@ namespace vg {
                                        bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
-        double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale);
-        double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale);
+        double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
+        double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
         double estimate_next_best_score(int length, double min_diffs);
         
         // must be called before querying mapping_quality
@@ -122,8 +122,7 @@ namespace vg {
                                      bool use_cluster_mq,
                                      int overlap_count,
                                      double mq_estimate,
-                                     double identity_weight,
-                                     bool zipf_scale);
+                                     double identity_weight);
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             const vector<double>& frag_weights,
@@ -136,8 +135,7 @@ namespace vg {
                                             int overlap_count2,
                                             double mq_estimate1,
                                             double mq_estimate2,
-                                            double identity_weight,
-                                            bool zipf_scale);
+                                            double identity_weight);
         
         // Convert a score to an unnormalized log likelihood for the sequence.
         // Requires log_base to have been set.

@@ -519,7 +519,7 @@ void BaseAligner::init_mapping_quality(double gc_content) {
     log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
 }
 
-double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale) {
+double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
     size_t size = scaled_scores.size();
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
@@ -559,14 +559,7 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
         qual = -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
     }
 
-    double alpha = 1;
-    if (zipf_scale) {
-        auto rescaled_scores = scaled_scores;
-        for (auto& s : rescaled_scores) s /= max_score;
-        alpha = min(alpha, fit_zipf(rescaled_scores));
-    }
-
-    return qual * alpha;
+    return qual;
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
@@ -604,7 +597,7 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
 //    return mapping_qualities;
 //}
 
-double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out, bool zipf_scale) {
+double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
     if (scaled_scores.size() == 1) {
@@ -641,18 +634,7 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     
     *max_idx_out = max_idx;
 
-    // assume the quality scores are drawn from a zipfian distribution
-    // fit the distribution parameter and use it to scale the quality
-    double alpha = 1;
-    /*
-    if (zipf_scale) {
-        auto rescaled_scores = scaled_scores;
-        for (auto& s : rescaled_scores) s /= max_score;
-        alpha = min(alpha, fit_zipf(rescaled_scores));
-    }
-    */
-
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0))) * alpha;
+    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
 }
 
 void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
@@ -662,8 +644,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           bool use_cluster_mq,
                                           int overlap_count,
                                           double mq_estimate,
-                                          double identity_weight,
-                                          bool zipf_scale) {
+                                          double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -684,10 +665,10 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     double mapping_quality;
     size_t max_idx;
     if (!fast_approximation) {
-        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx, zipf_scale);
+        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
     }
     else {
-        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, zipf_scale);
+        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
     if (use_cluster_mq) {
@@ -727,8 +708,7 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  int overlap_count2,
                                                  double mq_estimate1,
                                                  double mq_estimate2,
-                                                 double identity_weight,
-                                                 bool zipf_scale) {
+                                                 double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -755,10 +735,10 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     size_t max_idx;
     double mapping_quality;
     if (!fast_approximation) {
-        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx, zipf_scale);
+        mapping_quality = maximum_mapping_quality_exact(scaled_scores, &max_idx);
     }
     else {
-        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx, zipf_scale);
+        mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
     
     if (use_cluster_mq) {
@@ -819,7 +799,7 @@ double BaseAligner::estimate_max_possible_mapping_quality(int length, double min
     double next_max_score = log_base * ((length - next_min_diffs) * match - next_min_diffs * mismatch);
     vector<double> v = { max_score, next_max_score };
     size_t max_idx;
-    return maximum_mapping_quality_approx(v, &max_idx, false);
+    return maximum_mapping_quality_approx(v, &max_idx);
 }
 
 double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
