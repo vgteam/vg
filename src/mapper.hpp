@@ -461,8 +461,18 @@ public:
     // for reconstruction the alignments from the SMEMs
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
-    // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
+    
+    /// Use the scoring provided by the internal aligner to re-score the
+    /// alignment, scoring gaps between nodes using graph distance from the XG
+    /// index. Can use either approximate or exact (with approximate fallback)
+    /// XG-based distance estimation.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
+    /// Use the scoring provided by the internal aligner to re-score the
+    /// alignment, scoring gaps between nodes using a custom function (which
+    /// takes the from position, the to position, and a search limit in bp that
+    /// happens to be the read length). Doesn't touch the XG index.
+    int32_t score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance);
+    
     // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
     int32_t rescore_without_full_length_bonus(const Alignment& aln);
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
