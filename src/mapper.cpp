@@ -2672,7 +2672,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
                          pinned_alignment,
                          pinned_reverse,
                          banded_global);
-    if (strip_bonuses && !banded_global) aln.set_score(rescore_without_full_length_bonus(aln));
+    if (strip_bonuses && !banded_global) aln.set_score(remove_full_length_bonus(aln));
     if (flip) {
         aln = reverse_complement_alignment(
             aln,
@@ -4117,14 +4117,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
 // handles split alignments, where gaps of unknown length are
 // by estimating length using the positional paths embedded in the graph
 int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
+    
+    // Find the right aligner to score with
+    BaseAligner* aligner = adjust_alignments_for_base_quality ? (BaseAligner*) qual_adj_aligner : (BaseAligner*) regular_aligner;
+    
     if (use_approx_distance) {
         // Use an approximation
-        return score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             return approx_distance(last, next);
-        });
+        }, strip_bonuses);
     } else {
         // Use the exact method, and if we hit the limit, fall back to the approximate method.
-        return score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             auto dist = graph_distance(last, next, max_search);
             if (dist == max_search) {
 #ifdef debug_mapper
@@ -4136,91 +4140,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
                 dist = abs(approx_distance(last, next));
             }
             return dist;
-        });
+        }, strip_bonuses);
     }
+    
 }
 
-// generate a score from the alignment without realigning
-// handles split alignments with a callback that estimates distance (with a max search limit)
-int32_t Mapper::score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance) {
-    int score = 0;
-    int read_offset = 0;
-    auto& path = aln.path();
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        auto& mapping = path.mapping(i);
-        //cerr << "looking at mapping " << pb2json(mapping) << endl;
-        for (int j = 0; j < mapping.edit_size(); ++j) {
-            auto& edit = mapping.edit(j);
-            //cerr << "looking at edit " << pb2json(edit) << endl;
-            if (edit_is_match(edit)) {
-                if (!aln.quality().empty() && adjust_alignments_for_base_quality) {
-                    score += qual_adj_aligner->score_exact_match(
-                        aln.sequence().substr(read_offset, edit.to_length()),
-                        aln.quality().substr(read_offset, edit.to_length()));
-                } else {
-                    score += edit.from_length()*regular_aligner->match;
-                }
-            } else if (edit_is_sub(edit)) {
-                score -= regular_aligner->mismatch * edit.sequence().size();
-            } else if (edit_is_deletion(edit)) {
-                score -= regular_aligner->gap_open + edit.from_length()*regular_aligner->gap_extension;
-            } else if (edit_is_insertion(edit)
-                       && !((i == 0 && j == 0)
-                            || (i == path.mapping_size()-1
-                                && j == mapping.edit_size()-1))) {
-                // todo how do we score this qual adjusted?
-                score -= regular_aligner->gap_open + edit.to_length()*regular_aligner->gap_extension;
-            }
-            read_offset += edit.to_length();
-        }
-        // score any intervening gaps in mappings using approximate distances
-        if (i+1 < path.mapping_size()) {
-            // what is the distance between the last position of this mapping
-            // and the first of the next
-            Position last_pos = mapping.position();
-            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
-            Position next_pos = path.mapping(i+1).position();
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "gap: " << make_pos_t(last_pos) << " to " << make_pos_t(next_pos) << endl;
-            }
-#endif
-            int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
-#ifdef debug_mapper
-#pragma omp critical
-            {
-                if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;
-            }
-#endif
-            if (dist > 0) {
-                score -= regular_aligner->gap_open + dist * regular_aligner->gap_extension;
-            }
-        }
-    }
-    if (!strip_bonuses) {
-        // We should report any bonuses used in the DP in the final score
-        if (!softclip_start(aln)) {
-            score += (adjust_alignments_for_base_quality ?
-                qual_adj_aligner->full_length_bonus : 
-                regular_aligner->full_length_bonus);
-        }
-        if (!softclip_end(aln)) {
-            score += (adjust_alignments_for_base_quality ? 
-                qual_adj_aligner->full_length_bonus : 
-                regular_aligner->full_length_bonus);
-        }
-    }
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) cerr << "score from score_alignment " << score << endl;
-    }
-#endif
-    return max(0, score);
-}
-
-int32_t Mapper::rescore_without_full_length_bonus(const Alignment& aln) {
+int32_t Mapper::remove_full_length_bonus(const Alignment& aln) {
 #ifdef debug_mapper
 #pragma omp critical
     {
