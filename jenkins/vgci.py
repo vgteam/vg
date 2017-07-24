@@ -44,7 +44,8 @@ class VGCITest(TestCase):
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.01
-        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
+        #self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
+        self.input_store = 'https://glennhickey2-bakeoff-store.s3.amazonaws.com/'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
@@ -53,6 +54,9 @@ class VGCITest(TestCase):
         self.cores = 8
 
         self.loadCFG()
+
+        # These are samples that are in 1KG but not in the bakeoff snp1kg graphs. 
+        self.bakeoff_removed_samples = set(['NA128{}'.format(x) for x in range(77, 94)])
                 
     def tearDown(self):
         shutil.rmtree(self.tempdir)        
@@ -240,11 +244,20 @@ class VGCITest(TestCase):
 
         # Make the context
         context = Context(out_store, overrides)
-    
+
+        # The unfiltered vcf file
+        uf_vcf_file = os.path.join(self.workdir, 'uf-' + os.path.basename(vcf_file))
+        
         # Get the inputs
         self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
-        self._get_remote_file(vcf_file, os.path.join(out_store, os.path.basename(vcf_file)))
-        self._get_remote_file(vcf_file, os.path.join(out_store, os.path.basename(vcf_file + '.tbi')))
+        self._get_remote_file(vcf_file, uf_vcf_file)
+
+        # Reduce our VCF to just the sample of interest to save time downstream
+        subprocess.check_call('bcftools view {} -s {} -O z > {}'.format(
+            uf_vcf_file, sample, os.path.join(out_store, os.path.basename(vcf_file))), shell=True)
+        subprocess.check_call('tabix -f -p vcf {}'.format(
+            os.path.join(out_store, os.path.basename(vcf_file))), shell=True)
+        os.remove(uf_vcf_file)
         
         # Make the xg with gpbwt of the input graph
         index_name = 'index-gpbwt'
@@ -296,7 +309,7 @@ class VGCITest(TestCase):
             os.remove(tmp_thread_path)
             os.remove(tmp_thread_path + '.drop')
 
-        return os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
+        return index_path, os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
 
     def _verify_f1(self, sample, tag='', threshold=None):
         # grab the f1.txt file from the output store
@@ -595,24 +608,26 @@ class VGCITest(TestCase):
         
         # compute the xg indexes from scratch
         index_bases = []
-        graph_set = set(test_graphs)
-        if not sample:
-            graph_set.add(baseline_graph)
-        for graph in graph_set:
+        for graph in set([baseline_graph] + test_graphs):
             chrom, offset = self._bakeoff_coords(region)        
             vg_path = self._input('{}-{}.vg'.format(graph, region))
             self._toil_vg_index(chrom, vg_path, None, self._input('{}-{}.gcsa'.format(graph, region)),
                                 None, tag, '{}-{}'.format(graph, region))
 
-        xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
-        
         # compute the haplotype graphs to simulate from
         if sample:
-            vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
-            vcf_path = self._input('1kg_hg38_{}.vcf.gz'.format(region))
-            sim_xg_paths = self._make_thread_indexes(sample, vg_path, vcf_path, region, tag)
+            if sample in self.bakeoff_removed_samples:
+                # Unlike the other bakeoff graphs (snp1kg-region.vg), this one contains NA12878 and family
+                vg_path = self._input('{}_all_samples-{}.vg'.format(baseline_graph, region))
+            else:
+                vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
+            vcf_path = self._input('1kg_hg38-{}.vcf.gz'.format(region))            
+            xg_path, thread1_xg_path, thread2_xg_path = self._make_thread_indexes(
+                sample, vg_path, vcf_path, region, tag)
+            sim_xg_paths = [thread1_xg_path, thread2_xg_path]
         else:
-            sim_xg_paths = [xg_path]
+            xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
+            sim_xg_paths = [xg_path]            
             
         fasta_path = self._input('{}.fa'.format(region))
         test_index_bases = []
@@ -644,7 +659,7 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')    
+                           score_baseline_graph='primary')
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):
