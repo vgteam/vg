@@ -203,6 +203,15 @@ set +e
 pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
 PYRET="$?"
 
+# Generate a report in two files: HTML full output, and a Markdown summary.
+# Takes as input the Jenkins test result XML and the work directory with the
+# test output files.
+jenkins/mine-logs test-report.xml vgci-work/ report.html summary.md
+
+# Put the report on Github for the current pull request or commit.
+jenkins/post-report report.html summary.md
+
+
 if [ ! -z "${BUILD_NUMBER}" ]
 then
     # We are running on Jenkins (and not manually running the Jenkins tests), so
