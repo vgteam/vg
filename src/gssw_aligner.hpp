@@ -26,6 +26,9 @@ namespace vg {
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
 
+    /**
+     * The interface that any Aligner should implement, with some default implementations.
+     */
     class BaseAligner {
     protected:
         BaseAligner() = default;
@@ -110,6 +113,10 @@ namespace vg {
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                Graph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) = 0;
+                        
+        /// Compute the score of an exact match in the given alignment, from the
+        /// given offset, of the given length.
+        virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
         
         // stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
         // probability that the alignment is not the correct one (assuming that one of the alignments
@@ -144,6 +151,16 @@ namespace vg {
         /// The longest gap detectable from any read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment) const;
         
+        /// Use the score values in the aligner to score the given alignment,
+        /// scoring gaps caused by jumping between between nodes using a custom
+        /// gap length estimation function (which takes the from position, the
+        /// to position, and a search limit in bp that happens to be the read
+        /// length).
+        ///
+        /// May include full length bonus or not. TODO: bool flags are bad.
+        virtual int32_t score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+            bool strip_bonuses = false);
+        
         // members
         int8_t* nt_table = nullptr;
         int8_t* score_matrix = nullptr;
@@ -158,6 +175,9 @@ namespace vg {
         
     };
     
+    /**
+     * An ordinary aligner.
+     */
     class Aligner : public BaseAligner {
     private:
         
@@ -215,11 +235,15 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         
         
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
 
     };
 
+    /**
+     * An aligner that uses read base qualities to adjust its scores and alignments.
+     */
     class QualAdjAligner : public BaseAligner {
     public:
         
@@ -247,6 +271,7 @@ namespace vg {
         
         void init_mapping_quality(double gc_content);
         
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;
