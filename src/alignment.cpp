@@ -614,12 +614,11 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
-    auto& name = alignment.name();
-    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/1")) {
+    if (alignment.has_fragment_next()) {
         // This is the first read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD1);
     }
-    if (name.size() >= 2 && name.compare(name.size() - 2, 2, "/2")) {
+    if (alignment.has_fragment_prev()) {
         // This is the second read in a pair
         flag |= (BAM_FPAIRED | BAM_FREAD2);
     }
@@ -779,6 +778,11 @@ vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2)
     ends.push_back(strip_from_end(aln, aln.sequence().size()-len1));
     ends.push_back(strip_from_start(aln, aln.sequence().size()-len2));
     return ends;
+}
+
+Alignment alignment_middle(const Alignment& aln, int len) {
+    int trim = (aln.sequence().size() - len)/2;
+    return strip_from_start(strip_from_end(aln, trim), trim);
 }
 
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
@@ -997,6 +1001,35 @@ map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
         to_pos += mapping_to_length(mapping);
     }
     return quals;
+}
+
+string middle_signature(const Alignment& aln, int len) {
+    return signature(alignment_middle(aln, len));
+}
+
+pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len) {
+    return make_pair(middle_signature(aln1, len), middle_signature(aln1, len));
+}
+
+string signature(const Alignment& aln) {
+    stringstream s;
+    if (aln.has_path() && aln.path().mapping_size()) {
+        auto& pos1 = aln.path().mapping(0).position();
+        s << pos1.node_id();
+        s << (pos1.is_reverse() ? "-" : "+");
+        s << ":" << pos1.offset();
+        s << "_";
+        auto& last = aln.path().mapping(aln.path().mapping_size()-1);
+        auto& pos2 = last.position();
+        s << pos2.node_id();
+        s << (pos2.is_reverse() ? "-" : "+");
+        s << ":" << pos2.offset() + mapping_from_length(last);
+    }
+    return s.str();
+}
+
+pair<string, string> signature(const Alignment& aln1, const Alignment& aln2) {
+    return make_pair(signature(aln1), signature(aln2));
 }
 
 }

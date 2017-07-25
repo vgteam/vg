@@ -6,11 +6,11 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 13
+plan tests 12
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "MSGA produces the expected graph for GRCh38 HLA-V"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "MSGA produces the expected graph for GRCh38 HLA-V"
 
 #is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -n 'gi|568815592:29791752-29792749' -n 'gi|568815454:1057585-1058559' -b 'gi|568815454:1057585-1058559' -w 512 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -n 'gi|568815592:29791752-29792749' -n 'gi|568815454:1057585-1058559' -b 'gi|568815454:1057585-1058559' -w 1024 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ )  "varying alignment bandwidth does not affect output graph"
 ## TODO this test is bad??
@@ -36,8 +36,6 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 
 vg msga -f msgas/cycle.fa -b s1 -w 32 -e 4 -P 0.95 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
-
-is $(vg msga -f msgas/cycle.fa -b s1 -w 16 -t 1 -E 4 | vg mod -N - | vg mod -D -| vg mod -U 10 - | vg view - | grep ^S | wc -l) 2 "a cyclic path can be normalized"
 
 vg msga -f msgas/l.fa -b a1 -w 16 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"

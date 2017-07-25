@@ -537,7 +537,8 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
     }
     
     *max_idx_out = max_idx;
-    
+
+    double qual = 0;
     if (max_score * size < exp_overflow_limit) {
         // no risk of double overflow, sum exp directly (half as many transcendental function evals)
         double numer = 0.0;
@@ -547,7 +548,7 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
             }
             numer += exp(scaled_scores[i]);
         }
-        return -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
+        qual = -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
     }
     else {
         // work in log transformed valued to avoid risk of overflow
@@ -555,8 +556,10 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
         for (size_t i = 1; i < size; i++) {
             log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
         }
-        return -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
+        qual = -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
     }
+
+    return qual;
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
@@ -640,7 +643,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           double cluster_mq,
                                           bool use_cluster_mq,
                                           int overlap_count,
-                                          double mq_estimate) {
+                                          double mq_estimate,
+                                          double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -671,12 +675,15 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
-    mapping_quality *= identity;
-
     if (mq_estimate < mapping_quality) {
-        mapping_quality = mq_estimate;
+        mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
+
+    auto& max_aln = alignments[max_idx];
+    int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
+    double identity = 1. - (double)(l * match - max_aln.score()) / (match + mismatch) / l;
+
+    mapping_quality *= pow(identity, identity_weight);
 
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
@@ -687,9 +694,14 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
+    for (int i = 0; i < alignments.size(); ++i) {
+        if (max_idx == i) continue;
+        alignments[max_idx].add_secondary_score(alignments[i].score());
+    }
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
+                                                 const vector<double>& frag_weights,
                                                  int max_mapping_quality1,
                                                  int max_mapping_quality2,
                                                  bool fast_approximation,
@@ -698,7 +710,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  int overlap_count1,
                                                  int overlap_count2,
                                                  double mq_estimate1,
-                                                 double mq_estimate2) {
+                                                 double mq_estimate2,
+                                                 double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -717,6 +730,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     
     for (size_t i = 0; i < size; i++) {
         scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        // + frag_weights[i]);
+        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance
+        // at least with the weights which we are using; todo explore this
     }
 
     size_t max_idx;
@@ -735,17 +751,22 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
-    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
-    mapping_quality1 *= identity1;
-    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
-    mapping_quality2 *= identity2;
-
     if (mq_estimate1 < mapping_quality2) {
-        mapping_quality1 = mq_estimate1;
+        mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
     if (mq_estimate2 < mapping_quality2) {
-        mapping_quality2 = mq_estimate2;
+        mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
+
+    auto& max_aln1 = alignment_pairs.first[max_idx];
+    int len1 = max(alignment_to_length(max_aln1), alignment_from_length(max_aln1));
+    double identity1 = 1. - (double)(len1 * match - max_aln1.score()) / (match + mismatch) / len1;
+    auto& max_aln2 = alignment_pairs.second[max_idx];
+    int len2 = max(alignment_to_length(max_aln2), alignment_from_length(max_aln2));
+    double identity2 = 1. - (double)(len2 * match - max_aln2.score()) / (match + mismatch) / len2;
+
+    mapping_quality1 *= pow(identity1, identity_weight);
+    mapping_quality2 *= pow(identity2, identity_weight);
 
     if (mapping_quality1 > max_mapping_quality1) {
         mapping_quality1 = max_mapping_quality1;
@@ -761,8 +782,20 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality2 = 0;
     }
 
-    alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
-    alignment_pairs.second[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality2)));
+    mapping_quality = max(0, (int32_t)round(min(mapping_quality1, mapping_quality2)));
+
+    alignment_pairs.first[max_idx].set_mapping_quality(mapping_quality);
+    alignment_pairs.second[max_idx].set_mapping_quality(mapping_quality);
+
+    for (int i = 0; i < alignment_pairs.first.size(); ++i) {
+        if (max_idx == i) continue;
+        alignment_pairs.first[max_idx].add_secondary_score(alignment_pairs.first[i].score());
+    }
+    for (int i = 0; i < alignment_pairs.second.size(); ++i) {
+        if (max_idx == i) continue;
+        alignment_pairs.second[max_idx].add_secondary_score(alignment_pairs.second[i].score());
+    }
+
 }
 
 double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
@@ -785,26 +818,48 @@ double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
     return log_base * score;
 }
 
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const {
+    // algebraic solution for when score is > 0 assuming perfect match other than gap
+    int64_t overhang_length = min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos);
+    if (!overhang_length) {
+        return 0;
+    }
+    size_t numer = match * overhang_length + full_length_bonus;
+    if (numer + gap_extension > gap_open) {
+        return (numer - gap_open) / gap_extension + 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
+    // longest detectable gap across entire read is in the middle
+    return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2));
+    
+}
+
 Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
                  int8_t _gap_open,
                  int8_t _gap_extension,
+                 int8_t _full_length_bonus,
                  double gc_content)
 {
     match = _match;
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
+    full_length_bonus = _full_length_bonus;
     // these are used when setting up the nodes
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
-    init_mapping_quality(gc_content);
+    BaseAligner::init_mapping_quality(gc_content);
 }
 
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                             bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
-                             bool print_score_matrices) {
+                             bool pinned, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
 
     // check input integrity
     if (pin_left && !pinned) {
@@ -969,25 +1024,25 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     gssw_graph_destroy(graph);
 }
 
-void Aligner::align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, full_length_bonus, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, print_score_matrices);
 }
 
-void Aligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus) {
+void Aligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
     
-    align_internal(alignment, nullptr, g, true, pin_left, 1, full_length_bonus, false);
+    align_internal(alignment, nullptr, g, true, pin_left, 1, false);
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                 bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus) {
+                                 bool pin_left, int32_t max_alt_alns) {
     
     if (alt_alignments.size() != 0) {
         cerr << "error:[Aligner::align_pinned_multi] output vector must be empty for pinned multi-aligning" << endl;
         exit(EXIT_FAILURE);
     }
     
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, full_length_bonus, false);
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, false);
 }
 
 void Aligner::align_global_banded(Alignment& alignment, Graph& g,
@@ -1103,14 +1158,19 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
     }
 }
 
-int32_t Aligner::score_exact_match(const string& sequence) {
+int32_t Aligner::score_exact_match(const string& sequence) const {
     return match * sequence.length();
+}
+
+int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const {
+    return match * (seq_end - seq_begin);
 }
 
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,
                                int8_t _gap_extension,
+                               int8_t _full_length_bonus,
                                int8_t _max_scaled_score,
                                uint8_t _max_qual_score,
                                double gc_content)
@@ -1121,6 +1181,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
+    full_length_bonus = _full_length_bonus;
     
     int8_t original_gap_open = gap_open;
     
@@ -1131,13 +1192,13 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     scale_factor = gap_open / original_gap_open;
     match *= scale_factor;
     mismatch *= scale_factor;
+    full_length_bonus *= scale_factor;
     
-    init_mapping_quality(gc_content);
+    BaseAligner::init_mapping_quality(gc_content);
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                                    bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
-                                    bool print_score_matrices) {
+                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
     
     // check input integrity
     if (pin_left && !pinned) {
@@ -1152,9 +1213,6 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         cerr << "error:[Aligner] cannot specify maximum number of alignments in single alignment" << endl;
         exit(EXIT_FAILURE);
     }
-    
-    // scale up the full length bonus
-    full_length_bonus *= scale_factor;
     
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
@@ -1319,20 +1377,20 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, full_length_bonus, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, print_score_matrices);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus) {
+void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
 
-    align_internal(alignment, nullptr, g, true, pin_left, 1, full_length_bonus, false);
+    align_internal(alignment, nullptr, g, true, pin_left, 1, false);
 
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                        bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus) {
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, full_length_bonus, false);
+                                        bool pin_left, int32_t max_alt_alns) {
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, false);
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
@@ -1363,12 +1421,25 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     
 }
 
-int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {
+int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) const {
     int32_t score = 0;
     for (int32_t i = 0; i < sequence.length(); i++) {
         // index 5 x 5 score matrices (ACGTN)
         // always have match so that row and column index are same and can combine algebraically
         score += score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
+}
+
+
+int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                          string::const_iterator base_qual_begin) const {
+    int32_t score = 0;
+    for (auto seq_iter = seq_begin, qual_iter = base_qual_begin; seq_iter != seq_end; seq_iter++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += score_matrix[25 * (*qual_iter) + 6 * nt_table[*seq_iter]];
+        qual_iter++;
     }
     return score;
 }

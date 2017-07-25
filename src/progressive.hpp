@@ -1,5 +1,5 @@
-#ifndef VG_PROGRESSIVE_H
-#define VG_PROGRESSIVE_H
+#ifndef VG_PROGRESSIVE_HPP_INCLUDED
+#define VG_PROGRESSIVE_HPP_INCLUDED
 
 // progressive.hpp: defines a Progressive mixin class that gives any object a
 // progress bar that can be turned on and off.

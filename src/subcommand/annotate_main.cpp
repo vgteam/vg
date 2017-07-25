@@ -89,17 +89,16 @@ int main_annotate(int argc, char** argv) {
             abort ();
         }
     }
-
-    Mapper mapper;
-    xg::XG* xg_index;
+    xg::XG* xg_index = nullptr;
     if (!xg_name.empty()) {
         ifstream in(xg_name);
         xg_index = new xg::XG(in);
-        mapper.xindex = xg_index;
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
         return 1;
     }
+    
+    Mapper mapper(xg_index, nullptr, nullptr);
     
     if (!gam_name.empty()) {
         vector<Alignment> buffer;
