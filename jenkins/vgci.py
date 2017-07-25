@@ -43,7 +43,7 @@ class VGCITest(TestCase):
         self.auc_threshold = 0.02
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
-        self.worse_threshold = 0.01
+        self.worse_threshold = 0.005
         #self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
         self.input_store = 'https://glennhickey2-bakeoff-store.s3.amazonaws.com/'
         self.vg_docker = None
@@ -576,11 +576,8 @@ class VGCITest(TestCase):
                     # Make sure all the reads came through
                     assert score_stats_dict[key][0] == reads
                     
-                    if compare_against == 'primary':
-                        # We actually enforce a constraint comparing primary against the other graphs
-                    
-                        # Make sure not too many got worse
-                        assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+                    # Make sure not too many got worse
+                    assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
                     
                
             
