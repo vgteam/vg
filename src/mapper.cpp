@@ -1925,7 +1925,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               transition_weight,
                               max((int)(read1.sequence().size() + read2.sequence().size()),
                                   (int)(fragment_size ? fragment_size : fragment_max)));
-        clusters = chainer.traceback(total_multimaps, false, debug);
+        clusters = chainer.traceback(total_multimaps, true, debug);
     }
 
     auto show_clusters = [&](void) {
@@ -2143,7 +2143,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     sort_and_dedup();
     if (mate_rescues && fragment_size) {
         // to improve rescue, add in single-ended versions of alignments where both mates map
-        /*
         vector<pair<Alignment, Alignment> > se_alns;
         Alignment mate1 = read1; mate1.clear_path(); mate1.clear_score();
         Alignment mate2 = read2; mate2.clear_path(); mate2.clear_score();
@@ -2158,9 +2157,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_fragment();
             p.second.clear_fragment();
         }
-        alns.insert(alns.end(), se_alns.begin(), se_alns.end());
-        sort_and_dedup();
-        */
+        if (se_alns.size()) {
+            alns.insert(alns.end(), se_alns.begin(), se_alns.end());
+            sort_and_dedup();
+        }
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
         int j = 0;
