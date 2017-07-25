@@ -576,8 +576,14 @@ class VGCITest(TestCase):
                     # Make sure all the reads came through
                     assert score_stats_dict[key][0] == reads
                     
-                    # Make sure not too many got worse
-                    assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+                    if not key.endswith('-pe'):
+                        # Skip paired-end cases because their pair partners can
+                        # pull them around. Also they are currently subject to
+                        # substantial nondeterministic alignment differences
+                        # based on the assignment of reads to threads.
+                    
+                        # Make sure not too many got worse
+                        assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
                     
                
             
