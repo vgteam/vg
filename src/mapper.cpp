@@ -1928,10 +1928,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
-    // don't attempt to align if we reach the maximum number of multimaps
-    //if (clusters.size() == total_multimaps) clusters.clear();
-    // disabled as this seems to cause serious problems at low cluster sizes
-
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
         for (auto& cluster : clusters) {
@@ -1991,21 +1987,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         cluster_ptrs.push_back(make_pair(&cluster1, &cluster2));
     }
 
-    // to improve rescue, make single-ended clusters for those that are double ended
-    vector<MaximalExactMatch> nullcluster;
-    vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
-    for (int i = 0; i < clusters1.size(); ++i) {
-        auto& cluster1 = clusters1[i];
-        auto& cluster2 = clusters2[i];
-        if (cluster1.size() && cluster2.size()) {
-            se_cluster_ptrs.push_back(make_pair(&cluster1, &nullcluster));
-            se_cluster_ptrs.push_back(make_pair(&nullcluster, &cluster2));
-        }
-    }
-    // merge the cluster ptrs
-    for (auto& p : se_cluster_ptrs) {
-        cluster_ptrs.push_back(p);
-    }
     // sort the clusters by unique coverage in the read
     map<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*>, int> cluster_cov;
     for (auto& p : cluster_ptrs) {
@@ -2091,7 +2072,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             seen_alignments.insert(pair_sig);
         }
     }
-    
+
     auto show_alignments = [&](const string& arg) {
         if (debug) {
             for (auto& p : alns) {
@@ -2161,6 +2142,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     sort_and_dedup();
     if (mate_rescues && fragment_size) {
+        // to improve rescue, add in single-ended versions of alignments where both mates map
+        vector<pair<Alignment, Alignment> > se_alns;
+        Alignment mate1 = read1; mate1.clear_path(); mate1.clear_score();
+        Alignment mate2 = read2; mate2.clear_path(); mate2.clear_score();
+        for (auto& p : alns) {
+            if (se_alns.size() >= total_multimaps) break;
+            if (p.first.score() && p.second.score()) {
+                se_alns.push_back(make_pair(p.first, mate2));
+                se_alns.push_back(make_pair(mate1, p.second));
+            }
+        }
+        for (auto& p : se_alns) {
+            p.first.clear_fragment();
+            p.second.clear_fragment();
+        }
+        alns.insert(alns.end(), se_alns.begin(), se_alns.end());
+        sort_and_dedup();
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
         int j = 0;
