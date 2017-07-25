@@ -90,6 +90,7 @@ int main_genotype(int argc, char** argv) {
     // At least how many reads must be consistent per strand for a call?
     size_t min_consistent_per_strand = 2;
 
+    bool just_call = false;
     int c;
     optind = 2; // force optind past command positional arguments
     while (true) {
@@ -115,11 +116,12 @@ int main_genotype(int argc, char** argv) {
                 {"gam", required_argument, 0, 'G'},
                 {"fasta", required_argument, 0, 'F'},
                 {"insertions", required_argument, 0, 'I'},
+                {"call", no_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:V:I:G:F:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:V:I:G:F:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -169,6 +171,9 @@ int main_genotype(int argc, char** argv) {
         case 'S':
             // Find sites on the graph subset with any read support
             subset_graph = true;
+            break;
+        case 'z':
+            just_call = true;
             break;
         case 'i':
             // Do indel realignment
@@ -227,6 +232,14 @@ int main_genotype(int argc, char** argv) {
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in);
     });
+
+    if (just_call){
+        Genotyper gt;
+        string gamfi(gam_file);
+        string rstr(ref_path_name);
+        gt.genotype_svs(graph, gamfi, rstr);
+        exit(0);
+    }
 
     if (!(gam_file.empty() || recall_vcf.empty() || fasta.empty() || insertions_file.empty())){
         Genotyper gt;

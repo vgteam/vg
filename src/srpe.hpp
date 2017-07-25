@@ -5,6 +5,7 @@
 #include <Variant.h>
 #include "filter.hpp"
 #include "index.hpp"
+#include "path_index.hpp"
 #include "IntervalTree.h"
 #include "vg.pb.h"
 #include "fml.h"
@@ -26,8 +27,16 @@ namespace vg{
         int64_t upper_bound = 100;
         int64_t lower_bound = 100;
 
+        // Does the breakpoint point this way --->>
+        // or this way <<---
         bool isForward;
+        // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+        int SV_TYPE = 0;
+        // 
 
+        int normal_supports = 0;
+        int tumor_supports = 0;
+        
         int fragl_supports = 0;
         int split_supports = 0;
         int other_supports = 0;
@@ -75,79 +84,55 @@ namespace vg{
           
 class DepthMap {
     /**
-    *  Map <node_id : depth>
-    *  or
     *  Map <node_id : offset : depth>
+    *  or
+    *  Map <SnarlTraversal : support count>
     */
 public:
   int8_t* depths;
   uint64_t size;
+  map<int64_t, uint64_t> node_pos;
+  vg::VG* g_graph;
   inline DepthMap(int64_t sz) { depths = new int8_t[sz]; };
-  inline DepthMap() { depths = new int8_t[1000]; };
-  inline int8_t get_depth(int64_t node_id) { return depths[node_id]; };
-  inline void set_depth(int64_t node_id, int8_t d) { depths[node_id] = d; };
-  inline void fill(vector<Alignment> alns){
-    for (auto a : alns){
-        for (int i = 0; i < a.path().mapping_size(); ++i){
-            Mapping m = a.path().mapping(i);
-            for (int j = 0; j < m.edit_size(); j++){
-                if (m.edit(j).to_length() == m.edit(j).from_length() &&
-                     m.edit(j).sequence().empty()){
-                        depths[m.position().node_id()] += 1;
-                        break;
-                     }
-            }
+  inline DepthMap() {};
+  inline DepthMap(vg::VG* graph){
+    g_graph = graph;
+    int64_t tot_size = 0;
+    std::function<void(Node*)> count_size = [&](Node* n){
+        #pragma omp critical
+        {
+            node_pos[n->id()] = tot_size;
+            tot_size += n->sequence().length();
         }
-    }
+    };
+    graph->for_each_node(count_size);
+    size = tot_size;
+    depths = new int8_t(size);
   };
-  inline void fill(vector<Path> paths){
-    #pragma omp parallel for
-    for (int p_ind = 0; p_ind < paths.size(); ++p_ind){
-        Path p = paths[p_ind];
-        for (int i=0; i<p.mapping_size(); ++i){
-            Mapping m = p.mapping(i);
-            bool match = false;
-            for (int j = 0; j < m.edit_size(); ++j){
-                if (m.edit(j).from_length() == m.edit(j).to_length() &&
-                        m.edit(j).sequence().empty()){
-                            match = true;
-                        }
-            }
-            if (match){
-                #pragma omp atomic
-                depths[m.position().node_id()] += 1;
-            }
-            
-        }
-    }
-  };
-  inline void fill(Path path){
-        for (int i=0; i<path.mapping_size(); ++i){
-            Mapping m = path.mapping(i);
-            for (int j = 0; j < m.edit_size(); ++j){
-                if (m.edit(j).from_length() == m.edit(j).to_length() &&
-                        m.edit(j).sequence().empty()){
-                            depths[m.position().node_id()] == 1;
-                            break;
-                        }
-            }
-            
-        }
-  };
-  inline void fill(Mapping m){
-    #pragma omp atomic
-    depths[m.position().node_id()]++;
-  };
-  inline void fill(int64_t node_id) {
-    if (node_id < size) {
-        #pragma omp atomic
-        depths[node_id] += 1;
-    } else {
-        cerr << "WARNING: INVALID NODE" << node_id << endl;
-    }
-  }
+  inline int8_t get_depth(int64_t node_id, int64_t offset) { return depths[node_id + offset]; };
+  inline void set_depth(int64_t node_id, int64_t offset, int8_t d) { depths[node_id + offset] = d; };
+  inline void increment_depth(int64_t node_id, int64_t offset) {
+    
+    depths[node_pos [node_id] + offset] += 1;
 };
+  inline void fill_depth(const vg::Path& p){
+    for (int i = 0; i < p.mapping_size(); i++){
+        Mapping m = p.mapping(i);
+        Position p = m.position();
+        int64_t nodeid = p.node_id();
+        int offset = p.offset();
+        for (int j = 0; j < m.edit_size(); j++){
+            Edit e = m.edit(j);
+            if (e.from_length() == e.to_length() && e.sequence().empty()){
+                for (int x = 0; x < e.from_length(); ++x){
+                    increment_depth(nodeid, offset + x);
+                }
+            }
+        }
+    }
+  };
 
+};
 
     class SRPE{
 
@@ -156,8 +141,13 @@ public:
 
         public:
             vector<string> ref_names;
+            map<string, PathIndex> pindexes;
 
             vector<pair<int, int> > intervals;
+
+            void call_svs_paired_end(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath="");
+            void call_svs_split_read(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath="");
+            void call_svs(string graphfile, string gamfile, string refpath);
 
             // Calculate a proxy for discordance between a set of Alginments
             // and a subgraph (e.g. one that's been modified with a candidate variant)

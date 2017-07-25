@@ -337,11 +337,11 @@ int main_sift(int argc, char** argv){
 
 
     std::function<void(Alignment&, Alignment&)> pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
-        pair<Alignment, Alignment> ret;
+        bool ret;
         bool flagged = false;
 
         if (do_unmapped && !flagged){
-            if (ff.unmapped_filter(alns_first).name() != "" && ff.unmapped_filter(alns_second).name() != ""){
+            if (ff.unmapped_filter(alns_first) && ff.unmapped_filter(alns_second)){
 
                     #pragma omp critical (unmapped_selected)
                     {
@@ -360,7 +360,7 @@ int main_sift(int argc, char** argv){
         if (do_orientation && !flagged){
             
             ret = ff.pair_orientation_filter(alns_first, alns_second);
-            if (ret.first.name() != "" || ret.first.name() != ""){
+            if (ret){
                 #pragma omp critical (discordant_selected)
             {
                 flagged = true;
@@ -373,12 +373,11 @@ int main_sift(int argc, char** argv){
         }
         if (do_oea && !flagged){
             ret = ff.one_end_anchored_filter(alns_first, alns_second);
-            if (ret.first.sequence() != "" && ret.second.sequence() != ""){
+            if (ret){
                 #pragma omp critical (oea_selected)
                 {
-
-                    one_end_anchored.push_back(ret.first);
-                    one_end_anchored.push_back(ret.second);
+                    one_end_anchored.push_back(alns_first);
+                    one_end_anchored.push_back(alns_second);
                 }
             }
             
@@ -387,7 +386,7 @@ int main_sift(int argc, char** argv){
         if (do_insert_size && !flagged){
             
             ret = ff.insert_size_filter(alns_first, alns_second);
-            if (ret.first.name() != "" && ret.second.name() != ""){
+            if (ret){
                 #pragma omp critial (insert_selected)
                 {
                     insert_selected.push_back(alns_first);
@@ -400,7 +399,7 @@ int main_sift(int argc, char** argv){
         }
         if (do_split_read && !flagged){
 
-            if (ff.split_read_filter(alns_first).name() != ""){
+            if (ff.split_read_filter(alns_first)){
                 #pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
@@ -410,7 +409,7 @@ int main_sift(int argc, char** argv){
                 }
                 
             }
-            if (ff.split_read_filter(alns_second).name() != ""){
+            if (ff.split_read_filter(alns_second)){
                 #pragma omp critical (split_selected)
                 {
                     split_selected.push_back(alns_first);
@@ -438,16 +437,16 @@ int main_sift(int argc, char** argv){
         }
         if (do_softclip && !flagged){
 
-            Alignment x = ff.soft_clip_filter(alns_first);
-            Alignment y = ff.soft_clip_filter(alns_second);
-            if (!x.name().empty()){
+            bool x = ff.soft_clip_filter(alns_first);
+            bool y = ff.soft_clip_filter(alns_second);
+            if (x){
                 #pragma omp critical (clipped_selected)
                 {
                     clipped_selected.push_back(alns_first);
                     flagged = true;
                 }
             } 
-            if (!y.name().empty()){
+            if (y){
                 #pragma omp critical (clipped_selected)
                 {
                     flagged = true;
@@ -511,7 +510,7 @@ int main_sift(int argc, char** argv){
             reversing_selected.push_back(aln);
         }
         if (do_softclip){
-           if (!ff.soft_clip_filter(aln).name().empty()){
+           if (ff.soft_clip_filter(aln)){
                 clipped_selected.push_back(aln);
            }
            //stream::write_buffered(clipped_stream, clipped_selected, 1000);

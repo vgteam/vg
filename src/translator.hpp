@@ -1,5 +1,5 @@
-#ifndef VG_TRANSLATOR_H
-#define VG_TRANSLATOR_H
+#ifndef VG_TRANSLATOR_HPP_INCLUDED
+#define VG_TRANSLATOR_HPP_INCLUDED
 /// \file translator.hpp
 /// Defines the Translator, which maps paths on an augmented graph into the base
 /// graph defined by a set of Translations from the augmented graph

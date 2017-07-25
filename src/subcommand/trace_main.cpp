@@ -21,8 +21,9 @@ void help_trace(char** argv) {
          << "    -n, --start-node INT       start at this node" << endl
         //TODO: implement backwards iteration over graph
         // << "    -b, --backwards            iterate backwards over graph" << endl
-         << "    -d, --extend-distance INT  extend search this many nodes" << endl
-         << "    -j, --output-json          path to which to output json" << endl;
+         << "    -d, --extend-distance INT  extend search this many nodes [default=50]" << endl
+         << "    -a, --annotation-path      output file for haplotype frequency annotations" << endl
+         << "    -j, --json                 output subgraph in json instead of protobuf" << endl;
 }
 
 int main_trace(int argc, char** argv) {
@@ -32,10 +33,11 @@ int main_trace(int argc, char** argv) {
   }
 
   string xg_name;
-  string output_path;
-  int64_t start_node;
+  string annotation_path;
+  int64_t start_node = 0;
   int extend_distance = 50;
   bool backwards = false;
+  bool json = false;
 
   int c;
   optind = 2; // force optind past command positional argument
@@ -45,15 +47,16 @@ int main_trace(int argc, char** argv) {
             /* These options set a flag. */
             //{"verbose", no_argument,       &verbose_flag, 1},
             {"index", required_argument, 0, 'x'},
-            {"output-json", required_argument, 0, 'j'},
+            {"annotation-path", required_argument, 0, 'a'},
             {"start-node", required_argument, 0, 'n'},
             {"extend-distance", required_argument, 0, 'd'},
+            {"json", no_argument, 0, 'j'},
             //{"backwards", no_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
     int option_index = 0;
-    c = getopt_long (argc, argv, "x:j:n:d:h",
+    c = getopt_long (argc, argv, "x:a:n:d:jh",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -66,8 +69,8 @@ int main_trace(int argc, char** argv) {
         xg_name = optarg;
         break;
 
-    case 'j':
-        output_path = optarg;
+    case 'a':
+        annotation_path = optarg;
         break;
 
     case 'n':
@@ -76,6 +79,10 @@ int main_trace(int argc, char** argv) {
 
     case 'd':
         extend_distance = atoi(optarg);
+        break;
+
+    case 'j':
+        json = true;
         break;
 
     //case 'b':
@@ -92,29 +99,40 @@ int main_trace(int argc, char** argv) {
         abort();
     }
   }
-  
-  xg::XG xindex;
-  if (!xg_name.empty()) {
-      ifstream in(xg_name.c_str());
-      xindex.load(in);
+
+  if (xg_name.empty()) {
+    cerr << "[vg trace] xg index must be specified with -x" << endl;
+    return 1;
   }
-  
-  xg::XG::ThreadMapping n;
-  n.node_id = start_node;
-  n.is_reverse = backwards;
-  int64_t offset = 0;
-  
-  if(!output_path.empty()) {
-    ofstream annotation_ofstream(output_path+".annotation");
-    ofstream json_ofstream(output_path);
-    // what subhaplotypes of length extend_distance starting at n are embedded
-    // in xindex? How many identical copies of each subhaplotype?
-    vector<pair<thread_t,int> > haplotype_list =
-              list_haplotypes(xindex, n, extend_distance);
-    // haplotype counts go into annotation_ofstream
-    output_haplotype_counts(annotation_ofstream, haplotype_list, xindex);
-    // json containing graph and paths goes into json_ofstream
-    output_graph_with_embedded_paths(json_ofstream, haplotype_list, xindex);
+  if (start_node < 1) {
+    cerr << "[vg trace] start node must be specified with -n" << endl;
+    return 1;
+  }
+  xg::XG xindex;  
+  ifstream in(xg_name.c_str());
+  xindex.load(in);
+
+  // trace out our graph and paths from the start node
+  Graph trace_graph;
+  map<string, int> haplotype_frequences;
+  trace_haplotypes_and_paths(xindex, start_node, extend_distance, trace_graph,
+                             haplotype_frequences);
+
+  // dump our graph to stdout
+  if (json) {
+    cout << pb2json(trace_graph);
+  } else {
+    VG vg_graph;
+    vg_graph.extend(trace_graph);
+    vg_graph.serialize_to_ostream(cout);
+  }
+
+  // if requested, write thread frequencies to a file
+  if (!annotation_path.empty()) {
+    ofstream annotation_file(annotation_path);
+    for (auto tf : haplotype_frequences) {
+      annotation_file << tf.first << "\t" << tf.second << endl;
+    }
   }
 
   return 0;

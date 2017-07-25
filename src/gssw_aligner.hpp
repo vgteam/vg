@@ -1,5 +1,5 @@
-#ifndef GSSW_ALIGNER_H
-#define GSSW_ALIGNER_H
+#ifndef VG_GSSW_ALIGNER_HPP_INCLUDED
+#define VG_GSSW_ALIGNER_HPP_INCLUDED
 
 #include <algorithm>
 #include <vector>
@@ -21,10 +21,14 @@ namespace vg {
     static const int8_t default_mismatch = 4;
     static const int8_t default_gap_open = 6;
     static const int8_t default_gap_extension = 1;
+    static const int8_t default_full_length_bonus = 0;
     static const int8_t default_max_scaled_score = 32;
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
 
+    /**
+     * The interface that any Aligner should implement, with some default implementations.
+     */
     class BaseAligner {
     protected:
         BaseAligner() = default;
@@ -65,8 +69,6 @@ namespace vg {
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
         
-        // log of the base of the logarithm underlying the log-odds interpretation of the scores
-        double log_base = 0.0;
         
     public:
 
@@ -75,7 +77,7 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         /// Assumes that graph is topologically sorted by node index.
-        virtual void align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices = false) = 0;
+        virtual void align(Alignment& alignment, Graph& g, bool print_score_matrices = false) = 0;
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -87,7 +89,7 @@ namespace vg {
         // Gives the full length bonus only on the non-pinned end of the alignment.
         //
         // assumes that graph is topologically sorted by node index
-        virtual void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0) = 0;
+        virtual void align_pinned(Alignment& alignment, Graph& g, bool pin_left) = 0;
         
         // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -96,7 +98,7 @@ namespace vg {
         //
         // assumes that graph is topologically sorted by node index
         virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                        bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0) = 0;
+                                        bool pin_left, int32_t max_alt_alns) = 0;
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
@@ -111,6 +113,10 @@ namespace vg {
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                Graph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) = 0;
+                        
+        /// Compute the score of an exact match in the given alignment, from the
+        /// given offset, of the given length.
+        virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
         
         // stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
         // probability that the alignment is not the correct one (assuming that one of the alignments
@@ -139,6 +145,22 @@ namespace vg {
         // Requires log_base to have been set.
         double score_to_unnormalized_likelihood_ln(double score);
         
+        /// The longest gap detectable from a read position without soft-clipping
+        size_t longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const;
+        
+        /// The longest gap detectable from any read position without soft-clipping
+        size_t longest_detectable_gap(const Alignment& alignment) const;
+        
+        /// Use the score values in the aligner to score the given alignment,
+        /// scoring gaps caused by jumping between between nodes using a custom
+        /// gap length estimation function (which takes the from position, the
+        /// to position, and a search limit in bp that happens to be the read
+        /// length).
+        ///
+        /// May include full length bonus or not. TODO: bool flags are bad.
+        virtual int32_t score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+            bool strip_bonuses = false);
+        
         // members
         int8_t* nt_table = nullptr;
         int8_t* score_matrix = nullptr;
@@ -146,15 +168,22 @@ namespace vg {
         int8_t mismatch;
         int8_t gap_open;
         int8_t gap_extension;
+        int8_t full_length_bonus;
+        
+        // log of the base of the logarithm underlying the log-odds interpretation of the scores
+        double log_base = 0.0;
         
     };
     
+    /**
+     * An ordinary aligner.
+     */
     class Aligner : public BaseAligner {
     private:
         
         // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                            bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
+                            bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool print_score_matrices = false);
     public:
         
@@ -162,13 +191,14 @@ namespace vg {
                 int8_t _mismatch = default_mismatch,
                 int8_t _gap_open = default_gap_open,
                 int8_t _gap_extension = default_gap_extension,
+                int8_t _full_length_bonus = default_full_length_bonus,
                 double _gc_content = default_gc_content);
         ~Aligner(void) = default;
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         /// Assumes that graph is topologically sorted by node index.
-        void align(Alignment& alignment, Graph& g, int8_t full_length_bonus, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -180,7 +210,7 @@ namespace vg {
         // Gives the full length bonus only on the non-pinned end of the alignment.
         //
         // assumes that graph is topologically sorted by node index
-        void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
+        void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
                 
         // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -189,7 +219,7 @@ namespace vg {
         //
         // assumes that graph is topologically sorted by node index
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0);
+                                bool pin_left, int32_t max_alt_alns);
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
@@ -205,10 +235,15 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         
         
-        int32_t score_exact_match(const string& sequence);
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
+        int32_t score_exact_match(const string& sequence) const;
+        int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
 
     };
 
+    /**
+     * An aligner that uses read base qualities to adjust its scores and alignments.
+     */
     class QualAdjAligner : public BaseAligner {
     public:
         
@@ -216,6 +251,7 @@ namespace vg {
                        int8_t _mismatch = default_mismatch,
                        int8_t _gap_open = default_gap_open,
                        int8_t _gap_extension = default_gap_extension,
+                       int8_t _full_length_bonus = default_full_length_bonus,
                        int8_t _max_scaled_score = default_max_scaled_score,
                        uint8_t _max_qual_score = default_max_qual_score,
                        double gc_content = default_gc_content);
@@ -223,17 +259,22 @@ namespace vg {
         ~QualAdjAligner(void) = default;
 
         // base quality adjusted counterparts to functions of same name from Aligner
-        void align(Alignment& alignment, Graph& g, int8_t full_length_bonus = 0, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
-        void align_pinned(Alignment& alignment, Graph& g, bool pin_left, int8_t full_length_bonus = 0);
+        void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
-                                bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus = 0);
+                                bool pin_left, int32_t max_alt_alns);
         
         
-        int32_t score_exact_match(const string& sequence, const string& base_quality);
+        void init_mapping_quality(double gc_content);
+        
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
+        int32_t score_exact_match(const string& sequence, const string& base_quality) const;
+        int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                  string::const_iterator base_qual_begin) const;
         
         uint8_t max_qual_score;
         int8_t scale_factor;
@@ -241,7 +282,7 @@ namespace vg {
     private:
 
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                            bool pinned, bool pin_left, int32_t max_alt_alns, int8_t full_length_bonus,
+                            bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool print_score_matrices = false);
         
 

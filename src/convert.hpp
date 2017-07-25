@@ -1,7 +1,9 @@
-#ifndef __CONVERT_H
-#define __CONVERT_H
+#ifndef VG_CONVERT_HPP_INCLUDED
+#define VG_CONVERT_HPP_INCLUDED
 
 #include <sstream>
+
+namespace vg {
 
 // converts the string into the specified type, setting r to the converted
 // value and returning true/false on success or failure
@@ -17,6 +19,8 @@ std::string convert(const T& r) {
     std::ostringstream iss;
     iss << r;
     return iss.str();
+}
+
 }
 
 #endif

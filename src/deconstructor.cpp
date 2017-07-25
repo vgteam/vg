@@ -37,9 +37,20 @@ namespace vg {
                 // if they're all on the ref path,
                 // then this Snarltraversal is the ref allele.
                 bool is_ref = true;
-                for (auto v : t.visits()){
+                
+                // Get the middle of the traversal that doesn't include the
+                // boundary nodes
+                auto iter = t.visits().begin();
+                iter++;
+                auto end = t.visits().end();
+                end--;
+                for (; iter != end; iter++){
+                    auto v = *iter;
                     if (!pind->path_contains_node(v.node_id())){
                         is_ref = false;
+                    }
+                    if (v.node_id() == 0){
+                        continue;
                     }
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
@@ -63,7 +74,15 @@ namespace vg {
             else{
                 // All alleles are alt alleles
                 // Just make our strings and push them back.
-                for (auto v : t.visits()){
+                
+                // Get the middle of the traversal that doesn't include the
+                // boundary nodes
+                auto iter = t.visits().begin();
+                iter++;
+                auto end = t.visits().end();
+                end--;
+                for (; iter != end; iter++){
+                    auto v = *iter;
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
                 ret.push_back(t_allele.str());
@@ -80,12 +99,14 @@ namespace vg {
                 // put our new-found ref base in the 0th index of alleles vector.
                 // Then, prepend that base to each allele in our alleles vector.
                     SnarlTraversal t = ordered_traversals[i];
-                    pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[t.snarl().start().node_id()];
-                    pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[t.snarl().end().node_id()];
+                    id_t start_id = t.visits(0).node_id();
+                    id_t end_id = t.visits(t.visits_size() - 1).node_id();
+                    pair<size_t, bool> pos_orientation_start = pindexes[refpath]->by_id[start_id];
+                    pair<size_t, bool> pos_orientation_end = pindexes[refpath]->by_id[end_id];
                     bool use_start = pos_orientation_start.first < pos_orientation_end.first;
                     bool rev = use_start ? pos_orientation_start.second : pos_orientation_end.second;
-                    string pre_node_seq = use_start ? graph->get_node(t.snarl().start().node_id())->sequence() :
-                                            graph->get_node(t.snarl().end().node_id())->sequence();
+                    string pre_node_seq = use_start ? graph->get_node(start_id)->sequence() :
+                                            graph->get_node(end_id)->sequence();
                     string pre_variant_base = rev ? string(1, pre_node_seq[0]) : string(1, pre_node_seq[pre_node_seq.length() - 1]);
                     ret[i].insert(0, pre_variant_base);
                 }
@@ -128,7 +149,6 @@ namespace vg {
         SnarlFinder* snarl_finder = new CactusUltrabubbleFinder(*graph, refpath, true);
         SnarlManager snarl_manager = snarl_finder->find_snarls();
         vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
-        SimpleConsistencyCalculator scc;
         TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl: snarl_roots){
             vcflib::Variant v;

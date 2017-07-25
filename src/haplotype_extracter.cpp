@@ -1,22 +1,50 @@
 #include <iostream>
+#include "vg.hpp"
 #include "haplotype_extracter.hpp"
-#include "vg.pb.h"
 #include "json2pb.h"
 #include "xg.hpp"
 
 using namespace std;
 using namespace vg;
 
-void output_haplotype_counts(ofstream& annotation_ofstream,
-            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
-  for(int i = 0; i < haplotype_list.size(); i++) {
-    annotation_ofstream << i << "\t" << haplotype_list[i].second << endl;
+void trace_haplotypes_and_paths(xg::XG& index,
+                                vg::id_t start_node, int extend_distance,
+                                Graph& out_graph,
+                                map<string, int>& out_thread_frequencies,
+                                bool expand_graph) {
+  // get our haplotypes
+  xg::XG::ThreadMapping n = {start_node, false};
+  vector<pair<thread_t,int> > haplotypes = list_haplotypes(index, n, extend_distance);
+
+  if (expand_graph) {
+    // get our subgraph and "regular" paths by expanding forward
+    *out_graph.add_node() = index.node(start_node);
+    index.expand_context(out_graph, extend_distance, true, true, true, false);
   }
-  annotation_ofstream.close();
+
+  // add a frequency of 1 for each normal path
+  for (int i = 0; i < out_graph.path_size(); ++i) {
+    out_thread_frequencies[out_graph.path(i).name()] = 1;
+  }
+
+  // add our haplotypes to the subgraph, naming ith haplotype "thread_i"
+  for (int i = 0; i < haplotypes.size(); ++i) {
+    Path p = path_from_thread_t(haplotypes[i].first);
+    p.set_name("thread_" + to_string(i));
+    *(out_graph.add_path()) = move(p);
+    out_thread_frequencies[p.name()] = haplotypes[i].second;
+  }
 }
 
-void output_graph_with_embedded_paths(ofstream& json_ofstream,
+
+void output_haplotype_counts(ostream& annotation_ostream,
             vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
+  for(int i = 0; i < haplotype_list.size(); i++) {
+    annotation_ostream << i << "\t" << haplotype_list[i].second << endl;
+  }
+}
+
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
   Graph g;
   set<int64_t> nodes;
   set<pair<int,int> > edges;
@@ -30,8 +58,20 @@ void output_graph_with_embedded_paths(ofstream& json_ofstream,
     p.set_name(to_string(i));
     *(g.add_path()) = move(p);
   }
-  json_ofstream << pb2json(g);
-  json_ofstream.close();
+  return g;
+}
+ 
+void output_graph_with_embedded_paths(ostream& subgraph_ostream,
+            vector<pair<thread_t,int>>& haplotype_list, xg::XG& index, bool json) {
+  Graph g = output_graph_with_embedded_paths(haplotype_list, index);
+
+  if (json) {
+    subgraph_ostream << pb2json(g);
+  } else {
+    VG subgraph;
+    subgraph.extend(g);
+    subgraph.serialize_to_ostream(subgraph_ostream);
+  }
 }
 
 void thread_to_graph_spanned(thread_t& t, Graph& g, xg::XG& index) {

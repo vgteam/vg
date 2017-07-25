@@ -259,7 +259,7 @@ Call2Vcf::PrimaryPath::PrimaryPath(AugmentedGraph& augmented, const string& ref_
             total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
-            int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            size_t bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
             if (bin == binned_support.size()) {
                 --bin;
             }
@@ -294,7 +294,7 @@ const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset)
         
 size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
     // Find which coordinate bin the position is in
-    int bin = primary_path_offset / ref_bin_size;
+    size_t bin = primary_path_offset / ref_bin_size;
     if (bin == get_total_bins()) {
         --bin;
     }
@@ -375,7 +375,13 @@ map<string, Call2Vcf::PrimaryPath>::iterator Call2Vcf::find_path(const Snarl& si
 void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t)> handle_node,
     function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
 
-    for(int64_t i = 0; i < traversal.visits_size(); i++) {
+    // Must at least have start and end
+    assert(traversal.visits_size() >= 2);
+    
+    // Look at the edge leading from the start (also handles deletion traversals)
+    handle_edge(0, to_right_side(traversal.visits(0)), to_left_side(traversal.visits(1)));
+    
+    for(int64_t i = 1; i < traversal.visits_size() - 1; i++) {
         // For all the (internal) visits...
         auto& visit = traversal.visits(i);
         
@@ -383,46 +389,28 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             // This is a visit to a node
             
             // Find the node
-            handle_node(i, visit.node_id());
+            handle_node(i - 1, visit.node_id());
         } else {
             // This is a snarl
-            handle_child(i, visit.snarl());
+            handle_child(i - 1, visit.snarl());
         }
         
-        // Account for the edge out
-        if (i + 1 < traversal.visits_size()) {
-            // There's a next visit
-            auto& next_visit = traversal.visits(i + 1);
+        auto& next_visit = traversal.visits(i + 1);
+        
+        if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+            to_right_side(visit).flip() == to_left_side(next_visit)) {
             
-            if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
-                to_right_side(visit).flip() == to_left_side(next_visit)) {
-                
-                // These are two back-to-back child snarl visits, which
-                // share a node and have no connecting edge.
+            // These are two back-to-back child snarl visits, which
+            // share a node and have no connecting edge.
 #ifdef debug
-                cerr << "No edge needed for back-to-back child snarls" << endl;
+            cerr << "No edge needed for back-to-back child snarls" << endl;
 #endif
-                
-            } else {
-                // Do the edge to it
-                handle_edge(i, to_right_side(visit), to_left_side(next_visit));
-            }
-        } else {
-            // Do the edge to the end of the snarl.
-            handle_edge(i, to_right_side(visit), to_left_side(site.end()));
+            
         }
-        
-        // And for the edge in, if necessary
-        if (i == 0) {
-            // This is the first visit, so we need to connect to the left end of the snarl.
-            handle_edge(i, to_right_side(site.start()), to_left_side(visit));
+        else {
+            // Do the edge to it
+            handle_edge(i - 1, to_right_side(visit), to_left_side(next_visit));
         }
-    }
-    
-    if(traversal.visits_size() == 0) {
-        // We just have the anchoring nodes and the edge between them.
-        // Look at that edge specially.
-        handle_edge(0, to_right_side(site.start()), to_left_side(site.end()));
     }
 
 }
@@ -468,7 +456,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
     
     // Compute min and total supports, and bp sizes, for all the visits by
     // number.
-    size_t record_count = max(1, traversal.visits_size());
+    size_t record_count = max(1, traversal.visits_size() - 2);
     // What's the min support observed at every visit (inclusing edges)?
     vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
     // And the total support (ignoring edges)?
@@ -490,7 +478,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         visit_sizes[i] += node->sequence().size();
         
         // And update its min support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(node));
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * (shared_nodes.count(node_id) ? 0.5 : 1.0));
         
     }, [&](size_t i, NodeSide end1, NodeSide end2) {
         // This is an edge
@@ -503,7 +491,7 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         visit_sizes[i] += 1;
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge));
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));
     }, [&](size_t i, Snarl child) {
         // This is a child snarl, so get its max support.
         
@@ -578,6 +566,68 @@ tuple<Support, Support, size_t> get_traversal_support(AugmentedGraph& augmented,
         
 }
 
+/** Get the support for each traversal in a list, using average_support_switch_threshold
+    to decide if we use the minimum or average */
+tuple<vector<Support>, vector<size_t> > Call2Vcf::get_traversal_supports_and_sizes(
+    AugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+    const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
+
+    // How long is the longest traversal?
+    // Sort of approximate because of the way nested site sizes are estimated.
+    size_t longest_traversal_length = 0;
+    
+    // And the shortest one?
+    size_t shortest_traversal_length = numeric_limits<size_t>::max();
+
+    // Calculate average and min support for all the traversals of this snarl.
+    vector<Support> min_supports;
+    vector<Support> average_supports;
+    vector<size_t> sizes;
+    for(auto& traversal : traversals) {
+        // Go through all the SnarlTraversals for this Snarl
+        
+        // What's the total support for this traversal?
+        Support total_support;
+        // And the length over which we have it (for averaging)
+        size_t total_size;
+        // And the min support?
+        Support min_support;
+        // Trace the traversal and get its support
+        tie(min_support, total_support, total_size) = get_traversal_support(
+            augmented, snarl_manager, site, traversal, minus_traversal);
+            
+        // Add average and min supports to vectors. Note that average support
+        // ignores edges.
+        min_supports.push_back(min_support);
+        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
+        
+#ifdef debug
+        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
+#endif
+
+        // Remember a new longest traversal length
+        longest_traversal_length = max(longest_traversal_length, total_size);  
+        // And a new shortest one
+        shortest_traversal_length = min(shortest_traversal_length, total_size);
+        // and the current size
+        sizes.push_back(total_size);
+    }
+    
+#ifdef debug
+    cerr << "Min vs. average" << endl;
+#endif
+    for (size_t i = 0; i < average_supports.size(); i++) {
+#ifdef debug
+        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
+#endif
+        // We should always have a higher average support than minumum support
+        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
+    }
+
+    return (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
+        tie(average_supports, sizes) :
+        tie(min_supports, sizes);
+}
 
 vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
@@ -608,76 +658,35 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // path.
     Locus locus;
     
-    // How long is the longest traversal?
-    // Sort of approximate because of the way nested site sizes are estimated.
-    size_t longest_traversal_length = 0;
-    
-    // And the shortest one?
-    size_t shortest_traversal_length = numeric_limits<size_t>::max();
-    
-    // Calculate average and min support for all the traversals of this snarl.
-    vector<Support> min_supports;
-    vector<Support> average_supports;
-    for(auto& traversal : here_traversals) {
-        // Go through all the SnarlTraversals for this Snarl
+    vector<Support> supports;
+    vector<size_t> traversal_sizes;
+    // Calculate the support for all the traversals of this snarl.
+    tie(supports, traversal_sizes) = get_traversal_supports_and_sizes(
+        augmented, snarl_manager, site, here_traversals);
         
-        // What's the total support for this traversal?
-        Support total_support;
-        // And the length over which we have it (for averaging)
-        size_t total_size;
-        // And the min support?
-        Support min_support;
-        // Trace the traversal and get its support
-        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
-            snarl_manager, site, traversal);
-            
-        // Add average and min supports to vectors. Note that average support
-        // ignores edges.
-        min_supports.push_back(min_support);
-        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
-        
-#ifdef debug
-        cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;
-#endif
-
-        // Remember a new longest traversal length
-        longest_traversal_length = max(longest_traversal_length, total_size);  
-        // And a new shortest one
-        shortest_traversal_length = min(shortest_traversal_length, total_size);      
-    }
-    
-#ifdef debug
-    cerr << "Min vs. average" << endl;
-#endif
-    for (size_t i = 0; i < average_supports.size(); i++) {
-#ifdef debug
-        cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
-#endif
-        // We should always have a higher average support than minumum support
-        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
-    }
-
-    // Decide which support vector we use to actually decide.
-    // Use average support for long sites where dropout might be expected, and min support otherwise.
-    vector<Support>& supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
-        average_supports :
-        min_supports;
-    
     for (auto& support : supports) {
         // Blit supports over to the locus
         *locus.add_support() = support;
     }
     
     ////////////////////////////////////////////////////////////////////////////
-    
-    // Now look at all the paths for the site and pick the best one
-    int best_allele = -1;
-    for(size_t i = 0; i < supports.size(); i++) {
-        if(best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i])) {
-            // We have a new best.
-            best_allele = i;
+
+    // look at all the paths for the site and pick the best one    
+    function<int(const vector<Support>&, vector<int>)> get_best_allele = [this](
+        const vector<Support>& supports, vector<int> skips) {
+        int best_allele = -1;
+        for(size_t i = 0; i < supports.size(); i++) {
+            if(std::find(skips.begin(), skips.end(), i) == skips.end() && (
+                   best_allele == -1 || support_val(supports[best_allele]) <= support_val(supports[i]))) {
+                best_allele = i;
+            }
         }
-    }
+        return best_allele;
+    };
+
+    // Now look at all the paths for the site and pick the best one
+    int best_allele = get_best_allele(supports, {});
+    
     // We should always have a best allele; we may sometimes have a second best.
     assert(best_allele != -1);
     
@@ -686,47 +695,32 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #endif
     
     // Then recalculate supports assuming we can't count anything shared with that best traversal
-    vector<Support> min_additional_supports;
-    vector<Support> average_additional_supports;
-    for(auto& traversal : here_traversals) {
-        // Go through all the SnarlTraversals for this Snarl
-        
-        // Get all these again, modulo the best allele
-        Support total_support;
-        size_t total_size;
-        Support min_support;
-        tie(min_support, total_support, total_size) = get_traversal_support(augmented,
-            snarl_manager, site, traversal, &here_traversals.at(best_allele));
-            
-        // Add average and min supports to vectors.
-        min_additional_supports.push_back(min_support);
-        average_additional_supports.push_back(total_size != 0 ? total_support / total_size : Support());
-        
-#ifdef debug
-        cerr << "Additional: Min: " << min_support << " Total: " << total_support << " Average: "
-            << average_additional_supports.back() << endl;
-#endif
-    }
-    vector<Support>& additional_supports = (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
-        average_additional_supports :
-        min_additional_supports;
+    vector<Support> additional_supports;
+    tie(additional_supports, std::ignore) = get_traversal_supports_and_sizes(
+        augmented, snarl_manager, site, here_traversals, &here_traversals.at(best_allele));
     
     // Then pick the second best one
-    int second_best_allele = -1;
-    for(size_t i = 0; i < additional_supports.size(); i++) {
-        if (best_allele == i) {
-            // The second best allele can't be the best allele.
-            continue;
-        }
-        if(second_best_allele == -1 || support_val(additional_supports[second_best_allele]) <= support_val(additional_supports[i])) {
-            // We're the best so far, and not the best allele, so we're the second best.
-            second_best_allele = i;
-        }
-    }
-    
+    int second_best_allele = get_best_allele(additional_supports, {best_allele});
+
 #ifdef debug
     cerr << "Choose second best allele: " << second_best_allele << endl;
 #endif
+
+    // Hack for special case where we want to call a multiallelic alt even if the reference
+    // has better support than one or both alts
+    vector<Support> tertiary_supports;
+    int third_best_allele = -1;
+    if (second_best_allele != -1) {
+        tie(tertiary_supports, std::ignore) = get_traversal_supports_and_sizes(
+            augmented, snarl_manager, site, here_traversals, &here_traversals.at(second_best_allele));
+        third_best_allele = get_best_allele(tertiary_supports, {best_allele, second_best_allele});
+    }    
+
+    // Decide if we're an indel by looking at the traversal sizes
+    bool is_indel = traversal_sizes[best_allele] != traversal_sizes[0] ||
+        (second_best_allele != -1 && traversal_sizes[0] != traversal_sizes[second_best_allele]);
+    bool is_indel_ma_2 = (second_best_allele != -1 && traversal_sizes[0] != traversal_sizes[second_best_allele]);
+    bool is_indel_ma_3 = (third_best_allele != -1 && traversal_sizes[0] != traversal_sizes[third_best_allele]);
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -747,6 +741,10 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     Support second_best_support; // Defaults to 0
     if(second_best_allele != -1) {
         second_best_support = supports.at(second_best_allele);
+    }
+    Support third_best_support;
+    if (third_best_allele != -1) {
+        third_best_support = supports.at(third_best_allele);
     }
     
     // As we do the genotype, we also compute the likelihood. Holds
@@ -781,7 +779,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
             // these calls back to homozygous ref. TODO: This shouldn't apply
             // when off the primary path!
             bias_limit = max_ref_het_bias;
-        } else if (longest_traversal_length > shortest_traversal_length) {
+        } else if (is_indel) {
             // This is an indel
             // Use indel bias limit
             bias_limit = max_indel_het_bias;
@@ -805,7 +803,33 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
 
+        // Call 1/2 : REF-Alt1/Alt2 even if Alt2 has only third best support
         if (copy_budget >= 2 &&
+            best_allele == 0 && 
+            third_best_allele > 0 &&
+            is_indel_ma_3 &&
+            max_indel_ma_bias * bias_multiple * support_val(third_best_support) >= support_val(best_support) &&
+            total(second_best_support) >= min_total_support_for_call &&
+            total(third_best_support) >= min_total_support_for_call) {
+            // There's a second best allele and third best allele, and it's not too biased to call,
+            // and both alleles exceed the minimum to call them present, and the
+            // second-best and third-best alleles have enough support that it won't torpedo the
+            // variant.
+            
+#ifdef debug
+            cerr << "Call as second best/third best" << endl;
+#endif
+            // Say both are present
+            genotype.add_allele(second_best_allele);
+            genotype.add_allele(third_best_allele);
+                        
+            // Get minimum support for filter (not assuming it's second_best just to be sure)
+            min_site_support = min(total(second_best_support), total(third_best_support));
+            
+            // Make the call
+            *locus.add_genotype() = genotype;
+        }
+        else if (copy_budget >= 2 &&
             second_best_allele != -1 &&
             bias_limit * bias_multiple * support_val(second_best_support) >= support_val(best_support) &&
             total(best_support) >= min_total_support_for_call &&
@@ -899,7 +923,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
         // asserting
         SnarlTraversal& traversal = here_traversals.at(genotype.allele(i));
         
-        for (size_t j = 0; j < traversal.visits_size(); j++) {
+        for (size_t j = 1; j < traversal.visits_size() - 1; j++) {
             // For each visit to a child snarl
             auto& visit = traversal.visits(j);
             if (visit.node_id() != 0) {
@@ -919,7 +943,7 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     // even the ones called as CN 0, because we need the fully-specified
     // traversals to build our Locus (which needs the alleles we rejected as
     // having no copies).
-    map<const Snarl*, vector<SnarlTraversal>> child_traversals;
+    unordered_map<const Snarl*, vector<SnarlTraversal>> child_traversals;
     for (const Snarl* child : snarl_manager.children_of(&site)) {
         // Recurse on each child, giving a copy number budget according to the
         // usage count call at this site. This produces fully realized
@@ -941,13 +965,14 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
     for (size_t traversal_number = 0; traversal_number < here_traversals.size(); traversal_number++) {
         // For every abstract traversal of this site, starting with the ref traversal...
         auto& abstract_traversal = here_traversals[traversal_number];
+#ifdef debug
+        cerr << "Concretizing abstract traversal " << pb2json(abstract_traversal) << endl;
+#endif
+        
         // Make a "concrete", node-level traversal for every abstract, Snarl-
         // visiting traversal.
         concrete_traversals.emplace_back();
         auto& concrete_traversal = concrete_traversals.back();
-        
-        // Copy over the snarl info
-        *concrete_traversal.mutable_snarl() = abstract_traversal.snarl();
         
         for (size_t i = 0; i < abstract_traversal.visits_size(); i++) {
             // Go through all the visits in the abstract traversal
@@ -966,6 +991,11 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
                 // be going through the child backward.
                 auto& child_traversal = child_traversals.at(child).at(traversal_number == 0 ? 0 : 1);
                 
+#ifdef debug
+                cerr << "Splicing in child traversal " << pb2json(child_traversal) << endl;
+#endif
+                
+                size_t trav_transfer_start = 0;
                 if (i != 0) {
                     // There was a previous visit. It may have been a previous
                     // back-to-back snarl.
@@ -975,38 +1005,30 @@ vector<SnarlTraversal> Call2Vcf::find_best_traversals(AugmentedGraph& augmented,
 #ifdef debug
                         cerr << "Skip entry node for back-to-back sites" << endl;
 #endif
-                    } else {
-                        
-                        *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
+                        trav_transfer_start++;
                     }
-                } else {
-                    // First the entry node (in the correct order and orientation)
-                    *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->end()) : child->start();
                 }
-                for (size_t j = 0; j < child_traversal.visits_size(); j++) {
+                for (size_t j = trav_transfer_start; j < child_traversal.visits_size(); j++) {
                     // All the internal visits, in the correct order 
                     *concrete_traversal.add_visits() = abstract_visit.backward() ?
                         reverse(child_traversal.visits(child_traversal.visits_size()- 1 - j)) :
                         child_traversal.visits(j);
                 }
-                // And last the exit node (in the correct order and orientation)
-                *concrete_traversal.add_visits() = abstract_visit.backward() ? reverse(child->start()) : child->end();
             }
         }
+#ifdef debug
+        cerr << "Finished concrete traversal " << pb2json(concrete_traversals.back()) << endl;
+#endif
     }
     
     for (auto& concrete_traversal : concrete_traversals) {
         // Populate the Locus with those traversals by converting to paths
         Path* converted = locus.add_allele();
         
-        // Start with the start mapping
-        *converted->add_mapping() = to_mapping(site.start(), augmented.graph);
         for (size_t i = 0; i < concrete_traversal.visits_size(); i++) {
             // Convert all the visits to Mappings and stick them in the Locus's Paths
             *converted->add_mapping() = to_mapping(concrete_traversal.visits(i), augmented.graph);
         }
-        // Finish with the end
-        *converted->add_mapping() = to_mapping(site.end(), augmented.graph);
     }
     
     if (locus.genotype_size() > 0) {
@@ -1035,7 +1057,7 @@ void Call2Vcf::call(
     string pileup_filename) {
 
     // Toggle support counter
-    support_val = use_support_quality ? support_quality : total;
+    support_val = use_support_count ? total : support_quality;
 
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();
@@ -1344,9 +1366,12 @@ void Call2Vcf::call(
             vector<bool> is_ref;
             
             for (size_t i = 0; i < locus.allele_size(); i++) {
+
                 // For each allele path in the Locus
                 auto& path = locus.allele(i);
-                
+#ifdef debug
+                cerr << "Extracting allele " << i << ": " << pb2json(path) << endl;
+#endif
                 // Make a stream for the sequence of the path
                 stringstream sequence_stream;
                 // And for the description of involved IDs
@@ -1362,7 +1387,9 @@ void Call2Vcf::call(
                         node_sequence = reverse_complement(node_sequence);
                     }
                     sequence_stream << node_sequence;
-                    
+#ifdef debug
+                    cerr << "\tMapping: " << pb2json(mapping) << ", sequence " << node_sequence << endl;
+#endif
                     if (j != 0) {
                         // Add a separator
                         id_stream << "_";
@@ -1383,6 +1410,9 @@ void Call2Vcf::call(
                 } else {
                     sequences.push_back(sequence_stream.str());
                 }
+#ifdef debug
+                cerr << "Recorded allele sequence " << sequences.back() << endl;
+#endif
                 id_lists.push_back(id_stream.str());
                 // And whether they're reference or not
                 is_ref.push_back(is_reference(path, augmented));
@@ -1961,21 +1991,11 @@ bool Call2Vcf::is_reference(const SnarlTraversal& trav, AugmentedGraph& augmente
         return true;
     };
     
-    // Make sure we visit a ref start node
-    if (!experience_visit(trav.snarl().start())) {
-        return false;
-    }
-    
-    // Then all the internal nodes
+    // Experience the entire traversal from start to end
     for (size_t i = 0; i < trav.visits_size(); i++) {
         if (!experience_visit(trav.visits(i))) {
             return false;
         }
-    }
-    
-    // And finally the end node
-    if (!experience_visit(trav.snarl().end())) {
-        return false;
     }
     
     // And if we make it through it's a reference traversal.

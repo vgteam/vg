@@ -1,5 +1,5 @@
-#ifndef VG_PATH_INDEX_H
-#define VG_PATH_INDEX_H
+#ifndef VG_PATH_INDEX_HPP_INCLUDED
+#define VG_PATH_INDEX_HPP_INCLUDED
 
 /** \file
  *
