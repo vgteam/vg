@@ -25,7 +25,7 @@ void help_map(char** argv) {
          << "    -u, --try-up-to INT     attempt to align up to the INT best candidate chains of seeds [512]" << endl
          << "    -l, --try-at-least INT  attempt to align up to the INT best candidate chains of seeds [16]" << endl
          << "    -E, --approx-mq-cap INT weight MQ by suffix tree based estimate when estimate less than INT [60]" << endl
-         << "    -m, --id-mq-weight N    scale mapping quality by the alignment score identity to this power [2]" << endl
+         << "    --id-mq-weight N        scale mapping quality by the alignment score identity to this power [2]" << endl
          << "    -W, --min-chain INT     discard a chain if seeded bases shorter than INT [0]" << endl
          << "    -C, --drop-chain FLOAT  drop chains shorter than FLOAT fraction of the longest overlapping chain [0.5]" << endl
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
@@ -204,12 +204,12 @@ int main_map(int argc, char** argv) {
                 {"fixed-frag-model", no_argument, 0, 'U'},
                 {"print-frag-model", no_argument, 0, 'p'},
                 {"frag-calc", required_argument, 0, 'F'},
-                {"id-mq-weight", required_argument, 0, 'm'},
+                {"id-mq-weight", required_argument, 0, '7'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:m:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:m7:",
                          long_options, &option_index);
 
 
@@ -247,7 +247,7 @@ int main_map(int argc, char** argv) {
             max_multimaps = atoi(optarg);
             break;
 
-        case 'm':
+        case '7':
             identity_weight = atof(optarg);
             break;
 
