@@ -47,6 +47,7 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
+         << "    -m, --include-bonuses   include bonuses in reported scores" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -113,6 +114,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
+    bool strip_bonuses = true;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
     int min_multimaps = 16;
@@ -190,6 +192,7 @@ int main_map(int argc, char** argv) {
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
+                {"include-bonuses", no_argument, 0, 'm'},
                 {"seed-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-overlap", required_argument, 0, 'n'},
@@ -258,6 +261,10 @@ int main_map(int argc, char** argv) {
 
         case 'L':
             full_length_bonus = atoi(optarg);
+            break;
+        
+        case 'm':
+            strip_bonuses = false;
             break;
 
         case 'T':
@@ -605,6 +612,7 @@ int main_map(int argc, char** argv) {
         m->mem_chaining = mem_chaining;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
+        m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;

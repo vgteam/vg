@@ -839,6 +839,64 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
     
 }
 
+int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+    bool strip_bonuses) {
+    
+    int score = 0;
+    int read_offset = 0;
+    auto& path = aln.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        // For each mapping
+        auto& mapping = path.mapping(i);
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            // For each edit in the mapping
+            auto& edit = mapping.edit(j);
+            
+            // Score the edit according to its type
+            if (edit_is_match(edit)) {
+                score += score_exact_match(aln, read_offset, edit.to_length());
+            } else if (edit_is_sub(edit)) {
+                score -= mismatch * edit.sequence().size();
+            } else if (edit_is_deletion(edit)) {
+                score -= gap_open + edit.from_length() * gap_extension;
+            } else if (edit_is_insertion(edit)
+                       && !((i == 0 && j == 0)
+                            || (i == path.mapping_size()-1
+                                && j == mapping.edit_size()-1))) {
+                // todo how do we score this qual adjusted?
+                score -= gap_open + edit.to_length() * gap_extension;
+            }
+            read_offset += edit.to_length();
+        }
+        // score any intervening gaps in mappings using approximate distances
+        if (i+1 < path.mapping_size()) {
+            // what is the distance between the last position of this mapping
+            // and the first of the next
+            Position last_pos = mapping.position();
+            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
+            Position next_pos = path.mapping(i+1).position();
+            // Estimate the distance
+            int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            if (dist > 0) {
+                // If it's nonzero, score it as a deletion gap
+                score -= gap_open + dist * gap_extension;
+            }
+        }
+    }
+    
+    if (!strip_bonuses) {
+        // We should report any bonuses used in the DP in the final score
+        if (!softclip_start(aln)) {
+            score += full_length_bonus;
+        }
+        if (!softclip_end(aln)) {
+            score += full_length_bonus;
+        }
+    }
+    
+    return max(0, score);
+}
+
 Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
                  int8_t _gap_open,
@@ -1158,6 +1216,12 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
     }
 }
 
+// Scoring an exact match is very simple in an ordinary Aligner
+
+int32_t Aligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+    return match * length;
+}
+
 int32_t Aligner::score_exact_match(const string& sequence) const {
     return match * sequence.length();
 }
@@ -1419,6 +1483,18 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     
+}
+
+int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+    auto& sequence = aln.sequence();
+    auto& base_quality = aln.quality();
+    int32_t score = 0;
+    for (int32_t i = 0; i < sequence.length(); i++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
 }
 
 int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) const {

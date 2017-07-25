@@ -259,7 +259,7 @@ Call2Vcf::PrimaryPath::PrimaryPath(AugmentedGraph& augmented, const string& ref_
             total_support += pointerAndSupport.first->sequence().size() * pointerAndSupport.second;
             
             // We also update the total for the appropriate bin
-            int bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
+            size_t bin = index.by_id[pointerAndSupport.first->id()].first / ref_bin_size;
             if (bin == binned_support.size()) {
                 --bin;
             }
@@ -294,7 +294,7 @@ const Support& Call2Vcf::PrimaryPath::get_support_at(size_t primary_path_offset)
         
 size_t Call2Vcf::PrimaryPath::get_bin_index(size_t primary_path_offset) const {
     // Find which coordinate bin the position is in
-    int bin = primary_path_offset / ref_bin_size;
+    size_t bin = primary_path_offset / ref_bin_size;
     if (bin == get_total_bins()) {
         --bin;
     }

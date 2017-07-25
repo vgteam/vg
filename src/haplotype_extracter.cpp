@@ -7,6 +7,36 @@
 using namespace std;
 using namespace vg;
 
+void trace_haplotypes_and_paths(xg::XG& index,
+                                vg::id_t start_node, int extend_distance,
+                                Graph& out_graph,
+                                map<string, int>& out_thread_frequencies,
+                                bool expand_graph) {
+  // get our haplotypes
+  xg::XG::ThreadMapping n = {start_node, false};
+  vector<pair<thread_t,int> > haplotypes = list_haplotypes(index, n, extend_distance);
+
+  if (expand_graph) {
+    // get our subgraph and "regular" paths by expanding forward
+    *out_graph.add_node() = index.node(start_node);
+    index.expand_context(out_graph, extend_distance, true, true, true, false);
+  }
+
+  // add a frequency of 1 for each normal path
+  for (int i = 0; i < out_graph.path_size(); ++i) {
+    out_thread_frequencies[out_graph.path(i).name()] = 1;
+  }
+
+  // add our haplotypes to the subgraph, naming ith haplotype "thread_i"
+  for (int i = 0; i < haplotypes.size(); ++i) {
+    Path p = path_from_thread_t(haplotypes[i].first);
+    p.set_name("thread_" + to_string(i));
+    *(out_graph.add_path()) = move(p);
+    out_thread_frequencies[p.name()] = haplotypes[i].second;
+  }
+}
+
+
 void output_haplotype_counts(ostream& annotation_ostream,
             vector<pair<thread_t,int>>& haplotype_list, xg::XG& index) {
   for(int i = 0; i < haplotype_list.size(); i++) {
