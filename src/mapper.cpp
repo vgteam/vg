@@ -2143,6 +2143,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     sort_and_dedup();
     if (mate_rescues && fragment_size) {
         // to improve rescue, add in single-ended versions of alignments where both mates map
+        /*
         vector<pair<Alignment, Alignment> > se_alns;
         Alignment mate1 = read1; mate1.clear_path(); mate1.clear_score();
         Alignment mate2 = read2; mate2.clear_path(); mate2.clear_score();
@@ -2159,6 +2160,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         alns.insert(alns.end(), se_alns.begin(), se_alns.end());
         sort_and_dedup();
+        */
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
         int j = 0;
