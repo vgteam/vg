@@ -24,24 +24,55 @@ MD_IN="${1}"; shift
 if [ ! -z "${BUILD_NUMBER}" ]; then
     echo "On Jenkins"
     
+    # Where we should put the report depends on what build we're doing
     if [ -z ${ghprbActualCommit} ]; then
-        echo "Running on a branch"
+        echo "Running on master"
+        
+        # Upload to the path for master, overwriting whatever was there.
+        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/branch/master/index.html"
     else
         echo "Running on a pull request"
+        
+        # Upload to a path specific to this commit.
+        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/commit/${ghprbActualCommit}/index.html"
     fi
+    
+    # Upload the HTML to S3 as the current master report
+    aws s3 cp --acl public-read "${HTML_IN}" "s3://cgl-pipeline-inputs/${HTML_PATH}"
+    
+    # Make the URL for the report HTML
+    REPORT_URL="http://cgl-pipeline-inputs.s3.amazonaws.com/${HTML_PATH}"
     
 else
     echo "Running locally"
+    
+    # Report just stays in place
+    REPORT_URL="file://${HTML_IN}"
 fi
 
-# TODO: upload HTML
-echo "HTML to upload:"
-cat "${HTML_IN}"
+echo "Uploaded HTML as ${REPORT_URL}"
 
 # TODO: upload Markdown
 # In the Markdown, "{{REPORT_URL}}" will be replaced with the URL to the uploaded HTML report.
 echo "Markdown to post:"
-cat "${MD_IN}" | sed "s|{{REPORT_URL}}|file://${HTML_IN}|g"
+cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
+
+if [ ! -z "${BUILD_NUMBER}" ]; then
+    # On Jenkins, so actually post a comment
+    
+    if [ -z ${ghprbActualCommit} ]; then
+        # Normal master build
+                
+        # Comment on the commit we built
+        jenkins/post-comment.py vgteam/vg --in_file processed.md --commit "${GIT_COMMIT}" || true        
+    else
+        # PR build so we comment on the PR
+        # Won't work until GH_TOKEN env var is exposed on Jenkins
+        jenkins/post-comment.py vgteam/vg --in_file processed.md --pr "${ghprbPullId}" || true
+    fi
+    
+fi
+
 
 
 
