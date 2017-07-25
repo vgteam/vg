@@ -19,8 +19,8 @@ PathChunker::~PathChunker() {
 
 }
 
-void PathChunker::extract_subgraph(const Region& region, int context, VG& subgraph,
-                                   Region& out_region) {
+void PathChunker::extract_subgraph(const Region& region, int context, bool forward_only,
+                                   VG& subgraph, Region& out_region) {
 
     Graph g;
 
@@ -37,7 +37,8 @@ void PathChunker::extract_subgraph(const Region& region, int context, VG& subgra
         });
     
     // expand the context and get path information
-    xg->expand_context(g, context, true);
+    // if forward_only true, then we only go forward.
+    xg->expand_context(g, context, true, true, true, !forward_only);
         
     // build the vg
     subgraph.extend(g);
@@ -74,14 +75,14 @@ void PathChunker::extract_subgraph(const Region& region, int context, VG& subgra
     out_region.end = out_region.start - 1;
     // Is there a better way to get path length? 
     Path output_path = subgraph.paths.path(out_region.seq);
-    for (int j = 0; j < output_path.mapping_size(); ++j) {
+    for (size_t j = 0; j < output_path.mapping_size(); ++j) {
       int64_t op_node = output_path.mapping(j).position().node_id();
       out_region.end += subgraph.get_node(op_node)->sequence().length();
     }
 }
 
 void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
-                                   VG& subgraph, Region& out_region) {
+                                   bool forward_only, VG& subgraph, Region& out_region) {
 
     Graph g;
 
@@ -90,7 +91,8 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
     }
     
     // expand the context and get path information
-    xg->expand_context(g, context, true);
+    // if forward_only true, then we only go forward.
+    xg->expand_context(g, context, true, true, true, !forward_only);
         
     // build the vg
     subgraph.extend(g);
@@ -101,7 +103,8 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
 }
 
 int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index,
-                                              ostream* out_stream) {
+                                              ostream* out_stream,
+                                              bool only_fully_contained) {
 
     // Build the set of all the node IDs to operate on
     vector<vg::id_t> graph_ids;
@@ -110,23 +113,27 @@ int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index,
         graph_ids.push_back(node->id());
     });
 
-    return extract_gam_for_ids(graph_ids, index, out_stream);
+    return extract_gam_for_ids(graph_ids, index, out_stream, false,
+                               only_fully_contained);
 }
 
 int64_t PathChunker::extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index,
-                                              ostream* out_stream) {
+                                              ostream* out_stream,
+                                              bool only_fully_contained) {
     
     vector<vg::id_t> graph_ids;
     for (vg::id_t i = start; i <= end; ++i) {
         graph_ids.push_back(i);
     }
     
-    return extract_gam_for_ids(graph_ids, index, out_stream, true);
+    return extract_gam_for_ids(graph_ids, index, out_stream, true,
+                               only_fully_contained);
 }
 
 int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
                                          Index& index, ostream* out_stream,
-                                         bool contiguous) {
+                                         bool contiguous,
+                                         bool only_fully_contained) {
   
     // Load all the reads matching the graph into memory
     vector<Alignment> gam_buffer;
@@ -153,14 +160,21 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
     int filter_count = 0;
     function<bool(const Alignment&)> in_range = [&](const Alignment& alignment) {
         if (alignment.has_path()) {
-            for (int i = 0; i < alignment.path().mapping_size(); ++i) {
-                if (check_id(alignment.path().mapping(i).position().node_id()) == true) {
+            for (size_t i = 0; i < alignment.path().mapping_size(); ++i) {
+                bool check = check_id(alignment.path().mapping(i).position().node_id());
+                if (only_fully_contained && check == false) {
+                    return false;
+                } else if (!only_fully_contained && check == true) {
                     return true;
                 }
             }
         }
-        ++filter_count;
-        return false;
+        if (only_fully_contained) {
+            return true;
+        } else {
+            ++filter_count;
+            return false;
+        }
     };
 
     function<void(const Alignment&)> write_alignment = [&](const Alignment& alignment) {

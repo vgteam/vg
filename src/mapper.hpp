@@ -265,6 +265,8 @@ public:
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     
+    bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
@@ -459,10 +461,17 @@ public:
     // for reconstruction the alignments from the SMEMs
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
-    // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
+    
+    /// Use the scoring provided by the internal aligner to re-score the
+    /// alignment, scoring gaps between nodes using graph distance from the XG
+    /// index. Can use either approximate or exact (with approximate fallback)
+    /// XG-based distance estimation. Will strip out bonuses if the appropriate
+    /// Mapper flag is set.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
-    // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
-    int32_t rescore_without_full_length_bonus(const Alignment& aln);
+    
+    /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
+    int32_t remove_full_length_bonus(const Alignment& aln);
+    
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
     // get the graph context of a particular cluster, using a given alignment to describe the required size

@@ -1,0 +1,49 @@
+#!/bin/bash
+set -e
+
+# Upload the generated report HTML and summary.
+# TODO: replace with a real implementation (maybe in Python).
+
+usage() {
+    # Print usage to stderr
+    exec 1>&2
+    printf "Usage: $0 HTML_IN MD_IN \n"
+    exit 1
+}
+
+if [[ "$#" -ne 2 ]]; then
+    # We need all the arguments
+    usage
+fi
+
+# Gather all the arguments
+HTML_IN="${1}"; shift
+MD_IN="${1}"; shift
+
+# Figure out where we are. In the real version this will affect our behavior.
+if [ ! -z "${BUILD_NUMBER}" ]; then
+    echo "On Jenkins"
+    
+    if [ -z ${ghprbActualCommit} ]; then
+        echo "Running on a branch"
+    else
+        echo "Running on a pull request"
+    fi
+    
+else
+    echo "Running locally"
+fi
+
+# TODO: upload HTML
+echo "HTML to upload:"
+cat "${HTML_IN}"
+
+# TODO: upload Markdown
+# In the Markdown, "{{REPORT_URL}}" will be replaced with the URL to the uploaded HTML report.
+echo "Markdown to post:"
+cat "${MD_IN}" | sed "s|{{REPORT_URL}}|file://${HTML_IN}|g"
+
+
+
+
+
