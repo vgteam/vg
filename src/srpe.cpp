@@ -11,6 +11,65 @@ namespace vg{
 
     }
 
+    void SRPE::call_svs_paired_end(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){
+
+    }
+
+    void SRPE::call_svs_split_read(vg::VG* graph, ifstream& gamstream, vector<BREAKPOINT>& bps, string refpath){
+        // We're going to do a bunch of split-read mappings now,
+        // then decide if our orientations support an inversion, an insertion,
+        // or a deletion.
+    }
+
+
+    void SRPE::call_svs(string graphfile, string gamfile, string refpath){
+        vg::VG* graph;
+        if (!graphfile.empty()){
+            ifstream in(graphfile);
+            graph = new VG(in, false);
+        }
+        ifstream gamstream;
+        gamstream.open(gamfile);
+        // Set up path index
+        ff.set_my_vg(graph);
+        ff.soft_clip_limit = 20;
+        ff.fill_node_to_position(refpath);
+    
+        std::function<vector<BREAKPOINT> (vector<BREAKPOINT>)> merge_breakpoints = [](vector<BREAKPOINT> bps){
+        vector<BREAKPOINT> ret;
+        BREAKPOINT sent;
+        sent.start = -100;
+        ret.push_back(sent);
+        for (int i = 0; i < bps.size(); i++){
+            BREAKPOINT a = bps[i];
+            bool merged = false;
+            for (int j = 0; j < ret.size(); j++){
+                if (ret[j].overlap(a, 20)){
+                    ret[j].other_supports += 1;
+                    merged = true;
+                }
+            }
+            if (!merged){
+                ret.push_back(a);
+            }
+        }
+        return ret;
+    };
+
+    vector<BREAKPOINT> pe_bps;
+    vector<BREAKPOINT> sr_bps;
+
+    call_svs_paired_end(graph, gamstream, pe_bps, refpath);
+    call_svs_split_read(graph, gamstream, sr_bps, refpath);
+    vector<BREAKPOINT> pe_merged = merge_breakpoints(pe_bps);
+    vector<BREAKPOINT> sr_merged = merge_breakpoints(sr_bps);
+    vector<BREAKPOINT> merged;
+    merged.insert(merged.begin(), pe_merged.begin(), pe_merged.end());
+    merged.insert(merged.begin(), sr_merged.begin(), sr_merged.end());
+    merged = merge_breakpoints(merged);
+
+    }
+
     void SRPE::aln_to_bseq(Alignment& a, bseq1_t* read){
         read->seq = (char*) a.sequence().c_str();
         read->qual = (char*) a.quality().c_str();
@@ -58,38 +117,7 @@ namespace vg{
 
     }
 
-    void SRPE::breakpoints_to_intervals(vector<BREAKPOINT> bps, vector<INS_INTERVAL>& ret, vector<INS_INTERVAL> existing){
 
-    }
-
-    void SRPE::intervals_to_variants(vector<INS_INTERVAL> intervals, vector<vcflib::Variant>& vars){
-
-    }
-
-    // void SRPE::remap(vg::VG* graph, Index gam_index, vector<pair<Alignment, Alignment> >& remapped){
-
-    // }
-    // void SRPE::filter(vector<Alignment>& in_alns, vector<Alignment>& out_alns){
-    
-    // }
-
-    // check if our insert size for a given set of alignments falls within our expected range.
-    /** bool SRPE::reasonable_insert_size(pair<Alignment, Alignment> mates){
-
-    }
-
-    void SRPE::normalize_pairs(vector<pair<Alignment&, Alignment&> > alns, vector<Flags> offenses, vector<pair<Alignment, Alignment> > normals){
-        
-        for (auto a : alns){
-            
-        }
-
-    }
-    void SRPE::normalize_singles(vector<Alignment&> alns, vector<Alignment&> normals){
-
-    }
-
-    **/
 
 }
 
