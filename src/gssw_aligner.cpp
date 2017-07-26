@@ -880,12 +880,14 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
     return max(0, score);
 }
 
-int32_t BaseAligner::remove_bonuses(const Alignment& aln) {
+int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {
     int32_t score = aln.score();
-    if (softclip_start(aln) == 0) {
+    if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
+        // No softclip at the start, and a left end bonus was applied.
         score -= full_length_bonus;
     }
-    if (softclip_end(aln) == 0) {
+    if (softclip_end(aln) == 0 && !(pinned && !pin_left)) {
+        // No softclip at the end, and a right end bonus was applied.
         score -= full_length_bonus;
     }
     return score;
