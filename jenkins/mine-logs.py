@@ -59,6 +59,9 @@ def parse_junit_xml(xml_path, work_dir, suite_html_fn, case_html_fn, out_html,
             suite_md_fn(out_md, ts_name, ts_tests, ts_fails, ts_skips, ts_time)
     
         for testcase in xml_root.iter('testcase'):
+            if testcase.find('skipped') is not None:
+                # skip skipped tests for now
+                continue
             tc_name = testcase.attrib['name']
             tc_out = testcase.find('system-out').text
             tc_err = testcase.find('system-err').text
