@@ -1631,13 +1631,13 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
         bool flip = !mate1.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate1.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
         Alignment aln2 = align_maybe_flip(mate2, graph, flip);
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
         }
-//#endif
+#endif
         if (aln2.score() > mate2.score()) {
             mate2 = aln2;
         } else {
@@ -2867,26 +2867,20 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     auto start_pos = make_pos_t(start_mem.nodes.front());
     auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
     float expansion = 1.61803;
-    //int get_before = max((int)(round((double)aln.sequence().size()/expansion)), (int)(expansion * (int)(start_mem.begin - aln.sequence().begin())));
     int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
-        //if (debug) cerr << "Getting " << get_before << " before " << start_mem << endl;
         cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
     }
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         auto pos = make_pos_t(mem.nodes.front());
         int get_after = (i+1 == mems.size() ?
-                         //max((int)(round((double)aln.sequence().size()/expansion)), (int)(expansion * (int)(aln.sequence().end() - mem.begin)))
-                         //max((int)(round((double)aln.sequence().size()/expansion)), (int)
                          expansion * (int)(aln.sequence().end() - mem.begin)
                          : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        //if (debug) cerr << pos << " " << mem << " getting after " << get_after << endl;
         cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
     }
     graph.remove_orphan_edges();
-    //if (debug) cerr << "graph " << pb2json(graph.graph) << endl;
     return graph;
 }
 
