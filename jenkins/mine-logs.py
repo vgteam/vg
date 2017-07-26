@@ -9,6 +9,7 @@ import os, sys
 import argparse
 import xml.etree.ElementTree as ET
 import textwrap
+import shutil
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__, 
@@ -19,8 +20,8 @@ def parse_args(args=None):
                         help='XML result from PyTest in JUnit format')
     parser.add_argument('work_dir',
                         help='vgci work dir')
-    parser.add_argument('html_out',
-                        help='output html')
+    parser.add_argument('html_out_dir',
+                        help='output html directory')
     parser.add_argument('md_out',
                         help='output markdown')
 
@@ -157,11 +158,21 @@ def write_html_testcase(html_file, name, outstore, stdout, stderr, seconds, fail
     else:
         html_file.write('<p>Failed in {} seconds</p>\n'.format(seconds))
         html_file.write('<p>Failure Message: `{}`</p>\n'.format(fail_msg))
+    
+    # should just pass this in
+    report_dir = os.path.dirname(os.path.abspath(html_file.name))
+    
+    for plot_name in 'roc', 'qq':
+        plot_path = os.path.join(outstore, '{}.pdf'.format(plot_name))
+        if os.path.isfile(plot_path):
+            new_name = '{}-{}.pdf'.format(name, plot_name)
+            shutil.copy2(plot_path, os.path.join(report_dir, new_name))
+            html_file.write('<p><a href={}>{} Plot</a></p>\n'.format(new_name, plot_name.upper()))
+    
     html_file.write('<p>Standard Output:</p>\n<p>')
     for line in textwrap.wrap(stdout, 80):
         html_file.write(line + '&#10')
     html_file.write('</p>')
-    
 
 def main(args):
     """
@@ -170,9 +181,12 @@ def main(args):
     """    
     options = parse_args(args)
 
+    if not os.path.isdir(options.html_out_dir):
+        os.makedirs(options.html_out_dir)
+
     # just scrape stdout and a few stats for for now 
     with open(options.md_out, 'w') as md_file, \
-         open(options.html_out, 'w') as html_file:
+         open(os.path.join(options.html_out_dir, 'index.html'), 'w') as html_file:
 
         write_md_header(md_file)
         write_html_header(html_file)

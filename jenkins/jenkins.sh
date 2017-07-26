@@ -207,10 +207,10 @@ PYRET="$?"
 # Generate a report in two files: HTML full output, and a Markdown summary.
 # Takes as input the Jenkins test result XML and the work directory with the
 # test output files.
-jenkins/mine-logs.py test-report.xml vgci-work/ report.html summary.md
+jenkins/mine-logs.py test-report.xml vgci-work/ report-html/ summary.md
 
 # Put the report on Github for the current pull request or commit.
-jenkins/post-report report.html summary.md
+jenkins/post-report report-html summary.md
 
 
 if [ ! -z "${BUILD_NUMBER}" ]
