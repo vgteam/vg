@@ -196,7 +196,7 @@ namespace vg {
 
             hash_to_var[ var_id ] = var;
 
-            // if (!isIndex){
+
                 // If we're just using the GAM, build a map Node -> variant and
                 // a map alt_path_id (i.e. "allele name") -> NodeID. We'll use these to count
                 // mappings to nodes later.
@@ -210,19 +210,6 @@ namespace vg {
                     }
                 }
 
-            // }
-            // else{
-            //     // We're using a GAM index, so we have to just get all alignments mapping
-            //     // to a set of nodes.
-            //     for (int alt_ind = 0; alt_ind <= var.alt.size(); alt_ind++){
-            //         string alt_id = "_alt_" + var_id + "_" + std::to_string(alt_ind);
-            //         list<Mapping> x_path = gpaths[ alt_id ];
-            //         for (Mapping x_m : x_path){
-            //             variant_nodes.insert(x_m.position().node_id());
-            //         }
-            //     }
-
-            // }
         }
 
         vcflib::VariantCallFile outvcf;
@@ -290,17 +277,14 @@ namespace vg {
             }
 
             if (contained & anchored){
-                cerr << a.name() << " " << (contained ? "contained" : "not contained") << " " << (anchored ? "anchored" : "not anchored") << endl;
 
                 #pragma omp critical
                 {
                     // Get our variant allele hash
                     string all_str = node_to_variant[node_for_var];
-                    cerr << " NforV "  << node_for_var << " " << node_to_variant[node_for_var] << endl;
 
                     // Add alignment to the variant's set of alignments
                     allele_name_to_alignment_name[all_str].insert(a.name());
-                    cerr << "ADDING SUPPORTING ALN " << a.name() << " to " << all_str << endl;
 
                 }
                 
@@ -324,17 +308,14 @@ namespace vg {
                 }
             }
 
-            cerr << a.name() << " " << (contained ? "contained" : "not contained") << " " << (anchored ? "anchored" : "not anchored") << endl;
             if (contained & anchored){
                 #pragma omp critical
                 {
                     // Get our variant allele hash
                     string all_str = node_to_variant[node_for_var];
-                    cerr << " NforV "  << node_for_var << " " << node_to_variant[node_for_var] << endl;
 
                     // Add alignment to the variant's set of alignments
                     allele_name_to_alignment_name[all_str].insert(a.name());
-                    cerr << "ADDING SUPPORTING ALN " << a.name() << " to " << all_str << endl;
 
                 }
                 
@@ -382,6 +363,10 @@ namespace vg {
             if (gamstream.good()){
                 stream::for_each(gamstream, incr);
             }
+            else{
+                cerr << "GAM stream is bad " << gamfile << endl;
+                exit(9);
+            }
             gamstream.close();
         }
         else if (use_snarls && !isIndex){
@@ -398,7 +383,6 @@ namespace vg {
             gamindex.for_alignment_to_nodes(vn, index_incr);
         }
 
-        cerr << "Num supporting alns: " << allele_name_to_alignment_name.size() << endl;
 
         std::function<long double(int64_t)> fac = [](int64_t t){
             long double result = 1.0;
