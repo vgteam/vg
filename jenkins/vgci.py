@@ -44,8 +44,7 @@ class VGCITest(TestCase):
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
-        #self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
-        self.input_store = 'https://glennhickey2-bakeoff-store.s3.amazonaws.com/'
+        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
