@@ -880,6 +880,18 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
     return max(0, score);
 }
 
+int32_t BaseAligner::remove_bonuses(const Alignment& aln) {
+    int32_t score = aln.score();
+    if (softclip_start(aln) == 0) {
+        score -= full_length_bonus;
+    }
+    if (softclip_end(aln) == 0) {
+        score -= full_length_bonus;
+    }
+    return score;
+}
+
+
 Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
                  int8_t _gap_open,

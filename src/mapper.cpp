@@ -2672,7 +2672,19 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
                          pinned_alignment,
                          pinned_reverse,
                          banded_global);
-    if (strip_bonuses && !banded_global) aln.set_score(remove_full_length_bonus(aln));
+                         
+    
+                         
+    if (strip_bonuses && !banded_global) {
+        // We want to remove the bonuses
+        
+        // Find the right aligner to do that with
+        BaseAligner* aligner = adjust_alignments_for_base_quality ?
+            (BaseAligner*) qual_adj_aligner :
+            (BaseAligner*) regular_aligner;
+        
+        aln.set_score(aligner->remove_bonuses(aln));
+    }
     if (flip) {
         aln = reverse_complement_alignment(
             aln,
@@ -4143,23 +4155,6 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
         }, strip_bonuses);
     }
     
-}
-
-int32_t Mapper::remove_full_length_bonus(const Alignment& aln) {
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        cerr << "dropping full length bonus" << endl;
-    }
-#endif
-    int32_t score = aln.score();
-    if (softclip_start(aln) == 0) {
-        score -= (adjust_alignments_for_base_quality ? qual_adj_aligner->full_length_bonus : regular_aligner->full_length_bonus);
-    }
-    if (softclip_end(aln) == 0) {
-        score -= (adjust_alignments_for_base_quality ? qual_adj_aligner->full_length_bonus : regular_aligner->full_length_bonus);
-    }
-    return score;
 }
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
