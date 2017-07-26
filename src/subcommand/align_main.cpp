@@ -30,6 +30,7 @@ void help_align(char** argv) {
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -T, --full-l-bonus N  provide this bonus for alignments that are full length (default: 5)" << endl
+         << "    -i, --include-bonuses include bonuses in reported scores" << endl
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
          << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
@@ -63,6 +64,7 @@ int main_align(int argc, char** argv) {
     bool banded_global = false;
     bool pinned_alignment = false;
     bool pin_left = false;
+    bool strip_bonuses = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -82,13 +84,14 @@ int main_align(int argc, char** argv) {
             {"debug", no_argument, 0, 'D'},
             {"banded-global", no_argument, 0, 'b'},
             {"full-l-bonus", required_argument, 0, 'T'},
+            {"include-bonuses", no_argument, 0, 'i'},
             {"pinned", no_argument, 0, 'p'},
-            {"pinned-left", no_argument, 0, 'L'},
+            {"pin-left", no_argument, 0, 'L'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:pL",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:bT:ipL",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -127,6 +130,10 @@ int main_align(int argc, char** argv) {
 
         case 'T':
             full_length_bonus = atoi(optarg);
+            break;
+            
+        case 'i':
+            strip_bonuses = false;
             break;
 
         case 'r':
@@ -178,8 +185,13 @@ int main_align(int argc, char** argv) {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
         alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left,
             banded_global, 0, max(seq.size(), graph->length()), debug);
-    }
+        
+        if (strip_bonuses) {
+            alignment.set_score(aligner.remove_bonuses(alignment, pinned_alignment, pin_left));
+        }
 
+    }
+    
     if (!seq_name.empty()) {
         alignment.set_name(seq_name);
     }
