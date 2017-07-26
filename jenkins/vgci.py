@@ -645,7 +645,7 @@ class VGCITest(TestCase):
             self._verify_mapeval(reads, score_baseline_graph, tag)
 
     @timeout_decorator.timeout(3600)
-    def test_sim_brca2_snp1kg(self):
+    def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         # Using 50k simulated reads from snp1kg BRCA1, realign against all these
         # other BRCA1 graphs and make sure the realignments are sufficiently
