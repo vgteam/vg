@@ -15,6 +15,7 @@ import collections
 import timeout_decorator
 import urllib2
 import shutil
+import glob
 
 import tsv
 
@@ -93,8 +94,11 @@ class VGCITest(TestCase):
     def _jobstore(self, tag = ''):
         return os.path.join(self.workdir, 'jobstore{}'.format(tag))
 
+    def _outstore_name(self, tag = ''):
+        return 'outstore-{}'.format(tag)
+    
     def _outstore(self, tag = ''):
-        return os.path.join(self.workdir, 'outstore-{}'.format(tag))
+        return os.path.join(self.workdir, self._outstore_name(tag))
 
     def _input(self, filename):
         return os.path.join(self.input_store, filename)
@@ -155,7 +159,7 @@ class VGCITest(TestCase):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
         out_store = self._outstore(dir_tag)
-        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        opts = '--realTimeLogging --logInfo '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -189,7 +193,7 @@ class VGCITest(TestCase):
 
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
-        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        opts = '--realTimeLogging --logInfo '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -229,6 +233,7 @@ class VGCITest(TestCase):
         """
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
+        out_store_name = self._outstore_name(tag)
 
         # What do we want to override from the default toil-vg config?
         overrides = argparse.Namespace(
@@ -265,12 +270,6 @@ class VGCITest(TestCase):
                             '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
                                 vcf_file, self.cores), tag, index_name)
         index_path = os.path.join(out_store, index_name + '.xg')
-
-        # want to input outstore files relative to work dir below
-        def work_relpath(p):            
-            # we assume out_store is a subdirectory of work_dir            
-            return os.path.join(os.path.abspath(out_store), os.path.basename(p)).replace(
-                os.path.abspath(self.workdir), '').lstrip('/')
         
         # Extract both haplotypes of the given sample as their own graphs
         # (this is done through vg directly)
@@ -280,7 +279,7 @@ class VGCITest(TestCase):
             # This is straght from Erik.  We mush together the original graph
             # (without paths) and the thread path from the xg index
             with context.get_toil(job_store) as toil:
-                cmd = ['vg', 'mod', '-D', work_relpath(vg_file)]
+                cmd = ['vg', 'mod', '-D', os.path.join(out_store_name, os.path.basename(vg_file))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
                                          out_path = tmp_thread_path))
@@ -288,7 +287,7 @@ class VGCITest(TestCase):
                 # note: I'm not sure why that _0 is there but all threads seem
                 # to have names like _thread_NA12878_17_0_0 and _thread_NA12878_17_1_0
                 cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
-                       '-x', work_relpath(index_path)]
+                       '-x', os.path.join(out_store_name, os.path.basename(index_path))]
                 toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                          work_dir = os.path.abspath(self.workdir),
                                          out_path = tmp_thread_path,
@@ -389,7 +388,7 @@ class VGCITest(TestCase):
 
         # start by simulating some reads
         # TODO: why are we using strings here when we could use much safer lists???
-        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        opts = '--realTimeLogging --logInfo '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -469,10 +468,25 @@ class VGCITest(TestCase):
             # TODO: I want to do the evaluation here, working with file IDs, but
             # since we put the results in the out store maybe it really does
             # make sense to just go through the files in the out store.
-                
-            
-            
-            
+
+            # Plot the ROC and qq plots
+            try:
+                out_store_name = self._outstore_name(tag)
+                for rscript in ['roc', 'qq']:
+                    # pull the scripts from where we expect them relative to being in vg/
+                    # and put them in the work directory.  This is ugly but keeps the
+                    # docker interfacing simple.
+                    shutil.copy2('scripts/plot-{}.R'.format(rscript), os.path.abspath(self.workdir))
+                    cmd = ['Rscript', 'plot-{}.R'.format(rscript),
+                           os.path.join(out_store_name, 'position.results.tsv'),
+                           os.path.join(out_store_name, '{}.pdf'.format(rscript))]
+                    toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                             work_dir = os.path.abspath(self.workdir)))
+                    os.remove(os.path.join(self.workdir, 'plot-{}.R'.format(rscript)))
+
+            except Exception as e:
+                log.warning("Failed to generate ROC and QQ plots with Exception: {}".format(e))
+                        
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
         stats_dict = dict()
@@ -583,8 +597,7 @@ class VGCITest(TestCase):
                     
                         # Make sure not too many got worse
                         assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
-                    
-               
+
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       sample = None):

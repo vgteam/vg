@@ -83,7 +83,7 @@ def write_md_header(md_file):
     """
     Write the top of the MarkDown file
     """
-    md_file.write('##vg Test Report Summary\n')
+    md_file.write('## vg Test Report Summary\n')
     md_file.write('The full report')
 
     if os.getenv('ghprbPullTitle'):
