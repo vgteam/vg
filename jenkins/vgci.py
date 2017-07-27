@@ -665,7 +665,7 @@ class VGCITest(TestCase):
         # Compare all realignment scores agaisnt the scores for the primary
         # graph.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg'], # TODO add 'cactus' when we resolve pair rescue
+                           ['primary', 'snp1kg', 'cactus'],
                            score_baseline_graph='primary')
 
 

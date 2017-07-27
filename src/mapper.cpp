@@ -2252,8 +2252,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 && results.second.size() == 1
                 && results.first.front().identity() > perfect_pair_identity_threshold
                 && results.second.front().identity() > perfect_pair_identity_threshold
-                && (fragment_size && length < fragment_size
-                    || !fragment_size && length < fragment_max)) { // hard cutoff
+                && (fragment_size && abs(length) < fragment_size
+                    || !fragment_size && abs(length) < fragment_max)) { // hard cutoff
                 //cerr << "aln\tperfect alignments" << endl;
                 record_fragment_configuration(length, aln1, aln2);
             } else if (!fragment_size) {
