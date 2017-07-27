@@ -176,6 +176,7 @@ def html_testcase(testcase, work_dir, report_dir):
         if tc['failed']:
             report += '<p>Failed in {} seconds</p>\n'.format(tc['time'])
             report += '<p>Failure Message: `{}`</p>\n'.format(tc['fail-msg'])
+            report += '<p>Failure Text: `{}`</p>\n'.format(tc['fail-txt'])
         else:
             report += '<p>Passed in {} seconds</p>\n'.format(tc['time'])
 
@@ -193,6 +194,12 @@ def html_testcase(testcase, work_dir, report_dir):
             for line in textwrap.wrap(tc['stdout'], 80):
                 report += line + '&#10'
             report += '</p>\n'
+
+        if tc['stderr']:
+            err_name = '{}-stderr.txt'.format(tc['name'])
+            with open(os.path.join(report_dir, err_name), 'w') as err_file:
+                err_file.write(tc['stderr'])
+            report += '<p><a href={}>Standard Error</a></p>\n'.format(err_name)
 
     except:
         report += 'Error parseing Test Case XML\n'
