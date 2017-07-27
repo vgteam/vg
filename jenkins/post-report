@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# Upload the generated report HTML and summary.
+# Upload the generated report HTML directory and summary.
 # TODO: replace with a real implementation (maybe in Python).
 
 usage() {
     # Print usage to stderr
     exec 1>&2
-    printf "Usage: $0 HTML_IN MD_IN \n"
+    printf "Usage: $0 HTML_DIR_IN MD_IN \n"
     exit 1
 }
 
@@ -17,7 +17,7 @@ if [[ "$#" -ne 2 ]]; then
 fi
 
 # Gather all the arguments
-HTML_IN="${1}"; shift
+HTML_DIR_IN="${1}"; shift
 MD_IN="${1}"; shift
 
 # Figure out where we are. In the real version this will affect our behavior.
@@ -29,25 +29,25 @@ if [ ! -z "${BUILD_NUMBER}" ]; then
         echo "Running on master"
         
         # Upload to the path for master, overwriting whatever was there.
-        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/branch/master/index.html"
+        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/branch/master"
     else
         echo "Running on a pull request"
         
         # Upload to a path specific to this commit.
-        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/commit/${ghprbActualCommit}/index.html"
+        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/commit/${ghprbActualCommit}"
     fi
     
     # Upload the HTML to S3 as the current master report
-    aws s3 cp --acl public-read "${HTML_IN}" "s3://cgl-pipeline-inputs/${HTML_PATH}"
+    aws s3 sync --acl public-read "${HTML_DIR_IN}" "s3://cgl-pipeline-inputs/${HTML_PATH}"
     
     # Make the URL for the report HTML
-    REPORT_URL="http://cgl-pipeline-inputs.s3.amazonaws.com/${HTML_PATH}"
+    REPORT_URL="http://cgl-pipeline-inputs.s3.amazonaws.com/${HTML_PATH}/index.html"
     
 else
     echo "Running locally"
     
     # Report just stays in place
-    REPORT_URL="file://${HTML_IN}"
+    REPORT_URL="file://${HTML_DIR_IN}/index.html"
 fi
 
 echo "Uploaded HTML as ${REPORT_URL}"

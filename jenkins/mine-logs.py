@@ -3,12 +3,14 @@
 Mine the Jenkins test log XML and the test output files and generate a report
 of how good VG is at various tasks.
 """
+import logging
 import subprocess
 import tempfile
 import os, sys
 import argparse
 import xml.etree.ElementTree as ET
 import textwrap
+import shutil
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__, 
@@ -19,8 +21,8 @@ def parse_args(args=None):
                         help='XML result from PyTest in JUnit format')
     parser.add_argument('work_dir',
                         help='vgci work dir')
-    parser.add_argument('html_out',
-                        help='output html')
+    parser.add_argument('html_out_dir',
+                        help='output html directory')
     parser.add_argument('md_out',
                         help='output markdown')
 
@@ -59,31 +61,55 @@ def parse_junit_xml(xml_path, work_dir, suite_html_fn, case_html_fn, out_html,
             suite_md_fn(out_md, ts_name, ts_tests, ts_fails, ts_skips, ts_time)
     
         for testcase in xml_root.iter('testcase'):
-            tc_name = testcase.attrib['name']
-            tc_out = testcase.find('system-out').text
-            tc_err = testcase.find('system-err').text
-            tc_time = int(float(testcase.attrib['time']))
-            failure = testcase.find('failure')
-            if failure is not None:
-                tc_failure_txt = failure.text
-                tc_failure_msg = failure.attrib['message']
-            else:
-                tc_failure_txt = None
-                tc_failure_msg = None
+            try:
+                if testcase.find('skipped') is not None:
+                    # skip skipped tests for now
+                    continue
 
-            if case_html_fn:
-                case_html_fn(out_html, tc_name, os.path.join(work_dir, testname_to_outstore(tc_name)),
-                        tc_out, tc_err, tc_time, tc_failure_txt, tc_failure_msg)
-            if case_md_fn:
-                case_md_fn(out_md, tc_name, os.path.join(work_dir, testname_to_outstore(tc_name)),
-                        tc_out, tc_err, tc_time, tc_failure_txt, tc_failure_msg)
+                if 'name' in testcase.attrib:
+                    tc_name = testcase.attrib['name']
+                else:
+                    name = 'Error: Name not found'
+
+                if testcase.find('system-out') is not None:
+                    tc_out = testcase.find('system-out').text
+                else:
+                    tc_out = None
+                
+                if testcase.find('system-err') is not None:
+                    tc_err = testcase.find('system-err').text
+                else:
+                    tc_err = None
+
+                if 'time' in testcase.attrib:
+                    tc_time = int(float(testcase.attrib['time']))
+                else:
+                    tc_time = -1
+                
+                failure = testcase.find('failure')
+                if failure is not None:
+                    tc_failure_txt = failure.text
+                    tc_failure_msg = failure.attrib['message']
+                else:
+                    tc_failure_txt = None
+                    tc_failure_msg = None
+                    
+                if case_html_fn:
+                    case_html_fn(out_html, tc_name, os.path.join(work_dir, testname_to_outstore(tc_name)),
+                                 tc_out, tc_err, tc_time, tc_failure_txt, tc_failure_msg)
+                if case_md_fn:
+                    case_md_fn(out_md, tc_name, os.path.join(work_dir, testname_to_outstore(tc_name)),
+                               tc_out, tc_err, tc_time, tc_failure_txt, tc_failure_msg)
+                    
+            except Exception as e:
+                logging.warning('Unable to parse test case: {}'.format(ET.tostring(testcase)))
             
 
 def write_md_header(md_file):
     """
     Write the top of the MarkDown file
     """
-    md_file.write('##vg Test Report Summary\n')
+    md_file.write('## vg Test Report Summary\n')
     md_file.write('The full report')
 
     if os.getenv('ghprbPullTitle'):
@@ -111,10 +137,12 @@ def write_md_testcase(html_file, name, outstore, stdout, stderr, seconds, fail_t
     else:
         md += 'Failed in {} seconds\n\n'.format(seconds)
         md += 'Failure Message: `{}`\n\n'.format(fail_msg)
-    md += 'Standard Output:\n\n'
-    for line in textwrap.wrap(stdout, 80):
-        md += '     ' + line + '\n'
-    md += '\n'
+    if stdout:
+        md += 'Standard Output:\n\n'
+        for line in textwrap.wrap(stdout, 80):
+            md += '     ' + line + '\n'
+        md += '\n'
+        
     html_file.write(md)
 
 
@@ -154,11 +182,22 @@ def write_html_testcase(html_file, name, outstore, stdout, stderr, seconds, fail
     else:
         html_file.write('<p>Failed in {} seconds</p>\n'.format(seconds))
         html_file.write('<p>Failure Message: `{}`</p>\n'.format(fail_msg))
-    html_file.write('<p>Standard Output:</p>\n<p>')
-    for line in textwrap.wrap(stdout, 80):
-        html_file.write(line + '&#10')
-    html_file.write('</p>')
     
+    # should just pass this in
+    report_dir = os.path.dirname(os.path.abspath(html_file.name))
+    
+    for plot_name in 'roc', 'qq':
+        plot_path = os.path.join(outstore, '{}.pdf'.format(plot_name))
+        if os.path.isfile(plot_path):
+            new_name = '{}-{}.pdf'.format(name, plot_name)
+            shutil.copy2(plot_path, os.path.join(report_dir, new_name))
+            html_file.write('<p><a href={}>{} Plot</a></p>\n'.format(new_name, plot_name.upper()))
+
+    if stdout:
+        html_file.write('<p>Standard Output:</p>\n<p>')
+        for line in textwrap.wrap(stdout, 80):
+            html_file.write(line + '&#10')
+        html_file.write('</p>')
 
 def main(args):
     """
@@ -167,9 +206,12 @@ def main(args):
     """    
     options = parse_args(args)
 
+    if not os.path.isdir(options.html_out_dir):
+        os.makedirs(options.html_out_dir)
+
     # just scrape stdout and a few stats for for now 
     with open(options.md_out, 'w') as md_file, \
-         open(options.html_out, 'w') as html_file:
+         open(os.path.join(options.html_out_dir, 'index.html'), 'w') as html_file:
 
         write_md_header(md_file)
         write_html_header(html_file)
