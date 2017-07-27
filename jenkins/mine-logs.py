@@ -94,11 +94,16 @@ def md_summary(xml_root):
     """
     Make a brief summary in Markdown of a testsuite
     """
-    md = 'Jenkins vg tests complete'
+    build_number = os.getenv('BUILD_NUMBER')
+    if build_number:
+        md = '[Jenkins vg tests](http://jenkins.cgcloud.info/job/vg/{}/) complete'.format(
+            build_number)
+    else:
+        md = 'Jenkins vg tests complete'
     try:
         if os.getenv('ghprbPullId'):
             md += ' for [PR {}]({})'.format(os.getenv('ghprbPullId'), os.getenv('ghprbPullLink'))
-        elif os.getenv('BUILD_NUMBER'):
+        elif build_number:
             md += ' for merge to master'
         md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
 
@@ -146,17 +151,23 @@ def html_header(xml_root):
         
         ts = parse_testsuite_xml(testsuite)
 
+        build_number = os.getenv('BUILD_NUMBER')
+
         report += '<h2>vg Test Report'
         if os.getenv('ghprbPullId'):
             report += ' for <a href={}>PR {}</a>'.format(os.getenv('ghprbPullLink'),
                                                          os.getenv('ghprbPullId'))
-        elif os.getenv('BUILD_NUMBER'):
+        elif build_number:
             report += ' for merge to master'
         report += '</h2>\n'
 
         report += '<p> {} tests passed, {} tests failed and {} tests skipped in {} seconds'.format(
             ts['passes'], ts['fails'], ts['skips'], ts['time'])
         report += '.</p>\n'
+
+        if build_number:
+            report += '<p> <a href=http://jenkins.cgcloud.info/job/vg/{}/>'.format(build_number)
+            report += 'Jenkins test page </a></ap>\n'
 
         report += '<p> Report generated on {} </p>\n'.format(str(datetime.datetime.now()))
         
@@ -176,6 +187,7 @@ def html_testcase(testcase, work_dir, report_dir):
         if tc['failed']:
             report += '<p>Failed in {} seconds</p>\n'.format(tc['time'])
             report += '<p>Failure Message: `{}`</p>\n'.format(escape(tc['fail-msg']))
+            report += '<p>Failure Text: `{}`</p>\n'.format(escape(tc['fail-txt']))
         else:
             report += '<p>Passed in {} seconds</p>\n'.format(tc['time'])
 
@@ -214,6 +226,12 @@ def html_testcase(testcase, work_dir, report_dir):
         for warning in warnings:
             
             report += '<pre>{}</pre>\n'.format(escape('\n'.join(textwrap.wrap(warning, 80))))
+
+        if tc['stderr']:
+            err_name = '{}-stderr.txt'.format(tc['name'])
+            with open(os.path.join(report_dir, err_name), 'w') as err_file:
+                err_file.write(tc['stderr'])
+            report += '<p><a href={}>Standard Error</a></p>\n'.format(err_name)
 
     except:
         report += 'Error parseing Test Case XML\n'
