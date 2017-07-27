@@ -225,6 +225,7 @@ int main_genotype(int argc, char** argv) {
         help_genotype(argv);
         return 1;
     }
+
     if (show_progress) {
         cerr << "Reading input graph..." << endl;
     }
@@ -239,6 +240,12 @@ int main_genotype(int argc, char** argv) {
         string rstr(ref_path_name);
         gt.genotype_svs(graph, gamfi, rstr);
         exit(0);
+    }
+
+      // setup reads index
+    if (optind >= argc) {
+        help_genotype(argv);
+        return 1;
     }
 
     string reads_index_name = "";
@@ -261,7 +268,7 @@ int main_genotype(int argc, char** argv) {
         graph_ids.push_back(node->id());
     });
 
-    if (!(gam_file.empty() || recall_vcf.empty() || fasta.empty())){
+    if (!(recall_vcf.empty() || fasta.empty())){
         Genotyper gt;
         vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
         vars->open(recall_vcf);
@@ -279,11 +286,7 @@ int main_genotype(int argc, char** argv) {
 
     }
 
-    // setup reads index
-    if (optind >= argc) {
-        help_genotype(argv);
-        return 1;
-    }
+  
 
     
 
