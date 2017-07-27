@@ -479,7 +479,7 @@ class VGCITest(TestCase):
                     shutil.copy2('scripts/plot-{}.R'.format(rscript), os.path.abspath(self.workdir))
                     cmd = ['Rscript', 'plot-{}.R'.format(rscript),
                            os.path.join(out_store_name, 'position.results.tsv'),
-                           os.path.join(out_store_name, '{}.pdf'.format(rscript))]
+                           os.path.join(out_store_name, '{}.svg'.format(rscript))]
                     toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                              work_dir = os.path.abspath(self.workdir)))
                     os.remove(os.path.join(self.workdir, 'plot-{}.R'.format(rscript)))

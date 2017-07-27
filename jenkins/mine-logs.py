@@ -6,12 +6,15 @@ of how good VG is at various tasks.
 import logging
 import subprocess
 import tempfile
-import os, sys
+import os
+import sys
+import re
 import argparse
 import xml.etree.ElementTree as ET
 import textwrap
 import shutil
 import datetime
+import cgi
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__, 
@@ -120,6 +123,14 @@ def md_summary(xml_root):
     except:
         md += ' **Error parsing Test Suite XML**\n'
     return md
+    
+def escape(string):
+    """
+    Return an HTML-escaped version of the given string. Should be called on
+    every user-supplied string before being included in HTML output. Escapes
+    quotes, so the string can be used as an HTML attribute value.
+    """
+    return cgi.escape(string, quote=True)
         
 def html_header(xml_root):
     """
@@ -164,24 +175,45 @@ def html_testcase(testcase, work_dir, report_dir):
         report += '<h3>{}</h3>\n'.format(tc['name'])
         if tc['failed']:
             report += '<p>Failed in {} seconds</p>\n'.format(tc['time'])
-            report += '<p>Failure Message: `{}`</p>\n'.format(tc['fail-msg'])
+            report += '<p>Failure Message: `{}`</p>\n'.format(escape(tc['fail-msg']))
         else:
             report += '<p>Passed in {} seconds</p>\n'.format(tc['time'])
 
         outstore = os.path.join(work_dir, testname_to_outstore(tc['name']))
 
         for plot_name in 'roc', 'qq':
-            plot_path = os.path.join(outstore, '{}.pdf'.format(plot_name))
+            plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
-                new_name = '{}-{}.pdf'.format(tc['name'], plot_name)
+                new_name = '{}-{}.svg'.format(tc['name'], plot_name)
                 shutil.copy2(plot_path, os.path.join(report_dir, new_name))
-                report += '<p><a href={}>{} Plot</a></p>\n'.format(new_name, plot_name.upper())
+                report += '<p><a href=\"{}\">{} Plot</a><br><img width=\"300px\" src=\"{}\"></p>\n'.format(
+                    new_name, plot_name.upper(), new_name)
 
         if tc['stdout']:
-            report += '<p>Standard Output:</p>\n<p>'
-            for line in textwrap.wrap(tc['stdout'], 80):
-                report += line + '&#10'
-            report += '</p>\n'
+            report += '<p>Standard Output:</p>\n<pre>'
+            for line in tc['stdout'].split('\n'):
+                for subline in textwrap.wrap(line, 80):
+                    report += escape(subline) + '\n'
+            report += '</pre>\n'
+            
+        # Look for warning lines in stderr
+        warnings = []
+        for line in tc['stderr'].split('\n'):
+            # For each line
+            if "WARNING vgci" in line:
+                # If it is a CI warning, keep it
+                warnings.append(line.rstrip())
+            
+        report += '<p>{} CI warnings found'.format(len(warnings))
+        if len(warnings) > 10:
+            report += '; showing first 10'
+            warnings = warnings[:10]
+        if len(warnings) > 0:
+            report += ':'
+        report += '</p>\n'
+        for warning in warnings:
+            
+            report += '<pre>{}</pre>\n'.format(escape('\n'.join(textwrap.wrap(warning, 80))))
 
     except:
         report += 'Error parseing Test Case XML\n'
@@ -203,7 +235,6 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
             html_file.write(tc_body)
         html_file.write('</body>\n</html>\n')
         
-
 def main(args):
     """
     Scrape out some information from the PyTest logs.  Present as MarkDown summary
