@@ -481,7 +481,7 @@ public:
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // helper to cluster subgraph
-    void cached_graph_context(VG& graph, const pos_t& pos, int length, int max_size, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
+    void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // compute the uniqueness metric based on the MEMs in the cluster
