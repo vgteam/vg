@@ -107,7 +107,7 @@ def md_summary(xml_root):
         md += '{} tests passed, {} tests failed and {} tests skipped in {} seconds\n\n'.format(
             ts['passes'], ts['fails'], ts['skips'], ts['time'])
 
-        if ts['fails'] is not None and int(ts['fails']) > 1:
+        if ts['fails'] is not None and int(ts['fails']) >= 1:
             md += 'Failed tests:\n\n'
 
         for testcase in testsuite.iter('testcase'):
