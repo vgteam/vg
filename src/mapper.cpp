@@ -1621,8 +1621,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     int get_at_least = (!cached_fragment_length_mean ? fragment_max
                         : max((int)cached_fragment_length_stdev * 6 + mate1.sequence().size(),
                               mate1.sequence().size() * 4));
-    cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
-    cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
+    cached_graph_context(graph, mate_pos, get_at_least/2, get_at_least*4, node_cache, edge_cache);
+    cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, get_at_least*4, node_cache, edge_cache);
     graph.remove_orphan_edges();
     if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
@@ -2252,9 +2252,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 && results.second.size() == 1
                 && results.first.front().identity() > perfect_pair_identity_threshold
                 && results.second.front().identity() > perfect_pair_identity_threshold
-                && (fragment_size && length < fragment_size
-                    || !fragment_size && length < fragment_max)) { // hard cutoff
-                //cerr << "aln\tperfect alignments" << endl;
+                && (fragment_size && abs(length) < fragment_size
+                    || !fragment_size && abs(length) < fragment_max)) { // hard cutoff
                 record_fragment_configuration(length, aln1, aln2);
             } else if (!fragment_size) {
                 imperfect_pair = true;
@@ -2822,9 +2821,10 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
 }
 
-void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, int max_size, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     // walk the graph from this position forward
     // adding the nodes we run into to the graph
+    int start_length = graph.length();
     set<pos_t> seen;
     set<pos_t> nexts;
     nexts.insert(pos);
@@ -2835,6 +2835,10 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
         for (auto& next : nexts) {
             if (!seen.count(next)) {
                 seen.insert(next);
+                if (seen.size() + start_length > max_size) {
+                    graph.remove_orphan_edges();
+                    return;
+                }
                 // add the node and its edges to the graph
                 Node node = xg_cached_node(id(next), xindex, node_cache);
                 nextd = nextd == 0 ? node.sequence().size() : min(nextd, (int)node.sequence().size());
@@ -2870,7 +2874,7 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
-        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
+        cached_graph_context(graph, rev_start_pos, get_before, get_before*4, node_cache, edge_cache);
     }
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
@@ -2878,7 +2882,7 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
         int get_after = (i+1 == mems.size() ?
                          expansion * (int)(aln.sequence().end() - mem.begin)
                          : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
+        cached_graph_context(graph, pos, get_after, get_after*4, node_cache, edge_cache);
     }
     graph.remove_orphan_edges();
     return graph;
@@ -4098,7 +4102,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         for (auto& pos : band_ref_pos) {
                             VG graph;
                             pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
-                            cached_graph_context(graph, pos_rev, band.sequence().size(), node_cache, edge_cache);
+                            cached_graph_context(graph, pos_rev, band.sequence().size(), band.sequence().size()*4, node_cache, edge_cache);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
@@ -4112,7 +4116,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             VG graph;
-                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            cached_graph_context(graph, pos, band.sequence().size(), band.sequence().size()*4, node_cache, edge_cache);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
@@ -4121,7 +4125,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
                             VG graph;
-                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            cached_graph_context(graph, pos, band.sequence().size(), band.sequence().size()*4, node_cache, edge_cache);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
