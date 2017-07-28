@@ -57,7 +57,7 @@ string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& nod
 /// Get the length of a Node from an xg::XG index, with cacheing of deserialized nodes.
 size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the node start position in the sequence vector
-size_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, size_t>& node_start_cache);
+int64_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, int64_t>& node_start_cache);
 /// Get the character at a position in an xg::XG index, with cacheing of deserialized nodes.
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 /// Get the characters at positions after the given position from an xg::XG index, with cacheing of deserialized nodes.

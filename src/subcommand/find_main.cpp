@@ -21,6 +21,7 @@ void help_find(char** argv) {
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
+         << "    -X, --approx-pos ID    get the approximate position of this node" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
          << "alignments: (rocksdb only)" << endl
@@ -75,7 +76,7 @@ int main_find(int argc, char** argv) {
     string xg_name;
     bool get_mems = false;
     int mem_reseed_length = 0;
-    bool use_fast_reseed = false;
+    bool use_fast_reseed = true;
     bool get_alignments = false;
     bool get_mappings = false;
     string node_id_range;
@@ -90,6 +91,7 @@ int main_find(int argc, char** argv) {
     string to_graph_file;
     bool extract_threads = false;
     vector<string> extract_patterns;
+    vg::id_t approx_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -130,11 +132,12 @@ int main_find(int argc, char** argv) {
                 {"min-mem", required_argument, 0, 'Z'},
                 {"extract-threads", no_argument, 0, 't'},
                 {"threads-named", required_argument, 0, 'q'},
+                {"approx-pos", required_argument, 0, 'X'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:fi:DH:G:N:A:Y:Z:tq:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:R:fi:DH:G:N:A:Y:Z:tq:X:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -268,7 +271,11 @@ int main_find(int argc, char** argv) {
             extract_threads = true;
             extract_patterns.push_back(optarg);
             break;
-            
+
+        case 'X':
+            approx_id = atoi(optarg);
+            break;
+
         case 'G':
             gam_file = optarg;
             break;
@@ -479,6 +486,10 @@ int main_find(int argc, char** argv) {
             } else {
                 cout << xindex.min_approx_path_distance(vector<string>(), node_ids[0], node_ids[1]) << endl;
             }
+            return 0;
+        }
+        if (approx_id != 0) {
+            cout << xindex.node_start(approx_id) << endl;
             return 0;
         }
         if (!targets.empty()) {
@@ -769,6 +780,7 @@ int main_find(int argc, char** argv) {
                 // get the mems
                 double lcp_avg;
                 auto mems = mapper.find_mems_deep(sequence.begin(), sequence.end(), lcp_avg, max_mem_length, min_mem_length, mem_reseed_length);
+
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
 
