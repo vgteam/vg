@@ -405,7 +405,7 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
+        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01 --include-bonuses\' '
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -505,9 +505,13 @@ class VGCITest(TestCase):
                 stats_dict[toks[0]] = [float(x) for x in toks[1:]]
         return stats_dict
 
-    def _verify_mapeval(self, reads, score_baseline_name, tag):
+    def _verify_mapeval(self, reads, read_source_graph, score_baseline_name, tag):
         """
         Check the simulated mapping evaluation results.
+        
+        read_source_graph is the name of the graph that the reads were generated
+        from; we'll compare the scores realigned to that graph against the
+        scores that the generated reads had.
         
         score_baseline_name is the name of the graph we compared scores against;
         we will chack that reads increase in score in the other graphs against
@@ -546,12 +550,13 @@ class VGCITest(TestCase):
             # Now look at the stats for comparing scores on all graphs vs. scores on this particular graph.
             score_stats_path = os.path.join(self._outstore(tag), 'score.stats.{}.tsv'.format(compare_against))
             if os.path.exists(score_stats_path):
-                # If the score comparison was run, make sure not too many reads get
-                # worse moving from linear reference or BWA to a graph.
+                # If the score comparison was run, make sure not too many reads
+                # get worse moving from simulated to realigned scores, or moving
+                # from the baseline graph to the other (more inclusive) graphs.
                 
                 try:
                     # Parse out the baseline stat values (not for the baseline
-                    # graph, we shouldn't have called these both "baseline")
+                    # graph; we shouldn't have called these both "baseline")
                     baseline_tsv = self._read_baseline_file(tag, 'score.stats.{}.tsv'.format(compare_against))
                     baseline_dict = self._tsv_to_dict(baseline_tsv)
                 except:
@@ -567,6 +572,13 @@ class VGCITest(TestCase):
                     
                 for key in score_stats_dict.iterkeys():
                     # For every kind of graph
+                    
+                    if compare_against == 'input' and (key != read_source_graph and
+                        key != read_source_graph + '-pe'):
+                        # Only compare simulated read scores to the scores the
+                        # reads get when aligned against the graph they were
+                        # simulated from.
+                        continue
                     
                     # Guess where the file for individual read score differences for this graph is
                     # TODO: get this file's name/ID from the actual Toil code
@@ -663,7 +675,7 @@ class VGCITest(TestCase):
                              test_graphs, score_baseline_graph, tag)
 
         if self.verify:
-            self._verify_mapeval(reads, score_baseline_graph, tag)
+            self._verify_mapeval(reads, baseline_graph, score_baseline_graph, tag)
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
