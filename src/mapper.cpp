@@ -1580,41 +1580,41 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (debug) cerr << "pair rescue: mate1 " << mate1_id << " mate2 " << mate2_id << " consistent? " << consistent << endl;
-    if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
-    if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
+    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
+    //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
         // retry off mate1
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         }
-//#endif
+#endif
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
     } else if (mate2_id > mate1_id && mate2_id > hang_threshold && !consistent) {
         // retry off mate2
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         }
-//#endif
+#endif
         rescue_off_second = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate2, false);
     } else {
         return false;
     }
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "aiming for " << mate_pos << endl;
     }
     if (id(mate_pos) == 0) return false; // can't rescue because the selected mate is unaligned
-//#endif
+#endif
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     VG graph;
@@ -1624,7 +1624,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
-    if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
+    //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
