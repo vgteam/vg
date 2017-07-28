@@ -24,7 +24,7 @@ MD_IN="${1}"; shift
 init_mutex() {
     # Set up the mutex system. Takes no arguments.
     aws configure set preview.sdb true
-    aws sdb create-domain --domain-name vgci 2>/dev/null || true
+    aws sdb create-domain --region us-west-2 --domain-name vgci 2>/dev/null || true
 }
 
 read_mutex() {
@@ -34,10 +34,10 @@ read_mutex() {
     local MUTEX_NAME="${1}"; shift
     
     # Make the mutex if it doesn't exist
-    aws sdb put-attributes --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=free,Replace=true" --expected "Name=mutexholder,Exists=false" 2>/dev/null || true
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=free,Replace=true" --expected "Name=mutexholder,Exists=false" 2>/dev/null || true
     
     # Download the mutex data
-    local RESULT="$(aws sdb get-attributes --domain-name vgci --item-name ${MUTEX_NAME} --consistent-read)"
+    local RESULT="$(aws sdb get-attributes --region us-west-2 --domain-name vgci --item-name ${MUTEX_NAME} --consistent-read)"
     # Pull out the holder
     MUTEX_HOLDER="$(echo "${RESULT}" | grep -A 1 "mutexholder" | tail -n1 | cut -f2 -d':' | tr -d " \"")"
 
@@ -51,7 +51,7 @@ unlock_mutex() {
 
     echo "Unlocking ${MUTEX_NAME} for ${MUTEX_HOLDER}"
     
-    aws sdb put-attributes --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=free,Replace=true" --expected "Name=mutexholder,Value=${MUTEX_HOLDER}" 2>/dev/null || true
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=free,Replace=true" --expected "Name=mutexholder,Value=${MUTEX_HOLDER}" 2>/dev/null || true
 }
 
 lock_mutex() {
@@ -106,7 +106,7 @@ lock_mutex() {
         
         # If we get here we saw it as free
         # Try to take it
-        aws sdb put-attributes --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=${MUTEX_SENTINEL},Replace=true" --expected "Name=mutexholder,Value=free" || true
+        aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${MUTEX_NAME}" --attributes "Name=mutexholder,Value=${MUTEX_SENTINEL},Replace=true" --expected "Name=mutexholder,Value=free" || true
         
         # See if it worked
         read_mutex "${MUTEX_NAME}"
@@ -126,10 +126,10 @@ read_build_number() {
     local ITEM_NAME="${1}"; shift
     
     # Make the attribute if it doesn't exist
-    aws sdb put-attributes --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=0,Replace=true" --expected "Name=buildnumber,Exists=false" 2>/dev/null || true
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=0,Replace=true" --expected "Name=buildnumber,Exists=false" 2>/dev/null || true
     
     # Download the data
-    local RESULT="$(aws sdb get-attributes --domain-name vgci --item-name ${ITEM_NAME} --consistent-read)"
+    local RESULT="$(aws sdb get-attributes --region us-west-2 --domain-name vgci --item-name ${ITEM_NAME} --consistent-read)"
     # Pull out the build number
     OLD_BUILD_NUMBER="$(echo "${RESULT}" | grep -A 1 "buildnumber" | tail -n1 | cut -f2 -d':' | tr -d " \"")"
 }
@@ -141,7 +141,7 @@ write_build_number() {
     local NEW_BUILD_NUMBER="${1}"; shift
     
     # Overwrite the attribute
-    aws sdb put-attributes --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=${NEW_BUILD_NUMBER},Replace=true"
+    aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=${NEW_BUILD_NUMBER},Replace=true"
 
 }
 
