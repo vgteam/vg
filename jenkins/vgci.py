@@ -419,7 +419,7 @@ class VGCITest(TestCase):
             vg_docker = self.vg_docker,
             container = self.container,
             alignment_cores = self.cores,
-            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
+            map_opts = ['--include-bonuses', '-I', '1000:500:50:0:1'], # Make sure we have the actual scores used to decide on alignments
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",

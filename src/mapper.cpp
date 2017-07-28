@@ -1,7 +1,7 @@
 #include <unordered_set>
 #include "mapper.hpp"
 
-//#define debug_mapper
+#define debug_mapper
 
 namespace vg {
 
@@ -1821,6 +1821,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     auto transition_weight = [&](const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            if (debug) cerr << "Compute distance from " << m1 << " to " << m2 << endl;
+        }
+#endif
+
         // set up positions for distance query
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
@@ -1841,6 +1848,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
 #endif
             if (dist >= max_length) {
+                // Seem to be too far appart
+#ifdef debug_mapper
+#pragma omp critical
+                {
+                    if (debug) cerr << "seem too far apart by approx_dist" << endl;
+                }
+#endif
                 return -std::numeric_limits<double>::max();
             } else {
                 if (xindex->path_count) {
@@ -1853,6 +1867,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 }
 #endif
                 if (dist >= max_length) {
+#ifdef debug_mapper
+#pragma omp critical
+                    {
+                        if (debug) cerr << "too far apart by path distance" << endl;
+                    }
+#endif
                     return -std::numeric_limits<double>::max();
                 } else if (fragment_size) {
                     // exclude cases that don't match our model
@@ -1861,16 +1881,41 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         || cached_fragment_orientation
                         && is_rev(m1_pos) != is_rev(m2_pos)
                         || dist > fragment_size) {
+#ifdef debug_mapper
+#pragma omp critical
+                        {
+                            if (debug) cerr << "bad orientations or dist of " << dist
+                                << " beyond fragment_size of " << fragment_size << endl;
+                        }
+#endif
                         return -std::numeric_limits<double>::max();
                     } else {
+#ifdef debug_mapper
+#pragma omp critical
+                        {
+                            if (debug) cerr << "OK with known fragment size" << endl;
+                        }
+#endif
                         return fragment_length_pval(dist) * read1.sequence().size();
                     }
                 } else {
+#ifdef debug_mapper
+#pragma omp critical
+                    {
+                        if (debug) cerr << "OK with no fragment size" << endl;
+                    }
+#endif
                     return 1.0/dist;
                 }
             }
         } else if (m1.fragment > m2.fragment) {
             // don't allow going backwards in the threads
+#ifdef debug_mapper
+#pragma omp critical
+            {
+                if (debug) cerr << "can't go backward" << endl;
+            }
+#endif
             return -std::numeric_limits<double>::max();
         } else {
             //int max_length = (m1.length() + m2.length());
@@ -1887,6 +1932,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #endif
             if (approx_dist > max_length) {
                 // too far
+                
+#ifdef debug_mapper
+#pragma omp critical
+                {
+                    if (debug) cerr << "too far apart on same node by approx_dist" << endl;
+                }
+#endif
+                
                 return -std::numeric_limits<double>::max();
             } else {
                 // we may want to switch back to exact measurement, although the approximate metric is simpler and more reliable despite being less precise
@@ -1899,17 +1952,43 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 }
 #endif
                 if (distance == max_length) {
+#ifdef debug_mapper
+#pragma omp critical
+                    {
+                        if (debug) cerr << "exactly too far apart" << endl;
+                    }
+#endif
                     return -std::numeric_limits<double>::max();
                 }
                 if (is_rev(m1_pos) != is_rev(m2_pos)) {
                     // disable inversions
+                    // TODO: shouldn't we be using cached_fragment_orientation like in the two-node case???
+                    
+#ifdef debug_mapper
+#pragma omp critical
+                    {
+                        if (debug) cerr << "no inversions allowed on the same node" << endl;
+                    }
+#endif
                     return -std::numeric_limits<double>::max();
                 } else {
                     // accepted transition
                     double jump = abs((m2.begin - m1.begin) - distance);
                     if (jump) {
+#ifdef debug_mapper
+#pragma omp critical
+                        {
+                            if (debug) cerr << "accept distance with jump" << endl;
+                        }
+#endif
                         return (double) -duplicate_coverage * match - (gap_open + jump * gap_extension);
                     } else {
+#ifdef debug_mapper
+#pragma omp critical
+                        {
+                            if (debug) cerr << "accept distance without jump" << endl;
+                        }
+#endif
                         return (double) -duplicate_coverage * match;
                     }
                 }
@@ -1920,11 +1999,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // build the paired-read MEM markov model
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
+        // We're going to run the chainer because we want to calculate alignments
+        
+        // What band width during the alignment should the chainer plan for?
+        int band_width = max((int)(read1.sequence().size() + read2.sequence().size()),
+                             (int)(fragment_size ? fragment_size : fragment_max));
+        
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "Invoking MEM chainer with band width " << band_width
+                << ", fragment size " << fragment_size << ", fragment_max " 
+                << fragment_max << endl;
+            }
+        }
+#endif
+    
         MEMChainModel chainer({ read1.sequence().size(), read2.sequence().size() },
                               { mems1, mems2 }, this,
                               transition_weight,
-                              max((int)(read1.sequence().size() + read2.sequence().size()),
-                                  (int)(fragment_size ? fragment_size : fragment_max)));
+                              band_width);
         clusters = chainer.traceback(total_multimaps, true, debug);
     }
 
@@ -4567,12 +4662,14 @@ MEMChainModel::MEMChainModel(
                 m.mem.fragment = frag_n;
                 m.mem.match_count = mem.match_count;
                 model.push_back(m);
+                cerr << "Add vertex for " << m.mem << " at " << m.approx_position << endl;
             }
         }
     }
     // index the model with the positions
     for (vector<MEMChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         approx_positions[v->approx_position].push_back(v);
+        cerr << "Index " << v->mem << " at " << v->approx_position << endl;
     }
     // sort the vertexes at each approx position by their matches and trim
     for (auto& pos : approx_positions) {
@@ -4583,6 +4680,7 @@ MEMChainModel::MEMChainModel(
         if (pos.second.size() > position_depth) {
             for (int i = position_depth; i < pos.second.size(); ++i) {
                 redundant_vertexes.insert(pos.second[i]);
+                cerr << "At " << pos.first << " we have redundant " << pos.second[i]->mem << endl;
             }
         }
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
@@ -4591,8 +4689,10 @@ MEMChainModel::MEMChainModel(
     // scan forward
     for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
+        cerr << "Scan " << p->first << endl;
         for (auto& v1 : p->second) {
             if (redundant_vertexes.count(v1)) continue;
+            cerr << "Look at a non-redundant vertex for " << v1->mem << " with " << v1->next_cost.size() << " conections" << endl;
             auto q = p;
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
                 for (auto& v2 : q->second) {
@@ -4633,28 +4733,48 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
+    cerr << "Scan " << approx_positions.size() << " approx positions" << endl;
     for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         // look bandwidth before and bandwidth after in the approx positions
         // after
+        cerr << "Scan " << p->second.size() << " vertexes at position "<< p->first << endl;
         for (auto& v1 : p->second) {
+            // For each vertex...
             if (redundant_vertexes.count(v1)) continue;
+            // ...that isn't redundant
             auto q = p;
+            cerr << "Compare separation " << abs(p->first - q->first) << " vs. band_width " << band_width << endl;
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
+                cerr << "Scan " << q->second.size() << " other nodes" << endl;
                 for (auto& v2 : q->second) {
+                    // For each other vertex...
+                    cerr << "Consider " << v1->mem.fragment << "," << v2->mem.fragment << " " << (v1->mem.begin < v2->mem.begin) << " " << v1->next_cost.size() << "," << v2->prev_cost.size() << endl;
+                    
                     if (redundant_vertexes.count(v2)) continue;
+                    // ...that isn't redudnant
+                    
                     // if this is an allowable transition, run the weighting function on it
                     if (v1->next_cost.size() < max_connections
                         && v2->prev_cost.size() < max_connections) {
+                        // There are not too many connections yet
+                        
                         if (v1->mem.fragment < v2->mem.fragment
                             || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
+                            // Transition is allowable because the first comes before the second
+                            
+                            cerr << "Compute transition weight from " << v1->mem << " to " << v2->mem << endl;
                             double weight = transition_weight(v1->mem, v2->mem);
+                            cerr << "Got weight " << weight << endl;
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v1->next_cost.push_back(make_pair(&*v2, weight));
                                 v2->prev_cost.push_back(make_pair(&*v1, weight));
                             }
                         } else if (v1->mem.fragment > v2->mem.fragment
                                    || v1->mem.fragment == v2->mem.fragment && v1->mem.begin > v2->mem.begin) {
+                            // Really we want to think about the transition going the other way
+                            
+                            cerr << "Compute transition weight back from " << v1->mem << " to " << v2->mem << endl;
                             double weight = transition_weight(v2->mem, v1->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v2->next_cost.push_back(make_pair(&*v1, weight));
@@ -4663,6 +4783,7 @@ MEMChainModel::MEMChainModel(
                         }
                     }
                 }
+                cerr << "Compare separation " << abs(p->first - q->first) << " vs. band_width " << band_width << endl;
             }
         }
     }
