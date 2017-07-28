@@ -249,18 +249,25 @@ class VGCITest(TestCase):
         # Make the context
         context = Context(out_store, overrides)
 
-        # The unfiltered vcf file
+        # The unfiltered and filtered vcf file
         uf_vcf_file = os.path.join(self.workdir, 'uf-' + os.path.basename(vcf_file))
+        f_vcf_file = os.path.join(self.workdir, 'f-' + os.path.basename(vcf_file))
+        if not f_vcf_file.endswith('.gz'):
+            f_vcf_file += '.gz'
         
         # Get the inputs
         self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
         self._get_remote_file(vcf_file, uf_vcf_file)
 
         # Reduce our VCF to just the sample of interest to save time downstream
-        subprocess.check_call('bcftools view {} -s {} -O z > {}'.format(
-            uf_vcf_file, sample, os.path.join(out_store, os.path.basename(vcf_file))), shell=True)
-        subprocess.check_call('tabix -f -p vcf {}'.format(
-            os.path.join(out_store, os.path.basename(vcf_file))), shell=True)
+        with context.get_toil(job_store) as toil:
+            cmd = ['bcftools', 'view', os.path.basename(uf_vcf_file), '-s', sample, '-O', 'z']
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir),
+                                     out_path = os.path.abspath(f_vcf_file)))
+            cmd = ['tabix', '-f', '-p', 'vcf', os.path.basename(f_vcf_file)]
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir)))
         os.remove(uf_vcf_file)
         
         # Make the xg with gpbwt of the input graph
@@ -268,8 +275,10 @@ class VGCITest(TestCase):
         chrom, offset = self._bakeoff_coords(region)
         self._toil_vg_index(chrom, vg_file, None, None,
                             '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
-                                vcf_file, self.cores), tag, index_name)
+                                os.path.abspath(f_vcf_file), self.cores), tag, index_name)
         index_path = os.path.join(out_store, index_name + '.xg')
+        os.remove(f_vcf_file)
+        os.remove(f_vcf_file + '.tbi')
         
         # Extract both haplotypes of the given sample as their own graphs
         # (this is done through vg directly)
@@ -666,7 +675,9 @@ class VGCITest(TestCase):
         # graph.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')
+                           score_baseline_graph='primary',
+                           sample='HG00096')
+
 
 
     @timeout_decorator.timeout(3600)
@@ -674,7 +685,8 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')
+                           score_baseline_graph='primary',
+                           sample='HG00096')
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):
