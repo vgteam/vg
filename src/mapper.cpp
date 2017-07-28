@@ -1504,7 +1504,7 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
     int64_t aln_pos = approx_alignment_position(aln);
-    if (debug) cerr << "aln pos " << aln_pos << endl;
+    //if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
     bool same_orientation = cached_fragment_orientation;
@@ -1581,40 +1581,40 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
     if (debug) cerr << "pair rescue: mate1 " << mate1_id << " mate2 " << mate2_id << " consistent? " << consistent << endl;
-    if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
-    if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
+    //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
+    //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
         // retry off mate1
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         }
-//#endif
+#endif
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
     } else if (mate2_id > mate1_id && mate2_id > hang_threshold && !consistent) {
         // retry off mate2
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         }
-//#endif
+#endif
         rescue_off_second = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate2, false);
     } else {
         return false;
     }
-//#ifdef debug_mapper
+#ifdef debug_mapper
 #pragma omp critical
     {
         if (debug) cerr << "aiming for " << mate_pos << endl;
     }
     if (id(mate_pos) == 0) return false; // can't rescue because the selected mate is unaligned
-//#endif
+#endif
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     VG graph;
@@ -1624,7 +1624,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
     cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
     graph.remove_orphan_edges();
-    if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
+    //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
@@ -2958,7 +2958,9 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
         *aln2.add_fragment() = fragment;
         if (fragment_size && pair_consistent(aln1, aln2, 0)) {
             double pval = fragment_length_pval(abs(length));
-            double score = pval > 0.01 ? 10 + pval : 0;
+            double score = aln1.sequence().size() * pval;
+            //double score = pval > 0.01 ? 10 + pval : 0;
+            //double score = pval > 0.01 ? aln1.sequence().size() * pval : 0;
             //auto p = signature(aln1, aln2);
             //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << cached_fragment_length_mean << endl;
             aln1.set_fragment_score(score);
