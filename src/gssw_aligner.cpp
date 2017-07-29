@@ -728,7 +728,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     vector<double> scaled_scores(size);
     
     for (size_t i = 0; i < size; i++) {
-        scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score() + frag_weights[i]);
+        scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        // + frag_weights[i]);
         // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance
         // at least with the weights which we are using; todo explore this
     }
