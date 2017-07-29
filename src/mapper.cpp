@@ -2958,7 +2958,8 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
         *aln2.add_fragment() = fragment;
         if (fragment_size && pair_consistent(aln1, aln2, 0)) {
             double pval = fragment_length_pval(abs(length));
-            double score = pval > 0.01 ? 10 + pval : 0;
+            double score = pval > 0.01 ? 20 + pval : 0;
+            //double score = pval * 10; //aln1.sequence().size();
             //auto p = signature(aln1, aln2);
             //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << cached_fragment_length_mean << endl;
             aln1.set_fragment_score(score);
