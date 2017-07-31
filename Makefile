@@ -13,7 +13,7 @@ CPP_DIR:=cpp
 
 EXE:=vg
 
-CXXFLAGS:=-O3 -msse4.1 -fopenmp -march=native -mtune=native -std=c++11 -ggdb -g
+CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g
 
 CWD:=$(shell pwd)
 
@@ -26,6 +26,8 @@ ifeq ($(shell uname -s),Darwin)
 	# TODO: where does Homebrew keep libraries?
 	ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
 	LD_LIB_FLAGS += -L/opt/local/lib
+else
+	CXXFLAGS += -march=native -mtune=native
 endif
 ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
 	LD_LIB_FLAGS += -L/usr/local/lib
