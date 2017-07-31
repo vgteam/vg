@@ -1,7 +1,7 @@
 #include <unordered_set>
 #include "mapper.hpp"
 
-#define debug_mapper
+//#define debug_mapper
 
 namespace vg {
 
@@ -4662,14 +4662,12 @@ MEMChainModel::MEMChainModel(
                 m.mem.fragment = frag_n;
                 m.mem.match_count = mem.match_count;
                 model.push_back(m);
-                cerr << "Add vertex for " << m.mem << " at " << m.approx_position << endl;
             }
         }
     }
     // index the model with the positions
     for (vector<MEMChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         approx_positions[v->approx_position].push_back(v);
-        cerr << "Index " << v->mem << " at " << v->approx_position << endl;
     }
     // sort the vertexes at each approx position by their matches and trim
     for (auto& pos : approx_positions) {
@@ -4680,7 +4678,6 @@ MEMChainModel::MEMChainModel(
         if (pos.second.size() > position_depth) {
             for (int i = position_depth; i < pos.second.size(); ++i) {
                 redundant_vertexes.insert(pos.second[i]);
-                cerr << "At " << pos.first << " we have redundant " << pos.second[i]->mem << endl;
             }
         }
         pos.second.resize(min(pos.second.size(), (size_t)position_depth));
@@ -4689,10 +4686,8 @@ MEMChainModel::MEMChainModel(
     // scan forward
     for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
-        cerr << "Scan " << p->first << endl;
         for (auto& v1 : p->second) {
             if (redundant_vertexes.count(v1)) continue;
-            cerr << "Look at a non-redundant vertex for " << v1->mem << " with " << v1->next_cost.size() << " conections" << endl;
             auto q = p;
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
                 for (auto& v2 : q->second) {
@@ -4733,23 +4728,18 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
-    cerr << "Scan " << approx_positions.size() << " approx positions" << endl;
     for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         // look bandwidth before and bandwidth after in the approx positions
         // after
-        cerr << "Scan " << p->second.size() << " vertexes at position "<< p->first << endl;
         for (auto& v1 : p->second) {
             // For each vertex...
             if (redundant_vertexes.count(v1)) continue;
             // ...that isn't redundant
             auto q = p;
-            cerr << "Compare separation " << abs(p->first - q->first) << " vs. band_width " << band_width << endl;
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
-                cerr << "Scan " << q->second.size() << " other nodes" << endl;
                 for (auto& v2 : q->second) {
                     // For each other vertex...
-                    cerr << "Consider " << v1->mem.fragment << "," << v2->mem.fragment << " " << (v1->mem.begin < v2->mem.begin) << " " << v1->next_cost.size() << "," << v2->prev_cost.size() << endl;
                     
                     if (redundant_vertexes.count(v2)) continue;
                     // ...that isn't redudnant
@@ -4763,9 +4753,7 @@ MEMChainModel::MEMChainModel(
                             || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
                             // Transition is allowable because the first comes before the second
                             
-                            cerr << "Compute transition weight from " << v1->mem << " to " << v2->mem << endl;
                             double weight = transition_weight(v1->mem, v2->mem);
-                            cerr << "Got weight " << weight << endl;
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v1->next_cost.push_back(make_pair(&*v2, weight));
                                 v2->prev_cost.push_back(make_pair(&*v1, weight));
@@ -4774,7 +4762,6 @@ MEMChainModel::MEMChainModel(
                                    || v1->mem.fragment == v2->mem.fragment && v1->mem.begin > v2->mem.begin) {
                             // Really we want to think about the transition going the other way
                             
-                            cerr << "Compute transition weight back from " << v1->mem << " to " << v2->mem << endl;
                             double weight = transition_weight(v2->mem, v1->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v2->next_cost.push_back(make_pair(&*v1, weight));
@@ -4783,7 +4770,6 @@ MEMChainModel::MEMChainModel(
                         }
                     }
                 }
-                cerr << "Compare separation " << abs(p->first - q->first) << " vs. band_width " << band_width << endl;
             }
         }
     }
