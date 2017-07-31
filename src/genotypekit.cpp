@@ -215,7 +215,7 @@ CactusUltrabubbleFinder::CactusUltrabubbleFinder(VG& graph,
 }
 
 
-PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g) : graph(g){
+PathBasedTraversalFinder::PathBasedTraversalFinder(vg::VG& g, SnarlManager& sm) : graph(g), snarlmanager(sm){
 }
 vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& site){
     // Goal: enumerate traversals in the snarl supported by paths in the graph
@@ -229,22 +229,23 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
         return ret;
     }
 
-    set<int64_t> snarl_node_ids;
+    unordered_set<int64_t> snarl_node_ids;
+    pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarlmanager.shallow_contents(&site, graph, true);
     // Get the Snarl's nodes
-    queue<Node*> node_q;
-    node_q.push(graph.get_node(site.start().node_id()));
-    while (!node_q.empty()){
-        Node* n = node_q.front();
-        node_q.pop();
-        if (n->id() == site.end().node_id()){
-            break;
-        }
-        vector<Edge*> edges = graph.edges_from(n);
-        for (auto e : edges){
-            snarl_node_ids.insert(e->to());
-            node_q.push(graph.get_node(e->to()));
-        }
-    }
+    // queue<Node*> node_q;
+    // node_q.push(graph.get_node(site.start().node_id()));
+    // while (!node_q.empty()){
+    //     Node* n = node_q.front();
+    //     node_q.pop();
+    //     if (n->id() == site.end().node_id()){
+    //         break;
+    //     }
+    //     vector<Edge*> edges = graph.edges_from(n);
+    //     for (auto e : edges){
+    //         snarl_node_ids.insert(e->to());
+    //         node_q.push(graph.get_node(e->to()));
+    //     }
+    // }
 
     // Get the variant paths at the snarl nodes.
     set<string> var_path_names;
@@ -261,9 +262,9 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
 
 
    // Collect our paths which cross our snarl's nodes.
-    for (auto id : snarl_node_ids){
+    for (auto node : contents.first){
         //cerr << "Processing node " << id << endl;
-        set<string> p_of_n = graph.paths.of_node(id);
+        set<string> p_of_n = graph.paths.of_node(node->id());
 
         for (auto pn : p_of_n){
             if (!std::regex_match(pn, front)){

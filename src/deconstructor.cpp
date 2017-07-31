@@ -49,6 +49,9 @@ namespace vg {
                     if (!pind->path_contains_node(v.node_id())){
                         is_ref = false;
                     }
+                    if (v.node_id() == 0){
+                        continue;
+                    }
                     t_allele << graph->get_node(v.node_id())->sequence();
                 }
 
