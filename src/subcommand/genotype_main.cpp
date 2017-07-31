@@ -255,7 +255,6 @@ int main_genotype(int argc, char** argv) {
     }
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
-    
     if (reads_index_name != ""){
         index.open_read_only(reads_index_name);
         gam_file = reads_index_name;
