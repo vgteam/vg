@@ -130,6 +130,11 @@ message Alignment {
     bool soft_clipped = 25;
     bool discordant_insert_size = 26;
     double uniqueness = 27; // The fraction of bases in the alignment that are covered by MEMs with <=1 total hits in the graph
+    double correct = 28; // Correctness metric 1 = perfectly aligned to truth, 0 = not overlapping true alignment
+    repeated int32 secondary_score = 29; // The ordered list of scores of secondary mappings
+    double fragment_score = 30; // Score under the given fragment model, assume higher is better
+    bool mate_mapped_to_disjoint_subgraph = 31;
+
 }
 
 // A subgraph of the unrolled Graph in which each non-branching path is associated with an alignment

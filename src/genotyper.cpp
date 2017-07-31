@@ -15,7 +15,106 @@ namespace vg {
     // - Compute diploid genotypes for each site
     // - Output as vcf or as native format
 
+    /**
+    // Takes a graph and two GAMs, one tumor and one normal
+    // Locates existing variation supported by the tumor and annotate it with a path
+    // Then overlay the normal sample
+    // Use a depthmap of snarltraversal transforms, one for tumor, one for normal
+    // which we can use to count the normal and tumor alleles
+    void somatic_genotyper(VG* graph, string tumorgam, string normalgam);
 
+    // Do smart augment, maintaining a depth map for tumor/normal perfect matches
+    // and then editing in all of the SV reads (after normalization) with a T/N_ prefix
+    // Then, get our Snarls
+    // count reads supporting each and genotype
+    void somatic_caller_genotyper(VG* graph, string tumorgam, string normalgam);
+    **/
+
+    //void smart_augment(VG* graph, string gamfile);
+
+    void Genotyper::genotype_svs(VG* graph,
+                        string gamfile,
+                        string refpath){
+            // Open up our GAM file
+            ifstream gamstream;
+            gamstream.open(gamfile);
+            if (!gamstream.good()){
+                cerr << "GAM file is no good" << endl;
+                exit(2);
+            }
+            SRPE srrp;
+
+            //DepthMap dm(graph);
+            vector<pair<Alignment, Alignment> > sv_reads;
+            // Pull out all of our boring reads and just load them in a depth map
+            // Collect our SV-supporting reads and load them into a local map for PE manipulation
+            // This includes:
+            // Softclipped (later split) reads
+            // One end anchored (one mate is mapped)
+            // Unmapped reads
+            // Reads with internal mismatches (cleanly anchored reads)
+            // everted pairs and split-flips
+            // We trust that the relevant flags are set by FILTER
+            vector<Path> direct_ins;
+            set<NodeSide> spare_nodesides;
+            std::function<void(Alignment&, Alignment&)> readfunc = [&](Alignment& a, Alignment& b){
+                bool toss_into_sv_map = false;
+
+
+                if (srrp.ff.mark_sv_alignments(a,b)){
+                    sv_reads.push_back(make_pair(a, b));
+                }
+                                
+                else if (srrp.ff.mark_smallVariant_alignments(a, b)){
+                    direct_ins.push_back(a.path());
+                    direct_ins.push_back(b.path());
+                }
+
+            };
+            stream::for_each_interleaved_pair_parallel(gamstream, readfunc);
+            vector<Translation> transls;
+            if (refpath != ""){
+                transls = graph->edit(direct_ins); // TODO could maybe use edit_fast??
+               
+                Deconstructor decon;
+                decon.deconstruct(refpath, graph);
+            }
+            direct_ins.clear();
+
+
+
+            // Now the weird bit
+            // Transform our SV reads into clean calls
+            // Merge calls
+            // Then call and genotype them
+            // Inversions
+            // Insertions
+            // Deletions
+            // Duplications
+            vector<BREAKPOINT> insert_bps;
+            vector<BREAKPOINT> del_bps;
+            vector<BREAKPOINT> inversion_bps;
+
+            // Detect INV, DEL, INS using split-reads
+            std::function<void(Alignment& first, Alignment& second)> splitreadfunc = [&](Alignment& first, Alignment& second){
+                
+            };
+
+            std::function<void(Alignment& first)> se_splitreadfunc = [&](Alignment& first){
+                
+            };
+            // Detect INV, DEL, INS using paired-ends
+            // Includes local assembly using fermilite
+            std::function<void(Alignment& first, Alignment& second)> pairedendfunc = [&](Alignment& first, Alignment& second){
+                // grab unmapped reads
+                // grab OEAs
+                // desperately try to assemble them after converting to bseqs
+                // Remap
+                // prepare to edit
+            };
+    }
+
+    
     /**
      * run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa 
      */
@@ -29,6 +128,16 @@ namespace vg {
         set<int64_t> variant_nodes;
 
         bool use_snarls = false;
+
+        std::function<double(int, int)> scale_read_counts = [&](int allele_len, int read_len){
+            double scale = (double) allele_len / (double) read_len;
+            if (scale < 1.0){
+                return 1.0;
+            }
+            else{
+                return scale;
+            }
+        };
 
         // Store a list of node IDs each variant covers
         map<string, unordered_set<int64_t> > allele_name_to_node_id;
@@ -60,7 +169,7 @@ namespace vg {
             SnarlManager snarl_manager = snarl_finder->find_snarls();
             vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
             SimpleConsistencyCalculator scc;
-            TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+            TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
             for (const Snarl* snarl : snarl_roots ){
                 vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
                 snarl_name_to_traversals[ snarl->name() ] = travs;
@@ -359,6 +468,14 @@ namespace vg {
         }
 
     }
+
+    // void Genotyper::genotype(void Genotyper::variant_recall(VG* graph,
+    //         vcflib::VariantCallFile* vars,
+    //         FastaReference* ref_genome,
+    //         vector<FastaReference*> insertions,
+    //         string gamfile, bool isIndex){
+
+    //         }
 
 
     void Genotyper::run(VG& graph,

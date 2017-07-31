@@ -5,15 +5,25 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 19
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j - | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "alignment traverses the correct path"
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
+is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j | tr ',' '\n' | grep node_id | grep "72\|73\|76\|77" | wc -l) 4 "alignment traverses the correct path"
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 58 "full length bonus works"
+is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j | jq '.score') 48 "alignment score is as expected"
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
+is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 --include-bonuses -j | jq '.score') 58 "full length bonus works"
+
+is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -j | jq '.score') 48 "full length bonus removed by default"
+
+is $(vg align  x.vg -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA --full-l-bonus 5 --include-bonuses --pinned --pin-left -j - | jq '.score') 37 "bonuses are included on only one end for pinned alignments"
+
+is $(vg align  x.vg -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA --full-l-bonus 5 --pinned --pin-left -j - | jq '.score') 32 "bonuses are removed by default for pinned alignments"
+
+is $(vg align  x.vg --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | jq '.score') 96 "scoring parameters are respected"
+
+rm -f x.vg
 
 is $(vg align -js $(cat mapsoftclip/70211809-70211845.seq) --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 mapsoftclip/70211809-70211845.vg | jq -c '.path .mapping[0] .position .node_id') 70211814 "alignment does not contain excessive soft clips under lenient scoring"
 
