@@ -375,7 +375,7 @@ namespace vg {
                 vector<Alignment> alt_alignments;
                 qual_adj_aligner->align_global_banded_multi(intervening_sequence, alt_alignments,
                                                            connecting_graph, num_alt_alns, band_padding, true);
-                
+                                
                 for (Alignment& connecting_alignment : alt_alignments) {
                     // create a subpath between the matches for this alignment
                     Subpath* connecting_subpath = multipath_aln.add_subpath();
@@ -703,9 +703,18 @@ namespace vg {
                 while (!stack.empty()) {
                     auto& back = stack.back();
                     if (get<2>(back) == get<3>(back).size()) {
+#ifdef debug_multipath_mapper
+                        cerr << "traversed all edges out of current traversal" << endl;
+#endif
                         stack.pop_back();
+                        continue;
                     }
                     NodeTraversal trav = get<3>(back)[get<2>(back)];
+                    get<2>(back)++;
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "checking node " << trav.node->id() << endl;
+#endif
                     
                     const string& node_seq = trav.node->sequence();
                     size_t node_idx = get<1>(back);
@@ -714,6 +723,9 @@ namespace vg {
                     // look for a match along the entire node sequence
                     for (; node_idx < node_seq.size() && read_iter != end; node_idx++, read_iter++) {
                         if (node_seq[node_idx] != *read_iter) {
+#ifdef debug_multipath_mapper
+                            cerr << "node sequence does not match read" << endl;
+#endif
                             break;
                         }
                     }
@@ -726,10 +738,6 @@ namespace vg {
                         // matched entire node
                         stack.emplace_back(read_iter, 0, 0, vector<NodeTraversal>());
                         vg.nodes_next(trav, get<3>(stack.back()));
-                    }
-                    else {
-                        // match did not complete node or finish, this is a miss
-                        get<2>(back)++;
                     }
                 }
                 
@@ -755,7 +763,7 @@ namespace vg {
                 int32_t rank = 1;
                 for (auto search_record : stack) {
                     int64_t offset = get<1>(search_record);
-                    Node* node = get<3>(search_record)[get<2>(search_record)].node;
+                    Node* node = get<3>(search_record)[get<2>(search_record) - 1].node;
                     int64_t length = std::min((int64_t) node->sequence().size() - offset, length_remaining);
                     
                     Mapping* mapping = path->add_mapping();
@@ -1387,7 +1395,7 @@ namespace vg {
                 }
                 else {
 #ifdef debug_multipath_mapper
-                    cerr << "node " << node_id << " contains only ends of MEMs" << endl;
+                    cerr << "node " << node_id << " contains only starts of MEMs" << endl;
 #endif
                     reachable_endpoints = &reachable_starts;
                     reachable_starts_from_endpoint = &reachable_starts_from_start;
@@ -1488,7 +1496,7 @@ namespace vg {
                     for (const pair<size_t, size_t>& reachable_end : reachable_ends[node_id]) {
                         size_t dist_thru = reachable_end.second + node_length;
 #ifdef debug_multipath_mapper
-                        cerr << "\tend " << reachable_end.first << " at dist " << dist_thru << endl;
+                        cerr << "\tend " << reachable_end.first << " at dist " << dist_thru << " to node " << next.node->id() << endl;
 #endif
                         if (reachable_ends_next.count(reachable_end.first)) {
                             reachable_ends_next[reachable_end.first] = std::min(reachable_ends_next[reachable_end.first],
@@ -1503,7 +1511,7 @@ namespace vg {
                     for (const pair<size_t, size_t>& reachable_start : reachable_starts[node_id]) {
                         size_t dist_thru = reachable_start.second + node_length;
 #ifdef debug_multipath_mapper
-                        cerr << "\tend " << reachable_start.first << " at dist " << dist_thru << endl;
+                        cerr << "\tstart " << reachable_start.first << " at dist " << dist_thru << " to node " << next.node->id() << endl;
 #endif
                         if (reachable_starts_next.count(reachable_start.first)) {
                             reachable_starts_next[reachable_start.first] = std::min(reachable_starts_next[reachable_start.first],
@@ -1596,7 +1604,7 @@ namespace vg {
                 while (!start_queue.empty()) {
                     pair<size_t, size_t> start_here = start_queue.top();
                     start_queue.pop();
-                    if (traversed_start.count(start_here.first)) {
+                    if (traversed_start.count(start_here.second)) {
                         continue;
                     }
                     traversed_start.insert(start_here.second);
@@ -1611,7 +1619,7 @@ namespace vg {
                     }
                     
                     for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
-                        start_queue.emplace(start_here.first + start_next.second, start_here.second);
+                        start_queue.emplace(start_here.first + start_next.second, start_next.first);
                     }
                 }
                 
@@ -1902,6 +1910,7 @@ namespace vg {
             int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
             while (remaining >= mapping_len) {
                 *onto_node.path.add_mapping() = full_path.mapping(mapping_idx);
+                remaining -= mapping_len;
                 mapping_idx++;
                 mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
             }
@@ -1922,7 +1931,7 @@ namespace vg {
                 // add the suffix of the mapping to the new node
                 Mapping* suffix_split = suffix_node.path.add_mapping();
                 suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
-                suffix_split->mutable_position()->set_offset(remaining);
+                suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + remaining);
                 Edit* suffix_edit = suffix_split->add_edit();
                 suffix_edit->set_from_length(mapping_len - remaining);
                 suffix_edit->set_to_length(mapping_len - remaining);
@@ -1931,7 +1940,7 @@ namespace vg {
             }
             
             // add the remaining mappings to the suffix node
-            for (; mapping_idx < full_path.mapping_size(); mapping_idx) {
+            for (; mapping_idx < full_path.mapping_size(); mapping_idx++) {
                 *suffix_node.path.add_mapping() = full_path.mapping(mapping_idx);
             }
             
@@ -2832,14 +2841,19 @@ namespace vg {
         
         for (size_t i : order) {
             MPCNode& node = nodes[i];
-            
+#ifdef debug_multipath_mapper
+            cerr << "at node " << i << " with DP score " << node.dp_score << " and node score " << node.score << endl;
+#endif
             // for each edge out of this node
             for (MPCEdge& edge : node.edges_from) {
                 
                 // check if the path through the node out of this edge increase score of target node
                 MPCNode& target_node = nodes[edge.to_idx];
-                int32_t extend_score = node.score + edge.weight + target_node.score;
+                int32_t extend_score = node.dp_score + edge.weight + target_node.score;
                 if (extend_score > target_node.dp_score) {
+#ifdef debug_multipath_mapper
+                    cerr << "extending DP to node " << edge.to_idx << " with score " << extend_score << endl;
+#endif
                     target_node.dp_score = extend_score;
                 }
             }
@@ -2913,7 +2927,9 @@ namespace vg {
             vector<size_t> trace{trace_idx};
             while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
                 int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
+                cerr << "trace idx " << trace_idx << " DP score " << nodes[trace_idx].dp_score << " node score " << nodes[trace_idx].score << " source score " << target_source_score << endl;
                 for (MPCEdge& edge : nodes[trace_idx].edges_to) {
+                    cerr << "\tscore along edge to " << edge.to_idx << " is " <<  nodes[edge.to_idx].dp_score + edge.weight << endl;
                     if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score) {
                         trace_idx = edge.to_idx;
                         trace.push_back(trace_idx);

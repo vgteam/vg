@@ -330,10 +330,10 @@ namespace vg {
         list<Edit> mapping_edits;
         
         matrix_t matrix_state;
-        bool matching;
-        Node* current_node;
-        int64_t edit_length;
-        int64_t edit_read_end_idx;
+        bool matching = false;
+        Node* current_node = nullptr;
+        int64_t edit_length = 0;
+        int64_t edit_read_end_idx = 0;
         
         void finish_current_edit();
         void finish_current_node();

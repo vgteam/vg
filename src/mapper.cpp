@@ -14,7 +14,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , min_mem_length(0)
     , mem_reseed_length(0)
     , fast_reseed(true)
-    , fast_reseed_length_diff(4)
+    , fast_reseed_length_diff(8)
     , hit_max(0)
     , cache_size(128)
     , alignment_threads(1)
