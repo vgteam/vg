@@ -1,6 +1,8 @@
 #include "variant_adder.hpp"
 #include "mapper.hpp"
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -328,6 +330,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 // Do the alignment, dispatching cleverly on size
                 Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
                 
+                // Fix any N/N substitutions
+                //align_ns(lock.get_subgraph(), aln);
+                
+#ifdef debug
+                cerr << "Postprocessed: " << pb2json(aln) << endl;
+#endif
+                
                 // Look at the ends of the alignment
                 assert(aln.path().mapping_size() > 0);
                 auto& last_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
@@ -424,6 +433,62 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     // Clean up after the last contig.
     destroy_progress();
     
+}
+
+void VariantAdder::align_ns(vg::VG& graph, Alignment& aln) {
+    for (size_t i = 0; i < aln.path().mapping_size(); i++) {
+        // For each mapping
+        auto* mapping = aln.mutable_path()->mutable_mapping(i);
+        // Start at its start position (and copy it)
+        Position here = mapping->position();
+        for (size_t j = 0; j < mapping->edit_size(); j++) {
+            // For each edit
+            auto* edit = mapping->mutable_edit(j);
+            
+#ifdef debug
+            cerr << "Edit " << pb2json(*edit) << " at " << pb2json(here) << endl;
+#endif
+            
+            if (edit_is_sub(*edit) && is_all_n(edit->sequence())) {
+                // The edit is a substitution of N, so it might actually be an N/N match.
+                
+#ifdef debug
+                cerr << "\tIs all Ns" << endl;
+#endif
+                
+                // Is the source string also Ns?
+                
+                // Grab the node
+                auto* node = graph.get_node(here.node_id());
+                string original;
+                if (here.is_reverse()) {
+                    // Pull out the reverse complement of this bit counted from the end
+                    original = reverse_complement(node->sequence().substr(
+                        node->sequence().size() - here.offset() - edit->from_length(),
+                        edit->from_length()));
+                } else {
+                    // Pull out this bit counted from the start
+                    original = node->sequence().substr(here.offset(), edit->from_length());
+                }
+                
+#ifdef debug
+                cerr << "\tOriginal: " << original << endl;
+#endif
+                
+                if (is_all_n(original)) {
+                    // Yep it's an N for N replacement. Turn it into a match.
+                    edit->set_sequence("");
+                }
+                    
+            }
+            // If the edit's sequence is a sub for Ns, and the sequence being
+            // substituted is Ns, strip the sequence.
+            
+            
+            // Update the position to consume the sequence used by this edit.
+            here.set_offset(here.offset() + edit->from_length());
+        }
+    }
 }
 
 Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endpoints, const string& to_align, size_t max_span) {

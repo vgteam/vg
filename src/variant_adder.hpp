@@ -58,6 +58,12 @@ public:
      */
     Alignment smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endpoints, const string& to_align, size_t max_span);
     
+    /**
+     * Turn any N/N substitutions in the given alignment against the given graph into matches.
+     * Modifies the alignment in place.
+     */
+    void align_ns(vg::VG& graph, Alignment& aln);
+    
     /// How wide of a range in bases should we look for nearby variants in?
     size_t variant_range = 50;
     

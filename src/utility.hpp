@@ -21,6 +21,9 @@ using namespace std;
 
 char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
+/// Return True if the given string is entirely Ns of either case, and false
+/// otherwise.
+bool is_all_n(const string& seq);
 int get_thread_count(void);
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);

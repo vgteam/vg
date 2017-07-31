@@ -17,9 +17,9 @@ is "$?" "0" "vg add can create a graph with contig renames"
 diff benedict.vg benedict2.vg
 is "$?" "0" "vg add produces the same graph from VCFs with different contig names"
 
-vg add -v add/benedict.vcf ref.vg > no-n.vg
+vg add -v add/separated.vcf ref.vg > no-n.vg
 vg construct -r add/refN.fa > refN.vg
-vg add -v add/benedict.vcf refN.vg > with-n.vg
+vg add -v add/separated.vcf refN.vg > with-n.vg
 
 is "$(vg view -j with-n.vg | jq '.node[].id' | wc -l)" "$(vg view -j no-n.vg | jq '.node[].id' | wc -l)" "having reference Ns does not affect the graph topology"
 
