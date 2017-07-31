@@ -228,24 +228,11 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     if (!site.type() == ULTRABUBBLE){
         return ret;
     }
-
+   
+    // Get the Snarl's nodes
     unordered_set<int64_t> snarl_node_ids;
     pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarlmanager.shallow_contents(&site, graph, true);
-    // Get the Snarl's nodes
-    // queue<Node*> node_q;
-    // node_q.push(graph.get_node(site.start().node_id()));
-    // while (!node_q.empty()){
-    //     Node* n = node_q.front();
-    //     node_q.pop();
-    //     if (n->id() == site.end().node_id()){
-    //         break;
-    //     }
-    //     vector<Edge*> edges = graph.edges_from(n);
-    //     for (auto e : edges){
-    //         snarl_node_ids.insert(e->to());
-    //         node_q.push(graph.get_node(e->to()));
-    //     }
-    // }
+
 
     // Get the variant paths at the snarl nodes.
     set<string> var_path_names;

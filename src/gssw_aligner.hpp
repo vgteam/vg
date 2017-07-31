@@ -160,6 +160,12 @@ namespace vg {
         /// May include full length bonus or not. TODO: bool flags are bad.
         virtual int32_t score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
             bool strip_bonuses = false);
+            
+        /// Without necessarily rescoring the entire alignment, return the score
+        /// of the given alignment with bonuses removed. Assumes that bonuses
+        /// are actually included in the score.
+        /// Needs to know if the alignment was pinned-end or not, and, if so, which end was pinned.
+        virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false);
         
         // members
         int8_t* nt_table = nullptr;

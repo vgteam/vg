@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-# Upload the generated report HTML and summary.
+# Upload the generated report HTML directory and summary.
 # TODO: replace with a real implementation (maybe in Python).
 
 usage() {
     # Print usage to stderr
     exec 1>&2
-    printf "Usage: $0 HTML_IN MD_IN \n"
+    printf "Usage: $0 HTML_DIR_IN MD_IN \n"
     exit 1
 }
 
@@ -17,31 +17,62 @@ if [[ "$#" -ne 2 ]]; then
 fi
 
 # Gather all the arguments
-HTML_IN="${1}"; shift
+HTML_DIR_IN="${1}"; shift
 MD_IN="${1}"; shift
 
 # Figure out where we are. In the real version this will affect our behavior.
 if [ ! -z "${BUILD_NUMBER}" ]; then
     echo "On Jenkins"
     
+    # Where we should put the report depends on what build we're doing
     if [ -z ${ghprbActualCommit} ]; then
-        echo "Running on a branch"
+        echo "Running on master"
+        
+        # Upload to the path for master, overwriting whatever was there.
+        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/branch/master"
     else
         echo "Running on a pull request"
+        
+        # Upload to a path specific to this commit.
+        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/commit/${ghprbActualCommit}"
     fi
+    
+    # Upload the HTML to S3 as the current master report
+    aws s3 sync --acl public-read "${HTML_DIR_IN}" "s3://cgl-pipeline-inputs/${HTML_PATH}"
+    
+    # Make the URL for the report HTML
+    REPORT_URL="http://cgl-pipeline-inputs.s3.amazonaws.com/${HTML_PATH}/index.html"
     
 else
     echo "Running locally"
+    
+    # Report just stays in place
+    REPORT_URL="file://${HTML_DIR_IN}/index.html"
 fi
 
-# TODO: upload HTML
-echo "HTML to upload:"
-cat "${HTML_IN}"
+echo "Uploaded HTML as ${REPORT_URL}"
 
 # TODO: upload Markdown
 # In the Markdown, "{{REPORT_URL}}" will be replaced with the URL to the uploaded HTML report.
 echo "Markdown to post:"
-cat "${MD_IN}" | sed "s|{{REPORT_URL}}|file://${HTML_IN}|g"
+cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
+
+if [ ! -z "${BUILD_NUMBER}" ]; then
+    # On Jenkins, so actually post a comment
+    
+    if [ -z ${ghprbActualCommit} ]; then
+        # Normal master build
+                
+        # Comment on the commit we built
+        jenkins/post-comment.py vgteam/vg --in_file processed.md --commit "${GIT_COMMIT}" || true        
+    else
+        # PR build so we comment on the PR
+        # Won't work until GH_TOKEN env var is exposed on Jenkins
+        jenkins/post-comment.py vgteam/vg --in_file processed.md --pr "${ghprbPullId}" || true
+    fi
+    
+fi
+
 
 
 

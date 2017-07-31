@@ -150,6 +150,20 @@ public:
     // Genotype new SVs from a GAM
     void genotype_svs(VG* graph, 
                         string gamfile, string refpath);
+    // Genotype new SVs from a GAM, and mark them as T/N for somatic calling
+    // void agument_SVs(VG* graph,
+    //                  string gamfile,
+    //                  string aug_prefix,
+    //                  bool do_split,
+    //                  bool do_paired);
+    // void augment_svs(VG* graph, 
+    //                    vector<string> gamfiles,
+    //                    vector<string> aug_prefixes,
+    //                    bool do_split_remapping,
+    //                    boool do_paired_ends);
+    // void somatic_call(VG* augmented, string refpath, vector<pair<string, string> > som_samples);
+
+    // void somatic_call(VG* augmented, vector<pair<string, string> > som_samples);
 
     // Process and write output
     void run(VG& graph,
