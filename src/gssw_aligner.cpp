@@ -1377,7 +1377,7 @@ void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>&
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
-                                  int32_t band_padding, bool permissive_banding) {
+                                         int32_t band_padding, bool permissive_banding) {
     
     BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
                                                                            g,
@@ -1386,7 +1386,6 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
                                                                            true);
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
-    
 }
 
 void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
@@ -1401,7 +1400,6 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
                                                                            true);
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
-    
 }
 
 int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) const {
