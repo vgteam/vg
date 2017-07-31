@@ -59,7 +59,9 @@ VG can now be cloned and built:
     cd vg
     . ./source_me.sh && make
     
-Note that static binaries cannot yet be built for Mac.
+**Note that static binaries cannot yet be built for Mac.**
+
+Note: vg has been shown to build on Mac with GCC versions 4.9, 5.3, and 6.
 
 ##### using Homebrew
 
