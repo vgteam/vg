@@ -5,7 +5,7 @@ namespace vg {
 
 using namespace std;
 
-VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph), aligner(1, 4, 6, 1, 10) {
+VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.paths.for_each_name([&](const string& name) {
         // Save the names of all the graph paths, so we don't need to lock the
         // graph to check them.
@@ -18,6 +18,9 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph), aligner(1, 4,
     // Make sure to dice nodes to 1024 or smaller, the max size that GCSA2
     // supports, in case we need to GCSA-index part of the graph.
     graph.dice_nodes(1024);
+    
+    // Configure the aligner to use a full length bonus
+    aligner.full_length_bonus = 5;
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
