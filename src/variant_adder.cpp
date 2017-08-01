@@ -1,8 +1,6 @@
 #include "variant_adder.hpp"
 #include "mapper.hpp"
 
-//#define debug
-
 namespace vg {
 
 using namespace std;
