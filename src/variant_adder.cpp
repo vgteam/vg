@@ -22,7 +22,6 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph), aligner(1, 4,
     graph.dice_nodes(1024);
 }
 
-#define debug
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
 #ifdef debug
@@ -407,7 +406,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     destroy_progress();
     
 }
-#undef debug
 
 void VariantAdder::align_ns(vg::VG& graph, Alignment& aln) {
     for (size_t i = 0; i < aln.path().mapping_size(); i++) {
@@ -465,7 +463,6 @@ void VariantAdder::align_ns(vg::VG& graph, Alignment& aln) {
     }
 }
 
-#define debug
 Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endpoints, const string& to_align, size_t max_span) {
 
     // We need this fro reverse compelmenting alignments
@@ -881,7 +878,6 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     return aln;
 
 }
-#undef debug
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;
