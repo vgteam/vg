@@ -155,6 +155,21 @@ class VGCITest(TestCase):
             connection = urllib2.urlopen(src)
             shutil.copyfileobj(connection, f)
 
+    def _begin_message(self, name = None, is_tsv = False, ):
+        """ Used by mine-logs.py to flag that we're about to write something we want to mine
+        Anything in stdout that's not within these tags does not make it to the report """
+        token = '<VGCI'
+        if name:
+            token += ' name = "{}"'.format(name)
+        if is_tsv:
+            token += ' tsv = "True"'
+        token += '>'
+        print '\n{}'.format(token)
+    
+    def _end_message(self):
+        """ Finish writing something mineable to stdout """
+        print '</VGCI>\n'
+                
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
@@ -332,9 +347,24 @@ class VGCITest(TestCase):
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
-            
-        print 'F1: {}  Baseline: {}  Threshold: {}'.format(
-            f1_score, baseline_f1, threshold)
+
+        # print the whole table in tags that mine-logs can read
+        self._begin_message('vcfeval Results'.format(
+            f1_score, baseline_f1, threshold), is_tsv=True)
+        summary_path = f1_path[0:-6] + 'summary.txt'
+        with open(summary_path) as summary_file:
+            for i, line in enumerate(summary_file):
+                if i != 1:
+                    toks = line.split()
+                    if i == 0:
+                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
+                    elif i == 2:
+                        toks += [baseline_f1, threshold]
+                    elif i > 2:
+                        toks += ['N/A', 'N/A']
+                    print '\t'.join([str(tok) for tok in toks])
+        self._end_message()
+
         self.assertTrue(f1_score >= baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
@@ -531,13 +561,21 @@ class VGCITest(TestCase):
         # Dict from aligner to a list of float stat values, in order
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
+        # print out a table of mapeval results
+        self._begin_message('map eval results', is_tsv=True)
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
         for key, val in baseline_dict.iteritems():
-            print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
-                key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
+            print '\t'.join(str(x) for x in [key, stats_dict[key][1], val[1],
+                                             stats_dict[key][2], val[2], self.auc_threshold])
+        self._end_message()
+
+        # test the mapeval results
+        for key, val in baseline_dict.iteritems():
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+
             
         # This holds the condition names we want a better score than
         score_baselines = ['input']
