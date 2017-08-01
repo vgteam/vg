@@ -1014,11 +1014,21 @@ string VariantAdder::haplotype_to_string(const vector<int>& haplotype, const vec
         // And how long does it run?
         size_t sep_length = variant->position - sep_start;
         
+        // Find the sequence to pull from
+        auto& ref = sync.get_path_sequence(vcf_to_fasta(variant->sequenceName));
+        
         // Pull out the separator sequence and tack it on.
-        result << sync.get_path_sequence(vcf_to_fasta(variant->sequenceName)).substr(sep_start, sep_length);
+        result << ref.substr(sep_start, sep_length);
 
         // Then put the appropriate allele of this variant.
         result << variant->alleles.at(haplotype.at(i));
+        
+        if (variant->alleles.at(0) != ref.substr(sep_start + sep_length, variant->alleles.at(0).size())) {
+            // Complain if the variant reference doesn't match the real reference.
+            // TODO: should avoid doing this for every single haplotype...
+            throw runtime_error("Variant reference does not match actual reference at " +
+                variant->sequenceName + ":" + to_string(variant->position));
+        }
     }
     
     return result.str();
