@@ -72,6 +72,7 @@ int main_genotype(int argc, char** argv) {
     string gam_file;
     string fasta;
     string insertions_file;
+    bool useindex = true;
 
     // Should we use mapping qualities?
     bool use_mapq = false;
@@ -204,6 +205,7 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'G':
             gam_file = optarg;
+            useindex = false;
             break;
         case 'h':
         case '?':
@@ -255,7 +257,7 @@ int main_genotype(int argc, char** argv) {
     }
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
-    if (reads_index_name != ""){
+    if (useindex){
         index.open_read_only(reads_index_name);
         gam_file = reads_index_name;
     }
@@ -280,7 +282,7 @@ int main_genotype(int argc, char** argv) {
             insertions.emplace_back(ins);
             ins->open(insertions_file);
         }
-        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file, reads_index_name != "");
+        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
         return 0;
 
     }

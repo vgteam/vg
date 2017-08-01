@@ -300,6 +300,7 @@ namespace vg {
                 if (variant_nodes.count(node_id) && a.mapping_quality() > 20 && sufficient_matches(a.path().mapping(i))){
                         #pragma omp atomic write
                         contained = true;
+                        #pragma omp atomic write
                         node_for_var = node_id;
                 }
                 else if (!variant_nodes.count(node_id)){
