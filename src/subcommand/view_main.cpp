@@ -470,7 +470,7 @@ int main_view(int argc, char** argv) {
                 });
             } else {
                 // todo
-                cerr << "[vg view] error: (binary) GAM can only be converted to JSON" << endl;
+                cerr << "[vg view] error: (binary) GAM can only be converted to JSON or FASTQ" << endl;
                 return 1;
             }
         } else {

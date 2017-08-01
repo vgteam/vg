@@ -16,7 +16,7 @@
 
 import sys
 
-threshold = 100
+threshold = int(sys.argv[1])
 
 for line in sys.stdin:
     fields = line.split(' ')

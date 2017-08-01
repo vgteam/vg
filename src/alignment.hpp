@@ -87,6 +87,7 @@ Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2);
 vector<Alignment> alignment_ends(const Alignment& aln, size_t len1, size_t len2);
+Alignment alignment_middle(const Alignment& aln, int len);
 // generate a digest of the alignmnet
 const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its
@@ -104,6 +105,10 @@ size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
 size_t from_length_before_pos(const Alignment& aln, const Position& pos);
+string signature(const Alignment& aln);
+pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
+string middle_signature(const Alignment& aln, int len);
+pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
