@@ -50,6 +50,8 @@ public:
      *
      * The endpoints have to be heads/tails of the graph.
      *
+     * Treats N/N substitutions as matches.
+     *
      * TODO: now that we have a smart aligner that can synthesize deletions
      * without finding them with the banded global aligner, do we need max_span
      * anymore?

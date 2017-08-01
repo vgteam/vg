@@ -1,13 +1,13 @@
 #include "variant_adder.hpp"
 #include "mapper.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 
 using namespace std;
 
-VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
+VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph), aligner(1, 4, 6, 1, 10) {
     graph.paths.for_each_name([&](const string& name) {
         // Save the names of all the graph paths, so we don't need to lock the
         // graph to check them.
@@ -22,6 +22,7 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.dice_nodes(1024);
 }
 
+#define debug
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
 #ifdef debug
@@ -203,38 +204,13 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
             do {
                 // We need to be able to increase our bounds until we haven't
                 // shifted an indel to the border of our context.
-            
                 
-                // We need to move the bounds out so that we aren't trying to
-                // anchor our alignment with Ns, if that's possible not to do
-                char left_anchor_character;
-                char right_anchor_character;
-                do {
-                
-                    // Round bounds to node start and endpoints.
-                    // This haplotype and all subsequent ones will be aligned with this wider context.
-                    sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
-                        tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start,
-                            right_context_past_end);
-                    });
-                    
-                    // Check the bound characters
-                    left_anchor_character = ref_sequence.at(left_context_start);
-                    right_anchor_character = ref_sequence.at(right_context_past_end - 1);
-                    
-                    if (left_anchor_character == 'N' && left_context_start > 0) {
-                        // Try moving left.
-                        left_context_start--;
-                    }
-                    
-                    if (right_anchor_character == 'N' && right_context_past_end <= ref_sequence.size()) {
-                        // Try moving right.
-                        right_context_past_end++;
-                    }
-                    
-                } while ((left_anchor_character == 'N' && left_context_start > 0) || 
-                    (right_anchor_character == 'N' && right_context_past_end <= ref_sequence.size()));
-                // Keep looping until we haven't landed on N (or we hit the contig ends)
+                // Round bounds to node start and endpoints.
+                // This haplotype and all subsequent ones will be aligned with this wider context.
+                sync.with_path_index(variant_path_name, [&](const PathIndex& index) {
+                    tie(left_context_start, right_context_past_end) = index.round_outward(left_context_start,
+                        right_context_past_end);
+                });
                 
 #ifdef debug
                 cerr << "New context bounds: " << left_context_start << " - " << right_context_past_end << endl;
@@ -329,9 +305,6 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                 
                 // Do the alignment, dispatching cleverly on size
                 Alignment aln = smart_align(lock.get_subgraph(), lock.get_endpoints(), to_align.str(), max_span);
-                
-                // Fix any N/N substitutions
-                //align_ns(lock.get_subgraph(), aln);
                 
 #ifdef debug
                 cerr << "Postprocessed: " << pb2json(aln) << endl;
@@ -434,6 +407,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     destroy_progress();
     
 }
+#undef debug
 
 void VariantAdder::align_ns(vg::VG& graph, Alignment& aln) {
     for (size_t i = 0; i < aln.path().mapping_size(); i++) {
@@ -491,6 +465,7 @@ void VariantAdder::align_ns(vg::VG& graph, Alignment& aln) {
     }
 }
 
+#define debug
 Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endpoints, const string& to_align, size_t max_span) {
 
     // We need this fro reverse compelmenting alignments
@@ -636,6 +611,22 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 0, true, true, false, 0, max_span), node_length_function);
         }
         
+        // Rescore the alignments as if N/N substitutions are matches so that we
+        // can use the score as a proxy for how many matches there are.
+        
+        // We need a function to score jumps. But score them all as 0 since we
+        // shouldn't have any.
+        auto ignore_jumps = [](pos_t, pos_t, size_t) {
+            return 0;
+        };
+        
+        // Turn N/N subs into matches and score the alignments without end bonuses.
+        align_ns(left_subgraph, aln_left);
+        aln_left.set_score(aligner.score_alignment(aln_left, ignore_jumps, true));
+        align_ns(right_subgraph, aln_right);
+        aln_right.set_score(aligner.score_alignment(aln_right, ignore_jumps, true));
+        
+        
 #ifdef debug
         cerr << "\t\tScores: " << aln_left.score() << "/" << left_tail.size() * aligner.match * min_score_factor
             << ", " << aln_right.score() << "/" << right_tail.size() * aligner.match * min_score_factor << endl;
@@ -679,6 +670,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     cerr << "\t\tFailed." << endl;
 #endif
                 }
+
+                // Rescore with Ns as matches again
+                align_ns(left_subgraph, aln);
+                aln.set_score(aligner.score_alignment(aln, ignore_jumps, true));
 
 #ifdef debug                
                 if (aligned_in_band) {
@@ -787,6 +782,10 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                     }
                 }
                 
+                // Rescore with Ns as matches again
+                align_ns(left_subgraph, aln);
+                aln.set_score(aligner.score_alignment(aln, ignore_jumps, true));
+                
 #ifdef debug
                 cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)
                     << " with " << discontinuities << " breaks" << endl;
@@ -882,6 +881,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
     return aln;
 
 }
+#undef debug
 
 set<vector<int>> VariantAdder::get_unique_haplotypes(const vector<vcflib::Variant*>& variants, WindowedVcfBuffer* cache) const {
     set<vector<int>> haplotypes;
