@@ -62,6 +62,23 @@ public:
     //virtual ~MaximalExactMatch() { }                     // Destructor
 };
 
+class MEMChainModelVertex {
+public:
+    MaximalExactMatch mem;
+    vector<pair<MEMChainModelVertex*, double> > next_cost; // for forward
+    vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
+    double weight;
+    double score;
+    int approx_position;
+    MEMChainModelVertex* prev;
+    MEMChainModelVertex(void) = default;                                      // Copy constructor
+    MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
+    MEMChainModelVertex(MEMChainModelVertex&&) = default;                    // Move constructor
+    MEMChainModelVertex& operator=(const MEMChainModelVertex&) & = default;  // MEMChainModelVertexopy assignment operator
+    MEMChainModelVertex& operator=(MEMChainModelVertex&&) & = default;       // Move assignment operator
+    virtual ~MEMChainModelVertex() { }                     // Destructor
+};
+
 }
 
 #endif

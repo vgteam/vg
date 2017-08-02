@@ -1983,7 +1983,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
         MEMChainModel chainer({ read1.sequence().size(), read2.sequence().size() },
-                              { mems1, mems2 }, this,
+                              { mems1, mems2 },
+                              [&](pos_t n) -> int {
+                                return approx_position(n);
+                              },
                               transition_weight,
                               max((int)(read1.sequence().size() + read2.sequence().size()),
                                   (int)(fragment_size ? fragment_size : fragment_max)));
@@ -2514,7 +2517,10 @@ Mapper::align_mem_multi(const Alignment& aln,
     // establish the chains
     vector<vector<MaximalExactMatch> > clusters;
     if (total_multimaps) {
-        MEMChainModel chainer({ aln.sequence().size() }, { mems }, this, transition_weight, aln.sequence().size());
+        MEMChainModel chainer({ aln.sequence().size() }, { mems },
+            [&](pos_t n) {
+                return approx_position(n);
+            }, transition_weight, aln.sequence().size());
         clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
@@ -4447,7 +4453,7 @@ bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
 MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
     const vector<vector<MaximalExactMatch> >& matches,
-    Mapper* mapper,
+    const function<int(pos_t)>& approx_position,
     const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
     int band_width,
     int position_depth,
@@ -4467,7 +4473,7 @@ MEMChainModel::MEMChainModel(
                 m.weight = mem.length();
                 m.prev = nullptr;
                 m.score = 0;
-                m.approx_position = mapper->approx_position(make_pos_t(node));
+                m.approx_position = approx_position(make_pos_t(node));
                 m.mem.nodes.clear();
                 m.mem.nodes.push_back(node);
                 m.mem.fragment = frag_n;
