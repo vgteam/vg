@@ -22,13 +22,6 @@
  */
 namespace vg{
 
-struct SV_EVIDENCE{
-    int SR = 0;
-    int PE = 0;
-    bool PRECISE = false;
-
-};
-
 class Filter{
     public:
         Filter();
@@ -43,29 +36,43 @@ class Filter{
          * modified alignments.
          */
         bool perfect_filter(Alignment& aln);
-        bool simple_filter(Alignment& aln);
+        bool anchored_filter(Alignment& aln);
+        bool mark_sv_alignments(Alignment& a, Alignment& b);
+        bool mark_smallVariant_alignments(Alignment& a, Alignment& b);
         Alignment depth_filter(Alignment& aln);
         Alignment qual_filter(Alignment& aln);
         Alignment coverage_filter(Alignment& aln);
         Alignment avg_qual_filter(Alignment& aln);
         Alignment percent_identity_filter(Alignment& aln);
-        Alignment soft_clip_filter(Alignment& aln);
-        Alignment split_read_filter(Alignment& aln);
+       
+        bool soft_clip_filter(Alignment& aln);
+        bool unmapped_filter(Alignment& aln);
+        bool split_read_filter(Alignment& aln);
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
 
         vector<Alignment> remap(Alignment& aln);
         vector<Alignment> remap(string seq);
 
+        bool is_left_clipped(Alignment& a);
+
+        // Returns a new alignment which doesn't have a split path
+        // and an integer indicating the SV type it might support
+        // 0: Unset, 1: INS, 2: DEL, 3: INV, 4: DUP
+        pair<Alignment, int> refactor_split_alignment(Alignment& a);
+
+        // Returns whether a split read supports a DEL, INS, or INV
+        // int split_read_type(Alignment& a);
+
         Alignment path_length_filter(Alignment& aln);
 
         /*PE Functions*/
-        pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
+        bool one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
+       bool interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
         
         // // TODO should give this one an insert size arg
-        pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Alignment, Alignment> pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
+        bool insert_size_filter(Alignment& aln_first, Alignment& aln_second);
+        bool pair_orientation_filter(Alignment& aln_first, Alignment& aln_second);
 
         // pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
 
@@ -74,7 +81,7 @@ class Filter{
         pair<Alignment, Alignment> deletion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> insertion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> duplication_filter(Alignment& aln_first, Alignment& aln_second);
-        pair<Locus, Locus> inversion_filter(Alignment& aln_first, Alignment& aln_second);
+        bool inversion_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Locus, Locus> breakend_filter(Alignment& aln_first, Alignment& aln_second);
 
         void set_min_depth(int depth);
@@ -104,8 +111,9 @@ class Filter{
         void fill_node_to_position(string pathname);
         int64_t distance_between_positions(Position first, Position second);
         string get_clipped_seq(Alignment& a);
-        int64_t get_clipped_position(Alignment& a);
-
+        int64_t get_clipped_ref_position(Alignment& a);
+        Position get_clipped_position(Alignment& a);
+        Alignment remove_clipped_portion(Alignment& a);
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?

@@ -13,14 +13,22 @@ import os, sys
 import argparse
 import collections
 import timeout_decorator
-from boto.s3.connection import S3Connection
+import urllib2
+import shutil
+import glob
+
 import tsv
 
-from toil_vg.vg_mapeval import mapeval_main
+from toil_vg.vg_mapeval import get_default_mapeval_options, make_mapeval_plan, run_mapeval
 from toil_vg.vg_toil import parse_args
 from toil_vg.context import Context
+from toil_vg.vg_common import make_url, toil_call
+
+from toil.common import Toil
+from toil.job import Job
 
 log = logging.getLogger(__name__)
+
 
 class VGCITest(TestCase):
     """
@@ -36,8 +44,8 @@ class VGCITest(TestCase):
         self.auc_threshold = 0.02
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
-        self.worse_threshold = 0.01
-        self.input_store = 's3://cgl-pipeline-inputs/vg_cgl/bakeoff'
+        self.worse_threshold = 0.005
+        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
@@ -46,6 +54,9 @@ class VGCITest(TestCase):
         self.cores = 8
 
         self.loadCFG()
+
+        # These are samples that are in 1KG but not in the bakeoff snp1kg graphs. 
+        self.bakeoff_removed_samples = set(['NA128{}'.format(x) for x in range(77, 94)])
                 
     def tearDown(self):
         shutil.rmtree(self.tempdir)        
@@ -83,8 +94,11 @@ class VGCITest(TestCase):
     def _jobstore(self, tag = ''):
         return os.path.join(self.workdir, 'jobstore{}'.format(tag))
 
+    def _outstore_name(self, tag = ''):
+        return 'outstore-{}'.format(tag)
+    
     def _outstore(self, tag = ''):
-        return os.path.join(self.workdir, 'outstore-{}'.format(tag))
+        return os.path.join(self.workdir, self._outstore_name(tag))
 
     def _input(self, filename):
         return os.path.join(self.input_store, filename)
@@ -100,40 +114,67 @@ class VGCITest(TestCase):
             return 19, 54025633
         elif region == 'MHC':
             return 6, 28510119
-
+        
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
         if self.baseline.startswith('s3://'):
             toks = self.baseline[5:].split('/')
             bname = toks[0]
             keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
-            bucket = S3Connection().get_bucket(bname)
-            key = bucket.get_key(keyname)
-            return key.get_contents_as_string()
+            
+            # Convert to a public HTTPS URL
+            url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
+            # And download it
+            connection = urllib2.urlopen(url)
+            return connection.read()
         else:
+            # Assume it's a raw path.
             with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
                 return f.read()
 
     def _get_remote_file(self, src, tgt):
-        """ get a file from a store """
+        """
+        get a file from a store
+        
+        src must be a URL.
+        
+        """
         if not os.path.exists(os.path.dirname(tgt)):
             os.makedirs(os.path.dirname(tgt))
+            
         if src.startswith('s3://'):
             toks = src[5:].split('/')
             bname = toks[0]
             keyname = '/' + '/'.join(toks[1:])
-            bucket = S3Connection().get_bucket(bname)
-            key = bucket.get_key(keyname)
-            with open(tgt, 'w') as f:
-                return key.get_contents_to_file(f)
-        else:
-            shutil.copy2(src, tgt_file)
 
+            # Convert to a public HTTPS URL
+            src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
+        
+        with open(tgt, 'w') as f:
+            # Download the file from the URL
+            connection = urllib2.urlopen(src)
+            shutil.copyfileobj(connection, f)
+
+    def _begin_message(self, name = None, is_tsv = False, ):
+        """ Used by mine-logs.py to flag that we're about to write something we want to mine
+        Anything in stdout that's not within these tags does not make it to the report """
+        token = '<VGCI'
+        if name:
+            token += ' name = "{}"'.format(name)
+        if is_tsv:
+            token += ' tsv = "True"'
+        token += '>'
+        print '\n{}'.format(token)
+    
+    def _end_message(self):
+        """ Finish writing something mineable to stdout """
+        print '</VGCI>\n'
+                
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
         out_store = self._outstore(dir_tag)
-        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        opts = '--realTimeLogging --logInfo '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -145,13 +186,13 @@ class VGCITest(TestCase):
         if xg_path:
             opts += '--skip_xg '
             self._get_remote_file(xg_path, os.path.join(out_store, os.path.basename(xg_path)))
-        if gcsa_path:
+        if gcsa_path and (not misc_opts or '--skip_gcsa' not in misc_opts):
             opts += '--skip_gcsa '
             self._get_remote_file(gcsa_path, os.path.join(out_store, os.path.basename(gcsa_path)))
             self._get_remote_file(gcsa_path + '.lcp', os.path.join(out_store, os.path.basename(gcsa_path) + '.lcp'))
         opts += '--index_name {}'.format(file_tag)
         if misc_opts:
-            opts += misc_opts + ' '
+            opts += ' {} '.format(misc_opts)
         
         cmd = 'toil-vg index {} {} {}'.format(job_store, out_store, opts)
         
@@ -167,7 +208,7 @@ class VGCITest(TestCase):
 
         job_store = self._jobstore(tag)
         out_store = self._outstore(tag)
-        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        opts = '--realTimeLogging --logInfo '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -189,14 +230,108 @@ class VGCITest(TestCase):
         if interleaved:
             opts += '--interleaved '
         if misc_opts:
-            opts += misc_opts + ' '
+            opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} --kmers_cores {} \
         --alignment_cores {} --calling_cores {} --vcfeval_cores {} '.format(
             self.cores, self.cores, self.cores, self.cores, self.cores)
         
         cmd = 'toil-vg run {} {} {} {}'.format(job_store, sample_name, out_store, opts)
         
-        subprocess.check_call(cmd, shell=True)        
+        subprocess.check_call(cmd, shell=True)
+
+    def _make_thread_indexes(self, sample, vg_file, vcf_file, region, tag=''):
+        """ Given a graph, then we extract two threads from the
+        given sample as their own graphs, then return an xg index for each.
+        this only supports one chromosome at a time, presently.
+        the indexes are written as thread_0.xg and thread_1.xg in the
+        output store (derived from tag parameter like other methods)
+        """
+        job_store = self._jobstore(tag)
+        out_store = self._outstore(tag)
+        out_store_name = self._outstore_name(tag)
+
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            # toil-vg options
+            vg_docker = self.vg_docker,
+            container = self.container,
+            # Toil options
+            realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+
+        # Make the context
+        context = Context(out_store, overrides)
+
+        # The unfiltered and filtered vcf file
+        uf_vcf_file = os.path.join(self.workdir, 'uf-' + os.path.basename(vcf_file))
+        f_vcf_file = os.path.join(self.workdir, 'f-' + os.path.basename(vcf_file))
+        if not f_vcf_file.endswith('.gz'):
+            f_vcf_file += '.gz'
+        
+        # Get the inputs
+        self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
+        self._get_remote_file(vcf_file, uf_vcf_file)
+
+        # Reduce our VCF to just the sample of interest to save time downstream
+        with context.get_toil(job_store) as toil:
+            cmd = ['bcftools', 'view', os.path.basename(uf_vcf_file), '-s', sample, '-O', 'z']
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir),
+                                     out_path = os.path.abspath(f_vcf_file)))
+            cmd = ['tabix', '-f', '-p', 'vcf', os.path.basename(f_vcf_file)]
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir)))
+        os.remove(uf_vcf_file)
+        
+        # Make the xg with gpbwt of the input graph
+        index_name = 'index-gpbwt'
+        chrom, offset = self._bakeoff_coords(region)
+        self._toil_vg_index(chrom, vg_file, None, None,
+                            '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
+                                os.path.abspath(f_vcf_file), self.cores), tag, index_name)
+        index_path = os.path.join(out_store, index_name + '.xg')
+        os.remove(f_vcf_file)
+        os.remove(f_vcf_file + '.tbi')
+        
+        # Extract both haplotypes of the given sample as their own graphs
+        # (this is done through vg directly)
+        for hap in [0, 1]:
+            tmp_thread_path = os.path.abspath(os.path.join(self.workdir, 'thread_{}.vg'.format(hap)))
+
+            # This is straght from Erik.  We mush together the original graph
+            # (without paths) and the thread path from the xg index
+            with context.get_toil(job_store) as toil:
+                cmd = ['vg', 'mod', '-D', os.path.join(out_store_name, os.path.basename(vg_file))]
+                toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                         work_dir = os.path.abspath(self.workdir),
+                                         out_path = tmp_thread_path))
+
+                # note: I'm not sure why that _0 is there but all threads seem
+                # to have names like _thread_NA12878_17_0_0 and _thread_NA12878_17_1_0
+                cmd = ['vg', 'find', '-q', '_thread_{}_{}_{}_0'.format(sample, chrom, hap),
+                       '-x', os.path.join(out_store_name, os.path.basename(index_path))]
+                toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                         work_dir = os.path.abspath(self.workdir),
+                                         out_path = tmp_thread_path,
+                                         out_append = True))
+
+                # Then we trim out anything other than our thread path
+                cmd = ['vg', 'mod', '-N', os.path.basename(tmp_thread_path)]
+                toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                         work_dir = os.path.abspath(self.workdir),
+                                         out_path = tmp_thread_path + '.drop'))
+
+            # Index the thread graphs so we can simulate from them
+            self._toil_vg_index(chrom, tmp_thread_path + '.drop', None, None,
+                                '--skip_gcsa', tag, 'thread_{}'.format(hap))
+
+            # They're in a tmp work dir so this is probably overkill
+            os.remove(tmp_thread_path)
+            os.remove(tmp_thread_path + '.drop')
+
+        return index_path, os.path.join(out_store, 'thread_0.xg'), os.path.join(out_store, 'thread_1.xg')
 
     def _verify_f1(self, sample, tag='', threshold=None):
         # grab the f1.txt file from the output store
@@ -212,9 +347,24 @@ class VGCITest(TestCase):
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
-            
-        print 'F1: {}  Baseline: {}  Threshold: {}'.format(
-            f1_score, baseline_f1, threshold)
+
+        # print the whole table in tags that mine-logs can read
+        self._begin_message('vcfeval Results'.format(
+            f1_score, baseline_f1, threshold), is_tsv=True)
+        summary_path = f1_path[0:-6] + 'summary.txt'
+        with open(summary_path) as summary_file:
+            for i, line in enumerate(summary_file):
+                if i != 1:
+                    toks = line.split()
+                    if i == 0:
+                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
+                    elif i == 2:
+                        toks += [baseline_f1, threshold]
+                    elif i > 2:
+                        toks += ['N/A', 'N/A']
+                    print '\t'.join([str(tok) for tok in toks])
+        self._end_message()
+
         self.assertTrue(f1_score >= baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
@@ -238,14 +388,17 @@ class VGCITest(TestCase):
         if self.verify:
             self._verify_f1('NA12878', tag)
 
-    def _mapeval_vg_run(self, reads, base_xg_path, fasta_path, test_index_bases,
-                        test_names, score_baseline_name, tag):
-        """ Wrap toil-vg mapeval as a shell command. 
+    def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
+                        test_index_bases, test_names, score_baseline_name, tag):
+        """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
         of reads simulated from a single "base" graph. Realignments are
         evaluated based on how close the realignments are to the original
         simulated source position. Simulations are done inside this function.
+
+        sim_xg_paths are used for simulation. base_xg_path is used for everything
+        else like annotation and mapping.  sim_xg_paths can be [base_xg_path]
         
         Simulates the given number of reads (reads), from the given XG file
         (base_xg_path). Uses the given FASTA (fasta_path) as a BWA reference for
@@ -274,7 +427,7 @@ class VGCITest(TestCase):
 
         # start by simulating some reads
         # TODO: why are we using strings here when we could use much safer lists???
-        opts = '--realTimeLogging --logInfo --config jenkins/toil_vg_config.yaml '
+        opts = '--realTimeLogging --logInfo '
         if self.vg_docker:
             opts += '--vg_docker {} '.format(self.vg_docker)
         if self.container:
@@ -282,40 +435,97 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
+        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01 --include-bonuses\' '
+        opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
-            job_store, base_xg_path, reads / 2, out_store, opts)
+            job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
         subprocess.check_call(cmd, shell=True)
 
         # then run mapeval
-        opts = '--realTimeLogging --logInfo '        
-        if self.vg_docker:
-            opts += '--vg_docker {} '.format(self.vg_docker)
-        if self.container:
-            opts += '--container {} '.format(self.container)
-        opts += '--maxCores {} '.format(self.cores)
-        opts += '--bwa --bwa-paired --vg-paired '
-        opts += '--fasta {} '.format(fasta_path)
-        opts += '--index-bases {} '.format(' '.join(test_index_bases))
-        opts += '--gam-names {} '.format(' '.join(test_names))
-        opts += '--gam_input_reads {} '.format(os.path.join(out_store, 'sim.gam'))
-        opts += '--alignment_cores {} '.format(self.cores)
+        
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            # toil-vg options
+            vg_docker = self.vg_docker,
+            container = self.container,
+            alignment_cores = self.cores,
+            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
+            # Toil options
+            realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+        
+        # Make the context
+        context = Context(out_store, overrides)
+        
+        # And what options to configure the mapeval run do we want? These have
+        # to get turned into a plan in order to import all the files with names
+        # derived algorithmically from the names given here. TODO: move
+        # positional/required arguments out of this somehow? So we can just use
+        # this to get the default optional settings and fill in the required
+        # things as file IDs?
+        mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
+        mapeval_options.bwa = True
+        mapeval_options.bwa_paired = True
+        mapeval_options.vg_paired = True
+        mapeval_options.fasta = make_url(fasta_path)
+        mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
+        mapeval_options.gam_names = test_names
+        mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
         if score_baseline_name is not None:
-            opts += '--compare-gam-scores {} '.format(score_baseline_name)
+            mapeval_options.compare_gam_scores = score_baseline_name
         
-        cmd = 'toil-vg mapeval {} {} {} {}'.format(
-            job_store, out_store, os.path.join(out_store, 'true.pos'), opts)
+        # Make Toil
+        with context.get_toil(job_store) as toil:
             
-        # Now parse the command line
-        args = cmd.strip().split(' ')
-        options = parse_args(args[1:])
-        # Make a toil-vg context with these options as the configuration
-        context = Context(options.out_store, options)
-        
-        # Run the whole mapeval workflow. Internally sets up Toil using the
-        # passed options.
-        mapeval_main(context, options)
+            # Make a plan by importing those files specified in the mapeval
+            # options
+            plan = make_mapeval_plan(toil, mapeval_options)
             
+            # Make a job to run the mapeval workflow, using all these various imported files.
+            main_job = Job.wrapJobFn(run_mapeval,
+                                     context, 
+                                     mapeval_options, 
+                                     plan.xg_file_ids,
+                                     plan.gcsa_file_ids, 
+                                     plan.id_range_file_ids,
+                                     plan.vg_file_ids, 
+                                     plan.gam_file_ids, 
+                                     plan.reads_gam_file_id, 
+                                     plan.fasta_file_id, 
+                                     plan.bwa_index_ids, 
+                                     plan.bam_file_ids,
+                                     plan.pe_bam_file_ids, 
+                                     plan.true_read_stats_file_id)
+                
+            # Output files all live in the out_store, but if we wanted to we could export them also/instead.
+            
+            # Run the root job
+            returned = toil.start(main_job)
+            
+            # TODO: I want to do the evaluation here, working with file IDs, but
+            # since we put the results in the out store maybe it really does
+            # make sense to just go through the files in the out store.
+
+            # Plot the ROC and qq plots
+            try:
+                out_store_name = self._outstore_name(tag)
+                for rscript in ['roc', 'qq']:
+                    # pull the scripts from where we expect them relative to being in vg/
+                    # and put them in the work directory.  This is ugly but keeps the
+                    # docker interfacing simple.
+                    shutil.copy2('scripts/plot-{}.R'.format(rscript), os.path.abspath(self.workdir))
+                    cmd = ['Rscript', 'plot-{}.R'.format(rscript),
+                           os.path.join(out_store_name, 'position.results.tsv'),
+                           os.path.join(out_store_name, '{}.svg'.format(rscript))]
+                    toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                             work_dir = os.path.abspath(self.workdir)))
+                    os.remove(os.path.join(self.workdir, 'plot-{}.R'.format(rscript)))
+
+            except Exception as e:
+                log.warning("Failed to generate ROC and QQ plots with Exception: {}".format(e))
+                        
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
         stats_dict = dict()
@@ -325,8 +535,21 @@ class VGCITest(TestCase):
                 stats_dict[toks[0]] = [float(x) for x in toks[1:]]
         return stats_dict
 
-    def _verify_mapeval(self, reads, tag):
-        """ Check the simulated mapping evaluation results """
+    def _verify_mapeval(self, reads, read_source_graph, score_baseline_name, tag):
+        """
+        Check the simulated mapping evaluation results.
+        
+        read_source_graph is the name of the graph that the reads were generated
+        from; we'll compare the scores realigned to that graph against the
+        scores that the generated reads had.
+        
+        score_baseline_name is the name of the graph we compared scores against;
+        we will chack that reads increase in score in the other graphs against
+        that graph and complain if they don't. It may be None, in which case
+        scores are only compared against the scores the reads got when
+        simulated.
+        
+        """
 
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
         with open(stats_path) as stats:
@@ -338,42 +561,105 @@ class VGCITest(TestCase):
         # Dict from aligner to a list of float stat values, in order
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
+        # print out a table of mapeval results
+        self._begin_message('map eval results', is_tsv=True)
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
         for key, val in baseline_dict.iteritems():
-            print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
-                key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
+            print '\t'.join(str(x) for x in [key, stats_dict[key][1], val[1],
+                                             stats_dict[key][2], val[2], self.auc_threshold])
+        self._end_message()
+
+        # test the mapeval results
+        for key, val in baseline_dict.iteritems():
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+
             
+        # This holds the condition names we want a better score than
+        score_baselines = ['input']
+        if score_baseline_name is not None:
+            score_baselines.append(score_baseline_name)
+            
+        for compare_against in score_baselines:
+            # For each graph/condition we want to compare scores against
         
-        score_stats_path = os.path.join(self._outstore(tag), 'score.stats.tsv')
-        if os.path.exists(score_stats_path):
-            # If the score comparison was run, make sure not too many reads get
-            # worse moving from linear reference or BWA to a graph.
-            
-            try:
-                # Parse out the baseline stat values (not for the baseline
-                # graph, we shouldn't have called these both "baseline")
-                baseline_tsv = self._read_baseline_file(tag, 'score.stats.tsv')
-                baseline_dict = self._tsv_to_dict(baseline_tsv)
-            except:
-                # Maybe there's no baseline file saved yet
-                # Synthesize one of the right shape
-                baseline_dict = collections.defaultdict(lambda: [0, 0])
+            # Now look at the stats for comparing scores on all graphs vs. scores on this particular graph.
+            score_stats_path = os.path.join(self._outstore(tag), 'score.stats.{}.tsv'.format(compare_against))
+            if os.path.exists(score_stats_path):
+                # If the score comparison was run, make sure not too many reads
+                # get worse moving from simulated to realigned scores, or moving
+                # from the baseline graph to the other (more inclusive) graphs.
                 
-            # Parse out the real stat values
-            score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                try:
+                    # Parse out the baseline stat values (not for the baseline
+                    # graph; we shouldn't have called these both "baseline")
+                    baseline_tsv = self._read_baseline_file(tag, 'score.stats.{}.tsv'.format(compare_against))
+                    baseline_dict = self._tsv_to_dict(baseline_tsv)
+                except:
+                    # Maybe there's no baseline file saved yet
+                    # Synthesize one of the right shape
+                    baseline_dict = collections.defaultdict(lambda: [0, 0])
+                    
+                # Parse out the real stat values
+                score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                    
+                # Make sure nothing has been removed
+                assert len(score_stats_dict) >= len(baseline_dict)
+                    
+                for key in score_stats_dict.iterkeys():
+                    # For every kind of graph
+                    
+                    if compare_against == 'input' and (key != read_source_graph and
+                        key != read_source_graph + '-pe'):
+                        # Only compare simulated read scores to the scores the
+                        # reads get when aligned against the graph they were
+                        # simulated from.
+                        continue
+                    
+                    # Guess where the file for individual read score differences for this graph is
+                    # TODO: get this file's name/ID from the actual Toil code
+                    read_comparison_path = os.path.join(self._outstore(tag), '{}.compare.{}.scores'.format(key, compare_against))
+                    for line in open(read_comparison_path):
+                        if line.strip() == '':
+                            continue
+                        # Break each line of the CSV
+                        parts = line.split(', ')
+                        # Fields are read name, score difference, aligned score, baseline score
+                        read_name = parts[0]
+                        score_diff = int(parts[1])
+                        
+                        if score_diff < 0:
+                            # Complain about anyone who goes below 0.
+                            log.warning('Read {} has a negative score increase of {} on graph {} vs. {}'.format(
+                                read_name, score_diff, key, compare_against))
                 
-            for key in score_stats_dict.iterkeys():
-                print '{}  Worse: {} Baseline: {}  Threshold: {}'.format(
-                    key, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
-                # Make sure all the reads came through
-                assert score_stats_dict[key][0] == reads
-                # Make sure not too many got worse
-                assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+                    if not baseline_dict.has_key(key):
+                        # We might get new graphs that aren't in the baseline file.
+                        log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
+                        baseline_dict[key] = [0, 0]
+                    
+                    # Report on its stats after dumping reads, so that if there are
+                    # too many bad reads and the stats are terrible we still can see
+                    # the reads.
+                    print '{} vs. {} Worse: {} Baseline: {}  Threshold: {}'.format(
+                        key, compare_against, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
+                    # Make sure all the reads came through
+                    assert score_stats_dict[key][0] == reads
+                    
+                    if not key.endswith('-pe'):
+                        # Skip paired-end cases because their pair partners can
+                        # pull them around. Also they are currently subject to
+                        # substantial nondeterministic alignment differences
+                        # based on the assignment of reads to threads.
+                    
+                        # Make sure not too many got worse
+                        assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+
             
-    def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None):
+    def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
+                      sample = None):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -385,8 +671,11 @@ class VGCITest(TestCase):
         
         Verifies that the realignments are sufficiently good.
         
-        If score_baseline is set to a graph name from test_graphs, computes
-        score differences for reach read against that baseline.
+        If score_baseline_graph is set to a graph name from test_graphs,
+        computes score differences for reach read against that baseline.
+
+        If a sample name is specified, extract a thread for each of its haplotype
+        from the baseline graph using the gpbwt and simulate only from the threads
         
         """
         tag = 'sim-{}-{}'.format(region, baseline_graph)
@@ -398,22 +687,36 @@ class VGCITest(TestCase):
             vg_path = self._input('{}-{}.vg'.format(graph, region))
             self._toil_vg_index(chrom, vg_path, None, self._input('{}-{}.gcsa'.format(graph, region)),
                                 None, tag, '{}-{}'.format(graph, region))
+
+        # compute the haplotype graphs to simulate from
+        if sample:
+            if sample in self.bakeoff_removed_samples:
+                # Unlike the other bakeoff graphs (snp1kg-region.vg), this one contains NA12878 and family
+                vg_path = self._input('{}_all_samples-{}.vg'.format(baseline_graph, region))
+            else:
+                vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
+            vcf_path = self._input('1kg_hg38-{}.vcf.gz'.format(region))            
+            xg_path, thread1_xg_path, thread2_xg_path = self._make_thread_indexes(
+                sample, vg_path, vcf_path, region, tag)
+            sim_xg_paths = [thread1_xg_path, thread2_xg_path]
+        else:
+            xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
+            sim_xg_paths = [xg_path]            
             
         fasta_path = self._input('{}.fa'.format(region))
-        xg_path = os.path.join(self._outstore(tag), '{}-{}'.format(baseline_graph, region) + '.xg')
         test_index_bases = []
         for test_graph in test_graphs:
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
-        self._mapeval_vg_run(reads, xg_path, fasta_path, test_index_bases,
+        self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
                              test_graphs, score_baseline_graph, tag)
 
         if self.verify:
-            self._verify_mapeval(reads, tag)
+            self._verify_mapeval(reads, baseline_graph, score_baseline_graph, tag)
 
     @timeout_decorator.timeout(3600)
-    def test_sim_brca2_snp1kg(self):
+    def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         # Using 50k simulated reads from snp1kg BRCA1, realign against all these
         # other BRCA1 graphs and make sure the realignments are sufficiently
@@ -422,14 +725,18 @@ class VGCITest(TestCase):
         # graph.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')
+                           score_baseline_graph='primary',
+                           sample='HG00096')
+
+
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')    
+                           score_baseline_graph='primary',
+                           sample='HG00096')
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):

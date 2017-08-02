@@ -40,7 +40,7 @@ public:
     vector<pair<AlignmentChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int approx_position;
+    int64_t approx_position;
     int band_begin;
     int band_idx;
     AlignmentChainModelVertex* prev;
@@ -55,7 +55,7 @@ public:
 class AlignmentChainModel {
 public:
     vector<AlignmentChainModelVertex> model;
-    map<int, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
+    map<int64_t, vector<vector<AlignmentChainModelVertex>::iterator> > approx_positions;
     set<vector<AlignmentChainModelVertex>::iterator> redundant_vertexes;
     vector<Alignment> unaligned_bands;
     AlignmentChainModel(
@@ -186,6 +186,8 @@ public:
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     
+    bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
@@ -243,8 +245,8 @@ protected:
     void init_node_cache(void);
     
     // node start cache for fast approximate position estimates
-    vector<LRUCache<id_t, size_t>* > node_start_cache;
-    LRUCache<id_t, size_t>& get_node_start_cache(void);
+    vector<LRUCache<id_t, int64_t>* > node_start_cache;
+    LRUCache<id_t, int64_t>& get_node_start_cache(void);
     void init_node_start_cache(void);
     
     // match node traversals to path positions
@@ -332,11 +334,13 @@ public:
     deque<double> fragment_lengths;
     deque<bool> fragment_orientations;
     deque<bool> fragment_directions;
+    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2);
     void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
     string fragment_model_str(void);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
     double fragment_length_pdf(double length);
+    double fragment_length_pval(double length);
     bool fragment_orientation(void);
     bool fragment_direction(void);
     double cached_fragment_length_mean;
@@ -350,6 +354,7 @@ public:
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
+    void annotate_with_mean_path_positions(vector<Alignment>& alns);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -358,13 +363,14 @@ public:
 
     // use the fragment length annotations to assess if the pair is consistent or not
     bool pair_consistent(const Alignment& aln1,
-                         const Alignment& aln2);
+                         const Alignment& aln2,
+                         double pval);
 
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
     // use the fragment configuration statistics to rescue more precisely
-    bool pair_rescue(Alignment& mate1, Alignment& mate2);
+    bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -380,10 +386,17 @@ public:
     // for reconstruction the alignments from the SMEMs
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
-    // use the scoring provided by the internal aligner to re-score the alignment, scoring gaps using graph distance
+    
+    /// Use the scoring provided by the internal aligner to re-score the
+    /// alignment, scoring gaps between nodes using graph distance from the XG
+    /// index. Can use either approximate or exact (with approximate fallback)
+    /// XG-based distance estimation. Will strip out bonuses if the appropriate
+    /// Mapper flag is set.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
-    // lightweight, assumes we've aligned the full read with one alignment step, just subtract the bonus from the final score
-    int32_t rescore_without_full_length_bonus(const Alignment& aln);
+    
+    /// Given an alignment scored with full length bonuses on, subtract out the full length bonus if it was applied.
+    int32_t remove_full_length_bonus(const Alignment& aln);
+    
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
@@ -459,21 +472,21 @@ public:
     // use an average length of an LCP to a parent in the suffix tree to estimate a mapping quality
     double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
     // walks the graph one base at a time from pos1 until we find pos2
-    int graph_distance(pos_t pos1, pos_t pos2, int maximum = 1e3);
+    int64_t graph_distance(pos_t pos1, pos_t pos2, int64_t maximum = 1e3);
     // use the offset in the sequence array to give an approximate distance
-    int approx_distance(pos_t pos1, pos_t pos2);
+    int64_t approx_distance(pos_t pos1, pos_t pos2);
     // use the offset in the sequence array to get an approximate position
-    int approx_position(pos_t pos);
+    int64_t approx_position(pos_t pos);
     // get the approximate position of the alignment or return -1 if it can't be had
-    int approx_alignment_position(const Alignment& aln);
+    int64_t approx_alignment_position(const Alignment& aln);
     // get the end position of the alignment
     Position alignment_end_position(const Alignment& aln);
     // get the approximate distance between the starts of the alignments or return -1 if undefined
-    int approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    int64_t approx_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // use the cached fragment model to estimate the likely place we'll find the mate
     pos_t likely_mate_position(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
-    id_t node_approximately_at(int approx_pos);
+    id_t node_approximately_at(int64_t approx_pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
     vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
@@ -482,6 +495,7 @@ public:
 
     // fargment length estimation
     map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    int first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     
@@ -515,6 +529,7 @@ public:
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component
+    double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths

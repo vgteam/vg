@@ -48,6 +48,15 @@ string reverse_complement(const string& seq) {
     return rc;
 }
 
+bool is_all_n(const string& seq) {
+    for (auto& c : seq) {
+        if (c != 'N' && c != 'n') {
+            return false;
+        }
+    }
+    return true;
+}
+
 int get_thread_count(void) {
     int thread_count = 1;
 #pragma omp parallel
@@ -503,6 +512,36 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
 
     // We added it in at the end
     return variant.alleles.size() - 1;
+}
+
+// https://stackoverflow.com/a/19039500/238609
+double slope(const std::vector<double>& x, const std::vector<double>& y) {
+    const auto n    = x.size();
+    const auto s_x  = std::accumulate(x.begin(), x.end(), 0.0);
+    const auto s_y  = std::accumulate(y.begin(), y.end(), 0.0);
+    const auto s_xx = std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
+    const auto s_xy = std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
+    const auto a    = (n * s_xy - s_x * s_y) / (n * s_xx - s_x * s_x);
+    return a;
+}
+
+//https://stats.stackexchange.com/a/7459/14524
+// returns alpha parameter of zipf distribution
+double fit_zipf(const vector<double>& y) {
+    // assume input is log-scaled
+    // fit a log-log model
+    assert(y.size());
+    vector<double> ly(y.size());
+    for (int i = 0; i < ly.size(); ++i) {
+        //cerr << y[i] << " ";
+        ly[i] = log(y[i]);
+    }
+    //cerr << endl;
+    vector<double> lx(y.size());
+    for (int i = 1; i <= lx.size(); ++i) {
+        lx[i-1] = log(i);
+    }
+    return -slope(lx, ly);
 }
 
 }

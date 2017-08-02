@@ -26,6 +26,9 @@ namespace vg {
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
 
+    /**
+     * The interface that any Aligner should implement, with some default implementations.
+     */
     class BaseAligner {
     protected:
         BaseAligner() = default;
@@ -110,6 +113,10 @@ namespace vg {
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
                                                Graph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) = 0;
+                        
+        /// Compute the score of an exact match in the given alignment, from the
+        /// given offset, of the given length.
+        virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
         
         // stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
         // probability that the alignment is not the correct one (assuming that one of the alignments
@@ -121,9 +128,11 @@ namespace vg {
                                      double cluster_mq,
                                      bool use_cluster_mq,
                                      int overlap_count,
-                                     double mq_estimate);
+                                     double mq_estimate,
+                                     double identity_weight);
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
+                                            const vector<double>& frag_weights,
                                             int max_mapping_quality1,
                                             int max_mapping_quality2,
                                             bool fast_approximation,
@@ -132,7 +141,8 @@ namespace vg {
                                             int overlap_count1,
                                             int overlap_count2,
                                             double mq_estimate1,
-                                            double mq_estimate2);
+                                            double mq_estimate2,
+                                            double identity_weight);
         
         // Convert a score to an unnormalized log likelihood for the sequence.
         // Requires log_base to have been set.
@@ -143,6 +153,23 @@ namespace vg {
         
         /// The longest gap detectable from any read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment) const;
+        
+        /// Use the score values in the aligner to score the given alignment,
+        /// scoring gaps caused by jumping between between nodes using a custom
+        /// gap length estimation function (which takes the from position, the
+        /// to position, and a search limit in bp that happens to be the read
+        /// length).
+        ///
+        /// May include full length bonus or not. TODO: bool flags are bad.
+        virtual int32_t score_alignment(const Alignment& aln,
+            const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+            bool strip_bonuses = false);
+            
+        /// Without necessarily rescoring the entire alignment, return the score
+        /// of the given alignment with bonuses removed. Assumes that bonuses
+        /// are actually included in the score.
+        /// Needs to know if the alignment was pinned-end or not, and, if so, which end was pinned.
+        virtual int32_t remove_bonuses(const Alignment& aln, bool pinned = false, bool pin_left = false);
         
         // members
         int8_t* nt_table = nullptr;
@@ -158,6 +185,9 @@ namespace vg {
         
     };
     
+    /**
+     * An ordinary aligner.
+     */
     class Aligner : public BaseAligner {
     private:
         
@@ -215,11 +245,15 @@ namespace vg {
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         
         
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
 
     };
 
+    /**
+     * An aligner that uses read base qualities to adjust its scores and alignments.
+     */
     class QualAdjAligner : public BaseAligner {
     public:
         
@@ -247,6 +281,7 @@ namespace vg {
         
         void init_mapping_quality(double gc_content);
         
+        int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
         int32_t score_exact_match(const string& sequence, const string& base_quality) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
                                   string::const_iterator base_qual_begin) const;

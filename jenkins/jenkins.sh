@@ -19,8 +19,12 @@
 LOCAL_BUILD=0
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
+# Should we keep our test output around after uploading the new baseline?
+KEEP_OUTPUT=0
+# Should we show stdout and stderr from tests? If so, set to "-s".
+SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@3adb2390156887bad052da0240bf92ff3dc24edc"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@5f6756485ecd3cc36d4f91538b56f75be26f50eb"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -32,19 +36,27 @@ usage() {
     printf "Options:\n\n"
     printf "\t-l\t\tBuild vg locally (instead of in Docker) and don't use Docker at all.\n"
     printf "\t\t\tNon-Python dependencies must be installed.\n"
-    printf "\t-r\t\tRe-use a single virtualenv. \n"
+    printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
+    printf "\t-k\t\tKeep on-disk output. \n"
+    printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run.\n"
     exit 1
 }
 
-while getopts "lrp:t:" o; do
+while getopts "lrksp:t:" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
             ;;
         r)
             REUSE_VENV=1
+            ;;
+        k)
+            KEEP_OUTPUT=1
+            ;;
+        s) 
+            SHOW_OPT="-s"
             ;;
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -123,6 +135,7 @@ pip install dateutils
 pip install requests
 pip install timeout_decorator
 pip install pytest
+pip install pygithub
 pip install toil[aws,mesos]
 # Don't manually install boto since toil just installs its preferred version
 
@@ -188,22 +201,38 @@ fi
 set +e
 
 # run the tests, output the junit report for Jenkins
-pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml
+pytest -vv "${PYTEST_TEST_SPEC}" --junitxml=test-report.xml ${SHOW_OPT}
 PYRET="$?"
 
-# we publish the results to the archive
-tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
-aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
+# Generate a report in two files: HTML full output, and a Markdown summary.
+# Takes as input the Jenkins test result XML and the work directory with the
+# test output files.
+jenkins/mine-logs.py test-report.xml vgci-work/ report-html/ summary.md
 
-# if success and we're merging the PR, we publish results to the baseline
-if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
+# Put the report on Github for the current pull request or commit.
+jenkins/post-report report-html summary.md
+
+
+if [ ! -z "${BUILD_NUMBER}" ]
 then
-    echo "Tests passed. Updating baseline"
-    aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
-    printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
-    printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
-    aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
+    # We are running on Jenkins (and not manually running the Jenkins tests), so
+    # we probably have AWS credentials and can upload stuff to S3.
+
+    # we publish the results to the archive
+    tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
+    aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
+
+    # if success and we're merging the PR (and not just testing it), we publish results to the baseline
+    if [ "$PYRET" -eq 0 ] && [ -z ${ghprbActualCommit} ]
+    then
+        echo "Tests passed. Updating baseline"
+        aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
+        printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
+        printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
+        aws s3 cp --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
+    fi
 fi
+    
 
 # clean up changes to bin
 # Don't disturb bin/protoc or vg will want to rebuild protobuf needlessly 
@@ -213,12 +242,13 @@ if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf awscli s3am
 fi
 
-if [ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]; then
-    # On anything other than a failed local run, clean up.
+if ([ "${LOCAL_BUILD}" == "0" ] || [ "${PYRET}" == 0 ]) && [ ! "${KEEP_OUTPUT}" == "1" ]; then
+    # On anything other than a failed local run, and if we haven't been told not to, clean up the test output.
     rm -rf vgci-work
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf .env
-    fi
+fi
+if [ ! "${REUSE_VENV}" == "1" ]; then
+    # If we aren't re-using the virtualenv, clean it up
+    rm -rf .env
 fi
 
 if [ -d "/mnt/ephemeral" ]

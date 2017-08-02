@@ -219,16 +219,16 @@ void Caller::map_paths() {
     // We don't remove any nodes, so paths always stay connected
     function<void(const Path&)> lambda = [&](const Path& path) {
         list<Mapping>& call_path = _augmented_graph.graph.paths.create_path(path.name());
-        int last_rank = -1;
-        int last_call_rank = 0;
-        int running_len = 0;
-        int path_len = 0;
+        int64_t last_rank = -1;
+        int64_t last_call_rank = 0;
+        size_t running_len = 0;
+        size_t path_len = 0;
         for (int i = 0; i < path.mapping_size(); ++i) {
             const Mapping& mapping = path.mapping(i);
-            int rank = mapping.rank() == 0 ? i+1 : mapping.rank();
-            int len = mapping.edit_size() == 0 ? _graph->get_node(mapping.position().node_id())->sequence().length() :
+            int64_t rank = mapping.rank() == 0 ? i+1 : mapping.rank();
+            size_t len = mapping.edit_size() == 0 ? _graph->get_node(mapping.position().node_id())->sequence().length() :
                 mapping.edit(0).from_length();
-            int to_len = mapping.edit_size() == 0 ? len : mapping.edit(0).to_length();
+            size_t to_len = mapping.edit_size() == 0 ? len : mapping.edit(0).to_length();
             if (mapping.edit_size() > 1 || len != to_len || rank <= last_rank) {
                 cerr << "rank " << rank;
                 cerr << "mapping " << pb2json(mapping) << endl;
@@ -241,7 +241,7 @@ void Caller::map_paths() {
                 _augmented_graph.graph.paths.remove_paths(s);
                 return;
             }
-            int node_id = mapping.position().node_id();
+            int64_t node_id = mapping.position().node_id();
             Node* node = _graph->get_node(node_id);
             
             int start = mapping.position().offset();
@@ -429,13 +429,7 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
         }
         
         // We want to know if this pileup supports an N
-        bool all_n = true;
-        for (auto base : val) {
-            if (base != 'N') {
-                all_n = false;
-            }
-        }
-        if (all_n) {
+        if (is_all_n(val)) {
             // N is not a real base, so we should never augment with it.
             continue;
         }

@@ -186,7 +186,7 @@ int main_snarl(int argc, char** argv) {
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
         //delete trav_finder;
-       TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph);
+       TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl : snarl_roots ){
            vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
            stream::write_buffered(cout, travs, 0);

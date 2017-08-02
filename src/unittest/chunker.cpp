@@ -96,7 +96,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"x", 1, 32};
         VG subgraph;
         Region out_region;
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
 
         REQUIRE(subgraph.node_count() == 9);
         REQUIRE(subgraph.edge_count() == 12);
@@ -108,7 +108,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"x", 9, 16};
         VG subgraph;
         Region out_region;        
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
 
         REQUIRE(subgraph.node_count() == 6);
         REQUIRE(subgraph.edge_count() == 7);
@@ -120,7 +120,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"x", 3, 6};
         VG subgraph;
         Region out_region;        
-        chunker.extract_id_range(region.start, region.end, 1, subgraph, out_region);
+        chunker.extract_id_range(region.start, region.end, 1, false, subgraph, out_region);
         
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 10);
@@ -132,7 +132,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"x", 8, 16};
         VG subgraph;
         Region out_region;        
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
 
         REQUIRE(subgraph.node_count() == 6);
         REQUIRE(subgraph.edge_count() == 7);
@@ -144,7 +144,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"y", 1, 37};
         VG subgraph;
         Region out_region;
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
 
         REQUIRE(subgraph.node_count() == 9);
         REQUIRE(subgraph.edge_count() == 12);
@@ -157,7 +157,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"y", 15, 35};
         VG subgraph;
         Region out_region;
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
 
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);
@@ -169,7 +169,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"z", 1, 60};
         VG subgraph;
         Region out_region;        
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
         
         REQUIRE(subgraph.node_count() == 9);
         REQUIRE(subgraph.edge_count() == 12);
@@ -182,7 +182,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         Region region = {"z", 36, 59};
         VG subgraph;
         Region out_region;        
-        chunker.extract_subgraph(region, 1, subgraph, out_region);
+        chunker.extract_subgraph(region, 1, false, subgraph, out_region);
         
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);

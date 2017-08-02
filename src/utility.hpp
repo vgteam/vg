@@ -21,6 +21,9 @@ using namespace std;
 
 char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
+/// Return True if the given string is entirely Ns of either case, and false
+/// otherwise.
+bool is_all_n(const string& seq);
 int get_thread_count(void);
 string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
@@ -413,6 +416,9 @@ string get_output_file_name(int& optind, int argc, char** argv);
 // indicating standard input. The reference passed is guaranteed to be valid
 // only until the callback returns.
 void get_input_file(const string& file_name, function<void(istream&)> callback);
+
+double slope(const std::vector<double>& x, const std::vector<double>& y);
+double fit_zipf(const vector<double>& y);
 
 }
 

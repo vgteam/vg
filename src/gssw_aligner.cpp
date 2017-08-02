@@ -537,7 +537,8 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
     }
     
     *max_idx_out = max_idx;
-    
+
+    double qual = 0;
     if (max_score * size < exp_overflow_limit) {
         // no risk of double overflow, sum exp directly (half as many transcendental function evals)
         double numer = 0.0;
@@ -547,7 +548,7 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
             }
             numer += exp(scaled_scores[i]);
         }
-        return -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
+        qual = -10.0 * log10(numer / (numer + exp(scaled_scores[max_idx])));
     }
     else {
         // work in log transformed valued to avoid risk of overflow
@@ -555,8 +556,10 @@ double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores,
         for (size_t i = 1; i < size; i++) {
             log_sum_exp = add_log(log_sum_exp, scaled_scores[i]);
         }
-        return -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
+        qual = -10.0 * log10(1.0 - exp(scaled_scores[max_idx] - log_sum_exp));
     }
+
+    return qual;
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
@@ -640,7 +643,8 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           double cluster_mq,
                                           bool use_cluster_mq,
                                           int overlap_count,
-                                          double mq_estimate) {
+                                          double mq_estimate,
+                                          double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -667,24 +671,19 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
 
-    double max_weight = scaled_scores[max_idx];
-    int max_count = 0;
-    for (auto& score : scaled_scores) if (score == max_weight) ++max_count;
-    if (max_count > 1) {
-        double best_chance = prob_to_phred(1.0-(1.0/max_count));
-        mapping_quality = max(best_chance, mapping_quality);
-    }
-
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    double identity = (double)alignments[max_idx].score() / (alignments[max_idx].sequence().size() * match);
-    mapping_quality *= identity;
-
     if (mq_estimate < mapping_quality) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(mq_estimate + mapping_quality)));
     }
+
+    auto& max_aln = alignments[max_idx];
+    int l = max(alignment_to_length(max_aln), alignment_from_length(max_aln));
+    double identity = 1. - (double)(l * match - max_aln.score()) / (match + mismatch) / l;
+
+    mapping_quality *= pow(identity, identity_weight);
 
     if (mapping_quality > max_mapping_quality) {
         mapping_quality = max_mapping_quality;
@@ -695,9 +694,13 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 
     alignments[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality)));
+    for (int i = 1; i < alignments.size(); ++i) {
+        alignments[0].add_secondary_score(alignments[i].score());
+    }
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
+                                                 const vector<double>& frag_weights,
                                                  int max_mapping_quality1,
                                                  int max_mapping_quality2,
                                                  bool fast_approximation,
@@ -706,7 +709,8 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  int overlap_count1,
                                                  int overlap_count2,
                                                  double mq_estimate1,
-                                                 double mq_estimate2) {
+                                                 double mq_estimate2,
+                                                 double identity_weight) {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -725,6 +729,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     
     for (size_t i = 0; i < size; i++) {
         scaled_scores[i] = log_base * (alignment_pairs.first[i].score() + alignment_pairs.second[i].score());
+        // + frag_weights[i]);
+        // ^^^ we could also incorporate the fragment weights, but this does not seem to help performance
+        // at least with the weights which we are using; todo explore this
     }
 
     size_t max_idx;
@@ -736,14 +743,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality = maximum_mapping_quality_approx(scaled_scores, &max_idx);
     }
     
-    double max_weight = scaled_scores[max_idx];
-    int max_count = 0;
-    for (auto& score : scaled_scores) if (score == max_weight) ++max_count;
-    if (max_count > 1) {
-        double best_chance = prob_to_phred(1.0-(1.0/max_count));
-        mapping_quality = max(best_chance, mapping_quality);
-    }
-    
     if (use_cluster_mq) {
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
@@ -751,17 +750,22 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
-    double identity1 = (double)alignment_pairs.first[max_idx].score() / (alignment_pairs.first[max_idx].sequence().size() * match);
-    mapping_quality1 *= identity1;
-    double identity2 = (double)alignment_pairs.second[max_idx].score() / (alignment_pairs.second[max_idx].sequence().size() * match);
-    mapping_quality2 *= identity2;
-
     if (mq_estimate1 < mapping_quality2) {
         mapping_quality1 = prob_to_phred(sqrt(phred_to_prob(mq_estimate1 + mapping_quality1)));
     }
     if (mq_estimate2 < mapping_quality2) {
         mapping_quality2 = prob_to_phred(sqrt(phred_to_prob(mq_estimate2 + mapping_quality2)));
     }
+
+    auto& max_aln1 = alignment_pairs.first[max_idx];
+    int len1 = max(alignment_to_length(max_aln1), alignment_from_length(max_aln1));
+    double identity1 = 1. - (double)(len1 * match - max_aln1.score()) / (match + mismatch) / len1;
+    auto& max_aln2 = alignment_pairs.second[max_idx];
+    int len2 = max(alignment_to_length(max_aln2), alignment_from_length(max_aln2));
+    double identity2 = 1. - (double)(len2 * match - max_aln2.score()) / (match + mismatch) / len2;
+
+    mapping_quality1 *= pow(identity1, identity_weight);
+    mapping_quality2 *= pow(identity2, identity_weight);
 
     if (mapping_quality1 > max_mapping_quality1) {
         mapping_quality1 = max_mapping_quality1;
@@ -777,8 +781,18 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality2 = 0;
     }
 
-    alignment_pairs.first[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality1)));
-    alignment_pairs.second[max_idx].set_mapping_quality(max(0, (int32_t) round(mapping_quality2)));
+    mapping_quality = max(0, (int32_t)round(min(mapping_quality1, mapping_quality2)));
+
+    alignment_pairs.first[max_idx].set_mapping_quality(mapping_quality);
+    alignment_pairs.second[max_idx].set_mapping_quality(mapping_quality);
+
+    for (int i = 1; i < alignment_pairs.first.size(); ++i) {
+        alignment_pairs.first[0].add_secondary_score(alignment_pairs.first[i].score());
+    }
+    for (int i = 1; i < alignment_pairs.second.size(); ++i) {
+        alignment_pairs.second[0].add_secondary_score(alignment_pairs.second[i].score());
+    }
+
 }
 
 double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
@@ -821,6 +835,78 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
     return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2));
     
 }
+
+int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+    bool strip_bonuses) {
+    
+    int score = 0;
+    int read_offset = 0;
+    auto& path = aln.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        // For each mapping
+        auto& mapping = path.mapping(i);
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            // For each edit in the mapping
+            auto& edit = mapping.edit(j);
+            
+            // Score the edit according to its type
+            if (edit_is_match(edit)) {
+                score += score_exact_match(aln, read_offset, edit.to_length());
+            } else if (edit_is_sub(edit)) {
+                score -= mismatch * edit.sequence().size();
+            } else if (edit_is_deletion(edit)) {
+                score -= gap_open + edit.from_length() * gap_extension;
+            } else if (edit_is_insertion(edit)
+                       && !((i == 0 && j == 0)
+                            || (i == path.mapping_size()-1
+                                && j == mapping.edit_size()-1))) {
+                // todo how do we score this qual adjusted?
+                score -= gap_open + edit.to_length() * gap_extension;
+            }
+            read_offset += edit.to_length();
+        }
+        // score any intervening gaps in mappings using approximate distances
+        if (i+1 < path.mapping_size()) {
+            // what is the distance between the last position of this mapping
+            // and the first of the next
+            Position last_pos = mapping.position();
+            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
+            Position next_pos = path.mapping(i+1).position();
+            // Estimate the distance
+            int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
+            if (dist > 0) {
+                // If it's nonzero, score it as a deletion gap
+                score -= gap_open + dist * gap_extension;
+            }
+        }
+    }
+    
+    if (!strip_bonuses) {
+        // We should report any bonuses used in the DP in the final score
+        if (!softclip_start(aln)) {
+            score += full_length_bonus;
+        }
+        if (!softclip_end(aln)) {
+            score += full_length_bonus;
+        }
+    }
+    
+    return max(0, score);
+}
+
+int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {
+    int32_t score = aln.score();
+    if (softclip_start(aln) == 0 && !(pinned && pin_left)) {
+        // No softclip at the start, and a left end bonus was applied.
+        score -= full_length_bonus;
+    }
+    if (softclip_end(aln) == 0 && !(pinned && !pin_left)) {
+        // No softclip at the end, and a right end bonus was applied.
+        score -= full_length_bonus;
+    }
+    return score;
+}
+
 
 Aligner::Aligner(int8_t _match,
                  int8_t _mismatch,
@@ -1141,6 +1227,12 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
     }
 }
 
+// Scoring an exact match is very simple in an ordinary Aligner
+
+int32_t Aligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+    return match * length;
+}
+
 int32_t Aligner::score_exact_match(const string& sequence) const {
     return match * sequence.length();
 }
@@ -1402,6 +1494,18 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
     
+}
+
+int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) {
+    auto& sequence = aln.sequence();
+    auto& base_quality = aln.quality();
+    int32_t score = 0;
+    for (int32_t i = 0; i < sequence.length(); i++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
 }
 
 int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) const {
