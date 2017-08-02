@@ -4720,24 +4720,6 @@ void MEMChainModel::display(ostream& out) {
     }
 }
 
-// construct the sequence of the MEM; useful in debugging
-string MaximalExactMatch::sequence(void) const {
-    string seq; //seq.resize(end-begin);
-    string::const_iterator c = begin;
-    while (c != end) seq += *c++;
-    return seq;
-}
-    
-// length of the MEM
-int MaximalExactMatch::length(void) const {
-    return end - begin;
-}
-
-// counts Ns in the MEM
-size_t MaximalExactMatch::count_Ns(void) const {
-    return std::count(begin, end, 'N');
-}
-
 ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
     size_t len = mem.begin - mem.end;
     out << mem.sequence() << ":";

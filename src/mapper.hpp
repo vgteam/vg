@@ -18,6 +18,7 @@
 #include "json2pb.h"
 #include "entropy.hpp"
 #include "gssw_aligner.hpp"
+#include "mem.hpp"
 
 namespace vg {
 
@@ -29,46 +30,6 @@ using namespace std;
 enum MappingQualityMethod { Approx, Exact, None };
 
 class Mapper;
-
-class MaximalExactMatch {
-
-public:
-
-    //const string* source;
-    string::const_iterator begin;
-    string::const_iterator end;
-    gcsa::range_type range;
-    size_t match_count;
-    int fragment;
-    bool primary; // if not a sub-MEM
-    std::vector<gcsa::node_type> nodes;
-    map<string, vector<size_t> > positions;
-    
-    MaximalExactMatch(string::const_iterator b,
-                      string::const_iterator e,
-                      gcsa::range_type r,
-                      size_t m = 0)
-        : begin(b), end(e), range(r), match_count(m) { }
-
-    // construct the sequence of the MEM; useful in debugging
-    string sequence(void) const;
-    // get the length of the MEM
-    int length(void) const;
-    // tells if the MEM contains an N
-    size_t count_Ns(void) const;
-
-    friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
-    friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
-    friend ostream& operator<<(ostream& out, const MaximalExactMatch& m);
-
-    MaximalExactMatch(void) = default;                                      // Copy constructor
-    MaximalExactMatch(const MaximalExactMatch&) = default;               // Copy constructor
-    MaximalExactMatch(MaximalExactMatch&&) = default;                    // Move constructor
-    MaximalExactMatch& operator=(const MaximalExactMatch&) & = default;  // MaximalExactMatchopy assignment operator
-    MaximalExactMatch& operator=(MaximalExactMatch&&) & = default;       // Move assignment operator
-    //virtual ~MaximalExactMatch() { }                     // Destructor
-};
-
 
 class MEMChainModelVertex {
 public:
