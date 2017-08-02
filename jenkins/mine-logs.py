@@ -44,6 +44,68 @@ def testname_to_outstore(test_name):
         toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), toks[3])
 
 
+def parse_begin_message(line):
+    """ Return True, name, is_tsv if tag found otherwise False, None, None """
+    try:
+        if 'VGCI' in line:
+            elem = ET.fromstring(line.encode('ascii').rstrip() + '</VGCI>')
+            if elem.tag == 'VGCI':
+                return True, elem.get('name'), elem.get('tsv', 'false').lower() == 'true'
+    except:
+        pass
+    return False, None, None
+
+def parse_end_message(line):
+    """ Return True if line marks end of a report """
+    try:
+        if 'VGCI' in line:
+            elem = ET.fromstring('<VGCI>' + line.encode('ascii').rstrip())
+            if elem.tag == 'VGCI':
+                return True
+    except:
+        pass
+    return False
+
+def scrape_messages(text):
+    """ Use the tags above to extract blocks and tables from a buffer.
+    A message is a tuple of (name, table) or (name, text) where name 
+    can be none """
+
+    messages = []
+    msg = None
+    
+    for line in text.split('\n'):
+        is_msg, msg_name, is_tsv = parse_begin_message(line)
+        # start message
+        if is_msg:
+            if msg is not None:
+                messages.append((name, msg))
+                msg, name = None, None
+            name = msg_name            
+            if is_tsv:
+                msg = []
+            else:
+                msg = ''
+        # end message
+        elif parse_end_message(line):
+            if msg is not None:
+                messages.append((name, msg))
+                msg, name = None, None
+        # continue message
+        elif msg is not None:
+            if isinstance(msg, list):
+                row = line.rstrip().split('\t')
+                if len(row):
+                    msg.append(row)
+            else:
+                msg += line
+    if msg:
+        messages.append((name, msg))
+        msg, name = None, None
+
+    return messages
+    
+
 def parse_testsuite_xml(testsuite):
     """
     Flatten fields of interset from a TestSuite XML element into a dict
@@ -77,6 +139,13 @@ def parse_testcase_xml(testcase):
         tc['stderr'] = testcase.find('system-err').text
     else:
         tc['stderr'] = None
+
+    if testcase.find('skipped') is not None:
+        tc['skipped'] = True
+        tc['skip-msg'] = testcase.find('skipped').text
+    else:
+        tc['skipped'] = False
+        tc['skip-msg'] = None
 
     failure = testcase.find('failure')
     if failure is not None:
@@ -144,7 +213,11 @@ def html_header(xml_root):
     try:
         report = '<!DOCTYPE html><html><head>\n'
         report += '<title>vg Test Report</title>\n'
-        report += '</head><body>\n'
+        report += '<style> table {\n'
+        report += 'font-famiiy: arial, sans-serif; border-collaped: collapse; width: 100%;}\n'
+        report += 'td, dh { border: 1px solid #dddddd; text-align: left; padding: 8px;}\n'
+        report += 'tr:nth-child(even) { background-color: #dddddd;}\n'
+        report += '</style></head><body>\n'
 
         # will have to modify this if we ever add another test suite
         testsuite = xml_root
@@ -175,19 +248,45 @@ def html_header(xml_root):
         report += ' Error parsing Test Suite XML\n'
     return report
 
-def html_testcase(testcase, work_dir, report_dir):
+def html_table(table, caption = None):
+    """
+    take a table (list of lists) as scraped above and write a HTML table.
+    """
+    t = '<table>\n'
+    if caption:
+        t += '<caption align="bottom"><i>{}</i></caption>\n'.format(caption)                
+    for i, row in enumerate(table):
+        t += '<tr>\n'
+        tag = 'th' if i == 0 else 'td'
+        for col in row:
+            t += '<{}>{}</{}>\n'.format(tag, col, tag)
+    t += '</table>\n'
+    return t
+
+def html_testcase(tc, work_dir, report_dir):
     """
     Make an HTML report for a single test case
     """
-    report = ''
+    report = '\n<hr>\n'
     try:
-        tc = parse_testcase_xml(testcase)
-
-        report += '<h3>{}</h3>\n'.format(tc['name'])
         if tc['failed']:
-            report += '<p>Failed in {} seconds</p>\n'.format(tc['time'])
-            report += '<p>Failure Message: `{}`</p>\n'.format(escape(tc['fail-msg']))
-            report += '<p>Failure Text: `{}`</p>\n'.format(escape(tc['fail-txt']))
+            report += '<h3><font color="FF0000">{}</font></h3>\n'.format(tc['name'])
+        else:
+            report += '<h3>{}</h3>\n'.format(tc['name'])            
+        if tc['failed']:
+            report += '<p><b><font color="FF0000">Failed</font></b> in {} seconds</p>\n'.format(tc['time'])
+            report += '<p>Failure Text</p>\n<pre>'
+            for line in tc['fail-txt'].split('\n'):
+                for subline in textwrap.wrap(line, 80):
+                    report += escape(subline) + '\n'
+            report += '</pre>\n'
+
+            report += '<p>Failure Message</p>\n<pre>'
+            for line in tc['fail-msg'].split('\n'):
+                for subline in textwrap.wrap(line, 80):
+                    report += escape(subline) + '\n'
+            report += '</pre>\n'
+
         else:
             report += '<p>Passed in {} seconds</p>\n'.format(tc['time'])
 
@@ -202,39 +301,47 @@ def html_testcase(testcase, work_dir, report_dir):
                     new_name, plot_name.upper(), new_name)
 
         if tc['stdout']:
-            report += '<p>Standard Output:</p>\n<pre>'
-            for line in tc['stdout'].split('\n'):
-                for subline in textwrap.wrap(line, 80):
-                    report += escape(subline) + '\n'
-            report += '</pre>\n'
-            
-        # Look for warning lines in stderr
-        warnings = []
-        for line in tc['stderr'].split('\n'):
-            # For each line
-            if "WARNING vgci" in line:
-                # If it is a CI warning, keep it
-                warnings.append(line.rstrip())
-            
-        report += '<p>{} CI warnings found'.format(len(warnings))
-        if len(warnings) > 10:
-            report += '; showing first 10'
-            warnings = warnings[:10]
-        if len(warnings) > 0:
-            report += ':'
-        report += '</p>\n'
-        for warning in warnings:
-            
-            report += '<pre>{}</pre>\n'.format(escape('\n'.join(textwrap.wrap(warning, 80))))
+            # extract only things in <VCGI> tags from stdout
+            messages = scrape_messages(tc['stdout'])
+            for message in messages:                
+                name, body = message[0], message[1]
+                if isinstance(body, list):
+                    report += html_table(body, name)
+                else:
+                    if name:
+                        report += '<h5>{}</h5>\n'.format(name)                    
+                    report += '<pre>'
+                    for line in body.split('\n'):
+                        for subline in textwrap.wrap(line, 80):
+                            report += escape(subline) + '\n'
+                    report += '</pre>\n'
 
         if tc['stderr']:
+            # Look for warning lines in stderr
+            warnings = []
+            for line in tc['stderr'].split('\n'):
+                # For each line
+                if "WARNING vgci" in line:
+                    # If it is a CI warning, keep it
+                    warnings.append(line.rstrip())
+
+            if len(warnings) > 0:
+                report += '<p>{} CI warnings found'.format(len(warnings))
+                if len(warnings) > 10:
+                    report += '; showing first 10'
+                    warnings = warnings[:10]
+                report += ':'
+                report += '</p>\n'
+                for warning in warnings:            
+                    report += '<pre>{}</pre>\n'.format(escape('\n'.join(textwrap.wrap(warning, 80))))
             err_name = '{}-stderr.txt'.format(tc['name'])
             with open(os.path.join(report_dir, err_name), 'w') as err_file:
-                err_file.write(tc['stderr'])
+                pass
+                #err_file.write(tc['stderr'])
             report += '<p><a href={}>Standard Error</a></p>\n'.format(err_name)
 
-    except:
-        report += 'Error parseing Test Case XML\n'
+    except int as e:
+        report += 'Error parsing Test Case XML\n'
 
     return report
 
@@ -243,14 +350,31 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
     """
     if not os.path.isdir(html_dir):
         os.makedirs(html_dir)
-    
+        
     html_path = os.path.join(html_dir, html_name)
     with open(html_path, 'w') as html_file:
         header = html_header(xml_root)
         html_file.write(header)
+        
+        parsed_testcases = []
         for testcase in xml_root.iter('testcase'):
-            tc_body = html_testcase(testcase, work_dir, html_dir)
-            html_file.write(tc_body)
+            try:
+                tc = parse_testcase_xml(testcase)
+                parsed_testcases.append(tc)
+            except:
+                logger.warning('Unexpected error parsing testcase XML {}'.format(testcase))
+
+        # sort test cases so failed first, then sim, the by name
+        def sort_key(tc):
+            key = ('0' if 'sim' in tc['name'] else '1') 
+            key = ('0' if tc['failed'] else '1') + key
+            return key + tc['name']
+                
+        for tc in sorted(parsed_testcases, key=sort_key):
+            if not tc['skipped']:
+                tc_body = html_testcase(tc, work_dir, html_dir)
+                html_file.write(tc_body)
+            
         html_file.write('</body>\n</html>\n')
         
 def main(args):
