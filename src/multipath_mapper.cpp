@@ -2666,7 +2666,7 @@ namespace vg {
                     // the length of the sequence in between the MEMs (can be negative if they overlap)
                     int64_t between_length = next.mem->begin - pivot.mem->end;
                     // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                    int64_t graph_dist = max(0ll, sorted_pos[j].first - strand_pos - pivot_length);
+                    int64_t graph_dist = max<int64_t>(0, sorted_pos[j].first - strand_pos - pivot_length);
                     // the discrepancy between the graph distance and the read distance
                     int64_t gap_length = abs(graph_dist - between_length);
                     
@@ -2684,7 +2684,7 @@ namespace vg {
                         // so for now we just give it the benefit of the doubt but adjust the edge
                         // score so that the matches don't get double counted
                         
-                        int64_t extra_dist = max(0ll, gap_length);
+                        int64_t extra_dist = max<int64_t>(0, gap_length);
                         
                         edge_score = -aligner.match * between_length
                                      + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
