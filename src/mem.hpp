@@ -115,21 +115,21 @@ public:
     void clear_scores(void);
 };
 
-class MultipathClusterer {
+class OrientedDistanceClusterer {
 public:
-    MultipathClusterer(const Alignment& alignment,
-                       const vector<MaximalExactMatch>& mems,
-                       const QualAdjAligner& aligner,
-                       xg::XG* xgindex,
-                       size_t max_expected_dist_approx_error = 8);
+    OrientedDistanceClusterer(const Alignment& alignment,
+                              const vector<MaximalExactMatch>& mems,
+                              const QualAdjAligner& aligner,
+                              xg::XG* xgindex,
+                              size_t max_expected_dist_approx_error = 8);
     
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters(int32_t max_qual_score = 60);
     
 private:
-    class MPCNode;
-    class MPCEdge;
+    class ODNode;
+    class ODEdge;
     struct DPScoreComparator;
     
     /// Fills input vectors with indices of source and sink nodes
@@ -144,17 +144,17 @@ private:
     /// Perform dynamic programming and store scores in nodes
     void perform_dp();
     
-    vector<MPCNode> nodes;
+    vector<ODNode> nodes;
     
     const QualAdjAligner& aligner;
 };
 
-class MultipathClusterer::MPCNode {
+class OrientedDistanceClusterer::ODNode {
 public:
-    MPCNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) :
+    ODNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) :
             mem(&mem), start_pos(start_pos), score(score) {}
-    MPCNode() = default;
-    ~MPCNode() = default;
+    ODNode() = default;
+    ~ODNode() = default;
     
     MaximalExactMatch const* mem;
     
@@ -167,18 +167,18 @@ public:
     int32_t dp_score;
     
     /// Edges from this node that are colinear with the read
-    vector<MPCEdge> edges_from;
+    vector<ODEdge> edges_from;
     
     /// Edges to this node that are colinear with the read
-    vector<MPCEdge> edges_to;
+    vector<ODEdge> edges_to;
 };
 
-class MultipathClusterer::MPCEdge {
+class OrientedDistanceClusterer::ODEdge {
 public:
-    MPCEdge(size_t to_idx, int32_t weight) :
+    ODEdge(size_t to_idx, int32_t weight) :
             to_idx(to_idx), weight(weight) {}
-    MPCEdge() = default;
-    ~MPCEdge() = default;
+    ODEdge() = default;
+    ~ODEdge() = default;
     
     /// Index of the node that the edge points to
     size_t to_idx;
@@ -187,12 +187,12 @@ public:
     int32_t weight;
 };
 
-struct MultipathClusterer::DPScoreComparator {
+struct OrientedDistanceClusterer::DPScoreComparator {
 private:
-    const vector<MPCNode>& nodes;
+    const vector<ODNode>& nodes;
 public:
     DPScoreComparator() = delete;
-    DPScoreComparator(const vector<MPCNode>& nodes) : nodes(nodes) {}
+    DPScoreComparator(const vector<ODNode>& nodes) : nodes(nodes) {}
     ~DPScoreComparator() {}
     inline bool operator()(const size_t i, const size_t j) {
         return nodes[i].dp_score < nodes[j].dp_score;

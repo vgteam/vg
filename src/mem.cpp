@@ -396,7 +396,7 @@ void MEMChainModel::display(ostream& out) {
     }
 }
 
-MultipathClusterer::MultipathClusterer(const Alignment& alignment,
+OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                        const vector<MaximalExactMatch>& mems,
                                        const QualAdjAligner& aligner,
                                        xg::XG* xgindex,
@@ -812,7 +812,7 @@ MultipathClusterer::MultipathClusterer(const Alignment& alignment,
             
             int64_t strand_pos = sorted_pos[i].first;
             size_t pivot_idx = sorted_pos[i].second;
-            MPCNode& pivot = nodes[pivot_idx];
+            ODNode& pivot = nodes[pivot_idx];
             int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
             
             // the limits of how far away we might detect edges to add to the clustering graph
@@ -845,7 +845,7 @@ MultipathClusterer::MultipathClusterer(const Alignment& alignment,
             
             for (int64_t j = low; j <= hi; j++) {
                 int64_t next_idx = sorted_pos[j].second;
-                MPCNode& next = nodes[next_idx];
+                ODNode& next = nodes[next_idx];
                 
                 if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
                     // the MEMs cannot be colinear along the read (also filters out j == i)
@@ -905,7 +905,7 @@ MultipathClusterer::MultipathClusterer(const Alignment& alignment,
     }
 }
 
-void MultipathClusterer::topological_order(vector<size_t>& order_out) {
+void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
     
     // initialize return value
     order_out.clear();
@@ -948,7 +948,7 @@ void MultipathClusterer::topological_order(vector<size_t>& order_out) {
     }
 }
 
-void MultipathClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
+void OrientedDistanceClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
                                                     vector<size_t>& sinks_out) {
     
     sources_out.clear();
@@ -961,7 +961,7 @@ void MultipathClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
             sinks_out.push_back(i);
         }
         
-        for (MPCEdge& edge : nodes[i].edges_from) {
+        for (ODEdge& edge : nodes[i].edges_from) {
             is_source[edge.to_idx] = false;
         }
     }
@@ -973,7 +973,7 @@ void MultipathClusterer::identify_sources_and_sinks(vector<size_t>& sources_out,
     }
 }
 
-void MultipathClusterer::connected_components(vector<vector<size_t>>& components_out) {
+void OrientedDistanceClusterer::connected_components(vector<vector<size_t>>& components_out) {
     
     components_out.clear();
     vector<bool> enqueued(nodes.size());
@@ -992,12 +992,12 @@ void MultipathClusterer::connected_components(vector<vector<size_t>>& components
         
         while (!stack.empty()) {
             
-            MPCNode& node = nodes[stack.back()];
+            ODNode& node = nodes[stack.back()];
             stack.pop_back();
             
             // search in both forward and backward directions
             
-            for (MPCEdge& edge : node.edges_from) {
+            for (ODEdge& edge : node.edges_from) {
                 
                 if (!enqueued[edge.to_idx]) {
                     stack.push_back(edge.to_idx);
@@ -1006,7 +1006,7 @@ void MultipathClusterer::connected_components(vector<vector<size_t>>& components
                 }
             }
             
-            for (MPCEdge& edge : node.edges_to) {
+            for (ODEdge& edge : node.edges_to) {
                 
                 if (!enqueued[edge.to_idx]) {
                     stack.push_back(edge.to_idx);
@@ -1018,7 +1018,7 @@ void MultipathClusterer::connected_components(vector<vector<size_t>>& components
     }
 }
 
-void MultipathClusterer::perform_dp() {
+void OrientedDistanceClusterer::perform_dp() {
     
     // as in local alignment, minimum score is the score of node itself
     for (size_t i = 0; i < nodes.size(); i++) {
@@ -1033,15 +1033,15 @@ void MultipathClusterer::perform_dp() {
     topological_order(order);
     
     for (size_t i : order) {
-        MPCNode& node = nodes[i];
+        ODNode& node = nodes[i];
 #ifdef debug_multipath_mapper
         cerr << "at node " << i << " with DP score " << node.dp_score << " and node score " << node.score << endl;
 #endif
         // for each edge out of this node
-        for (MPCEdge& edge : node.edges_from) {
+        for (ODEdge& edge : node.edges_from) {
             
             // check if the path through the node out of this edge increase score of target node
-            MPCNode& target_node = nodes[edge.to_idx];
+            ODNode& target_node = nodes[edge.to_idx];
             int32_t extend_score = node.dp_score + edge.weight + target_node.score;
             if (extend_score > target_node.dp_score) {
 #ifdef debug_multipath_mapper
@@ -1053,7 +1053,7 @@ void MultipathClusterer::perform_dp() {
     }
 }
 
-vector<vector<pair<const MaximalExactMatch*, pos_t>>> MultipathClusterer::clusters(int32_t max_qual_score) {
+vector<vector<pair<const MaximalExactMatch*, pos_t>>> OrientedDistanceClusterer::clusters(int32_t max_qual_score) {
     
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> to_return;
     if (nodes.size() == 0) {
@@ -1121,7 +1121,7 @@ vector<vector<pair<const MaximalExactMatch*, pos_t>>> MultipathClusterer::cluste
         while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
             int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
             cerr << "trace idx " << trace_idx << " DP score " << nodes[trace_idx].dp_score << " node score " << nodes[trace_idx].score << " source score " << target_source_score << endl;
-            for (MPCEdge& edge : nodes[trace_idx].edges_to) {
+            for (ODEdge& edge : nodes[trace_idx].edges_to) {
                 cerr << "\tscore along edge to " << edge.to_idx << " is " <<  nodes[edge.to_idx].dp_score + edge.weight << endl;
                 if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score) {
                     trace_idx = edge.to_idx;
@@ -1135,7 +1135,7 @@ vector<vector<pair<const MaximalExactMatch*, pos_t>>> MultipathClusterer::cluste
         to_return.emplace_back();
         auto& cluster = to_return.back();
         for (auto iter = trace.rbegin(); iter != trace.rend(); iter++) {
-            MPCNode& node = nodes[*iter];
+            ODNode& node = nodes[*iter];
             cluster.emplace_back(node.mem, node.start_pos);
         }
     }

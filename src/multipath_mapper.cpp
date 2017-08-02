@@ -45,7 +45,7 @@ namespace vg {
 #endif
         
         // cluster the MEMs
-        MultipathClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+        OrientedDistanceClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters = clusterer.clusters();
         
 #ifdef debug_multipath_mapper
