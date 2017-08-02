@@ -33,11 +33,11 @@ void help_chunk(char** argv) {
          << "    -a, --gam-index FILE     chunk this gam index (made with vg index -N) instead of the graph" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
-         << "    -p, --path TARGET        write the chunk in the specified (1-based inclusive)\n"
+         << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive)\n"
          << "                             path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --path-list FILE     write chunks for all path regions in (line - separated file). format\n"
          << "                             for each as in -p (all paths chunked unless otherwise specified)" << endl
-         << "    -e, --input-bed FILE     write chunks for all (0-based) bed regions" << endl
+         << "    -e, --input-bed FILE     write chunks for all (0-based end-exclusive) bed regions" << endl
          << "id range chunking:" << endl
          << "    -r, --node-range N:M     write the chunk for the specified node range\n"
          << "    -R, --node-ranges FILE   write the chunk for each node range in (newline or whitespace separated) file\n"
@@ -309,8 +309,8 @@ int main_chunk(int argc, char** argv) {
                 cerr << "error[vg chunk]: input path " << region.seq << " not found in xg index" << endl;
                 return 1;
             }
-            if (region.start == 0 || region.end == -1) {
-                region.start = 1;
+            region.start = max(0L, region.start);
+            if (region.end == -1) {    
                 region.end = xindex.path_length(rank);
             } else if (!id_range) {
                 if (region.start < 0 || region.end >= xindex.path_length(rank)) {
@@ -330,7 +330,7 @@ int main_chunk(int argc, char** argv) {
             if (region.end - region.start <= chunk_size) {
                 chunked_regions.push_back(region);
             } else {
-                for (size_t pos = 1; pos < region.end; pos += chunk_size - overlap) {
+                for (size_t pos = 0; pos < region.end; pos += chunk_size - overlap) {
                     Region cr = region;
                     cr.start = pos;
                     cr.end = min((int64_t)region.end, (int64_t)(pos + chunk_size - 1));
@@ -349,7 +349,7 @@ int main_chunk(int argc, char** argv) {
         stringstream chunk_name;
         string seq = region.seq.empty() ? "ids" : region.seq;
         chunk_name << out_chunk_prefix << "_" << i << "_" << seq << "_"
-        << (region.start - 1) << "_" << region.end << ext;
+        << region.start << "_" << region.end << ext;
         return chunk_name.str();
     };
 
@@ -476,7 +476,7 @@ int main_chunk(int argc, char** argv) {
         for (int i = 0; i < num_regions; ++i) {
             const Region& oregion = output_regions[i];
             string seq = id_range ? "ids" : oregion.seq;
-            obed << seq << "\t" << (oregion.start - 1) << "\t" << oregion.end
+            obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
                  << "\t" << chunk_name(i, oregion, chunk_gam ? ".gam" : ".vg");
             if (trace) {
                 obed << "\t" << chunk_name(i, oregion, "_trace_annotate.txt");

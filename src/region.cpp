@@ -31,8 +31,8 @@ void parse_bed_regions(const string& bed_path,
             region.end = std::stoi(ebuf);
             assert(region.end > region.start);
             
-            // convert from BED-style to VCF-style coordinates
-            region.start += 1;
+            // convert from BED-style to 0-based inclusive coordinates
+            region.end -= 1;
 
             out_regions.push_back(region);
         }

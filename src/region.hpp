@@ -28,7 +28,7 @@ inline void parse_region(string& region,
     
 // parse a bed file and return a list of regions (like above)
 // IMPORTANT: expects usual 0-based BED format.
-// So bedline "chr1   5   10" will return start=6 stop=10
+// So bedline "chr1   5   10" will return start=5 stop=9
 void parse_bed_regions(
     const string& bed_path,
     vector<Region>& out_regions);
