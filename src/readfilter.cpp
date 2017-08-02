@@ -497,7 +497,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         for (int i = 0; i < regions.size(); ++i) {
             Graph graph;
             int rank = xindex->path_rank(regions[i].seq);
-            int path_size = rank == 0 ? 0 : xindex->path_length(regions[i].seq);
+            int64_t path_size = rank == 0 ? 0 : xindex->path_length(regions[i].seq);
 
             if (regions[i].start >= path_size) {
                 cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
