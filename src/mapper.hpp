@@ -31,29 +31,6 @@ enum MappingQualityMethod { Approx, Exact, None };
 
 class Mapper;
 
-
-
-class MEMChainModel {
-public:
-    vector<MEMChainModelVertex> model;
-    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
-    set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
-    MEMChainModel(
-        const vector<size_t>& aln_lengths,
-        const vector<vector<MaximalExactMatch> >& matches,
-        const function<int(pos_t)>& approx_position,
-        const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
-        int band_width = 10,
-        int position_depth = 1,
-        int max_connections = 10);
-    void score(const set<MEMChainModelVertex*>& exclude);
-    MEMChainModelVertex* max_vertex(void);
-    vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
-    void display(ostream& out);
-    void clear_scores(void);
-};
-
-
 // for banded long read alignment resolution
 
 class AlignmentChainModelVertex {
@@ -557,19 +534,8 @@ public:
 
 // utility
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
-const string mems_to_json(const vector<MaximalExactMatch>& mems);
+
 set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes);
-// helper for computing the number of bases in the query covered by a cluster
-int cluster_coverage(const vector<MaximalExactMatch>& cluster);
-// helper to tell if mems are ovelapping
-bool mems_overlap(const MaximalExactMatch& mem1,
-                  const MaximalExactMatch& mem2);
-// distance of overlap, or 0 if there is no overlap
-int mems_overlap_length(const MaximalExactMatch& mem1,
-                        const MaximalExactMatch& mem2);
-// helper to tell if clusters have any overlap
-bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                      const vector<MaximalExactMatch>& cluster2);
 
 int sub_overlaps_of_first_aln(const vector<Alignment>& alns, float overlap_fraction);
 
