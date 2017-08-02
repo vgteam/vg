@@ -54,8 +54,6 @@ public:
     string sequence(void) const;
     // get the length of the MEM
     int length(void) const;
-    // uses an xgindex to fill out the MEM positions
-    void fill_positions(Mapper* mapper);
     // tells if the MEM contains an N
     size_t count_Ns(void) const;
 

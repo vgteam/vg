@@ -4733,13 +4733,6 @@ int MaximalExactMatch::length(void) const {
     return end - begin;
 }
 
-// uses an xgindex to fill out the MEM positions
-void MaximalExactMatch::fill_positions(Mapper* mapper) {
-    for (auto& node : nodes) {
-        positions = mapper->node_positions_in_paths(gcsa::Node::encode(gcsa::Node::id(node), 0, gcsa::Node::rc(node)));
-    }
-}
-
 // counts Ns in the MEM
 size_t MaximalExactMatch::count_Ns(void) const {
     return std::count(begin, end, 'N');
