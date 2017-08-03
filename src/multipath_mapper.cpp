@@ -234,8 +234,6 @@ namespace vg {
             node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
         }
         
-        align_graph.sort();
-        
         // create the injection translator, which maps a node in the original graph to every one of its occurrences
         // in the dagified graph
         unordered_multimap<id_t, pair<id_t, bool> > rev_trans;
@@ -419,6 +417,69 @@ namespace vg {
             }
         }
         
+        // function to reorder the nodes of a Protobuf graph in topological order and remove doubly reversing edges
+        // (required for gssw alignment)
+        auto groom_graph = [](Graph& graph) {
+            // remove doubly reversing edges
+            for (size_t i = 0; i < graph.edge_size(); i++) {
+                Edge* edge = graph.mutable_edge(i);
+                if (edge->from_start() && edge->to_end()) {
+                    id_t tmp = edge->from();
+                    edge->set_from(edge->to());
+                    edge->set_to(tmp);
+                    edge->set_from_start(false);
+                    edge->set_to_end(false);
+                }
+            }
+            
+            unordered_map<id_t, size_t> node_idx;
+            for (size_t i = 0; i < graph.node_size(); i++) {
+                node_idx[graph.node(i).id()] = i;
+            }
+            
+            // construct adjacency list and compute in degrees
+            vector<size_t> in_degree(graph.node_size(), 0);
+            vector<vector<size_t>> adj_list(graph.node_size());
+            for (size_t i = 0; i < graph.edge_size(); i++) {
+                const Edge& edge = graph.edge(i);
+                adj_list[node_idx[edge.from()]].push_back(node_idx[edge.to()]);
+                in_degree[node_idx[edge.to()]]++;
+            }
+            
+            // get the topological ordering of the graph (Kahn's algorithm)
+            vector<size_t> source_stack;
+            for (size_t i = 0; i < graph.node_size(); i++) {
+                if (in_degree[i] == 0) {
+                    source_stack.push_back(i);
+                }
+            }
+            
+            vector<id_t> order(graph.node_size());
+            size_t next = 0;
+            while (!source_stack.empty()) {
+                size_t src = source_stack.back();
+                source_stack.pop_back();
+                
+                for (size_t dest : adj_list[src]) {
+                    in_degree[dest]--;
+                    if (in_degree[dest] == 0) {
+                        source_stack.push_back(dest);
+                    }
+                }
+                
+                order[next] = src;
+                next++;
+            }
+            
+            // in place permutation according to the topological order
+            for (size_t i = 0; i < graph.node_size(); i++) {
+                while (order[i] != i) {
+                    swap(*graph.mutable_node(i), *graph.mutable_node(order[i]));
+                    swap(order[i], order[order[i]]);
+                }
+            }
+        };
+        
         vector<bool> is_source_node(multi_aln_graph.match_nodes.size(), true);
         for (size_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
             ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
@@ -440,17 +501,8 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // flip doubly reversing edges b/c gssw doesn't like them
-                    for (size_t k = 0; k < tail_graph.edge_size(); k++) {
-                        Edge* edge = tail_graph.mutable_edge(k);
-                        if (edge->from_start() && edge->to_end()) {
-                            id_t tmp = edge->from();
-                            edge->set_from(edge->to());
-                            edge->set_to(tmp);
-                            edge->set_from_start(false);
-                            edge->set_to_end(false);
-                        }
-                    }
+                    // ensure invariants that gssw-based alignment expects
+                    groom_graph(tail_graph);
                     
                     // get the sequence remaining in the right tail
                     Alignment right_tail_sequence;
@@ -508,23 +560,15 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // flip doubly reversing edges b/c gssw doesn't like them
-                    for (size_t k = 0; k < tail_graph.edge_size(); k++) {
-                        Edge* edge = tail_graph.mutable_edge(k);
-                        if (edge->from_start() && edge->to_end()) {
-                            id_t tmp = edge->from();
-                            edge->set_from(edge->to());
-                            edge->set_to(tmp);
-                            edge->set_from_start(false);
-                            edge->set_to_end(false);
-                        }
-                    }
+                    // ensure invariants that gssw-based alignment expects
+                    groom_graph(tail_graph);
                     
                     Alignment left_tail_sequence;
                     left_tail_sequence.set_sequence(alignment.sequence().substr(0, match_node.begin - alignment.sequence().begin()));
                     if (!alignment.quality().empty()) {
                         left_tail_sequence.set_quality(alignment.quality().substr(0, match_node.begin - alignment.sequence().begin()));
                     }
+                    
                     
 #ifdef debug_multipath_mapper
                     cerr << "aligning sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
@@ -2244,7 +2288,11 @@ namespace vg {
         // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
         // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
         size_t num_pairs = nodes.size() * nodes.size();
-        assert(num_pairs < 4294967296); // 2^32, else range_max can't get large enough
+        // cannot have more than 2^32 MEMs or else range_max can't get large enough
+        if (num_pairs > (1ull << 32)) {
+            cerr << "Too many MEMs. Clusterer cannot index all pairs of MEMs if there are more than " << (1ull << 16) << " MEMs." << endl;
+            assert(false);
+        }
         size_t permutation_idx = 0;
         size_t range_max = 1;
         while (range_max < num_pairs) {

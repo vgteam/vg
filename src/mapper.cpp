@@ -11,7 +11,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       xindex(xidex)
     , gcsa(g)
     , lcp(a)
-    , min_mem_length(0)
+    , min_mem_length(1)
     , mem_reseed_length(0)
     , fast_reseed(true)
     , fast_reseed_length_diff(8)
