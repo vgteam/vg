@@ -47,8 +47,6 @@ public:
     string sequence(void) const;
     // get the length of the MEM
     int length(void) const;
-    // uses a callback to fill out the MEM positions
-    void fill_positions(const function<map<string, vector<size_t>>(gcsa::node_type)>& node_positions_in_paths);
     // tells if the MEM contains an N
     size_t count_Ns(void) const;
 
@@ -75,8 +73,11 @@ bool mems_overlap(const MaximalExactMatch& mem1,
 int mems_overlap_length(const MaximalExactMatch& mem1,
                         const MaximalExactMatch& mem2);
 // helper to tell if clusters have any overlap
-bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                      const vector<MaximalExactMatch>& cluster2);
+bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
+                              const vector<MaximalExactMatch>& cluster2);
+bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
+                               const vector<MaximalExactMatch>& cluster2);
+vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster);
 
 class MEMChainModelVertex {
 public:
@@ -85,7 +86,7 @@ public:
     vector<pair<MEMChainModelVertex*, double> > prev_cost; // for backward
     double weight;
     double score;
-    int approx_position;
+    int64_t approx_position;
     MEMChainModelVertex* prev;
     MEMChainModelVertex(void) = default;                                      // Copy constructor
     MEMChainModelVertex(const MEMChainModelVertex&) = default;               // Copy constructor
@@ -98,7 +99,7 @@ public:
 class MEMChainModel {
 public:
     vector<MEMChainModelVertex> model;
-    map<int, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
+    map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > approx_positions;
     set<vector<MEMChainModelVertex>::iterator> redundant_vertexes;
     MEMChainModel(
         const vector<size_t>& aln_lengths,
@@ -107,7 +108,7 @@ public:
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
-        int max_connections = 10);
+        int max_connections = 20);
     void score(const set<MEMChainModelVertex*>& exclude);
     MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);

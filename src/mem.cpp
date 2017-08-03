@@ -27,6 +27,15 @@ size_t MaximalExactMatch::count_Ns(void) const {
 }
 
 
+bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+    return m1.begin == m2.begin && m1.end == m2.end && m1.nodes == m2.nodes;
+}
+
+bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+    return m1.begin < m2.begin && m1.end < m2.end && m1.nodes < m2.nodes;
+}
+
+
 ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
     size_t len = mem.begin - mem.end;
     out << mem.sequence() << ":";
@@ -37,14 +46,6 @@ ostream& operator<<(ostream& out, const MaximalExactMatch& mem) {
         out << id << (is_rev ? "-" : "+") << ":" << offset << ",";
     }
     return out;
-}
-
-bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-    return m1.begin == m2.begin && m1.end == m2.end && m1.nodes == m2.nodes;
-}
-
-bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
-    return m1.begin < m2.begin && m1.end < m2.end && m1.nodes < m2.nodes;
 }
 
 const string mems_to_json(const vector<MaximalExactMatch>& mems) {
@@ -106,8 +107,8 @@ int mems_overlap_length(const MaximalExactMatch& mem1,
     }
 }
 
-bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
-                      const vector<MaximalExactMatch>& cluster2) {
+bool clusters_overlap_in_read(const vector<MaximalExactMatch>& cluster1,
+                              const vector<MaximalExactMatch>& cluster2) {
     for (auto& mem1 : cluster1) {
         for (auto& mem2 : cluster2) {
             if (mems_overlap(mem1, mem2)) {
@@ -118,7 +119,29 @@ bool clusters_overlap(const vector<MaximalExactMatch>& cluster1,
     return false;
 }
 
+vector<pos_t> cluster_nodes(const vector<MaximalExactMatch>& cluster) {
+    vector<pos_t> nodes;
+    for (auto& mem : cluster) {
+        for (auto& node : mem.nodes) {
+            nodes.push_back(make_pos_t(node));
+            auto& pos = nodes.back();
+            get_offset(pos) = 0;
+        }
+    }
+    sort(nodes.begin(), nodes.end());
+    return nodes;
+}
 
+bool clusters_overlap_in_graph(const vector<MaximalExactMatch>& cluster1,
+                               const vector<MaximalExactMatch>& cluster2) {
+    vector<pos_t> pos1 = cluster_nodes(cluster1);
+    vector<pos_t> pos2 = cluster_nodes(cluster2);
+    vector<pos_t> comm;
+    set_intersection(pos1.begin(), pos1.end(),
+                     pos2.begin(), pos2.end(),
+                     std::back_inserter(comm));
+    return comm.size() > 0;
+}
 
 MEMChainModel::MEMChainModel(
     const vector<size_t>& aln_lengths,
@@ -171,7 +194,7 @@ MEMChainModel::MEMChainModel(
     }
     // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
     // scan forward
-    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
+    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         for (auto& v1 : p->second) {
             if (redundant_vertexes.count(v1)) continue;
@@ -193,7 +216,7 @@ MEMChainModel::MEMChainModel(
         }
     }
     // scan reverse
-    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = approx_positions.rbegin();
+    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = approx_positions.rbegin();
          p != approx_positions.rend(); ++p) {
         for (auto& v1 : p->second) {
             if (redundant_vertexes.count(v1)) continue;
@@ -215,21 +238,31 @@ MEMChainModel::MEMChainModel(
         }
     }
     // now build up the model using the positional bandwidth
-    for (map<int, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
+    for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = approx_positions.begin();
          p != approx_positions.end(); ++p) {
         // look bandwidth before and bandwidth after in the approx positions
         // after
         for (auto& v1 : p->second) {
+            // For each vertex...
             if (redundant_vertexes.count(v1)) continue;
+            // ...that isn't redundant
             auto q = p;
             while (++q != approx_positions.end() && abs(p->first - q->first) < band_width) {
                 for (auto& v2 : q->second) {
+                    // For each other vertex...
+                    
                     if (redundant_vertexes.count(v2)) continue;
+                    // ...that isn't redudnant
+                    
                     // if this is an allowable transition, run the weighting function on it
                     if (v1->next_cost.size() < max_connections
                         && v2->prev_cost.size() < max_connections) {
+                        // There are not too many connections yet
+                        
                         if (v1->mem.fragment < v2->mem.fragment
                             || v1->mem.fragment == v2->mem.fragment && v1->mem.begin < v2->mem.begin) {
+                            // Transition is allowable because the first comes before the second
+                            
                             double weight = transition_weight(v1->mem, v2->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v1->next_cost.push_back(make_pair(&*v2, weight));
@@ -237,6 +270,8 @@ MEMChainModel::MEMChainModel(
                             }
                         } else if (v1->mem.fragment > v2->mem.fragment
                                    || v1->mem.fragment == v2->mem.fragment && v1->mem.begin > v2->mem.begin) {
+                            // Really we want to think about the transition going the other way
+                            
                             double weight = transition_weight(v2->mem, v1->mem);
                             if (weight > -std::numeric_limits<double>::max()) {
                                 v2->next_cost.push_back(make_pair(&*v1, weight));
