@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <istream>
 #include <fstream>
 #include <functional>
 #include <vector>
@@ -203,6 +204,8 @@ void for_each(std::istream& in,
         }
     }
 }
+    
+    
 
 template <typename T>
 void for_each(std::istream& in,
@@ -359,6 +362,122 @@ void for_each_parallel(std::istream& in,
               const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
     for_each_parallel(in, lambda, noop);
+}
+
+    
+/*
+ * Refactored stream::for_each function that follows the unidirectional iterator interface
+ */
+template <typename T>
+class ProtobufIterator {
+public:
+    /// Constructor
+    ProtobufIterator(std::istream& in) :
+        where(0),
+        chunk_count(0),
+        chunk_idx(0),
+        raw_in(&in),
+        gzip_in(&raw_in),
+        coded_in(&gzip_in)
+    {
+        get_next();
+    }
+    
+    
+    
+//    inline ProtobufIterator<T>& operator=(const ProtobufIterator<T>& other) {
+//        value = other.value;
+//        where = other.where;
+//        chunk_count = other.chunk_count;
+//        chunk_idx = other.chunk_idx;
+//        raw_in = other.raw_in;
+//        gzip_in = other.gzip_in;
+//        coded_in = other.coded_in;
+//    }
+
+    
+    inline bool has_next() {
+        return where != 0;
+    }
+    
+    void get_next() {
+        if (chunk_count == chunk_idx) {
+            chunk_idx = 0;
+            if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &chunk_count)) {
+                // This is the end of the input stream, switch to state that
+                // will match the end constructor
+                where = 0;
+                value = T();
+                return;
+            }
+        }
+        
+        std::string s;
+        uint32_t msgSize = 0;
+        // Reconstruct the CodedInputStream in place to reset its maximum-
+        // bytes-ever-read counter, because it thinks it's reading a single
+        // message.
+        coded_in.~CodedInputStream();
+        new (&coded_in) ::google::protobuf::io::CodedInputStream(&gzip_in);
+        // Alot space for size, and for reading next chunk's length
+        coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+        
+        // the messages are prefixed by their size
+        handle(coded_in.ReadVarint32(&msgSize));
+        
+        if (msgSize > MAX_PROTOBUF_SIZE) {
+            throw std::runtime_error("[stream::ProtobufIterator::get_next] protobuf message of " +
+                                     std::to_string(msgSize) + " bytes is too long");
+        }
+        
+        if (msgSize) {
+            value.Clear();
+            handle(coded_in.ReadString(&s, msgSize));
+            handle(value.ParseFromString(s));
+        }
+        else {
+            get_next();
+        }
+        
+        where++;
+        chunk_idx++;
+    }
+    
+//    inline ProtobufIterator<T> operator++( int ) {
+//        ProtobufIterator<T> temp = *this;
+//        get_next();
+//        return temp;
+//    }
+    
+    inline T operator*(){
+        return value;
+    }
+    
+private:
+    
+    T value;
+    
+    // For testing identity with another iterator
+    uint64_t where;
+    
+    uint64_t chunk_count;
+    uint64_t chunk_idx;
+    
+    ::google::protobuf::io::IstreamInputStream raw_in;
+    ::google::protobuf::io::GzipInputStream gzip_in;
+    ::google::protobuf::io::CodedInputStream coded_in;
+    
+    void handle(bool ok) {
+        if (!ok) {
+            throw std::runtime_error("[stream::for_each] obsolete, invalid, or corrupt protobuf input");
+        }
+    }
+};
+
+/// Returns iterators that act like begin() and end() for a stream containing protobuf data
+template <typename T>
+std::pair<ProtobufIterator<T>, ProtobufIterator<T>> protobuf_iterator_range(std::istream& in) {
+    return std::make_pair(ProtobufIterator<T>(in), ProtobufIterator<T>());
 }
 
 }

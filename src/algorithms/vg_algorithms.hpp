@@ -1,6 +1,7 @@
 //
 //  vg_algorithms.hpp
 //  
+
 // A collection of utility algorithms to manipulating graphs that can be use by both VG and XG objects
 //
 
@@ -83,7 +84,8 @@ namespace algorithms {
     /// Same semantics as previous, but accesses graph through an XG instead of a VG. Optionally uses
     /// an LRUCache to speed up Node queries.
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions, size_t max_dist,
-                                  LRUCache<id_t, Node>* node_cache = nullptr);
+                                  LRUCache<id_t, Node>* node_cache = nullptr,
+                                  LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
     
     /// Same semantics as previous except that there is a separate maximum distance for different
     /// positions in the graph. Each distance is associated with the position with the same index. Throws
@@ -95,7 +97,8 @@ namespace algorithms {
     /// an LRUCache to speed up Node queries.
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_max_dist,
-                                  LRUCache<id_t, Node>* node_cache = nullptr);
+                                  LRUCache<id_t, Node>* node_cache = nullptr,
+                                  LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
     
     /// Same semantics as previous except that there is a separate maximum distance for different
     /// positions in the graph and for each search direction. Each distance is associated with the
@@ -111,7 +114,8 @@ namespace algorithms {
     void extract_containing_graph(xg::XG& xg_index, Graph& g, const vector<pos_t>& positions,
                                   const vector<size_t>& position_forward_max_dist,
                                   const vector<size_t>& position_backward_max_dist,
-                                  LRUCache<id_t, Node>* node_cache = nullptr);
+                                  LRUCache<id_t, Node>* node_cache = nullptr,
+                                  LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
     
     /// Fills graph g with the subgraph of the VG graph vg that extends in one direction from a given
     /// position, up to a maximum distance. The node containing the position will be "cut" so that only
@@ -131,7 +135,8 @@ namespace algorithms {
     /// an LRUCache to speed up Node queries.
     unordered_map<id_t, id_t> extract_extending_graph(xg::XG& xg_index, Graph& g, int64_t max_dist, pos_t pos,
                                                       bool backward, bool preserve_cycles_on_src,
-                                                      LRUCache<id_t, Node>* node_cache = nullptr);
+                                                      LRUCache<id_t, Node>* node_cache = nullptr,
+                                                      LRUCache<id_t, vector<Edge>>* edge_cache = nullptr);
     
 }
 }

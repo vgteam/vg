@@ -9,6 +9,18 @@
 #include "json2pb.h"
 
 namespace vg {
+    // TODO: this is duplicative with the other constructor, but protobuf won't let me make
+    // a deserialization iterator to match its signature because its internal file streams
+    // disallow copy constructors
+    SnarlManager::SnarlManager(istream& in) {
+        // add snarls to master list
+        for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
+            snarls.push_back(*iter);
+        }
+        // record the tree structure and build the other indexes
+        build_indexes();
+    }
+    
     const vector<const Snarl*>& SnarlManager::children_of(const Snarl* snarl) {
         return children[key_form(snarl)];
     }
@@ -91,6 +103,31 @@ namespace vg {
     
     const Snarl* SnarlManager::into_which_snarl(const Visit& visit) {
         return visit.has_snarl() ? manage(visit.snarl()) : into_which_snarl(visit.node_id(), visit.backward());
+    }
+    
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_boundary_index() {
+        unordered_map<pair<int64_t, bool>, const Snarl*> index;
+        for (Snarl& snarl : snarls) {
+            index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
+            index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
+        }
+        return index;
+    }
+    
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_end_index() {
+        unordered_map<pair<int64_t, bool>, const Snarl*> index;
+        for (Snarl& snarl : snarls) {
+            index[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
+        }
+        return index;
+    }
+    
+    unordered_map<pair<int64_t, bool>, const Snarl*> SnarlManager::snarl_start_index() {
+        unordered_map<pair<int64_t, bool>, const Snarl*> index;
+        for (Snarl& snarl : snarls) {
+            index[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
+        }
+        return index;
     }
     
     // can include definition of inline function apart from forward declaration b/c only used in this file

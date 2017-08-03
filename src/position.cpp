@@ -106,6 +106,28 @@ vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Ed
     }
     return cached.first;
 }
+    
+vector<Edge> xg_cached_edges_on_start(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
+    vector<Edge> all_edges = xg_cached_edges_of(id, xgidx, edge_cache);
+    auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
+                                  [&](const Edge& edge) {
+                                      return (edge.from() == id && edge.from_start()) ||
+                                             (edge.to() == id && !edge.to_end());
+                                  });
+    all_edges.resize(new_end - all_edges.begin());
+    return all_edges;
+}
+
+vector<Edge> xg_cached_edges_on_end(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
+    vector<Edge> all_edges = xg_cached_edges_of(id, xgidx, edge_cache);
+    auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
+                                  [&](const Edge& edge) {
+                                      return (edge.from() == id && !edge.from_start()) ||
+                                             (edge.to() == id && edge.to_end());
+                                  });
+    all_edges.resize(new_end - all_edges.begin());
+    return all_edges;
+}
 
 string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
