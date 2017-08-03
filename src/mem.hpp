@@ -23,6 +23,74 @@ namespace vg {
 
 using namespace std;
 
+/**
+ * Iterate over pairsets of integers in a pseudorandom but deterministic order.
+ * We use the same permutation every time for a given number of items to pair
+ * up.
+ */
+class ShuffledPairs {
+public:
+    /**
+     * Make a new iterable pairing up the given number of items.
+     */
+    ShuffledPairs(size_t num_items);
+    
+    /**
+     * Actual iterator class.
+     */
+    class iterator {
+    public:
+        /**
+         * Advance to the next pair.
+         */
+        iterator& operator++();
+        
+        /**
+         * Get the pair pointed to.
+         */
+        pair<size_t, size_t> operator*() const;
+        
+        /**
+         * see if two iterators are equal.
+         */
+        bool operator==(const iterator& other) const;
+        
+        friend class ShuffledPairs;
+        
+        // Default copy constructor and assignment operator.
+        iterator(const iterator& other) = default;
+        iterator& operator=(const iterator& other) = default;
+        
+    private:
+        // Which permutation does this iterator mean?
+        size_t permutation_idx = 0;
+        // What are we iterating over?
+        const ShuffledPairs& iteratee;
+        
+        // Make an iterator. Only the friend parent can do it.
+        iterator(const ShuffledPairs& iteratee, size_t permutation_index);
+    };
+    
+    using const_iterator = iterator;
+    
+    /**
+     * Get an iterator to the first pair.
+     */
+    iterator begin() const;
+    /**
+     * Get an iterator to the past-the-end pair.
+     */
+    iterator end() const;
+    
+private:
+    // How many items are we working with to pair up?
+    size_t num_items;
+    // How many pairs do we make?
+    size_t num_pairs;
+    // What's the power of 2 with 1 more bit than needed to represent each pair?
+    size_t range_max;
+};
+
 class MaximalExactMatch {
 
 public:

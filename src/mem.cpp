@@ -1,6 +1,7 @@
 
 #include <string>
 #include <algorithm>
+#include <cstring>
 
 #include "mem.hpp"
 
@@ -429,6 +430,75 @@ void MEMChainModel::display(ostream& out) {
         }
         out << endl;
     }
+}
+
+ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items) {
+    if (num_pairs > (size_t)1 << 32) {
+        throw runtime_error("Too many pairs to iterate; need less than 2^32");
+    }
+    
+    // We don't have nice bit finding functions, so use this to find the next
+    // power of 2.
+    range_max = 1;
+    while (range_max < num_pairs) {
+        range_max *= 2;
+    }
+}
+
+ShuffledPairs::iterator ShuffledPairs::begin() const {
+    return iterator(*this, 0);
+}
+
+ShuffledPairs::iterator ShuffledPairs::end() const {
+    return iterator(*this, num_pairs);
+}
+
+ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t permutation_idx) : iteratee(iteratee),
+    permutation_idx(permutation_idx) {
+    
+    // See the pair we would return
+    pair<size_t, size_t> returned = *(*this);
+    while (permutation_idx != iteratee.num_pairs &&
+        (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
+        
+        // Advance until it's valid or we hit the end.
+        permutation_idx++;
+        returned = *(*this);
+    }
+    
+}
+
+ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
+    // Advance the permutation index
+    permutation_idx++;
+    
+    // See the pair we would return
+    pair<size_t, size_t> returned = *(*this);
+    while (permutation_idx != iteratee.num_pairs &&
+        (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
+        
+        // Advance until it's valid or we hit the end.
+        permutation_idx++;
+        returned = *(*this);
+    }
+
+    return *this;
+}
+
+pair<size_t, size_t> ShuffledPairs::iterator::operator*() const {
+    pair<size_t, size_t> to_return;
+    // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
+    // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
+    size_t permuted = ((permutation_idx ^ (iteratee.range_max - 1)) ^ (permutation_idx << 6) + 0x9e3779b9) &
+        (iteratee.range_max - 1);
+    to_return.first = permuted / iteratee.num_items;
+    to_return.second = permuted % iteratee.num_items;
+    
+    return to_return;
+}
+
+bool ShuffledPairs::iterator::operator==(const iterator& other) const {
+    return permutation_idx == other.permutation_idx;
 }
 
 OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
