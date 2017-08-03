@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <fstream>
+#include "stream.hpp"
 #include "vg.hpp"
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -31,6 +33,9 @@ namespace vg {
         /// Construct a SnarlManager for the snarls returned by an iterator
         template <typename SnarlIterator>
         SnarlManager(SnarlIterator begin, SnarlIterator end);
+        
+        /// Construct a SnarlManager for the snarls contained in an input stream
+        SnarlManager(istream& in);
         
         /// Default constructor
         SnarlManager() = default;
@@ -81,6 +86,17 @@ namespace vg {
         /// Look left from the given visit in the given graph and gets all the
         /// attached Visits to nodes or snarls.
         vector<Visit> visits_right(const Visit& visit, VG& graph, const Snarl* in_snarl);
+        
+        /// Returns a map from all Snarl boundaries to the Snarl they point into. Note that this means that
+        /// end boundaries will be reversed.
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_boundary_index();
+        
+        /// Returns a map from all Snarl start boundaries to the "Snarl they point into.
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_start_index();
+        
+        /// Returns a map from all Snarl end boundaries to the Snarl they point into. Note that this means that
+        /// end boundaries will be reversed.
+        unordered_map<pair<int64_t, bool>, const Snarl*> snarl_end_index();
         
         /// Execute a function on all top level sites
         void for_each_top_level_snarl(const function<void(const Snarl*)>& lambda);
@@ -162,7 +178,7 @@ namespace vg {
     /// of a Node. Uses a graph to get node length.
     inline Mapping to_mapping(const Visit& visit, VG& vg);
     
-    // Copies the boundary Visits from one Snarl into another
+    /// Copies the boundary Visits from one Snarl into another
     inline void transfer_boundary_info(const Snarl& from, Snarl& to);
     
     // We need some Visit operators

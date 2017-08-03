@@ -1859,6 +1859,39 @@ double overlap(const Path& p1, const Path& p2) {
     }
     return (double) matching / (double) path_to_length(p1);
 }
+    
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        position->set_node_id(translator.at(position->node_id()));
+    }
+}
+
+void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        const pair<id_t, bool>& translation = translator.at(position->node_id());
+        position->set_node_id(translation.first);
+        position->set_is_reverse(translation.second != position->is_reverse());
+    }
+}
+    
+pos_t initial_position(const Path& path) {
+    if (!path.mapping_size()) {
+        return pos_t();
+    }
+    return path.mapping_size() ? make_pos_t(path.mapping(0).position()) : pos_t();
+}
+
+pos_t final_position(const Path& path) {
+    if (!path.mapping_size()) {
+        return pos_t();
+    }
+    const Mapping& mapping = path.mapping(path.mapping_size() - 1);
+    return make_pos_t(mapping.position().node_id(),
+                      mapping.position().is_reverse(),
+                      mapping.position().offset() + mapping_from_length(mapping) - 1);
+}
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     // We'll fill in this path

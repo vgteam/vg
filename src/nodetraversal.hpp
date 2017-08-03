@@ -71,7 +71,7 @@ public:
 
 /// Print the given NodeTraversal.
 inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
-    return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t)0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
+    return out << (nodetraversal.node ? nodetraversal.node->id() : (int64_t) 0)  << " " << (nodetraversal.backward ? "rev" : "fwd");
 }
 
 }

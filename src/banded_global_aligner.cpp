@@ -42,7 +42,7 @@ void BandedGlobalAligner<IntType>::BABuilder::update_state(matrix_t matrix, Node
 #endif
     if (node != current_node) {
 #ifdef debug_banded_aligner_traceback
-        cerr << "[BABuilder::update_state] at new node" << endl;
+        cerr << "[BABuilder::update_state] at new node " << (node ? node->id() : -1) << " previously " << (current_node ? current_node->id() : -1) << endl;
 #endif
         // conclude current mapping and proceed to next node
         finish_current_node();
@@ -1106,6 +1106,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
     bool found_trace = false;
     // if we traverse through nodes with no sequence, we need to keep track of which ones
     vector<BAMatrix*> empty_intermediate_nodes;
+    vector<BAMatrix*> empty_seed_path;
     
     // a queue of seeds and their empty predecessors
     list<pair<BAMatrix*, vector<BAMatrix*>>> seed_queue;
@@ -1149,8 +1150,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
 #endif
                     treat_as_source = true;
                     traceback_source_nodes.insert(seed->node->id());
-                    empty_intermediate_nodes = seed_record.second;
-                    empty_intermediate_nodes.push_back(seed);
+                    empty_seed_path = seed_record.second;
+                    empty_seed_path.push_back(seed);
                 }
                 
                 for (int64_t seed_num = 0; seed_num < seed->num_seeds; seed_num++) {
@@ -1249,12 +1250,9 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                 
                 if (seed->num_seeds == 0) {
                     treat_as_source = true;
-                    // keep track of the path through empty nodes to a source (this will be overwritten
-                    // if we find a a trace)
-                    if (!found_trace) {
-                        empty_intermediate_nodes = seed_record.second;
-                        empty_intermediate_nodes.push_back(seed);
-                    }
+                    // keep track of the path through empty nodes to a source
+                    empty_seed_path = seed_record.second;
+                    empty_seed_path.push_back(seed);
                 }
                 continue;
             }
@@ -1487,7 +1485,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
 #ifdef debug_banded_aligner_traceback
         cerr << "[BAMatrix::traceback_internal] at beginning of first node in alignment" << endl;
 #endif
-        if (in_lead_gap & !found_trace) {
+        if (in_lead_gap && !found_trace) {
             // this will always be the shortest gap
             found_source_trace = true;
             j--;
@@ -1556,21 +1554,29 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
         }
     }
     
-    // if we traversed any empty nodes before finding the traceback, add empty updates for them
-    for (BAMatrix* intermediate_node : empty_intermediate_nodes) {
-        builder.update_state(curr_mat, intermediate_node->node, i + top_diag, 0, true);
-    }
     
     if (found_source_trace) {
+        // if we traversed any empty nodes before finding the traceback, add empty updates for them
+        for (BAMatrix* seed_path_node : empty_seed_path) {
+            builder.update_state(InsertRow, seed_path_node->node, i + top_diag, 0, true);
+        }
+        
         // add any lead row gaps necessary
         while (top_diag + i > 0) {
 #ifdef debug_banded_aligner_traceback
-            cerr << "[BAMatrix::traceback_internal] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << (char) tolower(read[top_diag + i - 1]) << " (lowercase of " << read[top_diag + i - 1]     << ")" << endl;
+            cerr << "[BAMatrix::traceback_internal] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << read[top_diag + i - 1] << endl;
 #endif
             i--;
-            builder.update_state(curr_mat, node, i + top_diag, -1);
+            builder.update_state(InsertRow, empty_seed_path.empty() ? node : empty_seed_path.back()->node, i + top_diag, -1);
         }
         return;
+    }
+    else {
+        // if we traversed any empty nodes before finding the traceback, add empty updates for them
+        for (BAMatrix* intermediate_node : empty_intermediate_nodes) {
+            builder.update_state(curr_mat, intermediate_node->node, i + top_diag, 0, true);
+        }
+        
     }
     
     if (!found_trace) {
@@ -2210,7 +2216,6 @@ void BandedGlobalAligner<IntType>::align(int8_t* score_mat, int8_t* nt_table, in
     
     
     // fill each nodes matrix in topological order
-    //for (Node* node : topological_order) {
     for (int64_t i = 0; i < topological_order.size(); i++) {
         Node* node = topological_order[i];
         int64_t node_idx = node_id_to_idx.at(node->id());
@@ -2252,7 +2257,7 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
     int32_t empty_score = read_length > 0 ? -gap_open - (read_length - 1) * gap_extend : 0;
     
     // find the optimal alignment(s) and initialize stack
-    AltTracebackStack traceback_stack(max_multi_alns, empty_score, source_node_matrices, sink_node_matrices);
+    AltTracebackStack traceback_stack(max_multi_alns, empty_score, source_node_matrices, sink_node_matrices, min_inf);
     
     while (traceback_stack.has_next()) {
         int64_t end_node_id;
@@ -2314,7 +2319,8 @@ template <class IntType>
 BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_multi_alns,
                                                                    int32_t empty_score,
                                                                    unordered_set<BAMatrix*>& source_node_matrices,
-                                                                   unordered_set<BAMatrix*>& sink_node_matrices) :
+                                                                   unordered_set<BAMatrix*>& sink_node_matrices,
+                                                                   IntType min_inf) :
                                                                    empty_score(empty_score),
                                                                    max_multi_alns(max_multi_alns)
 {
@@ -2382,12 +2388,18 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
                 int64_t final_idx = final_row * ncols + final_col;
                 
                 // let the insert routine figure out which one is the best and which ones to keep in the stack
-                insert_traceback(null_prefix, band_matrix->match[final_idx],
-                                 node_id, final_row, final_col, node_id, Match, path);
-                insert_traceback(null_prefix, band_matrix->insert_row[final_idx],
-                                 node_id, final_row, final_col, node_id, InsertRow, path);
-                insert_traceback(null_prefix, band_matrix->insert_col[final_idx],
-                                 node_id, final_row, final_col, node_id, InsertCol, path);
+                if (band_matrix->match[final_idx] != min_inf) {
+                    insert_traceback(null_prefix, band_matrix->match[final_idx],
+                                     node_id, final_row, final_col, node_id, Match, path);
+                }
+                if (band_matrix->insert_row[final_idx] != min_inf) {
+                    insert_traceback(null_prefix, band_matrix->insert_row[final_idx],
+                                     node_id, final_row, final_col, node_id, InsertRow, path);
+                }
+                if (band_matrix->insert_col[final_idx] != min_inf) {
+                    insert_traceback(null_prefix, band_matrix->insert_col[final_idx],
+                                     node_id, final_row, final_col, node_id, InsertCol, path);
+                }
             }
         }
     }
