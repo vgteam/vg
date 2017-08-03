@@ -812,7 +812,7 @@ class VGCITest(TestCase):
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus'],
+                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'shifted1kg'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='shifted1kg',
