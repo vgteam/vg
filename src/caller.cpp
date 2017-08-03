@@ -429,13 +429,7 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
         }
         
         // We want to know if this pileup supports an N
-        bool all_n = true;
-        for (auto base : val) {
-            if (base != 'N') {
-                all_n = false;
-            }
-        }
-        if (all_n) {
+        if (is_all_n(val)) {
             // N is not a real base, so we should never augment with it.
             continue;
         }

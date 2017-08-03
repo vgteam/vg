@@ -26,8 +26,6 @@ ifeq ($(shell uname -s),Darwin)
 	# TODO: where does Homebrew keep libraries?
 	ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
 	LD_LIB_FLAGS += -L/opt/local/lib
-else
-	CXXFLAGS += -march=native -mtune=native
 endif
 ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
 	LD_LIB_FLAGS += -L/usr/local/lib
@@ -219,6 +217,7 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 ifneq ($(shell uname -s),Darwin)
 	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
 	LD_LIB_FLAGS += -ltcmalloc_minimal
+	CXXFLAGS += -march=native -mtune=native
 endif
 
 .PHONY: clean get-deps test set-path static docs .pre-build

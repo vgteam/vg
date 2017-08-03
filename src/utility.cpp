@@ -48,6 +48,15 @@ string reverse_complement(const string& seq) {
     return rc;
 }
 
+bool is_all_n(const string& seq) {
+    for (auto& c : seq) {
+        if (c != 'N' && c != 'n') {
+            return false;
+        }
+    }
+    return true;
+}
+
 int get_thread_count(void) {
     int thread_count = 1;
 #pragma omp parallel

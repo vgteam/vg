@@ -155,6 +155,21 @@ class VGCITest(TestCase):
             connection = urllib2.urlopen(src)
             shutil.copyfileobj(connection, f)
 
+    def _begin_message(self, name = None, is_tsv = False, ):
+        """ Used by mine-logs.py to flag that we're about to write something we want to mine
+        Anything in stdout that's not within these tags does not make it to the report """
+        token = '<VGCI'
+        if name:
+            token += ' name = "{}"'.format(name)
+        if is_tsv:
+            token += ' tsv = "True"'
+        token += '>'
+        print '\n{}'.format(token)
+    
+    def _end_message(self):
+        """ Finish writing something mineable to stdout """
+        print '</VGCI>\n'
+                
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
@@ -332,9 +347,24 @@ class VGCITest(TestCase):
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
-            
-        print 'F1: {}  Baseline: {}  Threshold: {}'.format(
-            f1_score, baseline_f1, threshold)
+
+        # print the whole table in tags that mine-logs can read
+        self._begin_message('vcfeval Results'.format(
+            f1_score, baseline_f1, threshold), is_tsv=True)
+        summary_path = f1_path[0:-6] + 'summary.txt'
+        with open(summary_path) as summary_file:
+            for i, line in enumerate(summary_file):
+                if i != 1:
+                    toks = line.split()
+                    if i == 0:
+                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
+                    elif i == 2:
+                        toks += [baseline_f1, threshold]
+                    elif i > 2:
+                        toks += ['N/A', 'N/A']
+                    print '\t'.join([str(tok) for tok in toks])
+        self._end_message()
+
         self.assertTrue(f1_score >= baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
@@ -477,24 +507,79 @@ class VGCITest(TestCase):
             # TODO: I want to do the evaluation here, working with file IDs, but
             # since we put the results in the out store maybe it really does
             # make sense to just go through the files in the out store.
+            
+    def _mapeval_r_plots(self, tag, positive_control=None, negative_control=None,
+                         control_include=['snp1kg', 'primary']):
+        """ Compute the mapeval r plots (ROC and QQ) """
+        out_store = self._outstore(tag)
+        out_store_name = self._outstore_name(tag)
+        job_store = self._jobstore(tag)        
 
-            # Plot the ROC and qq plots
+        # What do we want to override from the default toil-vg config?
+        overrides = argparse.Namespace(
+            container = self.container,
+            # Toil options
+            realTimeLogging = True,
+            logLevel = "INFO",
+            maxCores = self.cores
+        )
+
+        # Lookup names list with -pe and -se attached
+        def pe_se(names):
+            names_e = [[x, '{}-se'.format(x), '{}-pe'.format(x)] for x in names if x]
+            return [y for x in names_e for y in x]
+        
+        # Make the context
+        context = Context(out_store, overrides)
+        with context.get_toil(job_store) as toil:
             try:
-                out_store_name = self._outstore_name(tag)
                 for rscript in ['roc', 'qq']:
                     # pull the scripts from where we expect them relative to being in vg/
                     # and put them in the work directory.  This is ugly but keeps the
                     # docker interfacing simple.
                     shutil.copy2('scripts/plot-{}.R'.format(rscript), os.path.abspath(self.workdir))
-                    cmd = ['Rscript', 'plot-{}.R'.format(rscript),
-                           os.path.join(out_store_name, 'position.results.tsv'),
-                           os.path.join(out_store_name, '{}.svg'.format(rscript))]
-                    toil.start(Job.wrapJobFn(toil_call, context, cmd,
-                                             work_dir = os.path.abspath(self.workdir)))
+
+                    # if controls specified, filter into their own plot so things don't get too busy
+                    if positive_control or negative_control:
+                        nc_name = 'position.results.no.control.tsv'
+                        co_name = 'position.results.control.tsv'
+                        with open(os.path.join(out_store, 'position.results.tsv')) as pr_file,\
+                             open(os.path.join(out_store, nc_name), 'w') as nc_file,\
+                             open(os.path.join(out_store, co_name), 'w') as co_file:
+                            aidx = None
+                            for i, line in enumerate(pr_file):
+                                toks = line.rstrip().split()
+                                if i == 0:
+                                    aidx = toks.index('aligner')
+                                if i == 0 or toks[aidx].strip('"') in pe_se(control_include + 
+                                        [positive_control, negative_control]):
+                                    co_file.write(line)
+                                if i == 0 or toks[aidx].strip('"') not in  pe_se(
+                                        [positive_control, negative_control]):
+                                    nc_file.write(line)
+                    else:
+                        nc_name = 'position.results.tsv'
+                        co_name = None
+
+                    plot_names = [(nc_name, '')]
+                    if co_name:
+                        plot_names.append((co_name, '.control'))
+                        
+                    for tsv_file, out_name in plot_names:
+                        cmd = ['Rscript', 'plot-{}.R'.format(rscript),
+                               os.path.join(out_store_name, tsv_file),
+                               os.path.join(out_store_name, '{}{}.svg'.format(rscript, out_name))]
+                        toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                                 work_dir = os.path.abspath(self.workdir)))
+
                     os.remove(os.path.join(self.workdir, 'plot-{}.R'.format(rscript)))
+                    
+                if os.path.isfile(os.path.join(self.workdir, 'Rplots.pdf')):
+                    os.remove(os.path.join(self.workdir, 'Rplots.pdf'))
 
             except Exception as e:
                 log.warning("Failed to generate ROC and QQ plots with Exception: {}".format(e))
+        
                         
     def _tsv_to_dict(self, stats, row_1 = 1):
         """ convert tsv string into dictionary """
@@ -505,7 +590,8 @@ class VGCITest(TestCase):
                 stats_dict[toks[0]] = [float(x) for x in toks[1:]]
         return stats_dict
 
-    def _verify_mapeval(self, reads, read_source_graph, score_baseline_name, tag):
+    def _verify_mapeval(self, reads, read_source_graph, score_baseline_name,
+                        positive_control, negative_control, tag):
         """
         Check the simulated mapping evaluation results.
         
@@ -521,6 +607,9 @@ class VGCITest(TestCase):
         
         """
 
+        # Make some plots in the outstore
+        self._mapeval_r_plots(tag, positive_control, negative_control)
+
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
         with open(stats_path) as stats:
             stats_tsv = stats.read()
@@ -531,13 +620,36 @@ class VGCITest(TestCase):
         # Dict from aligner to a list of float stat values, in order
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
+        # print out a table of mapeval results
+        table_name = 'mape eval results'
+        if positive_control:
+            table_name += ' (*: positive control)'
+        if negative_control:
+            table_name += ' (**: negative control)'
+        self._begin_message(table_name, is_tsv=True)
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
+        for key in sorted(set(baseline_dict.keys() + stats_dict.keys())):
+            sval = stats_dict[key] if key in stats_dict else ['DNE'] * 3
+            bval = baseline_dict[key] if key in baseline_dict else ['DNE'] * 3
+            method = key            
+            if not key.endswith('-pe'):
+                # to be consistent with plots
+                method += '-se'
+            if key in [positive_control, positive_control + '-pe']:
+                method += '*'
+            if key in [negative_control, negative_control + '-pe']:
+                method += '**'
+            print '\t'.join(str(x) for x in [method, sval[1], bval[1],
+                                             sval[2], bval[2], self.auc_threshold])
+        self._end_message()
+
+        # test the mapeval results, only looking at baseline keys
         for key, val in baseline_dict.iteritems():
-            print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
-                key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+
             
         # This holds the condition names we want a better score than
         score_baselines = ['input']
@@ -621,7 +733,7 @@ class VGCITest(TestCase):
 
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
-                      sample = None):
+                      positive_control=None, negative_control=None, sample=None):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -635,6 +747,10 @@ class VGCITest(TestCase):
         
         If score_baseline_graph is set to a graph name from test_graphs,
         computes score differences for reach read against that baseline.
+
+        If postive_control or negative_control in tests_graphs, compute separate
+        ROC/QQ plots with just those and the baseline graph (and don't plot them
+        in the normal plots)
 
         If a sample name is specified, extract a thread for each of its haplotype
         from the baseline graph using the gpbwt and simulate only from the threads
@@ -673,9 +789,9 @@ class VGCITest(TestCase):
         test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
                              test_graphs, score_baseline_graph, tag)
-
         if self.verify:
-            self._verify_mapeval(reads, baseline_graph, score_baseline_graph, tag)
+            self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
+                                 positive_control, negative_control, tag)
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
@@ -685,19 +801,21 @@ class VGCITest(TestCase):
         # good.
         # Compare all realignment scores agaisnt the scores for the primary
         # graph.
-        self._test_mapeval(50000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus'],
+        self._test_mapeval(100000, 'BRCA1', 'snp1kg',
+                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'shifted1kg'],
                            score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='shifted1kg',
                            sample='HG00096')
-
-
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
-        self._test_mapeval(50000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus'],
+        self._test_mapeval(100000, 'MHC', 'snp1kg',
+                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'shifted1kg'],
                            score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='shifted1kg',
                            sample='HG00096')
 
     @timeout_decorator.timeout(200)
