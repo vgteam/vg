@@ -73,7 +73,7 @@ public:
         const ShuffledPairs& iteratee;
         
         // Make an iterator. Only the friend parent can do it.
-        iterator(const ShuffledPairs& iteratee, size_t permutation_index);
+        iterator(const ShuffledPairs& iteratee, size_t start_at);
     };
     
     using const_iterator = iterator;

@@ -439,7 +439,7 @@ ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs
     
     // We don't have nice bit finding functions, so use this to find the next
     // power of 2.
-    range_max = 1;
+    range_max = (num_pairs != 0);
     while (range_max < num_pairs) {
         range_max *= 2;
     }
@@ -450,15 +450,20 @@ ShuffledPairs::iterator ShuffledPairs::begin() const {
 }
 
 ShuffledPairs::iterator ShuffledPairs::end() const {
-    return iterator(*this, num_pairs);
+    return iterator(*this, range_max);
 }
 
-ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t permutation_idx) : iteratee(iteratee),
-    permutation_idx(permutation_idx) {
+ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee),
+    permutation_idx(start_at) {
+    
+    if (permutation_idx == iteratee.range_max) {
+        // Don't run the dereference if we're at the end already. Handles the empty case with nothing to pair.
+        return;
+    }
     
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx != iteratee.num_pairs &&
+    while (permutation_idx != iteratee.range_max &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
@@ -474,7 +479,7 @@ ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
     
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx != iteratee.num_pairs &&
+    while (permutation_idx != iteratee.range_max &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.

@@ -116,6 +116,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/banded_global_aligner.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/pinned_alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mem.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phased_genome.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/flow_sort_test.o
@@ -523,6 +524,8 @@ $(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTES
 $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/mem.o: $(UNITTEST_SRC_DIR)/mem.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
 
