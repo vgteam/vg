@@ -442,8 +442,9 @@ namespace vg {
             vector<vector<size_t>> adj_list(graph.node_size());
             for (size_t i = 0; i < graph.edge_size(); i++) {
                 const Edge& edge = graph.edge(i);
-                adj_list[node_idx[edge.from()]].push_back(node_idx[edge.to()]);
-                in_degree[node_idx[edge.to()]]++;
+                size_t to_idx = node_idx[edge.to()];
+                adj_list[node_idx[edge.from()]].push_back(to_idx);
+                in_degree[to_idx]++;
             }
             
             // get the topological ordering of the graph (Kahn's algorithm)
@@ -471,11 +472,17 @@ namespace vg {
                 next++;
             }
             
+            // identify the index that we want each node to end up at
+            vector<size_t> index(order.size());
+            for (size_t i = 0; i < order.size(); i++) {
+                index[order[i]] = i;
+            }
+
             // in place permutation according to the topological order
             for (size_t i = 0; i < graph.node_size(); i++) {
-                while (order[i] != i) {
-                    swap(*graph.mutable_node(i), *graph.mutable_node(order[i]));
-                    swap(order[i], order[order[i]]);
+                while (index[i] != i) {
+                    swap(*graph.mutable_node(i), *graph.mutable_node(index[i]));
+                    swap(index[i], index[index[i]]);
                 }
             }
         };
@@ -2436,6 +2443,10 @@ namespace vg {
                 size_t strand_size_1 = union_find.group_size(strand_1);
                 size_t strand_size_2 = union_find.group_size(strand_2);
                 
+#ifdef debug_multipath_mapper
+                cerr << "strand " << strand_1 << " has size " << strand_size_1 << " and strand " << strand_2 << " has size " << strand_size_2 <<endl;
+#endif
+                
                 union_find.union_groups(node_pair.first, node_pair.second);
                 
                 // remove these from the pool of remaining merges
@@ -2463,6 +2474,10 @@ namespace vg {
                         // check if we've already marked some of these merges as off limits
                         bool retaining_already_blocked = retaining_iter->second >= current_max_num_probes;
                         bool removing_already_blocked = removing_iter->second >= current_max_num_probes;
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "strands share a comparison record with strand " << removing_iter->first.second << ", strand " << strand_removing << " has " << removing_iter->second << " comparisons and strand " << strand_retaining << " has " << retaining_iter->second << " comparisons" << endl;
+#endif
                         
                         // add the counts together
                         retaining_iter->second += removing_iter->second;
@@ -2497,7 +2512,6 @@ namespace vg {
                     else if (removing_iter->first.second < retaining_iter->first.second) {
                         // the strand being removed has probes against this strand cluster, but the strand being
                         // retained does not, mark this and save it for later so that we don't invalidate the range
-                        //
                         unseen_comparisons.emplace_back(removing_iter->first.second, removing_iter->second);
                         removing_iter++;
                     }
@@ -2538,10 +2552,10 @@ namespace vg {
                     num_infinite_dists[make_pair(strand_retaining, unseen_comparison.first)] = unseen_comparison.second;
                     
                     if (unseen_comparison.second >= current_max_num_probes) {
-                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first);
+                        num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(unseen_comparison.first);
                         
 #ifdef debug_multipath_mapper
-                        cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
+                        cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                 }
