@@ -55,6 +55,11 @@ public:
          */
         bool operator==(const iterator& other) const;
         
+        /**
+         * see if two iterators are not equal.
+         */
+        bool operator!=(const iterator& other) const;
+        
         friend class ShuffledPairs;
         
         // Default copy constructor and assignment operator.

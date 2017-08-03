@@ -501,6 +501,10 @@ bool ShuffledPairs::iterator::operator==(const iterator& other) const {
     return permutation_idx == other.permutation_idx;
 }
 
+bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
+    return !(*this == other);
+}
+
 OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                        const vector<MaximalExactMatch>& mems,
                                        const QualAdjAligner& aligner,
@@ -539,25 +543,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // and found an infinite distance
     map<pair<size_t, size_t>, size_t> num_infinite_dists;
     
-    // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
-    // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
-    size_t num_pairs = nodes.size() * nodes.size();
-    assert(num_pairs < 4294967296); // 2^32, else range_max can't get large enough
-    size_t permutation_idx = 0;
-    size_t range_max = 1;
-    while (range_max < num_pairs) {
-        range_max *= 2;
-    }
-    auto get_next_pair = [&]() {
-        pair<size_t, size_t> to_return;
-        do {
-            size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 6) + 0x9e3779b9) & (range_max - 1);
-            to_return.first = permuted / nodes.size();
-            to_return.second = permuted % nodes.size();
-            permutation_idx++;
-        } while (to_return.first >= to_return.second || to_return.first >= nodes.size());
-        return to_return;
-    };
+    // We want to run through all possible pairsets of node numbers in a permuted order.
+    ShuffledPairs shuffled_pairs(nodes.size());
+    auto current_pair = shuffled_pairs.begin();
     
     // we use a union find to keep track of which MEMs have been identified as being on the same strand
     UnionFind union_find(nodes.size());
@@ -569,7 +557,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // to be connected with probability approaching 1
     size_t current_max_num_probes = 2 * ((size_t) ceil(log(nodes.size())));
     
-    while (num_possible_merges_remaining > 0 && permutation_idx < range_max && current_max_num_probes > 0) {
+    while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
         // separate strands
 #ifdef debug_multipath_mapper
@@ -611,7 +599,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         }
         
         
-        pair<size_t, size_t> node_pair = get_next_pair();
+        pair<size_t, size_t> node_pair = *current_pair;
+        ++current_pair;
     
         pairs_checked++;
         
