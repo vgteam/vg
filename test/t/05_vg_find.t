@@ -29,11 +29,11 @@ is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -d x.idx
 
 is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 -d x.idx | vg view - | wc -l) 24 "vg find returns a correctly-sized graph when using jump-kmers"
 
-is $(vg find -p x:0-100 -d x.idx | vg view -g - | wc -l) 29 "vg find returns a subgraph corresponding to particular reference coordinates"
+is $(vg find -p x:0-99 -d x.idx | vg view -g - | wc -l) 29 "vg find returns a subgraph corresponding to particular reference coordinates"
 
-is $(vg find -p x:0-100 -d x.idx | vg view -j - | jq ".node[].sequence" | tr -d '"\n' | wc -c) 100 "vg find returns a path of the correct length"
+is $(vg find -p x:0-99 -d x.idx | vg view -j - | jq ".node[].sequence" | tr -d '"\n' | wc -c) 100 "vg find returns a path of the correct length"
 
-is $(vg find -p x:0-100 -c 1 -d x.idx | vg view -g - | wc -l) 56 "larger graph is returned when the reference path is queried with context"
+is $(vg find -p x:0-99 -c 1 -d x.idx | vg view -g - | wc -l) 56 "larger graph is returned when the reference path is queried with context"
 
 is $(vg find -p x -c 10 -d x.idx | vg view -g - | wc -l) $(vg view -g x.vg | wc -l) "entire graph is returned when the reference path is queried with context"
 

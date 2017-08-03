@@ -498,11 +498,15 @@ int main_find(int argc, char** argv) {
                 // Grab each target region
                 string name;
                 int64_t start, end;
-                parse_region(target, name, start, end);
+                xg::parse_region(target, name, start, end);
                 if(xindex.path_rank(name) == 0) {
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
                     cerr << "[vg find] error, path " << name << " not found in index" << endl;
                     exit(1);
+                }
+                // no coordinates given, we do whole thing (0,-1)
+                if (start < 0 && end < 0) {
+                    start = 0;
                 }
                 xindex.get_path_range(name, start, end, graph);
             }
@@ -695,7 +699,11 @@ int main_find(int argc, char** argv) {
             for (auto& target : targets) {
                 string name;
                 int64_t start, end;
-                parse_region(target, name, start, end);
+                xg::parse_region(target, name, start, end);
+                // end coordinate is exclusive for get_path()
+                if (end >= 0) {
+                    ++end;
+                }
                 vindex->get_path(graph, name, start, end);
             }
             if (context_size > 0) {
