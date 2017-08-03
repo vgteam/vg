@@ -546,71 +546,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             return nodes[node_number].start_pos;
         });
     
-    
-#ifdef debug_multipath_mapper
-    cerr << "constructing strand distance tree" << endl;
-#endif
-    
-    // build the graph of relative distances in adjacency list representation
-    // by construction each strand cluster will be an undirected, unrooted tree
-    vector<vector<size_t>> strand_distance_tree(nodes.size());
-    for (const auto& dist_record : recorded_finite_dists) {
-        strand_distance_tree[dist_record.first.first].push_back(dist_record.first.second);
-        strand_distance_tree[dist_record.first.second].push_back(dist_record.first.first);
-    }
-    
-    // now approximate the relative positions along the strand by traversing each tree and
-    // treating the distances we estimated as transitive
-    vector<unordered_map<size_t, int64_t>> strand_relative_position;
-    vector<bool> processed(nodes.size(), false);
-    for (size_t i = 0; i < nodes.size(); i++) {
-        if (processed[i]) {
-            continue;
-        }
-        
-#ifdef debug_multipath_mapper
-        cerr << "beginning a distance tree traversal at MEM " << i << endl;
-#endif
-        strand_relative_position.emplace_back();
-        unordered_map<size_t, int64_t>& relative_pos = strand_relative_position.back();
-        
-        // arbitrarily make this node the 0 point
-        relative_pos[i] = 0;
-        processed[i] = true;
-        
-        // traverse the strand's tree with DFS
-        list<size_t> queue{i};
-        while (!queue.empty()) {
-            size_t curr = queue.back();
-            queue.pop_back();
-            
-            int64_t curr_pos = relative_pos[curr];
-            
-            for (size_t next : strand_distance_tree[curr]) {
-                if (processed[next]) {
-                    continue;
-                }
-                
-                // invert the sign of the distance if we originally measured it in the other order
-                int64_t dist = recorded_finite_dists.count(make_pair(curr, next)) ?
-                               recorded_finite_dists[make_pair(curr, next)] :
-                               -recorded_finite_dists[make_pair(next, curr)];
-                
-                // find the position relative to the previous node we just traversed
-                relative_pos[next] = curr_pos + dist;
-                processed[next] = true;
-                
-                queue.push_back(next);
-            }
-        }
-#ifdef debug_multipath_mapper
-        cerr << "strand reconstruction: "  << endl;
-        for (const auto& record : relative_pos) {
-            cerr << "\t" << record.first << ": " << record.second << endl;
-        }
-#endif
-    }
-    
+    // Flatten the trees to maps of relative position by node ID.
+    vector<unordered_map<size_t, int64_t>> strand_relative_position = flatten_distance_tree(nodes.size(), recorded_finite_dists);
     
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
@@ -728,7 +665,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 }
 
 unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items,
-    xg::XG* xgindex, const function<const pos_t&(size_t)>& get_position) {
+    xg::XG* xgindex, const function<pos_t(size_t)>& get_position) {
     
     // for recording the distance of any pair that we check with a finite distance
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
@@ -1015,6 +952,78 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     return recorded_finite_dists;
 }
 
+vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distance_tree(
+    size_t num_items,
+    const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists) {
+       
+#ifdef debug_multipath_mapper
+    cerr << "constructing strand distance tree" << endl;
+#endif
+    
+    // build the graph of relative distances in adjacency list representation
+    // by construction each strand cluster will be an undirected, unrooted tree
+    vector<vector<size_t>> strand_distance_tree(num_items);
+    for (const auto& dist_record : recorded_finite_dists) {
+        strand_distance_tree[dist_record.first.first].push_back(dist_record.first.second);
+        strand_distance_tree[dist_record.first.second].push_back(dist_record.first.first);
+    }
+    
+    // now approximate the relative positions along the strand by traversing each tree and
+    // treating the distances we estimated as transitive
+    vector<unordered_map<size_t, int64_t>> strand_relative_position;
+    vector<bool> processed(num_items, false);
+    for (size_t i = 0; i < num_items; i++) {
+        if (processed[i]) {
+            continue;
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "beginning a distance tree traversal at MEM " << i << endl;
+#endif
+        strand_relative_position.emplace_back();
+        unordered_map<size_t, int64_t>& relative_pos = strand_relative_position.back();
+        
+        // arbitrarily make this node the 0 point
+        relative_pos[i] = 0;
+        processed[i] = true;
+        
+        // traverse the strand's tree with DFS
+        list<size_t> queue{i};
+        while (!queue.empty()) {
+            size_t curr = queue.back();
+            queue.pop_back();
+            
+            int64_t curr_pos = relative_pos[curr];
+            
+            for (size_t next : strand_distance_tree[curr]) {
+                if (processed[next]) {
+                    continue;
+                }
+                
+                // invert the sign of the distance if we originally measured it in the other order
+                int64_t dist = recorded_finite_dists.count(make_pair(curr, next)) ?
+                               recorded_finite_dists.at(make_pair(curr, next)) :
+                               -recorded_finite_dists.at(make_pair(next, curr));
+                
+                // find the position relative to the previous node we just traversed
+                relative_pos[next] = curr_pos + dist;
+                processed[next] = true;
+                
+                queue.push_back(next);
+            }
+        }
+#ifdef debug_multipath_mapper
+        cerr << "strand reconstruction: "  << endl;
+        for (const auto& record : relative_pos) {
+            cerr << "\t" << record.first << ": " << record.second << endl;
+        }
+#endif
+    }
+    
+    return strand_relative_position;
+    
+}
+
 void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
     
     // initialize return value
@@ -1163,7 +1172,7 @@ void OrientedDistanceClusterer::perform_dp() {
     }
 }
 
-vector<vector<pair<const MaximalExactMatch*, pos_t>>> OrientedDistanceClusterer::clusters(int32_t max_qual_score) {
+vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(int32_t max_qual_score) {
     
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> to_return;
     if (nodes.size() == 0) {
@@ -1253,5 +1262,102 @@ vector<vector<pair<const MaximalExactMatch*, pos_t>>> OrientedDistanceClusterer:
     return to_return;
 }
 
+auto OrientedDistanceClusterer::paired_clusters(OrientedDistanceClusterer& other, xg::XG* xgindex,
+    size_t max_inter_cluster_distance, int32_t max_qual_score) -> vector<pair<cluster_t, cluster_t>> {
+    
+    // We will fill this in with all sufficiently close pairs of clusters from different reads.
+    vector<pair<cluster_t, cluster_t>> to_return;
+    
+    // Get our clusters and their clusters.
+    vector<cluster_t> our_clusters = clusters(max_qual_score);
+    vector<cluster_t> their_clusters = other.clusters(max_qual_score);
+    
+    // We think of them as a single vector, with our clusters coming first.
+    size_t total_clusters = our_clusters.size() + their_clusters.size();
+    
+    // Compute distance trees for sets of clusters that are distance-able on consistent strands.
+    unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, xgindex,
+        [&](size_t cluster_num) {
+            // Get the position that stands in for each cluster. Should reverse the strand for clusters from the other clusterer.
+            if (cluster_num < our_clusters.size()) {
+                // Grab the pos_t for the first thing in the cluster.
+                // Assumes ther cluster is nonempty.
+                return our_clusters[cluster_num].front().second;
+            } else {
+                // Grab the pos_t for this cluster from the other clusterer.
+                pos_t their_pos = their_clusters[cluster_num - our_clusters.size()].front().second;
+                // Reverse it so that it appears to be on the same strand as consistent clusters from this clusterer.
+                // TODO: won't this make us look at the outside sides of the clusters and not the left sides?
+                return reverse(their_pos, xgindex->node_length(get_id(their_pos)));
+            }
+        });
+        
+    // Flatten the distance tree to a set of linear spaces, one per tree.
+    vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_clusters, distance_tree);
+        
+    for (const unordered_map<size_t, int64_t>& linear_space : linear_spaces) {
+        // For each linear space
+        
+        // The linear space may run forward or reverse relative to our read.
+        
+        
+        // This will hold pairs of relative position and cluster number
+        vector<pair<int64_t, size_t>> sorted_pos;
+        for (auto& cluster_and_pos : linear_space) {
+            // Flip each pair around and put it in the list to sort.
+            sorted_pos.emplace_back(cluster_and_pos.second, cluster_and_pos.first);
+        }
+        // Sort the list ascending by the forst item (relative position)
+        std::sort(sorted_pos.begin(), sorted_pos.end());
+        
+        // Now scan for opposing pairs within the distance limit.
+        // TODO: this is going to be O(n^2) in the number of clusters in range.
+        
+        // TODO: This is a brute force approach because I have 10 minutes to write it.
+        // Replace it with something not terrible.
+        
+        for (size_t i = 0; i < sorted_pos.size(); i++) {
+            for (size_t j = i + 1; j < sorted_pos.size(); j++) {
+                if (sorted_pos[j].first - sorted_pos[i].first < max_inter_cluster_distance) {
+                    // These clusters are sufficiently close together
+                    // TODO: enforce relative order/orientation
+                    
+                    // Get their numbers
+                    size_t cluster_a = sorted_pos[i].second;
+                    size_t cluster_b = sorted_pos[j].second;
+                    
+                    if (cluster_b < cluster_a) {
+                        // Make sure A is the lower-number cluster.
+                        swap(cluster_a, cluster_b);
+                    }
+                    
+                    if (cluster_a < our_clusters.size() && cluster_b >= our_clusters.size()) {
+                        // cluster A is ours and cluster B is from the other clusterer.
+                        
+                        // Spit out these clusters as a pair
+                        to_return.emplace_back(our_clusters[cluster_a], their_clusters[cluster_b - our_clusters.size()]);
+                    }
+                    
+                }
+            }
+        }
+        
+    }
+    
+    return to_return;
+    
+};
+
 
 }
+
+
+
+
+
+
+
+
+
+
+
