@@ -309,7 +309,7 @@ int main_chunk(int argc, char** argv) {
                 cerr << "error[vg chunk]: input path " << region.seq << " not found in xg index" << endl;
                 return 1;
             }
-            region.start = max(0L, region.start);
+            region.start = max((int64_t)0, region.start);
             if (region.end == -1) {    
                 region.end = xindex.path_length(rank);
             } else if (!id_range) {
