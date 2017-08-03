@@ -196,7 +196,7 @@ public:
                               const QualAdjAligner& aligner,
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error = 8);
-    
+                              
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters(int32_t max_qual_score = 60);
@@ -205,6 +205,22 @@ private:
     class ODNode;
     class ODEdge;
     struct DPScoreComparator;
+    
+    /**
+     * Given a certain number of items, and a callback to get each item's
+     * position, build a distance forrest with trees for items that we can
+     * verify are on the same strand of the same molecule.
+     *
+     * We use the distance approximation to cluster the MEM hits according to
+     * the strand they fall on using the oriented distance estimation function
+     * in xg.
+     *
+     * Returns a map from item pair (lower number first) to distance (which may
+     * be negative) from the first to the second along the items' forward
+     * strand.
+     */
+    unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
+        const function<const pos_t&(size_t)>& get_position);
     
     /// Fills input vectors with indices of source and sink nodes
     void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out);

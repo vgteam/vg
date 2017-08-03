@@ -539,8 +539,196 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         }
     }
     
-    // now we use the distance approximation to cluster the MEM hits according to the strand
-    // they fall on using the oriented distance estimation function
+    // Get all the distances between nodes, in a forrest of unrooted trees of
+    // nodes that we know are on a consistent strand.
+    unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists = get_on_strand_distance_tree(nodes.size(), xgindex,
+        [&](size_t node_number) {
+            return nodes[node_number].start_pos;
+        });
+    
+    
+#ifdef debug_multipath_mapper
+    cerr << "constructing strand distance tree" << endl;
+#endif
+    
+    // build the graph of relative distances in adjacency list representation
+    // by construction each strand cluster will be an undirected, unrooted tree
+    vector<vector<size_t>> strand_distance_tree(nodes.size());
+    for (const auto& dist_record : recorded_finite_dists) {
+        strand_distance_tree[dist_record.first.first].push_back(dist_record.first.second);
+        strand_distance_tree[dist_record.first.second].push_back(dist_record.first.first);
+    }
+    
+    // now approximate the relative positions along the strand by traversing each tree and
+    // treating the distances we estimated as transitive
+    vector<unordered_map<size_t, int64_t>> strand_relative_position;
+    vector<bool> processed(nodes.size(), false);
+    for (size_t i = 0; i < nodes.size(); i++) {
+        if (processed[i]) {
+            continue;
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "beginning a distance tree traversal at MEM " << i << endl;
+#endif
+        strand_relative_position.emplace_back();
+        unordered_map<size_t, int64_t>& relative_pos = strand_relative_position.back();
+        
+        // arbitrarily make this node the 0 point
+        relative_pos[i] = 0;
+        processed[i] = true;
+        
+        // traverse the strand's tree with DFS
+        list<size_t> queue{i};
+        while (!queue.empty()) {
+            size_t curr = queue.back();
+            queue.pop_back();
+            
+            int64_t curr_pos = relative_pos[curr];
+            
+            for (size_t next : strand_distance_tree[curr]) {
+                if (processed[next]) {
+                    continue;
+                }
+                
+                // invert the sign of the distance if we originally measured it in the other order
+                int64_t dist = recorded_finite_dists.count(make_pair(curr, next)) ?
+                               recorded_finite_dists[make_pair(curr, next)] :
+                               -recorded_finite_dists[make_pair(next, curr)];
+                
+                // find the position relative to the previous node we just traversed
+                relative_pos[next] = curr_pos + dist;
+                processed[next] = true;
+                
+                queue.push_back(next);
+            }
+        }
+#ifdef debug_multipath_mapper
+        cerr << "strand reconstruction: "  << endl;
+        for (const auto& record : relative_pos) {
+            cerr << "\t" << record.first << ": " << record.second << endl;
+        }
+#endif
+    }
+    
+    
+    // now we use the strand clusters and the estimated distances to make the DAG for the
+    // approximate MEM alignment
+    
+    int64_t allowance = max_expected_dist_approx_error;
+    for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
+        
+        // sort the nodes by relative position
+        vector<pair<int64_t, size_t>> sorted_pos;
+        for (const pair<size_t, int64_t>& pos_record : relative_pos) {
+            sorted_pos.emplace_back(pos_record.second, pos_record.first);
+        }
+        std::sort(sorted_pos.begin(), sorted_pos.end());
+        
+        // find edges within each strand cluster by first identifying the interval of MEMs that meets
+        // the graph distance constrant for each MEM and then checking for read colinearity and the
+        // reverse distance constraint
+        int64_t last_idx = sorted_pos.size() - 1;
+        int64_t low = 0, hi = last_idx;
+        for (int64_t i = 0; i < sorted_pos.size(); i++) {
+            
+            int64_t strand_pos = sorted_pos[i].first;
+            size_t pivot_idx = sorted_pos[i].second;
+            ODNode& pivot = nodes[pivot_idx];
+            int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
+            
+            // the limits of how far away we might detect edges to add to the clustering graph
+            int64_t target_low_pos = strand_pos - allowance;
+            int64_t target_hi_pos = strand_pos + pivot_length + maximum_detectable_gaps[pivot_idx].second + allowance;
+            
+            // move the lower boundary of the search interval to the lowest value inside the
+            // the target interval
+            while (sorted_pos[low].first < target_low_pos) {
+                low++;
+            }
+            
+            // move the upper boundary of the search interval to the highest value inside the
+            // the target interval (this one can move in either direction because the maximum
+            // detectable gap changes)
+            if (sorted_pos[hi].first > target_hi_pos) {
+                while (sorted_pos[hi].first > target_hi_pos) {
+                    hi--;
+                }
+            }
+            else {
+                while (hi == last_idx ? false : sorted_pos[hi + 1].first <= target_hi_pos) {
+                    hi++;
+                }
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
+#endif
+            
+            for (int64_t j = low; j <= hi; j++) {
+                int64_t next_idx = sorted_pos[j].second;
+                ODNode& next = nodes[next_idx];
+                
+                if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
+                    // the MEMs cannot be colinear along the read (also filters out j == i)
+                    continue;
+                }
+                
+#ifdef debug_multipath_mapper
+                cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
+#endif
+                
+                // the length of the sequence in between the MEMs (can be negative if they overlap)
+                int64_t between_length = next.mem->begin - pivot.mem->end;
+                // the estimated distance between the end of the pivot and the start of the next MEM in the graph
+                int64_t graph_dist = max<int64_t>(0, sorted_pos[j].first - strand_pos - pivot_length);
+                // the discrepancy between the graph distance and the read distance
+                int64_t gap_length = abs(graph_dist - between_length);
+                
+                if (gap_length > maximum_detectable_gaps[next_idx].first + allowance) {
+                    // the gap between the MEMs is too long to be believable from the next node
+                    continue;
+                }
+                
+                int32_t edge_score;
+                if (between_length < 0) {
+                    // the MEMs overlap, but this can occur in some insertions and deletions
+                    // because the SMEM algorithm is "greedy" in taking up as much of the read
+                    // as possible
+                    // we can check if this happened directly, but it's expensive
+                    // so for now we just give it the benefit of the doubt but adjust the edge
+                    // score so that the matches don't get double counted
+                    
+                    int64_t extra_dist = max<int64_t>(0, gap_length);
+                    
+                    edge_score = -aligner.match * between_length
+                                 + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
+                }
+                else if (between_length > graph_dist) {
+                    // the read length in between the MEMs is longer than the distance, suggesting a read insert
+                    edge_score = -aligner.mismatch * graph_dist - (gap_length - 1) * aligner.gap_extension
+                                 - aligner.gap_open;
+                }
+                else if (between_length < graph_dist) {
+                    // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
+                    edge_score = -aligner.mismatch * between_length - (gap_length - 1) * aligner.gap_extension
+                                 - aligner.gap_open;
+                }
+                else {
+                    // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
+                    edge_score = -aligner.mismatch * between_length;
+                }
+                
+                // add the edges in
+                pivot.edges_from.emplace_back(next_idx, edge_score);
+                next.edges_to.emplace_back(pivot_idx, edge_score);
+            }
+        }
+    }
+}
+
+unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items,
+    xg::XG* xgindex, const function<const pos_t&(size_t)>& get_position) {
     
     // for recording the distance of any pair that we check with a finite distance
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
@@ -549,18 +737,18 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     map<pair<size_t, size_t>, size_t> num_infinite_dists;
     
     // We want to run through all possible pairsets of node numbers in a permuted order.
-    ShuffledPairs shuffled_pairs(nodes.size());
+    ShuffledPairs shuffled_pairs(num_items);
     auto current_pair = shuffled_pairs.begin();
     
     // we use a union find to keep track of which MEMs have been identified as being on the same strand
-    UnionFind union_find(nodes.size());
+    UnionFind union_find(num_items);
     
-    size_t num_possible_merges_remaining = (nodes.size() * (nodes.size() - 1)) / 2;
+    size_t num_possible_merges_remaining = (num_items * (num_items - 1)) / 2;
     size_t pairs_checked = 0;
     
     // a simulated annealing parameter loosely inspired by the cutoff for an Erdos Renyi random graph
     // to be connected with probability approaching 1
-    size_t current_max_num_probes = 2 * ((size_t) ceil(log(nodes.size())));
+    size_t current_max_num_probes = 2 * ((size_t) ceil(log(num_items)));
     
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
@@ -584,7 +772,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         cerr << "at permutation index " << permutation_idx << " with directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
 #endif
         
-        if (pairs_checked % nodes.size() == 0 && pairs_checked != 0) {
+        if (pairs_checked % num_items == 0 && pairs_checked != 0) {
             current_max_num_probes--;
 #ifdef debug_multipath_mapper
             cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
@@ -635,8 +823,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             continue;
         }
         
-        pos_t& pos_1 = nodes[node_pair.first].start_pos;
-        pos_t& pos_2 = nodes[node_pair.second].start_pos;
+        const pos_t& pos_1 = get_position(node_pair.first);
+        const pos_t& pos_2 = get_position(node_pair.second);
         
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                id(pos_2), offset(pos_2), is_rev(pos_2));
@@ -824,184 +1012,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         }
     }
     
-#ifdef debug_multipath_mapper
-    cerr << "constructing strand distance tree" << endl;
-#endif
-    
-    // build the graph of relative distances in adjacency list representation
-    // by construction each strand cluster will be an undirected, unrooted tree
-    vector<vector<size_t>> strand_distance_tree(nodes.size());
-    for (const auto& dist_record : recorded_finite_dists) {
-        strand_distance_tree[dist_record.first.first].push_back(dist_record.first.second);
-        strand_distance_tree[dist_record.first.second].push_back(dist_record.first.first);
-    }
-    
-    // now approximate the relative positions along the strand by traversing each tree and
-    // treating the distances we estimated as transitive
-    vector<unordered_map<size_t, int64_t>> strand_relative_position;
-    vector<bool> processed(nodes.size(), false);
-    for (size_t i = 0; i < nodes.size(); i++) {
-        if (processed[i]) {
-            continue;
-        }
-        
-#ifdef debug_multipath_mapper
-        cerr << "beginning a distance tree traversal at MEM " << i << endl;
-#endif
-        strand_relative_position.emplace_back();
-        unordered_map<size_t, int64_t>& relative_pos = strand_relative_position.back();
-        
-        // arbitrarily make this node the 0 point
-        relative_pos[i] = 0;
-        processed[i] = true;
-        
-        // traverse the strand's tree with DFS
-        list<size_t> queue{i};
-        while (!queue.empty()) {
-            size_t curr = queue.back();
-            queue.pop_back();
-            
-            int64_t curr_pos = relative_pos[curr];
-            
-            for (size_t next : strand_distance_tree[curr]) {
-                if (processed[next]) {
-                    continue;
-                }
-                
-                // invert the sign of the distance if we originally measured it in the other order
-                int64_t dist = recorded_finite_dists.count(make_pair(curr, next)) ?
-                               recorded_finite_dists[make_pair(curr, next)] :
-                               -recorded_finite_dists[make_pair(next, curr)];
-                
-                // find the position relative to the previous node we just traversed
-                relative_pos[next] = curr_pos + dist;
-                processed[next] = true;
-                
-                queue.push_back(next);
-            }
-        }
-#ifdef debug_multipath_mapper
-        cerr << "strand reconstruction: "  << endl;
-        for (const auto& record : relative_pos) {
-            cerr << "\t" << record.first << ": " << record.second << endl;
-        }
-#endif
-    }
-    
-    
-    // now we use the strand clusters and the estimated distances to make the DAG for the
-    // approximate MEM alignment
-    
-    int64_t allowance = max_expected_dist_approx_error;
-    for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
-        
-        // sort the nodes by relative position
-        vector<pair<int64_t, size_t>> sorted_pos;
-        for (const pair<size_t, int64_t>& pos_record : relative_pos) {
-            sorted_pos.emplace_back(pos_record.second, pos_record.first);
-        }
-        std::sort(sorted_pos.begin(), sorted_pos.end());
-        
-        // find edges within each strand cluster by first identifying the interval of MEMs that meets
-        // the graph distance constrant for each MEM and then checking for read colinearity and the
-        // reverse distance constraint
-        int64_t last_idx = sorted_pos.size() - 1;
-        int64_t low = 0, hi = last_idx;
-        for (int64_t i = 0; i < sorted_pos.size(); i++) {
-            
-            int64_t strand_pos = sorted_pos[i].first;
-            size_t pivot_idx = sorted_pos[i].second;
-            ODNode& pivot = nodes[pivot_idx];
-            int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
-            
-            // the limits of how far away we might detect edges to add to the clustering graph
-            int64_t target_low_pos = strand_pos - allowance;
-            int64_t target_hi_pos = strand_pos + pivot_length + maximum_detectable_gaps[pivot_idx].second + allowance;
-            
-            // move the lower boundary of the search interval to the lowest value inside the
-            // the target interval
-            while (sorted_pos[low].first < target_low_pos) {
-                low++;
-            }
-            
-            // move the upper boundary of the search interval to the highest value inside the
-            // the target interval (this one can move in either direction because the maximum
-            // detectable gap changes)
-            if (sorted_pos[hi].first > target_hi_pos) {
-                while (sorted_pos[hi].first > target_hi_pos) {
-                    hi--;
-                }
-            }
-            else {
-                while (hi == last_idx ? false : sorted_pos[hi + 1].first <= target_hi_pos) {
-                    hi++;
-                }
-            }
-            
-#ifdef debug_multipath_mapper
-            cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
-#endif
-            
-            for (int64_t j = low; j <= hi; j++) {
-                int64_t next_idx = sorted_pos[j].second;
-                ODNode& next = nodes[next_idx];
-                
-                if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
-                    // the MEMs cannot be colinear along the read (also filters out j == i)
-                    continue;
-                }
-                
-#ifdef debug_multipath_mapper
-                cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
-#endif
-                
-                // the length of the sequence in between the MEMs (can be negative if they overlap)
-                int64_t between_length = next.mem->begin - pivot.mem->end;
-                // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                int64_t graph_dist = max<int64_t>(0, sorted_pos[j].first - strand_pos - pivot_length);
-                // the discrepancy between the graph distance and the read distance
-                int64_t gap_length = abs(graph_dist - between_length);
-                
-                if (gap_length > maximum_detectable_gaps[next_idx].first + allowance) {
-                    // the gap between the MEMs is too long to be believable from the next node
-                    continue;
-                }
-                
-                int32_t edge_score;
-                if (between_length < 0) {
-                    // the MEMs overlap, but this can occur in some insertions and deletions
-                    // because the SMEM algorithm is "greedy" in taking up as much of the read
-                    // as possible
-                    // we can check if this happened directly, but it's expensive
-                    // so for now we just give it the benefit of the doubt but adjust the edge
-                    // score so that the matches don't get double counted
-                    
-                    int64_t extra_dist = max<int64_t>(0, gap_length);
-                    
-                    edge_score = -aligner.match * between_length
-                                 + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
-                }
-                else if (between_length > graph_dist) {
-                    // the read length in between the MEMs is longer than the distance, suggesting a read insert
-                    edge_score = -aligner.mismatch * graph_dist - (gap_length - 1) * aligner.gap_extension
-                                 - aligner.gap_open;
-                }
-                else if (between_length < graph_dist) {
-                    // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-                    edge_score = -aligner.mismatch * between_length - (gap_length - 1) * aligner.gap_extension
-                                 - aligner.gap_open;
-                }
-                else {
-                    // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_score = -aligner.mismatch * between_length;
-                }
-                
-                // add the edges in
-                pivot.edges_from.emplace_back(next_idx, edge_score);
-                next.edges_to.emplace_back(pivot_idx, edge_score);
-            }
-        }
-    }
+    return recorded_finite_dists;
 }
 
 void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
