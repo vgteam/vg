@@ -199,7 +199,6 @@ string  path_to_string(Path p);
 Path& increment_node_mapping_ids(Path& p, id_t inc);
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
-void parse_region(const string& target, string& name, id_t& start, id_t& end);
 int path_to_length(const Path& path);
 int path_from_length(const Path& path);
 int mapping_to_length(const Mapping& m);

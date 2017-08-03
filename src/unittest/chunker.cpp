@@ -92,7 +92,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract whole graph as chunk") {
 
-        // Note: regions are 1-based inclusive
+        // Note: regions are 0-based inclusive
         Region region = {"x", 1, 32};
         VG subgraph;
         Region out_region;
@@ -100,7 +100,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
         REQUIRE(subgraph.node_count() == 9);
         REQUIRE(subgraph.edge_count() == 12);
-        REQUIRE(out_region.start == 1);
+        REQUIRE(out_region.start == 0);
     }
 
     SECTION("Extract partial graph as chunk") {
@@ -112,7 +112,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
         REQUIRE(subgraph.node_count() == 6);
         REQUIRE(subgraph.edge_count() == 7);
-        REQUIRE(out_region.start == 1);
+        REQUIRE(out_region.start == 0);
     }
 
     SECTION("Extract partial graph as chunk via id range") {
@@ -136,7 +136,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
         REQUIRE(subgraph.node_count() == 6);
         REQUIRE(subgraph.edge_count() == 7);
-        REQUIRE(out_region.start == 1);
+        REQUIRE(out_region.start == 0);
     }
 
     SECTION("Extract whole graph via harder path") {
@@ -148,7 +148,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
         REQUIRE(subgraph.node_count() == 9);
         REQUIRE(subgraph.edge_count() == 12);
-        REQUIRE(out_region.start == 1);
+        REQUIRE(out_region.start == 0);
 
     }
 
@@ -161,7 +161,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);
-        REQUIRE(out_region.start == 7);
+        REQUIRE(out_region.start == 6);
     }
     
     SECTION("Extract whole graph via cyclic path") {
@@ -173,7 +173,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         
         REQUIRE(subgraph.node_count() == 9);
         REQUIRE(subgraph.edge_count() == 12);
-        REQUIRE(out_region.start == 1);
+        REQUIRE(out_region.start == 0);
         
     }
     
@@ -186,7 +186,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
         
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);
-        REQUIRE(out_region.start == 7);
+        REQUIRE(out_region.start == 6);
         
     }
 

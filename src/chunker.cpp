@@ -25,14 +25,14 @@ void PathChunker::extract_subgraph(const Region& region, int context, bool forwa
     Graph g;
 
     // convert to 0-based inclusive
-    int64_t start = region.start - 1;
+    int64_t start = region.start;
 
     // extract our path range into the graph
 
     // Commenting out till I can be sure it's not doing weird things to paths
     //xg->get_path_range(region.seq, region.start, region.end - 1, g);
 
-    xg->for_path_range(region.seq, start, region.end - 1, [&](int64_t id) {
+    xg->for_path_range(region.seq, region.start, region.end, [&](int64_t id) {
             *g.add_node() = xg->node(id);
         });
     
@@ -45,13 +45,13 @@ void PathChunker::extract_subgraph(const Region& region, int context, bool forwa
     subgraph.remove_orphan_edges();
 
     // what node contains our input starting position?
-    int64_t input_start_node = xg->node_at_path_position(region.seq, start);
+    int64_t input_start_node = xg->node_at_path_position(region.seq, region.start);
 
     // start could fall inside a node.  we find out where in the path the
     // 0-offset point of the node is. 
-    int64_t input_start_pos = xg->node_start_at_path_position(region.seq, start);
-    assert(input_start_pos <= start &&
-           input_start_pos + xg->node_length(input_start_node) > start);
+    int64_t input_start_pos = xg->node_start_at_path_position(region.seq, region.start);
+    assert(input_start_pos <= region.start &&
+           input_start_pos + xg->node_length(input_start_node) > region.start);
     
     // find out the start position of the first node in the path in the
     // subgraph.  take the last occurance before the input_start_pos
@@ -71,7 +71,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, bool forwa
     assert(chunk_start_pos >= 0);
 
     out_region.seq = region.seq;
-    out_region.start = 1 + chunk_start_pos;
+    out_region.start = chunk_start_pos;
     out_region.end = out_region.start - 1;
     // Is there a better way to get path length? 
     Path output_path = subgraph.paths.path(out_region.seq);
