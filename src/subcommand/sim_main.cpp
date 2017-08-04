@@ -37,7 +37,8 @@ void help_sim(char** argv) {
          << "    -v, --frag-std-dev N  use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns        allow reads to be sampled from the graph with Ns in them" << endl
          << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
-         << "    -J, --json-out        write alignments in json" << endl;
+         << "    -J, --json-out        write alignments in json" << endl
+         << "    -m, --include-bonuses include bonuses in reported scores" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -59,6 +60,7 @@ int main_sim(int argc, char** argv) {
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
     string xg_name;
+    bool strip_bonuses = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -78,11 +80,12 @@ int main_sim(int argc, char** argv) {
             {"indel-error", required_argument, 0, 'i'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
+            {"include-bonuses", no_argument, 0, 'm'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:N",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nm",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -140,6 +143,10 @@ int main_sim(int argc, char** argv) {
         case 'v':
             fragment_std_dev = atof(optarg);
             break;
+            
+        case 'm':
+            strip_bonuses = false;
+            break;
 
         case 'h':
         case '?':
@@ -175,6 +182,8 @@ int main_sim(int argc, char** argv) {
     
     // Make a Mapper to score reads, with the default parameters
     Mapper rescorer(xgidx, nullptr, nullptr);
+    // Include the full length bonuses if requested.
+    rescorer.strip_bonuses = strip_bonuses;
     // We define a function to score a generated alignment under the mapper
     auto rescore = [&] (Alignment& aln) {
         // Score using exact distance.

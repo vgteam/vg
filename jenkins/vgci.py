@@ -155,6 +155,21 @@ class VGCITest(TestCase):
             connection = urllib2.urlopen(src)
             shutil.copyfileobj(connection, f)
 
+    def _begin_message(self, name = None, is_tsv = False, ):
+        """ Used by mine-logs.py to flag that we're about to write something we want to mine
+        Anything in stdout that's not within these tags does not make it to the report """
+        token = '<VGCI'
+        if name:
+            token += ' name = "{}"'.format(name)
+        if is_tsv:
+            token += ' tsv = "True"'
+        token += '>'
+        print '\n{}'.format(token)
+    
+    def _end_message(self):
+        """ Finish writing something mineable to stdout """
+        print '</VGCI>\n'
+                
     def _toil_vg_index(self, chrom, graph_path, xg_path, gcsa_path, misc_opts, dir_tag, file_tag):
         """ Wrap toil-vg index.  Files passed are copied from store instead of computed """
         job_store = self._jobstore(dir_tag)
@@ -249,18 +264,25 @@ class VGCITest(TestCase):
         # Make the context
         context = Context(out_store, overrides)
 
-        # The unfiltered vcf file
+        # The unfiltered and filtered vcf file
         uf_vcf_file = os.path.join(self.workdir, 'uf-' + os.path.basename(vcf_file))
+        f_vcf_file = os.path.join(self.workdir, 'f-' + os.path.basename(vcf_file))
+        if not f_vcf_file.endswith('.gz'):
+            f_vcf_file += '.gz'
         
         # Get the inputs
         self._get_remote_file(vg_file, os.path.join(out_store, os.path.basename(vg_file)))
         self._get_remote_file(vcf_file, uf_vcf_file)
 
         # Reduce our VCF to just the sample of interest to save time downstream
-        subprocess.check_call('bcftools view {} -s {} -O z > {}'.format(
-            uf_vcf_file, sample, os.path.join(out_store, os.path.basename(vcf_file))), shell=True)
-        subprocess.check_call('tabix -f -p vcf {}'.format(
-            os.path.join(out_store, os.path.basename(vcf_file))), shell=True)
+        with context.get_toil(job_store) as toil:
+            cmd = ['bcftools', 'view', os.path.basename(uf_vcf_file), '-s', sample, '-O', 'z']
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir),
+                                     out_path = os.path.abspath(f_vcf_file)))
+            cmd = ['tabix', '-f', '-p', 'vcf', os.path.basename(f_vcf_file)]
+            toil.start(Job.wrapJobFn(toil_call, context, cmd,
+                                     work_dir = os.path.abspath(self.workdir)))
         os.remove(uf_vcf_file)
         
         # Make the xg with gpbwt of the input graph
@@ -268,8 +290,10 @@ class VGCITest(TestCase):
         chrom, offset = self._bakeoff_coords(region)
         self._toil_vg_index(chrom, vg_file, None, None,
                             '--vcf_phasing {} --skip_gcsa --xg_index_cores {}'.format(
-                                vcf_file, self.cores), tag, index_name)
+                                os.path.abspath(f_vcf_file), self.cores), tag, index_name)
         index_path = os.path.join(out_store, index_name + '.xg')
+        os.remove(f_vcf_file)
+        os.remove(f_vcf_file + '.tbi')
         
         # Extract both haplotypes of the given sample as their own graphs
         # (this is done through vg directly)
@@ -323,9 +347,24 @@ class VGCITest(TestCase):
         # compare with threshold
         if not threshold:
             threshold = self.f1_threshold
-            
-        print 'F1: {}  Baseline: {}  Threshold: {}'.format(
-            f1_score, baseline_f1, threshold)
+
+        # print the whole table in tags that mine-logs can read
+        self._begin_message('vcfeval Results'.format(
+            f1_score, baseline_f1, threshold), is_tsv=True)
+        summary_path = f1_path[0:-6] + 'summary.txt'
+        with open(summary_path) as summary_file:
+            for i, line in enumerate(summary_file):
+                if i != 1:
+                    toks = line.split()
+                    if i == 0:
+                        toks = toks[0:-1] + ['F1', 'Baseline F1', 'Test Threshold']
+                    elif i == 2:
+                        toks += [baseline_f1, threshold]
+                    elif i > 2:
+                        toks += ['N/A', 'N/A']
+                    print '\t'.join([str(tok) for tok in toks])
+        self._end_message()
+
         self.assertTrue(f1_score >= baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
@@ -396,7 +435,7 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, self.cores, self.cores)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
+        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01 --include-bonuses\' '
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -479,7 +518,7 @@ class VGCITest(TestCase):
                     shutil.copy2('scripts/plot-{}.R'.format(rscript), os.path.abspath(self.workdir))
                     cmd = ['Rscript', 'plot-{}.R'.format(rscript),
                            os.path.join(out_store_name, 'position.results.tsv'),
-                           os.path.join(out_store_name, '{}.pdf'.format(rscript))]
+                           os.path.join(out_store_name, '{}.svg'.format(rscript))]
                     toil.start(Job.wrapJobFn(toil_call, context, cmd,
                                              work_dir = os.path.abspath(self.workdir)))
                     os.remove(os.path.join(self.workdir, 'plot-{}.R'.format(rscript)))
@@ -496,9 +535,13 @@ class VGCITest(TestCase):
                 stats_dict[toks[0]] = [float(x) for x in toks[1:]]
         return stats_dict
 
-    def _verify_mapeval(self, reads, score_baseline_name, tag):
+    def _verify_mapeval(self, reads, read_source_graph, score_baseline_name, tag):
         """
         Check the simulated mapping evaluation results.
+        
+        read_source_graph is the name of the graph that the reads were generated
+        from; we'll compare the scores realigned to that graph against the
+        scores that the generated reads had.
         
         score_baseline_name is the name of the graph we compared scores against;
         we will chack that reads increase in score in the other graphs against
@@ -518,13 +561,21 @@ class VGCITest(TestCase):
         # Dict from aligner to a list of float stat values, in order
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
+        # print out a table of mapeval results
+        self._begin_message('map eval results', is_tsv=True)
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
         for key, val in baseline_dict.iteritems():
-            print '{}  Acc: {} Baseline: {}  Auc: {} Baseline: {}  Threshold: {}'.format(
-                key, stats_dict[key][1], val[1], stats_dict[key][2], val[2], self.auc_threshold)
+            print '\t'.join(str(x) for x in [key, stats_dict[key][1], val[1],
+                                             stats_dict[key][2], val[2], self.auc_threshold])
+        self._end_message()
+
+        # test the mapeval results
+        for key, val in baseline_dict.iteritems():
             self.assertTrue(stats_dict[key][0] == reads)
             self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
             # disable roc test for now
             #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+
             
         # This holds the condition names we want a better score than
         score_baselines = ['input']
@@ -537,12 +588,13 @@ class VGCITest(TestCase):
             # Now look at the stats for comparing scores on all graphs vs. scores on this particular graph.
             score_stats_path = os.path.join(self._outstore(tag), 'score.stats.{}.tsv'.format(compare_against))
             if os.path.exists(score_stats_path):
-                # If the score comparison was run, make sure not too many reads get
-                # worse moving from linear reference or BWA to a graph.
+                # If the score comparison was run, make sure not too many reads
+                # get worse moving from simulated to realigned scores, or moving
+                # from the baseline graph to the other (more inclusive) graphs.
                 
                 try:
                     # Parse out the baseline stat values (not for the baseline
-                    # graph, we shouldn't have called these both "baseline")
+                    # graph; we shouldn't have called these both "baseline")
                     baseline_tsv = self._read_baseline_file(tag, 'score.stats.{}.tsv'.format(compare_against))
                     baseline_dict = self._tsv_to_dict(baseline_tsv)
                 except:
@@ -558,6 +610,13 @@ class VGCITest(TestCase):
                     
                 for key in score_stats_dict.iterkeys():
                     # For every kind of graph
+                    
+                    if compare_against == 'input' and (key != read_source_graph and
+                        key != read_source_graph + '-pe'):
+                        # Only compare simulated read scores to the scores the
+                        # reads get when aligned against the graph they were
+                        # simulated from.
+                        continue
                     
                     # Guess where the file for individual read score differences for this graph is
                     # TODO: get this file's name/ID from the actual Toil code
@@ -654,7 +713,7 @@ class VGCITest(TestCase):
                              test_graphs, score_baseline_graph, tag)
 
         if self.verify:
-            self._verify_mapeval(reads, score_baseline_graph, tag)
+            self._verify_mapeval(reads, baseline_graph, score_baseline_graph, tag)
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
@@ -666,7 +725,9 @@ class VGCITest(TestCase):
         # graph.
         self._test_mapeval(50000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')
+                           score_baseline_graph='primary',
+                           sample='HG00096')
+
 
 
     @timeout_decorator.timeout(3600)
@@ -674,7 +735,8 @@ class VGCITest(TestCase):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(50000, 'MHC', 'snp1kg',
                            ['primary', 'snp1kg', 'cactus'],
-                           score_baseline_graph='primary')
+                           score_baseline_graph='primary',
+                           sample='HG00096')
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):
