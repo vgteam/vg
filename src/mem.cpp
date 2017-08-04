@@ -1262,17 +1262,13 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     return to_return;
 }
 
-auto OrientedDistanceClusterer::paired_clusters(OrientedDistanceClusterer& other, xg::XG* xgindex,
-    size_t max_inter_cluster_distance, int32_t max_qual_score) -> vector<pair<cluster_t, cluster_t>> {
+vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t>& our_clusters,
+    const vector<cluster_t>& their_clusters, xg::XG* xgindex, size_t max_inter_cluster_distance) {
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
-    vector<pair<cluster_t, cluster_t>> to_return;
+    vector<pair<size_t, size_t>> to_return;
     
-    // Get our clusters and their clusters.
-    vector<cluster_t> our_clusters = clusters(max_qual_score);
-    vector<cluster_t> their_clusters = other.clusters(max_qual_score);
-    
-    // We think of them as a single vector, with our clusters coming first.
+    // We think of the clusters as a single linear ordering, with our clusters coming first.
     size_t total_clusters = our_clusters.size() + their_clusters.size();
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
@@ -1313,32 +1309,45 @@ auto OrientedDistanceClusterer::paired_clusters(OrientedDistanceClusterer& other
         // Now scan for opposing pairs within the distance limit.
         // TODO: this is going to be O(n^2) in the number of clusters in range.
         
-        // TODO: This is a brute force approach because I have 10 minutes to write it.
-        // Replace it with something not terrible.
+        // Keep a cursor to the start of the window and the end of the window.
+        // When adding each new thing to the window, eject anything too far
+        // behind it, then compare it to everything that is left.
+        size_t window_start = 0;
+        size_t window_last = 0;
         
-        for (size_t i = 0; i < sorted_pos.size(); i++) {
-            for (size_t j = i + 1; j < sorted_pos.size(); j++) {
-                if (sorted_pos[j].first - sorted_pos[i].first < max_inter_cluster_distance) {
-                    // These clusters are sufficiently close together
-                    // TODO: enforce relative order/orientation
-                    
-                    // Get their numbers
-                    size_t cluster_a = sorted_pos[i].second;
-                    size_t cluster_b = sorted_pos[j].second;
-                    
-                    if (cluster_b < cluster_a) {
-                        // Make sure A is the lower-number cluster.
-                        swap(cluster_a, cluster_b);
-                    }
-                    
-                    if (cluster_a < our_clusters.size() && cluster_b >= our_clusters.size()) {
-                        // cluster A is ours and cluster B is from the other clusterer.
-                        
-                        // Spit out these clusters as a pair
-                        to_return.emplace_back(our_clusters[cluster_a], their_clusters[cluster_b - our_clusters.size()]);
-                    }
-                    
+        while (window_last + 1 < sorted_pos.size()) {
+            // We can add another thing to the window.
+            window_last++;
+            
+            // Grab the position of the item we just added
+            auto window_last_pos = sorted_pos[window_last].first;
+            
+            while (window_last_pos - sorted_pos[window_start].first > max_inter_cluster_distance) {
+                // While the new thing would make the window too big, eject stuff.
+                // We'll always eventually hit window_last.
+                window_start++;
+            }
+            
+            for (size_t i = window_start; i < window_last; i++) {
+                // Now compare the last item against everything remaining that isn't it.
+                
+                // Get their numbers
+                size_t cluster_a = sorted_pos[i].second;
+                size_t cluster_b = sorted_pos[window_last].second;
+                
+                if (cluster_b < cluster_a) {
+                    // Make sure A is the lower-number cluster.
+                    swap(cluster_a, cluster_b);
                 }
+                
+                if (cluster_a < our_clusters.size() && cluster_b >= our_clusters.size()) {
+                    // cluster A is ours and cluster B is from the other clusterer.
+                    
+                    // Spit out these clusters as a pair
+                    to_return.emplace_back(cluster_a, cluster_b - our_clusters.size());
+                }
+                
+                
             }
         }
         

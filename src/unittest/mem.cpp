@@ -6,7 +6,7 @@
 #include <iostream>
 #include "json2pb.h"
 #include "vg.pb.h"
-#include "mem.hpp"
+#include "../mem.hpp"
 #include "catch.hpp"
 
 namespace vg {
