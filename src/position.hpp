@@ -68,7 +68,19 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
 //void xg_cached_graph_context(VG& graph, const pos_t& pos, int length, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
 Node xg_cached_node(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache);
+vector<Edge> xg_cached_edges_on_start(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache);
+vector<Edge> xg_cached_edges_on_end(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache);
 
 }
+
+//namespace std {
+///// hash function for pos_t
+//template<>
+//struct hash<const vg::pos_t> {
+//    inline size_t operator()(const vg::pos_t& pos) const {
+//        return hash<pair<pair<vg::id_t, bool>, vg::off_t > >()(make_pair(make_pair(vg::id(pos), vg::is_rev(pos)), vg::offset(pos)));
+//    }
+//};
+//}
 
 #endif

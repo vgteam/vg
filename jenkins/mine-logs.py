@@ -292,13 +292,32 @@ def html_testcase(tc, work_dir, report_dir):
 
         outstore = os.path.join(work_dir, testname_to_outstore(tc['name']))
 
-        for plot_name in 'roc', 'qq':
+        images = []
+        captions = []
+        for plot_name in 'roc', 'roc.control', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)
                 shutil.copy2(plot_path, os.path.join(report_dir, new_name))
-                report += '<p><a href=\"{}\">{} Plot</a><br><img width=\"300px\" src=\"{}\"></p>\n'.format(
-                    new_name, plot_name.upper(), new_name)
+                images.append(new_name)
+                captions.append(plot_name.upper())
+
+        if len(images) > 0:
+            report += '<table class="image">\n'
+            i = 0
+            row_size = 2
+            while i < len(images):
+                report += '<tr>'
+                for j in range(i, i + row_size):
+                    if j < len(images):
+                        report += '<td><img width=\"300px\" src=\"{}\"></td>'.format(images[j])
+                report += '</tr>\n<tr>'
+                for j in range(i, i + row_size):
+                    if j < len(images):
+                        report += '<td><a href=\"{}\">{} Plot</a></td>'.format(images[j], captions[j])
+                report += '</tr>\n'
+                i += row_size
+            report += '</table>\n'
 
         if tc['stdout']:
             # extract only things in <VCGI> tags from stdout

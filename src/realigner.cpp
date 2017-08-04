@@ -37,10 +37,8 @@ void Realigner::construct(void) {
         mapper->max_mem_length = max_mem_length;
         mapper->min_mem_length = min_mem_length;
         mapper->hit_max = hit_max;
-        mapper->greedy_accept = greedy_accept;
         mapper->max_target_factor = max_target_factor;
         mapper->max_multimaps = max_multimaps;
-        mapper->accept_identity = accept_identity;
         mapper->match = match;
         mapper->mismatch = mismatch;
         mapper->gap_open = gap_open;

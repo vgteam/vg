@@ -70,10 +70,8 @@ public:
     int max_mem_length;
     int min_mem_length;
     int hit_max;
-    bool greedy_accept;
     bool max_target_factor;
     int max_multimaps;
-    double accept_identity;
     int match;
     int mismatch;
     int gap_open;

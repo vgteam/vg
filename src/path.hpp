@@ -199,7 +199,6 @@ string  path_to_string(Path p);
 Path& increment_node_mapping_ids(Path& p, id_t inc);
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
-void parse_region(const string& target, string& name, id_t& start, id_t& end);
 int path_to_length(const Path& path);
 int path_from_length(const Path& path);
 int mapping_to_length(const Mapping& m);
@@ -272,6 +271,16 @@ double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
 void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
+// switches the node ids in the path to the ones indicated by the translator
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator);
+// switches the node ids and orientations in the path to the ones indicated by the translator
+void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
+    
+// the first position on the path
+pos_t initial_position(const Path& path);
+// the last position on the path
+pos_t final_position(const Path& path);
+    
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
