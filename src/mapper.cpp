@@ -2898,6 +2898,14 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
 }
 
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "Getting a cluster graph for " << mems.size() << " MEMs" << endl;
+        }
+    }
+#endif
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     assert(mems.size());
@@ -2906,6 +2914,15 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
     float expansion = 1.61803;
     int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "\tStart: " << start_pos << " get_before: " << get_before << " read bases before: "
+                << (start_mem.begin - aln.sequence().begin()) << endl;
+        }
+    }
+#endif
     VG graph;
     if (get_before) {
         cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
@@ -2916,9 +2933,25 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
         int get_after = (i+1 == mems.size() ?
                          expansion * (int)(aln.sequence().end() - mem.begin)
                          : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "\tMEM at " << pos << " get_after: " << get_after << endl;
+            }
+        }
+#endif
         cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
     }
     graph.remove_orphan_edges();
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id() << endl;
+        }
+    }
+#endif
     return graph;
 }
 
