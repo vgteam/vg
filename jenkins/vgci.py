@@ -507,9 +507,46 @@ class VGCITest(TestCase):
             # TODO: I want to do the evaluation here, working with file IDs, but
             # since we put the results in the out store maybe it really does
             # make sense to just go through the files in the out store.
+
+    def _filter_position_file(self, position_file, out_file):
+        """ Filter reads that fail score check out of a position comparison file
+        Return number of reads filtered """
+
+        # check if a read has been filtered by looking in the primary score comparison output
+        reads_map = dict()
+        def is_filtered(read, method):
+            if method not in reads_map:
+                reads_map[method] = set()
+                try:
+                    # -se not currently in filenames. ugh. 
+                    name = method[0:-3] if method.endswith('-se') else method
+                    score_path = os.path.join(os.path.dirname(position_file),
+                                              '{}.compare.primary.scores'.format(name))
+                    with open(score_path) as score_file:
+                        for line in score_file:
+                            toks = line.split(", ")
+                            if int(toks[1]) < 0:
+                                reads_map[method].add(toks[0])
+                except:
+                    pass
+            return read in reads_map[method]
+
+        # scan postions, filtering all reads in our set
+        filter_count = 0
+        with open(position_file) as pf, open(out_file, 'w') as of:
+            for i, line in enumerate(pf):
+                toks = line.rstrip().split()
+                if i == 0:
+                    ridx = toks.index('read')
+                    aidx = toks.index('aligner')                
+                if i == 0 or not is_filtered(toks[ridx], toks[aidx].strip('"')):
+                    of.write(line)
+                else:
+                    filter_count += 1
+        return filter_count
             
     def _mapeval_r_plots(self, tag, positive_control=None, negative_control=None,
-                         control_include=['snp1kg', 'primary']):
+                         control_include=['snp1kg', 'primary'], min_reads_for_filter_plots=100):
         """ Compute the mapeval r plots (ROC and QQ) """
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
@@ -564,6 +601,18 @@ class VGCITest(TestCase):
                     plot_names = [(nc_name, '')]
                     if co_name:
                         plot_names.append((co_name, '.control'))
+
+                    # make a plot where we ignore reads that fail score
+                    cur_plot_names = [pn for pn in plot_names]
+                    for name,tag in plot_names:
+                        pf_name = name.replace('.tsv', '.primary.filter.tsv')
+                        if self._filter_position_file(
+                                os.path.join(out_store, name),
+                                os.path.join(out_store, pf_name)) > min_reads_for_filter_plots:
+                            plot_names.append((pf_name, tag + '.primary.filter'))
+                        else:
+                            if os.path.isfile(os.path.join(out_store, pf_name)):
+                                os.remove(os.path.join(out_store, pf_name))
                         
                     for tsv_file, out_name in plot_names:
                         cmd = ['Rscript', 'plot-{}.R'.format(rscript),
@@ -635,9 +684,9 @@ class VGCITest(TestCase):
             if not key.endswith('-pe'):
                 # to be consistent with plots
                 method += '-se'
-            if key in [positive_control, positive_control + '-pe']:
+            if positive_control and key in [positive_control, positive_control + '-pe']:
                 method += '*'
-            if key in [negative_control, negative_control + '-pe']:
+            if negative_control and key in [negative_control, negative_control + '-pe']:
                 method += '**'
             print '\t'.join(str(x) for x in [method, sval[1], bval[1],
                                              sval[2], bval[2], self.auc_threshold])
