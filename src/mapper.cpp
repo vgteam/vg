@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include "mapper.hpp"
+#include "algorithms/vg_algorithms.hpp"
 
 //#define debug_mapper
 
@@ -2906,44 +2907,43 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
         }
     }
 #endif
-    auto& node_cache = get_node_cache();
-    auto& edge_cache = get_edge_cache();
-    assert(mems.size());
-    auto& start_mem = mems.front();
-    auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    float expansion = 1.61803;
-    int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
-#ifdef debug_mapper
-#pragma omp critical
-    {
-        if (debug) {
-            cerr << "\tStart: " << start_pos << " get_before: " << get_before << " read bases before: "
-                << (start_mem.begin - aln.sequence().begin()) << endl;
-        }
+
+    // As in the multipath aligner, we work out how far we can get from a MEM
+    // with gaps and use that for how much graph to grab.
+    vector<pos_t> positions;
+    vector<size_t> forward_max_dist;
+    vector<size_t> backward_max_dist;
+    
+    positions.reserve(mems.size());
+    forward_max_dist.reserve(mems.size());
+    backward_max_dist.reserve(mems.size());
+    
+    // What aligner are we using?
+    BaseAligner* aligner = adjust_alignments_for_base_quality ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner;
+    
+    for (const auto& mem : mems) {
+        // get the start position of the MEM
+        assert(!mem.nodes.empty());
+        positions.push_back(make_pos_t(mem.nodes.front()));
+        
+        // search far enough away to get any hit detectable without soft clipping
+        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
+                                   + (mem.end - mem.begin));
+        backward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(aln, mem.begin));
     }
-#endif
+    
+    
+    // extract the protobuf Graph
+    Graph proto_graph;
+    algorithms::extract_containing_graph(*xindex, proto_graph, positions, forward_max_dist,
+                                         backward_max_dist, &get_node_cache());
+                                         
+    // Wrap it in a vg
     VG graph;
-    if (get_before) {
-        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
-    }
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = (i+1 == mems.size() ?
-                         expansion * (int)(aln.sequence().end() - mem.begin)
-                         : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-#ifdef debug_mapper
-#pragma omp critical
-        {
-            if (debug) {
-                cerr << "\tMEM at " << pos << " get_after: " << get_after << endl;
-            }
-        }
-#endif
-        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
-    }
+    graph.extend(proto_graph);
+    
     graph.remove_orphan_edges();
+    
 #ifdef debug_mapper
 #pragma omp critical
     {
