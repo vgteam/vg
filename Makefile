@@ -115,6 +115,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/pinned_alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_mapper.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapper.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mem.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phased_genome.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
@@ -526,6 +527,8 @@ $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_
 $(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/multipath_mapper.o: $(UNITTEST_SRC_DIR)/multipath_mapper.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_mapper.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/mapper.o: $(UNITTEST_SRC_DIR)/mapper.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/mem.o: $(UNITTEST_SRC_DIR)/mem.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
