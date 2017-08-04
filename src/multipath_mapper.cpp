@@ -97,7 +97,7 @@ namespace vg {
             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = cluster_graph_mems[vg];
             multipath_align(alignment, vg, graph_mems, multipath_alns_out);
             
-            num_alt_alns++;
+            num_alns++;
         }
         
         for (VG* vg : cluster_graphs) {
@@ -135,8 +135,9 @@ namespace vg {
                 positions.push_back(mem_hit.second);
                 // search far enough away to get any hit detectable without soft clipping
                 forward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->end)
-                                           + (mem_hit.first->end - mem_hit.first->begin));
-                backward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->begin));
+                                           + (alignment.sequence().end() - mem_hit.first->begin));
+                backward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->begin)
+                                            + (mem_hit.first->begin - alignment.sequence().begin()));
             }
             
             // TODO: a progressive expansion of the subgraph if the MEM hit is already contained in
@@ -251,17 +252,23 @@ namespace vg {
         vector<size_t> topological_order;
         multi_aln_graph.topological_sort(topological_order);
         
+#ifdef debug_multipath_mapper
         cerr << "computed topological sort" << endl;
+#endif
         
         // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
         multi_aln_graph.remove_transitive_edges(topological_order);
         
+#ifdef debug_multipath_mapper
         cerr << "removed transitive edges" << endl;
+#endif
         
         // prune this graph down the paths that have reasonably high likelihood
         multi_aln_graph.prune_to_high_scoring_paths(*qual_adj_aligner, max_suboptimal_path_score_diff, topological_order);
         
+#ifdef debug_multipath_mapper
         cerr << "pruned to high scoring paths" << endl;
+#endif
         
         // create a new multipath alignment object and transfer over data from alignment
         multipath_alns_out.emplace_back();
@@ -272,7 +279,9 @@ namespace vg {
         multipath_aln.set_sample_name(alignment.sample_name());
         multipath_aln.set_read_group(alignment.read_group());
         
+#ifdef debug_multipath_mapper
         cerr << "transferred over read information" << endl;
+#endif
         
         // add a subpath for each of the exact match nodes
         for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
@@ -817,6 +826,9 @@ namespace vg {
                     
                     if (read_iter == end) {
                         // finished walking match
+#ifdef debug_multipath_mapper
+                        cerr << "reached end of read sequence, finished walking match" << endl;
+#endif
                         break;
                     }
                     else if (node_idx == node_seq.size()) {
@@ -826,10 +838,12 @@ namespace vg {
                     }
                 }
                 
-                // we left the trace in the stack, which means we found a complete match
+                // if we left a trace in the stack we found a complete match, but sometimes MEMs find their
+                // way into these subgraphs that overhang the edge of the graph (only when they are not part
+                // of the alignment represented by the cluster used to query the subgraph) in which case we
+                // just skip this MEM
                 if (stack.empty()) {
-                    cerr << "error:[MultipathMapper] Couldn't find a match for MEM " << *hit.first << endl;
-                    exit(1);
+                    continue;
                 }
                 
 #ifdef debug_multipath_mapper
@@ -2243,6 +2257,7 @@ namespace vg {
         // use forward-backward to find nodes/edges on some path with a score above the minimum
         unordered_set<size_t> keep_nodes;
         unordered_set<pair<size_t, size_t>> keep_edges;
+        vector<size_t> removed_in_prefix(match_nodes.size() + 1, 0);
         for (size_t i = 0; i < match_nodes.size(); i++) {
             if (forward_scores[i] + backward_scores[i] - node_weights[i] >= min_path_score) {
                 keep_nodes.insert(i);
@@ -2251,6 +2266,10 @@ namespace vg {
                         keep_edges.emplace(i, edge.first);
                     }
                 }
+                removed_in_prefix[i + 1] = removed_in_prefix[i];
+            }
+            else {
+                removed_in_prefix[i + 1] = removed_in_prefix[i] + 1;
             }
         }
         
@@ -2261,10 +2280,22 @@ namespace vg {
                 if (i != next) {
                     match_nodes[next] = std::move(match_nodes[i]);
                 }
-                ExactMatchNode& match_node = match_nodes[next];
-                auto new_end = std::remove_if(match_node.edges.begin(), match_node.edges.end(),
-                                              [&](const pair<size_t, size_t>& edge) { return !keep_edges.count(make_pair(i, edge.first)); });
-                match_node.edges.resize(new_end - match_node.edges.begin());
+                vector<pair<size_t, size_t>>& edges = match_nodes[next].edges;
+                
+                size_t new_end = edges.size();
+                for (size_t j = 0; j < new_end;) {
+                    pair<size_t, size_t>& edge = edges[j];
+                    if (!keep_edges.count(make_pair(i, edge.first))) {
+                        new_end--;
+                        edge = edges[new_end];
+                    }
+                    else {
+                        edge.first -= removed_in_prefix[edge.first];
+                        j++;
+                    }
+                }
+                edges.resize(new_end);
+                
                 next++;
             }
         }

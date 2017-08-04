@@ -544,7 +544,8 @@ double fit_zipf(const vector<double>& y) {
     return -slope(lx, ly);
 }
 
-// from https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
+// exponentiation by squaring as implemented in
+// https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
 size_t integer_power(size_t base, size_t exponent) {
     size_t result = 1;
     while (exponent) {

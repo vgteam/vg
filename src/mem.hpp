@@ -5,6 +5,7 @@
 #include "gcsa/lcp.h"
 #include "position.hpp"
 #include "gssw_aligner.hpp"
+#include "utility.hpp"
 
 #include <functional>
 #include <string>

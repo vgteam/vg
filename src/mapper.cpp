@@ -537,8 +537,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
             // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
-            // it may be necessary to impose the cap on mem hits
-            if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
         }
     }
     
@@ -559,9 +557,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             mem.primary = false;
             if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
                 gcsa->locate(mem.range, mem.nodes);
-                // it may be necessary to impose the cap on mem hits
-                // todo: should we downsample?
-                if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
             }
         }
         

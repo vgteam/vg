@@ -38,7 +38,8 @@ void help_mpmap(char** argv) {
     << "    -G, --gam-input FILE      realign GAM input" << endl
     << "algorithm:" << endl
     << "    -s, --snarls FILE         align to alternate paths in these snarls" << endl
-    << "    -M, --max-multimaps FILE  compute at most this many mappings" << endl
+    << "    -M, --max-multimaps N     compute at most this many mappings [2]" << endl
+    << "    -c, --hit-max N           ignore MEMs who have >N hits in our index [128]" << endl
     << "scoring:" << endl
     << "    -q, --match INT         use this match score [1]" << endl
     << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -73,6 +74,7 @@ int main_mpmap(int argc, char** argv) {
     bool interleaved_input = false;
     int max_num_mappings = 2;
     int buffer_size = 100;
+    int hit_max = 128;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -88,6 +90,7 @@ int main_mpmap(int argc, char** argv) {
             {"gam-input", required_argument, 0, 'G'},
             {"snarls", required_argument, 0, 's'},
             {"max-multimaps", required_argument, 0, 'M'},
+            {"hit-max", required_argument, 0, 'c'},
             {"match", required_argument, 0, 'q'},
             {"mismatch", required_argument, 0, 'z'},
             {"gap-open", required_argument, 0, 'o'},
@@ -168,6 +171,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'M':
                 max_num_mappings = atoi(optarg);
+                break;
+                
+            case 'c':
+                hit_max = atoi(optarg);
                 break;
                 
             case 'q':
@@ -273,6 +280,7 @@ int main_mpmap(int argc, char** argv) {
     MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, snarl_manager);
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score,
                                           gap_extension_score, full_length_bonus);
+    multipath_mapper.hit_max = hit_max;
     
     vector<vector<MultipathAlignment> > output_buffer;
     output_buffer.resize(omp_get_num_threads());

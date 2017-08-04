@@ -818,16 +818,9 @@ double BaseAligner::score_to_unnormalized_likelihood_ln(double score) {
 size_t BaseAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
     int64_t overhang_length = min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos);
-    if (!overhang_length) {
-        return 0;
-    }
-    size_t numer = match * overhang_length + full_length_bonus;
-    if (numer + gap_extension > gap_open) {
-        return (numer - gap_open) / gap_extension + 1;
-    }
-    else {
-        return 0;
-    }
+    int64_t numer = match * overhang_length + full_length_bonus;
+    int64_t gap_length = (numer - gap_open) / gap_extension + 1;
+    return gap_length >= 0 && overhang_length > 0 ? gap_length : 0;
 }
 
 size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {

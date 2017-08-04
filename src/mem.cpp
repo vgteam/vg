@@ -455,10 +455,11 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         
         int32_t mem_score = aligner.score_exact_match(mem.begin, mem.end,
                                                       alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
-        
+        cerr << "adding nodes for MEM " << mem << endl;
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
             maximum_detectable_gaps.push_back(max_gaps);
+            cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
         }
     }
     
@@ -474,21 +475,16 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
     // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
     size_t num_pairs = nodes.size() * nodes.size();
-    // cannot have more than 2^32 MEMs or else range_max can't get large enough
-    if (num_pairs > (1ull << 32)) {
-        cerr << "Too many MEMs. Clusterer cannot index all pairs of MEMs if there are more than " << (1ull << 16) << " MEMs." << endl;
-        assert(false);
+    size_t prime_idx = 0;
+    while (spaced_primes[prime_idx] < num_pairs) {
+        prime_idx++;
     }
-    size_t permutation_idx = 0;
-    size_t range_max = 1;
-    while (range_max < num_pairs) {
-        range_max *= 2;
-    }
-    
+    size_t larger_prime = spaced_primes[prime_idx];
+    size_t permutation_idx = 1;
     auto get_next_pair = [&]() {
         pair<size_t, size_t> to_return;
         do {
-            size_t permuted = ((permutation_idx ^ (range_max - 1)) ^ (permutation_idx << 6) + 0x9e3779b9) & (range_max - 1);
+            size_t permuted = (permutation_idx * permutation_idx * permutation_idx) % larger_prime;
             to_return.first = permuted / nodes.size();
             to_return.second = permuted % nodes.size();
             permutation_idx++;
@@ -506,7 +502,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // to be connected with probability approaching 1
     size_t current_max_num_probes = 2 * ((size_t) ceil(log(nodes.size())));
     
-    while (num_possible_merges_remaining > 0 && permutation_idx < range_max && current_max_num_probes > 0) {
+    while (num_possible_merges_remaining > 0 && permutation_idx < larger_prime && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
         // separate strands
 #ifdef debug_od_clusterer
@@ -556,7 +552,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         size_t strand_2 = union_find.find_group(node_pair.second);
         
 #ifdef debug_od_clusterer
-        cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << endl;
+        cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << " in cluster " << strand_1 << " and " << strand_2 << endl;
 #endif
 
         if (strand_1 == strand_2) {
@@ -578,8 +574,12 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             continue;
         }
         
+        cerr << "getting start positions" << endl;
+        
         pos_t& pos_1 = nodes[node_pair.first].start_pos;
         pos_t& pos_2 = nodes[node_pair.second].start_pos;
+        
+        cerr << "getting distance" << endl;
         
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                id(pos_2), offset(pos_2), is_rev(pos_2));
@@ -826,7 +826,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #ifdef debug_od_clusterer
         cerr << "strand reconstruction: "  << endl;
         for (const auto& record : relative_pos) {
-            cerr << "\t" << record.first << ": " << record.second << endl;
+            cerr << "\t" << record.first << ": " << record.second << "\t" << nodes[record.first].mem->sequence() << endl;
         }
 #endif
     }
