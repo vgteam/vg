@@ -417,10 +417,43 @@ namespace vg {
             }
         }
         
-        // function to reorder the nodes of a Protobuf graph in topological order and remove doubly reversing edges
-        // (required for gssw alignment)
-        auto groom_graph = [](Graph& graph) {
-            // remove doubly reversing edges
+        // function to reorder the nodes of a Protobuf graph in topological order, flip doubly reversing edges,
+        // and remove empty sequence nodes (invariants required for gssw alignment)
+        auto groom_graph_for_gssw = [](Graph& graph) {
+            // remove empty nodes
+            size_t end = graph.node_size();
+            size_t idx = 0;
+            unordered_set<id_t> removed_nodes;
+            while (idx < end) {
+                if (graph.node(idx).sequence().empty()) {
+                    end--;
+                    removed_nodes.insert(graph.node(idx).id());
+                    swap(*graph.mutable_node(idx), *graph.mutable_node(end));
+                }
+                else {
+                    idx++;
+                }
+            }
+            if (end != graph.node_size()) {
+                graph.mutable_node()->DeleteSubrange(end, graph.node_size() - end);
+                
+                // look for any edges connecting them and remove these too
+                end = graph.edge_size();
+                idx = 0;
+                while (idx < end) {
+                    Edge* edge = graph.mutable_edge(idx);
+                    if (removed_nodes.count(edge->from()) || removed_nodes.count(edge->to())) {
+                        end--;
+                        swap(*edge, *graph.mutable_edge(end));
+                    }
+                    else {
+                        idx++;
+                    }
+                }
+                graph.mutable_edge()->DeleteSubrange(end, graph.edge_size() - end);
+            }
+            
+            // flip doubly reversing edges
             for (size_t i = 0; i < graph.edge_size(); i++) {
                 Edge* edge = graph.mutable_edge(i);
                 if (edge->from_start() && edge->to_end()) {
@@ -432,6 +465,7 @@ namespace vg {
                 }
             }
             
+            // associate node ids with their index
             unordered_map<id_t, size_t> node_idx;
             for (size_t i = 0; i < graph.node_size(); i++) {
                 node_idx[graph.node(i).id()] = i;
@@ -509,7 +543,7 @@ namespace vg {
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
                     // ensure invariants that gssw-based alignment expects
-                    groom_graph(tail_graph);
+                    groom_graph_for_gssw(tail_graph);
                     
                     // get the sequence remaining in the right tail
                     Alignment right_tail_sequence;
@@ -568,7 +602,7 @@ namespace vg {
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
                     // ensure invariants that gssw-based alignment expects
-                    groom_graph(tail_graph);
+                    groom_graph_for_gssw(tail_graph);
                     
                     Alignment left_tail_sequence;
                     left_tail_sequence.set_sequence(alignment.sequence().substr(0, match_node.begin - alignment.sequence().begin()));
