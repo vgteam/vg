@@ -209,12 +209,14 @@ public:
     vector<cluster_t> clusters(int32_t max_qual_score = 60);
     
     /**
-     * Returns a vvector of pairs of clusters from this clusterer and the other
-     * clusterer that are within max_inter_cluster_distance of each other, and
-     * are on opposing strands (as would be expected for read pairs).
+     * Given two vectors of clusters, an xg index, and a maximum separation,
+     * returns a vector of pairs of cluster numbers (one in each vector) that
+     * are in opposite orientations (as would be expected of read pairs) and
+     * within the specified distance.
      */
-    vector<pair<cluster_t, cluster_t>> paired_clusters(OrientedDistanceClusterer& other, xg::XG* xgindex,
-        size_t max_inter_cluster_distance, int32_t max_qual_score = 60);
+    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t>& our_clusters,
+        const vector<cluster_t>& their_clusters, xg::XG* xgindex,
+        size_t max_inter_cluster_distance);
     
 private:
     class ODNode;
@@ -234,7 +236,7 @@ private:
      * be negative) from the first to the second along the items' forward
      * strand.
      */
-    unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
+    static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
         const function<pos_t(size_t)>& get_position);
         
     /**
@@ -248,7 +250,7 @@ private:
      * Assumes all the distances are transitive, even though this isn't quite
      * true in graph space.
      */
-    vector<unordered_map<size_t, int64_t>> flatten_distance_tree(size_t num_items,
+    static vector<unordered_map<size_t, int64_t>> flatten_distance_tree(size_t num_items,
         const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists);
     
     /// Fills input vectors with indices of source and sink nodes

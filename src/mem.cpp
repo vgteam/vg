@@ -1262,17 +1262,13 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     return to_return;
 }
 
-auto OrientedDistanceClusterer::paired_clusters(OrientedDistanceClusterer& other, xg::XG* xgindex,
-    size_t max_inter_cluster_distance, int32_t max_qual_score) -> vector<pair<cluster_t, cluster_t>> {
+vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t>& our_clusters,
+    const vector<cluster_t>& their_clusters, xg::XG* xgindex, size_t max_inter_cluster_distance) {
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
-    vector<pair<cluster_t, cluster_t>> to_return;
+    vector<pair<size_t, size_t>> to_return;
     
-    // Get our clusters and their clusters.
-    vector<cluster_t> our_clusters = clusters(max_qual_score);
-    vector<cluster_t> their_clusters = other.clusters(max_qual_score);
-    
-    // We think of them as a single vector, with our clusters coming first.
+    // We think of the clusters as a single linear ordering, with our clusters coming first.
     size_t total_clusters = our_clusters.size() + their_clusters.size();
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
@@ -1348,7 +1344,7 @@ auto OrientedDistanceClusterer::paired_clusters(OrientedDistanceClusterer& other
                     // cluster A is ours and cluster B is from the other clusterer.
                     
                     // Spit out these clusters as a pair
-                    to_return.emplace_back(our_clusters[cluster_a], their_clusters[cluster_b - our_clusters.size()]);
+                    to_return.emplace_back(cluster_a, cluster_b - our_clusters.size());
                 }
                 
                 
