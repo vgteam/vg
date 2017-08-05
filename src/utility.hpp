@@ -423,6 +423,7 @@ double slope(const std::vector<double>& x, const std::vector<double>& y);
 double fit_zipf(const vector<double>& y);
 
 size_t integer_power(size_t base, size_t exponent);
+size_t modular_exponent(size_t base, size_t exponent, size_t modulus);
     
     
 }

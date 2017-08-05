@@ -136,7 +136,6 @@ TEST_CASE( "ShuffledPairs loops over all pairs", "[mem]" ) {
             REQUIRE(found.count(pair) == 0);
             found.insert(pair);
             REQUIRE(pair.first < pair.second);
-            cerr << pair.first << ", " << pair.second << endl;
         }
         
         REQUIRE(found.size() == 9 * 8 / 2);

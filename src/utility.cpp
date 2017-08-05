@@ -557,5 +557,22 @@ size_t integer_power(size_t base, size_t exponent) {
     }
     return result;
 }
-    
+
+// modular exponent by squaring as described in
+// https://en.wikipedia.org/wiki/Modular_exponentiation`
+size_t modular_exponent(size_t base, size_t exponent, size_t modulus) {
+    if (modulus == 1) {
+        return 0;
+    }
+    size_t result = 1;
+    base = base % modulus;
+    while (exponent) {
+        if (exponent & 1) {
+            result = (result * base) % modulus;
+        }
+        exponent >>= 1;
+        base = (base * base) % modulus;
+    }
+    return result;
+}
 }

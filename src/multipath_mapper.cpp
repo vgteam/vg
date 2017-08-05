@@ -51,7 +51,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
-            cerr << "\tcluster " << i + 1 << endl;
+            cerr << "\tcluster " << i << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : clusters[i]) {
                 cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
             }
@@ -119,6 +119,10 @@ namespace vg {
         
         for (size_t i = 0; i < clusters.size(); i++) {
             
+#ifdef debug_multipath_mapper
+            cerr << "extracting subgraph for cluster " << i << endl;
+#endif
+            
             // gather the parameters for subgraph extraction from the MEM hits
             
             const vector<pair<const MaximalExactMatch*, pos_t>>& cluster = clusters[i];
@@ -154,6 +158,7 @@ namespace vg {
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
+            size_t next_cluster_idx = cluster_graphs_out.size();
             unordered_set<size_t> overlapping_graphs;
             for (size_t j = 0; j < graph.node_size(); j++) {
                 id_t node_id = graph.node(j).id();
@@ -161,13 +166,16 @@ namespace vg {
                     overlapping_graphs.insert(node_id_to_cluster[node_id]);
                 }
                 else {
-                    node_id_to_cluster[node_id] = i;
+                    node_id_to_cluster[node_id] = next_cluster_idx;
                 }
             }
             
             if (overlapping_graphs.empty()) {
                 // there is no overlap with any other graph, suggesting a new unique hit
                 
+#ifdef debug_multipath_mapper
+                cerr << "cluster graph does not overlap with any other cluster graphs" << endl;
+#endif
                 cluster_graphs_out.push_back(cluster_graph);
                 
                 // now that we know we're going to save the graph, manually trigger the index building since
@@ -177,20 +185,36 @@ namespace vg {
             else {
                 // this graph overlap at least one other graph, so we merge them into the (arbitrarily chosen) graph
                 // with the minimum index in the vector
+                
                 size_t min_idx_cluster = *std::min_element(overlapping_graphs.begin(), overlapping_graphs.end());
+                
+#ifdef debug_multipath_mapper
+                cerr << "cluster graph overlaps with at least one other graph, merging all graphs into cluster " << min_idx_cluster << " of " << cluster_graphs_out.size() << endl;
+#endif
                 
                 // merge in the new graph
                 cluster_graphs_out[min_idx_cluster]->extend(graph);
                 delete cluster_graph;
                 
+#ifdef debug_multipath_mapper
+                cerr << "merged in new graph" << endl;
+#endif
+                
                 // if this subgraph chains together multiple clusters, merge them and remove them from the list
                 overlapping_graphs.erase(min_idx_cluster);
                 for (size_t j : overlapping_graphs) {
+#ifdef debug_multipath_mapper
+                    cerr << "cluster graph " << j << " is chained together with this one" << endl;
+#endif
                     std::swap(cluster_graphs_out[j], cluster_graphs_out.back());
                     cluster_graphs_out[min_idx_cluster]->extend(cluster_graphs_out.back()->graph);
                     delete cluster_graphs_out.back();
                     cluster_graphs_out.pop_back();
                 }
+                
+#ifdef debug_multipath_mapper
+                cerr << "relabeling nodes of the merged graph to have the correct index" << endl;
+#endif
                 
                 // relabel the cluster of any nodes that were not in the graph we merged into
                 Graph& merged_graph = cluster_graphs_out[min_idx_cluster]->graph;
@@ -374,7 +398,7 @@ namespace vg {
                 }
                 
 #ifdef debug_multipath_mapper
-                cerr << "aligning to connecting graph: " << pb2json(connecting_graph) << endl;
+                cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph) << endl;
 #endif
                 
                 // TODO a better way of choosing the number of alternate alignments
@@ -382,7 +406,9 @@ namespace vg {
                 vector<Alignment> alt_alignments;
                 qual_adj_aligner->align_global_banded_multi(intervening_sequence, alt_alignments,
                                                            connecting_graph, num_alt_alns, band_padding, true);
-                                
+                
+                cerr << "finishes banded alignment" << endl;
+                
                 for (Alignment& connecting_alignment : alt_alignments) {
                     // create a subpath between the matches for this alignment
                     Subpath* connecting_subpath = multipath_aln.add_subpath();

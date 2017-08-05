@@ -438,9 +438,13 @@ ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs
     
     // Find a prime that is at least as large as but at most a constant factor
     // larger than the number of pairs using the pre-computed list
-    larger_prime = spaced_primes[0];
-    for (size_t i = 1; larger_prime < num_pairs; i++) {
+    // If there are 0 pairs, we let this be 1 (which is not prime) because that
+    // turns out to be convenient in some cases
+    larger_prime = 1;
+    primitive_root = 1;
+    for (size_t i = 0; larger_prime < num_pairs; i++) {
         larger_prime = spaced_primes[i];
+        primitive_root = primitive_roots_of_unity[i];
     }
 }
 
@@ -449,36 +453,33 @@ ShuffledPairs::iterator ShuffledPairs::begin() const {
 }
 
 ShuffledPairs::iterator ShuffledPairs::end() const {
-    return iterator(*this, larger_prime);
+    return iterator(*this, larger_prime - 1);
 }
 
-ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee),
-    permutation_idx(start_at) {
+ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee), permutation_idx(start_at) {
     
-    if (permutation_idx == iteratee.larger_prime) {
+    if (permutation_idx + 1 == iteratee.larger_prime) {
         // Don't run the dereference if we're at the end already. Handles the empty case with nothing to pair.
         return;
     }
     
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx != iteratee.larger_prime &&
+    while (permutation_idx < iteratee.larger_prime &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
         permutation_idx++;
         returned = *(*this);
     }
-    
 }
 
 ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
     // Advance the permutation index
     permutation_idx++;
-    
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx != iteratee.larger_prime &&
+    while (permutation_idx < iteratee.larger_prime &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
@@ -493,7 +494,9 @@ pair<size_t, size_t> ShuffledPairs::iterator::operator*() const {
     pair<size_t, size_t> to_return;
     // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
     // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
-    size_t permuted = (permutation_idx * permutation_idx * permutation_idx) % iteratee.larger_prime;
+    // and
+    // https://stackoverflow.com/questions/10054732/create-a-random-permutation-of-1-n-in-constant-space
+    size_t permuted = modular_exponent(iteratee.primitive_root, permutation_idx, iteratee.larger_prime);
     to_return.first = permuted / iteratee.num_items;
     to_return.second = permuted % iteratee.num_items;
     
@@ -530,12 +533,15 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         
         int32_t mem_score = aligner.score_exact_match(mem.begin, mem.end,
                                                       alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
+        
+#ifdef debug_od_clusterer
         cerr << "adding nodes for MEM " << mem << endl;
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
             maximum_detectable_gaps.push_back(max_gaps);
             cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
         }
+#endif
     }
     
     // Get all the distances between nodes, in a forrest of unrooted trees of
@@ -597,7 +603,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 }
             }
             
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
             cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
 #endif
             
@@ -610,7 +616,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     continue;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                 cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
 #endif
                 
@@ -761,8 +767,6 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         
         const pos_t& pos_1 = get_position(node_pair.first);
         const pos_t& pos_2 = get_position(node_pair.second);
-        
-        cerr << "getting distance" << endl;
         
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                id(pos_2), offset(pos_2), is_rev(pos_2));
