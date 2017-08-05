@@ -1,0 +1,22 @@
+#!/bin/bash
+
+if [ $# -ne 2 ];
+then
+    echo "usage: "$(basename $0) "[vg-graph] [output-dir]"
+    exit
+fi
+
+graph=$1
+outdir=$2
+
+mkdir -p $outdir
+
+vg stats -O $graph | pv -l >$outdir/pathoverlaps.tsv
+
+for cmp in $(cat $outdir/pathoverlaps.tsv | tail -n+2 | cut -f 1 | sort | uniq )
+do
+   echo $cmp
+   cat $outdir/pathoverlaps.tsv \
+       | grep "^comparison\|$cmp" \
+       | Rscript -e 'require(tidyverse); y <- read.delim("stdin"); ggplot(subset(y, comparison == "'$cmp'"), aes(x=x, y=y)) + geom_point(size=0.01) + theme_bw() + labs(title="'$cmp'"); ggsave("'$outdir'/'$cmp'.pdf")'
+done
