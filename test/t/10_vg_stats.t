@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 9
+plan tests 10
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -41,3 +41,4 @@ vg map -x x.xg -g x.gcsa -T x.reads >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"
 rm -f x.vg x.xg x.gcsa x.gam x.reads
 
+is $(vg msga -f msgas/cycle.fa -b s1 -w 32 -t 1 | vg stats -O - | wc -l) 109 "a path overlap description of a cyclic graph built by msga has the expected length"
