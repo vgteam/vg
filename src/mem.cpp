@@ -434,14 +434,12 @@ void MEMChainModel::display(ostream& out) {
     }
 }
 
-ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items) {
+ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items), larger_prime(1), primitive_root(1) {
     
     // Find a prime that is at least as large as but at most a constant factor
     // larger than the number of pairs using the pre-computed list
-    // If there are 0 pairs, we let this be 1 (which is not prime) because that
-    // turns out to be convenient in some cases
-    larger_prime = 1;
-    primitive_root = 1;
+    // If there are 0 or 1 pairs, we let the number stay at 1 (which is not prime) because that
+    // turns out to be convenient
     for (size_t i = 0; larger_prime < num_pairs; i++) {
         larger_prime = spaced_primes[i];
         primitive_root = primitive_roots_of_unity[i];
@@ -456,20 +454,24 @@ ShuffledPairs::iterator ShuffledPairs::end() const {
     return iterator(*this, larger_prime - 1);
 }
 
-ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee), permutation_idx(start_at) {
+ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee), permutation_idx(start_at), permuted(1) {
     
-    if (permutation_idx + 1 == iteratee.larger_prime) {
+    if (permutation_idx + 1 >= iteratee.larger_prime) {
         // Don't run the dereference if we're at the end already. Handles the empty case with nothing to pair.
         return;
     }
     
+    // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
+    // https://stackoverflow.com/questions/10054732/create-a-random-permutation-of-1-n-in-constant-space
+    
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx < iteratee.larger_prime &&
+    while (permutation_idx < iteratee.larger_prime - 1 &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
         permutation_idx++;
+        permuted = (permuted * iteratee.primitive_root) % iteratee.larger_prime;
         returned = *(*this);
     }
 }
@@ -477,13 +479,16 @@ ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at
 ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
     // Advance the permutation index
     permutation_idx++;
+    permuted = (permuted * iteratee.primitive_root) % iteratee.larger_prime;
+    
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx < iteratee.larger_prime &&
+    while (permutation_idx < iteratee.larger_prime - 1 &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
         permutation_idx++;
+        permuted = (permuted * iteratee.primitive_root) % iteratee.larger_prime;
         returned = *(*this);
     }
 
@@ -491,16 +496,7 @@ ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
 }
 
 pair<size_t, size_t> ShuffledPairs::iterator::operator*() const {
-    pair<size_t, size_t> to_return;
-    // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
-    // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
-    // and
-    // https://stackoverflow.com/questions/10054732/create-a-random-permutation-of-1-n-in-constant-space
-    size_t permuted = modular_exponent(iteratee.primitive_root, permutation_idx, iteratee.larger_prime);
-    to_return.first = permuted / iteratee.num_items;
-    to_return.second = permuted % iteratee.num_items;
-    
-    return to_return;
+    return pair<size_t, size_t>(permuted / iteratee.num_items, permuted % iteratee.num_items);
 }
 
 bool ShuffledPairs::iterator::operator==(const iterator& other) const {

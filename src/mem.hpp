@@ -25,10 +25,10 @@ namespace vg {
 using namespace std;
 
 // Prime numbers spaced at approximately logarithmic intervals
-static constexpr size_t spaced_primes[63] = {2ull, 3ull, 7ull, 13ull, 31ull, 61ull, 127ull, 251ull, 509ull, 1021ull, 2039ull, 4093ull, 8191ull, 16381ull, 32749ull, 65521ull, 131071ull, 262139ull, 524287ull, 1048573ull, 2097143ull, 4194301ull, 8388593ull, 16777213ull, 33554393ull, 67108859ull, 134217689ull, 268435399ull, 536870909ull, 1073741789ull, 2147483647ull, 4294967291ull, 8589934583ull, 17179869143ull, 34359738337ull, 68719476731ull, 137438953447ull, 274877906899ull, 549755813881ull, 1099511627689ull, 2199023255531ull, 4398046511093ull, 8796093022151ull, 17592186044399ull, 35184372088777ull, 70368744177643ull, 140737488355213ull, 281474976710597ull, 562949953421231ull, 1125899906842597ull, 2251799813685119ull, 4503599627370449ull, 9007199254740881ull, 18014398509481951ull, 36028797018963913ull, 72057594037927931ull, 144115188075855859ull, 288230376151711717ull, 576460752303423433ull, 1152921504606846883ull, 2305843009213693951ull, 4611686018427387847ull, 9223372036854775783ull};
+static constexpr size_t spaced_primes[62] = {2ull, 5ull, 13ull, 29ull, 53ull, 127ull, 227ull, 487ull, 967ull, 2039ull, 4093ull, 8191ull, 16381ull, 32749ull, 65521ull, 131071ull, 262139ull, 524287ull, 1048573ull, 2097143ull, 4194301ull, 8388593ull, 16777213ull, 33554393ull, 67108859ull, 134217689ull, 268435399ull, 536870909ull, 1073741789ull, 2147483647ull, 4294967291ull, 8589934583ull, 17179869143ull, 34359738337ull, 68719476731ull, 137438953447ull, 274877906899ull, 549755813881ull, 1099511627689ull, 2199023255531ull, 4398046511093ull, 8796093022151ull, 17592186044399ull, 35184372088777ull, 70368744177643ull, 140737488355213ull, 281474976710597ull, 562949953421231ull, 1125899906842597ull, 2251799813685119ull, 4503599627370449ull, 9007199254740881ull, 18014398509481951ull, 36028797018963913ull, 72057594037927931ull, 144115188075855859ull, 288230376151711717ull, 576460752303423433ull, 1152921504606846883ull, 2305843009213693951ull, 4611686018427387847ull, 9223372036854775783ull};
 
-// Precomputed primitive roots of unity paired with these primes
-static constexpr size_t primitive_roots_of_unity[63] = {1ull, 2ull, 3ull, 2ull, 3ull, 2ull, 3ull, 6ull, 2ull, 10ull, 7ull, 2ull, 17ull, 2ull, 2ull, 17ull, 3ull, 2ull, 3ull, 2ull, 5ull, 7ull, 3ull, 5ull, 3ull, 2ull, 3ull, 3ull, 2ull, 2ull, 7ull, 2ull, 5ull, 5ull, 5ull, 2ull, 5ull, 2ull, 11ull, 13ull, 2ull, 2ull, 7ull, 7ull, 10ull, 2ull, 5ull, 2ull, 17ull, 6ull, 11ull, 3ull, 3ull, 3ull, 7ull, 6ull, 2ull, 6ull, 5ull, 2ull, 37ull, 6ull, 3ull};
+// Precomputed primitive roots of unity paired with these primes (chosen randomly from the 20 smallest roots)
+static constexpr size_t primitive_roots_of_unity[62] = {1ull, 3ull, 2ull, 21ull, 27ull, 56ull, 17ull, 45ull, 40ull, 28ull, 69ull, 70ull, 40ull, 31ull, 119ull, 75ull, 42ull, 61ull, 60ull, 46ull, 21ull, 13ull, 39ull, 13ull, 29ull, 15ull, 29ull, 32ull, 37ull, 73ull, 56ull, 45ull, 13ull, 90ull, 51ull, 12ull, 32ull, 11ull, 39ull, 24ull, 8ull, 39ull, 7ull, 51ull, 38ull, 67ull, 2ull, 34ull, 62ull, 19ull, 13ull, 30ull, 12ull, 45ull, 31ull, 57ull, 6ull, 57ull, 3ull, 37ull, 68ull, 54ull};
 
 /**
  * Iterate over pairsets of integers in a pseudorandom but deterministic order.
@@ -74,8 +74,10 @@ public:
         iterator& operator=(const iterator& other) = default;
         
     private:
+        // What is the ordinal value of this element in the permutation?
+        size_t permutation_idx;
         // Which permutation does this iterator mean?
-        size_t permutation_idx = 1;
+        size_t permuted;
         // What are we iterating over?
         const ShuffledPairs& iteratee;
         
