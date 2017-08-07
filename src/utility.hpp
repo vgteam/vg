@@ -422,7 +422,10 @@ void get_input_file(const string& file_name, function<void(istream&)> callback);
 double slope(const std::vector<double>& x, const std::vector<double>& y);
 double fit_zipf(const vector<double>& y);
 
+/// Computes base^exponent in log(exponent) time
 size_t integer_power(size_t base, size_t exponent);
+/// Computes base^exponent mod modulus in log(exponent) time without requiring more
+/// than 64 bits to represent exponentiated number
 size_t modular_exponent(size_t base, size_t exponent, size_t modulus);
     
     
