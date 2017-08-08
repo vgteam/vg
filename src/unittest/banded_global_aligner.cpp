@@ -1943,6 +1943,111 @@ namespace vg {
                 REQUIRE(found_second_opt);
             }
             
+            
+            
+            SECTION( "Banded global aligner can identify four alignments with equal scores" ) {
+                
+                VG graph;
+                
+                Aligner aligner(1, 4, 6, 1);
+                
+                Node* n0 = graph.create_node("A");
+                Node* n1 = graph.create_node("T");
+                Node* n2 = graph.create_node("G");
+                Node* n3 = graph.create_node("A");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("C");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 4;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                bool found_third_opt = false;
+                bool found_fourth_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    bool is_third_opt = true;
+                    bool is_fourth_opt = true;
+                    
+                    const Path& path = alt_aln.path();
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    REQUIRE(path.mapping(0).position().node_id() == n0->id());
+                    is_first_opt = is_first_opt && (path.mapping(1).position().node_id() == n1->id());
+                    is_second_opt = is_second_opt && (path.mapping(1).position().node_id() == n1->id());
+                    is_third_opt = is_third_opt && (path.mapping(1).position().node_id() == n2->id());
+                    is_fourth_opt = is_fourth_opt && (path.mapping(1).position().node_id() == n2->id());
+                    REQUIRE(path.mapping(2).position().node_id() == n3->id());
+                    
+                    // has corrects edit
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence() == "C");
+                    
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(0).to_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(0).edit(0).sequence() == "C");
+                    
+                    is_fourth_opt = is_fourth_opt && (path.mapping(0).edit(0).from_length() == 1);
+                    is_fourth_opt = is_fourth_opt && (path.mapping(0).edit(0).to_length() == 0);
+                    is_fourth_opt = is_fourth_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                    REQUIRE(path.mapping(1).edit(0).to_length() == 0);
+                    REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).to_length() == 0);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).sequence() == "C");
+                    
+                    is_third_opt = is_third_opt && (path.mapping(2).edit(0).from_length() == 1);
+                    is_third_opt = is_third_opt && (path.mapping(2).edit(0).to_length() == 0);
+                    is_third_opt = is_third_opt && (path.mapping(2).edit(0).sequence().empty());
+                    
+                    is_fourth_opt = is_fourth_opt && (path.mapping(2).edit(0).from_length() == 1);
+                    is_fourth_opt = is_fourth_opt && (path.mapping(2).edit(0).to_length() == 1);
+                    is_fourth_opt = is_fourth_opt && (path.mapping(2).edit(0).sequence() == "C");
+                    
+                    REQUIRE(alt_aln.score() == -11);
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
+                    found_third_opt = found_third_opt || is_third_opt;
+                    found_fourth_opt = found_fourth_opt || is_fourth_opt;
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+                REQUIRE(found_third_opt);
+                REQUIRE(found_fourth_opt);
+            }
+            
             SECTION( "Banded global aligner can identify an alternate alignment that branches from another alternate alignment inside a node sequence" ) {
                 
                 VG graph;

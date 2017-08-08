@@ -1226,25 +1226,19 @@ namespace vg {
                 // find the range of starts and ends in the list with the same offset
                 
                 size_t start_range_begin = 0;
-                size_t start_range_end = 0;
+                size_t start_range_end = 1;
                 size_t end_range_begin = 0;
-                size_t end_range_end = 0;
+                size_t end_range_end = 1;
                 
                 size_t curr_start_offset = start_offset(starts[start_range_begin]);
                 size_t curr_end_offset = end_offset(ends[end_range_begin]);
                 size_t prev_offset = 0;
                 
-                while (end_offset(ends[end_range_end]) == curr_end_offset) {
+                while (end_range_end == ends.size() ? false : end_offset(ends[end_range_end]) == curr_end_offset) {
                     end_range_end++;
-                    if (end_range_end == ends.size()) {
-                        break;
-                    }
                 }
-                while (start_offset(starts[start_range_end]) == curr_start_offset) {
+                while (start_range_end == starts.size() ? false : start_offset(starts[start_range_end]) == curr_start_offset) {
                     start_range_end++;
-                    if (start_range_end == starts.size()) {
-                        break;
-                    }
                 }
                 
 #ifdef debug_multipath_mapper
@@ -1316,11 +1310,8 @@ namespace vg {
                 prev_offset = *curr_offset;
                 if (*range_begin != endpoints->size()) {
                     *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
-                    while (endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                    while (*range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
                         (*range_end)++;
-                        if (*range_end == endpoints->size()) {
-                            break;
-                        }
                     }
                 }
                 
@@ -1352,25 +1343,34 @@ namespace vg {
                         prev_range_begin = &prev_start_range_begin;
                         curr_offset = &curr_start_offset;
                     }
+#ifdef debug_multipath_mapper
+                    cerr << "at " << (at_end ? "end" : "start") << "s in range " << *range_begin << ":" << *range_end << endl;
+#endif
                     
                     size_t dist_between = *curr_offset - prev_offset;
                     
                     // connect this range to the previous range
                     if (prev_is_end) {
+#ifdef debug_multipath_mapper
+                        cerr << "looking backwards to ends in range " << prev_end_range_begin << ":" << end_range_begin << endl;
+#endif
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
 #ifdef debug_multipath_mapper
-                                cerr << "identifying end " << ends[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
+                                cerr << "identifying end " << ends[j] << " as reachable from " << (at_end ? "end" : "start") << " " << endpoints->at(k) << endl;
 #endif
                                 (*reachable_ends_from_endpoint)[endpoints->at(k)].emplace_back(ends[j], dist_between);
                             }
                         }
                     }
                     else {
-                        for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
-                            for (size_t k = end_range_begin; k < end_range_end; k++) {
 #ifdef debug_multipath_mapper
-                                cerr << "identifying start " << starts[j] << " as reachable from endpoint " << endpoints->at(k) << endl;
+                        cerr << "looking backwards to starts in range " << prev_start_range_begin << ":" << start_range_begin << endl;
+#endif
+                        for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
+                            for (size_t k = *range_begin; k < *range_end; k++) {
+#ifdef debug_multipath_mapper
+                                cerr << "identifying start " << starts[j] << " as reachable from " << (at_end ? "end" : "start") << " " << endpoints->at(k) << endl;
 #endif
                                 (*reachable_starts_from_endpoint)[endpoints->at(k)].emplace_back(starts[j], dist_between);
                             }
@@ -1386,11 +1386,8 @@ namespace vg {
                     prev_offset = *curr_offset;
                     if (*range_begin != endpoints->size()) {
                         *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
-                        while (endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                        while (*range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
                             (*range_end)++;
-                            if (*range_end == endpoints->size()) {
-                                break;
-                            }
                         }
                     }
                     
@@ -1436,6 +1433,9 @@ namespace vg {
                     size_t dist_between = *curr_offset - prev_offset;
                     
                     if (prev_is_end) {
+#ifdef debug_multipath_mapper
+                        cerr << "looking backwards to ends in range " << prev_end_range_begin << ":" << end_range_begin << endl;
+#endif
                         for (size_t j = prev_end_range_begin; j < end_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
 #ifdef debug_multipath_mapper
@@ -1446,6 +1446,9 @@ namespace vg {
                         }
                     }
                     else {
+#ifdef debug_multipath_mapper
+                        cerr << "looking backwards to starts in range " << prev_start_range_begin << ":" << start_range_begin << endl;
+#endif
                         for (size_t j = prev_start_range_begin; j < start_range_begin; j++) {
                             for (size_t k = *range_begin; k < *range_end; k++) {
 #ifdef debug_multipath_mapper
@@ -1467,11 +1470,8 @@ namespace vg {
                     
                     if (*range_begin != endpoints->size()) {
                         *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
-                        while (endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                        while (*range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
                             (*range_end)++;
-                            if (*range_end == endpoints->size()) {
-                                break;
-                            }
                         }
                     }
                     
@@ -1531,27 +1531,29 @@ namespace vg {
                 
                 // the starts/ends coming into this node from outside
                 size_t range_begin = 0;
-                size_t range_end = 0;
+                size_t range_end = 1;
                 size_t curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
                 size_t prev_offset = curr_offset;
                 // find the range of endpoints that are at the first offset
-                while (endpoint_offset(endpoints->at(range_end), contains_ends)) {
+                while (range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
                     range_end++;
-                    if (range_end == endpoints->size()) {
-                        break;
-                    }
                 }
+                
+#ifdef debug_multipath_mapper
+                cerr << "initial range " << range_begin << ":" << range_end << " is at offset " << curr_offset << endl;
+#endif
+                
                 // connect the range to the incoming starts/ends
                 for (size_t j = range_begin; j < range_end; j++) {
                     for (const pair<size_t, size_t>& incoming_start : reachable_starts[node_id]) {
 #ifdef debug_multipath_mapper
-                        cerr << "identifying start " << incoming_start.first << " as reachable from endpoint " << endpoints->at(j) << endl;
+                        cerr << "identifying start " << incoming_start.first << " as reachable from " << (contains_ends ? "end" : "start") << " " << endpoints->at(j) << endl;
 #endif
                         (*reachable_starts_from_endpoint)[endpoints->at(j)].emplace_back(incoming_start.first, incoming_start.second + curr_offset);
                     }
                     for (const pair<size_t, size_t>& incoming_end : reachable_ends[node_id]) {
 #ifdef debug_multipath_mapper
-                        cerr << "identifying end " << incoming_end.first << " as reachable from endpoint " << endpoints->at(j) << endl;
+                        cerr << "identifying end " << incoming_end.first << " as reachable from " << (contains_ends ? "end" : "start") << " " << endpoints->at(j) << endl;
 #endif
                         (*reachable_ends_from_endpoint)[endpoints->at(j)].emplace_back(incoming_end.first, incoming_end.second + curr_offset);
                     }
@@ -1564,12 +1566,13 @@ namespace vg {
                     // find the range of endpoints at this offset
                     prev_offset = curr_offset;
                     curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
-                    while (endpoint_offset(endpoints->at(range_begin), contains_ends) == curr_offset) {
+                    while (range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
                         range_end++;
-                        if (range_end == endpoints->size()) {
-                            break;
-                        }
                     }
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "next range " << range_begin << ":" << range_end << " is at offset " << curr_offset << endl;
+#endif
                     
                     size_t dist_between = curr_offset - prev_offset;
                     
@@ -1577,9 +1580,9 @@ namespace vg {
                     for (size_t j = range_begin; j < range_end; j++) {
                         for (size_t k = prev_range_begin; k < range_begin; k++) {
 #ifdef debug_multipath_mapper
-                            cerr << "identifying endpoint " << endpoints->at(k) << " as reachable from endpoint " << endpoints->at(j) << endl;
+                            cerr << "identifying " << (contains_ends ? "end" : "start") << " " << endpoints->at(k) << " as reachable from " << (contains_ends ? "end" : "start") << " " << endpoints->at(j) << endl;
 #endif
-                            reachable_endpoints_from_endpoint->at(endpoints->at(j)).push_back(make_pair(endpoints->at(k), dist_between));
+                            (*reachable_endpoints_from_endpoint)[endpoints->at(j)].push_back(make_pair(endpoints->at(k), dist_between));
                         }
                     }
                     prev_range_begin = range_begin;
@@ -1693,7 +1696,7 @@ namespace vg {
         
         vector<unordered_map<size_t, size_t>> noncolinear_shells(match_nodes.size());
         
-        // tuples of (overlap size, index from, index onto, dist)
+        // tuples of (overlap size, index onto, index from, dist)
         vector<tuple<size_t, size_t, size_t, size_t>> confirmed_overlaps;
         
         for (size_t i = 0; i < graph.node_size(); i++) {
@@ -1788,7 +1791,7 @@ namespace vg {
                     else if (start_node.end > candidate_end_node.end && candidate_end_node.begin < start_node.begin) {
                         // the MEM can be made colinear by removing an overlap, which will not threaten reachability
                         size_t overlap = candidate_end_node.end - start_node.begin;
-                        confirmed_overlaps.emplace_back(overlap, candidate_end, start, candidate_dist + overlap);
+                        confirmed_overlaps.emplace_back(overlap, start, candidate_end, candidate_dist + overlap);
                         
 #ifdef debug_multipath_mapper
                         cerr << "connection is overlap colinear, recording to add edge later" << endl;
@@ -1953,13 +1956,13 @@ namespace vg {
                     
                     // are the matches read colinear after removing the overlap?
                     if (overlap_node.end - overlap <= start_node.begin) {
-                        confirmed_overlaps.emplace_back(overlap, overlap_candidate.first, start,
+                        confirmed_overlaps.emplace_back(overlap, start, overlap_candidate.first,
                                                         overlap_candidate.second + overlap);
                     }
                     else if (overlap_node.begin < start_node.begin) {
                         // there is still an even longer read overlap we need to remove
                         overlap = overlap_node.end - start_node.begin;
-                        confirmed_overlaps.emplace_back(overlap, overlap_candidate.first, start,
+                        confirmed_overlaps.emplace_back(overlap, start, overlap_candidate.first,
                                                         overlap_candidate.second + overlap);
                     }
                     else {
@@ -1978,41 +1981,44 @@ namespace vg {
         // conflict (note that all overlap are from an earlier node onto a later one, so we don't need to worry
         // about overlaps coming in from both directions)
         
-        // sort in descending order of overlap length
+        // sort in descending order of overlap length and group by the node that is being cut among overlaps of same length
         std::sort(confirmed_overlaps.begin(), confirmed_overlaps.end(),
                   std::greater<tuple<size_t, size_t, size_t, size_t>>());
         
         // split up each node with an overlap edge onto it
-        for (auto overlap_record : confirmed_overlaps) {
+        auto iter = confirmed_overlaps.begin();
+        while (iter != confirmed_overlaps.end()) {
+            // find the range of overlaps that want to cut this node at the same place
+            auto iter_range_end = iter;
+            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)) {
+                iter_range_end++;
+                if (iter_range_end == confirmed_overlaps.end()) {
+                    break;
+                }
+            }
+        
 #ifdef debug_multipath_mapper
-            cerr << "performing an overlap split from node " << get<1>(overlap_record) << " onto " << get<2>(overlap_record) << " of length " << get<0>(overlap_record) << " at distance " << get<3>(overlap_record) << endl;
+            cerr << "performing an overlap split onto " << get<1>(*iter) << " of length " << get<0>(*iter) << endl;
 #endif
             
             size_t suffix_idx = match_nodes.size();
             
             match_nodes.emplace_back();
-            ExactMatchNode& from_node = match_nodes[get<1>(overlap_record)];
-            ExactMatchNode& onto_node = match_nodes[get<2>(overlap_record)];
+            ExactMatchNode& onto_node = match_nodes[get<1>(*iter)];
             ExactMatchNode& suffix_node = match_nodes.back();
             
 #ifdef debug_multipath_mapper
             cerr << "before splitting:" << endl;
-            cerr << "from node:" << endl << "\t";
-            for (auto iter = from_node.begin; iter != from_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-            cerr << "\t" << pb2json(from_node.path) << endl;
             cerr << "onto node:" << endl << "\t";
-            for (auto iter = onto_node.begin; iter != onto_node.end; iter++) {
-                cerr << *iter;
+            for (auto node_iter = onto_node.begin; node_iter != onto_node.end; node_iter++) {
+                cerr << *node_iter;
             }
             cerr << endl << "\t" << pb2json(onto_node.path) << endl;
 #endif
             
             // divide up the match on the read
             suffix_node.end = onto_node.end;
-            suffix_node.begin = onto_node.begin + get<0>(overlap_record);
+            suffix_node.begin = onto_node.begin + get<0>(*iter);
             onto_node.end = suffix_node.begin;
             
             // transfer the outgoing edges onto the new node
@@ -2022,15 +2028,12 @@ namespace vg {
             onto_node.edges.clear();
             onto_node.edges.emplace_back(suffix_idx, 0);
             
-            // add the overlap edge
-            from_node.edges.emplace_back(suffix_idx, get<3>(overlap_record));
-            
             // store the full path and remove it from the node
             Path full_path = std::move(onto_node.path);
             onto_node.path.Clear();
             
             // add mappings from the path until reaching the overlap point
-            int64_t remaining = get<0>(overlap_record);
+            int64_t remaining = get<0>(*iter);
             int64_t mapping_idx = 0;
             int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
             while (remaining >= mapping_len) {
@@ -2071,22 +2074,33 @@ namespace vg {
             
 #ifdef debug_multipath_mapper
             cerr << "after splitting:" << endl;
-            cerr << "from node:" << endl << "\t";
-            for (auto iter = from_node.begin; iter != from_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl << "\t" << pb2json(from_node.path) << endl;
             cerr << "onto node:" << endl << "\t";
-            for (auto iter = onto_node.begin; iter != onto_node.end; iter++) {
-                cerr << *iter;
+            for (auto node_iter = onto_node.begin; node_iter != onto_node.end; node_iter++) {
+                cerr << *node_iter;
             }
             cerr << endl << "\t" << pb2json(onto_node.path) << endl;
             cerr << "suffix node:" << endl << "\t";
-            for (auto iter = suffix_node.begin; iter != suffix_node.end; iter++) {
-                cerr << *iter;
+            for (auto node_iter = suffix_node.begin; node_iter != suffix_node.end; node_iter++) {
+                cerr << *node_iter;
             }
             cerr << endl << "\t" << pb2json(suffix_node.path) << endl;
 #endif
+            
+            while (iter != iter_range_end) {
+#ifdef debug_multipath_mapper
+                cerr << "adding an overlap edge from node " << get<2>(*iter) << " at distance " << get<3>(*iter) << endl;
+                cerr << "\t";
+                for (auto node_iter = match_nodes[get<2>(*iter)].begin; node_iter != match_nodes[get<2>(*iter)].end; node_iter++) {
+                    cerr << *node_iter;
+                }
+                cerr << endl;
+#endif
+                
+                // get the next node that overlaps onto the other node at this index and add the overlap edge
+                match_nodes[get<2>(*iter)].edges.emplace_back(suffix_idx, get<3>(*iter));
+                
+                iter++;
+            }
         }
         
 #ifdef debug_multipath_mapper

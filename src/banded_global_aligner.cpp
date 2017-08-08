@@ -1099,6 +1099,8 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
         int64_t seed_ncols = seed->node->sequence().length();
         traceback_seed_row = curr_diag - seed->top_diag - seed_ncols + (curr_mat == InsertCol);
         traceback_seed_col = seed_ncols - 1;
+        // check whether we're crossing into a lead gap
+        in_lead_gap = (curr_diag == 0 && curr_mat == Match) || in_lead_gap;
         
 #ifdef debug_banded_aligner_traceback
         cerr << "[BAMatrix::traceback_internal] taking node boundary deflection to " << (deflect_matrix == Match ? "match" : (deflect_matrix == InsertCol ? "insert column" : "insert row")) << " in node " << deflect_node_id << ", will start at coordinates (" << traceback_seed_row << ", " << traceback_seed_col << ")" << endl;
@@ -1414,7 +1416,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                     else if (source_score != min_inf) {
                         alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                        cerr << "[BAMatrix::traceback_internal] no hit in match matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << curr_traceback_score << " and score diff " << score_diff << endl;
+                        cerr << "[BAMatrix::traceback_internal] no hit in match matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
                         traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, Match);
                     }
@@ -1437,7 +1439,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                         else {
                             alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_internal] no hit in insert row matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << curr_traceback_score << " and score diff " << score_diff << endl;
+                            cerr << "[BAMatrix::traceback_internal] no hit in insert row matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
                             traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertCol);
                         }
@@ -1461,7 +1463,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::traceback_internal(BABuilder& build
                         else {
                             alt_score = curr_traceback_score - score_diff;
 #ifdef debug_banded_aligner_traceback
-                            cerr << "[BAMatrix::traceback_internal] no hit in insert column matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << curr_traceback_score << " and score diff " << score_diff << endl;
+                            cerr << "[BAMatrix::traceback_internal] no hit in insert column matrix, proposing deflection with alt score " << (int) alt_score << " from current traceback score " << (int) curr_traceback_score << " and score diff " << (int) score_diff << endl;
 #endif
                             traceback_stack.propose_deflection(alt_score, node_id, i, j, seed_node_id, InsertRow);
                         }
@@ -2405,8 +2407,8 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
                 
                 if (band_matrix->alignment.sequence().empty()) {
                     // if the read sequence is empty then we can only insert relative to the graph
-                    IntType insert_score = band_matrix->cumulative_seq_len ?
-                                           (band_matrix->cumulative_seq_len + band_matrix->node->sequence().size() - 1) * (-gap_extend) - gap_open : 0;
+                    size_t graph_length = band_matrix->cumulative_seq_len + band_matrix->node->sequence().size();
+                    IntType insert_score = graph_length ? (graph_length - 1) * (-gap_extend) - gap_open : 0;
                     insert_traceback(null_prefix, insert_score, node_id, final_row, final_col, node_id, InsertCol, path);
                 }
                 else {
