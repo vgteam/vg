@@ -14,7 +14,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 void help_genotype(char** argv) {
-    cerr << "usage: " << argv[0] << " genotype [options] <graph.vg> <reads.index/> > <calls.vcf>" << endl
+    cerr << "usage: " << argv[0] << " genotype [options] <graph.vg> [reads.index/] > <calls.vcf>" << endl
          << "Compute genotypes from a graph and an indexed collection of reads" << endl
          << endl
          << "options:" << endl
@@ -42,7 +42,7 @@ void help_genotype(char** argv) {
 
 int main_genotype(int argc, char** argv) {
 
-    if (argc <= 3) {
+    if (argc <= 2) {
         help_genotype(argv);
         return 1;
     }
@@ -72,6 +72,7 @@ int main_genotype(int argc, char** argv) {
     string gam_file;
     string fasta;
     string insertions_file;
+    bool useindex = true;
 
     // Should we use mapping qualities?
     bool use_mapq = false;
@@ -204,6 +205,7 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'G':
             gam_file = optarg;
+            useindex = false;
             break;
         case 'h':
         case '?':
@@ -225,6 +227,7 @@ int main_genotype(int argc, char** argv) {
         help_genotype(argv);
         return 1;
     }
+
     if (show_progress) {
         cerr << "Reading input graph..." << endl;
     }
@@ -241,7 +244,32 @@ int main_genotype(int argc, char** argv) {
         exit(0);
     }
 
-    if (!(gam_file.empty() || recall_vcf.empty() || fasta.empty() || insertions_file.empty())){
+      // setup reads index
+    if (optind >= argc) {
+        help_genotype(argv);
+        return 1;
+    }
+
+    string reads_index_name = "";
+    if (optind < argc){
+        reads_index_name = get_input_file_name(optind, argc, argv);
+
+    }
+    // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
+    Index index;
+    if (useindex){
+        index.open_read_only(reads_index_name);
+        gam_file = reads_index_name;
+    }
+
+    // Build the set of all the node IDs to operate on
+    vector<vg::id_t> graph_ids;
+    graph->for_each_node([&](Node* node) {
+        // Put all the ids in the set
+        graph_ids.push_back(node->id());
+    });
+
+    if (!(recall_vcf.empty() || fasta.empty())){
         Genotyper gt;
         vcflib::VariantCallFile* vars = new vcflib::VariantCallFile();
         vars->open(recall_vcf);
@@ -254,28 +282,14 @@ int main_genotype(int argc, char** argv) {
             insertions.emplace_back(ins);
             ins->open(insertions_file);
         }
-        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file);
+        gt.variant_recall(graph, vars, lin_ref, insertions, gam_file, useindex);
         return 0;
 
     }
 
-    // setup reads index
-    if (optind >= argc) {
-        help_genotype(argv);
-        return 1;
-    }
+  
 
-    string reads_index_name = get_input_file_name(optind, argc, argv);
-    // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
-    Index index;
-    index.open_read_only(reads_index_name);
-
-    // Build the set of all the node IDs to operate on
-    vector<vg::id_t> graph_ids;
-    graph->for_each_node([&](Node* node) {
-        // Put all the ids in the set
-        graph_ids.push_back(node->id());
-    });
+    
 
     // Load all the reads matching the graph into memory
     vector<Alignment> alignments;
