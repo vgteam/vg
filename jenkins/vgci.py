@@ -694,11 +694,13 @@ class VGCITest(TestCase):
 
         # test the mapeval results, only looking at baseline keys
         for key, val in baseline_dict.iteritems():
-            self.assertTrue(stats_dict[key][0] == reads)
-            self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
-            # disable roc test for now
-            #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
-
+            if key in stats_dict:
+                self.assertTrue(stats_dict[key][0] == reads)
+                self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
+                # disable roc test for now
+                #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+            else:
+                log.warning('Key {} from baseline not found in stats'.format(key))
             
         # This holds the condition names we want a better score than
         score_baselines = ['input']
@@ -851,20 +853,20 @@ class VGCITest(TestCase):
         # Compare all realignment scores agaisnt the scores for the primary
         # graph.
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'shifted1kg'],
+                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
-                           negative_control='shifted1kg',
+                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'shifted1kg'],
+                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
-                           negative_control='shifted1kg',
+                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
 
     @timeout_decorator.timeout(200)
