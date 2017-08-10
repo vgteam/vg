@@ -209,6 +209,12 @@ public:
                               xg::XG* xgindex,
                               size_t max_expected_dist_approx_error = 8);
     
+    OrientedDistanceClusterer(const Alignment& alignment,
+                              const vector<MaximalExactMatch>& mems,
+                              const Aligner& aligner,
+                              xg::XG* xgindex,
+                              size_t max_expected_dist_approx_error = 8);
+    
     /// Each hit contains a pointer to the original MEM and the position of that
     /// particular hit in the graph.
     using hit_t = pair<const MaximalExactMatch*, pos_t>;
@@ -232,6 +238,14 @@ private:
     class ODNode;
     class ODEdge;
     struct DPScoreComparator;
+    
+    /// Internal constructor that public constructors filter into
+    OrientedDistanceClusterer(const Alignment& alignment,
+                              const vector<MaximalExactMatch>& mems,
+                              const Aligner* aligner,
+                              const QualAdjAligner* qual_adj_aligner,
+                              xg::XG* xgindex,
+                              size_t max_expected_dist_approx_error);
     
     /**
      * Given a certain number of items, and a callback to get each item's
@@ -277,7 +291,8 @@ private:
     
     vector<ODNode> nodes;
     
-    const QualAdjAligner& aligner;
+    const Aligner* aligner;
+    const QualAdjAligner* qual_adj_aligner;
 };
 
 class OrientedDistanceClusterer::ODNode {

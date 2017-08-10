@@ -5,7 +5,7 @@
 
 #include "mem.hpp"
 
-#define debug_od_clusterer
+//#define debug_od_clusterer
 
 namespace vg {
     
@@ -506,12 +506,32 @@ bool ShuffledPairs::iterator::operator==(const iterator& other) const {
 bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
     return !(*this == other);
 }
+    
+OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
+                                                     const vector<MaximalExactMatch>& mems,
+                                                     const QualAdjAligner& aligner,
+                                                     xg::XG* xgindex,
+                                                     size_t max_expected_dist_approx_error) :
+    OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error) {
+    // nothing else to do
+}
 
 OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
-                                       const vector<MaximalExactMatch>& mems,
-                                       const QualAdjAligner& aligner,
-                                       xg::XG* xgindex,
-                                       size_t max_expected_dist_approx_error) : aligner(aligner) {
+                                                     const vector<MaximalExactMatch>& mems,
+                                                     const Aligner& aligner,
+                                                     xg::XG* xgindex,
+                                                     size_t max_expected_dist_approx_error) :
+    OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error) {
+    // nothing else to do
+}
+
+OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
+                                                     const vector<MaximalExactMatch>& mems,
+                                                     const Aligner* aligner,
+                                                     const QualAdjAligner* qual_adj_aligner,
+                                                     xg::XG* xgindex,
+                                                     size_t max_expected_dist_approx_error) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
+    
     
     // the maximum graph distances to the right and left sides detectable from each node
     vector<pair<size_t, size_t>> maximum_detectable_gaps;
@@ -523,12 +543,19 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     for (const MaximalExactMatch& mem : mems) {
         
         // calculate the longest gaps we could detect to the left and right of this MEM
-        pair<size_t, size_t> max_gaps(aligner.longest_detectable_gap(alignment, mem.begin),
-                                      aligner.longest_detectable_gap(alignment, mem.end));
-        
-        
-        int32_t mem_score = aligner.score_exact_match(mem.begin, mem.end,
-                                                      alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
+        pair<size_t, size_t> max_gaps;
+        int32_t mem_score;
+        if (aligner) {
+            max_gaps.first = aligner->longest_detectable_gap(alignment, mem.begin);
+            max_gaps.second = aligner->longest_detectable_gap(alignment, mem.end);
+            mem_score = aligner->score_exact_match(mem.begin, mem.end);
+        }
+        else {
+            max_gaps.first = qual_adj_aligner->longest_detectable_gap(alignment, mem.begin);
+            max_gaps.second = qual_adj_aligner->longest_detectable_gap(alignment, mem.end);
+            mem_score = qual_adj_aligner->score_exact_match(mem.begin, mem.end, alignment.quality().begin()
+                                                            + (mem.begin - alignment.sequence().begin()));
+        }
         
 #ifdef debug_od_clusterer
         cerr << "adding nodes for MEM " << mem << endl;
@@ -552,6 +579,20 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
+    
+    int64_t match_score, mismatch_score, gap_open_score, gap_extension_score;
+    if (aligner) {
+        match_score = aligner->match;
+        mismatch_score = aligner->mismatch;
+        gap_open_score = aligner->gap_open;
+        gap_extension_score = aligner->gap_extension;
+    }
+    else {
+        match_score = qual_adj_aligner->match;
+        mismatch_score = qual_adj_aligner->mismatch;
+        gap_open_score = qual_adj_aligner->gap_open;
+        gap_extension_score = qual_adj_aligner->gap_extension;
+    }
     
     int64_t allowance = max_expected_dist_approx_error;
     for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
@@ -639,22 +680,22 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     
                     int64_t extra_dist = max<int64_t>(0, gap_length);
                     
-                    edge_score = -aligner.match * between_length
-                                 + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
+                    edge_score = -match_score * between_length
+                                 + (extra_dist ? -(extra_dist - 1) * gap_extension_score - gap_open_score : 0);
                 }
                 else if (between_length > graph_dist) {
                     // the read length in between the MEMs is longer than the distance, suggesting a read insert
-                    edge_score = -aligner.mismatch * graph_dist - (gap_length - 1) * aligner.gap_extension
-                                 - aligner.gap_open;
+                    edge_score = -mismatch_score * graph_dist - (gap_length - 1) * gap_extension_score
+                                 - gap_open_score;
                 }
                 else if (between_length < graph_dist) {
                     // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-                    edge_score = -aligner.mismatch * between_length - (gap_length - 1) * aligner.gap_extension
-                                 - aligner.gap_open;
+                    edge_score = -mismatch_score * between_length - (gap_length - 1) * gap_extension_score
+                                 - gap_open_score;
                 }
                 else {
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_score = -aligner.mismatch * between_length;
+                    edge_score = -mismatch_score * between_length;
                 }
                 
                 // add the edges in
@@ -1210,7 +1251,11 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     
     std::make_heap(component_traceback_ends.begin(), component_traceback_ends.end());
     
+    // estimate the minimum score a cluster must obtain to even affect the mapping quality
+    // TODO: this approximation could break down sometimes, need to look into it
     int32_t top_score = component_traceback_ends.front().first;
+    const BaseAligner* base_aligner = aligner ? (BaseAligner*) aligner : (BaseAligner*) qual_adj_aligner;
+    int32_t suboptimal_score_cutoff = top_score - base_aligner->mapping_quality_score_diff(max_qual_score);
     
     while (!component_traceback_ends.empty()) {
         // get the next highest scoring traceback end
@@ -1226,9 +1271,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
 #endif
         // if this cluster does not look like it even affect the mapping quality of the top scoring
         // cluster, don't bother forming it
-        // TODO: this approximation could break down sometimes, need to look into it
-        // TODO: is there a way to make the aligner do this? I don't like having this functionality outside of it
-        if (4.3429448190325183 * aligner.log_base * (top_score - traceback_end.first) > max_qual_score ) {
+        if (traceback_end.first < suboptimal_score_cutoff) {
 #ifdef debug_od_clusterer
             cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << endl;
 #endif
