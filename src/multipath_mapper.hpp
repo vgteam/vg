@@ -15,11 +15,13 @@
 #include "mapper.hpp"
 #include "gssw_aligner.hpp"
 #include "types.hpp"
+#include "multipath_alignment.hpp"
 #include "utility.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
 #include "position.hpp"
 #include "path.hpp"
+#include "edit.hpp"
 #include "snarls.hpp"
 #include "algorithms/vg_algorithms.hpp"
 
@@ -40,6 +42,9 @@ namespace vg {
                            list<MultipathAlignment>& multipath_alns_out,
                            size_t max_alt_alns);
         
+        /// Debugging function to check that multipath alignment meets the formalism's basic
+        /// invariants. Returns true if multipath alignment is valid, else false.
+        bool validate_multipath_alignment(const MultipathAlignment& multipath_aln);
         
     private:
         
@@ -61,6 +66,9 @@ namespace vg {
         
         /// Computes the number of read bases a cluster of MEM hits covers.
         int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
+        
+        /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
+        void topologically_order_subpaths(MultipathAlignment& multipath_aln);
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment);

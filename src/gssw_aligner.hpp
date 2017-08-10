@@ -144,8 +144,12 @@ namespace vg {
                                             double mq_estimate2,
                                             double identity_weight);
         
-        // Convert a score to an unnormalized log likelihood for the sequence.
-        // Requires log_base to have been set.
+        /// Returns the  difference between an optimal and second-best alignment scores that would
+        /// result in this mapping quality using the fast mapping quality approximation
+        double mapping_quality_score_diff(double mapping_quality) const;
+        
+        /// Convert a score to an unnormalized log likelihood for the sequence.
+        /// Requires log_base to have been set.
         double score_to_unnormalized_likelihood_ln(double score);
         
         /// The longest gap detectable from a read position without soft-clipping

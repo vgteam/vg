@@ -4820,7 +4820,7 @@ void FragmentLengthDistribution::estimate_distribution() {
     // use cumulants to compute moments
     mu = sum / count;
     double raw_var = sum_of_sqs / count - mu * mu;
-    // apply method of moments estimation using the appropriate truncated normal distribution`
+    // apply method of moments estimation using the appropriate truncated normal distribution
     double a = normal_inverse_cdf(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
     sigma = sqrt(raw_var * robust_estimation_fraction / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }

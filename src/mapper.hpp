@@ -93,7 +93,7 @@ public:
     
     /// Switches the entire program to single-threaded mode until reaching the maximum
     /// sample size so that estimation is deterministic. After reaching the maximum, the
-    /// thread count is automaticaly switched back.
+    /// thread count is automatically switched back.
     void determinize_estimation();
     
     /// Manually switches back to multithreaded mode
@@ -121,7 +121,7 @@ private:
     size_t reestimation_frequency;
     
     double mu = 0.0;
-    double sigma = 0.0;
+    double sigma = 1.0;
     
     int multithread_reset = 0;
     

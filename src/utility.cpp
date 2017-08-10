@@ -546,7 +546,7 @@ double fit_zipf(const vector<double>& y) {
 
 // exponentiation by squaring as implemented in
 // https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
-size_t integer_power(size_t base, size_t exponent) {
+size_t integer_power(uint64_t base, uint64_t exponent) {
     size_t result = 1;
     while (exponent) {
         if (exponent & 1) {
@@ -560,7 +560,7 @@ size_t integer_power(size_t base, size_t exponent) {
 
 // modular exponent by squaring as described in
 // https://en.wikipedia.org/wiki/Modular_exponentiation`
-size_t modular_exponent(size_t base, size_t exponent, size_t modulus) {
+size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus) {
     if (modulus == 1) {
         return 0;
     }

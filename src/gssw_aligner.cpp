@@ -795,6 +795,10 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
 
 }
 
+double BaseAligner::mapping_quality_score_diff(double mapping_quality) const {
+    return mapping_quality / (quality_scale_factor * log_base);
+}
+
 double BaseAligner::estimate_next_best_score(int length, double min_diffs) {
     return ((length - min_diffs) * match - min_diffs * mismatch);
 }
@@ -884,7 +888,7 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
         }
     }
     
-    return max(0, score);
+    return score;
 }
 
 int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {
@@ -1491,10 +1495,10 @@ int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offs
     auto& sequence = aln.sequence();
     auto& base_quality = aln.quality();
     int32_t score = 0;
-    for (int32_t i = 0; i < sequence.length(); i++) {
+    for (int32_t i = 0; i < length; i++) {
         // index 5 x 5 score matrices (ACGTN)
         // always have match so that row and column index are same and can combine algebraically
-        score += score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+        score += score_matrix[25 * base_quality[read_offset + i] + 6 * nt_table[sequence[read_offset + i]]];
     }
     return score;
 }
