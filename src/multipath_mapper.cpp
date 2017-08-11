@@ -24,8 +24,8 @@ namespace vg {
     }
     
     void MultipathMapper::multipath_map(const Alignment& alignment,
-                                        list<MultipathAlignment>& multipath_alns_out,
-                                        size_t max_alt_alns) {
+                                        vector<MultipathAlignment>& multipath_alns_out,
+                                        size_t max_alt_mappings) {
     
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
@@ -89,14 +89,19 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "aligning to subgraphs..." << endl;
 #endif
+      
+        size_t num_mappings_to_report = max_alt_mappings;
+        size_t num_mappings_to_compute = mapping_quality_method != None ? max(max_alt_mappings, (size_t) 2) : max_alt_mappings;
+        multipath_alns_out.clear();
+        multipath_alns_out.reserve(num_mappings_to_compute);
         
         // align to each cluster subgraph
-        size_t num_alns = 0;
+        size_t num_mappings = 0;
         for (VG* vg : cluster_graphs) {
             // if we have a cluster graph with small enough MEM coverage compared to the best one or we've made
             // the maximum number of alignments we stop producing alternate alignments
             if (cluster_graph_coverage[vg] < mem_coverage_min_ratio * cluster_graph_coverage[cluster_graphs[0]]
-                || num_alns >= max_alt_alns) {
+                || num_mappings >= num_mappings_to_compute) {
                 break;
             }
             
@@ -107,7 +112,7 @@ namespace vg {
             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = cluster_graph_mems[vg];
             multipath_align(alignment, vg, graph_mems, multipath_alns_out);
             
-            num_alns++;
+            num_mappings++;
         }
         
 #ifdef debug_multipath_mapper
@@ -115,6 +120,24 @@ namespace vg {
 #endif
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
             topologically_order_subpaths(multipath_aln);
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "computing mapping quality and sorting mappings" << endl;
+#endif
+        sort_and_compute_mapping_quality(multipath_alns_out);
+        
+        while (multipath_alns_out.size() > num_mappings_to_report) {
+            multipath_alns_out.pop_back();
+        }
+        
+        if (strip_bonuses) {
+#ifdef debug_multipath_mapper
+            cerr << "removing full length bonuses" << endl;
+#endif
+            for (MultipathAlignment& multipath_aln : multipath_alns_out) {
+                strip_full_length_bonuses(multipath_aln);
+            }
         }
         
         for (VG* vg : cluster_graphs) {
@@ -279,7 +302,7 @@ namespace vg {
     
     void MultipathMapper::multipath_align(const Alignment& alignment, VG* vg,
                                           vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
-                                          list<MultipathAlignment>& multipath_alns_out) {
+                                          vector<MultipathAlignment>& multipath_alns_out) {
 #ifdef debug_multipath_mapper
         cerr << "constructing alignment graph" << endl;
 #endif
@@ -912,6 +935,84 @@ namespace vg {
         return total + (curr_end - curr_begin);
     }
     
+    void MultipathMapper::strip_full_length_bonuses(MultipathAlignment& mulipath_aln) {
+        
+        int32_t full_length_bonus = adjust_alignments_for_base_quality ? qual_adj_aligner->full_length_bonus
+                                                                       : regular_aligner->full_length_bonus;
+        // strip bonus from source paths
+        if (mulipath_aln.start_size()) {
+            // use the precomputed list of sources if we have it
+            for (size_t i = 0; i < mulipath_aln.start_size(); i++) {
+                Subpath* source_subpath = mulipath_aln.mutable_subpath(mulipath_aln.start(i));
+                if (edit_is_insertion(source_subpath->path().mapping(0).edit(0))) {
+                    source_subpath->set_score(source_subpath->score() - full_length_bonus);
+                }
+            }
+        }
+        else {
+            // find sources
+            vector<bool> is_source(mulipath_aln.subpath_size(), true);
+            for (size_t i = 0; i < mulipath_aln.subpath_size(); i++) {
+                const Subpath& subpath = mulipath_aln.subpath(i);
+                for (size_t j = 0; j < subpath.next_size(); j++) {
+                    is_source[subpath.next(j)] = false;
+                }
+            }
+            // strip the bonus from the sources
+            for (size_t i = 0; i < mulipath_aln.subpath_size(); i++) {
+                if (!is_source[i]) {
+                    continue;
+                }
+                Subpath* source_subpath = mulipath_aln.mutable_subpath(i);
+                if (edit_is_insertion(source_subpath->path().mapping(0).edit(0))) {
+                    source_subpath->set_score(source_subpath->score() - full_length_bonus);
+                }
+            }
+        }
+        // strip bonus from sink paths
+        for (size_t i = 0; i < mulipath_aln.subpath_size(); i++) {
+            Subpath* subpath = mulipath_aln.mutable_subpath(i);
+            if (subpath->next_size() == 0) {
+                const Mapping& final_mapping = subpath->path().mapping(subpath->path().mapping_size() - 1);
+                if (edit_is_insertion(final_mapping.edit(final_mapping.edit_size() - 1))) {
+                    subpath->set_score(subpath->score() - full_length_bonus);
+                }
+            }
+        }
+    }
+    
+    double MultipathMapper::sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) {
+        // query the scores of the optimal alignments
+        vector<int32_t> scores(multipath_alns.size(), 0);
+        for (size_t i = 0; i < multipath_alns.size(); i++) {
+            scores[i] = optimal_alignment_score(multipath_alns[i]);
+        }
+        
+        // insertion sort the multipath alignments by score
+        for (size_t i = 1; i < multipath_alns.size(); i++) {
+            size_t pos = i;
+            while (scores[pos] > scores[pos - 1]) {
+                swap(scores[pos], scores[pos - 1]);
+                swap(multipath_alns[pos], multipath_alns[pos - 1]);
+                pos--;
+                if (pos == 0) {
+                    break;
+                }
+            }
+        }
+        
+        if (mapping_quality_method != None) {
+            int32_t mapq = adjust_alignments_for_base_quality ? qual_adj_aligner->compute_mapping_quality(scores, mapping_quality_method == Approx)
+                                                              : regular_aligner->compute_mapping_quality(scores, mapping_quality_method == Approx);
+            multipath_alns.front().set_mapping_quality(mapq);
+        }
+    }
+    
+    void MultipathMapper::set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio) {
+        double log_base = adjust_alignments_for_base_quality ? qual_adj_aligner->log_base : regular_aligner->log_base;
+        max_suboptimal_path_score_diff = (int32_t) ceil(log(maximum_acceptable_ratio) / log_base);
+    }
+    
     bool MultipathMapper::validate_multipath_alignment(const MultipathAlignment& multipath_aln) {
         
         // are the subpaths in topological order?
@@ -1371,7 +1472,7 @@ namespace vg {
                             // as we enter this node, we are leaving the snarl we were in
                             
                             // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
-                            if (prefix_length - curr_level->first <= max_snarl_cut_size) {
+                            if (prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) {
                                 cut_segments.emplace_back(curr_level->second, j);
                             }
                             
@@ -1411,7 +1512,7 @@ namespace vg {
                 // check the final segment for a cut unless we're at the highest level in the match
                 auto last = level_segment_begin.end();
                 last--;
-                if (prefix_length - curr_level->first <= max_snarl_cut_size && curr_level != last) {
+                if ((prefix_length - curr_level->first <= max_snarl_cut_size || !max_snarl_cut_size) && curr_level != last) {
                     cut_segments.emplace_back(curr_level->second, path->mapping_size());
                 }
                 

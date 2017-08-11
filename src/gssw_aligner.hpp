@@ -118,10 +118,10 @@ namespace vg {
         /// given offset, of the given length.
         virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
         
-        // stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
-        // probability that the alignment is not the correct one (assuming that one of the alignments
-        // in the vector is correct). alignments must have been created with this Aligner for quality
-        // score to be valid
+        /// stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
+        /// probability that the alignment is not the correct one (assuming that one of the alignments
+        /// in the vector is correct). alignments must have been created with this Aligner for quality
+        /// score to be valid
         void compute_mapping_quality(vector<Alignment>& alignments,
                                      int max_mapping_quality,
                                      bool fast_approximation,
@@ -130,7 +130,7 @@ namespace vg {
                                      int overlap_count,
                                      double mq_estimate,
                                      double identity_weight);
-        // same function for paired reads, mapping qualities are stored in both alignments in the pair
+        /// same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             const vector<double>& frag_weights,
                                             int max_mapping_quality1,
@@ -143,6 +143,9 @@ namespace vg {
                                             double mq_estimate1,
                                             double mq_estimate2,
                                             double identity_weight);
+        
+        /// Computes mapping quality for the optimal score in a vector of scores
+        int32_t compute_mapping_quality(vector<int32_t> scores, bool fast_approximation);
         
         /// Returns the  difference between an optimal and second-best alignment scores that would
         /// result in this mapping quality using the fast mapping quality approximation

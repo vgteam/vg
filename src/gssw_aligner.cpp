@@ -651,14 +651,12 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         exit(EXIT_FAILURE);
     }
     
-    size_t size = alignments.size();
-    
-    if (size == 0) {
+    if (alignments.empty()) {
         return;
     }
     
-    vector<double> scaled_scores(size);
-    for (size_t i = 0; i < size; i++) {
+    vector<double> scaled_scores(alignments.size());
+    for (size_t i = 0; i < alignments.size(); i++) {
         scaled_scores[i] = log_base * alignments[i].score();
     }
 
@@ -697,6 +695,17 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
     for (int i = 1; i < alignments.size(); ++i) {
         alignments[0].add_secondary_score(alignments[i].score());
     }
+}
+
+int32_t BaseAligner::compute_mapping_quality(vector<int32_t> scores, bool fast_approximation) {
+    
+    vector<double> scaled_scores(scores.size(), 0.0);
+    for (size_t i = 0; i < scores.size(); i++) {
+        scaled_scores[i] = log_base * scores[i];
+    }
+    size_t idx;
+    return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx)
+                                         : maximum_mapping_quality_exact(scaled_scores, &idx));
 }
 
 void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
@@ -1317,7 +1326,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     }
     
     if (align_quality.length() != align_sequence.length()) {
-        cerr << "error:[Aligner] sequence and quality strings different lengths, cannot perform base quality adjusted alignment" << endl;
+        cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment." << endl;
         exit(EXIT_FAILURE);
     }
     

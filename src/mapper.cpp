@@ -4808,7 +4808,7 @@ void FragmentLengthDistribution::estimate_distribution() {
         begin++;
         end--;
     }
-    // compute cumulants
+    // compute mean
     double count = 0.0;
     double sum = 0.0;
     double sum_of_sqs = 0.0;
