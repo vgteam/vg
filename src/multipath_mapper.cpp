@@ -4,8 +4,8 @@
 //
 //
 
-//#define debug_multipath_mapper
-//#define debug_validate_multipath_alignments
+#define debug_multipath_mapper
+#define debug_validate_multipath_alignments
 
 #include "multipath_mapper.hpp"
 
@@ -116,7 +116,7 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
-        cerr << "topologically ordering the multipath alignments" << endl;
+        cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
 #endif
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
             topologically_order_subpaths(multipath_aln);
@@ -297,6 +297,15 @@ namespace vg {
                     cluster_graph_mems_out[cluster_graphs_out[cluster_idx]].push_back(make_pair(&mem, make_pos_t(hit)));
                 }
             }
+        }
+        
+        // sort MEMs in decreasing order by length
+        for (auto iter = cluster_graph_mems_out.begin(); iter != cluster_graph_mems_out.end(); iter++) {
+            vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = iter->second;
+            sort(graph_mems.begin(), graph_mems.end(), [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
+                                                          const pair<const MaximalExactMatch*, pos_t>& hit_2) {
+                return hit_1.first->length() > hit_2.first->length();
+            });
         }
     }
     
@@ -803,42 +812,42 @@ namespace vg {
         
         // if the starts have already been identified, we can do an optimization and
         // construct the in degree vector on the fly
-        if (multipath_aln.start_size()) {
-            
-            // add each of the source nodes and their edges
-            for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-                stack.push_back(multipath_aln.start(i));
-                const Subpath& subpath = multipath_aln.subpath(multipath_aln.start(i));
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    in_degree[subpath.next(j)]++;
-                }
-            }
-            
-            while (!stack.empty()) {
-                // pop a source node and add it to the topological order
-                size_t here = stack.back();
-                stack.pop_back();
-                
-                topological_order[order_idx] = here;
-                order_idx++;
-                
-                // remove the node's edges
-                const Subpath& subpath = multipath_aln.subpath(here);
-                for (size_t i = 0; i < subpath.next_size(); i++) {
-                    size_t next = subpath.next(i);
-                    in_degree[next]--;
-                    // if a node is now a source add it to the stack and add its edges
-                    if (!in_degree[next]) {
-                        stack.push_back(next);
-                        const Subpath& next_subpath = multipath_aln.subpath(next);
-                        for (size_t j = 0; j < next_subpath.next_size(); j++) {
-                            in_degree[next_subpath.next(j)]++;
-                        }
-                    }
-                }
-            }
-        }
-        else {
+//        if (multipath_aln.start_size()) {
+//            
+//            // add each of the source nodes and their edges
+//            for (size_t i = 0; i < multipath_aln.start_size(); i++) {
+//                stack.push_back(multipath_aln.start(i));
+//                const Subpath& subpath = multipath_aln.subpath(multipath_aln.start(i));
+//                for (size_t j = 0; j < subpath.next_size(); j++) {
+//                    in_degree[subpath.next(j)]++;
+//                }
+//            }
+//            
+//            while (!stack.empty()) {
+//                // pop a source node and add it to the topological order
+//                size_t here = stack.back();
+//                stack.pop_back();
+//                
+//                topological_order[order_idx] = here;
+//                order_idx++;
+//                
+//                // remove the node's edges
+//                const Subpath& subpath = multipath_aln.subpath(here);
+//                for (size_t i = 0; i < subpath.next_size(); i++) {
+//                    size_t next = subpath.next(i);
+//                    in_degree[next]--;
+//                    // if a node is now a source add it to the stack and add its edges
+//                    if (!in_degree[next]) {
+//                        stack.push_back(next);
+//                        const Subpath& next_subpath = multipath_aln.subpath(next);
+//                        for (size_t j = 0; j < next_subpath.next_size(); j++) {
+//                            in_degree[next_subpath.next(j)]++;
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        else {
             // we have not precomputed the source nodes
             
             // compute the in degrees of the nodes
@@ -875,13 +884,18 @@ namespace vg {
                     }
                 }
             }
-        }
+//        }
         
         // identify the index that we want each node to end up at
         vector<size_t> index(topological_order.size());
         for (size_t i = 0; i < topological_order.size(); i++) {
             index[topological_order[i]] = i;
         }
+        
+//        for (auto i : topological_order) {
+//            cerr << i << " ";
+//        }
+//        cerr << endl;
         
         // in place permutation according to the topological order
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -1025,6 +1039,9 @@ namespace vg {
             const Subpath& subpath = multipath_aln.subpath(i);
             for (size_t j = 0; j < subpath.next_size(); j++) {
                 if (subpath.next(j) <= i) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on topological order" << endl;
+#endif
                     return false;
                 }
             }
@@ -1047,11 +1064,17 @@ namespace vg {
             }
             
             if (num_starts != multipath_aln.start_size()) {
+#ifdef debug_multipath_mapper
+                cerr << "validation failure on correct number of starts" << endl;
+#endif
                 return false;
             }
             
             for (size_t i = 0; i < multipath_aln.start_size(); i++) {
                 if (!is_source[multipath_aln.start(i)]) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on correctly identified starts" << endl;
+#endif
                     return false;
                 }
             }
@@ -1072,6 +1095,9 @@ namespace vg {
             
             if (!subpath.next_size()) {
                 if (subpath_read_interval[i].second != multipath_aln.sequence().size()) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on using complete read" << endl;
+#endif
                     return false;
                 }
             }
@@ -1079,6 +1105,9 @@ namespace vg {
                 for (size_t j = 0; j < subpath.next_size(); j++) {
                     if (subpath_read_interval[subpath.next(j)].first >= 0) {
                         if (subpath_read_interval[subpath.next(j)].first != subpath_read_interval[i].second) {
+#ifdef debug_multipath_mapper
+                            cerr << "validation failure on read contiguity" << endl;
+#endif
                             return false;
                         }
                     }
@@ -1093,6 +1122,9 @@ namespace vg {
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             if (multipath_aln.subpath(i).path().mapping_size() == 0) {
+#ifdef debug_multipath_mapper
+                cerr << "validation failure on containing only nonempty paths" << endl;
+#endif
                 return false;
             }
         }
@@ -1105,11 +1137,19 @@ namespace vg {
             if (mapping_from.position().node_id() == mapping_to.position().node_id() &&
                 mapping_from.position().is_reverse() == mapping_to.position().is_reverse()) {
                 if (mapping_to.position().offset() != mapping_from_end_offset) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on within-node adjacency" << endl;
+                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+#endif
                     return false;
                 }
             }
             else {
                 if (mapping_from_end_offset != xindex->node_length(mapping_from.position().node_id())) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on using edge at middle of node" << endl;
+                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+#endif
                     return false;
                 }
                 
@@ -1135,6 +1175,10 @@ namespace vg {
                 }
                 
                 if (!found_edge) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on nodes not connected by an edge" << endl;
+                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+#endif
                     return false;
                 }
             }
@@ -1169,6 +1213,10 @@ namespace vg {
                 if (edit_is_match(edit)) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if (node_seq[node_idx] != subseq[seq_idx]) {
+#ifdef debug_multipath_mapper
+                            cerr << "validation failure on match that does not match" << endl;
+                            cerr << pb2json(mapping) << ", " << subseq << endl;
+#endif
                             return false;
                         }
                     }
@@ -1176,15 +1224,30 @@ namespace vg {
                 else if (edit_is_sub(edit)) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if (node_seq[node_idx] == subseq[seq_idx]) {
+#ifdef debug_multipath_mapper
+                            cerr << "validation failure on mismatch that matches" << endl;
+                            cerr << pb2json(mapping) << ", " << subseq << endl;
+#endif
                             return false;
                         }
                         if (edit.sequence()[j] != subseq[seq_idx]) {
+#ifdef debug_multipath_mapper
+                            cerr << "validation failure on substitution sequence that does not match read" << endl;
+                            cerr << pb2json(mapping) << ", " << subseq << endl;
+#endif
                             return false;
                         }
                     }
                 }
                 else if (edit_is_insertion(edit)) {
-                    seq_idx += edit.to_length();
+                    for (size_t j = 0; j < edit.to_length(); j++, seq_idx++) {
+                        if (edit.sequence()[j] != subseq[seq_idx]) {
+#ifdef debug_multipath_mapper
+                            cerr << "validation failure on insertion sequence that does not match read" << endl;
+#endif
+                            return false;
+                        }
+                    }
                 }
                 else if (edit_is_deletion(edit)) {
                     node_idx += edit.from_length();
@@ -1281,51 +1344,82 @@ namespace vg {
                 
                 // check all MEMs that traversed this node to see if this is a redundant sub-MEM
                 bool is_partial_mem = false;
-                for (int64_t j : node_matches[id(hit_pos)]) {
-                    ExactMatchNode& match_node = match_nodes[j];
-                    
+                if (node_matches.count(injected_id)) {
 #ifdef debug_multipath_mapper
-                    cerr << "there is a previous node that visited this hit, checking whether it is a parent MEM" << endl;
+                    cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
 #endif
                     
-                    int64_t relative_offset = begin - match_node.begin;
-                    if (relative_offset < 0 || relative_offset + (end - begin) >= match_node.end - match_node.begin) {
-                        // the hit does not fall on the same section of the read as the other match, so
-                        // it cannot be contained in it
-                        continue;
-                    }
-                    
-                    Path& path = match_node.path;
-                    
-                    // if this is a partial MEM, we should be able to predict its hit location by traversing the path
-                    // of the parent MEM by a distance equal to the relative offset
-                    
-                    int64_t prefix_length = 0;
-                    for (size_t k = 0; k < path.mapping_size(); k++) {
-                        if (prefix_length > relative_offset) {
+                    for (int64_t j : node_matches[injected_id]) {
+                        ExactMatchNode& match_node = match_nodes[j];
+                        
+                        int64_t relative_offset = begin - match_node.begin;
+#ifdef debug_multipath_mapper
+                        cerr << "this MEM has an relative offset of " << relative_offset << " to the putative parent in the read" << endl;
+#endif
+                        
+                        if (relative_offset < 0 || relative_offset + (end - begin) >= match_node.end - match_node.begin) {
+#ifdef debug_multipath_mapper
+                            if (relative_offset < 0) {
+                                cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
+                            }
+                            else if (relative_offset + (end - begin) >= match_node.end - match_node.begin) {
+                                cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
+                            }
+#endif
+                            // the hit does not fall on the same section of the read as the other match, so
+                            // it cannot be contained in it
+                            continue;
+                        }
+                        
+                        Path& path = match_node.path;
+                        
+                        // if this is a partial MEM, we should be able to predict its hit location by traversing the path
+                        // of the parent MEM by a distance equal to the relative offset
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "traversing putative parent MEM with path " << pb2json(path) << endl;
+#endif
+                        
+                        int64_t prefix_length = 0;
+                        for (size_t k = 0; k < path.mapping_size(); k++) {
+                            if (prefix_length > relative_offset) {
+#ifdef debug_multipath_mapper
+                                cerr << "we have passed where the location would be, breaking out of loop" << endl;
+#endif
+                                break;
+                            }
+                            const Mapping& mapping = path.mapping(k);
+                            // the length through this mapping
+                            int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
+#ifdef debug_multipath_mapper
+                            cerr << "after traversing the " << k << "-th step, we have covered a distance of " << prefix_through_length << endl;
+#endif
+                            if (prefix_through_length > relative_offset) {
+                                // we cross the relative offset on this node, so check if the path is in the predicted
+                                // position for a redundant sub-MEM
+                                id_t node_id_here = mapping.position().node_id();
+                                is_partial_mem = is_partial_mem || (injected_id == node_id_here
+                                                                    && offset(hit_pos) == mapping.position().offset() + relative_offset - prefix_length
+                                                                    && projection_trans.at(node_id_here).second == is_rev(hit_pos));
+#ifdef debug_multipath_mapper
+                                cerr << "this mapping crosses where we would expect a child to be: " << node_id_here << (projection_trans.at(node_id_here).second ? "-" : "+") << ":" << mapping.position().offset() + relative_offset - prefix_length << endl;
+                                cerr << "this MEM is actually at: " << injected_id << (is_rev(hit_pos) ? "-" : "+") << ":" << offset(hit_pos) << endl;
+#endif
+                                
+                            }
+                            prefix_length = prefix_through_length;
+                        }
+                        if (is_partial_mem) {
                             break;
                         }
-                        const Mapping& mapping = path.mapping(k);
-                        // the length through this mapping
-                        int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
-                        if (prefix_through_length > relative_offset) {
-                            // we cross the relative offset on this node, so check if the path is in the predicted
-                            // position for a redundant sub-MEM
-                            id_t node_id_here = mapping.position().node_id();
-                            is_partial_mem = is_partial_mem ||
-                                             (injected_id == node_id_here
-                                              && prefix_length + offset(hit_pos) == relative_offset
-                                              && projection_trans.at(node_id_here).second == is_rev(hit_pos));
-                        }
-                        prefix_length = prefix_through_length;
-                    }
-                    if (is_partial_mem) {
-                        break;
                     }
                 }
                 
                 // don't walk the match of false partial hits
                 if (is_partial_mem) {
+#ifdef debug_multipath_mapper
+                    cerr << "this MEM is identified as a redundant sub-MEM, so we skip it" << endl;
+#endif
                     continue;
                 }
                 
@@ -1425,6 +1519,9 @@ namespace vg {
                     
                     // record that each node occurs in this match so we can filter out sub-MEMs
                     node_matches[node->id()].push_back(match_node_idx);
+#ifdef debug_multipath_mapper
+                    cerr << "associating node " << node->id() << " with a match at idx " << match_node_idx << endl;
+#endif
                     
                     rank++;
                     length_remaining -= length;
