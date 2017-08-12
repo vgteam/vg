@@ -981,7 +981,11 @@ namespace vg {
         }
     }
     
-    double MultipathMapper::sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) {
+    void MultipathMapper::sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) {
+        if (multipath_alns.empty()) {
+            return;
+        }
+        
         // query the scores of the optimal alignments
         vector<int32_t> scores(multipath_alns.size(), 0);
         for (size_t i = 0; i < multipath_alns.size(); i++) {

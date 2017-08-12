@@ -488,29 +488,29 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
     
-//    // set alignment parameters
-//    multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
-//    //multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
-//    //multipath_mapper.strip_bonuses = strip_full_length_bonus;
-//    //multipath_mapper.band_padding = band_padding;
-//    
-//    // set mem finding parameters
-//    multipath_mapper.hit_max = hit_max;
-//    //multipath_mapper.min_mem_length = min_mem_length;
-//    multipath_mapper.mem_reseed_length = reseed_length;
-//    multipath_mapper.fast_reseed = true;
-//    //multipath_mapper.fast_reseed_length_diff = reseed_diff;
-//    
-//    // set other algorithm parameters
-//    multipath_mapper.mapping_quality_method = mapq_method;
-//    //multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
-//    //multipath_mapper.max_snarl_cut_size = snarl_cut_size;
-//    //multipath_mapper.max_expected_dist_approx_error = max_dist_error;
-//    //multipath_mapper.num_alt_alns = num_alt_alns;
-//    //multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
+    // set alignment parameters
+    multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
+    multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
+    multipath_mapper.strip_bonuses = strip_full_length_bonus;
+    multipath_mapper.band_padding = band_padding;
+    
+    // set mem finding parameters
+    multipath_mapper.hit_max = hit_max;
+    multipath_mapper.min_mem_length = min_mem_length;
+    multipath_mapper.mem_reseed_length = reseed_length;
+    multipath_mapper.fast_reseed = true;
+    multipath_mapper.fast_reseed_length_diff = reseed_diff;
+    
+    // set other algorithm parameters
+    multipath_mapper.mapping_quality_method = mapq_method;
+    multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
+    multipath_mapper.max_snarl_cut_size = snarl_cut_size;
+    multipath_mapper.max_expected_dist_approx_error = max_dist_error;
+    multipath_mapper.num_alt_alns = num_alt_alns;
+    multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
     
     vector<vector<MultipathAlignment> > output_buffer;
-    output_buffer.resize(omp_get_num_threads());
+    output_buffer.resize(get_thread_count());
     
     auto output_alignments = [&](vector<MultipathAlignment>& mp_alns) {
         auto& output_buf = output_buffer[omp_get_thread_num()];

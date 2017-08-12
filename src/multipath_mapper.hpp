@@ -86,7 +86,7 @@ namespace vg {
         void strip_full_length_bonuses(MultipathAlignment& mulipath_aln);
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
-        double sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns);
+        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns);
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment);
