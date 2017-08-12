@@ -60,7 +60,7 @@ void help_mpmap(char** argv) {
     << "  -A, --no-qual-adjust      do not perform base adjusted alignments" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT         number of compute threads to use" << endl
-    << "  -Z, --buffer-size INT     buffer this many alignments together before outputting in .gamp [100]" << endl;
+    << "  -Z, --buffer-size INT     buffer this many alignments together (per thread) before outputting in .gamp [100]" << endl;
     
 }
 
@@ -407,7 +407,7 @@ int main_mpmap(int argc, char** argv) {
     // adjust parameters that produce irrelevant extra work in single path mode
     
     if (single_path_alignment_mode) {
-        // TODO: I don't like having these constants floating around in two different places, but it's not very risky
+        // TODO: I don't like having these constants floating around in two different places, but it's not very risky, just a warning
         if (!snarls_name.empty()) {
             cerr << "warning:[vg mpmap] Snarl file (-s) is ignored in single path mode (-S)." << endl;
         }

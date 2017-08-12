@@ -559,12 +559,14 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
         
 #ifdef debug_od_clusterer
         cerr << "adding nodes for MEM " << mem << endl;
+#endif
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
             maximum_detectable_gaps.push_back(max_gaps);
+#ifdef debug_od_clusterer
             cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
-        }
 #endif
+        }
     }
     
     // Get all the distances between nodes, in a forrest of unrooted trees of
@@ -1282,9 +1284,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         vector<size_t> trace{trace_idx};
         while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
             int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
-            cerr << "trace idx " << trace_idx << " DP score " << nodes[trace_idx].dp_score << " node score " << nodes[trace_idx].score << " source score " << target_source_score << endl;
             for (ODEdge& edge : nodes[trace_idx].edges_to) {
-                cerr << "\tscore along edge to " << edge.to_idx << " is " <<  nodes[edge.to_idx].dp_score + edge.weight << endl;
                 if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score) {
                     trace_idx = edge.to_idx;
                     trace.push_back(trace_idx);
@@ -1302,7 +1302,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         }
     }
     
-    return to_return;
+    return std::move(to_return);
 }
 
 auto OrientedDistanceClusterer::paired_clusters(OrientedDistanceClusterer& other, xg::XG* xgindex,

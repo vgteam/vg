@@ -26,7 +26,8 @@ namespace vg {
     void MultipathMapper::multipath_map(const Alignment& alignment,
                                         vector<MultipathAlignment>& multipath_alns_out,
                                         size_t max_alt_mappings) {
-    
+        
+        
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
         cerr << "querying MEMs..." << endl;
@@ -69,6 +70,7 @@ namespace vg {
         cerr << "extracting subgraphs..." << endl;
 #endif
         
+        
         // extract graphs around the clusters
         vector<VG*> cluster_graphs;
         unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems;
@@ -79,6 +81,7 @@ namespace vg {
         for (VG* vg : cluster_graphs) {
             cluster_graph_coverage[vg] = read_coverage(cluster_graph_mems[vg]);
         }
+        
         
         // sort the cluster graphs descending by unique sequence coverage
         // TODO: figure out relationship between this and the clustering filter
@@ -94,6 +97,7 @@ namespace vg {
         size_t num_mappings_to_compute = mapping_quality_method != None ? max(max_alt_mappings, (size_t) 2) : max_alt_mappings;
         multipath_alns_out.clear();
         multipath_alns_out.reserve(num_mappings_to_compute);
+        
         
         // align to each cluster subgraph
         size_t num_mappings = 0;
@@ -144,9 +148,12 @@ namespace vg {
             delete vg;
         }
         
-        
 #ifdef debug_validate_multipath_alignments
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
+#ifdef debug_multipath_mapper
+            cerr << "validating multipath alignment:" << endl;
+            cerr << pb2json(multipath_aln) << endl;
+#endif
             if (!validate_multipath_alignment(multipath_aln)) {
                 cerr << "### WARNING ###" << endl;
                 cerr << "multipath alignment of read " << multipath_aln.name() << " failed to validate" << endl;
@@ -507,21 +514,27 @@ namespace vg {
                                                                connecting_graph, num_alt_alns, band_padding, true);
                 }
                 
-                
-                
                 for (Alignment& connecting_alignment : alt_alignments) {
-                    cerr << pb2json(connecting_alignment) << endl;
+#ifdef debug_multipath_mapper
+                    cerr << "translating connecting alignment: " << pb2json(connecting_alignment) << endl;
+#endif
                     // create a subpath between the matches for this alignment
                     Subpath* connecting_subpath = multipath_aln.add_subpath();
                     connecting_subpath->set_score(connecting_alignment.score());
                     Path* subpath_path = connecting_subpath->mutable_path();
                     const Path& aligned_path = connecting_alignment.path();
-                    const Mapping& first_mapping = aligned_path.mapping(0);
-                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
+                    
                     int32_t rank = 1;
+                    
+                    const Mapping& first_mapping = aligned_path.mapping(0);
                     // check to make sure the first is not an empty anchoring mapping
                     if (mapping_from_length(first_mapping) != 0 || mapping_to_length(first_mapping) != 0) {
-                        *subpath_path->add_mapping() = first_mapping;
+                        Mapping* mapping = subpath_path->add_mapping();
+                        *mapping = first_mapping;
+                        mapping->set_rank(rank);
+#ifdef debug_multipath_mapper
+                        cerr << "first mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
+#endif
                         rank++;
                     }
                     // add all mapping in between the ends
@@ -529,14 +542,21 @@ namespace vg {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = aligned_path.mapping(j);
                         mapping->set_rank(rank);
+#ifdef debug_multipath_mapper
+                        cerr << "added middle mapping: " << pb2json(*mapping) << endl;
+#endif
                         rank++;
                     }
                     // check to make sure the last is not an empty anchoring mapping or the same as the first
+                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
                     if ((mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0)
                         && aligned_path.mapping_size() > 1) {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = last_mapping;
                         mapping->set_rank(rank);
+#ifdef debug_multipath_mapper
+                        cerr << "final mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
+#endif
                     }
                     
                     // add the appropriate connections
@@ -548,7 +568,7 @@ namespace vg {
                         translate_node_ids(*connecting_subpath->mutable_path(), connect_trans);
                         Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
-                            first_subpath_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
+                            first_subpath_mapping->mutable_position()->set_offset(offset(src_pos) + 1);
                         }
                     }
                 }
@@ -697,19 +717,47 @@ namespace vg {
                                                                                    alignment.sequence().end() - match_node.end));
                     }
                     
-                    // align against the graph
-                    vector<Alignment> alt_alignments;
-                    if (adjust_alignments_for_base_quality) {
-                        qual_adj_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                    }
-                    else {
-                        regular_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                    }
-                    
-                    
 #ifdef debug_multipath_mapper
                     cerr << "aligning sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
 #endif
+                    
+                    vector<Alignment> alt_alignments;
+                    if (tail_graph.node_size() == 0) {
+                        // edge case for when a read keeps going past the end of a graph
+                        alt_alignments.emplace_back();
+                        Alignment& tail_alignment = alt_alignments.back();
+                        tail_alignment.set_score(adjust_alignments_for_base_quality ? qual_adj_aligner->score_gap(right_tail_sequence.sequence().size())
+                                                                                    : regular_aligner->score_gap(right_tail_sequence.sequence().size()));
+                        Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
+                        
+                        // add a soft clip
+                        Edit* edit = insert_mapping->add_edit();
+                        edit->set_to_length(right_tail_sequence.sequence().size());
+                        edit->set_sequence(right_tail_sequence.sequence());
+                        
+                        // make it at the correct position
+                        const Path& anchoring_path = multi_aln_graph.match_nodes[j].path;
+                        const Mapping& anchoring_mapping = anchoring_path.mapping(anchoring_path.mapping_size() - 1);
+                        Position* anchoring_position = insert_mapping->mutable_position();
+                        anchoring_position->set_node_id(anchoring_mapping.position().node_id());
+                        anchoring_position->set_is_reverse(anchoring_mapping.position().is_reverse());
+                        anchoring_position->set_offset(anchoring_mapping.position().offset() + mapping_from_length(anchoring_mapping));
+#ifdef debug_multipath_mapper
+                        cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
+#endif
+                        // the ID translator is empty, so add this ID here so it doesn't give an out of index error
+                        id_t node_id = insert_mapping->position().node_id();
+                        tail_trans[node_id] = node_id;
+                    }
+                    else {
+                        // align against the graph
+                        if (adjust_alignments_for_base_quality) {
+                            qual_adj_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        }
+                        else {
+                            regular_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                        }
+                    }
                     
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln.add_subpath();
@@ -721,7 +769,7 @@ namespace vg {
                         translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
                         Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
                         if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
-                            first_mapping->mutable_position()->set_offset(mapping_from_length(final_mapping));
+                            first_mapping->mutable_position()->set_offset(offset(end_pos));
                         }
                     }
                 }
@@ -765,13 +813,36 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "aligning sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
 #endif
-                    
                     vector<Alignment> alt_alignments;
-                    if (adjust_alignments_for_base_quality) {
-                        qual_adj_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                    if (tail_graph.node_size() == 0) {
+                        // edge case for when a read keeps going past the end of a graph
+                        alt_alignments.emplace_back();
+                        Alignment& tail_alignment = alt_alignments.back();
+                        tail_alignment.set_score(adjust_alignments_for_base_quality ? qual_adj_aligner->score_gap(left_tail_sequence.sequence().size())
+                                                                                    : regular_aligner->score_gap(left_tail_sequence.sequence().size()));
+                        Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
+                        
+                        // add a soft clip
+                        Edit* edit = insert_mapping->add_edit();
+                        edit->set_to_length(left_tail_sequence.sequence().size());
+                        edit->set_sequence(left_tail_sequence.sequence());
+                        
+                        // make it at the correct position
+                        *insert_mapping->mutable_position() = multi_aln_graph.match_nodes[j].path.mapping(0).position();
+#ifdef debug_multipath_mapper
+                        cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
+#endif
+                        // the ID translator is empty, so add this ID here so it doesn't give an out of index error
+                        id_t node_id = insert_mapping->position().node_id();
+                        tail_trans[node_id] = node_id;
                     }
                     else {
-                        regular_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        if (adjust_alignments_for_base_quality) {
+                            qual_adj_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        }
+                        else {
+                            regular_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
+                        }
                     }
                     
                     for (Alignment& tail_alignment : alt_alignments) {
@@ -806,110 +877,44 @@ namespace vg {
     void MultipathMapper::topologically_order_subpaths(MultipathAlignment& multipath_aln) {
         // Kahn's algorithm
         
-        vector<size_t> topological_order(multipath_aln.subpath_size(), 0);
+        vector<size_t> index(multipath_aln.subpath_size(), 0);
         size_t order_idx = 0;
         
         vector<size_t> stack;
         vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
         
-        // if the starts have already been identified, we can do an optimization and
-        // construct the in degree vector on the fly
-//        if (multipath_aln.start_size()) {
-//            
-//            // add each of the source nodes and their edges
-//            for (size_t i = 0; i < multipath_aln.start_size(); i++) {
-//                stack.push_back(multipath_aln.start(i));
-//                const Subpath& subpath = multipath_aln.subpath(multipath_aln.start(i));
-//                for (size_t j = 0; j < subpath.next_size(); j++) {
-//                    in_degree[subpath.next(j)]++;
-//                }
-//            }
-//            
-//            while (!stack.empty()) {
-//                // pop a source node and add it to the topological order
-//                size_t here = stack.back();
-//                stack.pop_back();
-//                
-//                topological_order[order_idx] = here;
-//                order_idx++;
-//                
-//                // remove the node's edges
-//                const Subpath& subpath = multipath_aln.subpath(here);
-//                for (size_t i = 0; i < subpath.next_size(); i++) {
-//                    size_t next = subpath.next(i);
-//                    in_degree[next]--;
-//                    // if a node is now a source add it to the stack and add its edges
-//                    if (!in_degree[next]) {
-//                        stack.push_back(next);
-//                        const Subpath& next_subpath = multipath_aln.subpath(next);
-//                        for (size_t j = 0; j < next_subpath.next_size(); j++) {
-//                            in_degree[next_subpath.next(j)]++;
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        else {
-            // we have not precomputed the source nodes
-            
-            // compute the in degrees of the nodes
-            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                const Subpath& subpath = multipath_aln.subpath(i);
-                for (size_t j = 0; j < subpath.next_size(); j++) {
-                    in_degree[subpath.next(j)]++;
-                }
-            }
-            
-            // identify the source nodes and add them to the stack
-            for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-                if (!in_degree[i]) {
-                    stack.push_back(i);
-                }
-            }
-            
-            while (!stack.empty()) {
-                // pop a source node and add it to the topological order
-                size_t here = stack.back();
-                stack.pop_back();
-                
-                topological_order[order_idx] = here;
-                order_idx++;
-                
-                // remove the node's edges
-                const Subpath& subpath = multipath_aln.subpath(here);
-                for (size_t i = 0; i < subpath.next_size(); i++) {
-                    size_t next = subpath.next(i);
-                    in_degree[next]--;
-                    // if a node is now a source, stack it up
-                    if (!in_degree[next]) {
-                        stack.push_back(next);
-                    }
-                }
-            }
-//        }
-        
-        // identify the index that we want each node to end up at
-        vector<size_t> index(topological_order.size());
-        for (size_t i = 0; i < topological_order.size(); i++) {
-            index[topological_order[i]] = i;
-        }
-        
-//        for (auto i : topological_order) {
-//            cerr << i << " ";
-//        }
-//        cerr << endl;
-        
-        // in place permutation according to the topological order
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            while (index[i] != i) {
-                swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
-                swap(index[i], index[index[i]]);
+            const Subpath& subpath = multipath_aln.subpath(i);
+            for (size_t j = 0; j < subpath.next_size(); j++) {
+                in_degree[subpath.next(j)]++;
             }
         }
         
-        // reset the index vector so we can use it to translate the edges
-        for (size_t i = 0; i < topological_order.size(); i++) {
-            index[topological_order[i]] = i;
+        // identify the source nodes and add them to the stack
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            if (!in_degree[i]) {
+                stack.push_back(i);
+            }
+        }
+        
+        while (!stack.empty()) {
+            // pop a source node and add it to the topological order
+            size_t here = stack.back();
+            stack.pop_back();
+            
+            index[here] = order_idx;
+            order_idx++;
+            
+            // remove the node's edges
+            const Subpath& subpath = multipath_aln.subpath(here);
+            for (size_t i = 0; i < subpath.next_size(); i++) {
+                size_t next = subpath.next(i);
+                in_degree[next]--;
+                // if a node is now a source, stack it up
+                if (!in_degree[next]) {
+                    stack.push_back(next);
+                }
+            }
         }
         
         // translate the edges to the new indices
@@ -923,6 +928,14 @@ namespace vg {
         // translate the start nodes
         for (size_t i = 0; i < multipath_aln.start_size(); i++) {
             multipath_aln.set_start(i, index[multipath_aln.start(i)]);
+        }
+        
+        // in place permutation according to the topological order
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            while (index[i] != i) {
+                swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
+                swap(index[i], index[index[i]]);
+            }
         }
     }
     
@@ -1099,6 +1112,8 @@ namespace vg {
                 if (subpath_read_interval[i].second != multipath_aln.sequence().size()) {
 #ifdef debug_multipath_mapper
                     cerr << "validation failure on using complete read" << endl;
+                    cerr << "subpath " <<  i << " ends on sequence index " << subpath_read_interval[i].second << " of " << multipath_aln.sequence().size() << endl;
+                    cerr << pb2json(subpath) << endl;
 #endif
                     return false;
                 }
@@ -1190,13 +1205,16 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             const Path& path = subpath.path();
+            cerr << "at subpath " << i << endl;
             for (size_t j = 1; j < path.mapping_size(); j++) {
+                cerr << "at connection " << j - 1 << " " << j << endl;
                 if (!validate_adjacent_mappings(path.mapping(j - 1), path.mapping(j))) {
                     return false;
                 }
             }
             const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
             for (size_t j = 0; j < subpath.next_size(); j++) {
+                cerr << "at edge to " << subpath.next(j) << endl;
                 if (!validate_adjacent_mappings(final_mapping, multipath_aln.subpath(subpath.next(j)).path().mapping(0))) {
                     return false;
                 }
@@ -1208,13 +1226,14 @@ namespace vg {
         
         auto validate_mapping_edits = [&](const Mapping& mapping, const string& subseq) {
             string node_seq = xindex->node_sequence(mapping.position().node_id());
+            string rev_node_seq = reverse_complement(node_seq);
             size_t node_idx = mapping.position().offset();
             size_t seq_idx = 0;
             for (size_t i = 0; i < mapping.edit_size(); i++) {
                 const Edit& edit = mapping.edit(i);
                 if (edit_is_match(edit)) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if (node_seq[node_idx] != subseq[seq_idx]) {
+                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_multipath_mapper
                             cerr << "validation failure on match that does not match" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
@@ -1225,7 +1244,7 @@ namespace vg {
                 }
                 else if (edit_is_sub(edit)) {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if (node_seq[node_idx] == subseq[seq_idx]) {
+                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx]) {
 #ifdef debug_multipath_mapper
                             cerr << "validation failure on mismatch that matches" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;
@@ -1246,6 +1265,7 @@ namespace vg {
                         if (edit.sequence()[j] != subseq[seq_idx]) {
 #ifdef debug_multipath_mapper
                             cerr << "validation failure on insertion sequence that does not match read" << endl;
+                            cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
                             return false;
                         }

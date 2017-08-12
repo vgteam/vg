@@ -118,6 +118,9 @@ namespace vg {
         /// given offset, of the given length.
         virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
         
+        /// Returns the score of an insert or deletion of the given length
+        int32_t score_gap(size_t gap_length);
+        
         /// stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
         /// probability that the alignment is not the correct one (assuming that one of the alignments
         /// in the vector is correct). alignments must have been created with this Aligner for quality

@@ -116,7 +116,7 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
         gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
         //cerr << alignment.DebugString() << endl;
     }
-    
+        
     int graph_cigar_length = gc->length;
     int graph_cigar_start = 0;
     
@@ -517,6 +517,10 @@ string BaseAligner::graph_cigar(gssw_graph_mapping* gm) {
 
 void BaseAligner::init_mapping_quality(double gc_content) {
     log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
+}
+
+int32_t BaseAligner::score_gap(size_t gap_length) {
+    return gap_length ? -gap_open - (gap_length - 1) * gap_extension : 0;
 }
 
 double BaseAligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
