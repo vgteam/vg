@@ -509,14 +509,28 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
     
-    vector<vector<MultipathAlignment> > output_buffer;
-    output_buffer.resize(get_thread_count());
+    int thread_count = get_thread_count();
     
-    auto output_alignments = [&](vector<MultipathAlignment>& mp_alns) {
-        auto& output_buf = output_buffer[omp_get_thread_num()];
+    vector<vector<Alignment> > single_path_output_buffer(thread_count);
+    vector<vector<MultipathAlignment> > multipath_output_buffer(thread_count);
+    
+    auto output_multipath_alignments = [&](vector<MultipathAlignment>& mp_alns) {
+        auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
         
         // Copy all the alignments over to the output buffer
         copy(mp_alns.begin(), mp_alns.end(), back_inserter(output_buf));
+        
+        stream::write_buffered(cout, output_buf, buffer_size);
+    };
+    
+    auto output_single_path_alignments = [&](vector<MultipathAlignment>& mp_alns) {
+        auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
+        
+        // Copy all the alignments over to the output buffer
+        for (const auto& mp_aln : mp_alns) {
+            output_buf.emplace_back();
+            optimal_alignment(mp_aln, output_buf.back());
+        }
         
         stream::write_buffered(cout, output_buf, buffer_size);
     };
@@ -531,7 +545,12 @@ int main_mpmap(int argc, char** argv) {
                                              [&](Alignment& alignment) {
                                                  vector<MultipathAlignment> mp_alns;
                                                  multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
-                                                 output_alignments(mp_alns);
+                                                 if (single_path_alignment_mode) {
+                                                     output_single_path_alignments(mp_alns);
+                                                 }
+                                                 else {
+                                                     output_multipath_alignments(mp_alns);
+                                                 }
                                              });
         }
         else if (interleaved_input) {
