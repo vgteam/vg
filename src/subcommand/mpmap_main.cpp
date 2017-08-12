@@ -140,7 +140,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:b:f:iG:s:u:a:v:M:r:W:k:c:d:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:b:f:iG:Ss:u:a:v:p:M:r:W:k:c:d:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 

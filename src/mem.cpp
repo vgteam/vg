@@ -5,7 +5,7 @@
 
 #include "mem.hpp"
 
-//#define debug_od_clusterer
+#define debug_od_clusterer
 
 namespace vg {
     

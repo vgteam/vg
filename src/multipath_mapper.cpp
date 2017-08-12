@@ -674,6 +674,8 @@ namespace vg {
                                             adjust_alignments_for_base_quality ? qual_adj_aligner->longest_detectable_gap(alignment, match_node.end)
                                                                                : regular_aligner->longest_detectable_gap(alignment, match_node.end);
                     pos_t end_pos = final_position(match_node.path);
+                    // want past-the-last instead of last index here
+                    get_offset(end_pos)++;
                     
                     Graph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(align_graph,
