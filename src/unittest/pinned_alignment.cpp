@@ -1226,13 +1226,27 @@ namespace vg {
                 REQUIRE(path.mapping(0).edit(0).to_length() == 10);
                 REQUIRE(path.mapping(0).edit(0).sequence().empty());
                 
-                REQUIRE(path.mapping(0).edit(1).from_length() == 1);
-                REQUIRE(path.mapping(0).edit(1).to_length() == 1);
-                REQUIRE(path.mapping(0).edit(1).sequence() == "N");
+                bool option_1 = true;
+                bool option_2 = true;
                 
-                REQUIRE(path.mapping(0).edit(2).from_length() == 2);
-                REQUIRE(path.mapping(0).edit(2).to_length() == 0);
-                REQUIRE(path.mapping(0).edit(2).sequence().empty());
+                option_1 = option_1 && path.mapping(0).edit(1).from_length() == 1;
+                option_1 = option_1 && path.mapping(0).edit(1).to_length() == 1;
+                option_1 = option_1 && path.mapping(0).edit(1).sequence() == "N";
+                
+                option_1 = option_1 && path.mapping(0).edit(2).from_length() == 2;
+                option_1 = option_1 && path.mapping(0).edit(2).to_length() == 0;
+                option_1 = option_1 && path.mapping(0).edit(2).sequence().empty();
+                
+                option_2 = option_2 && path.mapping(0).edit(1).from_length() == 2;
+                option_2 = option_2 && path.mapping(0).edit(1).to_length() == 0;
+                option_2 = option_2 && path.mapping(0).edit(1).sequence().empty();
+                
+                option_2 = option_2 && path.mapping(0).edit(2).from_length() == 1;
+                option_2 = option_2 && path.mapping(0).edit(2).to_length() == 1;
+                option_2 = option_2 && path.mapping(0).edit(2).sequence() == "N";
+                
+                bool found_correct_option = option_1 || option_2;
+                REQUIRE(found_correct_option);
                 
             }
             
@@ -1276,17 +1290,28 @@ namespace vg {
                 REQUIRE(path.mapping(0).position().node_id() == 1);
                 
                 // has corrects edits
-                REQUIRE(path.mapping(0).edit(0).from_length() == 2);
-                REQUIRE(path.mapping(0).edit(0).to_length() == 0);
-                REQUIRE(path.mapping(0).edit(0).sequence().empty());
                 
-                REQUIRE(path.mapping(0).edit(1).from_length() == 1);
-                REQUIRE(path.mapping(0).edit(1).to_length() == 1);
-                REQUIRE(path.mapping(0).edit(1).sequence() == "N");
+                bool option_1 = true;
+                bool option_2 = true;
                 
-                REQUIRE(path.mapping(0).edit(2).from_length() == 10);
-                REQUIRE(path.mapping(0).edit(2).to_length() == 10);
-                REQUIRE(path.mapping(0).edit(2).sequence().empty());
+                option_1 = option_1 && path.mapping(0).edit(0).from_length() == 1;
+                option_1 = option_1 && path.mapping(0).edit(0).to_length() == 1;
+                option_1 = option_1 && path.mapping(0).edit(0).sequence() == "N";
+                
+                option_1 = option_1 && path.mapping(0).edit(1).from_length() == 2;
+                option_1 = option_1 && path.mapping(0).edit(1).to_length() == 0;
+                option_1 = option_1 && path.mapping(0).edit(1).sequence().empty();
+                
+                option_2 = option_2 && path.mapping(0).edit(0).from_length() == 2;
+                option_2 = option_2 && path.mapping(0).edit(0).to_length() == 0;
+                option_2 = option_2 && path.mapping(0).edit(0).sequence().empty();
+                
+                option_2 = option_2 && path.mapping(0).edit(1).from_length() == 1;
+                option_2 = option_2 && path.mapping(0).edit(1).to_length() == 1;
+                option_2 = option_2 && path.mapping(0).edit(1).sequence() == "N";
+                
+                bool found_correct_option = option_1 || option_2;
+                REQUIRE(found_correct_option);
                 
             }
             

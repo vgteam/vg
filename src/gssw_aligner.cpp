@@ -13,10 +13,10 @@ BaseAligner::~BaseAligner(void) {
     free(score_matrix);
 }
 
-gssw_graph* BaseAligner::create_gssw_graph(Graph& g, bool add_pinning_node, gssw_node** gssw_pinned_node_out) {
+gssw_graph* BaseAligner::create_gssw_graph(Graph& g) {
     
     // add a dummy sink node if we're pinning
-    gssw_graph* graph = gssw_graph_create(g.node_size() + add_pinning_node);
+    gssw_graph* graph = gssw_graph_create(g.node_size());
     unordered_map<int64_t, gssw_node*> nodes;
     
     for (int i = 0; i < g.node_size(); ++i) {
@@ -31,21 +31,17 @@ gssw_graph* BaseAligner::create_gssw_graph(Graph& g, bool add_pinning_node, gssw
         gssw_graph_add_node(graph, node);
     }
     
-    unordered_set<int64_t> non_sink_nodes;
-    
     for (int i = 0; i < g.edge_size(); ++i) {
         // Convert all the edges
         Edge* e = g.mutable_edge(i);
         if(!e->from_start() && !e->to_end()) {
             // This is a normal end to start edge.
             gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
-            non_sink_nodes.insert(e->from());
         } else if(e->from_start() && e->to_end()) {
             // This is a start to end edge, but isn't reversing and can be converted to a normal end to start edge.
             
             // Flip the start and end
             gssw_nodes_add_edge(nodes[e->to()], nodes[e->from()]);
-            non_sink_nodes.insert(e->to());
         } else {
             // TODO: It's a reversing edge, which gssw doesn't support yet. What
             // we should really do is do a topological sort to break cycles, and
@@ -65,26 +61,6 @@ gssw_graph* BaseAligner::create_gssw_graph(Graph& g, bool add_pinning_node, gssw
                 // clause that made us parallel.
             }
             exit(1);
-        }
-    }
-    
-    if (add_pinning_node) {
-        // create a dummy sink node for pinning
-        gssw_node* pinned_node = gssw_node_create(nullptr, numeric_limits<uint32_t>::max(),
-                                                  "N", nt_table, score_matrix);
-        
-        nodes[numeric_limits<uint32_t>::max()] = pinned_node;
-        gssw_graph_add_node(graph, pinned_node);
-        
-        *gssw_pinned_node_out = pinned_node;
-        
-        
-        
-        // connect all sink nodes to the dummy node
-        for (int i = 0; i < g.node_size(); i++) {
-            if (!non_sink_nodes.count(g.node(i).id())) {
-                gssw_nodes_add_edge(nodes[g.node(i).id()], nodes[numeric_limits<uint32_t>::max()]);
-            }
         }
     }
     
@@ -116,184 +92,11 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
         gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
         //cerr << alignment.DebugString() << endl;
     }
-        
-    int graph_cigar_length = gc->length;
-    int graph_cigar_start = 0;
-    
-    // TODO: moving these inserts/deletions can create repeat pinned alignments for multialignments
-    // and also artificially lower their score if we take a I/D to get rid of the N rather than an N match
-    
-    if (pinned) {
-        // if the alignment is pinned the final mapping will be to the dummy node, so ignore it
-        if (pin_left) {
-            graph_cigar_start++;
-        }
-        else {
-            graph_cigar_length--;
-        }
-        // need to detect insertions or deletions that have been recorded on the dummy node and move them onto real nodes
-        if (pin_left) {
-            gssw_cigar* dummy_node_cigar = ncs[0].cigar;
-            
-            // was the dummy node's "N" sequence deleted?
-            if (dummy_node_cigar->elements[dummy_node_cigar->length - 1].type == 'D') {
-                if (dummy_node_cigar->elements[0].type == 'I') {
-                    // there is also insert, which must include the dummy N sequence, so remove one
-                    dummy_node_cigar->elements[0].length--;
-                }
-                else {
-                    // need to move the deletion to where the dummy N match occurred
-                    bool deletion_swapped = false;
-                    for (int i = graph_cigar_start; i < graph_cigar_length && !deletion_swapped; i++) {
-                        gssw_cigar* cigar = ncs[i].cigar;
-                        for (int j = 0; j < cigar->length && !deletion_swapped; j++) {
-                            if (cigar->elements[j].type == 'N' || cigar->elements[j].type == 'I') {
-                                // we found the dummy N match or insert
-                                
-                                if (j > 0) {
-                                    // there is a deletion preceding it (asssertion below guarantees it's a deletion)
-                                    
-                                    // increase the length of the deletion
-                                    cigar->elements[j - 1].length++;
-                                    
-                                    if (cigar->elements[j].length > 1) {
-                                        // the N-match/insertion is in a run, decrease its length
-                                        cigar->elements[j].length--;
-                                    }
-                                    else {
-                                        // overwrite the N match/insertion and move all of the subsequent elements down one position
-                                        for (int k = j + 1; k < cigar->length; k++) {
-                                            cigar->elements[k - 1] = cigar->elements[k];
-                                        }
-                                        // adjust the length of the element array
-                                        cigar->length--;
-                                    }
-                                }
-                                else if (cigar->elements[j].length == 1 && cigar->elements[j].type == 'N') {
-                                    // only one N match, can swap in the single deletion
-                                    cigar->elements[j].type = 'D';
-                                }
-                                else if (cigar->elements[j].length == 1 && cigar->elements[j].type == 'I') {
-                                    // one deletion and one insertion cancel each other out, remove this edit
-                                    for (int k = j + 1; k < cigar->length; k++) {
-                                        cigar->elements[k - 1] = cigar->elements[k];
-                                    }
-                                    // adjust the length of the element array
-                                    cigar->length--;
-                                }
-                                else {
-                                    // more than one N-match/insert, remove one and add the deletion onto the front
-                                    cigar->elements[j].length--;
-                                    gssw_cigar_push_front(cigar, 'D', 1);
-                                }
-                                
-                                deletion_swapped = true;
-                            }
-                            else if (cigar->elements[j].type != 'D') {
-                                cerr << "error:[Aligner] pinned alignment took a true match before the dummy pinning N-match" << endl;
-                                assert(false);
-                            }
-                        }
-                    }
-                    
-                    assert(deletion_swapped);
-                }
-            }
-            
-            // was there an insertion on the dummy node?
-            if (dummy_node_cigar->elements[0].type == 'I') {
-                // need to move the inserted sequence onto the next node
-                if (graph_cigar_start < graph_cigar_length) {
-                    // the graph is non-empty
-                    gssw_cigar_push_front(ncs[graph_cigar_start].cigar, 'I', dummy_node_cigar->elements[0].length);
-                }
-            }
-        }
-        else {
-            // repeat the whole routine except with indices reversed for right-pinning
-            // TODO: is there a less repetitious way to do this?
-            gssw_cigar* dummy_node_cigar = ncs[graph_cigar_length].cigar;
-            
-            // was the dummy node's "N" sequence deleted?
-            if (dummy_node_cigar->elements[0].type == 'D') {
-                if (dummy_node_cigar->elements[dummy_node_cigar->length - 1].type == 'I') {
-                    // there is also insert, which must include the dummy N sequence, so remove one
-                    dummy_node_cigar->elements[dummy_node_cigar->length - 1].length--;
-                }
-                else {
-                    // need to move the deletion to where the dummy N match occurred
-                    bool deletion_swapped = false;
-                    for (int i = graph_cigar_length - 1; i >= graph_cigar_start && !deletion_swapped; i--) {
-                        gssw_cigar* cigar = ncs[i].cigar;
-                        for (int j = cigar->length - 1; j >= 0 && !deletion_swapped; j--) {
-                            if (cigar->elements[j].type == 'N' || cigar->elements[j].type == 'I') {
-                                // we found the dummy N match/insert
-                                
-                                if (j < cigar->length - 1) {
-                                    // there is a deletion preceding this N match/insert (asssertion below guarantees it's a deletion)
-                                    
-                                    // increase the length of the deletion
-                                    cigar->elements[j + 1].length++;
-                                    
-                                    if (cigar->elements[j].length > 1) {
-                                        // the N-match/insert is in a run, decrease its length
-                                        cigar->elements[j].length--;
-                                    }
-                                    else {
-                                        // overwrite the N-match/insert and move all of the subsequent elements down one position
-                                        for (int k = j + 1; k < cigar->length; k++) {
-                                            cigar->elements[k - 1] = cigar->elements[k];
-                                        }
-                                        // adjust the length of the element array
-                                        cigar->length--;
-                                    }
-                                }
-                                else if (cigar->elements[j].length == 1 && cigar->elements[j].type == 'N') {
-                                    // only one N match, can swap in the single deletion
-                                    cigar->elements[j].type = 'D';
-                                }
-                                else if (cigar->elements[j].length == 1 && cigar->elements[j].type == 'I') {
-                                    // one deletion and one insertion cancel each other out, remove this edit
-                                    for (int k = j + 1; k < cigar->length; k++) {
-                                        cigar->elements[k - 1] = cigar->elements[k];
-                                    }
-                                    // adjust the length of the element array
-                                    cigar->length--;
-                                }
-                                else {
-                                    // more than one N-match/insert, remove one and add the deletion onto the front
-                                    cigar->elements[j].length--;
-                                    gssw_cigar_push_back(cigar, 'D', 1);
-                                }
-                                
-                                deletion_swapped = true;
-                            }
-                            else if (cigar->elements[j].type != 'D') {
-                                cerr << "error:[Aligner] pinned alignment took a true match before the dummy N-match" << endl;
-                                assert(false);
-                            }
-                        }
-                    }
-                    
-                    assert(deletion_swapped);
-                }
-            }
-            
-            // was there an insertion on the dummy node?
-            if (dummy_node_cigar->elements[dummy_node_cigar->length - 1].type == 'I') {
-                // need to move the inserted sequence onto the next node
-                if (graph_cigar_start < graph_cigar_length) {
-                    // the graph is non-empty
-                    gssw_cigar_push_back(ncs[graph_cigar_length - 1].cigar, 'I', dummy_node_cigar->elements[dummy_node_cigar->length - 1].length);
-                }
-            }
-        }
-    }
     
     int to_pos = 0;
     int from_pos = gm->position;
     
-    for (int i = graph_cigar_start; i < graph_cigar_length; ++i) {
+    for (int i = 0; i < gc->length; ++i) {
         // check that the current alignment has a non-zero length
         gssw_cigar* c = ncs[i].cigar;
         int l = c->length;
@@ -304,7 +107,7 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
         
-        if (i > graph_cigar_start){
+        if (i > 0) {
             // reset for each node after the first
             from_pos = 0;
         }
@@ -483,7 +286,7 @@ void BaseAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
                     
             }
         }
-        gm->position = node_cigars[0].node->len - num_ref_aligned;
+        gm->position = node_cigars[0].node->len - num_ref_aligned - (graph_cigar->length == 1 ? gm->position : 0);
     }
     else {
         gm->position = 0;
@@ -954,7 +757,6 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         exit(EXIT_FAILURE);
     }
     
-    
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
     
@@ -968,19 +770,13 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // note: have to make a copy of the sequence because we will modify it to add a pinning point
     Graph* align_graph = &g;
     string align_sequence = alignment.sequence();
-    if (pinned) {
-        if (pin_left) {
-            align_graph = &reversed_graph;
-            reverse(align_sequence.begin(), align_sequence.end());
-        }
-        
-        // add dummy ending to align to dummy pinned node
-        align_sequence += "N";
+    if (pin_left) {
+        align_graph = &reversed_graph;
+        reverse(align_sequence.begin(), align_sequence.end());
     }
     
-    // convert into gssw graph and get dummy pinned node (if pinning)
-    gssw_node* pinned_node = nullptr;
-    gssw_graph* graph = create_gssw_graph(*align_graph, pinned, &pinned_node);
+    // convert into gssw graph
+    gssw_graph* graph = create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     gssw_graph_fill_pinned(graph, align_sequence.c_str(),
@@ -992,8 +788,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     if (pinned) {
         // trace back pinned alignment
         gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
-                                                                       pinned_node,
                                                                        max_alt_alns,
+                                                                       true,
                                                                        align_sequence.c_str(),
                                                                        align_sequence.size(),
                                                                        nt_table,
@@ -1319,24 +1115,13 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         reverse(align_quality.begin(), align_quality.end());
     }
     
-    if (pinned) {
-        if (pin_left) {
-            align_graph = &reversed_graph;
-        }
-        
-        // add dummy ending to align to dummy pinned node
-        align_sequence += "N";
-        align_quality += (char) 0;
-    }
-    
     if (align_quality.length() != align_sequence.length()) {
         cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment." << endl;
         exit(EXIT_FAILURE);
     }
     
     // convert into gssw graph and get dummy pinned node (if pinning)
-    gssw_node* pinned_node = nullptr;
-    gssw_graph* graph = create_gssw_graph(*align_graph, pinned, &pinned_node);
+    gssw_graph* graph = create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.
@@ -1349,8 +1134,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     if (pinned) {
         // trace back pinned alignment
         gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_qual_adj_multi (graph,
-                                                                                pinned_node,
                                                                                 max_alt_alns,
+                                                                                true,
                                                                                 align_sequence.c_str(),
                                                                                 align_quality.c_str(),
                                                                                 align_sequence.size(),
