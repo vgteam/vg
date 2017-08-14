@@ -91,11 +91,14 @@ fi
 . .env/bin/activate
 
 # Prepare directory for temp files (assuming cgcloud file structure)
+# Sometimes the instances have un-deletable files in tmp, so we continue through errors
 if [ -d "/mnt/ephemeral" ]
 then
      TMPDIR=/mnt/ephemeral/tmp
+     set +e
      rm -rf $TMPDIR
      mkdir $TMPDIR
+     set -e
      export TMPDIR
 fi
 
