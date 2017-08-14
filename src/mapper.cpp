@@ -2697,6 +2697,15 @@ Mapper::align_mem_multi(const Alignment& aln,
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         Alignment candidate = align_cluster(aln, cluster);
         string sig = signature(candidate);
+        
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "Alignment with signature " << sig << " (seen: " << seen_alignments.count(sig) << ")" << endl;
+                cerr << "\t" << pb2json(candidate) << endl;
+            }
+        }
+        
         if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
             alns.push_back(candidate);
             seen_alignments.insert(sig);
@@ -2898,6 +2907,7 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
     return;
 }
 
+#define debug_mapper
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
 #ifdef debug_mapper
 #pragma omp critical
@@ -2949,12 +2959,15 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
 #pragma omp critical
     {
         if (debug) {
-            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id() << endl;
+            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id()
+                << " and " << graph.edge_count() << " edges" << endl;
+            cerr << pb2json(graph.graph) << endl;
         }
     }
 #endif
     return graph;
 }
+#undef debug_mapper
 
 VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     set<id_t> nodes;
