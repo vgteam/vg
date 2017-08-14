@@ -2696,16 +2696,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         Alignment candidate = align_cluster(aln, cluster);
-        
-#pragma omp critical
-        {
-            if (debug) {
-                cerr << "Alignment with score " << candidate.score()
-                    << " (seen: " << seen_alignments.count(candidate) << ")" << endl;
-                cerr << "\t" << pb2json(candidate) << endl;
-            }
-        }
-        
+     
         if (candidate.identity() > min_identity && !seen_alignments.count(candidate)) {
             alns.push_back(candidate);
             seen_alignments.insert(candidate);
@@ -2907,7 +2898,6 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
     return;
 }
 
-#define debug_mapper
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
 #ifdef debug_mapper
 #pragma omp critical
@@ -2961,13 +2951,11 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
         if (debug) {
             cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id()
                 << " and " << graph.edge_count() << " edges" << endl;
-            cerr << pb2json(graph.graph) << endl;
         }
     }
 #endif
     return graph;
 }
-#undef debug_mapper
 
 VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     set<id_t> nodes;
