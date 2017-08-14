@@ -2928,8 +2928,9 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
         
         // search far enough away to get any hit detectable without soft clipping
         forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
-                                   + (mem.end - mem.begin));
-        backward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(aln, mem.begin));
+                                   + (aln.sequence().end() - mem.begin));
+        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
+                                    + (mem.begin - aln.sequence().begin()));
     }
     
     
