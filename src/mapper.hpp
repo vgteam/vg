@@ -150,7 +150,7 @@ public:
     /// are per thread. Note that this resets aligner scores to their default values!
     void set_alignment_threads(int new_thread_count);
     
-    void set_cache_size(int cache_size);
+    void set_cache_size(int new_cache_size);
     
     // MEM-based mapping
     // find maximal exact matches

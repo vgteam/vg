@@ -1199,14 +1199,16 @@ void BaseMapper::init_edge_cache(void) {
     }
 }
 
-void BaseMapper::set_cache_size(int cache_size) {
-    cache_size = cache_size;
+void BaseMapper::set_cache_size(int new_cache_size) {
+    cache_size = new_cache_size;
     init_edge_cache();
     init_node_cache();
     init_node_pos_cache();
     init_node_start_cache();
 }
-    
+
+// TODO: this strategy of dropping the index down to 0 works for vg map's approach of having a copy of
+// the mapper for each thread, but it's dangerous when one mapper is using multiple threads
 LRUCache<id_t, Node>& BaseMapper::get_node_cache(void) {
     int tid = node_cache.size() > 1 ? omp_get_thread_num() : 0;
     return *node_cache[tid];
@@ -4784,6 +4786,7 @@ void FragmentLengthDistribution::register_fragment_length(size_t length) {
 }
 
 void FragmentLengthDistribution::determinize_estimation() {
+    cerr << "determinizing\n";
     if (multithread_reset || is_fixed) {
         return;
     }

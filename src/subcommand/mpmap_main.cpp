@@ -31,10 +31,10 @@ void help_mpmap(char** argv) {
     << "  -x, --xg-name FILE        use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
     << "input:" << endl
-    << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends" << endl
+    << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -i, --interleaved         FASTQ is interleaved with paired ends" << endl
-    << "  -b, --hts-input FILE      align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-)" << endl
-    << "  -G, --gam-input FILE      realign GAM input" << endl
+    << "  -b, --hts-input FILE      align reads from this htslib-compatible file (BAM/CRAM/SAM; for stdin use -)" << endl
+    << "  -G, --gam-input FILE      realign .gam input (for stdin, use -)" << endl
     << "algorithm:" << endl
     << "  -S, --single-path-mode    produce single-path alignments (.gam) instead of multipath alignments (.gamp) (ignores -sua)" << endl
     << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
@@ -49,18 +49,18 @@ void help_mpmap(char** argv) {
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -C, --drop-cluster FLOAT  drop MEM clusters that cover this fraction less of the read than the largest cluster [0.5]" << endl
-    << "  -R, --prune-ratio FLOAT   prune MEM anchors if their approximate likelihood is this ratio less than the optimal one [10000.0]" << endl
+    << "  -R, --prune-ratio FLOAT   prune MEM anchors if their approximate likelihood is this ratio less than the optimal anchors [10000.0]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
     << "  -z, --mismatch INT        use this mismatch penalty [4]" << endl
     << "  -o, --gap-open INT        use this gap open penalty [6]" << endl
     << "  -y, --gap-extend INT      use this gap extension penalty [1]" << endl
-    << "  -L, --full-l-bonus INT    the full-length alignment bonus [5]" << endl
-    << "  -m, --remove-bonuses      remove full-length alignment bonuses in reported scores" << endl
-    << "  -A, --no-qual-adjust      do not perform base adjusted alignments" << endl
+    << "  -L, --full-l-bonus INT    add this score to alignments that use the full length of the read [5]" << endl
+    << "  -m, --remove-bonuses      remove full length alignment bonuses in reported scores" << endl
+    << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT         number of compute threads to use" << endl
-    << "  -Z, --buffer-size INT     buffer this many alignments together (per thread) before outputting in .gamp [100]" << endl;
+    << "  -Z, --buffer-size INT     buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
     
 }
 
@@ -479,15 +479,6 @@ int main_mpmap(int argc, char** argv) {
     
     MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, snarl_manager);
     
-    // set multipath mapper parameters
-    multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score,
-                                          gap_extension_score, full_length_bonus);
-    multipath_mapper.hit_max = hit_max;
-    multipath_mapper.min_mem_length = min_mem_length;
-    multipath_mapper.mem_reseed_length = reseed_length;
-    multipath_mapper.fast_reseed = true;
-    multipath_mapper.fast_reseed_length_diff = reseed_diff;
-    
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
     multipath_mapper.adjust_alignments_for_base_quality = qual_adjusted;
@@ -510,10 +501,11 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
     
     int thread_count = get_thread_count();
+    multipath_mapper.set_alignment_threads(thread_count);
     
     vector<vector<Alignment> > single_path_output_buffer(thread_count);
     vector<vector<MultipathAlignment> > multipath_output_buffer(thread_count);
-    
+        
     auto output_multipath_alignments = [&](vector<MultipathAlignment>& mp_alns) {
         auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
         

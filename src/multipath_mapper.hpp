@@ -49,7 +49,7 @@ namespace vg {
         /// Debugging function to check that multipath alignment meets the formalism's basic
         /// invariants. Returns true if multipath alignment is valid, else false. Does not
         /// validate alignment score.
-        bool validate_multipath_alignment(const MultipathAlignment& multipath_aln);
+        bool validate_multipath_alignment(const MultipathAlignment& multipath_aln) const;
         
         int64_t max_snarl_cut_size = 5;
         int32_t band_padding = 2;
@@ -74,22 +74,22 @@ namespace vg {
         /// the list of multimappings.
         void multipath_align(const Alignment& alignment, VG* vg,
                              vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
-                             vector<MultipathAlignment>& multipath_alns_out);
+                             vector<MultipathAlignment>& multipath_alns_out) const;
         
         /// Computes the number of read bases a cluster of MEM hits covers.
-        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
+        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const;
         
         /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
-        void topologically_order_subpaths(MultipathAlignment& multipath_aln);
+        void topologically_order_subpaths(MultipathAlignment& multipath_aln) const;
         
         /// Remove the full length bonus from all source or sink subpaths that received it
-        void strip_full_length_bonuses(MultipathAlignment& mulipath_aln);
+        void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
-        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns);
+        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) const;
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
-        double read_coverage_z_score(int64_t coverage, const Alignment& alignment);
+        double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
         
         SnarlManager* snarl_manager;
         

@@ -4,8 +4,8 @@
 //
 //
 
-#define debug_multipath_mapper
-#define debug_validate_multipath_alignments
+//#define debug_multipath_mapper
+//#define debug_validate_multipath_alignments
 
 #include "multipath_mapper.hpp"
 
@@ -93,11 +93,11 @@ namespace vg {
         cerr << "aligning to subgraphs..." << endl;
 #endif
       
-        size_t num_mappings_to_report = max_alt_mappings;
+        // we may need to compute an extra mapping above the one we'll report if we're computing mapping quality
         size_t num_mappings_to_compute = mapping_quality_method != None ? max(max_alt_mappings, (size_t) 2) : max_alt_mappings;
+        
         multipath_alns_out.clear();
         multipath_alns_out.reserve(num_mappings_to_compute);
-        
         
         // align to each cluster subgraph
         size_t num_mappings = 0;
@@ -131,7 +131,8 @@ namespace vg {
 #endif
         sort_and_compute_mapping_quality(multipath_alns_out);
         
-        while (multipath_alns_out.size() > num_mappings_to_report) {
+        // if we computed extra alignments to get a mapping quality, remove them
+        while (multipath_alns_out.size() > max_alt_mappings) {
             multipath_alns_out.pop_back();
         }
         
@@ -148,6 +149,8 @@ namespace vg {
             delete vg;
         }
         
+        // for debugging: an expensive check for invariant validity that can be turned on
+        // with a preprocessor flag
 #ifdef debug_validate_multipath_alignments
         for (MultipathAlignment& multipath_aln : multipath_alns_out) {
 #ifdef debug_multipath_mapper
@@ -166,7 +169,7 @@ namespace vg {
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
                                                vector<VG*>& cluster_graphs_out,
-                                               unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out){
+                                               unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out) {
         
         // subgraphs around each cluster
         cluster_graphs_out.reserve(clusters.size());
@@ -318,7 +321,7 @@ namespace vg {
     
     void MultipathMapper::multipath_align(const Alignment& alignment, VG* vg,
                                           vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
-                                          vector<MultipathAlignment>& multipath_alns_out) {
+                                          vector<MultipathAlignment>& multipath_alns_out) const {
 #ifdef debug_multipath_mapper
         cerr << "constructing alignment graph" << endl;
 #endif
@@ -874,7 +877,7 @@ namespace vg {
         
     }
     
-    void MultipathMapper::topologically_order_subpaths(MultipathAlignment& multipath_aln) {
+    void MultipathMapper::topologically_order_subpaths(MultipathAlignment& multipath_aln) const {
         // Kahn's algorithm
         
         vector<size_t> index(multipath_aln.subpath_size(), 0);
@@ -939,7 +942,7 @@ namespace vg {
         }
     }
     
-    int64_t MultipathMapper::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) {
+    int64_t MultipathMapper::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const {
         if (mem_hits.empty()) {
             return 0;
         }
@@ -964,7 +967,7 @@ namespace vg {
         return total + (curr_end - curr_begin);
     }
     
-    void MultipathMapper::strip_full_length_bonuses(MultipathAlignment& mulipath_aln) {
+    void MultipathMapper::strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const {
         
         int32_t full_length_bonus = adjust_alignments_for_base_quality ? qual_adj_aligner->full_length_bonus
                                                                        : regular_aligner->full_length_bonus;
@@ -1010,7 +1013,7 @@ namespace vg {
         }
     }
     
-    void MultipathMapper::sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) {
+    void MultipathMapper::sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) const {
         if (multipath_alns.empty()) {
             return;
         }
@@ -1021,7 +1024,7 @@ namespace vg {
             scores[i] = optimal_alignment_score(multipath_alns[i]);
         }
         
-        // insertion sort the multipath alignments by score
+        // insertion sort the multipath alignments by score (they are probably nearly ordered)
         for (size_t i = 1; i < multipath_alns.size(); i++) {
             size_t pos = i;
             while (scores[pos] > scores[pos - 1]) {
@@ -1046,7 +1049,7 @@ namespace vg {
         max_suboptimal_path_score_diff = (int32_t) ceil(log(maximum_acceptable_ratio) / log_base);
     }
     
-    bool MultipathMapper::validate_multipath_alignment(const MultipathAlignment& multipath_aln) {
+    bool MultipathMapper::validate_multipath_alignment(const MultipathAlignment& multipath_aln) const {
         
         // are the subpaths in topological order?
         
@@ -1205,16 +1208,16 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             const Path& path = subpath.path();
-            cerr << "at subpath " << i << endl;
+            //cerr << "at subpath " << i << endl;
             for (size_t j = 1; j < path.mapping_size(); j++) {
-                cerr << "at connection " << j - 1 << " " << j << endl;
+                //cerr << "at connection " << j - 1 << " " << j << endl;
                 if (!validate_adjacent_mappings(path.mapping(j - 1), path.mapping(j))) {
                     return false;
                 }
             }
             const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
             for (size_t j = 0; j < subpath.next_size(); j++) {
-                cerr << "at edge to " << subpath.next(j) << endl;
+                //cerr << "at edge to " << subpath.next(j) << endl;
                 if (!validate_adjacent_mappings(final_mapping, multipath_aln.subpath(subpath.next(j)).path().mapping(0))) {
                     return false;
                 }
@@ -1310,7 +1313,7 @@ namespace vg {
         return true;
     }
     
-    double MultipathMapper::read_coverage_z_score(int64_t coverage, const Alignment& alignment) {
+    double MultipathMapper::read_coverage_z_score(int64_t coverage, const Alignment& alignment) const {
         /* algebraically equivalent to
          *
          *      Coverage - ReadLen / 4
@@ -2363,11 +2366,25 @@ namespace vg {
                 continue;
             }
             
-            for (size_t start : exact_match_starts[node_id]) {
+            // keep track of the starts that are located at the same offset at earlier positions in the vector of
+            // of starts (used later in the overlap finding step)
+            vector<size_t> colocated_starts;
+            
+            vector<size_t>& starts = exact_match_starts[node_id];
+            vector<size_t>& ends = exact_match_ends[node_id];
+            // index of the next end that is past the start we are on
+            size_t next_end_idx = 0;
+            // sentinel that will never be equal to the first offset
+            size_t curr_start_offset = numeric_limits<size_t>::max();
+            
+            for (size_t start_idx = 0; start_idx < starts.size(); start_idx++) {
                 // traverse all of the reachable starts to find the adjacent ends that might be colinear
+                
+                size_t start = starts[start_idx];
 #ifdef debug_multipath_mapper
                 cerr << "searching backward from start " << start << endl;
 #endif
+                
                 
                 ExactMatchNode& start_node = match_nodes[start];
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
@@ -2524,111 +2541,124 @@ namespace vg {
                     }
                 }
                 
-                // record the node IDs that this MEM's path traverses
-                unordered_set<id_t> match_path_nodes;
+#ifdef debug_multipath_mapper
+                cerr << "walking path to look for overlaps" << endl;
+#endif
+                
+                size_t prev_start_offset = curr_start_offset;
+                curr_start_offset = start_offset(start);
+                // update the list of starts at this offset earlier in the starts vector
+                if (curr_start_offset != prev_start_offset) {
+                    colocated_starts.clear();
+                }
+                colocated_starts.push_back(start);
+                
+                // move the next end pointer to the one immediately following this start on the node
+                while (next_end_idx >= ends.size() ? false : end_offset(ends[next_end_idx]) <= curr_start_offset) {
+                    next_end_idx++;
+                }
+                
                 Path& match_path = match_nodes[start].path;
-                for (size_t j = 0; j < match_path.mapping_size(); j++) {
-                    match_path_nodes.insert(match_path.mapping(j).position().node_id());
+                // the starts that are on this path
+                unordered_set<size_t> path_starts(colocated_starts.begin(), colocated_starts.end());
+                // records of (node_idx, overlap length)
+                vector<pair<size_t, size_t>> overlap_candidates;
+                
+                if (match_path.mapping_size() == 1) {
+                    // TODO: this edge case is a little duplicative, probably could to merge
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "path is one mapping long" << endl;
+#endif
+                    
+                    size_t final_offset = end_offset(start);
+                    // record which starts are on the path on this node
+                    for (size_t path_start_idx = start_idx + 1;
+                         path_start_idx >= starts.size() ? false : start_offset(starts[path_start_idx]) < final_offset;
+                         path_start_idx++) {
+                        
+                        path_starts.insert(starts[path_start_idx]);
+                        
+                    }
+                    // record which ends are on the path on this node
+                    for (size_t path_end_idx = next_end_idx; path_end_idx < ends.size(); path_end_idx++) {
+                        size_t end_offset_here = end_offset(ends[path_end_idx]);
+                        if (end_offset_here < final_offset) {
+                            overlap_candidates.emplace_back(ends[path_end_idx], end_offset_here - curr_start_offset);
+                        }
+                        else {
+                            break;
+                        }
+                    }
                 }
-                
-                // queue records are (start/end idx, distance from end, is an end?)
-                size_t start_length = start_node.end - start_node.begin;
-                list<tuple<size_t, size_t, bool>> path_queue{make_tuple(start, 0, true)};
-                unordered_set<pair<size_t, bool>> path_enqueued{make_pair(start, true)};
-                
-                unordered_map<size_t, size_t> candidate_overlap_preds;
-                
+                else {
 #ifdef debug_multipath_mapper
-                cerr << "traversing path of " << start << " to find internal overlaps" << endl;
-#endif
-                
-                while (!path_queue.empty()) {
-                    size_t idx = get<0>(path_queue.front());
-                    size_t dist = get<1>(path_queue.front());
-                    bool at_end = get<2>(path_queue.front());
-                    path_queue.pop_front();
-                    
-#ifdef debug_multipath_mapper
-                    cerr << "on path of " << start << " at " << (at_end ? "end" : "start") << " " << idx << " at dist " << dist << endl;
+                    cerr << "path is multiple mappings long" << endl;
 #endif
                     
-                    // stop searching backwards at the start of the MEM
-                    if (idx == start && !at_end) {
-                        break;
+                    // record which starts are on the path on the first node
+                    for (size_t path_start_idx = start_idx + 1; path_start_idx < starts.size(); path_start_idx++) {
+                        path_starts.insert(starts[path_start_idx]);
                     }
+                    // record which ends are on the path on the first node
+                    for (size_t path_end_idx = next_end_idx; path_end_idx < ends.size(); path_end_idx++) {
+                        overlap_candidates.emplace_back(ends[path_end_idx], end_offset(ends[path_end_idx]) - curr_start_offset);
+                    }
+                    size_t traversed_length = mapping_from_length(match_path.mapping(0));
                     
-                    if (at_end) {
-                        // this end is on the path of the MEM, it might be overlap-colinear
-                        if (idx != start) {
-#ifdef debug_multipath_mapper
-                            cerr << "marking " << idx << " as possibly overlap colinear at dist " << dist << endl;
-#endif
-                            candidate_overlap_preds[idx] = dist;
+                    for (size_t j = 1; j + 1 < match_path.mapping_size(); j++) {
+                        id_t path_node_id = match_path.mapping(j).position().node_id();
+                        // record which starts are on the path on this node
+                        for (size_t path_start : exact_match_starts[path_node_id]) {
+                            path_starts.insert(path_start);
+                        }
+                        // record which ends are on the path on this node
+                        for (size_t path_end : exact_match_ends[path_node_id]) {
+                            overlap_candidates.emplace_back(path_end, end_offset(path_end) + traversed_length);
                         }
                         
-                        // add the start and end predecessors that fall on the path of the MEM to the queue
-                        // note: it is okay to not check whether the start/end is behind the start of the path on
-                        // the same node because we are guaranteed to run into the start of the path before that
-                        for (const pair<size_t, size_t>& start_pred : reachable_starts_from_end[idx]) {
-                            if (!path_enqueued.count(make_pair(start_pred.first, false)) &&
-                                match_path_nodes.count(start_node_id(start_pred.first))) {
-                                
-                                path_queue.emplace_back(start_pred.first, dist + start_pred.second, false);
-                                path_enqueued.emplace(start_pred.first, false);
-                            }
-                        }
-                        for (const pair<size_t, size_t>& end_pred : reachable_ends_from_end[idx]) {
-                            if (!path_enqueued.count(make_pair(end_pred.first, true)) &&
-                                match_path_nodes.count(end_node_id(end_pred.first))) {
-                                
-                                path_queue.emplace_back(end_pred.first, dist + end_pred.second, true);
-                                path_enqueued.emplace(end_pred.first, true);
-                            }
-                        }
+                        traversed_length += mapping_from_length(match_path.mapping(j));
                     }
-                    else {
-                        if (candidate_overlap_preds.count(idx)) {
-                            // this start is on the path of the MEM, it cannot be overlap-colinear even if
-                            // the end is also on the path
-                            
-                            // add it to the non colinear shell
-                            // it is also part of the noncolinear shell
-                            noncolinear_shell[idx] = candidate_overlap_preds[idx];
-                            candidate_overlap_preds.erase(idx);
-#ifdef debug_multipath_mapper
-                            cerr << "rescinding decision that " << idx << " might be overlap colinear, adding to non colinear shell at dist " << noncolinear_shell[idx] << endl;
-#endif
-                        }
+                    
+                    id_t final_node_id = match_path.mapping(match_path.mapping_size() - 1).position().node_id();
+                    vector<size_t>& final_starts = exact_match_starts[final_node_id];
+                    vector<size_t>& final_ends = exact_match_ends[final_node_id];
+                    
+                    size_t final_offset = end_offset(start);
+                    // record which starts are on the path on the last node
+                    for (size_t path_start_idx = 0;
+                         path_start_idx >= final_starts.size() ? false : start_offset(final_starts[path_start_idx]) < final_offset;
+                         path_start_idx++) {
                         
-                        // add the start and end predecessors that fall on the path of the MEM to the queue
-                        for (const pair<size_t, size_t>& start_pred : reachable_starts_from_start[idx]) {
-                            if (!path_enqueued.count(make_pair(start_pred.first, false)) &&
-                                match_path_nodes.count(start_node_id(start_pred.first))) {
-                                
-                                path_queue.emplace_back(start_pred.first, dist + start_pred.second, false);
-                                path_enqueued.emplace(start_pred.first, false);
-                            }
+                        path_starts.insert(final_starts[path_start_idx]);
+                        
+                    }
+                    // record which ends are on the path on the last node
+                    for (size_t path_end_idx = 0; path_end_idx < final_ends.size(); path_end_idx++) {
+                        size_t end_offset_here = end_offset(final_ends[path_end_idx]);
+                        if (end_offset_here < final_offset) {
+                            overlap_candidates.emplace_back(final_ends[path_end_idx], end_offset_here + traversed_length);
                         }
-                        for (const pair<size_t, size_t>& end_pred : reachable_ends_from_start[idx]) {
-                            if (!path_enqueued.count(make_pair(end_pred.first, true)) &&
-                                match_path_nodes.count(end_node_id(end_pred.first))) {
-                                
-                                path_queue.emplace_back(end_pred.first, dist + end_pred.second, true);
-                                path_enqueued.emplace(end_pred.first, true);
-                            }
+                        else {
+                            break;
                         }
                     }
                 }
                 
-                for (const pair<size_t, size_t>& overlap_candidate : candidate_overlap_preds) {
+                for (const pair<size_t, size_t>& overlap_candidate : overlap_candidates) {
 #ifdef debug_multipath_mapper
                     cerr << "considering candidate overlap from " << overlap_candidate.first << " at dist " << overlap_candidate.second << endl;
 #endif
                     
+                    if (path_starts.count(overlap_candidate.first)) {
+                        // the start of this MEM is also on the path, so this can't be an overhanging overlap
+                        continue;
+                    }
+                    
                     ExactMatchNode& overlap_node = match_nodes[overlap_candidate.first];
                     
-                    // how much do the paths overlap (using negative distance)?
-                    size_t overlap = start_length - overlap_candidate.second;
+                    // how much do the paths overlap?
+                    size_t overlap = overlap_candidate.second;
                     
                     // are the matches read colinear after removing the overlap?
                     if (start_node.begin + overlap >= overlap_node.end) {
