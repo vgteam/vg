@@ -2457,48 +2457,80 @@ namespace vg {
                 REQUIRE(found_second_opt);
             }
             
-            // TODO: temporarily disabling this test because it seems to be hitting the E matrix bug
-            // in gssw after only the sixth alternate alignment--this will likely need to be addressed
-            // before the multi alignment becomes practical
-            // Also, multi-alignment can produce duplicate alignments with a gap bridging them to the pinned
-            // end now because the gap can be located on the final node or the dummy node
+            SECTION( "Pinned multi-alignment can take alternate matches over node boundaries without incurring a known bug" ) {
+                
+                VG graph;
+                
+                Node* n0 = graph.create_node("T");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("CCCTGCTAGTCTGGAGTTGATCAAGGAACCTGTCT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = "CCCGG";
+                string qual = "<<<''";
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                Node* pinned_node = n0;
+                bool pin_left = true;
+                int max_multi_alns = 100;
+                
+                QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
+                vector<Alignment> multi_alns;
+                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                
+                for (Alignment& alt_aln : multi_alns) {
+                    for (size_t i = 0; i < alt_aln.path().mapping_size(); i++) {
+                        REQUIRE(alt_aln.path().mapping(i).position().offset() >= 0);
+                        REQUIRE(path_to_length(alt_aln.path()) == read.size());
+                    }
+                }
+            }
             
-//            SECTION( "Pinned multi-alignment does not produce duplicate alignments" ) {
-//                
-//                VG graph;
-//                
-//                Aligner aligner;
-//                
-//                // low complexity sequences to ensure many alternate alignments
-//                Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
-//                Node* n1 = graph.create_node("CCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCA");
-//                Node* n2 = graph.create_node("CCCCCACCCCCCCCGTCCCCCCCCCCCA");
-//                Node* n3 = graph.create_node("CCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC");
-//                
-//                graph.create_edge(n0, n1);
-//                graph.create_edge(n0, n2);
-//                graph.create_edge(n1, n3);
-//                graph.create_edge(n2, n3);
-//                
-//                string read = "CCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCCCCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCACCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC";
-//                Alignment aln;
-//                aln.set_sequence(read);
-//                
-//                Node* pinned_node = n3;
-//                bool pin_left = false;
-//                int max_multi_alns = 2000;//2131;
-//                
-//                vector<Alignment> multi_alns;
-//                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
-//                
-//                unordered_set<string> alns_seen;
-//                for (Alignment& alt_aln : multi_alns) {
-//                    string aln_string = hash_alignment(alt_aln);
-//                    
-//                    REQUIRE(alns_seen.count(aln_string) == 0);
-//                    alns_seen.insert(aln_string);
-//                }
-//            }
+            
+            SECTION( "Pinned multi-alignment does not produce duplicate alignments" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                // low complexity sequences to ensure many alternate alignments
+                Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
+                Node* n1 = graph.create_node("CCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCA");
+                Node* n2 = graph.create_node("CCCCCACCCCCCCCGTCCCCCCCCCCCA");
+                Node* n3 = graph.create_node("CCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = "CCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCCCCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCACCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC";
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                Node* pinned_node = n3;
+                bool pin_left = false;
+                int max_multi_alns = 5000;
+                
+                vector<Alignment> multi_alns;
+                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                
+                unordered_set<string> alns_seen;
+                for (Alignment& alt_aln : multi_alns) {
+                    string aln_string = hash_alignment(alt_aln);
+                    
+                    REQUIRE(alns_seen.count(aln_string) == 0);
+                    alns_seen.insert(aln_string);
+                }
+            }
         }
     }
 }

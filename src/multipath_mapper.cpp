@@ -572,8 +572,21 @@ namespace vg {
                         Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_subpath_mapping->mutable_position()->set_offset(offset(src_pos) + 1);
+                            
+//                            if (offset(src_pos) + 1 < 0 || offset(src_pos) + 1 >= numeric_limits<int64_t>::max()) {
+//                                cerr << "########" << endl;
+//                                cerr << "negative offset for connecting alignment: " << endl;
+//                                cerr << pb2json(connecting_alignment) << endl;
+//                                cerr << "match node " << j << " edge " << edge.first << " " << edge.second << endl;
+//                                cerr << "subpath:" << endl;
+//                                cerr << pb2json(*connecting_subpath) << endl;
+//                                cerr << "########" << endl;
+//                            }
                         }
                     }
+                    
+                    cerr << "subpath from " << j << " to " << edge.first << ":" << endl;
+                    cerr << pb2json(*connecting_subpath) << endl;
                 }
             }
         }
@@ -762,6 +775,8 @@ namespace vg {
                         }
                     }
                     
+                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                    
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln.add_subpath();
                         *tail_subpath->mutable_path() = tail_alignment.path();
@@ -774,6 +789,9 @@ namespace vg {
                         if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_mapping->mutable_position()->set_offset(offset(end_pos));
                         }
+                        first_mapping->mutable_position()->set_offset(offset(end_pos));
+                        cerr << "subpath from " << j << " to right tail:" << endl;
+                        cerr << pb2json(*tail_subpath) << endl;
                     }
                 }
             }
@@ -848,6 +866,8 @@ namespace vg {
                         }
                     }
                     
+                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                    
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln.add_subpath();
                         *tail_subpath->mutable_path() = tail_alignment.path();
@@ -857,6 +877,8 @@ namespace vg {
                         multipath_aln.add_start(multipath_aln.subpath_size() - 1);
                         
                         translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
+                        cerr << "subpath from " << j << " to left tail:" << endl;
+                        cerr << pb2json(*tail_subpath) << endl;
                     }
                 }
                 else {
@@ -1117,6 +1139,13 @@ namespace vg {
                     cerr << "validation failure on using complete read" << endl;
                     cerr << "subpath " <<  i << " ends on sequence index " << subpath_read_interval[i].second << " of " << multipath_aln.sequence().size() << endl;
                     cerr << pb2json(subpath) << endl;
+                    for (size_t j = 0; j < multipath_aln.subpath_size(); j++) {
+                        cerr << j << " (" << subpath_read_interval[j].first << ", " << subpath_read_interval[j].second << "): ";
+                        for (size_t k = 0; k < multipath_aln.subpath(j).next_size(); k++) {
+                            cerr << multipath_aln.subpath(j).next(k) << " ";
+                        }
+                        cerr << endl;
+                    }
 #endif
                     return false;
                 }
@@ -2687,7 +2716,7 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
-        cerr << "breaking nodes at overlap edges" << endl;
+        cerr << "breaking nodes at overlap edges (" << confirmed_overlaps.size() << " times)" << endl;
 #endif
         
         // now we've found all overlap edges, so we can add them into the graph in an order such that they don't
