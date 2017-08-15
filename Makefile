@@ -306,7 +306,7 @@ $(OBJ_DIR)/progress_bar.o:
 $(OBJ_DIR)/Fasta.o:
 	+cd $(FASTAHACK_DIR) && $(MAKE) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-$(LIB_DIR)/libhts.a:
+$(LIB_DIR)/libhts.a: $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp $(XG_DIR)/src/xg.cpp $(XG_DIR)/src/xg.hpp $(INC_DIR)/sparsehash/sparse_hash_map 
