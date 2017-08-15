@@ -71,8 +71,11 @@ is "$(vg view -Jv reversing/double_reversing.json | vg mod -u - | vg stats -z - 
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 02e484f8bc83bf4f37ecda0ad684b235 "normalization works on a graph with an inversion"
 
-vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N | vg mod -u - >/dev/null
+vg msga -w 20 -f msgas/s.fa > s.vg
+vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -w 16 -N > s2.vg
+vg mod -u s2.vg >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
+rm -f s.vg s2.vg
 
 is $(vg msga -w 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
@@ -114,7 +117,7 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
 vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | wc -l) 1280 "the expected graph translation is exported when the graph is edited"
+is $(vg view -Z x.trans | wc -l) 1278 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg

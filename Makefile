@@ -115,6 +115,7 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/pinned_alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_mapper.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapper.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mem.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phased_genome.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
@@ -305,7 +306,7 @@ $(OBJ_DIR)/progress_bar.o:
 $(OBJ_DIR)/Fasta.o:
 	+cd $(FASTAHACK_DIR) && $(MAKE) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-$(LIB_DIR)/libhts.a:
+$(LIB_DIR)/libhts.a: $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp $(XG_DIR)/src/xg.cpp $(XG_DIR)/src/xg.hpp $(INC_DIR)/sparsehash/sparse_hash_map 
@@ -395,7 +396,7 @@ $(OBJ_DIR)/ssw_aligner.o: $(SRC_DIR)/ssw_aligner.cpp $(SRC_DIR)/ssw_aligner.hpp 
 
 $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(DEPS)
 
-$(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 
 $(OBJ_DIR)/mem.o: $(SRC_DIR)/mem.cpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
@@ -462,7 +463,7 @@ $(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adde
 
 $(OBJ_DIR)/name_mapper.o: $(SRC_DIR)/name_mapper.cpp $(DEPS)
 
-$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/algorithms/vg_algorithms.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
@@ -527,6 +528,8 @@ $(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignme
 
 $(UNITTEST_OBJ_DIR)/multipath_mapper.o: $(UNITTEST_SRC_DIR)/multipath_mapper.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_mapper.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
+$(UNITTEST_OBJ_DIR)/mapper.o: $(UNITTEST_SRC_DIR)/mapper.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+
 $(UNITTEST_OBJ_DIR)/mem.o: $(UNITTEST_SRC_DIR)/mem.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/phased_genome.o: $(UNITTEST_SRC_DIR)/phased_genome.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/phased_genome.hpp $(SRC_DIR)/phased_genome.cpp $(SRC_DIR)/snarls.hpp $(DEPS)
@@ -574,11 +577,11 @@ $(SUBCOMMAND_OBJ_DIR)/construct_main.o: $(SUBCOMMAND_SRC_DIR)/construct_main.cpp
 
 $(SUBCOMMAND_OBJ_DIR)/simplify_main.o: $(SUBCOMMAND_SRC_DIR)/simplify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.cpp $(OBJ_DIR)/homogenizer.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/vg.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.cpp $(SRC_DIR)/homogenizer.hpp $(SRC_DIR)/filter.hpp $(OBJ_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/sift_main.o: $(SUBCOMMAND_SRC_DIR)/sift_main.cpp $(OBJ_DIR)/filter.o $(OBJ_DIR)/vg.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/sift_main.o: $(SUBCOMMAND_SRC_DIR)/sift_main.cpp $(SRC_DIR)/filter.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(OBJ_DIR)/srpe.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/vg.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(SRC_DIR)/srpe.hpp $(SRC_DIR)/filter.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 
 
 $(SUBCOMMAND_OBJ_DIR)/gamsort_main.o: $(SUBCOMMAND_SRC_DIR)/gamsort_main.cpp $(OBJ_DIR)/gamsorter.o $(DEPS)
