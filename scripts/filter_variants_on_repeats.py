@@ -151,6 +151,7 @@ def main(args):
     # Track statistics
     total_variants = 0
     kept_variants = 0
+    non_snp_variants = 0
     
     for variant in reader.fetch(short_contig, options.start, options.end):
         # For each variant in our region
@@ -164,17 +165,30 @@ def main(args):
         # And how common it is
         frequency = variant.INFO["AF"][0]
         
-        # What's the minimum frequency to get more true than fake hits?
-        min_frequency = (count * options.error_rate /
-            (3 - 2 * options.error_rate))
-            
-        # Should we keep it?
-        keep = (frequency >= min_frequency)
+        if variant.is_snp:
+            # SNPs are modeled
         
-        sys.stderr.write(
-            "{} {}:{} has {} copies and frequency {:.4f} vs. {:.4f}\n".format(
-            "☑" if keep else "☐", variant.CHROM, variant.POS, count,
-            frequency, min_frequency))
+            # What's the minimum frequency to get more true than fake hits?
+            min_frequency = (count * options.error_rate /
+                (3 - 2 * options.error_rate))
+                
+            # Should we keep it?
+            keep = (frequency >= min_frequency)
+            
+            sys.stderr.write(
+                "{} {}:{} has {} copies, frequency {:.4f} vs. {:.4f}\n".format(
+                "☑" if keep else "☐", variant.CHROM, variant.POS, count,
+                frequency, min_frequency))
+        else:
+            # We have to keep everything that's not a SNP because we have no
+            # error model
+            
+            keep = True
+            sys.stderr.write(
+                "{} {}:{} has {} copies, frequency {:.4f} (non-SNP)\n".format(
+                "☑" if keep else "☐", variant.CHROM, variant.POS, count,
+                frequency))
+            non_snp_variants += 1
             
         if keep:
             # Pass the variants we're keeping
@@ -182,8 +196,8 @@ def main(args):
             # Count it
             kept_variants += 1
             
-    sys.stderr.write("Finished! Kept {} / {} variants\n".format(kept_variants,
-        total_variants))
+    sys.stderr.write("Finished! Kept {} ({} non-SNP) / {} variants\n".format(
+        kept_variants, non_snp_variants, total_variants))
         
     
     return 0
