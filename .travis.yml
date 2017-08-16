@@ -48,7 +48,7 @@ script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && make test && make static -j4; fi
   # If the deps manage to build in 1000 seconds, we should have enough time to finish the build.
   # Otherwise we should abort and cache what we have.
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1000 make -j4 deps && make -j4 && make test; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 800 make -j4 deps && make -j4 && make test; fi
 # Cache all our dependency directories, and our lib and include
 cache:
   directories:
