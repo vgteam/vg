@@ -224,7 +224,7 @@ ifneq ($(shell uname -s),Darwin)
 	CXXFLAGS += -march=native -mtune=native
 endif
 
-.PHONY: clean get-deps test set-path static docs .pre-build
+.PHONY: clean get-deps deps test set-path static docs .pre-build
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -239,9 +239,12 @@ static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 $(LIB_DIR)/libvg.a: $(OBJ) $(DEPS)
 	ar rs $@ $(OBJ) $(LIB_DEPS)
 
+# We have system-level deps to install
 get-deps:
 	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev
 
+# And we have submodule deps to build
+deps: $(DEPS)
 
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/xg
 	. ./source_me.sh && cd test && $(MAKE)
