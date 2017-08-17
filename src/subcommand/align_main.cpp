@@ -34,12 +34,8 @@ void help_align(char** argv) {
          << "    -b, --banded-global   use the banded global alignment algorithm" << endl
          << "    -p, --pinned          pin the (local) alignment traceback to the optimal edge of the graph" << endl
          << "    -L, --pin-left        pin the first rather than last bases of the graph and sequence" << endl
-         << "    -D, --debug           print out score matrices and other debugging info" << endl
-         << "options:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -Q, --seq-name STR    name the sequence using this value" << endl
          << "    -r, --reference STR   don't use an input graph--- run SSW alignment between -s and -r" << endl
-         << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
+         << "    -D, --debug           print out score matrices and other debugging info" << endl;
 }
 
 int main_align(int argc, char** argv) {

@@ -159,6 +159,19 @@ def parse_testcase_xml(testcase):
 
     return tc
 
+def get_vgci_warnings(tc):
+    """
+    extract warnings from the parsed test case stderr
+    """
+    warnings = []
+    if tc['stderr']:
+        for line in tc['stderr'].split('\n'):
+            # For each line
+            if "WARNING vgci" in line:
+                # If it is a CI warning, keep it
+                warnings.append(line.rstrip())
+    return warnings
+
 def md_summary(xml_root):
     """
     Make a brief summary in Markdown of a testsuite
@@ -187,13 +200,23 @@ def md_summary(xml_root):
         if ts['fails'] is not None and int(ts['fails']) >= 1:
             md += 'Failed tests:\n\n'
 
+        warnings = []
+        
         for testcase in testsuite.iter('testcase'):
             try:
                 tc = parse_testcase_xml(testcase)
                 if tc['failed']:
                     md += '* {} ({} seconds)\n'.format(tc['name'], tc['time'])
+                warnings += get_vgci_warnings(tc)
             except:
-                md += '**Error parsing Test Case XML**\n'                
+                md += '**Error parsing Test Case XML**\n'
+            
+        if len(warnings) > 0:
+            if ts['fails'] is not None and int(ts['fails']) >= 1:
+                md += '\n'
+            md += 'Tests produced {} warnings. {} were for lower-than-expected alignment scores\n\n'.format(
+                len(warnings), len([w for w in warnings if 'negative score' in w]))
+            
     except:
         md += ' **Error parsing Test Suite XML**\n'
     return md
@@ -263,7 +286,7 @@ def html_table(table, caption = None):
     t += '</table>\n'
     return t
 
-def html_testcase(tc, work_dir, report_dir):
+def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
     """
     Make an HTML report for a single test case
     """
@@ -337,27 +360,35 @@ def html_testcase(tc, work_dir, report_dir):
 
         if tc['stderr']:
             # Look for warning lines in stderr
-            warnings = []
-            for line in tc['stderr'].split('\n'):
-                # For each line
-                if "WARNING vgci" in line:
-                    # If it is a CI warning, keep it
-                    warnings.append(line.rstrip())
+            warnings = get_vgci_warnings(tc)
 
+            # report top warnings in HTML
             if len(warnings) > 0:
                 report += '<p>{} CI warnings found'.format(len(warnings))
-                if len(warnings) > 10:
-                    report += '; showing first 10'
-                    warnings = warnings[:10]
+                if len(warnings) > max_warnings:
+                    report += '; showing first {}'.format(max_warnings)
                 report += ':'
                 report += '</p>\n'
-                for warning in warnings:            
+                for warning in warnings[:max_warnings]:            
                     report += '<pre>{}</pre>\n'.format(escape('\n'.join(textwrap.wrap(warning, 80))))
+
+                # warnings file
+                if len(warnings) > max_warnings:
+                    warn_name = '{}-warnings.txt'.format(tc['name'])
+                    with open(os.path.join(report_dir, warn_name), 'w') as warn_file:
+                        for warning in warnings:
+                            warn_file.write(warning + '\n')
+
+            # entire stderr output (which also includes warnings, should we filter?)
             err_name = '{}-stderr.txt'.format(tc['name'])
             with open(os.path.join(report_dir, err_name), 'w') as err_file:
-                pass
-                #err_file.write(tc['stderr'])
-            report += '<p><a href={}>Standard Error</a></p>\n'.format(err_name)
+                err_file.write(tc['stderr'])
+
+            # link to warnings and stderr
+            report += '<p>'
+            if len(warnings) > max_warnings:
+                report += '<a href={}>All CI Warnings</a>, '.format(warn_name)
+            report += '<a href={}>Standard Error</a></p>\n'.format(err_name)
 
     except int as e:
         report += 'Error parsing Test Case XML\n'

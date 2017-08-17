@@ -62,7 +62,9 @@ namespace vg {
         // extract graphs around the clusters
         vector<VG*> cluster_graphs;
         unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems;
-        query_cluster_graphs(alignment, mems, clusters, cluster_graphs, cluster_graph_mems);
+        // TODO: we don't use this data for the single-end case. We don't care which clusters became which graph.
+        vector<size_t> merged_into_out; 
+        query_cluster_graphs(alignment, mems, clusters, cluster_graphs, merged_into_out, cluster_graph_mems);
         
         // record the sequence coverage of each cluster
         unordered_map<VG*, int64_t> cluster_graph_coverage;
@@ -95,7 +97,7 @@ namespace vg {
 #endif
             
             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = cluster_graph_mems[vg];
-            multipath_align(alignment, vg, graph_mems, multipath_alns_out);
+            multipath_alns_out.push_back(multipath_align(alignment, vg, graph_mems));
             
             num_alt_alns++;
         }
@@ -105,14 +107,173 @@ namespace vg {
         }
     }
     
+    void MultipathMapper::multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
+                                               size_t max_separation,
+                                               list<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                               size_t max_alt_alns) {
+    
+#ifdef debug_multipath_mapper
+        cerr << "multipath mapping reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
+        cerr << "querying MEMs..." << endl;
+#endif
+    
+        // query MEMs using GCSA2
+        double dummy;
+        vector<MaximalExactMatch> mems1 = find_mems_deep(alignment1.sequence().begin(), alignment1.sequence().end(),
+                                                         dummy, 0, min_mem_length, mem_reseed_length);
+        vector<MaximalExactMatch> mems2 = find_mems_deep(alignment2.sequence().begin(), alignment2.sequence().end(),
+                                                         dummy, 0, min_mem_length, mem_reseed_length);
+        
+#ifdef debug_multipath_mapper
+        cerr << "obtained read1 MEMs:" << endl;
+        for (MaximalExactMatch mem : mems1) {
+            cerr << "\t" << mem << endl;
+        }
+        cerr << "obtained read2 MEMs:" << endl;
+        for (MaximalExactMatch mem : mems2) {
+            cerr << "\t" << mem << endl;
+        }
+        cerr << "clustering MEMs..." << endl;
+#endif
+        
+        // cluster the MEMs
+        OrientedDistanceClusterer clusterer1(alignment1, mems1, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+        OrientedDistanceClusterer clusterer2(alignment2, mems2, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+        
+        // Get the two vectors of clusters.
+        // Each cluster is a vector of pairs of a MEM pointer and a pos_t where the MEM is.
+        auto clusters1 = clusterer1.clusters();
+        auto clusters2 = clusterer2.clusters();
+        
+        // Compute the pairs
+        vector<pair<size_t, size_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(clusters1,
+            clusters2, xindex, max_separation);
+        
+#ifdef debug_multipath_mapper
+        cerr << "obtained cluster pairs:" << endl;
+        for (int i = 0; i < cluster_pairs.size(); i++) {
+            cerr << "\tpair " << i << endl;
+            cerr << "\t\t read 1" << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters1[cluster_pairs[i].first]) {
+                cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+            }
+            cerr << "\t\t read 2" << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters2[cluster_pairs[i].second]) {
+                cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+            }
+        }
+        cerr << "extracting subgraphs..." << endl;
+#endif
+        
+        // extract graphs around the clusters
+        vector<VG*> cluster_graphs1;
+        vector<VG*> cluster_graphs2;
+        // And track which input clusters went into which resulting graphs (to translate the pairs)
+        vector<size_t> merged_into1;
+        vector<size_t> merged_into2;
+        // And track which mems went where
+        unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems1;
+        unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems2;
+        // Do the graph extraction and cluster to graph merging
+        query_cluster_graphs(alignment1, mems1, clusters1, cluster_graphs1, merged_into1, cluster_graph_mems1);
+        query_cluster_graphs(alignment2, mems2, clusters2, cluster_graphs2, merged_into2, cluster_graph_mems2);
+        
+        // record the sequence coverage of each cluster
+        unordered_map<VG*, int64_t> cluster_graph_coverage1;
+        unordered_map<VG*, int64_t> cluster_graph_coverage2;
+        for (VG* vg : cluster_graphs1) {
+            cluster_graph_coverage1[vg] = read_coverage(cluster_graph_mems1[vg]);
+        }
+        for (VG* vg : cluster_graphs2) {
+            cluster_graph_coverage2[vg] = read_coverage(cluster_graph_mems2[vg]);
+        }
+        
+        auto get_read_1_coverage = [&](size_t input_cluster) {
+            return cluster_graph_coverage1[cluster_graphs1[merged_into1[input_cluster]]];
+        };
+        auto get_read_2_coverage = [&](size_t input_cluster) {
+            return cluster_graph_coverage2[cluster_graphs2[merged_into2[input_cluster]]];
+        };
+        
+        // sort the pairs descending by total unique sequence coverage
+        // TODO: figure out relationship between this and the clustering filter
+        std::sort(cluster_pairs.begin(), cluster_pairs.end(), [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+            // We need to be able to look up the coverage for the graph an input cluster went into.
+            // Compute total coverage following all the redirects and see if
+            // it's in the right order.
+            return (get_read_1_coverage(a.first) + get_read_2_coverage(a.second) >
+                get_read_1_coverage(b.first) + get_read_2_coverage(b.second));
+        });
+        
+#ifdef debug_multipath_mapper
+        cerr << "aligning to cluster pairs..." << endl;
+#endif
+        
+        // TODO: some cluster pairs will produce redundant subgraph pairs.
+        // We'll end up with redundant pairs being output.
+        
+        // align to each cluster pair
+        size_t num_alns = 0;
+        for (const pair<size_t, size_t>& cluster_pair : cluster_pairs) {
+            // For each cluster pair
+            
+            // Look up the graphs it should pair up
+            VG* vg1 = cluster_graphs1[merged_into1[cluster_pair.first]];
+            VG* vg2 = cluster_graphs2[merged_into2[cluster_pair.second]];
+
+            // What's this pair's total coverage?
+            auto pair_coverage = get_read_1_coverage(cluster_pair.first) + get_read_2_coverage(cluster_pair.second);
+            // And the best coverage?
+            // TODO: move out of loop.
+            auto max_coverage = get_read_1_coverage(cluster_pairs[0].first) + get_read_2_coverage(cluster_pairs[0].second);
+
+            // if we have a cluster graph pair with small enough MEM coverage
+            // compared to the best one or we've made the maximum number of
+            // alignments we stop producing alternate alignments
+            if (pair_coverage < mem_coverage_min_ratio * max_coverage
+                || num_alns >= max_alt_alns) {
+                break;
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "performing alignments to subgraphs " << pb2json(vg1->graph) << " and " << pb2json(vg2->graph) << endl;
+#endif
+            
+            vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems1 = cluster_graph_mems1[vg1];
+            vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems2 = cluster_graph_mems2[vg2];
+            // Do the two alignments
+            auto multipath_aln1 = multipath_align(alignment1, vg1, graph_mems1);
+            auto multipath_aln2 = multipath_align(alignment2, vg2, graph_mems2);
+            
+            // Stick them in the output vector of pairs
+            multipath_aln_pairs_out.emplace_back(multipath_aln1, multipath_aln2);
+            
+            num_alt_alns++;
+        }
+        
+        for (VG* vg : cluster_graphs1) {
+            delete vg;
+        }
+        for (VG* vg : cluster_graphs2) {
+            delete vg;
+        }
+    }
+    
     void MultipathMapper::query_cluster_graphs(const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
                                                vector<VG*>& cluster_graphs_out,
+                                               vector<size_t>& merged_into_out,
                                                unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out){
         
         // subgraphs around each cluster
         cluster_graphs_out.reserve(clusters.size());
+        
+        // We need to keep track of which input clusters merged to form which output graphs.
+        UnionFind merged_clusters(clusters.size());
+        // And to do that we need a vector, synchronized with cluster_graphs_out, giving an input cluster in each graph.
+        vector<size_t> cluster_graph_clusters;
+        cluster_graph_clusters.reserve(clusters.size());
         
         // we will ensure that nodes are in only one cluster, use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
@@ -169,6 +330,9 @@ namespace vg {
                 
                 cluster_graphs_out.push_back(cluster_graph);
                 
+                // Record some cluster that fed into that graph
+                cluster_graph_clusters.push_back(i);
+                
                 // now that we know we're going to save the graph, manually trigger the index building since
                 // we circumvented the constructors
                 cluster_graph->rebuild_indexes();
@@ -182,13 +346,23 @@ namespace vg {
                 cluster_graphs_out[min_idx_cluster]->extend(graph);
                 delete cluster_graph;
                 
+                // Record the merge in the union find
+                merged_clusters.union_groups(cluster_graph_clusters[min_idx_cluster], i);
+                
                 // if this subgraph chains together multiple clusters, merge them and remove them from the list
                 overlapping_graphs.erase(min_idx_cluster);
                 for (size_t j : overlapping_graphs) {
+                    // Move this overlapping graph to the end
                     std::swap(cluster_graphs_out[j], cluster_graphs_out.back());
+                    std::swap(cluster_graph_clusters[j], cluster_graph_clusters.back());
+                    // Steal its graph contents
                     cluster_graphs_out[min_idx_cluster]->extend(cluster_graphs_out.back()->graph);
                     delete cluster_graphs_out.back();
+                    // Union its clusters with the current cluster set.
+                    merged_clusters.union_groups(cluster_graph_clusters.back(), i);
+                    // Remove it from the lists
                     cluster_graphs_out.pop_back();
+                    cluster_graph_clusters.pop_back();
                 }
                 
                 // relabel the cluster of any nodes that were not in the graph we merged into
@@ -209,11 +383,24 @@ namespace vg {
                 }
             }
         }
+        
+        // Now we'll fill this with which graph in the vector each cluster ended up in.
+        // Make sure all the spaces are available.
+        merged_into_out.resize(clusters.size());
+        
+        for (size_t i = 0; i < cluster_graph_clusters.size(); i++) {
+            // For every output graph
+            for (auto& input_cluster : merged_clusters.group(cluster_graph_clusters[i])) {
+                // For each input cluster that fed into the graph
+                
+                // Say it fed into this graph
+                merged_into_out[input_cluster] = i;
+            }
+        }
     }
     
-    void MultipathMapper::multipath_align(const Alignment& alignment, VG* vg,
-                                          vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
-                                          list<MultipathAlignment>& multipath_alns_out) {
+    MultipathAlignment MultipathMapper::multipath_align(const Alignment& alignment, VG* vg,
+                                                        vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems) {
 #ifdef debug_multipath_mapper
         cerr << "constructing alignment graph" << endl;
 #endif
@@ -266,8 +453,7 @@ namespace vg {
         cerr << "pruned to high scoring paths" << endl;
         
         // create a new multipath alignment object and transfer over data from alignment
-        multipath_alns_out.emplace_back();
-        MultipathAlignment& multipath_aln = multipath_alns_out.back();
+        MultipathAlignment multipath_aln;
         multipath_aln.set_sequence(alignment.sequence());
         multipath_aln.set_quality(alignment.quality());
         multipath_aln.set_name(alignment.name());
@@ -559,6 +745,8 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "completed multipath alignment: " << pb2json(multipath_aln) << endl;
 #endif
+
+        return multipath_aln;
         
     }
     
