@@ -75,7 +75,7 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                             Alignment& alignment,
                                             bool pinned,
                                             bool pin_left,
-                                            bool print_score_matrices) {
+                                            bool print_score_matrices) {    
     alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);

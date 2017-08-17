@@ -183,10 +183,11 @@ public:
     int fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     
-    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
-    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
-    
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
+    
+    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+    int max_mapping_quality; // the cap for mapping quality
     
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
@@ -525,7 +526,6 @@ public:
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
-    int max_mapping_quality; // the cap for mapping quality
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component

@@ -22,6 +22,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , regular_aligner(nullptr)
     , adjust_alignments_for_base_quality(false)
     , mapping_quality_method(Approx)
+    , max_mapping_quality(60)
     , strip_bonuses(true)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
@@ -1328,7 +1329,6 @@ Mapper::Mapper(xg::XG* xidex,
     , since_last_fragment_length_estimate(0)
     , fragment_model_update_interval(10)
     , perfect_pair_identity_threshold(0.95)
-    , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
     , use_cluster_mq(false)
     , simultaneous_pair_alignment(true)

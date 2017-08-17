@@ -123,7 +123,9 @@ namespace algorithms {
         // subsetting operations than Graph, XG, or VG objects)
         unordered_map<id_t, LocalNode> graph;
         graph[id(pos_1)] = LocalNode(node_sequence(id(pos_1)));
-        graph[id(pos_2)] = LocalNode(node_sequence(id(pos_2)));
+        if (id(pos_2) != id(pos_1)) {
+            graph[id(pos_2)] = LocalNode(node_sequence(id(pos_2)));
+        }
         
         // keep track of whether we find a path or not
         bool found_target = false;
@@ -152,6 +154,9 @@ namespace algorithms {
         // do it because the objects in the queue are implicitly at the "end" of a node traversal,
         // but here we would want to stop before reaching the end of the first node
         if (colocation == SharedNodeReachable) {
+#ifdef debug_vg_algorithms
+            cerr << "FORWARD SEARCH: positions are on same node, skipping forward search and identifying them as " << (found_target ? "" : "not ") << "reachable" << endl;
+#endif
             found_target = (offset(pos_2) - offset(pos_1) <= max_len);
         }
         else {

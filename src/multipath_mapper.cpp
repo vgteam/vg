@@ -27,7 +27,6 @@ namespace vg {
                                         vector<MultipathAlignment>& multipath_alns_out,
                                         size_t max_alt_mappings) {
         
-        
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping read " << pb2json(alignment) << endl;
         cerr << "querying MEMs..." << endl;
@@ -52,11 +51,11 @@ namespace vg {
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters;
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
-            clusters = clusterer.clusters();
+            clusters = clusterer.clusters(max_mapping_quality);
         }
         else {
             OrientedDistanceClusterer clusterer(alignment, mems, *regular_aligner, xindex, max_expected_dist_approx_error);
-            clusters = clusterer.clusters();
+            clusters = clusterer.clusters(max_mapping_quality);
         }
         
 #ifdef debug_multipath_mapper
@@ -75,6 +74,10 @@ namespace vg {
         vector<VG*> cluster_graphs;
         unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>> cluster_graph_mems;
         query_cluster_graphs(alignment, mems, clusters, cluster_graphs, cluster_graph_mems);
+        
+#ifdef debug_multipath_mapper
+        cerr << "sorting subgraphs by read coverage..." << endl;
+#endif
         
         // record the sequence coverage of each cluster
         unordered_map<VG*, int64_t> cluster_graph_coverage;
@@ -171,11 +174,14 @@ namespace vg {
                                                vector<VG*>& cluster_graphs_out,
                                                unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out) {
         
-        // subgraphs around each cluster
-        cluster_graphs_out.reserve(clusters.size());
-        
         // we will ensure that nodes are in only one cluster, use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
+        
+        // to hold the clusters as they are (possibly) merged
+        unordered_map<size_t, VG*> cluster_graphs;
+        
+        // to keep track of which clusters have been merged
+        UnionFind union_find(clusters.size());
         
         for (size_t i = 0; i < clusters.size(); i++) {
             
@@ -195,7 +201,7 @@ namespace vg {
             backward_max_dist.reserve(cluster.size());
             
             if (adjust_alignments_for_base_quality) {
-                for (auto mem_hit : cluster) {
+                for (auto& mem_hit : cluster) {
                     // get the start position of the MEM
                     positions.push_back(mem_hit.second);
                     // search far enough away to get any hit detectable without soft clipping
@@ -206,7 +212,7 @@ namespace vg {
                 }
             }
             else {
-                for (auto mem_hit : cluster) {
+                for (auto& mem_hit : cluster) {
                     // get the start position of the MEM
                     positions.push_back(mem_hit.second);
                     // search far enough away to get any hit detectable without soft clipping
@@ -248,68 +254,158 @@ namespace vg {
                 // there is no overlap with any other graph, suggesting a new unique hit
                 
 #ifdef debug_multipath_mapper
-                cerr << "cluster graph does not overlap with any other cluster graphs" << endl;
+                cerr << "cluster graph does not overlap with any other cluster graphs, adding as cluster " << cluster_graphs_out.size() << endl;
 #endif
-                cluster_graphs_out.push_back(cluster_graph);
+                cluster_graphs[i] = cluster_graph;
                 
                 // now that we know we're going to save the graph, manually trigger the index building since
                 // we circumvented the constructors
                 cluster_graph->rebuild_indexes();
             }
             else {
-                // this graph overlap at least one other graph, so we merge them into the (arbitrarily chosen) graph
-                // with the minimum index in the vector
-                
-                size_t min_idx_cluster = *std::min_element(overlapping_graphs.begin(), overlapping_graphs.end());
+                // this graph overlaps at least one other graph, so we merge them into one
                 
 #ifdef debug_multipath_mapper
-                cerr << "cluster graph overlaps with at least one other graph, merging all graphs into cluster " << min_idx_cluster << " of " << cluster_graphs_out.size() << endl;
+                cerr << "cluster graph overlaps with the following graphs:" << endl;
+                for (auto idx : overlapping_graphs) {
+                    cerr << "\t" << idx << endl;
+                }
 #endif
                 
-                // merge in the new graph
-                cluster_graphs_out[min_idx_cluster]->extend(graph);
-                delete cluster_graph;
-                
-#ifdef debug_multipath_mapper
-                cerr << "merged in new graph" << endl;
-#endif
-                
-                // if this subgraph chains together multiple clusters, merge them and remove them from the list
-                overlapping_graphs.erase(min_idx_cluster);
+                // merge the groups and decide one graph to stay in the record
                 for (size_t j : overlapping_graphs) {
-#ifdef debug_multipath_mapper
-                    cerr << "cluster graph " << j << " is chained together with this one" << endl;
-#endif
-                    std::swap(cluster_graphs_out[j], cluster_graphs_out.back());
-                    cluster_graphs_out[min_idx_cluster]->extend(cluster_graphs_out.back()->graph);
-                    delete cluster_graphs_out.back();
-                    cluster_graphs_out.pop_back();
+                    union_find.union_groups(i, j);
+                }
+                size_t remaining_idx = union_find.find_group(i);
+                
+                VG* merging_graph;
+                if (remaining_idx == i) {
+                    // the new graph was chosen to remain, so add it to the record
+                    cluster_graphs[i] = cluster_graph;
+                    merging_graph = cluster_graph;
+                }
+                else {
+                    // the new graph will be merged into an existing graph
+                    merging_graph = cluster_graphs[remaining_idx];
+                    merging_graph->extend(graph);
+                    delete cluster_graph;
                 }
                 
-#ifdef debug_multipath_mapper
-                cerr << "relabeling nodes of the merged graph to have the correct index" << endl;
-#endif
+                // merge any other chained graphs into the remaining graph
+                for (size_t j : overlapping_graphs) {
+                    if (j != remaining_idx) {
+                        VG* removing_graph = cluster_graphs[j];
+                        merging_graph->extend(removing_graph->graph);
+                        delete removing_graph;
+                        cluster_graphs.erase(j);
+                    }
+                }
                 
-                // relabel the cluster of any nodes that were not in the graph we merged into
-                Graph& merged_graph = cluster_graphs_out[min_idx_cluster]->graph;
+                Graph& merged_graph = merging_graph->graph;
                 for (size_t j = 0; j < merged_graph.node_size(); j++) {
-                    node_id_to_cluster[merged_graph.node(j).id()] = min_idx_cluster;
+                    node_id_to_cluster[merged_graph.node(j).id()] = remaining_idx;
                 }
             }
         }
+        
+        // check if any cluster graphs pulled disconnected components (as a result of a clustering failure)
+        // and if so split them up
+        
+        // keeps track of the connected components of any multicomponent graph
+        vector<pair<size_t, vector<unordered_set<id_t>>>> multicomponent_graphs;
+        
+        size_t max_graph_idx = 0;
+        for (const pair<size_t, VG*> cluster_graph : cluster_graphs) {
+            vector<unordered_set<id_t>> connected_components = cluster_graph.second->weakly_connected_components();
+            if (connected_components.size() > 1) {
+                multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));
+            }
+            max_graph_idx = max(cluster_graph.first, max_graph_idx);
+        }
+        
+        // did we find any graphs that consist of disconnected components?
+        for (pair<size_t, vector<unordered_set<id_t>>>& multicomponent_graph : multicomponent_graphs) {
+            max_graph_idx++;
+            // make a new graph for each of the components
+#ifdef debug_multipath_mapper
+            cerr << "cluster graph " << multicomponent_graph.first << " has multiple connected components, splitting now" << endl;
+            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
+                cerr << "component " << max_graph_idx + i << ":" << endl;
+                
+                for (auto node_id : multicomponent_graph.second[i]) {
+                    cerr << "\t" << node_id << endl;
+                }
+            }
+#endif
+            
+            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
+                cluster_graphs[max_graph_idx + i] = new VG();
+            }
+            
+            Graph& joined_graph = cluster_graphs[multicomponent_graph.first]->graph;
+            
+            // divvy up the nodes
+            for (size_t i = 0; i < joined_graph.node_size(); i++) {
+                const Node& node = joined_graph.node(i);
+                for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
+                    if (multicomponent_graph.second[j].count(node.id())) {
+                        cluster_graphs[max_graph_idx + j]->add_node(node);
+                        node_id_to_cluster[node.id()] = max_graph_idx + j;
+                        break;
+                    }
+                }
+            }
+            
+            // divvy up the edges
+            for (size_t i = 0; i < joined_graph.edge_size(); i++) {
+                const Edge& edge = joined_graph.edge(i);
+                for (size_t j = 0; j < multicomponent_graph.second.size(); j++) {
+                    if (multicomponent_graph.second[j].count(edge.from())) {
+                        cluster_graphs[max_graph_idx + j]->add_edge(edge);
+                        break;
+                    }
+                }
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "split graphs:" << endl;
+            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
+                cerr << "component " << max_graph_idx + i << ":" << endl;
+                cerr << pb2json(cluster_graphs[max_graph_idx + i]->graph) << endl;
+            }
+#endif
+            
+            // remove the old graph
+            delete cluster_graphs[multicomponent_graph.first];
+            cluster_graphs.erase(multicomponent_graph.first);
+            
+            max_graph_idx += multicomponent_graph.second.size();
+        }
+        
+        // move the pointers to the return vector
+        cluster_graphs_out.reserve(cluster_graphs.size());
+        unordered_map<size_t, size_t> cluster_to_idx;
+        for (const auto& cluster_graph : cluster_graphs) {
+            cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
+            cluster_graphs_out.push_back(cluster_graph.second);
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "computing MEM assignments to cluster graphs" << endl;
+#endif
         
         // which MEMs are in play for which cluster?
         for (const MaximalExactMatch& mem : mems) {
             for (gcsa::node_type hit : mem.nodes) {
                 id_t node_id = gcsa::Node::id(hit);
                 if (node_id_to_cluster.count(node_id)) {
-                    size_t cluster_idx = node_id_to_cluster[node_id];
+                    size_t cluster_idx = cluster_to_idx[node_id_to_cluster[node_id]];
                     cluster_graph_mems_out[cluster_graphs_out[cluster_idx]].push_back(make_pair(&mem, make_pos_t(hit)));
                 }
             }
         }
         
-        // sort MEMs in decreasing order by length
+        // sort MEMs in decreasing order by length within each cluster graph
         for (auto iter = cluster_graph_mems_out.begin(); iter != cluster_graph_mems_out.end(); iter++) {
             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems = iter->second;
             sort(graph_mems.begin(), graph_mems.end(), [](const pair<const MaximalExactMatch*, pos_t>& hit_1,
@@ -463,6 +559,8 @@ namespace vg {
             size_t src_max_gap = adjust_alignments_for_base_quality ? qual_adj_aligner->longest_detectable_gap(alignment, src_match_node.end)
                                                                     : regular_aligner->longest_detectable_gap(alignment, src_match_node.end);
             
+            unordered_set<pair<size_t, size_t>> edges_for_removal;
+            
             for (const pair<size_t, size_t>& edge : src_match_node.edges) {
                 ExactMatchNode& dest_match_node = multi_aln_graph.match_nodes[edge.first];
                 pos_t dest_pos = make_pos_t(multipath_aln.subpath(edge.first).path().mapping(0).position());
@@ -475,6 +573,12 @@ namespace vg {
                 size_t max_dist = intervening_length + std::min(src_max_gap, adjust_alignments_for_base_quality ?
                                                                 qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin)
                                                                 : regular_aligner->longest_detectable_gap(alignment, dest_match_node.begin)) + 1;
+                
+#ifdef debug_multipath_mapper
+                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << (adjust_alignments_for_base_quality ?
+                qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin)
+                : regular_aligner->longest_detectable_gap(alignment, dest_match_node.begin)) << endl;
+#endif
                 
                 // extract the graph between the matches
                 Graph connecting_graph;
@@ -490,7 +594,11 @@ namespace vg {
                                                                                                true);            // enforce max distance strictly
                 
                 
-                
+                if (connecting_graph.node_size() == 0) {
+                    // the MEMs weren't connectable with a positive score after all, mark the edge for removal
+                    edges_for_removal.insert(edge);
+                    continue;
+                }
                 
                 // transfer the substring between the matches to a new alignment
                 Alignment intervening_sequence;
@@ -505,6 +613,7 @@ namespace vg {
                 cerr << "aligning sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph) << endl;
 #endif
                 
+                bool added_direct_connection = false;
                 // TODO a better way of choosing the number of alternate alignments
                 // TODO alternate alignments restricted only to distinct node paths?
                 vector<Alignment> alt_alignments;
@@ -521,17 +630,35 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "translating connecting alignment: " << pb2json(connecting_alignment) << endl;
 #endif
+                    
+                    const Path& aligned_path = connecting_alignment.path();
+                    const Mapping& first_mapping = aligned_path.mapping(0);
+                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
+                    
+                    bool add_first_mapping = mapping_from_length(first_mapping) != 0 || mapping_to_length(first_mapping) != 0;
+                    bool add_last_mapping = ((mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0)
+                                             && aligned_path.mapping_size() > 1);
+                    
+                    if (!(add_first_mapping || add_last_mapping) && aligned_path.mapping_size() <= 2) {
+                        if (!added_direct_connection) {
+                            // edge case where there is a simple split but other non-simple edges intersect the target
+                            // at the same place (so it passes the previous filter)
+                            // it actually doesn't need an alignment, just a connecting edge
+                            src_subpath->add_next(edge.first);
+                            added_direct_connection = true;
+                        }
+                        continue;
+                    }
+                    
                     // create a subpath between the matches for this alignment
                     Subpath* connecting_subpath = multipath_aln.add_subpath();
                     connecting_subpath->set_score(connecting_alignment.score());
                     Path* subpath_path = connecting_subpath->mutable_path();
-                    const Path& aligned_path = connecting_alignment.path();
                     
                     int32_t rank = 1;
                     
-                    const Mapping& first_mapping = aligned_path.mapping(0);
                     // check to make sure the first is not an empty anchoring mapping
-                    if (mapping_from_length(first_mapping) != 0 || mapping_to_length(first_mapping) != 0) {
+                    if (add_first_mapping) {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = first_mapping;
                         mapping->set_rank(rank);
@@ -551,9 +678,7 @@ namespace vg {
                         rank++;
                     }
                     // check to make sure the last is not an empty anchoring mapping or the same as the first
-                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
-                    if ((mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0)
-                        && aligned_path.mapping_size() > 1) {
+                    if (add_last_mapping) {
                         Mapping* mapping = subpath_path->add_mapping();
                         *mapping = last_mapping;
                         mapping->set_rank(rank);
@@ -561,7 +686,7 @@ namespace vg {
                         cerr << "final mapping is not empty, formed mapping: " << pb2json(*mapping) << endl;
 #endif
                     }
-                    
+                
                     // add the appropriate connections
                     src_subpath->add_next(multipath_aln.subpath_size() - 1);
                     connecting_subpath->add_next(edge.first);
@@ -572,22 +697,22 @@ namespace vg {
                         Mapping* first_subpath_mapping = connecting_subpath->mutable_path()->mutable_mapping(0);
                         if (first_subpath_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_subpath_mapping->mutable_position()->set_offset(offset(src_pos) + 1);
-                            
-//                            if (offset(src_pos) + 1 < 0 || offset(src_pos) + 1 >= numeric_limits<int64_t>::max()) {
-//                                cerr << "########" << endl;
-//                                cerr << "negative offset for connecting alignment: " << endl;
-//                                cerr << pb2json(connecting_alignment) << endl;
-//                                cerr << "match node " << j << " edge " << edge.first << " " << edge.second << endl;
-//                                cerr << "subpath:" << endl;
-//                                cerr << pb2json(*connecting_subpath) << endl;
-//                                cerr << "########" << endl;
-//                            }
                         }
                     }
                     
+#ifdef debug_multipath_mapper
                     cerr << "subpath from " << j << " to " << edge.first << ":" << endl;
                     cerr << pb2json(*connecting_subpath) << endl;
+#endif
                 }
+            }
+            
+            if (!edges_for_removal.empty()) {
+                auto new_end = std::remove_if(src_match_node.edges.begin(), src_match_node.edges.end(),
+                                              [&](const pair<size_t, size_t>& edge) {
+                                                  return edges_for_removal.count(edge);
+                                              });
+                src_match_node.edges.resize(new_end - src_match_node.edges.begin());
             }
         }
         
@@ -775,23 +900,26 @@ namespace vg {
                         }
                     }
                     
+#ifdef debug_multipath_mapper
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+#endif
                     
                     for (Alignment& tail_alignment : alt_alignments) {
+                        sink_subpath->add_next(multipath_aln.subpath_size());
+                        
                         Subpath* tail_subpath = multipath_aln.add_subpath();
                         *tail_subpath->mutable_path() = tail_alignment.path();
                         tail_subpath->set_score(tail_alignment.score());
-                        
-                        sink_subpath->add_next(multipath_aln.subpath_size() - 1);
                         
                         translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
                         Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
                         if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                             first_mapping->mutable_position()->set_offset(offset(end_pos));
                         }
-                        first_mapping->mutable_position()->set_offset(offset(end_pos));
+#ifdef debug_multipath_mapper
                         cerr << "subpath from " << j << " to right tail:" << endl;
                         cerr << pb2json(*tail_subpath) << endl;
+#endif
                     }
                 }
             }
@@ -866,7 +994,9 @@ namespace vg {
                         }
                     }
                     
+#ifdef debug_multipath_mapper
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+#endif
                     
                     for (Alignment& tail_alignment : alt_alignments) {
                         Subpath* tail_subpath = multipath_aln.add_subpath();
@@ -877,8 +1007,10 @@ namespace vg {
                         multipath_aln.add_start(multipath_aln.subpath_size() - 1);
                         
                         translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
+#ifdef debug_multipath_mapper
                         cerr << "subpath from " << j << " to left tail:" << endl;
                         cerr << pb2json(*tail_subpath) << endl;
+#endif
                     }
                 }
                 else {
@@ -1062,7 +1194,7 @@ namespace vg {
         if (mapping_quality_method != None) {
             int32_t mapq = adjust_alignments_for_base_quality ? qual_adj_aligner->compute_mapping_quality(scores, mapping_quality_method == Approx)
                                                               : regular_aligner->compute_mapping_quality(scores, mapping_quality_method == Approx);
-            multipath_alns.front().set_mapping_quality(mapq);
+            multipath_alns.front().set_mapping_quality(mapq < max_mapping_quality ? mapq : max_mapping_quality);
         }
     }
     
@@ -1106,6 +1238,12 @@ namespace vg {
             if (num_starts != multipath_aln.start_size()) {
 #ifdef debug_multipath_mapper
                 cerr << "validation failure on correct number of starts" << endl;
+                for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+                    if (is_source[i]) {
+                        cerr << i << " ";
+                    }
+                }
+                cerr << endl;
 #endif
                 return false;
             }
@@ -1114,6 +1252,12 @@ namespace vg {
                 if (!is_source[multipath_aln.start(i)]) {
 #ifdef debug_multipath_mapper
                     cerr << "validation failure on correctly identified starts" << endl;
+                    for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+                        if (is_source[i]) {
+                            cerr << i << " ";
+                        }
+                        cerr << endl;
+                    }
 #endif
                     return false;
                 }
@@ -1173,8 +1317,18 @@ namespace vg {
             if (multipath_aln.subpath(i).path().mapping_size() == 0) {
 #ifdef debug_multipath_mapper
                 cerr << "validation failure on containing only nonempty paths" << endl;
+                cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
 #endif
                 return false;
+            }
+            for (size_t j = 0; j < multipath_aln.subpath(i).path().mapping_size(); j++) {
+                if (multipath_aln.subpath(i).path().mapping(j).edit_size() == 0) {
+#ifdef debug_multipath_mapper
+                    cerr << "validation failure on containing only nonempty mappings" << endl;
+                    cerr << "subpath " << i << ": " << pb2json(multipath_aln.subpath(i)) << endl;
+#endif
+                    return false;
+                }
             }
         }
         
@@ -1237,16 +1391,13 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             const Path& path = subpath.path();
-            //cerr << "at subpath " << i << endl;
             for (size_t j = 1; j < path.mapping_size(); j++) {
-                //cerr << "at connection " << j - 1 << " " << j << endl;
                 if (!validate_adjacent_mappings(path.mapping(j - 1), path.mapping(j))) {
                     return false;
                 }
             }
             const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
             for (size_t j = 0; j < subpath.next_size(); j++) {
-                //cerr << "at edge to " << subpath.next(j) << endl;
                 if (!validate_adjacent_mappings(final_mapping, multipath_aln.subpath(subpath.next(j)).path().mapping(0))) {
                     return false;
                 }
@@ -1408,7 +1559,7 @@ namespace vg {
                         
                         int64_t relative_offset = begin - match_node.begin;
 #ifdef debug_multipath_mapper
-                        cerr << "this MEM has an relative offset of " << relative_offset << " to the putative parent in the read" << endl;
+                        cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
 #endif
                         
                         if (relative_offset < 0 || relative_offset + (end - begin) >= match_node.end - match_node.begin) {
@@ -2880,7 +3031,7 @@ namespace vg {
             cerr << endl;
             cerr << "\t";
             for (auto edge : match_node.edges) {
-                cerr << "(to:" << edge.first << ", dist:" << edge.second << ") ";
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (match_nodes[edge.first].begin - match_node.end) << ") ";
             }
             cerr << endl;
         }
@@ -3000,6 +3151,10 @@ namespace vg {
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff,
                                                               const vector<size_t>& topological_order) {
         
+        if (match_nodes.empty()) {
+            return;
+        }
+        
         unordered_map<pair<size_t, size_t>, int32_t> edge_weights;
 
         vector<int32_t> node_weights(match_nodes.size());
@@ -3118,7 +3273,7 @@ namespace vg {
             cerr << endl;
             cerr << "\t";
             for (auto edge : match_node.edges) {
-                cerr << "(to:" << edge.first << ", dist:" << edge.second << ") ";
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (match_nodes[edge.first].begin - match_node.end) << ") ";
             }
             cerr << endl;
         }

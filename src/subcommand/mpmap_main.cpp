@@ -41,6 +41,7 @@ void help_mpmap(char** argv) {
     << "  -u, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
+    << "  -Q, --mq-max OPT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for contained exact matches if they are at least this long (0 for no reseeding) [32]" << endl
@@ -71,6 +72,7 @@ int main_mpmap(int argc, char** argv) {
         return 1;
     }
 
+    // initialize parameters with their default options
     string xg_name;
     string gcsa_name;
     string snarls_name;
@@ -100,6 +102,7 @@ int main_mpmap(int argc, char** argv) {
     int num_alt_alns = 4;
     double suboptimal_path_ratio = 10000.0;
     bool single_path_alignment_mode = false;
+    int max_mapq = 60;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -118,6 +121,7 @@ int main_mpmap(int argc, char** argv) {
             {"snarl-max-cut", required_argument, 0, 'u'},
             {"alt-paths", required_argument, 0, 'a'},
             {"mq-method", required_argument, 0, 'v'},
+            {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"reseed-length", required_argument, 0, 'r'},
@@ -140,7 +144,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:b:f:iG:Ss:u:a:v:p:M:r:W:k:c:d:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:b:f:iG:Ss:u:a:v:Q:p:M:r:W:k:c:d:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -246,6 +250,10 @@ int main_mpmap(int argc, char** argv) {
             }
                 break;
                 
+            case 'Q':
+                max_mapq = atoi(optarg);
+                break;
+                
             case 'p':
                 band_padding = atoi(optarg);
                 break;
@@ -343,6 +351,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (snarl_cut_size < 0) {
         cerr << "error:[vg mpmap] Max snarl cut size (-u) set to " << snarl_cut_size << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (max_mapq <= 0 && mapq_method != None) {
+        cerr << "error:[vg mpmap] Maximum mapping quality (-Q) set to " << max_mapq << ", must set to a positive integer." << endl;
         exit(1);
     }
     
@@ -494,6 +507,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set other algorithm parameters
     multipath_mapper.mapping_quality_method = mapq_method;
+    multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
@@ -505,7 +519,7 @@ int main_mpmap(int argc, char** argv) {
     
     vector<vector<Alignment> > single_path_output_buffer(thread_count);
     vector<vector<MultipathAlignment> > multipath_output_buffer(thread_count);
-        
+    
     auto output_multipath_alignments = [&](vector<MultipathAlignment>& mp_alns) {
         auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
         
@@ -531,19 +545,26 @@ int main_mpmap(int argc, char** argv) {
     cerr << "[vg mpmap] created all in memory objects, beginning mapping" << endl;
 #endif
     
+    auto output_alignments = [&](Alignment& alignment) {
+        vector<MultipathAlignment> mp_alns;
+        multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
+        if (single_path_alignment_mode) {
+#ifdef debug_mpmap
+            cerr << "[vg mpmap] outputting single path alignment for read " << alignment.name() << endl;
+#endif
+            output_single_path_alignments(mp_alns);
+        }
+        else {
+#ifdef debug_mpmap
+            cerr << "[vg mpmap] outputting multipath alignment for read " << alignment.name() << endl;
+#endif
+            output_multipath_alignments(mp_alns);
+        }
+    };
+    
     if (!fastq_name_1.empty()) {
         if (fastq_name_2.empty()) {
-            fastq_unpaired_for_each_parallel(fastq_name_1,
-                                             [&](Alignment& alignment) {
-                                                 vector<MultipathAlignment> mp_alns;
-                                                 multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
-                                                 if (single_path_alignment_mode) {
-                                                     output_single_path_alignments(mp_alns);
-                                                 }
-                                                 else {
-                                                     output_multipath_alignments(mp_alns);
-                                                 }
-                                             });
+            fastq_unpaired_for_each_parallel(fastq_name_1, output_alignments);
         }
         else if (interleaved_input) {
             // TODO
@@ -560,6 +581,16 @@ int main_mpmap(int argc, char** argv) {
     if (!gam_file_name.empty()) {
         // TODO
     }
+    
+    // clear output buffers
+    for (int i = 0; i < thread_count; i++) {
+        vector<Alignment>& single_path_buffer = single_path_output_buffer[i];
+        stream::write_buffered(cout, single_path_buffer, 0);
+        
+        vector<MultipathAlignment>& multipath_buffer = multipath_output_buffer[i];
+        stream::write_buffered(cout, multipath_buffer, 0);
+    }
+    cout.flush();
     
     delete snarl_manager;
     

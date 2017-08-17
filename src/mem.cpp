@@ -910,7 +910,6 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 else if (removing_iter->first.second < retaining_iter->first.second) {
                     // the strand being removed has probes against this strand cluster, but the strand being
                     // retained does not, mark this and save it for later so that we don't invalidate the range
-                    //
                     unseen_comparisons.emplace_back(removing_iter->first.second, removing_iter->second);
                     removing_iter++;
                 }
@@ -945,6 +944,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 retaining_iter++;
             }
             
+            
             // add the probes between the removing strands and clusters that had never been compared to the retaining strand
             for (const pair<size_t, size_t>& unseen_comparison : unseen_comparisons) {
                 num_infinite_dists[make_pair(unseen_comparison.first, strand_retaining)] = unseen_comparison.second;
@@ -964,13 +964,14 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             removing_iter = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
             removing_end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
             if (removing_iter != removing_end) {
-                // move the end so that it is an inclusive range (prevents the "end" value from changing if we insert
-                // something between the last and the past-the-last positions)
+                // move the end so that it is an inclusive range
                 removing_end--;
                 
                 // erase the range
                 if (removing_iter == removing_end) {
-                    num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    if (removing_iter->first.first != removing_iter->first.second) {
+                        num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    }
                     num_infinite_dists.erase(removing_iter);
                 }
                 else {
@@ -979,14 +980,20 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     auto removing_iter_prev = removing_iter;
                     removing_iter++;
                     while (removing_iter != removing_end) {
-                        num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                        if (removing_iter_prev->first.first != removing_iter_prev->first.second) {
+                            num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                        }
                         num_infinite_dists.erase(removing_iter_prev);
                         removing_iter_prev = removing_iter;
                         removing_iter++;
                     }
-                    num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                    if (removing_iter_prev->first.first != removing_iter_prev->first.second) {
+                        num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                    }
                     num_infinite_dists.erase(removing_iter_prev);
-                    num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    if (removing_iter->first.first != removing_iter->first.second) {
+                        num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    }
                     num_infinite_dists.erase(removing_iter);
                 }
             }
