@@ -100,6 +100,7 @@ OBJ += $(OBJ_DIR)/graph_synchronizer.o
 OBJ += $(OBJ_DIR)/vg_algorithms.o
 OBJ += $(OBJ_DIR)/nested_traversal_finder.o
 OBJ += $(OBJ_DIR)/option.o
+OBJ += $(OBJ_DIR)/srpe.o
 OBJ += $(OBJ_DIR)/multipath_mapper.o
 OBJ += $(OBJ_DIR)/haplotype_extracter.o
 OBJ += $(OBJ_DIR)/gamsorter.o
@@ -514,7 +515,7 @@ $(UNITTEST_OBJ_DIR)/distributions.o: $(UNITTEST_SRC_DIR)/distributions.cpp $(UNI
 $(UNITTEST_OBJ_DIR)/srpe_filter.o: $(UNITTEST_SRC_DIR)/srpe_filter.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(DEPS)
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(UNITTEST_OBJ_DIR)/banded_global_aligner.o: $(UNITTEST_SRC_DIR)/banded_global_aligner.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/banded_global_aligner.hpp $(SRC_DIR)/gssw_aligner.hpp $(SRC_DIR)/gssw_aligner.cpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/banded_global_aligner.o: $(UNITTEST_SRC_DIR)/banded_global_aligner.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/banded_global_aligner.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/pinned_alignment.o: $(UNITTEST_SRC_DIR)/pinned_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
