@@ -125,8 +125,16 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
-            connection = urllib2.urlopen(url)
-            return connection.read()
+            try:
+                connection = urllib2.urlopen(url)
+                return connection.read()
+            except urllib2.HTTPError as e:
+                if e.code == 404:
+                    # Baseline file doesn't yet exist. Give an empty string.
+                    return ""
+                else:
+                    # Something else is wrong
+                    raise
         else:
             # Assume it's a raw path.
             with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
@@ -847,23 +855,22 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
-        # Using 50k simulated reads from snp1kg BRCA1, realign against all these
-        # other BRCA1 graphs and make sure the realignments are sufficiently
-        # good.
-        # Compare all realignment scores agaisnt the scores for the primary
-        # graph.
+        # Using 100k simulated reads from snp1kg BRCA1, realign against all
+        # these other BRCA1 graphs and make sure the realignments are
+        # sufficiently good. Compare all realignment scores agaisnt the scores
+        # for the primary graph.
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
-
+                           
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
