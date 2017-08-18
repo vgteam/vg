@@ -41,7 +41,8 @@ class VGCITest(TestCase):
         self.tempdir = tempfile.mkdtemp()
         
         self.f1_threshold = 0.005
-        self.auc_threshold = 0.02
+        self.acc_threshold = 0.02
+        self.auc_threshold = 0.05
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
@@ -696,9 +697,8 @@ class VGCITest(TestCase):
         for key, val in baseline_dict.iteritems():
             if key in stats_dict:
                 self.assertTrue(stats_dict[key][0] == reads)
-                self.assertTrue(stats_dict[key][1] >= val[1] - self.auc_threshold)
-                # disable roc test for now
-                #self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
+                self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
             else:
                 log.warning('Key {} from baseline not found in stats'.format(key))
             
