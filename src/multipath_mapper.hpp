@@ -41,6 +41,12 @@ namespace vg {
         void multipath_map(const Alignment& alignment,
                            vector<MultipathAlignment>& multipath_alns_out,
                            size_t max_alt_mappings);
+                           
+       /// Map two paired reads within max_separation of each other.
+       void multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
+                                 size_t max_separation,
+                                 vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                 size_t max_alt_mappings);
         
         /// Prune path anchors from a multipath alignment if their approximate likelihood is this much
         /// lower than the optimal anchors
@@ -60,21 +66,22 @@ namespace vg {
         
     private:
         
-        /// Extracts a subgraph around each cluster of MEMs that encompasses any graph position
-        /// reachable with local alignment anchored at the MEMs. If any subgraphs overlap, they
-        /// are merged into one subgraph. Also returns a map from each cluster subgraph to a
-        /// vector containing the MEM hits in that graph.
+        /// Extracts a subgraph around each cluster of MEMs that encompasses any
+        /// graph position reachable with local alignment anchored at the MEMs.
+        /// If any subgraphs overlap, they are merged into one subgraph. Also
+        /// returns a map from each cluster subgraph to a vector containing the
+        /// MEM hits in that graph. Also keeps track of which output graph each
+        /// input cluster contributed to, in merged_into_out.
         void query_cluster_graphs(const Alignment& alignment,
                                   const vector<MaximalExactMatch>& mems,
                                   const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                  vector<VG*>& cluster_graphs_out,
-                                  unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out);
+                                  vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         void multipath_align(const Alignment& alignment, VG* vg,
                              vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
-                             vector<MultipathAlignment>& multipath_alns_out) const;
+                             MultipathAlignment& multipath_aln_out) const;
         
         /// Computes the number of read bases a cluster of MEM hits covers.
         int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const;

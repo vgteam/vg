@@ -19,7 +19,7 @@ CWD:=$(shell pwd)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib -I$(CWD)/$(INC_DIR)/gcsa
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -llzma
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -104,7 +104,7 @@ OBJ += $(OBJ_DIR)/srpe.o
 OBJ += $(OBJ_DIR)/multipath_mapper.o
 OBJ += $(OBJ_DIR)/haplotype_extracter.o
 OBJ += $(OBJ_DIR)/gamsorter.o
-
+OBJ += $(OBJ_DIR)/srpe.o
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/driver.o
@@ -115,6 +115,8 @@ UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/banded_global_aligner.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/pinned_alignment.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/vg.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_alignment.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/multipath_mapper.o
+UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mapper.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/mem.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/phased_genome.o
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/constructor.o
@@ -223,7 +225,7 @@ ifneq ($(shell uname -s),Darwin)
 	CXXFLAGS += -march=native -mtune=native
 endif
 
-.PHONY: clean get-deps test set-path static docs .pre-build
+.PHONY: clean get-deps deps test set-path static docs .pre-build
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -238,9 +240,12 @@ static: $(OBJ_DIR)/main.o $(OBJ) $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 $(LIB_DIR)/libvg.a: $(OBJ) $(DEPS)
 	ar rs $@ $(OBJ) $(LIB_DEPS)
 
+# We have system-level deps to install
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison flex libgoogle-perftools-dev liblz4-dev liblzma-dev
 
+# And we have submodule deps to build
+deps: $(DEPS)
 
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(BIN_DIR)/xg
 	. ./source_me.sh && cd test && $(MAKE)
@@ -283,10 +288,10 @@ $(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
 
-$(LIB_DIR)/libssw.a:
+$(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.h
 	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(LIB_DIR)
 
-$(LIB_DIR)/libsnappy.a:
+$(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
 	+. ./source_me.sh && cd $(SNAPPY_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
 $(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a $(ROCKSDB_DIR)/db/*.cc $(ROCKSDB_DIR)/db/*.h
@@ -299,13 +304,13 @@ $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wil
 $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)
 
-$(OBJ_DIR)/progress_bar.o:
+$(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/*.hpp $(PROGRESS_BAR_DIR)/*.cpp
 	+cd $(PROGRESS_BAR_DIR) && $(MAKE) && cp progress_bar.o $(CWD)/$(OBJ_DIR)
 
-$(OBJ_DIR)/Fasta.o:
+$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+cd $(FASTAHACK_DIR) && $(MAKE) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-$(LIB_DIR)/libhts.a:
+$(LIB_DIR)/libhts.a: $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp $(XG_DIR)/src/xg.cpp $(XG_DIR)/src/xg.hpp $(INC_DIR)/sparsehash/sparse_hash_map 
@@ -317,25 +322,25 @@ $(LIB_DIR)/libvcflib.a: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
 
-$(INC_DIR)/lru_cache.h:
+$(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
 	+cd $(DEP_DIR)/lru_cache && $(MAKE) && cp *.h* $(CWD)/$(INC_DIR)/
 
-$(INC_DIR)/dynamic.hpp:
+$(INC_DIR)/dynamic.hpp: $(DYNAMIC_DIR)/include/*.hpp $(DYNAMIC_DIR)/include/internal/*.hpp 
 	+cat $(DYNAMIC_DIR)/include/dynamic.hpp | sed 's%<internal/%<dynamic/%' >$(INC_DIR)/dynamic.hpp && cp -r $(CWD)/$(DYNAMIC_DIR)/include/internal $(CWD)/$(INC_DIR)/dynamic
 
-$(INC_DIR)/sparsehash/sparse_hash_map:
+$(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h) 
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
-$(LIB_DIR)/libvcfh.a:
+$(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
 	+cd $(DEP_DIR)/libVCFH && $(MAKE) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp
+$(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp $(DEP_DIR)/gfakluge/src/*.hpp $(DEP_DIR)/gfakluge/src/*.cpp
 	+cd $(DEP_DIR)/gfakluge && $(MAKE) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/
 
-$(INC_DIR)/gfakluge.hpp:
+$(INC_DIR)/gfakluge.hpp: $(DEP_DIR)/gfakluge/src/gfakluge.hpp
 	cp $(DEP_DIR)/gfakluge/src/gfakluge.hpp $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a $(INC_DIR)/globalDefs.hpp
+$(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a $(INC_DIR)/globalDefs.hpp $(DEP_DIR)/superbubbles/*.cpp $(DEP_DIR)/superbubbles/*.hpp
 	+. ./source_me.sh && cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/
 
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
@@ -344,10 +349,10 @@ $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/son
 $(LIB_DIR)/libpinchesandcacti.a: $(LIB_DIR)/libsonlib.a $(CWD)/$(DEP_DIR)/pinchesAndCacti/inc/*.h $(CWD)/$(DEP_DIR)/pinchesAndCacti/impl/*.c
 	+cd $(DEP_DIR)/pinchesAndCacti && $(MAKE) && cd $(CWD)/$(DEP_DIR)/sonLib && cp lib/stPinchesAndCacti.a $(CWD)/$(LIB_DIR)/libpinchesandcacti.a && cp lib/3EdgeConnected.a $(CWD)/$(LIB_DIR)/lib3edgeconnected.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
-$(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a
+$(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a $(DEP_DIR)/superbubbles/*.hpp
 	cp $(DEP_DIR)/superbubbles/*.hpp $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libraptor2.a:
+$(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
@@ -356,7 +361,7 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS)
 
-$(LIB_DIR)/libfml.a:
+$(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
 	cd $(FERMI_DIR) && $(MAKE) && cp *.h $(CWD)/$(INC_DIR)/ && cp libfml.a $(CWD)/$(LIB_DIR)/
 
 # Auto-versioning
@@ -395,7 +400,7 @@ $(OBJ_DIR)/ssw_aligner.o: $(SRC_DIR)/ssw_aligner.cpp $(SRC_DIR)/ssw_aligner.hpp 
 
 $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(DEPS)
 
-$(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 
 $(OBJ_DIR)/mem.o: $(SRC_DIR)/mem.cpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
@@ -462,7 +467,7 @@ $(OBJ_DIR)/variant_adder.o: $(SRC_DIR)/variant_adder.cpp $(SRC_DIR)/variant_adde
 
 $(OBJ_DIR)/name_mapper.o: $(SRC_DIR)/name_mapper.cpp $(DEPS)
 
-$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(SRC_DIR)/algorithms/vg_algorithms.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+$(OBJ_DIR)/graph_synchronizer.o: $(SRC_DIR)/graph_synchronizer.cpp $(SRC_DIR)/graph_synchronizer.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(SRC_DIR)/path_index.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
 # We also build the main file from xg, so we can offer it as a command
 # TODO: wrap it as a vg subcommand?
@@ -523,7 +528,11 @@ $(UNITTEST_OBJ_DIR)/genotypekit.o: $(UNITTEST_SRC_DIR)/genotypekit.cpp $(UNITTES
 
 $(UNITTEST_OBJ_DIR)/readfilter.o: $(UNITTEST_SRC_DIR)/readfilter.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
 
-$(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/multipath_alignment.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+$(UNITTEST_OBJ_DIR)/multipath_alignment.o: $(UNITTEST_SRC_DIR)/multipath_alignment.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/multipath_mapper.o: $(UNITTEST_SRC_DIR)/multipath_mapper.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/multipath_mapper.hpp $(SRC_DIR)/multipath_alignment.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+
+$(UNITTEST_OBJ_DIR)/mapper.o: $(UNITTEST_SRC_DIR)/mapper.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
 $(UNITTEST_OBJ_DIR)/mem.o: $(UNITTEST_SRC_DIR)/mem.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
@@ -572,11 +581,11 @@ $(SUBCOMMAND_OBJ_DIR)/construct_main.o: $(SUBCOMMAND_SRC_DIR)/construct_main.cpp
 
 $(SUBCOMMAND_OBJ_DIR)/simplify_main.o: $(SUBCOMMAND_SRC_DIR)/simplify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/simplifier.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/utility.hpp $(SRC_DIR)/feature_set.hpp $(SRC_DIR)/path.hpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.cpp $(OBJ_DIR)/homogenizer.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/vg.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/homogenize_main.o: $(SUBCOMMAND_SRC_DIR)/homogenize_main.cpp $(SRC_DIR)/homogenizer.hpp $(SRC_DIR)/filter.hpp $(OBJ_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/sift_main.o: $(SUBCOMMAND_SRC_DIR)/sift_main.cpp $(OBJ_DIR)/filter.o $(OBJ_DIR)/vg.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/sift_main.o: $(SUBCOMMAND_SRC_DIR)/sift_main.cpp $(SRC_DIR)/filter.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(OBJ_DIR)/srpe.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/vg.o $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/srpe_main.o: $(SUBCOMMAND_SRC_DIR)/srpe_main.cpp $(SRC_DIR)/srpe.hpp $(SRC_DIR)/filter.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 
 
 $(SUBCOMMAND_OBJ_DIR)/gamsort_main.o: $(SUBCOMMAND_SRC_DIR)/gamsort_main.cpp $(OBJ_DIR)/gamsorter.o $(DEPS)

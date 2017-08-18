@@ -39,6 +39,10 @@ void help_stats(char** argv) {
          << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl
          << "    -r, --node-id-range   X:Y where X and Y are the smallest and largest "
         "node id in the graph, respectively" << endl
+         << "    -o, --overlap PATH    for each overlapping path mapping in the graph write a table:" << endl
+         << "                              PATH, other_path, rank1, rank2" << endl
+         << "                          multiple allowed; limit comparison to those provided" << endl
+         << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
          << "    -v, --verbose         output longer reports" << endl;
 }
 
@@ -67,6 +71,8 @@ int main_stats(int argc, char** argv) {
     // What alignments GAM file should we read and compute stats on with the
     // graph?
     string alignments_filename;
+    vector<string> paths_to_overlap;
+    bool overlap_all_paths = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -90,11 +96,13 @@ int main_stats(int argc, char** argv) {
             {"is-acyclic", no_argument, 0, 'A'},
             {"node-id-range", no_argument, 0, 'r'},
             {"verbose", no_argument, 0, 'v'},
+            {"overlap", no_argument, 0, 'o'},
+            {"overlap-all", no_argument, 0, 'O'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vAr",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEa:vAro:O",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -161,6 +169,14 @@ int main_stats(int argc, char** argv) {
 
         case 'r':
             stats_range = true;
+            break;
+
+        case 'o':
+            paths_to_overlap.push_back(optarg);
+            break;
+
+        case 'O':
+            overlap_all_paths = true;
             break;
 
         case 'v':
@@ -279,6 +295,62 @@ int main_stats(int argc, char** argv) {
         for (auto id : ids) {
             cout << id << " to tail:\t"
                 << graph->distance_to_tail(NodeTraversal(graph->get_node(id), false)) << endl;
+        }
+    }
+
+    if (!paths_to_overlap.empty() || overlap_all_paths) {
+        auto cb = [&](const Path& p1, const Path& p2) {
+            // sparse storage of the correspondence matrix
+            // map from ranks in first to ranks in second
+            map<vg::id_t, vector<int64_t> > p1_ranks;
+            map<vg::id_t, vector<int64_t> > p2_ranks;
+            //map<int64_t, int64_t> relative_rank;
+            for (int64_t i = 0; i < p1.mapping_size(); ++i) {
+                auto& mapping = p1.mapping(i);
+                p1_ranks[mapping.position().node_id()].push_back(mapping.rank());
+            }
+            for (int64_t i = 0; i < p2.mapping_size(); ++i) {
+                auto& mapping = p2.mapping(i);
+                p2_ranks[mapping.position().node_id()].push_back(mapping.rank());
+            }
+            // intersect
+            for (auto& p : p1_ranks) {
+                auto f = p2_ranks.find(p.first);
+                if (f != p2_ranks.end()) {
+                    for (auto& id1 : p.second) {
+                        for (auto& id2 : f->second) {
+                            cout << p1.name() << "." << p2.name() << "\t" << id1 << "\t" << id2 << endl;
+                        }
+                    }
+                }
+            }
+            for (auto& p : p2_ranks) {
+                auto f = p1_ranks.find(p.first);
+                if (f != p1_ranks.end()) {
+                    for (auto& id1 : p.second) {
+                        for (auto& id2 : f->second) {
+                            cout << p1.name() << "." << p2.name() << "\t" << id2 << "\t" << id1 << endl;
+                        }
+                    }
+                }
+            }
+        };
+        cout << "comparison" << "\t" << "x" << "\t" << "y" << endl;
+        vector<string> path_names;
+        if (overlap_all_paths) {
+            path_names = graph->paths.all_path_names();
+        } else {
+            path_names = paths_to_overlap;
+        }
+        for (auto& p1_name : path_names) {
+            Path p1 = graph->paths.path(p1_name);
+            for (auto& p2_name : path_names) {
+                if (p1_name == p2_name) {
+                    continue;
+                }
+                Path p2 = graph->paths.path(p2_name);
+                cb(p1, p2);
+            }
         }
     }
 

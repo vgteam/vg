@@ -24,7 +24,7 @@ KEEP_OUTPUT=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/glennhickey/toil-vg.git@165928e1842a0577ca46aaace4167532a303b4b2"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@257ef64daa0a7a2ba2eb6f98918915983d0f89b5"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -91,11 +91,14 @@ fi
 . .env/bin/activate
 
 # Prepare directory for temp files (assuming cgcloud file structure)
+# Sometimes the instances have un-deletable files in tmp, so we continue through errors
 if [ -d "/mnt/ephemeral" ]
 then
      TMPDIR=/mnt/ephemeral/tmp
+     set +e
      rm -rf $TMPDIR
      mkdir $TMPDIR
+     set -e
      export TMPDIR
 fi
 

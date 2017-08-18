@@ -87,7 +87,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = 5;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_num_mappings = 2;
+    int max_num_mappings = 1;
     int buffer_size = 100;
     int hit_max = 128;
     int min_mem_length = 1;

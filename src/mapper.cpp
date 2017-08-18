@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include "mapper.hpp"
+#include "algorithms/vg_algorithms.hpp"
 
 //#define debug_mapper
 
@@ -1560,7 +1561,6 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 }
 
 bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
-    auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
     //double hang_threshold = 0.9;
@@ -1577,7 +1577,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    if (debug) cerr << "pair rescue: mate1 " << mate1_id << " mate2 " << mate2_id << " consistent? " << consistent << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
@@ -2133,7 +2133,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
     
-    set<pair<string, string> > seen_alignments;
+    // We keep a set of pairs of alignments that we have already seen, for
+    // deduplication purposes.
+    set<pair<Alignment, Alignment>, SameReadsAlignmentPairOrder> seen_alignments;
     for (auto& cluster_ptr : cluster_ptrs) {
         if (alns.size() >= total_multimaps) { break; }
         // break the cluster into two pieces
@@ -2160,11 +2162,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.second.clear_identity();
             p.second.clear_path();
         }
-        auto pair_sig = signature(p.first, p.second);
-        if (seen_alignments.count(pair_sig)) {
+        if (seen_alignments.count(p)) {
             alns.pop_back();
         } else {
-            seen_alignments.insert(pair_sig);
+            seen_alignments.insert(p);
         }
     }
 
@@ -2222,11 +2223,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.erase(
             std::remove_if(alns.begin(), alns.end(),
                            [&](const pair<Alignment, Alignment>& p) {
-                               auto pair_sig = signature(p.first, p.second);
-                               if (seen_alignments.count(pair_sig)) {
+                               if (seen_alignments.count(p)) {
                                    return true;
                                } else {
-                                   seen_alignments.insert(pair_sig);
+                                   seen_alignments.insert(p);
                                    return false;
                                }
                            }),
@@ -2683,7 +2683,8 @@ Mapper::align_mem_multi(const Alignment& aln,
     vector<Alignment> alns;
     vector<vector<MaximalExactMatch>*> cluster_ptrs;
     //map<vector<MaximalExactMatch>*, int> cluster_cov;
-    set<string> seen_alignments;
+    // We keep a set of alignments we have already generated.
+    set<Alignment, SameReadAlignmentOrder> seen_alignments;
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
@@ -2692,10 +2693,10 @@ Mapper::align_mem_multi(const Alignment& aln,
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         Alignment candidate = align_cluster(aln, cluster);
-        string sig = signature(candidate);
-        if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
+     
+        if (candidate.identity() > min_identity && !seen_alignments.count(candidate)) {
             alns.push_back(candidate);
-            seen_alignments.insert(sig);
+            seen_alignments.insert(candidate);
         }
     }
 
@@ -2895,27 +2896,61 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
 }
 
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
-    auto& node_cache = get_node_cache();
-    auto& edge_cache = get_edge_cache();
-    assert(mems.size());
-    auto& start_mem = mems.front();
-    auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    float expansion = 1.61803;
-    int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "Getting a cluster graph for " << mems.size() << " MEMs" << endl;
+        }
+    }
+#endif
+
+    // As in the multipath aligner, we work out how far we can get from a MEM
+    // with gaps and use that for how much graph to grab.
+    vector<pos_t> positions;
+    vector<size_t> forward_max_dist;
+    vector<size_t> backward_max_dist;
+    
+    positions.reserve(mems.size());
+    forward_max_dist.reserve(mems.size());
+    backward_max_dist.reserve(mems.size());
+    
+    // What aligner are we using?
+    BaseAligner* aligner = adjust_alignments_for_base_quality ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner;
+    
+    for (const auto& mem : mems) {
+        // get the start position of the MEM
+        assert(!mem.nodes.empty());
+        positions.push_back(make_pos_t(mem.nodes.front()));
+        
+        // search far enough away to get any hit detectable without soft clipping
+        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
+                                   + (aln.sequence().end() - mem.begin));
+        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
+                                    + (mem.begin - aln.sequence().begin()));
+    }
+    
+    
+    // extract the protobuf Graph
+    Graph proto_graph;
+    algorithms::extract_containing_graph(*xindex, proto_graph, positions, forward_max_dist,
+                                         backward_max_dist, &get_node_cache());
+                                         
+    // Wrap it in a vg
     VG graph;
-    if (get_before) {
-        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
-    }
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = (i+1 == mems.size() ?
-                         expansion * (int)(aln.sequence().end() - mem.begin)
-                         : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
-    }
+    graph.extend(proto_graph);
+    
     graph.remove_orphan_edges();
+    
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id()
+                << " and " << graph.edge_count() << " edges" << endl;
+        }
+    }
+#endif
     return graph;
 }
 
