@@ -104,7 +104,7 @@ OBJ += $(OBJ_DIR)/srpe.o
 OBJ += $(OBJ_DIR)/multipath_mapper.o
 OBJ += $(OBJ_DIR)/haplotype_extracter.o
 OBJ += $(OBJ_DIR)/gamsorter.o
-OBJ += $(OBJ_DIR)/srpe.o
+
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ =
 UNITTEST_OBJ += $(UNITTEST_OBJ_DIR)/driver.o
