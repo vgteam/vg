@@ -216,6 +216,8 @@ def md_summary(xml_root):
                 md += '\n'
             md += 'Tests produced {} warnings. {} were for lower-than-expected alignment scores\n\n'.format(
                 len(warnings), len([w for w in warnings if 'negative score' in w]))
+
+        md += '\n\n**Note: using mpmap instead of map everywhere**\n\n'
             
     except:
         md += ' **Error parsing Test Suite XML**\n'
