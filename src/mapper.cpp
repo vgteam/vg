@@ -12,7 +12,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       xindex(xidex)
     , gcsa(g)
     , lcp(a)
-    , min_mem_length(0)
+    , min_mem_length(1)
     , mem_reseed_length(0)
     , fast_reseed(true)
     , fast_reseed_length_diff(8)
@@ -23,6 +23,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , regular_aligner(nullptr)
     , adjust_alignments_for_base_quality(false)
     , mapping_quality_method(Approx)
+    , max_mapping_quality(60)
     , strip_bonuses(true)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
@@ -538,8 +539,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
             // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
-            // it may be necessary to impose the cap on mem hits
-            if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
         }
     }
     
@@ -560,9 +559,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             mem.primary = false;
             if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
                 gcsa->locate(mem.range, mem.nodes);
-                // it may be necessary to impose the cap on mem hits
-                // todo: should we downsample?
-                if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
             }
         }
         
@@ -1205,14 +1201,16 @@ void BaseMapper::init_edge_cache(void) {
     }
 }
 
-void BaseMapper::set_cache_size(int cache_size) {
-    cache_size = cache_size;
+void BaseMapper::set_cache_size(int new_cache_size) {
+    cache_size = new_cache_size;
     init_edge_cache();
     init_node_cache();
     init_node_pos_cache();
     init_node_start_cache();
 }
-    
+
+// TODO: this strategy of dropping the index down to 0 works for vg map's approach of having a copy of
+// the mapper for each thread, but it's dangerous when one mapper is using multiple threads
 LRUCache<id_t, Node>& BaseMapper::get_node_cache(void) {
     int tid = node_cache.size() > 1 ? omp_get_thread_num() : 0;
     return *node_cache[tid];
@@ -1332,7 +1330,6 @@ Mapper::Mapper(xg::XG* xidex,
     , since_last_fragment_length_estimate(0)
     , fragment_model_update_interval(10)
     , perfect_pair_identity_threshold(0.95)
-    , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
     , use_cluster_mq(false)
     , simultaneous_pair_alignment(true)
@@ -4840,6 +4837,7 @@ void FragmentLengthDistribution::unlock_determinization() {
 }
 
 void FragmentLengthDistribution::estimate_distribution() {
+    // remove the tails from the estimation
     size_t to_skip = (size_t) (lengths.size() * (1.0 - robust_estimation_fraction) * 0.5);
     auto begin = lengths.begin();
     auto end = lengths.end();
@@ -4847,6 +4845,7 @@ void FragmentLengthDistribution::estimate_distribution() {
         begin++;
         end--;
     }
+    // compute mean
     double count = 0.0;
     double sum = 0.0;
     double sum_of_sqs = 0.0;
@@ -4855,8 +4854,10 @@ void FragmentLengthDistribution::estimate_distribution() {
         sum += *iter;
         sum_of_sqs += (*iter) * (*iter);
     }
+    // use cumulants to compute moments
     mu = sum / count;
     double raw_var = sum_of_sqs / count - mu * mu;
+    // apply method of moments estimation using the appropriate truncated normal distribution
     double a = normal_inverse_cdf(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
     sigma = sqrt(raw_var * robust_estimation_fraction / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }

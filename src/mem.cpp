@@ -5,8 +5,10 @@
 
 #include "mem.hpp"
 
-namespace vg {
+//#define debug_od_clusterer
 
+namespace vg {
+    
 using namespace std;
 
 // construct the sequence of the MEM; useful in debugging
@@ -432,16 +434,15 @@ void MEMChainModel::display(ostream& out) {
     }
 }
 
-ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items) {
-    if (num_pairs > (size_t)1 << 32) {
-        throw runtime_error("Too many pairs to iterate; need less than 2^32");
-    }
+ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items), larger_prime(1), primitive_root(1) {
     
-    // We don't have nice bit finding functions, so use this to find the next
-    // power of 2.
-    range_max = (num_pairs != 0);
-    while (range_max < num_pairs) {
-        range_max *= 2;
+    // Find a prime that is at least as large as but at most a constant factor
+    // larger than the number of pairs using the pre-computed list
+    // If there are 0 or 1 pairs, we let the number stay at 1 (which is not prime) because that
+    // turns out to be convenient
+    for (size_t i = 0; larger_prime < num_pairs; i++) {
+        larger_prime = spaced_primes[i];
+        primitive_root = primitive_roots_of_unity[i];
     }
 }
 
@@ -450,40 +451,44 @@ ShuffledPairs::iterator ShuffledPairs::begin() const {
 }
 
 ShuffledPairs::iterator ShuffledPairs::end() const {
-    return iterator(*this, range_max);
+    return iterator(*this, larger_prime - 1);
 }
 
-ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee),
-    permutation_idx(start_at) {
+ShuffledPairs::iterator::iterator(const ShuffledPairs& iteratee, size_t start_at) : iteratee(iteratee), permutation_idx(start_at), permuted(1) {
     
-    if (permutation_idx == iteratee.range_max) {
+    if (permutation_idx + 1 >= iteratee.larger_prime) {
         // Don't run the dereference if we're at the end already. Handles the empty case with nothing to pair.
         return;
     }
     
+    // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
+    // https://stackoverflow.com/questions/10054732/create-a-random-permutation-of-1-n-in-constant-space
+    
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx != iteratee.range_max &&
+    while (permutation_idx < iteratee.larger_prime - 1 &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
         permutation_idx++;
+        permuted = (permuted * iteratee.primitive_root) % iteratee.larger_prime;
         returned = *(*this);
     }
-    
 }
 
 ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
     // Advance the permutation index
     permutation_idx++;
+    permuted = (permuted * iteratee.primitive_root) % iteratee.larger_prime;
     
     // See the pair we would return
     pair<size_t, size_t> returned = *(*this);
-    while (permutation_idx != iteratee.range_max &&
+    while (permutation_idx < iteratee.larger_prime - 1 &&
         (returned.first >= returned.second || returned.first >= iteratee.num_items)) {
         
         // Advance until it's valid or we hit the end.
         permutation_idx++;
+        permuted = (permuted * iteratee.primitive_root) % iteratee.larger_prime;
         returned = *(*this);
     }
 
@@ -491,15 +496,7 @@ ShuffledPairs::iterator& ShuffledPairs::iterator::operator++() {
 }
 
 pair<size_t, size_t> ShuffledPairs::iterator::operator*() const {
-    pair<size_t, size_t> to_return;
-    // deterministically generate pseudo-shuffled pairs in constant time per pair, adapted from
-    // https://stackoverflow.com/questions/1866684/algorithm-to-print-out-a-shuffled-list-in-place-and-with-o1-memory
-    size_t permuted = ((permutation_idx ^ (iteratee.range_max - 1)) ^ (permutation_idx << 6) + 0x9e3779b9) &
-        (iteratee.range_max - 1);
-    to_return.first = permuted / iteratee.num_items;
-    to_return.second = permuted % iteratee.num_items;
-    
-    return to_return;
+    return pair<size_t, size_t>(permuted / iteratee.num_items, permuted % iteratee.num_items);
 }
 
 bool ShuffledPairs::iterator::operator==(const iterator& other) const {
@@ -509,12 +506,32 @@ bool ShuffledPairs::iterator::operator==(const iterator& other) const {
 bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
     return !(*this == other);
 }
+    
+OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
+                                                     const vector<MaximalExactMatch>& mems,
+                                                     const QualAdjAligner& aligner,
+                                                     xg::XG* xgindex,
+                                                     size_t max_expected_dist_approx_error) :
+    OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error) {
+    // nothing else to do
+}
 
 OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
-                                       const vector<MaximalExactMatch>& mems,
-                                       const QualAdjAligner& aligner,
-                                       xg::XG* xgindex,
-                                       size_t max_expected_dist_approx_error) : aligner(aligner) {
+                                                     const vector<MaximalExactMatch>& mems,
+                                                     const Aligner& aligner,
+                                                     xg::XG* xgindex,
+                                                     size_t max_expected_dist_approx_error) :
+    OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error) {
+    // nothing else to do
+}
+
+OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
+                                                     const vector<MaximalExactMatch>& mems,
+                                                     const Aligner* aligner,
+                                                     const QualAdjAligner* qual_adj_aligner,
+                                                     xg::XG* xgindex,
+                                                     size_t max_expected_dist_approx_error) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
+    
     
     // the maximum graph distances to the right and left sides detectable from each node
     vector<pair<size_t, size_t>> maximum_detectable_gaps;
@@ -526,16 +543,29 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     for (const MaximalExactMatch& mem : mems) {
         
         // calculate the longest gaps we could detect to the left and right of this MEM
-        pair<size_t, size_t> max_gaps(aligner.longest_detectable_gap(alignment, mem.begin),
-                                      aligner.longest_detectable_gap(alignment, mem.end));
+        pair<size_t, size_t> max_gaps;
+        int32_t mem_score;
+        if (aligner) {
+            max_gaps.first = aligner->longest_detectable_gap(alignment, mem.begin);
+            max_gaps.second = aligner->longest_detectable_gap(alignment, mem.end);
+            mem_score = aligner->score_exact_match(mem.begin, mem.end);
+        }
+        else {
+            max_gaps.first = qual_adj_aligner->longest_detectable_gap(alignment, mem.begin);
+            max_gaps.second = qual_adj_aligner->longest_detectable_gap(alignment, mem.end);
+            mem_score = qual_adj_aligner->score_exact_match(mem.begin, mem.end, alignment.quality().begin()
+                                                            + (mem.begin - alignment.sequence().begin()));
+        }
         
-        
-        int32_t mem_score = aligner.score_exact_match(mem.begin, mem.end,
-                                                      alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
-        
+#ifdef debug_od_clusterer
+        cerr << "adding nodes for MEM " << mem << endl;
+#endif
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
             maximum_detectable_gaps.push_back(max_gaps);
+#ifdef debug_od_clusterer
+            cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
+#endif
         }
     }
     
@@ -549,8 +579,31 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // Flatten the trees to maps of relative position by node ID.
     vector<unordered_map<size_t, int64_t>> strand_relative_position = flatten_distance_tree(nodes.size(), recorded_finite_dists);
     
+#ifdef debug_od_clusterer
+    for (const auto& strand : strand_relative_position) {
+        cerr << "strand reconstruction: "  << endl;
+        for (const auto& record : strand) {
+            cerr << "\t" << record.first << ": " << record.second << "\t" << nodes[record.first].mem->sequence() << endl;
+        }
+    }
+#endif
+    
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
+    
+    int64_t match_score, mismatch_score, gap_open_score, gap_extension_score;
+    if (aligner) {
+        match_score = aligner->match;
+        mismatch_score = aligner->mismatch;
+        gap_open_score = aligner->gap_open;
+        gap_extension_score = aligner->gap_extension;
+    }
+    else {
+        match_score = qual_adj_aligner->match;
+        mismatch_score = qual_adj_aligner->mismatch;
+        gap_open_score = qual_adj_aligner->gap_open;
+        gap_extension_score = qual_adj_aligner->gap_extension;
+    }
     
     int64_t allowance = max_expected_dist_approx_error;
     for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
@@ -598,7 +651,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 }
             }
             
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
             cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
 #endif
             
@@ -611,7 +664,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     continue;
                 }
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                 cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
 #endif
                 
@@ -638,22 +691,22 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     
                     int64_t extra_dist = max<int64_t>(0, gap_length);
                     
-                    edge_score = -aligner.match * between_length
-                                 + (extra_dist ? -(extra_dist - 1) * aligner.gap_extension - aligner.gap_open : 0);
+                    edge_score = -match_score * between_length
+                                 + (extra_dist ? -(extra_dist - 1) * gap_extension_score - gap_open_score : 0);
                 }
                 else if (between_length > graph_dist) {
                     // the read length in between the MEMs is longer than the distance, suggesting a read insert
-                    edge_score = -aligner.mismatch * graph_dist - (gap_length - 1) * aligner.gap_extension
-                                 - aligner.gap_open;
+                    edge_score = -mismatch_score * graph_dist - (gap_length - 1) * gap_extension_score
+                                 - gap_open_score;
                 }
                 else if (between_length < graph_dist) {
                     // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-                    edge_score = -aligner.mismatch * between_length - (gap_length - 1) * aligner.gap_extension
-                                 - aligner.gap_open;
+                    edge_score = -mismatch_score * between_length - (gap_length - 1) * gap_extension_score
+                                 - gap_open_score;
                 }
                 else {
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_score = -aligner.mismatch * between_length;
+                    edge_score = -mismatch_score * between_length;
                 }
                 
                 // add the edges in
@@ -683,14 +736,14 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     size_t num_possible_merges_remaining = (num_items * (num_items - 1)) / 2;
     size_t pairs_checked = 0;
     
-    // a simulated annealing parameter loosely inspired by the cutoff for an Erdos Renyi random graph
+    // a simulated annealing parameter loosely inspired by the cutoff for an Erdos-Renyi random graph
     // to be connected with probability approaching 1
     size_t current_max_num_probes = 2 * ((size_t) ceil(log(num_items)));
     
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
         // separate strands
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
         size_t direct_merges_remaining = 0;
         vector<vector<size_t>> groups = union_find.all_groups();
         for (size_t i = 1; i < groups.size(); i++) {
@@ -706,12 +759,12 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 direct_merges_remaining += groups[i].size() * groups[j].size();
             }
         }
-        cerr << "at permutation index " << permutation_idx << " with directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
+        cerr << "checked " << pairs_checked << " pairs with directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
 #endif
         
         if (pairs_checked % num_items == 0 && pairs_checked != 0) {
             current_max_num_probes--;
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
             cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
 #endif
             for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
@@ -721,7 +774,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     size_t strand_size_1 = union_find.group_size(inf_dist_record.first.first);
                     size_t strand_size_2 = union_find.group_size(inf_dist_record.first.second);
                     num_possible_merges_remaining -= strand_size_1 * strand_size_2;
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                     cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above max, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
@@ -737,13 +790,13 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         size_t strand_1 = union_find.find_group(node_pair.first);
         size_t strand_2 = union_find.find_group(node_pair.second);
         
-#ifdef debug_multipath_mapper
-        cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << endl;
+#ifdef debug_od_clusterer
+        cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << " in cluster " << strand_1 << " and " << strand_2 << endl;
 #endif
 
         if (strand_1 == strand_2) {
             // these are already identified as on the same strand, don't need to do it again
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
             cerr << "already on same strand" << endl;
 #endif
             continue;
@@ -754,7 +807,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             // we've already checked multiple distances between these strand clusters and
             // none have returned a finite distance, so we conclude that they are in fact
             // on separate clusters and decline to check any more distances
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
             cerr << "already have checked distance above maximum number of probes" << endl;
 #endif
             continue;
@@ -766,7 +819,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                id(pos_2), offset(pos_2), is_rev(pos_2));
         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
         cerr << "distance between " << pos_1 << " and " << pos_2 << " estimated at " << oriented_dist << endl;
 #endif
         
@@ -792,7 +845,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 
                 num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                 
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                 cerr << "number of probes " << num_failed_probes->second << " crossed max threshold of " << current_max_num_probes << ", reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
 #endif
             }
@@ -813,7 +866,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             size_t strand_retaining = union_find.find_group(node_pair.first);
             size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
             
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
             cerr << "probe triggered group merge, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << " and retaining strand " << strand_retaining << endl;
 #endif
             
@@ -841,21 +894,21 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     if (retaining_already_blocked && !removing_already_blocked) {
                         num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(removing_iter->first.second);
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                         cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     else if (removing_already_blocked && !retaining_already_blocked) {
                         num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(removing_iter->first.second);
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                         cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     else if (!retaining_already_blocked && !removing_already_blocked && retaining_iter->second >= current_max_num_probes) {
                         num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * union_find.group_size(removing_iter->first.second);
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                         cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                         
@@ -866,7 +919,6 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 else if (removing_iter->first.second < retaining_iter->first.second) {
                     // the strand being removed has probes against this strand cluster, but the strand being
                     // retained does not, mark this and save it for later so that we don't invalidate the range
-                    //
                     unseen_comparisons.emplace_back(removing_iter->first.second, removing_iter->second);
                     removing_iter++;
                 }
@@ -877,7 +929,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     if (retaining_iter->second >= current_max_num_probes) {
                         num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second);
                         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                         cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
@@ -894,12 +946,13 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 if (retaining_iter->second >= current_max_num_probes) {
                     num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second);
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                     cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
                 retaining_iter++;
             }
+            
             
             // add the probes between the removing strands and clusters that had never been compared to the retaining strand
             for (const pair<size_t, size_t>& unseen_comparison : unseen_comparisons) {
@@ -907,9 +960,9 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                 num_infinite_dists[make_pair(strand_retaining, unseen_comparison.first)] = unseen_comparison.second;
                 
                 if (unseen_comparison.second >= current_max_num_probes) {
-                    num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first);
+                    num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * union_find.group_size(unseen_comparison.first);
                     
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                     cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
@@ -920,13 +973,14 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
             removing_iter = num_infinite_dists.lower_bound(make_pair(strand_removing, 0));
             removing_end = num_infinite_dists.upper_bound(make_pair(strand_removing, numeric_limits<size_t>::max()));
             if (removing_iter != removing_end) {
-                // move the end so that it is an inclusive range (prevents the "end" value from changing if we insert
-                // something between the last and the past-the-last positions)
+                // move the end so that it is an inclusive range
                 removing_end--;
                 
                 // erase the range
                 if (removing_iter == removing_end) {
-                    num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    if (removing_iter->first.first != removing_iter->first.second) {
+                        num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    }
                     num_infinite_dists.erase(removing_iter);
                 }
                 else {
@@ -935,14 +989,20 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
                     auto removing_iter_prev = removing_iter;
                     removing_iter++;
                     while (removing_iter != removing_end) {
-                        num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                        if (removing_iter_prev->first.first != removing_iter_prev->first.second) {
+                            num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                        }
                         num_infinite_dists.erase(removing_iter_prev);
                         removing_iter_prev = removing_iter;
                         removing_iter++;
                     }
-                    num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                    if (removing_iter_prev->first.first != removing_iter_prev->first.second) {
+                        num_infinite_dists.erase(make_pair(removing_iter_prev->first.second, removing_iter_prev->first.first));
+                    }
                     num_infinite_dists.erase(removing_iter_prev);
-                    num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    if (removing_iter->first.first != removing_iter->first.second) {
+                        num_infinite_dists.erase(make_pair(removing_iter->first.second, removing_iter->first.first));
+                    }
                     num_infinite_dists.erase(removing_iter);
                 }
             }
@@ -956,7 +1016,7 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
     size_t num_items,
     const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists) {
        
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
     cerr << "constructing strand distance tree" << endl;
 #endif
     
@@ -977,7 +1037,7 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
             continue;
         }
         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
         cerr << "beginning a distance tree traversal at MEM " << i << endl;
 #endif
         strand_relative_position.emplace_back();
@@ -1012,16 +1072,9 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
                 queue.push_back(next);
             }
         }
-#ifdef debug_multipath_mapper
-        cerr << "strand reconstruction: "  << endl;
-        for (const auto& record : relative_pos) {
-            cerr << "\t" << record.first << ": " << record.second << endl;
-        }
-#endif
     }
     
     return strand_relative_position;
-    
 }
 
 void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
@@ -1144,7 +1197,7 @@ void OrientedDistanceClusterer::perform_dp() {
         nodes[i].dp_score = nodes[i].score;
     }
     
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
     cerr << "computing topological order for clustering DP" << endl;
 #endif
     
@@ -1153,7 +1206,7 @@ void OrientedDistanceClusterer::perform_dp() {
     
     for (size_t i : order) {
         ODNode& node = nodes[i];
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
         cerr << "at node " << i << " with DP score " << node.dp_score << " and node score " << node.score << endl;
 #endif
         // for each edge out of this node
@@ -1163,7 +1216,7 @@ void OrientedDistanceClusterer::perform_dp() {
             ODNode& target_node = nodes[edge.to_idx];
             int32_t extend_score = node.dp_score + edge.weight + target_node.score;
             if (extend_score > target_node.dp_score) {
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
                 cerr << "extending DP to node " << edge.to_idx << " with score " << extend_score << endl;
 #endif
                 target_node.dp_score = extend_score;
@@ -1180,12 +1233,12 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         return to_return;
     }
     
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
     cerr << "performing approximate DP across MEMs" << endl;
 #endif
     perform_dp();
     
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
     cerr << "finding top tracebacks within connected components" << endl;
 #endif
     // find the weakly connected components, which should correspond to mappings
@@ -1210,7 +1263,11 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     
     std::make_heap(component_traceback_ends.begin(), component_traceback_ends.end());
     
+    // estimate the minimum score a cluster must obtain to even affect the mapping quality
+    // TODO: this approximation could break down sometimes, need to look into it
     int32_t top_score = component_traceback_ends.front().first;
+    const BaseAligner* base_aligner = aligner ? (BaseAligner*) aligner : (BaseAligner*) qual_adj_aligner;
+    int32_t suboptimal_score_cutoff = top_score - base_aligner->mapping_quality_score_diff(max_qual_score);
     
     while (!component_traceback_ends.empty()) {
         // get the next highest scoring traceback end
@@ -1221,15 +1278,13 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         // get the index of the node
         size_t trace_idx = traceback_end.second;
         
-#ifdef debug_multipath_mapper
+#ifdef debug_od_clusterer
         cerr << "checking traceback of component starting at " << traceback_end.second << endl;
 #endif
         // if this cluster does not look like it even affect the mapping quality of the top scoring
         // cluster, don't bother forming it
-        // TODO: this approximation could break down sometimes, need to look into it
-        // TODO: is there a way to make the aligner do this? I don't like having this functionality outside of it
-        if (4.3429448190325183 * aligner.log_base * (top_score - traceback_end.first) > max_qual_score ) {
-#ifdef debug_multipath_mapper
+        if (traceback_end.first < suboptimal_score_cutoff) {
+#ifdef debug_od_clusterer
             cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << endl;
 #endif
             break;
@@ -1239,9 +1294,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         vector<size_t> trace{trace_idx};
         while (nodes[trace_idx].dp_score > nodes[trace_idx].score) {
             int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
-            cerr << "trace idx " << trace_idx << " DP score " << nodes[trace_idx].dp_score << " node score " << nodes[trace_idx].score << " source score " << target_source_score << endl;
             for (ODEdge& edge : nodes[trace_idx].edges_to) {
-                cerr << "\tscore along edge to " << edge.to_idx << " is " <<  nodes[edge.to_idx].dp_score + edge.weight << endl;
                 if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score) {
                     trace_idx = edge.to_idx;
                     trace.push_back(trace_idx);
@@ -1259,11 +1312,11 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         }
     }
     
-    return to_return;
+    return std::move(to_return);
 }
 
-vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t>& our_clusters,
-    const vector<cluster_t>& their_clusters, xg::XG* xgindex, size_t max_inter_cluster_distance) {
+vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& our_clusters,
+    const vector<cluster_t*>& their_clusters, xg::XG* xgindex, size_t max_inter_cluster_distance) {
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
     vector<pair<size_t, size_t>> to_return;
@@ -1278,10 +1331,10 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
             if (cluster_num < our_clusters.size()) {
                 // Grab the pos_t for the first thing in the cluster.
                 // Assumes ther cluster is nonempty.
-                return our_clusters[cluster_num].front().second;
+                return our_clusters[cluster_num]->front().second;
             } else {
                 // Grab the pos_t for this cluster from the other clusterer.
-                pos_t their_pos = their_clusters[cluster_num - our_clusters.size()].front().second;
+                pos_t their_pos = their_clusters[cluster_num - our_clusters.size()]->front().second;
                 // Reverse it so that it appears to be on the same strand as consistent clusters from this clusterer.
                 // TODO: won't this make us look at the outside sides of the clusters and not the left sides?
                 return reverse(their_pos, xgindex->node_length(get_id(their_pos)));

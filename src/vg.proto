@@ -149,10 +149,10 @@ message MultipathAlignment {
 
     // non-branching paths of the multipath alignment, each containing an alignment of part of
     // the sequence to a Graph
-    // IMPORTANT: downstream applications will assume these are in topological order
+    // IMPORTANT: downstream applications will assume these are stored in topological order
     repeated Subpath subpath = 6;
 
-    // -log_10(P_mismap)
+    // -10 * log_10(probability of mismapping)
     int32 mapping_quality = 7;
 
     // optional: indices of Subpaths that align the beginning of the read (i.e. source nodes)

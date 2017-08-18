@@ -36,7 +36,7 @@ namespace vg {
         
         // for construction
         // needed when constructing an alignable graph from the nodes
-        gssw_graph* create_gssw_graph(Graph& g, bool add_pinning_node, gssw_node** gssw_pinned_node_out);
+        gssw_graph* create_gssw_graph(Graph& g);
         void topological_sort(list<gssw_node*>& sorted_nodes);
         void visit_node(gssw_node* node,
                         list<gssw_node*>& sorted_nodes,
@@ -118,10 +118,13 @@ namespace vg {
         /// given offset, of the given length.
         virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
         
-        // stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
-        // probability that the alignment is not the correct one (assuming that one of the alignments
-        // in the vector is correct). alignments must have been created with this Aligner for quality
-        // score to be valid
+        /// Returns the score of an insert or deletion of the given length
+        int32_t score_gap(size_t gap_length);
+        
+        /// stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
+        /// probability that the alignment is not the correct one (assuming that one of the alignments
+        /// in the vector is correct). alignments must have been created with this Aligner for quality
+        /// score to be valid
         void compute_mapping_quality(vector<Alignment>& alignments,
                                      int max_mapping_quality,
                                      bool fast_approximation,
@@ -130,7 +133,7 @@ namespace vg {
                                      int overlap_count,
                                      double mq_estimate,
                                      double identity_weight);
-        // same function for paired reads, mapping qualities are stored in both alignments in the pair
+        /// same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             const vector<double>& frag_weights,
                                             int max_mapping_quality1,
@@ -144,8 +147,15 @@ namespace vg {
                                             double mq_estimate2,
                                             double identity_weight);
         
-        // Convert a score to an unnormalized log likelihood for the sequence.
-        // Requires log_base to have been set.
+        /// Computes mapping quality for the optimal score in a vector of scores
+        int32_t compute_mapping_quality(vector<int32_t> scores, bool fast_approximation);
+        
+        /// Returns the  difference between an optimal and second-best alignment scores that would
+        /// result in this mapping quality using the fast mapping quality approximation
+        double mapping_quality_score_diff(double mapping_quality) const;
+        
+        /// Convert a score to an unnormalized log likelihood for the sequence.
+        /// Requires log_base to have been set.
         double score_to_unnormalized_likelihood_ln(double score);
         
         /// The longest gap detectable from a read position without soft-clipping

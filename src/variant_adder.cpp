@@ -1,9 +1,12 @@
 #include "variant_adder.hpp"
 #include "mapper.hpp"
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
+
 
 VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     graph.paths.for_each_name([&](const string& name) {
@@ -563,7 +566,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             0, true, true, false, 0, max_span);
         Alignment aln_right = right_subgraph.align(right_tail, &aligner,
             0, true, false, false, 0, max_span);
-            
+                
         if (aln_left.path().mapping_size() < 1 ||
             aln_left.path().mapping(0).position().node_id() != endpoints.first.node ||
             aln_left.path().mapping(0).edit_size() < 1 || 
@@ -572,6 +575,16 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             // The left alignment didn't start with a match to the correct
             // endpoint node. Try aligning it in reverse complement, and
             // pinning the other end.
+            
+#ifdef debug
+            if (aln_left.path().mapping_size() < 1) {
+                cerr << "\tLeft end alignment is null" << endl;
+            }
+            else {
+                cerr << "\tLeft end initial mapping does not match expected end: " << pb2json(aln_left.path().mapping(0)) << endl;
+            }
+            cerr << "\tRealigning left end to reverse complement" << endl;
+#endif
             
             // TODO: what if we have an exact palindrome over a reversing
             // edge, and we keep getting the same alignment arbitrarily no
@@ -601,6 +614,16 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             // The right alignment didn't end with a match to the correct
             // endpoint node. Try aligning it in reverse complement and
             // pinning the other end.
+            
+#ifdef debug
+            if (rightmost_mapping == nullptr) {
+                cerr << "\tRight end alignment is null" << endl;
+            }
+            else {
+                cerr << "\tRight end final mapping does not match expected end: " << pb2json(*rightmost_mapping) << endl;
+            }
+            cerr << "\tRealigning right end to reverse complement" << endl;
+#endif
             
             // TODO: what if we have an exact palindrome over a reversing
             // edge, and we keep getting the same alignment arbitrarily no

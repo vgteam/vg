@@ -222,6 +222,8 @@ namespace vg {
         AltTracebackStack(int64_t max_multi_alns, int32_t empty_score,
                           unordered_set<BAMatrix*>& source_node_matrices,
                           unordered_set<BAMatrix*>& sink_node_matrices,
+                          int8_t gap_open,
+                          int8_t gap_extend,
                           IntType min_inf);
         ~AltTracebackStack();
         

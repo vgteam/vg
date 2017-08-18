@@ -396,6 +396,8 @@ public:
 private:
     size_t current;
 };
+    
+size_t integer_power(size_t x, size_t power);
 
 // Get a callback with an istream& to an open file if a file name argument is
 // present after the parsed options, or print an error message and exit if one
@@ -420,6 +422,13 @@ void get_input_file(const string& file_name, function<void(istream&)> callback);
 double slope(const std::vector<double>& x, const std::vector<double>& y);
 double fit_zipf(const vector<double>& y);
 
+/// Computes base^exponent in log(exponent) time
+size_t integer_power(uint64_t base, uint64_t exponent);
+/// Computes base^exponent mod modulus in log(exponent) time without requiring more
+/// than 64 bits to represent exponentiated number
+size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus);
+    
+    
 }
 
 #endif
