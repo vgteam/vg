@@ -4821,7 +4821,6 @@ void FragmentLengthDistribution::register_fragment_length(size_t length) {
 }
 
 void FragmentLengthDistribution::determinize_estimation() {
-    cerr << "determinizing\n";
     if (multithread_reset || is_fixed) {
         return;
     }

@@ -198,7 +198,7 @@ int main_mpmap(int argc, char** argv) {
             case 'b':
                 hts_file_name = optarg;
                 if (hts_file_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide HTS file with -b." << endl;
+                    cerr << "error:[vg mpmap] Must provide HTS file (SAM/BAM/CRAM) with -b." << endl;
                     exit(1);
                 }
                 break;
@@ -509,8 +509,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
-    multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
+    multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
     
@@ -545,26 +545,20 @@ int main_mpmap(int argc, char** argv) {
     cerr << "[vg mpmap] created all in memory objects, beginning mapping" << endl;
 #endif
     
-    auto output_alignments = [&](Alignment& alignment) {
+    function<void(Alignment&)> do_unpaired_alignments = [&](Alignment& alignment) {
         vector<MultipathAlignment> mp_alns;
         multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
         if (single_path_alignment_mode) {
-#ifdef debug_mpmap
-            cerr << "[vg mpmap] outputting single path alignment for read " << alignment.name() << endl;
-#endif
             output_single_path_alignments(mp_alns);
         }
         else {
-#ifdef debug_mpmap
-            cerr << "[vg mpmap] outputting multipath alignment for read " << alignment.name() << endl;
-#endif
             output_multipath_alignments(mp_alns);
         }
     };
     
     if (!fastq_name_1.empty()) {
         if (fastq_name_2.empty()) {
-            fastq_unpaired_for_each_parallel(fastq_name_1, output_alignments);
+            fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
         }
         else if (interleaved_input) {
             // TODO
@@ -579,7 +573,18 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (!gam_file_name.empty()) {
-        // TODO
+        ifstream gam_in(gam_file_name);
+        if (!gam_in) {
+            cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
+            exit(1);
+        }
+        if (interleaved_input) {
+            // TODO
+        }
+        else {
+            stream::for_each_parallel(gam_in, do_unpaired_alignments);
+        }
+        gam_in.close();
     }
     
     // clear output buffers
