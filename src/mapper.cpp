@@ -2899,6 +2899,31 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
 }
 
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    auto& node_cache = get_node_cache();
+    auto& edge_cache = get_edge_cache();
+    assert(mems.size());
+    auto& start_mem = mems.front();
+    auto start_pos = make_pos_t(start_mem.nodes.front());
+    auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
+    float expansion = 1.61803;
+    int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
+    VG graph;
+    if (get_before) {
+        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
+    }
+    for (int i = 0; i < mems.size(); ++i) {
+        auto& mem = mems[i];
+        auto pos = make_pos_t(mem.nodes.front());
+        int get_after = (i+1 == mems.size() ?
+                         expansion * (int)(aln.sequence().end() - mem.begin)
+                         : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
+        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
+    }
+    graph.remove_orphan_edges();
+    return graph;
+}
+
+VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
 #ifdef debug_mapper
 #pragma omp critical
     {
