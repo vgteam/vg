@@ -229,7 +229,7 @@ class VGCITest(TestCase):
             opts += '--vcfeval_opts \" --ref-overlap\" '
         #if interleaved:
         #    opts += '--interleaved '
-        opts =+ '--multipath '
+        opts += '--multipath '
         if misc_opts:
             opts += ' {} '.format(misc_opts)
         opts += '--gcsa_index_cores {} --kmers_cores {} \
