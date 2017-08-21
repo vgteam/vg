@@ -105,16 +105,10 @@ size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
 size_t from_length_before_pos(const Alignment& aln, const Position& pos);
-
-/// Define a comparison functor for different alignments of the same sequence to
-/// the same graph, ignoring all the metadata.
-struct SameReadAlignmentOrder {
-    bool operator()(const Alignment& a, const Alignment& b) const;
-};
-/// We have a similar functor for pairs of alignments.
-struct SameReadsAlignmentPairOrder {
-    bool operator()(const pair<Alignment, Alignment>& a, const pair<Alignment, Alignment>& b) const;
-};
+string signature(const Alignment& aln);
+pair<string, string> signature(const Alignment& aln1, const Alignment& aln2);
+string middle_signature(const Alignment& aln, int len);
+pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len);
 
 // project the alignment's path back into a different ID space
 void translate_nodes(Alignment& a, const unordered_map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
