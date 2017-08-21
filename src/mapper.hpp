@@ -402,6 +402,8 @@ public:
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
+    VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // helper to cluster subgraph
     void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
