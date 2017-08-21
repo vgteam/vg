@@ -2917,7 +2917,7 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    int padding = 20;
+    int padding = 1;
     int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
