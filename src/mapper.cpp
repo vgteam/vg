@@ -3001,8 +3001,8 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
 // estimate the fragment length as the difference in mean positions of both alignments
 map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     map<string, int> lengths;
-    auto pos1 = alignment_mean_path_positions(aln1);
-    auto pos2 = alignment_mean_path_positions(aln2);
+    auto pos1 = alignment_mean_path_positions(aln1, true);
+    auto pos2 = alignment_mean_path_positions(aln2, true);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {
@@ -3023,8 +3023,8 @@ string Mapper::fragment_model_str(void) {
 }
 
 int Mapper::first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
-    auto pos1 = alignment_mean_path_positions(aln1);
-    auto pos2 = alignment_mean_path_positions(aln2);
+    auto pos1 = alignment_mean_path_positions(aln1, true);
+    auto pos2 = alignment_mean_path_positions(aln2, true);
     for (auto& p : pos1) {
         auto x = pos2.find(p.first);
         if (x != pos2.end()) {

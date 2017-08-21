@@ -105,7 +105,9 @@ int main_annotate(int argc, char** argv) {
         if (add_positions) {
             //map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, bool first_hit_only);
             function<void(Alignment&)> lambda = [&](Alignment& aln) {
-                for (auto& ref : mapper.alignment_mean_path_positions(aln)) {
+                for (auto& ref : mapper.alignment_mean_path_positions(aln, false)) {
+                    // For each path position (making sure to get the actual
+                    // median and not just the first hit of anything on a path)
                     Position* refpos = aln.add_refpos();
                     refpos->set_name(ref.first);
                     refpos->set_offset(round(ref.second));
