@@ -39,7 +39,7 @@ def testname_to_outstore(test_name):
     convert something like test_full_brca2_cactus to oustore-full-BRCA2-cactus
     """
     toks = test_name.replace('lrc_kir', 'lrc-kir').split('_')
-    assert toks[0] == 'test' and len(toks) == 4
+    assert toks[0] == 'test' and len(toks) >= 4
     return 'outstore-{}-{}-{}'.format(
         toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), toks[3])
 
