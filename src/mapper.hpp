@@ -354,7 +354,7 @@ public:
     double graph_entropy(void);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = false);
+    map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
     void annotate_with_mean_path_positions(vector<Alignment>& alns);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise

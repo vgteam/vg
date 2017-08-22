@@ -1003,135 +1003,33 @@ map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
     return quals;
 }
 
-bool SameReadAlignmentOrder::operator()(const Alignment& a, const Alignment& b) const {
-    // Compare two alignments of the same sequence to potentially different
-    // graph paths. We want to order them so we can deduplicate them in a
-    // std::set.
-    
-    // First look at the scores
-    if (a.score() < b.score()) {
-        return true;
-    }
-    if (b.score() < a.score()) {
-        return false;
-    }
-    
-    // If they are the same, look at the paths.
-    if (a.path().mapping_size() < b.path().mapping_size()) {
-        return true;
-    }
-    if (b.path().mapping_size() < a.path().mapping_size()) {
-        return false;
-    }
-    
-    for (size_t i = 0; i < a.path().mapping_size(); i++) {
-        // For each mapping pair, compare them.
-        auto& a_mapping = a.path().mapping(i);
-        auto& b_mapping = b.path().mapping(i);
-        
-        // Compare the positions
-        auto& a_pos = a_mapping.position();
-        auto& b_pos = b_mapping.position();
-        
-        // Which means to compare the node IDs
-        if (a_pos.node_id() < b_pos.node_id()) {
-            return true;
-        }
-        if (b_pos.node_id() < a_pos.node_id()) {
-            return false;
-        }
-        
-        // And the offsets
-        if (a_pos.offset() < b_pos.offset()) {
-            return true;
-        }
-        if (b_pos.offset() < a_pos.offset()) {
-            return false;
-        }
-        
-        // And the is_reverse flags
-        if (a_pos.is_reverse() < b_pos.is_reverse()) {
-            return true;
-        }
-        if (b_pos.is_reverse() < a_pos.is_reverse()) {
-            return false;
-        }
-        
-        // Then compare the edit counts
-        if (a_mapping.edit_size() < b_mapping.edit_size()) {
-            return true;
-        }
-        if (b_mapping.edit_size() < a_mapping.edit_size()) {
-            return false;
-        }
-        
-        for (size_t j = 0; j < a_mapping.edit_size(); j++) {
-            // And then compare the edits
-            auto& a_edit = a_mapping.edit(j);
-            auto& b_edit = b_mapping.edit(j);
-            
-            // Which means to compare the from length
-            if (a_edit.from_length() < b_edit.from_length()) {
-                return true;
-            }
-            if (b_edit.from_length() < a_edit.from_length()) {
-                return false;
-            }
-            
-            // And the to length
-            if (a_edit.to_length() < b_edit.to_length()) {
-                return true;
-            }
-            if (b_edit.to_length() < a_edit.to_length()) {
-                return false;
-            }
-            
-            // And the sequence
-            if (a_edit.sequence() < b_edit.sequence()) {
-                return true;
-            }
-            if (b_edit.sequence() < a_edit.sequence()) {
-                return false;
-            }
-        }
-        
-    }
-    
-    
-    // And if all that stuff we checked is the same, we assume the alignments
-    // are the same (for aligner output deduplication purposes).
-    // That means that a is not less than b.
-    return false;
-    
+string middle_signature(const Alignment& aln, int len) {
+    return signature(alignment_middle(aln, len));
 }
 
-bool SameReadsAlignmentPairOrder::operator()(const pair<Alignment, Alignment>& a, const pair<Alignment, Alignment>& b) const {
-    // Compare the first elements
-    if (SameReadAlignmentOrder()(a.first, b.first)) {
-        return true;
+pair<string, string> middle_signature(const Alignment& aln1, const Alignment& aln2, int len) {
+    return make_pair(middle_signature(aln1, len), middle_signature(aln1, len));
+}
+
+string signature(const Alignment& aln) {
+    stringstream s;
+    if (aln.has_path() && aln.path().mapping_size()) {
+        auto& pos1 = aln.path().mapping(0).position();
+        s << pos1.node_id();
+        s << (pos1.is_reverse() ? "-" : "+");
+        s << ":" << pos1.offset();
+        s << "_";
+        auto& last = aln.path().mapping(aln.path().mapping_size()-1);
+        auto& pos2 = last.position();
+        s << pos2.node_id();
+        s << (pos2.is_reverse() ? "-" : "+");
+        s << ":" << pos2.offset() + mapping_from_length(last);
     }
-    if (SameReadAlignmentOrder()(b.first, a.first)) {
-        return false;
-    }
-    
-    // Then compare the second elements
-    if (SameReadAlignmentOrder()(a.second, b.second)) {
-        return true;
-    }
-    if (SameReadAlignmentOrder()(b.second, a.second)) {
-        return false;
-    }
-    
-    // Then conclude equality (and not a < b).
-    return false;
+    return s.str();
+}
+
+pair<string, string> signature(const Alignment& aln1, const Alignment& aln2) {
+    return make_pair(signature(aln1), signature(aln2));
 }
 
 }
-
-
-
-
-
-
-
-
