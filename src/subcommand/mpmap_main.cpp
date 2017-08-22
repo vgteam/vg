@@ -26,7 +26,7 @@ void help_mpmap(char** argv) {
     << "usage: " << argv[0] << " mpmap [options] -x index.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -b reads.bam | -G reads.gam] > aln.gamp" << endl
     << "Multipath align reads to a graph." << endl
     << endl
-    << "options:" << endl
+    << "basic options:" << endl
     << "graph/index:" << endl
     << "  -x, --xg-name FILE        use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
@@ -38,14 +38,19 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -S, --single-path-mode    produce single-path alignments (.gam) instead of multipath alignments (.gamp) (ignores -sua)" << endl
     << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
+    << "scoring:" << endl
+    << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
+    << endl
+    << "advanced options:" << endl
+    << "algorithm:" << endl
     << "  -u, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
     << "  -Q, --mq-max OPT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
-    << "  -r, --reseed-length INT   reseed SMEMs for contained exact matches if they are at least this long (0 for no reseeding) [32]" << endl
-    << "  -W, --reseed-diff INT     require contained exact matches to have length within this much of the SMEM [8]" << endl
+    << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
+    << "  -W, --reseed-diff INT     require internal MEMs to have length within this much of the SMEM's length [8]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
@@ -58,7 +63,6 @@ void help_mpmap(char** argv) {
     << "  -y, --gap-extend INT      use this gap extension penalty [1]" << endl
     << "  -L, --full-l-bonus INT    add this score to alignments that use the full length of the read [5]" << endl
     << "  -m, --remove-bonuses      remove full length alignment bonuses in reported scores" << endl
-    << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT         number of compute threads to use" << endl
     << "  -Z, --buffer-size INT     buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
