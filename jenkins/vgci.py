@@ -865,7 +865,7 @@ class VGCITest(TestCase):
         # these other BRCA1 graphs and make sure the realignments are
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
-        self._test_mapeval(10000, 'BRCA1', 'snp1kg',
+        self._test_mapeval(100000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
