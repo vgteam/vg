@@ -668,7 +668,7 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
             } else if (edit_is_sub(edit)) {
                 score -= mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
-                score -= gap_open + edit.from_length() * gap_extension;
+                score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
             } else if (edit_is_insertion(edit)
                        && !((i == 0 && j == 0)
                             || (i == path.mapping_size()-1
