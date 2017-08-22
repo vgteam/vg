@@ -84,6 +84,7 @@ namespace vg {
                 Path* opt_path = aln_out->mutable_path();
                 *opt_path = *(*iter);
                 iter++;
+                int next_rank = opt_path->mapping_size() + 1;
                 for (; iter != optimal_path_chunks.rend(); iter++) {
                     Mapping* curr_end_mapping = opt_path->mutable_mapping(opt_path->mapping_size() - 1);
                     
@@ -91,18 +92,21 @@ namespace vg {
                     const Path& next_path = *(*iter);
                     const Mapping& next_start_mapping = next_path.mapping(0);
                     
+                    size_t start = 0;
                     // merge mappings if they occur on the same node and same strand
                     if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
                         && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
                         *curr_end_mapping = concat_mappings(*curr_end_mapping, next_start_mapping);
-                    }
-                    else {
-                        *(opt_path->add_mapping()) = next_start_mapping;
+                        curr_end_mapping->set_rank(next_rank - 1);
+                        start++;
                     }
                     
                     // append the rest of the mappings
-                    for (size_t j = 1; j < next_path.mapping_size(); j++) {
-                        *(opt_path->add_mapping()) = next_path.mapping(j);
+                    for (size_t j = start; j < next_path.mapping_size(); j++) {
+                        Mapping* next_mapping = opt_path->add_mapping();
+                        *next_mapping = next_path.mapping(j);
+                        next_mapping->set_rank(next_rank);
+                        next_rank++;
                     }
                 }
             }
