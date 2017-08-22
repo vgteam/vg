@@ -15,6 +15,7 @@ import textwrap
 import shutil
 import datetime
 import cgi
+from collections import defaultdict
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__, 
@@ -44,6 +45,62 @@ def testname_to_outstore(test_name):
         toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), toks[3])
 
 
+def scrape_mapeval_runtimes(text):
+    """ toil-vg mapeval uses the RealtimeLogger to print the running times of 
+    each call to vg map (or vg mpmap).  We piece that information together
+    here 
+    
+    I would rather this be in vgci.py, but don't have access to the log there. 
+    So scrape it out here then add it to the table from vgci.py with join_runtimes below
+
+    Todo: save the log into the workdir and mine from vgci.py
+    """
+    
+    runtimes = defaultdict(int)
+    for line in text.split('\n'):
+        # we want to parse something like
+        #host 2017-08-22 11:09:45,362 MainThread INFO toil-rt: Aligned /tmp/toil-55082/aligned-snp1kg_HG00096_0.gam. Process took 4.37375712395 seconds with single-end vg-map
+        search_tok = 'INFO toil-rt: Aligned'
+        i = line.find(search_tok)
+        if i >= 0:
+            try:
+                toks = line[i + len(search_tok) + 1: ].rstrip().split()
+                outputfile = toks[0]
+                seconds = round(float(toks[3]), 1)
+                read_type = toks[-2]
+                method = toks[-1]
+                # name will be something like tmpdir/aligned-primary_0.gam.
+                # so we cut down to just primary_0
+                name = os.path.basename(outputfile)[8:-5]
+                # then strip the _0
+                name = name[0:name.rfind('_')]
+                # and any tags for paired end
+                name = name.replace('-pe','').replace('-se','').replace('-mp','')
+                key = method if 'bwa' in method else name
+                if 'mpmap' in method:
+                    key += '-mp'
+                if 'single-end' in read_type:
+                    key += '-se'
+                elif 'paired-end' in read_type:
+                    key += '-pe'
+                runtimes[key] += seconds
+            except int:
+                pass
+
+    return runtimes
+        
+def join_runtimes(mapeval_table, runtime_dict):
+    """ Tack on some mapping runtimes that we mined above to the mapeval table that was printed 
+    by the jenkins tests """
+    mapeval_table[0].append("Map Time (s)")
+    for i in range(1, len(mapeval_table)):
+        row = mapeval_table[i]
+        if row[0].rstrip('*') in runtime_dict:
+            row.append(runtime_dict[row[0].rstrip('*')])
+        else:
+            row.append(-1)
+    return mapeval_table
+    
 def parse_begin_message(line):
     """ Return True, name, is_tsv if tag found otherwise False, None, None """
     try:
@@ -342,12 +399,19 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 i += row_size
             report += '</table>\n'
 
+        # extract running times from stdout (only for mapeval)
+        map_time_table = None
+        if 'sim' in tc['name']:
+            map_time_table = scrape_mapeval_runtimes(tc['stderr'])
+            
         if tc['stdout']:
             # extract only things in <VCGI> tags from stdout
             messages = scrape_messages(tc['stdout'])
             for message in messages:                
-                name, body = message[0], message[1]
+                name, body = message[0], message[1]                    
                 if isinstance(body, list):
+                    if name and name.startswith('map eval results') and map_time_table:
+                        body = join_runtimes(body, map_time_table)
                     report += html_table(body, name)
                 else:
                     if name:

@@ -683,7 +683,7 @@ class VGCITest(TestCase):
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
         # print out a table of mapeval results
-        table_name = 'mape eval results'
+        table_name = 'map eval results'
         if positive_control:
             table_name += ' (*: positive control)'
         if negative_control:
@@ -701,8 +701,10 @@ class VGCITest(TestCase):
                 method += '*'
             if negative_control and key in [negative_control, negative_control + '-pe']:
                 method += '**'
-            print '\t'.join(str(x) for x in [method, sval[1], bval[1],
-                                             sval[2], bval[2], self.auc_threshold])
+            def r4(s):
+                return round(s, 4) if isinstance(s, float) else s                
+            print '\t'.join(str(r4(x)) for x in [method, sval[1], bval[1],
+                                                 sval[2], bval[2], self.auc_threshold])
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
@@ -863,7 +865,7 @@ class VGCITest(TestCase):
         # these other BRCA1 graphs and make sure the realignments are
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
-        self._test_mapeval(100000, 'BRCA1', 'snp1kg',
+        self._test_mapeval(10000, 'BRCA1', 'snp1kg',
                            ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
