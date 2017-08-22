@@ -2558,6 +2558,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     double mq_cap = max_mapping_quality;
 
     {
+        // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
         int mem_max_length = 0;
         for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
         double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
@@ -2567,8 +2568,9 @@ Mapper::align_mem_multi(const Alignment& aln,
         if (maybe_max < maybe_mq_threshold) {
             mq_cap = maybe_max;
         }
+        // TODO: why should we limit our number of MEM chains to examine to max_multimaps / max estimated mapping quality?
         total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
-        if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << endl;
+        if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_max << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " longest LCP: " << longest_lcp << endl;
     }
 
     double avg_node_len = average_node_length();
