@@ -1561,6 +1561,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 }
 
 bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
+    auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     if (!fragment_size) return false;
     //double hang_threshold = 0.9;
@@ -1577,7 +1578,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (debug) cerr << "pair rescue: mate1 " << mate1_id << " mate2 " << mate2_id << " consistent? " << consistent << endl;
+    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
@@ -2133,9 +2134,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
     
-    // We keep a set of pairs of alignments that we have already seen, for
-    // deduplication purposes.
-    set<pair<Alignment, Alignment>, SameReadsAlignmentPairOrder> seen_alignments;
+    set<pair<string, string> > seen_alignments;
     for (auto& cluster_ptr : cluster_ptrs) {
         if (alns.size() >= total_multimaps) { break; }
         // break the cluster into two pieces
@@ -2162,10 +2161,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.second.clear_identity();
             p.second.clear_path();
         }
-        if (seen_alignments.count(p)) {
+        auto pair_sig = signature(p.first, p.second);
+        if (seen_alignments.count(pair_sig)) {
             alns.pop_back();
         } else {
-            seen_alignments.insert(p);
+            seen_alignments.insert(pair_sig);
         }
     }
 
@@ -2223,10 +2223,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.erase(
             std::remove_if(alns.begin(), alns.end(),
                            [&](const pair<Alignment, Alignment>& p) {
-                               if (seen_alignments.count(p)) {
+                               auto pair_sig = signature(p.first, p.second);
+                               if (seen_alignments.count(pair_sig)) {
                                    return true;
                                } else {
-                                   seen_alignments.insert(p);
+                                   seen_alignments.insert(pair_sig);
                                    return false;
                                }
                            }),
@@ -2683,8 +2684,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     vector<Alignment> alns;
     vector<vector<MaximalExactMatch>*> cluster_ptrs;
     //map<vector<MaximalExactMatch>*, int> cluster_cov;
-    // We keep a set of alignments we have already generated.
-    set<Alignment, SameReadAlignmentOrder> seen_alignments;
+    set<string> seen_alignments;
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
@@ -2693,10 +2693,21 @@ Mapper::align_mem_multi(const Alignment& aln,
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         Alignment candidate = align_cluster(aln, cluster);
-     
-        if (candidate.identity() > min_identity && !seen_alignments.count(candidate)) {
+        string sig = signature(candidate);
+        
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "Alignment with signature " << sig << " (seen: " << seen_alignments.count(sig) << ")" << endl;
+                cerr << "\t" << pb2json(candidate) << endl;
+            }
+        }
+#endif
+        
+        if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
             alns.push_back(candidate);
-            seen_alignments.insert(candidate);
+            seen_alignments.insert(sig);
         }
     }
 
@@ -2896,6 +2907,35 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
 }
 
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+    auto& node_cache = get_node_cache();
+    auto& edge_cache = get_edge_cache();
+    assert(mems.size());
+    auto& start_mem = mems.front();
+    auto start_pos = make_pos_t(start_mem.nodes.front());
+    auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
+    float expansion = 1.61803;
+    // Even if the MEM is right up against the start of the read, it may not be
+    // part of the best alignment. Make sure to have some padding.
+    // TODO: how much padding?
+    int padding = 1;
+    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
+    VG graph;
+    if (get_before) {
+        cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
+    }
+    for (int i = 0; i < mems.size(); ++i) {
+        auto& mem = mems[i];
+        auto pos = make_pos_t(mem.nodes.front());
+        int get_after = padding + (i+1 == mems.size() ?
+                                   expansion * (int)(aln.sequence().end() - mem.begin)
+                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
+        cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
+    }
+    graph.remove_orphan_edges();
+    return graph;
+}
+
+VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
 #ifdef debug_mapper
 #pragma omp critical
     {
