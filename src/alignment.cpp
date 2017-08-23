@@ -88,7 +88,7 @@ bam_hdr_t* hts_string_header(string& header,
     }
     hdr << "@PG\tID:0\tPN:vg\n";
     header = hdr.str();
-    string sam = "data:" + header;
+    string sam = "data:," + header;
     samFile *in = sam_open(sam.c_str(), "r");
     bam_hdr_t *h = sam_hdr_read(in);
     sam_close(in);
@@ -440,7 +440,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const int32_t tlen) {
 
     assert(!sam_header.empty());
-    string sam_file = "data:" + sam_header + alignment_to_sam(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen);
+    string sam_file = "data:," + sam_header + alignment_to_sam(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen);
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);

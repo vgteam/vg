@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include "mapper.hpp"
+#include "algorithms/vg_algorithms.hpp"
 
 //#define debug_mapper
 
@@ -11,7 +12,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       xindex(xidex)
     , gcsa(g)
     , lcp(a)
-    , min_mem_length(0)
+    , min_mem_length(1)
     , mem_reseed_length(0)
     , fast_reseed(true)
     , fast_reseed_length_diff(8)
@@ -22,6 +23,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , regular_aligner(nullptr)
     , adjust_alignments_for_base_quality(false)
     , mapping_quality_method(Approx)
+    , max_mapping_quality(60)
     , strip_bonuses(true)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
@@ -537,8 +539,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
             // extract the graph positions matching the range
             gcsa->locate(mem.range, mem.nodes);
-            // it may be necessary to impose the cap on mem hits
-            if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
         }
     }
     
@@ -559,9 +559,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             mem.primary = false;
             if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
                 gcsa->locate(mem.range, mem.nodes);
-                // it may be necessary to impose the cap on mem hits
-                // todo: should we downsample?
-                if (hit_max > 0 && mem.nodes.size() > hit_max) mem.nodes.clear();
             }
         }
         
@@ -1204,14 +1201,16 @@ void BaseMapper::init_edge_cache(void) {
     }
 }
 
-void BaseMapper::set_cache_size(int cache_size) {
-    cache_size = cache_size;
+void BaseMapper::set_cache_size(int new_cache_size) {
+    cache_size = new_cache_size;
     init_edge_cache();
     init_node_cache();
     init_node_pos_cache();
     init_node_start_cache();
 }
-    
+
+// TODO: this strategy of dropping the index down to 0 works for vg map's approach of having a copy of
+// the mapper for each thread, but it's dangerous when one mapper is using multiple threads
 LRUCache<id_t, Node>& BaseMapper::get_node_cache(void) {
     int tid = node_cache.size() > 1 ? omp_get_thread_num() : 0;
     return *node_cache[tid];
@@ -1331,7 +1330,6 @@ Mapper::Mapper(xg::XG* xidex,
     , since_last_fragment_length_estimate(0)
     , fragment_model_update_interval(10)
     , perfect_pair_identity_threshold(0.95)
-    , max_mapping_quality(60)
     , max_cluster_mapping_quality(1024)
     , use_cluster_mq(false)
     , simultaneous_pair_alignment(true)
@@ -2696,6 +2694,17 @@ Mapper::align_mem_multi(const Alignment& aln,
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
         Alignment candidate = align_cluster(aln, cluster);
         string sig = signature(candidate);
+        
+#ifdef debug_mapper
+#pragma omp critical
+        {
+            if (debug) {
+                cerr << "Alignment with signature " << sig << " (seen: " << seen_alignments.count(sig) << ")" << endl;
+                cerr << "\t" << pb2json(candidate) << endl;
+            }
+        }
+#endif
+        
         if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
             alns.push_back(candidate);
             seen_alignments.insert(sig);
@@ -2905,7 +2914,11 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
     auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
+    // Even if the MEM is right up against the start of the read, it may not be
+    // part of the best alignment. Make sure to have some padding.
+    // TODO: how much padding?
+    int padding = 1;
+    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
         cached_graph_context(graph, rev_start_pos, get_before, node_cache, edge_cache);
@@ -2913,12 +2926,71 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     for (int i = 0; i < mems.size(); ++i) {
         auto& mem = mems[i];
         auto pos = make_pos_t(mem.nodes.front());
-        int get_after = (i+1 == mems.size() ?
-                         expansion * (int)(aln.sequence().end() - mem.begin)
-                         : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
+        int get_after = padding + (i+1 == mems.size() ?
+                                   expansion * (int)(aln.sequence().end() - mem.begin)
+                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
         cached_graph_context(graph, pos, get_after, node_cache, edge_cache);
     }
     graph.remove_orphan_edges();
+    return graph;
+}
+
+VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "Getting a cluster graph for " << mems.size() << " MEMs" << endl;
+        }
+    }
+#endif
+
+    // As in the multipath aligner, we work out how far we can get from a MEM
+    // with gaps and use that for how much graph to grab.
+    vector<pos_t> positions;
+    vector<size_t> forward_max_dist;
+    vector<size_t> backward_max_dist;
+    
+    positions.reserve(mems.size());
+    forward_max_dist.reserve(mems.size());
+    backward_max_dist.reserve(mems.size());
+    
+    // What aligner are we using?
+    BaseAligner* aligner = adjust_alignments_for_base_quality ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner;
+    
+    for (const auto& mem : mems) {
+        // get the start position of the MEM
+        assert(!mem.nodes.empty());
+        positions.push_back(make_pos_t(mem.nodes.front()));
+        
+        // search far enough away to get any hit detectable without soft clipping
+        forward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.end)
+                                   + (aln.sequence().end() - mem.begin));
+        backward_max_dist.push_back(aligner->longest_detectable_gap(aln, mem.begin)
+                                    + (mem.begin - aln.sequence().begin()));
+    }
+    
+    
+    // extract the protobuf Graph
+    Graph proto_graph;
+    algorithms::extract_containing_graph(*xindex, proto_graph, positions, forward_max_dist,
+                                         backward_max_dist, &get_node_cache());
+                                         
+    // Wrap it in a vg
+    VG graph;
+    graph.extend(proto_graph);
+    
+    graph.remove_orphan_edges();
+    
+#ifdef debug_mapper
+#pragma omp critical
+    {
+        if (debug) {
+            cerr << "\tFound " << graph.node_count() << " nodes " << graph.min_node_id() << " - " << graph.max_node_id()
+                << " and " << graph.edge_count() << " edges" << endl;
+        }
+    }
+#endif
     return graph;
 }
 
@@ -4805,6 +4877,7 @@ void FragmentLengthDistribution::unlock_determinization() {
 }
 
 void FragmentLengthDistribution::estimate_distribution() {
+    // remove the tails from the estimation
     size_t to_skip = (size_t) (lengths.size() * (1.0 - robust_estimation_fraction) * 0.5);
     auto begin = lengths.begin();
     auto end = lengths.end();
@@ -4812,6 +4885,7 @@ void FragmentLengthDistribution::estimate_distribution() {
         begin++;
         end--;
     }
+    // compute mean
     double count = 0.0;
     double sum = 0.0;
     double sum_of_sqs = 0.0;
@@ -4820,8 +4894,10 @@ void FragmentLengthDistribution::estimate_distribution() {
         sum += *iter;
         sum_of_sqs += (*iter) * (*iter);
     }
+    // use cumulants to compute moments
     mu = sum / count;
     double raw_var = sum_of_sqs / count - mu * mu;
+    // apply method of moments estimation using the appropriate truncated normal distribution
     double a = normal_inverse_cdf(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
     sigma = sqrt(raw_var * robust_estimation_fraction / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }

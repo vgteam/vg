@@ -544,4 +544,35 @@ double fit_zipf(const vector<double>& y) {
     return -slope(lx, ly);
 }
 
+// exponentiation by squaring as implemented in
+// https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
+size_t integer_power(uint64_t base, uint64_t exponent) {
+    size_t result = 1;
+    while (exponent) {
+        if (exponent & 1) {
+            result *= base;
+        }
+        exponent >>= 1;
+        base *= base;
+    }
+    return result;
+}
+
+// modular exponent by squaring as described in
+// https://en.wikipedia.org/wiki/Modular_exponentiation`
+size_t modular_exponent(uint64_t base, uint64_t exponent, uint64_t modulus) {
+    if (modulus == 1) {
+        return 0;
+    }
+    size_t result = 1;
+    base = base % modulus;
+    while (exponent) {
+        if (exponent & 1) {
+            result = (result * base) % modulus;
+        }
+        exponent >>= 1;
+        base = (base * base) % modulus;
+    }
+    return result;
+}
 }

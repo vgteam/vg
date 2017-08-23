@@ -341,9 +341,14 @@ int main_index(int argc, char** argv) {
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
         return 1;
     }
-
+    
     if (kmer_size < 0) {
         cerr << "error:[vg index] kmer size cannot be negative" << endl;
+        return 1;
+    }
+    
+    if (kmer_size > 16 && !gcsa_name.empty()) {
+        cerr << "error:[vg index] GCSA2 cannot index with kmer size greater than 16" << endl;
         return 1;
     }
 

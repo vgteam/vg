@@ -56,7 +56,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         aln.set_sequence(read);
         
         // Have a list to fill with results
-        list<MultipathAlignment> results;
+        vector<MultipathAlignment> results;
         
         // Align for just one alignment
         mapper.multipath_map(aln, results, 1);
@@ -102,7 +102,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         read2.set_sequence("TGT");
         
         // Have a list to fill with results
-        list<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
         
         // Align for just one pair of alignments
         mapper.multipath_map_paired(read1, read2, 10, results, 1);

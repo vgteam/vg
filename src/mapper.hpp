@@ -93,7 +93,7 @@ public:
     
     /// Switches the entire program to single-threaded mode until reaching the maximum
     /// sample size so that estimation is deterministic. After reaching the maximum, the
-    /// thread count is automaticaly switched back.
+    /// thread count is automatically switched back.
     void determinize_estimation();
     
     /// Manually switches back to multithreaded mode
@@ -121,7 +121,7 @@ private:
     size_t reestimation_frequency;
     
     double mu = 0.0;
-    double sigma = 0.0;
+    double sigma = 1.0;
     
     int multithread_reset = 0;
     
@@ -150,7 +150,7 @@ public:
     /// are per thread. Note that this resets aligner scores to their default values!
     void set_alignment_threads(int new_thread_count);
     
-    void set_cache_size(int cache_size);
+    void set_cache_size(int new_cache_size);
     
     // MEM-based mapping
     // find maximal exact matches
@@ -183,10 +183,11 @@ public:
     int fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     
-    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
-    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
-    
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
+    
+    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+    int max_mapping_quality; // the cap for mapping quality
     
 protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
@@ -401,6 +402,8 @@ public:
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
     // get the graph context of a particular cluster, using a given alignment to describe the required size
     VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803);
+    // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
+    VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // helper to cluster subgraph
     void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
@@ -525,7 +528,6 @@ public:
     int min_multimaps; // Minimum number of multimappings
     int band_multimaps; // the number of multimaps for to attempt for each band in a banded alignment
     
-    int max_mapping_quality; // the cap for mapping quality
     int maybe_mq_threshold; // quality below which we let the estimated mq kick in
     int max_cluster_mapping_quality; // the cap for cluster mapping quality
     bool use_cluster_mq; // should we use the cluster-based mapping quality component

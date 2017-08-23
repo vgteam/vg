@@ -209,6 +209,9 @@ public:
     set<set<id_t> > strongly_connected_components(void);
     /// Get only multi-node strongly connected components.
     set<set<id_t> > multinode_strongly_connected_components(void);
+    /// Returns the IDs of components that are connected by any series of nodes and edges,
+    /// even if it is not a valid bidirected walk.
+    vector<unordered_set<id_t>> weakly_connected_components(void);
     /// Returns true if the graph does not contain cycles.
     bool is_acyclic(void);
     /// Remove all elements which are not in a strongly connected component.

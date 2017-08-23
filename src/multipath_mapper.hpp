@@ -15,11 +15,13 @@
 #include "mapper.hpp"
 #include "gssw_aligner.hpp"
 #include "types.hpp"
+#include "multipath_alignment.hpp"
 #include "utility.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
 #include "position.hpp"
 #include "path.hpp"
+#include "edit.hpp"
 #include "snarls.hpp"
 #include "algorithms/vg_algorithms.hpp"
 
@@ -37,15 +39,30 @@ namespace vg {
         
         /// Map read in alignment to graph and make multipath alignments.
         void multipath_map(const Alignment& alignment,
-                           list<MultipathAlignment>& multipath_alns_out,
-                           size_t max_alt_alns);
+                           vector<MultipathAlignment>& multipath_alns_out,
+                           size_t max_alt_mappings);
                            
        /// Map two paired reads within max_separation of each other.
        void multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
                                  size_t max_separation,
-                                 list<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                 size_t max_alt_alns);
+                                 vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                 size_t max_alt_mappings);
         
+        /// Prune path anchors from a multipath alignment if their approximate likelihood is this much
+        /// lower than the optimal anchors
+        void set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio = 10000.0);
+        
+        /// Debugging function to check that multipath alignment meets the formalism's basic
+        /// invariants. Returns true if multipath alignment is valid, else false. Does not
+        /// validate alignment score.
+        bool validate_multipath_alignment(const MultipathAlignment& multipath_aln) const;
+        
+        int64_t max_snarl_cut_size = 5;
+        int32_t band_padding = 2;
+        size_t max_expected_dist_approx_error = 8;
+        int32_t num_alt_alns = 4;
+        double mem_coverage_min_ratio = 0.5;
+        int32_t max_suboptimal_path_score_diff = 20;
         
     private:
         
@@ -58,29 +75,32 @@ namespace vg {
         void query_cluster_graphs(const Alignment& alignment,
                                   const vector<MaximalExactMatch>& mems,
                                   const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                  vector<VG*>& cluster_graphs_out,
-                                  vector<size_t>& merged_into_out,
-                                  unordered_map<VG*, vector<pair<const MaximalExactMatch*, pos_t>>>& cluster_graph_mems_out);
+                                  vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out);
         
-        /// Make a multipath alignment of the read against the indicated graph and return it.
-        MultipathAlignment multipath_align(const Alignment& alignment, VG* vg,
-                                           vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems);
+        /// Make a multipath alignment of the read against the indicated graph and add it to
+        /// the list of multimappings.
+        void multipath_align(const Alignment& alignment, VG* vg,
+                             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
+                             MultipathAlignment& multipath_aln_out) const;
         
         /// Computes the number of read bases a cluster of MEM hits covers.
-        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
+        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const;
+        
+        /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
+        void topologically_order_subpaths(MultipathAlignment& multipath_aln) const;
+        
+        /// Remove the full length bonus from all source or sink subpaths that received it
+        void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
+        
+        /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
+        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) const;
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
-        double read_coverage_z_score(int64_t coverage, const Alignment& alignment);
+        double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
         
         SnarlManager* snarl_manager;
         
         //double z_score_cutoff = -1.0;
-        size_t max_expected_dist_approx_error = 8;
-        int32_t num_alt_alns = 4;
-        double mem_coverage_min_ratio = 0.5;
-        int32_t max_suboptimal_path_score_diff = 20;
-        int64_t max_snarl_cut_size = 5;
-        int32_t band_padding = 2;
     };
     
     // TODO: put in MultipathAlignmentGraph namespace
