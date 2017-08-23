@@ -928,7 +928,8 @@ Aligner::Aligner(int8_t _match,
 
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                             bool pinned, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
+                             bool pinned, bool pin_left, int32_t max_alt_alns,
+                             bool traceback_aln, bool print_score_matrices) {
 
     // check input integrity
     if (pin_left && !pinned) {
@@ -943,8 +944,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         cerr << "error:[Aligner] cannot specify maximum number of alignments in single alignment" << endl;
         exit(EXIT_FAILURE);
     }
-    
-    
+
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
     
@@ -976,116 +976,120 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     gssw_graph_fill_pinned(graph, align_sequence.c_str(),
                            nt_table, score_matrix,
                            gap_open, gap_extension, full_length_bonus,
-                           pinned ? 0 : full_length_bonus, 15, 2);
+                           pinned ? 0 : full_length_bonus, 15, 2, traceback_aln);
     
     // traceback either from pinned position or optimal local alignment
-    if (pinned) {
-        // trace back pinned alignment
-        gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
-                                                                       pinned_node,
-                                                                       max_alt_alns,
-                                                                       align_sequence.c_str(),
-                                                                       align_sequence.size(),
-                                                                       nt_table,
-                                                                       score_matrix,
-                                                                       gap_open,
-                                                                       gap_extension,
-                                                                       full_length_bonus,
-                                                                       0);
+    if (traceback_aln) {
+        if (pinned) {
+            // trace back pinned alignment
+            gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
+                                                                           pinned_node,
+                                                                           max_alt_alns,
+                                                                           align_sequence.c_str(),
+                                                                           align_sequence.size(),
+                                                                           nt_table,
+                                                                           score_matrix,
+                                                                           gap_open,
+                                                                           gap_extension,
+                                                                           full_length_bonus,
+                                                                           0);
         
-        if (pin_left) {
-            // translate graph and mappings into original node space
-            unreverse_graph(reversed_graph);
-            for (int32_t i = 0; i < max_alt_alns; i++) {
-                unreverse_graph_mapping(gms[i]);
-            }
-        }
-        
-        // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
-        // this will have been set to the first in the vector)
-        if (gms[0]->score > 0) {
-            // have a mapping, can just convert normally
-            gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
-        }
-        else if (g.node_size() > 0) {
-            // gssw will not identify mappings with 0 score, infer location based on pinning
-            
-            Mapping* mapping = alignment.mutable_path()->add_mapping();
-            mapping->set_rank(1);
-            
-
-            // locate at a beginning of an arbitrary source node or end of an arbitrary sink node as appropriate
-            Position* position = mapping->mutable_position();
             if (pin_left) {
-                position->set_node_id(g.node(0).id());
-                position->set_offset(0);
-            }
-            else {
-                position->set_node_id(g.node(g.node_size() - 1).id());
-                position->set_offset(g.node(g.node_size() - 1).sequence().length());
-            }
-            
-            // soft clip
-            Edit* edit = mapping->add_edit();
-            edit->set_to_length(alignment.sequence().length());
-            edit->set_sequence(alignment.sequence());
-        }
-        
-        if (multi_alignments) {
-            // determine how many non-null alignments were returned
-            int32_t num_non_null = max_alt_alns;
-            for (int32_t i = 1; i < max_alt_alns; i++) {
-                if (gms[i]->score <= 0) {
-                    num_non_null = i;
-                    break;
+                // translate graph and mappings into original node space
+                unreverse_graph(reversed_graph);
+                for (int32_t i = 0; i < max_alt_alns; i++) {
+                    unreverse_graph_mapping(gms[i]);
                 }
             }
-            
-            // reserve to avoid illegal access errors that occur when the vector reallocates
-            multi_alignments->reserve(num_non_null);
-            
-            // copy the primary alignment
-            multi_alignments->emplace_back(alignment);
-            
-            // convert the alternate alignments and store them at the back of the vector (this will not
-            // execute if we are doing single alignment)
-            for (int32_t i = 1; i < num_non_null; i++) {
-                gssw_graph_mapping* gm = gms[i];
-                
-                // make new alignment object
-                multi_alignments->emplace_back();
-                Alignment& next_alignment = multi_alignments->back();
-                
-                // copy over sequence information from the primary alignment
-                next_alignment.set_sequence(alignment.sequence());
-                next_alignment.set_quality(alignment.quality());
-                
-                // get path of the alternate alignment
-                gssw_mapping_to_alignment(graph, gm, next_alignment, pinned, pin_left, print_score_matrices);
-                
+        
+            // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
+            // this will have been set to the first in the vector)
+            if (gms[0]->score > 0) {
+                // have a mapping, can just convert normally
+                gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
             }
+            else if (g.node_size() > 0) {
+                // gssw will not identify mappings with 0 score, infer location based on pinning
             
-        }
+                Mapping* mapping = alignment.mutable_path()->add_mapping();
+                mapping->set_rank(1);
+            
+
+                // locate at a beginning of an arbitrary source node or end of an arbitrary sink node as appropriate
+                Position* position = mapping->mutable_position();
+                if (pin_left) {
+                    position->set_node_id(g.node(0).id());
+                    position->set_offset(0);
+                }
+                else {
+                    position->set_node_id(g.node(g.node_size() - 1).id());
+                    position->set_offset(g.node(g.node_size() - 1).sequence().length());
+                }
+            
+                // soft clip
+                Edit* edit = mapping->add_edit();
+                edit->set_to_length(alignment.sequence().length());
+                edit->set_sequence(alignment.sequence());
+            }
         
-        for (int32_t i = 0; i < max_alt_alns; i++) {
-            gssw_graph_mapping_destroy(gms[i]);
-        }
-        free(gms);
-    }
-    else {
-        // trace back local alignment
-        gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
-                                                        align_sequence.c_str(),
-                                                        align_sequence.size(),
-                                                        nt_table,
-                                                        score_matrix,
-                                                        gap_open,
-                                                        gap_extension,
-                                                        full_length_bonus,
-                                                        full_length_bonus);
+            if (multi_alignments) {
+                // determine how many non-null alignments were returned
+                int32_t num_non_null = max_alt_alns;
+                for (int32_t i = 1; i < max_alt_alns; i++) {
+                    if (gms[i]->score <= 0) {
+                        num_non_null = i;
+                        break;
+                    }
+                }
+            
+                // reserve to avoid illegal access errors that occur when the vector reallocates
+                multi_alignments->reserve(num_non_null);
+            
+                // copy the primary alignment
+                multi_alignments->emplace_back(alignment);
+            
+                // convert the alternate alignments and store them at the back of the vector (this will not
+                // execute if we are doing single alignment)
+                for (int32_t i = 1; i < num_non_null; i++) {
+                    gssw_graph_mapping* gm = gms[i];
+                
+                    // make new alignment object
+                    multi_alignments->emplace_back();
+                    Alignment& next_alignment = multi_alignments->back();
+                
+                    // copy over sequence information from the primary alignment
+                    next_alignment.set_sequence(alignment.sequence());
+                    next_alignment.set_quality(alignment.quality());
+                
+                    // get path of the alternate alignment
+                    gssw_mapping_to_alignment(graph, gm, next_alignment, pinned, pin_left, print_score_matrices);
+                
+                }
+            
+            }
         
-        gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left, print_score_matrices);
-        gssw_graph_mapping_destroy(gm);
+            for (int32_t i = 0; i < max_alt_alns; i++) {
+                gssw_graph_mapping_destroy(gms[i]);
+            }
+            free(gms);
+        }
+        else {
+            // trace back local alignment
+            gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
+                                                            align_sequence.c_str(),
+                                                            align_sequence.size(),
+                                                            nt_table,
+                                                            score_matrix,
+                                                            gap_open,
+                                                            gap_extension,
+                                                            full_length_bonus,
+                                                            full_length_bonus);
+        
+            gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left, print_score_matrices);
+            gssw_graph_mapping_destroy(gm);
+        }
+    } else {
+        assert(false);
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
@@ -1093,14 +1097,14 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     gssw_graph_destroy(graph);
 }
 
-void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
 }
 
 void Aligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
     
-    align_internal(alignment, nullptr, g, true, pin_left, 1, false);
+    align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
@@ -1111,7 +1115,7 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
         exit(EXIT_FAILURE);
     }
     
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, false);
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
 }
 
 void Aligner::align_global_banded(Alignment& alignment, Graph& g,
@@ -1273,7 +1277,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
-                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
+                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
     
     // check input integrity
     if (pin_left && !pinned) {
@@ -1333,117 +1337,123 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     gssw_graph_fill_pinned_qual_adj(graph, align_sequence.c_str(), align_quality.c_str(),
                                     nt_table, score_matrix,
                                     gap_open, gap_extension,
-                                    full_length_bonus, pinned ? 0 : full_length_bonus, 15, 2);
+                                    full_length_bonus, pinned ? 0 : full_length_bonus, 15, 2, traceback_aln);
     
     // traceback either from pinned position or optimal local alignment
-    if (pinned) {
-        // trace back pinned alignment
-        gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_qual_adj_multi (graph,
-                                                                                pinned_node,
-                                                                                max_alt_alns,
-                                                                                align_sequence.c_str(),
-                                                                                align_quality.c_str(),
-                                                                                align_sequence.size(),
-                                                                                nt_table,
-                                                                                score_matrix,
-                                                                                gap_open,
-                                                                                gap_extension,
-                                                                                full_length_bonus,
-                                                                                0);
+    if (traceback_aln) {
+        if (pinned) {
+            // trace back pinned alignment
+            gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_qual_adj_multi (graph,
+                                                                                    pinned_node,
+                                                                                    max_alt_alns,
+                                                                                    align_sequence.c_str(),
+                                                                                    align_quality.c_str(),
+                                                                                    align_sequence.size(),
+                                                                                    nt_table,
+                                                                                    score_matrix,
+                                                                                    gap_open,
+                                                                                    gap_extension,
+                                                                                    full_length_bonus,
+                                                                                    0);
         
-        if (pin_left) {
-            // translate graph and mappings into original node space
-            unreverse_graph(reversed_graph);
-            for (int32_t i = 0; i < max_alt_alns; i++) {
-                unreverse_graph_mapping(gms[i]);
-            }
-        }
-        
-        // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
-        // this will have been set to the first in the vector)
-        if (gms[0]->score > 0) {
-            // have a mapping, can just convert normally
-            gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
-        }
-        else if (g.node_size() > 0) {
-            // gssw will not identify mappings with 0 score, infer location based on pinning
-            
-            Mapping* mapping = alignment.mutable_path()->add_mapping();
-            mapping->set_rank(1);
-            
-            // locate at a beginning of a source node or end of a sink node as appropriate
-            Position* position = mapping->mutable_position();
             if (pin_left) {
-                position->set_node_id(g.node(0).id());
-                position->set_offset(0);
-            }
-            else {
-                position->set_node_id(g.node(g.node_size() - 1).id());
-                position->set_offset(g.node(g.node_size() - 1).sequence().length());
-            }
-            
-            // soft clip
-            Edit* edit = mapping->add_edit();
-            edit->set_to_length(alignment.sequence().length());
-            edit->set_sequence(alignment.sequence());
-        }
-        
-        
-        if (multi_alignments) {
-            // determine how many non-null alignments were returned
-            int32_t num_non_null = max_alt_alns;
-            for (int32_t i = 1; i < max_alt_alns; i++) {
-                if (gms[i]->score <= 0) {
-                    num_non_null = i;
-                    break;
+                // translate graph and mappings into original node space
+                unreverse_graph(reversed_graph);
+                for (int32_t i = 0; i < max_alt_alns; i++) {
+                    unreverse_graph_mapping(gms[i]);
                 }
             }
-            
-            // reserve to avoid illegal access errors that occur when the vector reallocates
-            multi_alignments->reserve(num_non_null);
-            
-            // copy the primary alignment
-            multi_alignments->emplace_back(alignment);
-            
-            // convert the alternate alignments and store them at the back of the vector (this will not
-            // execute if we are doing single alignment)
-            for (int32_t i = 1; i < num_non_null; i++) {
-                gssw_graph_mapping* gm = gms[i];
-                
-                // make new alignment object
-                multi_alignments->emplace_back();
-                Alignment& next_alignment = multi_alignments->back();
-                
-                // copy over sequence information from the primary alignment
-                next_alignment.set_sequence(alignment.sequence());
-                next_alignment.set_quality(alignment.quality());
-                
-                // get path of the alternate alignment
-                gssw_mapping_to_alignment(graph, gm, next_alignment, pinned, pin_left, print_score_matrices);
-                
+        
+            // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
+            // this will have been set to the first in the vector)
+            if (gms[0]->score > 0) {
+                // have a mapping, can just convert normally
+                gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
             }
-        }
+            else if (g.node_size() > 0) {
+                // gssw will not identify mappings with 0 score, infer location based on pinning
+            
+                Mapping* mapping = alignment.mutable_path()->add_mapping();
+                mapping->set_rank(1);
+            
+                // locate at a beginning of a source node or end of a sink node as appropriate
+                Position* position = mapping->mutable_position();
+                if (pin_left) {
+                    position->set_node_id(g.node(0).id());
+                    position->set_offset(0);
+                }
+                else {
+                    position->set_node_id(g.node(g.node_size() - 1).id());
+                    position->set_offset(g.node(g.node_size() - 1).sequence().length());
+                }
+            
+                // soft clip
+                Edit* edit = mapping->add_edit();
+                edit->set_to_length(alignment.sequence().length());
+                edit->set_sequence(alignment.sequence());
+            }
         
-        for (int32_t i = 0; i < max_alt_alns; i++) {
-            gssw_graph_mapping_destroy(gms[i]);
-        }
-        free(gms);
-    }
-    else {
-        // trace back local alignment
-        gssw_graph_mapping* gm = gssw_graph_trace_back_qual_adj (graph,
-                                                                 align_sequence.c_str(),
-                                                                 align_quality.c_str(),
-                                                                 align_sequence.size(),
-                                                                 nt_table,
-                                                                 score_matrix,
-                                                                 gap_open,
-                                                                 gap_extension,
-                                                                 full_length_bonus,
-                                                                 full_length_bonus);
         
-        gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left, print_score_matrices);
-        gssw_graph_mapping_destroy(gm);
+            if (multi_alignments) {
+                // determine how many non-null alignments were returned
+                int32_t num_non_null = max_alt_alns;
+                for (int32_t i = 1; i < max_alt_alns; i++) {
+                    if (gms[i]->score <= 0) {
+                        num_non_null = i;
+                        break;
+                    }
+                }
+            
+                // reserve to avoid illegal access errors that occur when the vector reallocates
+                multi_alignments->reserve(num_non_null);
+            
+                // copy the primary alignment
+                multi_alignments->emplace_back(alignment);
+            
+                // convert the alternate alignments and store them at the back of the vector (this will not
+                // execute if we are doing single alignment)
+                for (int32_t i = 1; i < num_non_null; i++) {
+                    gssw_graph_mapping* gm = gms[i];
+                
+                    // make new alignment object
+                    multi_alignments->emplace_back();
+                    Alignment& next_alignment = multi_alignments->back();
+                
+                    // copy over sequence information from the primary alignment
+                    next_alignment.set_sequence(alignment.sequence());
+                    next_alignment.set_quality(alignment.quality());
+                
+                    // get path of the alternate alignment
+                    gssw_mapping_to_alignment(graph, gm, next_alignment, pinned, pin_left, print_score_matrices);
+                
+                }
+            }
+        
+            for (int32_t i = 0; i < max_alt_alns; i++) {
+                gssw_graph_mapping_destroy(gms[i]);
+            }
+            free(gms);
+        }
+        else {
+            // trace back local alignment
+            gssw_graph_mapping* gm = gssw_graph_trace_back_qual_adj (graph,
+                                                                     align_sequence.c_str(),
+                                                                     align_quality.c_str(),
+                                                                     align_sequence.size(),
+                                                                     nt_table,
+                                                                     score_matrix,
+                                                                     gap_open,
+                                                                     gap_extension,
+                                                                     full_length_bonus,
+                                                                     full_length_bonus);
+        
+            gssw_mapping_to_alignment(graph, gm, alignment, pinned, pin_left, print_score_matrices);
+            gssw_graph_mapping_destroy(gm);
+        }
+    } else {
+        // just set the score of the alignment
+        // XXXX TODO
+        assert(false);
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
@@ -1452,20 +1462,20 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, print_score_matrices);
+    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
 }
 
 void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
 
-    align_internal(alignment, nullptr, g, true, pin_left, 1, false);
+    align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
 
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
                                         bool pin_left, int32_t max_alt_alns) {
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, false);
+    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,

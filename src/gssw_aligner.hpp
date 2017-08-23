@@ -77,7 +77,7 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         /// Assumes that graph is topologically sorted by node index.
-        virtual void align(Alignment& alignment, Graph& g, bool print_score_matrices = false) = 0;
+        virtual void align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices = false) = 0;
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -194,7 +194,8 @@ namespace vg {
         // internal function interacting with gssw for pinned and local alignment
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
-                            bool print_score_matrices = false);
+                            bool traceback_aln,
+                            bool print_score_matrices);
     public:
         
         Aligner(int8_t _match = default_match,
@@ -208,7 +209,7 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         /// Assumes that graph is topologically sorted by node index.
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -269,7 +270,7 @@ namespace vg {
         ~QualAdjAligner(void) = default;
 
         // base quality adjusted counterparts to functions of same name from Aligner
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
@@ -293,7 +294,8 @@ namespace vg {
 
         void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
-                            bool print_score_matrices = false);
+                            bool traceback_aln,
+                            bool print_score_matrices);
         
 
     };

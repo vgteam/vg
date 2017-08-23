@@ -2845,6 +2845,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     if (count_rev) {
         aln_rev = align_maybe_flip(aln, graph, true);
     }
+    // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
         // abject failure, nothing aligned with score > 0
         Alignment result = aln;
@@ -2897,14 +2898,13 @@ void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCa
     return;
 }
 
-VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) {
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
     auto rev_start_pos = reverse(start_pos, get_node_length(id(start_pos)));
-    float expansion = 1.61803;
     int get_before = (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
