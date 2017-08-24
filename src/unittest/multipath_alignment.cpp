@@ -7,8 +7,8 @@
 #include <iostream>
 #include "json2pb.h"
 #include "vg.pb.h"
+#include "vg.hpp"
 #include "multipath_alignment.hpp"
-#include "mapper.hpp"
 #include "catch.hpp"
 #include "utility.hpp"
 

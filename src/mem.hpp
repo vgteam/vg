@@ -224,7 +224,7 @@ public:
                               
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
-    vector<cluster_t> clusters(int32_t max_qual_score = 60);
+    vector<cluster_t> clusters(int32_t max_qual_score = 60, int32_t log_likelihood_approx_factor = 0);
     
     /**
      * Given two vectors of clusters, an xg index, and a maximum separation,
@@ -235,6 +235,9 @@ public:
     static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& our_clusters,
         const vector<cluster_t*>& their_clusters, xg::XG* xgindex,
         size_t max_inter_cluster_distance);
+    
+    //static size_t PRUNE_COUNTER;
+    //static size_t CLUSTER_TOTAL;
     
 private:
     class ODNode;
@@ -279,6 +282,10 @@ private:
     static vector<unordered_map<size_t, int64_t>> flatten_distance_tree(size_t num_items,
         const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists);
     
+    /// Fills the tail score fields in nodes
+    vector<pair<size_t, size_t>> compute_tail_mem_coverage(const Alignment& alignment,
+                                                           const vector<MaximalExactMatch>& mems);
+    
     /// Fills input vectors with indices of source and sink nodes
     void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out);
     
@@ -304,14 +311,15 @@ public:
     ODNode() = default;
     ~ODNode() = default;
     
-    MaximalExactMatch const* mem;
+    const MaximalExactMatch* mem;
     
     /// Position of GCSA hit in the graph
     pos_t start_pos;
+    
     /// Score of the exact match this node represents
     int32_t score;
     
-    /// Score during dynamic programming
+    /// Lower bound on score used in dynamic programming
     int32_t dp_score;
     
     /// Edges from this node that are colinear with the read

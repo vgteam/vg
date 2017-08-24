@@ -52,6 +52,8 @@ namespace vg {
         /// lower than the optimal anchors
         void set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio = 10000.0);
         
+        void set_likelihood_approximation_factor(double maximum_acceptable_factor = 25.0);
+        
         /// Debugging function to check that multipath alignment meets the formalism's basic
         /// invariants. Returns true if multipath alignment is valid, else false. Does not
         /// validate alignment score.
@@ -63,6 +65,11 @@ namespace vg {
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
         int32_t max_suboptimal_path_score_diff = 20;
+        size_t num_mapping_attempts = 1;
+        double log_likelihood_approx_factor = 1.0;
+        
+        //static size_t PRUNE_COUNTER;
+        //static size_t SUBGRAPH_TOTAL;
         
     private:
         
