@@ -460,7 +460,10 @@ class VGCITest(TestCase):
             vg_docker = self.vg_docker,
             container = self.container,
             alignment_cores = self.cores,
-            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
+            # Make sure we have the actual scores used to decide on alignments
+            # Also force a fixed fragment length distribution to make alignment
+            # deterministic for the test.
+            map_opts = ['--include-bonuses', '-I', '816:345.165:47.0999:0:1'], 
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
