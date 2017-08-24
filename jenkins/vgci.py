@@ -800,7 +800,8 @@ class VGCITest(TestCase):
 
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
-                      positive_control=None, negative_control=None, sample=None, multipath=False):
+                      positive_control=None, negative_control=None, sample=None, multipath=False,
+                      assembly="hg38"):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -840,7 +841,7 @@ class VGCITest(TestCase):
                 vg_path = self._input('{}_all_samples-{}.vg'.format(baseline_graph, region))
             else:
                 vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
-            vcf_path = self._input('1kg_hg38-{}.vcf.gz'.format(region))            
+            vcf_path = self._input('1kg_{}-{}.vcf.gz'.format(assembly, region))            
             xg_path, thread1_xg_path, thread2_xg_path = self._make_thread_indexes(
                 sample, vg_path, vcf_path, region, tag)
             sim_xg_paths = [thread1_xg_path, thread2_xg_path]
@@ -875,6 +876,7 @@ class VGCITest(TestCase):
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
                            
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
@@ -892,7 +894,8 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
-                           sample='HG00096')
+                           sample='HG00096',
+                           assembly="hg19")
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
