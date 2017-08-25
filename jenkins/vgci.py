@@ -484,6 +484,10 @@ class VGCITest(TestCase):
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
         mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
+        # We have 150 bp reads reduced to a point position, at a resolution of
+        # only the nearest 100 bp (on the primary graph). How close do two such
+        # point positions need to be to say the read is in the right place?
+        mapeval_options.mapeval_threshold = 200
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
         mapeval_options.multipath = multipath
