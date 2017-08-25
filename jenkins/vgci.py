@@ -463,7 +463,8 @@ class VGCITest(TestCase):
             # Make sure we have the actual scores used to decide on alignments
             # Also force a fixed fragment length distribution to make alignment
             # deterministic for the test.
-            map_opts = ['--include-bonuses', '-I', '816:345.165:47.0999:0:1'], 
+            map_opts = ['--include-bonuses', '-I', '816:345.165:47.0999:0:1',
+                '--fixed-frag-model'], 
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
