@@ -889,15 +889,33 @@ class VGCITest(TestCase):
         and off. 
         """
         try:
-            self._test_mapeval(5000, 'BRCA2', 'snp1kg',
+            self._test_mapeval(50000, 'BRCA2', 'snp1kg',
                                ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                                score_baseline_graph='primary',
                                positive_control='snp1kg_HG00096',
                                negative_control='snp1kg_minus_HG00096',
                                sample='HG00096', multipath=True)
         except:
-            log.warning('test_sim_brca2_snp1kg_mpap failed with following error:\n{}\n'.format(
+            log.warning('test_sim_brca2_snp1kg_mpmap failed with following error:\n{}\n'.format(
                 traceback.format_exc()))
+
+
+    @timeout_decorator.timeout(3600)
+    def test_sim_mhc_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off.
+        """
+        try:
+            self._test_mapeval(50000, 'MHC', 'snp1kg',
+                           ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='snp1kg_minus_HG00096',
+                           sample='HG00096', multipath=True)
+        except:
+            log.warning('test_sim_mhc_snp1kg_mpmap failed with following error:\n{}\n'.format(
+                 traceback.format_exc()))
         
 
     @timeout_decorator.timeout(200)
