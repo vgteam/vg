@@ -460,7 +460,9 @@ class VGCITest(TestCase):
             vg_docker = self.vg_docker,
             container = self.container,
             alignment_cores = self.cores,
-            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
+            # Make sure we have the actual scores used to decide on alignments
+            # Also try and make the fragment model more stable and consistent.
+            map_opts = ['--include-bonuses', '--frag-calc', '1000'], 
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
