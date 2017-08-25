@@ -116,6 +116,8 @@ class VGCITest(TestCase):
             return 19, 54025633
         elif region == 'MHC':
             return 6, 28510119
+        elif 'CHR' in region:
+            return int(region.replace('CHR', '')), 0
         
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
@@ -888,6 +890,15 @@ class VGCITest(TestCase):
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
 
+    @timeout_decorator.timeout(8000)        
+    def test_sim_chr21_snp1kg(self):
+        self._test_mapeval(300000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='snp1kg_minus_HG00096',
+                           sample='HG00096')
+
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
@@ -977,6 +988,7 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         self._test_bakeoff('MHC', 'primary', True)
 
+    @skip("skipping test to keep runtime down (baseline missing as well)")        
     @timeout_decorator.timeout(10000)        
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
