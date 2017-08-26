@@ -157,6 +157,8 @@ message MultipathAlignment {
 
     // optional: indices of Subpaths that align the beginning of the read (i.e. source nodes)
     repeated uint32 start = 8;
+
+    string paired_read_name = 9;
 }
 
 // A non-branching path of a MultipathAlignment

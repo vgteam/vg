@@ -1209,6 +1209,14 @@ void BaseMapper::set_cache_size(int new_cache_size) {
     init_node_start_cache();
 }
 
+bool BaseMapper::has_fixed_fragment_length_distr() {
+    return fragment_length_distr.is_finalized();
+}
+    
+void BaseMapper::abandon_fragment_length_distr() {
+    fragment_length_distr.unlock_determinization();
+}
+    
 // TODO: this strategy of dropping the index down to 0 works for vg map's approach of having a copy of
 // the mapper for each thread, but it's dangerous when one mapper is using multiple threads
 LRUCache<id_t, Node>& BaseMapper::get_node_cache(void) {
@@ -4821,10 +4829,10 @@ FragmentLengthDistribution::FragmentLengthDistribution(size_t maximum_sample_siz
     reestimation_frequency(reestimation_frequency),
     robust_estimation_fraction(robust_estimation_fraction)
 {
-    assert(0.0 < robust_estimation_fraction && robust_estimation_fraction <= 1.0);
+    assert(0.0 < robust_estimation_fraction && robust_estimation_fraction < 1.0);
 }
 
-FragmentLengthDistribution::FragmentLengthDistribution() : FragmentLengthDistribution(0, 0, 1.0)
+FragmentLengthDistribution::FragmentLengthDistribution() : FragmentLengthDistribution(0, 1, 0.5)
 {
     
 }
@@ -4833,7 +4841,7 @@ FragmentLengthDistribution::~FragmentLengthDistribution() {
     
 }
 
-void FragmentLengthDistribution::register_fragment_length(size_t length) {
+void FragmentLengthDistribution::register_fragment_length(int64_t length) {
     // allow this function to operate fully in parallel once the distribution is
     // fixed (and hence threadsafe)
     if (is_fixed) {

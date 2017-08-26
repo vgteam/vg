@@ -225,6 +225,12 @@ Mapping reverse_complement_mapping(const Mapping& m,
 // from the other ends of their nodes.
 Path reverse_complement_path(const Path& path,
                              const function<int64_t(id_t)>& node_length);
+// Reverse-complement a Mapping and all the Edits in it in place.
+void reverse_complement_mapping_in_place(Mapping* m,
+                                         const function<int64_t(id_t)>& node_length);
+// Reverse-complement a Path and all the Mappings in it in place.
+void reverse_complement_path_in_place(Path* path,
+                                      const function<int64_t(id_t)>& node_length);
 /// Simplify the path for addition as new material in the graph. Remove any
 /// mappings that are merely single deletions, merge adjacent edits of the same
 /// type, strip leading and trailing deletion edits on mappings, and make sure no

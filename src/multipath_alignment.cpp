@@ -208,9 +208,9 @@ namespace vg {
         // add reversed edges
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             Subpath* rc_subpath = rev_comp_out.mutable_subpath(i);
-            vector<size_t>& reverse_edge_list = reverse_edge_lists[i];
+            vector<size_t>& reverse_edge_list = reverse_edge_lists[multipath_aln.subpath_size() - i - 1];
             for (size_t j = 0; j < reverse_edge_list.size(); j++) {
-                rc_subpath->add_next(reverse_edge_list[j]);
+                rc_subpath->add_next(multipath_aln.subpath_size() - reverse_edge_list[j] - 1);
             }
         }
         
@@ -221,7 +221,93 @@ namespace vg {
         // labeled in the reverse complement too
         if (multipath_aln.start_size() > 0) {
             for (size_t i = 0; i < reverse_starts.size(); i++) {
-                rev_comp_out.add_start(reverse_starts[i]);
+                rev_comp_out.add_start(multipath_aln.subpath_size() - reverse_starts[i] - 1);
+            }
+        }
+    }
+    
+    void rev_comp_multipath_alignment_in_place(MultipathAlignment* multipath_aln,
+                                               const function<int64_t(int64_t)>& node_length) {
+        
+        // reverse complement sequence
+        reverse_complement_in_place(*multipath_aln->mutable_sequence());
+        // reverse base qualities
+        string* quality = multipath_aln->mutable_quality();
+        std::reverse(quality->begin(), quality->end());
+        
+        // current reverse edges
+        vector< vector<int64_t> > reverse_edge_lists(multipath_aln->subpath_size());
+        // current sink nodes (will be starts)
+        vector<int64_t> reverse_starts;
+        
+        int64_t subpath_swap_size = multipath_aln->subpath_size() / 2;
+        int64_t last = multipath_aln->subpath_size() - 1;
+        for (int64_t i = 0, j = last; i < subpath_swap_size; i++, j--) {
+            Subpath* subpath_1 = multipath_aln->mutable_subpath(i);
+            Subpath* subpath_2 = multipath_aln->mutable_subpath(j);
+            
+            // add reverse edges for first subpath
+            if (subpath_1->next_size() > 0) {
+                for (int64_t k = 0; k < subpath_1->next_size(); k++) {
+                    reverse_edge_lists[subpath_1->next(k)].push_back(i);
+                }
+            }
+            else {
+                reverse_starts.push_back(i);
+            }
+            
+            // add reverse edges for second subpath
+            if (subpath_2->next_size() > 0) {
+                for (int64_t k = 0; k < subpath_2->next_size(); k++) {
+                    reverse_edge_lists[subpath_2->next(k)].push_back(j);
+                }
+            }
+            else {
+                reverse_starts.push_back(j);
+            }
+            
+            // clear current edges
+            subpath_1->clear_next();
+            subpath_2->clear_next();
+            
+            // reverse complement the paths
+            reverse_complement_path_in_place(subpath_1->mutable_path(), node_length);
+            reverse_complement_path_in_place(subpath_2->mutable_path(), node_length);
+            
+            // swap their positions (to maintain topological ordering)
+            std::swap(*subpath_1, *subpath_2);
+        }
+        
+        // repeat process for the middle subpath if there is an odd number
+        if (multipath_aln->subpath_size() % 2) {
+            Subpath* subpath = multipath_aln->mutable_subpath(subpath_swap_size);
+            if (subpath->next_size() > 0) {
+                for (int64_t k = 0; k < subpath->next_size(); k++) {
+                    reverse_edge_lists[subpath->next(k)].push_back(subpath_swap_size);
+                }
+            }
+            else {
+                reverse_starts.push_back(subpath_swap_size);
+            }
+            
+            subpath->clear_next();
+            reverse_complement_path_in_place(subpath->mutable_path(), node_length);
+        }
+        
+        // add reversed edges
+        for (int64_t i = 0, j = last; i < multipath_aln->subpath_size(); i++, j--) {
+            vector<int64_t> edges = reverse_edge_lists[j];
+            Subpath* subpath = multipath_aln->mutable_subpath(i);
+            for (int64_t k : edges) {
+                subpath->add_next(last - k);
+            }
+        }
+        
+        // if we had starts labeled before, label them again
+        if (multipath_aln->start_size() > 0) {
+            multipath_aln->clear_start();
+            for (int64_t i : reverse_starts) {
+                multipath_aln->add_start(last - i);
             }
         }
     }

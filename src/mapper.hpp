@@ -100,7 +100,7 @@ public:
     void unlock_determinization();
     
     /// Record an observed fragment length
-    void register_fragment_length(size_t length);
+    void register_fragment_length(int64_t length);
 
     /// Robust mean of the distribution observed so far
     double mean();
@@ -151,6 +151,12 @@ public:
     void set_alignment_threads(int new_thread_count);
     
     void set_cache_size(int new_cache_size);
+    
+    /// Returns true if fragment length distribution has been fixed
+    bool has_fixed_fragment_length_distr();
+    
+    /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
+    void abandon_fragment_length_distr();
     
     // MEM-based mapping
     // find maximal exact matches

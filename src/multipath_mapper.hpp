@@ -42,22 +42,25 @@ namespace vg {
                            vector<MultipathAlignment>& multipath_alns_out,
                            size_t max_alt_mappings);
                            
-       /// Map two paired reads within max_separation of each other.
-       void multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
-                                 size_t max_separation,
-                                 vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                 size_t max_alt_mappings);
+        /// Map a paired read to the graph and make paired multipath alignments. Assumes reads are on the
+        /// same strand of the DNA/RNA molecule. If the fragment length distribution is still being estimated
+        /// and the pair cannot be mapped unambiguously, adds the reads to a buffer for ambiguous pairs and
+        /// does not output any multipath alignments.
+        void multipath_map_paired(const Alignment& alignment1, const Alignment& alignment2,
+                                  vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                  vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
+                                  size_t max_alt_mappings);
         
         /// Prune path anchors from a multipath alignment if their approximate likelihood is this much
         /// lower than the optimal anchors
         void set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio = 10000.0);
         
-        void set_likelihood_approximation_factor(double maximum_acceptable_factor = 25.0);
-        
         /// Debugging function to check that multipath alignment meets the formalism's basic
         /// invariants. Returns true if multipath alignment is valid, else false. Does not
         /// validate alignment score.
         bool validate_multipath_alignment(const MultipathAlignment& multipath_aln) const;
+        
+        // parameters
         
         int64_t max_snarl_cut_size = 5;
         int32_t band_padding = 2;
@@ -72,6 +75,21 @@ namespace vg {
         //static size_t SUBGRAPH_TOTAL;
         
     private:
+        
+        /// Wrapped internal function that allows some code paths to circumvent the current
+        /// mapping quality method option.
+        void multipath_map_internal(const Alignment& alignment,
+                                    MappingQualityMethod mapq_method,
+                                    vector<MultipathAlignment>& multipath_alns_out,
+                                    size_t max_alt_mappings);
+        
+        /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
+        /// multipath alignment
+        void align_to_cluster_graphs(const Alignment& alignment,
+                                     MappingQualityMethod mapq_method,
+                                     vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs,
+                                     vector<MultipathAlignment>& multipath_alns_out,
+                                     size_t max_alt_mappings);
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable with local alignment anchored at the MEMs.
@@ -100,14 +118,15 @@ namespace vg {
         void strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
-        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns) const;
+        void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method) const;
+        
+        /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
+        void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs) const;
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
         
         SnarlManager* snarl_manager;
-        
-        //double z_score_cutoff = -1.0;
     };
     
     // TODO: put in MultipathAlignmentGraph namespace

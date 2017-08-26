@@ -814,6 +814,18 @@ Alignment reverse_complement_alignment(const Alignment& aln,
     
     return reversed;
 }
+    
+void reverse_complement_alignment_in_place(Alignment* aln,
+                                           const function<int64_t(id_t)>& node_length) {
+
+    reverse_complement_in_place(*aln->mutable_sequence());
+    string* quality = aln->mutable_quality();
+    std::reverse(quality->begin(), quality->end());
+    
+    if (aln->has_path()) {
+        reverse_complement_path_in_place(aln->mutable_path(), node_length);
+    }
+}
 
 // merge that properly handles long indels
 // assumes that alignments should line up end-to-end

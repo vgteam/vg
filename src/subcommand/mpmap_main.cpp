@@ -8,13 +8,7 @@
 
 #include "subcommand.hpp"
 
-#include "xg.hpp"
-#include "gcsa.h"
-#include "../utility.hpp"
-#include "../alignment.hpp"
 #include "../multipath_mapper.hpp"
-#include "../gssw_aligner.hpp"
-#include "../mem.hpp"
 
 //#define debug_mpmap
 
@@ -24,7 +18,7 @@ using namespace vg::subcommand;
 
 void help_mpmap(char** argv) {
     cerr
-    << "usage: " << argv[0] << " mpmap [options] -x index.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -b reads.bam | -G reads.gam] > aln.gamp" << endl
+    << "usage: " << argv[0] << " mpmap [options] -x index.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
     << "Multipath align reads to a graph." << endl
     << endl
     << "basic options:" << endl
@@ -33,11 +27,11 @@ void help_mpmap(char** argv) {
     << "  -g, --gcsa-name FILE      use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
     << "input:" << endl
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
-    << "  -i, --interleaved         FASTQ is interleaved with paired ends" << endl
-    << "  -b, --hts-input FILE      align reads from this htslib-compatible file (BAM/CRAM/SAM; for stdin use -)" << endl
-    << "  -G, --gam-input FILE      realign .gam input (for stdin, use -)" << endl
+    << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
+    << "  -i, --interleaved         FASTQ or GAM contains interleaved paired ends" << endl
+    << "  -e, --same-strand         read pairs are from the same strand of the molecule" << endl
     << "algorithm:" << endl
-    << "  -S, --single-path-mode    produce single-path alignments (.gam) instead of multipath alignments (.gamp) (ignores -sua)" << endl
+    << "  -S, --single-path-mode    produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
     << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
     << "scoring:" << endl
     << "  -A, --no-qual-adjust      do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
@@ -85,7 +79,6 @@ int main_mpmap(int argc, char** argv) {
     string snarls_name;
     string fastq_name_1;
     string fastq_name_2;
-    string hts_file_name;
     string gam_file_name;
     int match_score = default_match;
     int mismatch_score = default_mismatch;
@@ -112,6 +105,9 @@ int main_mpmap(int argc, char** argv) {
     double likelihood_approx_exp = 4.0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
+    size_t frag_length_sample_size = 3000;
+    double frag_length_robustness_fraction = 0.95;
+    bool same_strand = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -121,10 +117,10 @@ int main_mpmap(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
-            {"hts-input", required_argument, 0, 'b'},
             {"fastq", required_argument, 0, 'f'},
-            {"interleaved", no_argument, 0, 'i'},
             {"gam-input", required_argument, 0, 'G'},
+            {"interleaved", no_argument, 0, 'i'},
+            {"same-strand", no_argument, 0, 'e'},
             {"single-path-mode", no_argument, 0, 'S'},
             {"snarls", required_argument, 0, 's'},
             {"snarl-max-cut", required_argument, 0, 'U'},
@@ -155,7 +151,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:b:f:iG:Ss:u:a:v:Q:p:M:r:W:k:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:v:Q:p:M:r:W:k:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -202,24 +198,20 @@ int main_mpmap(int argc, char** argv) {
                 }
                 break;
                 
-            case 'i':
-                interleaved_input = true;
-                break;
-                
-            case 'b':
-                hts_file_name = optarg;
-                if (hts_file_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide HTS file (SAM/BAM/CRAM) with -b." << endl;
-                    exit(1);
-                }
-                break;
-                
             case 'G':
                 gam_file_name = optarg;
                 if (gam_file_name.empty()) {
                     cerr << "error:[vg mpmap] Must provide GAM file with -G." << endl;
                     exit(1);
                 }
+                break;
+                
+            case 'i':
+                interleaved_input = true;
+                break;
+                
+            case 'e':
+                same_strand = true;
                 break;
                 
             case 'S':
@@ -362,6 +354,20 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // check for valid parameters
+    
+    if (interleaved_input && !fastq_name_2.empty()) {
+        cerr << "error:[vg mpmap] Cannot designate both interleaved paired ends (-i) and separate paired end file (-f)." << endl;
+        exit(1);
+    }
+    
+    if (!fastq_name_1.empty() && !gam_file_name.empty()) {
+        cerr << "error:[vg mpmap] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
+        exit(1);
+    }
+    
+    if ((interleaved_input || !fastq_name_2.empty()) && same_strand) {
+        cerr << "warning:[vg mpmap] Ignoring same strand parameter (-d) because no paired end input provided." << endl;
+    }
     
     if (num_alt_alns <= 0) {
         cerr << "error:[vg mpmap] Number of alternate snarl paths (-a) set to " << num_alt_alns << ", must set to a positive integer." << endl;
@@ -538,39 +544,108 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
     
-    // set other algorithm parameters
+    // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
-    multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
+    
+    // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
+    multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
+    multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
+    multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
+    
+    // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
     multipath_mapper.num_alt_alns = num_alt_alns;
-    multipath_mapper.num_mapping_attempts = max_map_attempts ? max_map_attempts : numeric_limits<int>::max();
-    multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
     multipath_mapper.set_suboptimal_path_likelihood_ratio(suboptimal_path_ratio); // note: do this after choosing whether qual adj alignments
     
+    // set computational paramters
     int thread_count = get_thread_count();
     multipath_mapper.set_alignment_threads(thread_count);
+    
+    // make sure buffer size is even if we're aligning paired ends (ensures that output will be interleaved)
+    if (interleaved_input || !fastq_name_2.empty()) {
+        if (buffer_size % 2 == 1) {
+            buffer_size++;
+        }
+        
+        // ensure deterministic fragment length estimation by switching to single-threaded mode temporarily
+        multipath_mapper.set_fragment_length_distr_params(frag_length_sample_size, frag_length_sample_size,
+                                                          frag_length_robustness_fraction, true);
+    }
+    
+    // note: sufficient to have only one buffer because fragment length distribution will enforce single threaded mode
+    // during distance estimation
+    vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
     
     vector<vector<Alignment> > single_path_output_buffer(thread_count);
     vector<vector<MultipathAlignment> > multipath_output_buffer(thread_count);
     
+    // write unpaired multipath alignments to stdout buffer
     auto output_multipath_alignments = [&](vector<MultipathAlignment>& mp_alns) {
         auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
         
-        // Copy all the alignments over to the output buffer
-        copy(mp_alns.begin(), mp_alns.end(), back_inserter(output_buf));
+        // move all the alignments over to the output buffer
+        for (MultipathAlignment& mp_aln : mp_alns) {
+            output_buf.emplace_back(move(mp_aln));
+        }
         
         stream::write_buffered(cout, output_buf, buffer_size);
     };
     
+    // convert to unpaired single path alignments and write stdout buffer
     auto output_single_path_alignments = [&](vector<MultipathAlignment>& mp_alns) {
         auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
         
-        // Copy all the alignments over to the output buffer
-        for (const auto& mp_aln : mp_alns) {
+        // add optimal alignments to the output buffer
+        for (MultipathAlignment& mp_aln : mp_alns) {
             output_buf.emplace_back();
             optimal_alignment(mp_aln, output_buf.back());
+        }
+        
+        stream::write_buffered(cout, output_buf, buffer_size);
+    };
+    
+    // write paired multipath alignments to stdout buffer
+    auto output_multipath_paired_alignments = [&](vector<pair<MultipathAlignment, MultipathAlignment>>& mp_aln_pairs) {
+        auto& output_buf = multipath_output_buffer[omp_get_thread_num()];
+        
+        // move all the alignments over to the output buffer
+        for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
+            output_buf.emplace_back(move(mp_aln_pair.first));
+            
+            // switch second read back to the opposite strand if necessary
+            if (same_strand) {
+                output_buf.emplace_back(move(mp_aln_pair.second));
+            }
+            else {
+                output_buf.emplace_back();
+                rev_comp_multipath_alignment(mp_aln_pair.second,
+                                             [&](vg::id_t node_id) { return xg_index.node_length(node_id); },
+                                             output_buf.back());
+            }
+        }
+        
+        stream::write_buffered(cout, output_buf, buffer_size);
+    };
+    
+    // convert tonpaired single path alignments and write stdout buffer
+    auto output_single_path_paired_alignments = [&](vector<pair<MultipathAlignment, MultipathAlignment>>& mp_aln_pairs) {
+        auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
+        
+        // add optimal alignments to the output buffer
+        for (pair<MultipathAlignment, MultipathAlignment>& mp_aln_pair : mp_aln_pairs) {
+            
+            output_buf.emplace_back();
+            optimal_alignment(mp_aln_pair.first, output_buf.back());
+            output_buf.emplace_back();
+            optimal_alignment(mp_aln_pair.second, output_buf.back());
+            
+            // switch second read back to the opposite strand if necessary
+            if (!same_strand) {
+                reverse_complement_alignment_in_place(&output_buf.back(),
+                                                      [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+            }
         }
         
         stream::write_buffered(cout, output_buf, buffer_size);
@@ -580,6 +655,7 @@ int main_mpmap(int argc, char** argv) {
     cerr << "[vg mpmap] created all in memory objects, beginning mapping" << endl;
 #endif
     
+    // do unpaired multipath alignment and write to buffer
     function<void(Alignment&)> do_unpaired_alignments = [&](Alignment& alignment) {
         vector<MultipathAlignment> mp_alns;
         multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
@@ -591,38 +667,80 @@ int main_mpmap(int argc, char** argv) {
         }
     };
     
-    if (!fastq_name_1.empty()) {
-        if (fastq_name_2.empty()) {
-            fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
+    // do paired multipath alignment and write to buffer
+    function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
+        
+        // get reads on the same strand so that oriented distance estimation works correctly
+        if (!same_strand) {
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) {return xg_index.node_length(node_id);});
         }
-        else if (interleaved_input) {
-            // TODO
+        
+        vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
+        multipath_mapper.multipath_map_paired(alignment_1, alignment_2, mp_aln_pairs, ambiguous_pair_buffer, max_num_mappings);
+        if (single_path_alignment_mode) {
+            output_single_path_paired_alignments(mp_aln_pairs);
         }
         else {
-            // TODO
+            output_multipath_paired_alignments(mp_aln_pairs);
+        }
+    };
+    
+    // FASTQ input
+    if (!fastq_name_1.empty()) {
+        if (interleaved_input) {
+            fastq_paired_interleaved_for_each_parallel(fastq_name_1, do_paired_alignments);
+        }
+        else if (fastq_name_2.empty()) {
+            fastq_unpaired_for_each_parallel(fastq_name_1, do_unpaired_alignments);
+        }
+        else {
+            fastq_paired_two_files_for_each_parallel(fastq_name_1, fastq_name_2, do_paired_alignments);
         }
     }
     
-    if (!hts_file_name.empty()) {
-        // TODO
-    }
-    
+    // GAM input
     if (!gam_file_name.empty()) {
         ifstream gam_in(gam_file_name);
         if (!gam_in) {
             cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
             exit(1);
         }
+        
         if (interleaved_input) {
-            // TODO
+            stream::for_each_interleaved_pair_parallel(gam_in, do_paired_alignments);
         }
         else {
             stream::for_each_parallel(gam_in, do_unpaired_alignments);
         }
         gam_in.close();
     }
+
+    // take care of any read pairs that we couldn't map unambiguously before the fragment length distribution
+    // had been estimated
+    if (!ambiguous_pair_buffer.empty()) {
+        if (multipath_mapper.has_fixed_fragment_length_distr()) {
+#pragma omp parallel for
+            for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
+                pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
+                do_paired_alignments(aln_pair.first, aln_pair.second);
+            }
+        }
+        else {
+            cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size << " unambiguous read pair mappings to estimate fragment length ditribution. Mapping read pairs as independent single ended reads." << endl;
+            
+            // force reversion to multithreaded mode
+            multipath_mapper.abandon_fragment_length_distr();
+            
+#pragma omp parallel for
+            for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
+                pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
+                do_unpaired_alignments(aln_pair.first);
+                do_unpaired_alignments(aln_pair.second);
+            }
+        }
+    }
     
-    // clear output buffers
+    // flush output buffers
     for (int i = 0; i < thread_count; i++) {
         vector<Alignment>& single_path_buffer = single_path_output_buffer[i];
         stream::write_buffered(cout, single_path_buffer, 0);

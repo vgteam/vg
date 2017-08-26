@@ -339,7 +339,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Multipath alignment can correctly generate its own reverse complement",
+        TEST_CASE( "Reverse complementing multipath alignments works correctly",
                   "[alignment][multipath][mapping]" ) {
             
             VG graph;
@@ -365,9 +365,11 @@ namespace vg {
             Subpath* subpath2 = multipath_aln.add_subpath();
             Subpath* subpath3 = multipath_aln.add_subpath();
             Subpath* subpath4 = multipath_aln.add_subpath();
+            Subpath* subpath5 = multipath_aln.add_subpath();
             
             // set edges between subpaths
             subpath0->add_next(2);
+            subpath0->add_next(5);
             subpath1->add_next(2);
             subpath2->add_next(3);
             subpath2->add_next(4);
@@ -378,6 +380,7 @@ namespace vg {
             subpath2->set_score(1);
             subpath3->set_score(0);
             subpath4->set_score(4);
+            subpath5->set_score(0);
             
             // designate mappings
             Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
@@ -417,6 +420,18 @@ namespace vg {
             edit40->set_from_length(4);
             edit40->set_to_length(4);
             
+            Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+            mapping5->mutable_position()->set_node_id(3);
+            mapping5->mutable_position()->set_offset(3);
+            Edit* edit50 = mapping5->add_edit();
+            edit50->set_from_length(0);
+            edit50->set_to_length(6);
+            edit50->set_sequence("CCCTGA");
+            
+            // identify starts
+            multipath_aln.add_start(0);
+            multipath_aln.add_start(1);
+            
             MultipathAlignment rc_multipath_aln;
             
             auto node_length = [&graph](int64_t node_id) { return graph.get_node(node_id)->sequence().length(); };
@@ -440,32 +455,91 @@ namespace vg {
             
             // offsets set correctly
             REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).position().offset() == 0);
-            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).position().offset() == 1);
-            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).position().offset() == 0);
+            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).position().offset() == 0);
+            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).position().offset() == 1);
             REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).position().offset() == 0);
             REQUIRE(rc_multipath_aln.subpath(4).path().mapping(0).position().offset() == 0);
+            REQUIRE(rc_multipath_aln.subpath(5).path().mapping(0).position().offset() == 0);
             
             // edits are correct
-            REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).edit(0).from_length() == 4);
-            REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).edit(0).to_length() == 4);
+            REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).edit(0).from_length() == 0);
+            REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).edit(0).to_length() == 6);
+            REQUIRE(rc_multipath_aln.subpath(0).path().mapping(0).edit(0).sequence() == "TCAGGG");
             
-            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).edit(0).from_length() == 0);
+            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).edit(0).from_length() == 4);
             REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).edit(0).to_length() == 4);
-            REQUIRE(rc_multipath_aln.subpath(1).path().mapping(0).edit(0).sequence() == "TCAG");
             
-            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(0).from_length() == 2);
-            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(0).to_length() == 2);
+            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(0).from_length() == 0);
+            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(0).to_length() == 4);
+            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(0).sequence() == "TCAG");
             
-            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(1).from_length() == 1);
-            REQUIRE(rc_multipath_aln.subpath(2).path().mapping(0).edit(1).to_length() == 0);
-            
-            REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).edit(0).from_length() == 0);
+            REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).edit(0).from_length() == 2);
             REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).edit(0).to_length() == 2);
-            REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).edit(0).sequence() == "TG");
             
-            REQUIRE(rc_multipath_aln.subpath(4).path().mapping(0).edit(0).from_length() == 2);
+            REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).edit(1).from_length() == 1);
+            REQUIRE(rc_multipath_aln.subpath(3).path().mapping(0).edit(1).to_length() == 0);
+            
+            REQUIRE(rc_multipath_aln.subpath(4).path().mapping(0).edit(0).from_length() == 0);
             REQUIRE(rc_multipath_aln.subpath(4).path().mapping(0).edit(0).to_length() == 2);
+            REQUIRE(rc_multipath_aln.subpath(4).path().mapping(0).edit(0).sequence() == "TG");
             
+            REQUIRE(rc_multipath_aln.subpath(5).path().mapping(0).edit(0).from_length() == 2);
+            REQUIRE(rc_multipath_aln.subpath(5).path().mapping(0).edit(0).to_length() == 2);
+            
+            // starts are switched correctly
+            for (int i : {0, 1, 2}) {
+                bool found = false;
+                for (int64_t j = 0; j < rc_multipath_aln.start_size(); j++) {
+                    found = found || rc_multipath_aln.start(j) == i;
+                }
+                REQUIRE(found);
+            }
+            
+            // now check that the in place reverse complement works correctly
+            // (it should match the already verified reverse complement)
+            rev_comp_multipath_alignment_in_place(&multipath_aln, node_length);
+            
+            REQUIRE(rc_multipath_aln.subpath_size() == multipath_aln.subpath_size());
+            
+            for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
+                const Subpath& subpath_1 = multipath_aln.subpath(i);
+                const Subpath& subpath_2 = rc_multipath_aln.subpath(i);
+                REQUIRE(subpath_1.score() == subpath_2.score());
+                const Path& path_1 = subpath_1.path();
+                const Path& path_2 = subpath_2.path();
+                REQUIRE(path_1.mapping_size() == path_2.mapping_size());
+                for (int64_t j = 0; j < path_1.mapping_size(); j++) {
+                    const Mapping& mapping_1 = path_1.mapping(j);
+                    const Mapping& mapping_2 = path_2.mapping(j);
+                    REQUIRE(mapping_1.edit_size() == mapping_2.edit_size());
+                    for (int64_t k = 0; k < mapping_1.edit_size(); k++) {
+                        const Edit& edit_1 = mapping_1.edit(k);
+                        const Edit& edit_2 = mapping_2.edit(k);
+                        REQUIRE(edit_1.from_length() == edit_2.from_length());
+                        REQUIRE(edit_1.to_length() == edit_2.to_length());
+                        REQUIRE(edit_1.sequence() == edit_2.sequence());
+                    }
+                }
+                REQUIRE(subpath_1.next_size() == subpath_2.next_size());
+                // these might be out of order
+                for (int64_t j = 0; j < subpath_1.next_size(); j++) {
+                    bool found = false;
+                    for (int64_t k = 0; k < subpath_2.next_size(); k++) {
+                        found = found || subpath_1.next(j) == subpath_2.next(k);
+                    }
+                    REQUIRE(found);
+                }
+            }
+            
+            // starts are switched correctly
+            REQUIRE(rc_multipath_aln.start_size() == multipath_aln.start_size());
+            for (int64_t i = 0; i < rc_multipath_aln.start_size(); i++) {
+                bool found = false;
+                for (int64_t j = 0; j < multipath_aln.start_size(); j++) {
+                    found = found || rc_multipath_aln.start(i) == multipath_aln.start(j);
+                }
+                REQUIRE(found);
+            }
         }
     }
 }
