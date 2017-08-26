@@ -10,8 +10,6 @@
 
 #include "../multipath_mapper.hpp"
 
-//#define debug_mpmap
-
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -29,7 +27,7 @@ void help_mpmap(char** argv) {
     << "  -f, --fastq FILE          input FASTQ (possibly compressed), can be given twice for paired ends (for stdin use -)" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
     << "  -i, --interleaved         FASTQ or GAM contains interleaved paired ends" << endl
-    << "  -e, --same-strand         read pairs are from the same strand of the molecule" << endl
+    << "  -e, --same-strand         read pairs are from the same strand of the DNA molecule" << endl
     << "algorithm:" << endl
     << "  -S, --single-path-mode    produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
     << "  -s, --snarls FILE         align to alternate paths in these snarls" << endl
@@ -365,6 +363,11 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (fastq_name_1.empty() && gam_file_name.empty()) {
+        cerr << "error:[vg mpmap] Must designate reads to map from either FASTQ (-f) or GAM (-G) file." << endl;
+        exit(1);
+    }
+    
     if ((interleaved_input || !fastq_name_2.empty()) && same_strand) {
         cerr << "warning:[vg mpmap] Ignoring same strand parameter (-d) because no paired end input provided." << endl;
     }
@@ -569,7 +572,7 @@ int main_mpmap(int argc, char** argv) {
             buffer_size++;
         }
         
-        // ensure deterministic fragment length estimation by switching to single-threaded mode temporarily
+        // ensure deterministic fragment length estimation by temporarily switching to single-threaded mode
         multipath_mapper.set_fragment_length_distr_params(frag_length_sample_size, frag_length_sample_size,
                                                           frag_length_robustness_fraction, true);
     }
@@ -629,7 +632,7 @@ int main_mpmap(int argc, char** argv) {
         stream::write_buffered(cout, output_buf, buffer_size);
     };
     
-    // convert tonpaired single path alignments and write stdout buffer
+    // convert to paired single path alignments and write stdout buffer
     auto output_single_path_paired_alignments = [&](vector<pair<MultipathAlignment, MultipathAlignment>>& mp_aln_pairs) {
         auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
         
@@ -651,10 +654,6 @@ int main_mpmap(int argc, char** argv) {
         stream::write_buffered(cout, output_buf, buffer_size);
     };
     
-#ifdef debug_mpmap
-    cerr << "[vg mpmap] created all in memory objects, beginning mapping" << endl;
-#endif
-    
     // do unpaired multipath alignment and write to buffer
     function<void(Alignment&)> do_unpaired_alignments = [&](Alignment& alignment) {
         vector<MultipathAlignment> mp_alns;
@@ -672,7 +671,7 @@ int main_mpmap(int argc, char** argv) {
         
         // get reads on the same strand so that oriented distance estimation works correctly
         if (!same_strand) {
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) {return xg_index.node_length(node_id);});
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
         }
         
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;

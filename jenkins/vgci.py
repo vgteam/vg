@@ -821,10 +821,13 @@ class VGCITest(TestCase):
         from the baseline graph using the gpbwt and simulate only from the threads
         
         """
-        tag = 'sim-{}-{}'.format(region, baseline_graph)
+        if multipath:
+            command = "mpmap"
+        else:
+            command = "map"
+        tag = 'sim-{}-{}-{}'.format(region, baseline_graph, command)
         
         # compute the xg indexes from scratch
-        index_bases = []
         for graph in set([baseline_graph] + test_graphs):
             chrom, offset = self._bakeoff_coords(region)        
             vg_path = self._input('{}-{}.vg'.format(graph, region))
@@ -849,9 +852,8 @@ class VGCITest(TestCase):
         fasta_path = self._input('{}.fa'.format(region))
         test_index_bases = []
         for test_graph in test_graphs:
-            test_tag = '{}-{}'.format(test_graph, region)
+            test_tag = '{}-{}'.format(test_graph, region, )
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
-        test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
                              test_graphs, score_baseline_graph, multipath, tag)
         if self.verify:
