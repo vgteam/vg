@@ -162,6 +162,8 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
         
+        sys.stderr.write('Download {}...\n'.format(src))
+        
         with open(tgt, 'w') as f:
             # Download the file from the URL
             connection = urllib2.urlopen(src)
@@ -813,6 +815,10 @@ class VGCITest(TestCase):
         Simulate the given number of reads from the given baseline_graph
         (snp1kg, primary, etc.) and realign them against all the graphs in the
         test_graph list.
+        
+        If a sample is specified, baseline_graph must be a graph with allele
+        paths in it (--alt_paths passed to toil-vg construct) so that the subset
+        of the graph for that sample can be used for read simulation.
         
         Needs to know the bekeoff region that is being run, in order to look up
         the actual graphs files for each graph type.
