@@ -342,7 +342,7 @@ def html_header(xml_root):
 
         if build_number:
             report += '<p> <a href=http://jenkins.cgcloud.info/job/vg/{}/>'.format(build_number)
-            report += 'Jenkins test page </a></ap>\n'
+            report += 'Jenkins test page </a></p>\n'
 
         report += '<p> Report generated on {} </p>\n'.format(str(datetime.datetime.now()))
         
