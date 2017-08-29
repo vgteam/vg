@@ -23,57 +23,58 @@ using namespace vg::subcommand;
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
          << "options:" << endl
-         << "    -g, --gfa            output GFA format (default)" << endl
-         << "    -F, --gfa-in         input GFA format" << endl
+         << "    -g, --gfa                  output GFA format (default)" << endl
+         << "    -F, --gfa-in               input GFA format" << endl
 
-         << "    -v, --vg             output VG format" << endl
-         << "    -V, --vg-in          input VG format (default)" << endl
+         << "    -v, --vg                   output VG format" << endl
+         << "    -V, --vg-in                input VG format (default)" << endl
 
-         << "    -j, --json           output JSON format" << endl
-         << "    -J, --json-in        input JSON format" << endl
-         << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
-         << "                         (this cannot be loaded directly via -J)" << endl
+         << "    -j, --json                 output JSON format" << endl
+         << "    -J, --json-in              input JSON format" << endl
+         << "    -c, --json-stream          streaming conversion of a VG format graph in line delimited JSON format" << endl
+         << "                               (this cannot be loaded directly via -J)" << endl
 
-         << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
-         << "                         Alignment/Map)" << endl
-         << "    -Z, --translation-in input is a graph translation description" << endl
+         << "    -G, --gam                  output GAM format (vg alignment format: Graph " << endl
+         << "                               Alignment/Map)" << endl
+         << "    -Z, --translation-in       input is a graph translation description" << endl
 
-         << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
-         << "    -T, --turtle-in      input turtle format." << endl
-         << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
+         << "    -t, --turtle               output RDF/turtle format (can not be loaded by VG)" << endl
+         << "    -T, --turtle-in            input turtle format." << endl
+         << "    -r, --rdf_base_uri         set base uri for the RDF output" << endl
 
-         << "    -a, --align-in       input GAM format" << endl
-         << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
+         << "    -a, --align-in             input GAM format" << endl
+         << "    -A, --aln-graph GAM        add alignments from GAM to the graph" << endl
 
-         << "    -q, --locus-in       input stream is Locus format" << endl
-         << "    -z, --locus-out      output stream Locus format" << endl
-         << "    -Q, --loci FILE      input is Locus format for use by dot output" << endl
+         << "    -q, --locus-in             input stream is Locus format" << endl
+         << "    -z, --locus-out            output stream Locus format" << endl
+         << "    -Q, --loci FILE            input is Locus format for use by dot output" << endl
 
-         << "    -d, --dot            output dot format" << endl
-         << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
-         << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
-         << "    -Y, --ultra-label    same as -Y but using ultrabubbles" << endl
-         << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
-         << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
-         << "    -p, --show-paths     show paths in dot output" << endl
-         << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
-         << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
-         << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
-         << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
-         << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
+         << "    -d, --dot                  output dot format" << endl
+         << "    -S, --simple-dot           simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -B, --bubble-label         label nodes with emoji/colors that correspond to superbubbles" << endl
+         << "    -Y, --ultra-label          same as -Y but using ultrabubbles" << endl
+         << "    -m, --skip-missing         skip mappings to nodes not in the graph when drawing alignments" << endl
+         << "    -C, --color                color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
+         << "    -p, --show-paths           show paths in dot output" << endl
+         << "    -w, --walk-paths           add labeled edges to represent paths in dot output" << endl
+         << "    -n, --annotate-paths       add labels to normal edges to represent paths in dot output" << endl
+         << "    -M, --show-mappings        with -p print the mappings in each path in JSON" << endl
+         << "    -I, --invert-ports         invert the edge ports in dot so that ne->nw is reversed" << endl
+         << "    -s, --random-seed N        use this seed when assigning path symbols in dot output" << endl
 
-         << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
+         << "    -b, --bam                  input BAM or other htslib-parseable alignments" << endl
 
-         << "    -f, --fastq-in       input fastq (output defaults to GAM). Takes two " << endl
-         << "                         positional file arguments if paired" << endl
-         << "    -X, --fastq-out      output fastq (input defaults to GAM)" << endl
-         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
+         << "    -f, --fastq-in             input fastq (output defaults to GAM). Takes two " << endl
+         << "                               positional file arguments if paired" << endl
+         << "    -X, --fastq-out            output fastq (input defaults to GAM)" << endl
+         << "    -i, --interleaved          fastq is interleaved paired-ended" << endl
 
-         << "    -L, --pileup         ouput VG Pileup format" << endl
-         << "    -l, --pileup-in      input VG Pileup format" << endl
+         << "    -L, --pileup               ouput VG Pileup format" << endl
+         << "    -l, --pileup-in            input VG Pileup format" << endl
 
-         << "    -R, --snarl-in       input VG Snarl format" << endl
-         << "    -E, --snarl-traversal-in input VG SnarlTraversal format" << endl;
+         << "    -R, --snarl-in             input VG Snarl format" << endl
+         << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
+         << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl;
     
     // TODO: Can we regularize the option names for input and output types?
 
@@ -120,6 +121,7 @@ int main_view(int argc, char** argv) {
     bool superbubble_labeling = false;
     bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
+    bool expect_duplicates = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -165,11 +167,12 @@ int main_view(int argc, char** argv) {
                 {"locus-out", no_argument, 0, 'z'},
                 {"snarls", no_argument, 0, 'R'},
                 {"snarltraversals", no_argument, 0, 'E'},
+                {"expect-duplicates", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRE",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRED",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -362,6 +365,10 @@ int main_view(int argc, char** argv) {
                 output_type = "json";
             }
             break;
+            
+        case 'D':
+            expect_duplicates = true;
+            break;
 
         case 'h':
         case '?':
@@ -415,7 +422,7 @@ int main_view(int argc, char** argv) {
             return 0;
         } else {
             get_input_file(file_name, [&](istream& in) {
-                graph = new VG(in);
+                graph = new VG(in, false, !expect_duplicates);
             });
         }
         // VG can convert to any of the graph formats, so keep going
@@ -429,7 +436,7 @@ int main_view(int argc, char** argv) {
         assert(input_json == true);
         JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
-        graph = new VG(get_next_graph, false);
+        graph = new VG(get_next_graph, false, !expect_duplicates);
     } else if(input_type == "turtle-in") {
         graph = new VG;
         bool pre_compress=color_variants;
