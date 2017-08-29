@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 14
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -27,7 +27,7 @@ is $? 0 "view can pass through VG"
 
 rm -f x.vg
 
-is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | jq .sample_name | grep -v ^\"1\"$ | wc -l ) 0 "view parses sample names"
+is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | jq .sample_name | grep -v '^"1"$' | wc -l ) 0 "view parses sample names"
 
 is $(vg view -f ./small/x.fa_1.fastq  ./small/x.fa_2.fastq | vg view -a - | wc -l) 2000 "view can handle fastq input"
 
@@ -40,4 +40,9 @@ is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number o
 # We need to make a single-chunk graph
 vg construct -r small/x.fa -v small/x.vcf.gz | vg view -v - >x.vg
 is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output produces the expected number of chunks"
+
+is "$(cat x.vg x.vg | vg view -vD - 2>&1 > /dev/null | wc -l)" 0 "duplicate warnings can be suppressed"
+
 rm x.vg
+
+
