@@ -2334,6 +2334,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.second.clear();
     }
     
+    // Before we update the fragment length distribution, remember the
+    // distribution used here.
+    
+    stringstream fragment_dist;
+    fragment_dist << fragment_size
+        << ':' << cached_fragment_length_mean 
+        << ':' << cached_fragment_length_stdev 
+        << ':' << cached_fragment_orientation 
+        << ':' << cached_fragment_direction;
+    
     // we tried to align
     // if we don't have a fragment_size yet determined
     // and we didn't get a perfect, unambiguous hit on both reads
@@ -2389,13 +2399,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.clear_score();
         aln.clear_identity();
     }
-
+    
     // Make sure to link up alignments even if they aren't mapped.
     for (auto& aln : results.first) {
         aln.set_name(read1.name());
         aln.mutable_fragment_next()->set_name(read2.name());
         aln.set_sequence(read1.sequence());
         aln.set_quality(read1.quality());
+        aln.set_fragment_length_distribution(fragment_dist.str());
     }
 
     for (auto& aln : results.second) {
@@ -2403,6 +2414,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.mutable_fragment_prev()->set_name(read1.name());
         aln.set_sequence(read2.sequence());
         aln.set_quality(read2.quality());
+        aln.set_fragment_length_distribution(fragment_dist.str());
     }
 
     // if we have references, annotate the alignments with their reference positions

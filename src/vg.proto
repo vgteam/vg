@@ -134,6 +134,8 @@ message Alignment {
     repeated int32 secondary_score = 29; // The ordered list of scores of secondary mappings
     double fragment_score = 30; // Score under the given fragment model, assume higher is better
     bool mate_mapped_to_disjoint_subgraph = 31;
+    
+    string fragment_length_distribution = 32; // The fragment length distribution under which a paired-end alignment was aligned.
 
 }
 

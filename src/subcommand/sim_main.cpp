@@ -182,6 +182,9 @@ int main_sim(int argc, char** argv) {
     
     // Make a Mapper to score reads, with the default parameters
     Mapper rescorer(xgidx, nullptr, nullptr);
+    // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
+    // TODO: is it safe to change the default?
+    rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
     // Include the full length bonuses if requested.
     rescorer.strip_bonuses = strip_bonuses;
     // We define a function to score a generated alignment under the mapper

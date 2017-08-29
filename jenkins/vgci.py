@@ -116,6 +116,8 @@ class VGCITest(TestCase):
             return 19, 54025633
         elif region == 'MHC':
             return 6, 28510119
+        elif 'CHR' in region:
+            return int(region.replace('CHR', '')), 0
         
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
@@ -160,6 +162,8 @@ class VGCITest(TestCase):
 
             # Convert to a public HTTPS URL
             src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
+        
+        sys.stderr.write('Download {}...\n'.format(src))
         
         with open(tgt, 'w') as f:
             # Download the file from the URL
@@ -461,7 +465,9 @@ class VGCITest(TestCase):
             vg_docker = self.vg_docker,
             container = self.container,
             alignment_cores = self.cores,
-            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
+            # Make sure we have the actual scores used to decide on alignments
+            # Also try and make the fragment model more stable and consistent.
+            map_opts = ['--include-bonuses', '--frag-calc', '1000'], 
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
@@ -485,6 +491,10 @@ class VGCITest(TestCase):
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
         mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
+        # We have 150 bp reads reduced to a point position, at a resolution of
+        # only the nearest 100 bp (on the primary graph). How close do two such
+        # point positions need to be to say the read is in the right place?
+        mapeval_options.mapeval_threshold = 200
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
         mapeval_options.multipath = multipath
@@ -799,12 +809,17 @@ class VGCITest(TestCase):
 
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
-                      positive_control=None, negative_control=None, sample=None, multipath=False):
+                      positive_control=None, negative_control=None, sample=None, multipath=False,
+                      assembly="hg38"):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
         (snp1kg, primary, etc.) and realign them against all the graphs in the
         test_graph list.
+        
+        If a sample is specified, baseline_graph must be a graph with allele
+        paths in it (--alt_paths passed to toil-vg construct) so that the subset
+        of the graph for that sample can be used for read simulation.
         
         Needs to know the bekeoff region that is being run, in order to look up
         the actual graphs files for each graph type.
@@ -842,7 +857,7 @@ class VGCITest(TestCase):
                 vg_path = self._input('{}_all_samples-{}.vg'.format(baseline_graph, region))
             else:
                 vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
-            vcf_path = self._input('1kg_hg38-{}.vcf.gz'.format(region))            
+            vcf_path = self._input('1kg_{}-{}.vcf.gz'.format(assembly, region))            
             xg_path, thread1_xg_path, thread2_xg_path = self._make_thread_indexes(
                 sample, vg_path, vcf_path, region, tag)
             sim_xg_paths = [thread1_xg_path, thread2_xg_path]
@@ -861,6 +876,7 @@ class VGCITest(TestCase):
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag)
 
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
@@ -875,6 +891,7 @@ class VGCITest(TestCase):
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
                            
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
@@ -884,6 +901,16 @@ class VGCITest(TestCase):
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
+
+    @timeout_decorator.timeout(16000)        
+    def test_sim_chr21_snp1kg(self):
+        self._test_mapeval(300000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='snp1kg_minus_HG00096',
+                           sample='HG00096',
+                           assembly="hg19")
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
@@ -992,6 +1019,7 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         self._test_bakeoff('MHC', 'primary', True)
 
+    @skip("skipping test to keep runtime down (baseline missing as well)")        
     @timeout_decorator.timeout(10000)        
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """
