@@ -841,7 +841,7 @@ class VGCITest(TestCase):
             command = "mpmap"
         else:
             command = "map"
-        tag = 'sim-{}-{}'.format(region, baseline_graph, command)
+        tag = 'sim-{}-{}-{}'.format(region, baseline_graph, command)
         
         # compute the xg indexes from scratch
         for graph in set([baseline_graph] + test_graphs):
