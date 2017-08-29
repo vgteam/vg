@@ -127,6 +127,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
+            
             try:
                 connection = urllib2.urlopen(url)
                 return connection.read()
@@ -139,7 +140,7 @@ class VGCITest(TestCase):
                     raise
         else:
             # Assume it's a raw path.
-            with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
+            with open(os.path.join(self._outstore(tag), path)) as f:
                 return f.read()
 
     def _get_remote_file(self, src, tgt):
@@ -825,7 +826,7 @@ class VGCITest(TestCase):
             command = "mpmap"
         else:
             command = "map"
-        tag = 'sim-{}-{}-{}'.format(region, baseline_graph, command)
+        tag = 'sim-{}-{}'.format(region, baseline_graph, command)
         
         # compute the xg indexes from scratch
         for graph in set([baseline_graph] + test_graphs):
@@ -891,7 +892,7 @@ class VGCITest(TestCase):
         and off. 
         """
         try:
-            self._test_mapeval(50000, 'BRCA2', 'snp1kg',
+            self._test_mapeval(1000, 'BRCA2', 'snp1kg',
                                ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                                score_baseline_graph='primary',
                                positive_control='snp1kg_HG00096',

@@ -566,8 +566,9 @@ int main_mpmap(int argc, char** argv) {
     int thread_count = get_thread_count();
     multipath_mapper.set_alignment_threads(thread_count);
     
-    // make sure buffer size is even if we're aligning paired ends (ensures that output will be interleaved)
+    // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
+        // make sure buffer size is even (ensures that output will be interleaved)
         if (buffer_size % 2 == 1) {
             buffer_size++;
         }
@@ -577,7 +578,7 @@ int main_mpmap(int argc, char** argv) {
                                                           frag_length_robustness_fraction, true);
     }
     
-    // note: sufficient to have only one buffer because fragment length distribution will enforce single threaded mode
+    // note: sufficient to have only one buffer because fragment length distribution enforces single threaded mode
     // during distance estimation
     vector<pair<Alignment, Alignment>> ambiguous_pair_buffer;
     

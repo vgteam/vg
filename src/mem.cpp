@@ -11,8 +11,8 @@
 namespace vg {
     
     
-    //size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
-    //size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
+//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
+//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
     
 using namespace std;
 

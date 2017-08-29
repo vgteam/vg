@@ -242,7 +242,7 @@ namespace vg {
 #endif
                 
                 // are these reads unambiguously mapped and well-aligned?
-                // TODO: don't like having constants floating around in here
+                // TODO: i don't like having constants floating around in here
                 if (multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 60)
                     && multipath_aln_2.mapping_quality() >= min(max_mapping_quality, 60)
                     && optimal_alignment_score(multipath_aln_1) >= .9 * max_score_1
@@ -374,11 +374,11 @@ namespace vg {
             align_to_cluster_graphs(alignment2, mapping_quality_method, cluster_graphs2, multipath_alns_2, max_alt_mappings);
             
             // have to report in pairs, so calculate the largest number of pairs we can/should report
-            // TODO: this is ugly, better to have some alternate return path for independent mappings
+            // TODO: this is ugly, would be better to have some alternate return path for independent mappings
             size_t num_pairs_to_report = min(max_alt_mappings, min(multipath_alns_1.size(), multipath_alns_2.size()));
-            multipath_aln_pairs_out.reserve(num_pairs_to_report);
             
             // move the multipath alignments to the return vector
+            multipath_aln_pairs_out.reserve(num_pairs_to_report);
             for (size_t i = 0; i < num_pairs_to_report; i++) {
                 multipath_aln_pairs_out.emplace_back(move(multipath_alns_1[i]), move(multipath_alns_2[i]));
             }
@@ -413,6 +413,7 @@ namespace vg {
             // We'll end up with redundant pairs being output.
             
             // align to each cluster pair
+            multipath_aln_pairs_out.reserve(min(max_alt_mappings, cluster_pairs.size()));
             size_t num_mappings = 0;
             for (const pair<size_t, size_t>& cluster_pair : cluster_pairs) {
                 // For each cluster pair

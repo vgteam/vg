@@ -80,7 +80,13 @@ fi
 set -e
 
 # Maximum number of minutes that can have passed since new vg docker image built
-NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+PLATFORM=`uname -s`
+if [ $PLATFORM == "Darwin" ]; then
+    NUM_CORES=`sysctl -n hw.ncpu`
+else
+    NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+fi
+
 # Create Toil venv
 if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf .env
