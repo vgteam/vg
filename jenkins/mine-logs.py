@@ -223,9 +223,9 @@ def parse_testcase_xml(testcase):
         tc['fail-msg'] = unicode(failure.get('message'))
         tc['failed'] = True
     else:
-        tc['fail-txt'] = u''#None
-        tc['fail-msg'] = u''#None
-        tc['failed'] = True#False
+        tc['fail-txt'] = None
+        tc['fail-msg'] = None
+        tc['failed'] = False
 
     return tc
 
