@@ -50,6 +50,8 @@ def parse_args(args):
     parser.add_argument("--out_vcf", type=argparse.FileType('w'),
         default=sys.stdout,
         help="VCF file to write passing entries to")
+    parser.add_argument("--assembly", default="hg38",
+        help="assembly database name to query")
     parser.add_argument("--contig", default="chr17",
         help="contig to pull variants from")
     parser.add_argument("--start", type=int, default=43044294,
@@ -67,7 +69,7 @@ def parse_args(args):
 
 class RepeatDb(object):
 
-    def __init__(self, contig, start, end):
+    def __init__(self, assembly, contig, start, end):
         """
         Given a range on a contig, get all the repeats overlapping that range.
         
@@ -85,8 +87,8 @@ class RepeatDb(object):
         self.counts = collections.Counter()
         
         command = ["hgsql", "-e", "select repName, genoName, genoStart, genoEnd "
-            "from hg38.rmsk where genoName = '{}' and genoStart > '{}' "
-            "and genoEnd < '{}';".format(contig, start, end)]
+            "from {}.rmsk where genoName = '{}' and genoStart > '{}' "
+            "and genoEnd < '{}';".format(assembly, contig, start, end)]
         process = subprocess.Popen(command, stdout=subprocess.PIPE)
         
         for parts in itertools.islice(tsv.TsvReader(process.stdout), 1, None):
@@ -135,7 +137,7 @@ def main(args):
     options = parse_args(args) # This holds the nicely-parsed options object
     
     # Make a repeat database
-    db = RepeatDb(options.contig, options.start, options.end)
+    db = RepeatDb(options.assembly, options.contig, options.start, options.end)
     
     # Strip "chr" from the contig.
     # TODO: figure out if we need to
