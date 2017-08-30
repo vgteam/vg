@@ -24,13 +24,16 @@ dat.roc <- dat %>%
     summarise(Positive = sum(Positive), Negative = sum(Negative)) %>% 
     # Sort in decreasing MAPQ order
     arrange(-mq) %>% 
-    # Define TPR and FPR at each MAPQ, based on cumulative sums of all positive and negative reads in bins of that MAPQ or higher.
-    mutate(TPR = cumsum(Positive) / sum(Positive+Negative), FPR = cumsum(Negative) / sum(Positive+Negative));
+    # Define the parts of the confusion matrix that can really exist, at each MAPQ.
+    # Based on cumulative sums of all positive and negative reads in bins of that MAPQ or higher.
+    mutate(TP = cumsum(Positive), FP = cumsum(Negative), FN = sum(Positive+Negative) - cumsum(Positive)) %>%
+    # Given the confusion matrix entries, calculate Precision and Recall for each MAPQ
+    mutate(Precision = TP / (TP + FP), Recall = TP / (TP + FN));
 
 # Now we pipe that into ggplot and use + to assemble a bunch of ggplot layers together into a plot.
 dat.roc %>% 
     # Make a base plot mapping each of these variable names to each of these "aesthetic" attributes (like x position and color)
-    ggplot(aes( x= FPR, y = TPR, color = aligner, label=mq)) + 
+    ggplot(aes( x= 1 - Precision, y = Recall, color = aligner, label=mq)) + 
         # We will use a line plot
         geom_line() + 
         # There will be cool floating labels
@@ -42,7 +45,7 @@ dat.roc %>%
         # And we want a size legend
         scale_size_continuous("number") +
         # And we want a log X axis
-        scale_x_log10(breaks=c(1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e-0)) +
+        scale_x_log10(breaks=c(1e-7, 1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e-0)) +
         # And we want this cool theme
         theme_bw()
 
