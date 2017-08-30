@@ -38,6 +38,9 @@ class VGCITest(TestCase):
     much slower.  
     """
     def setUp(self):
+        # Make sure logging is available for all the tests
+        logging.basicConfig()
+
         self.workdir = tempfile.mkdtemp()
         self.tempdir = tempfile.mkdtemp()
         
@@ -162,7 +165,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
         
-        sys.stderr.write('Download {}...\n'.format(src))
+        log.info('Download {}...\n'.format(src))
         
         with open(tgt, 'w') as f:
             # Download the file from the URL
