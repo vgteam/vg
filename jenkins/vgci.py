@@ -809,7 +809,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
-                      assembly="hg38"):
+                      assembly="hg38", tag_ext=""):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -836,7 +836,8 @@ class VGCITest(TestCase):
         from the baseline graph using the gpbwt and simulate only from the threads
         
         """
-        tag = 'sim-{}-{}'.format(region, baseline_graph)
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = 'sim-{}-{}{}'.format(region, baseline_graph, tag_ext)
         
         # compute the xg indexes from scratch
         index_bases = []
@@ -921,7 +922,7 @@ class VGCITest(TestCase):
                                score_baseline_graph='primary',
                                positive_control='snp1kg_HG00096',
                                negative_control='snp1kg_minus_HG00096',
-                               sample='HG00096', multipath=True)
+                               sample='HG00096', multipath=True, tag_ext='-mpmap')
         except:
             log.warning('test_sim_brca2_snp1kg_mpap failed with following error:\n{}\n'.format(
                 traceback.format_exc()))
