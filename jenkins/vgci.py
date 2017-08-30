@@ -569,7 +569,7 @@ class VGCITest(TestCase):
         return filter_count
             
     def _mapeval_r_plots(self, tag, positive_control=None, negative_control=None,
-                         control_include=['snp1kg', 'primary'], min_reads_for_filter_plots=100):
+                         control_include=['snp1kg', 'primary', 'common1kg'], min_reads_for_filter_plots=100):
         """ Compute the mapeval r plots (ROC and QQ) """
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
