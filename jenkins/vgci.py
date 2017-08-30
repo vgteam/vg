@@ -569,7 +569,7 @@ class VGCITest(TestCase):
         return filter_count
             
     def _mapeval_r_plots(self, tag, positive_control=None, negative_control=None,
-                         control_include=['snp1kg', 'primary'], min_reads_for_filter_plots=100):
+                         control_include=['snp1kg', 'primary', 'common1kg'], min_reads_for_filter_plots=100):
         """ Compute the mapeval r plots (ROC and QQ) """
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
@@ -923,7 +923,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
-                           ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
