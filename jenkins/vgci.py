@@ -873,7 +873,7 @@ class VGCITest(TestCase):
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag)
 
-    @skip("skipping test to keep runtime down")
+    #@skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
@@ -881,11 +881,11 @@ class VGCITest(TestCase):
         # these other BRCA1 graphs and make sure the realignments are
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
-        self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+        self._test_mapeval(1000, 'BRCA1', 'snp1kg',
+                           ['primary', 'snp1kg'],#, 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
+                           #positive_control='snp1kg_HG00096',
+                           #negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
                            
     @skip("skipping test to keep runtime down")
