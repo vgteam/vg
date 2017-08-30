@@ -237,7 +237,7 @@ def get_vgci_warnings(tc):
     if tc['stderr']:
         for line in tc['stderr'].split('\n'):
             # For each line
-            if "WARNING vgci" in line:
+            if "WARNING" in line and "vgci" in line:
                 # If it is a CI warning, keep it
                 warnings.append(line.rstrip())
     return warnings
