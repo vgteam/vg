@@ -699,10 +699,22 @@ class VGCITest(TestCase):
         if negative_control:
             table_name += ' (**: negative control)'
         self._begin_message(table_name, is_tsv=True)
-        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
+        
+        # How many different columns do we want to see in the stats files?
+        # We need to pad shorter rows with 0s
+        stats_columns = 5 # read count, accuracy, AUC, QQ-plot r value, max F1
+        
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Max F1', 'Baseline F1'])
         for key in sorted(set(baseline_dict.keys() + stats_dict.keys())):
-            sval = stats_dict[key] if key in stats_dict else ['DNE'] * 3
-            bval = baseline_dict[key] if key in baseline_dict else ['DNE'] * 3
+            # What values do we have for the graph this run?
+            sval = list(stats_dict.get(key, []))
+            while len(sval) < stats_columns:
+                sval.append('DNE')
+            # And what baseline values do we have stored?
+            bval = list(baseline_dict.get(key, []))
+            while len(bval) < stats_columns:
+                bval.append('DNE')
+            
             method = key            
             if not key.endswith('-pe'):
                 # to be consistent with plots
@@ -714,15 +726,24 @@ class VGCITest(TestCase):
             def r4(s):
                 return round(s, 4) if isinstance(s, float) else s                
             print '\t'.join(str(r4(x)) for x in [method, sval[1], bval[1],
-                                                 sval[2], bval[2], self.auc_threshold])
+                                                 sval[2], bval[2], sval[4], bval[4]])
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
         for key, val in baseline_dict.iteritems():
             if key in stats_dict:
-                self.assertTrue(stats_dict[key][0] == reads)
-                self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
-                self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                # For each graph we have a baseline and stats for, compare the
+                # columns we actually have in both.
+                if len(stats_dict[key]) > 0:
+                    self.assertTrue(stats_dict[key][0] == reads)
+                if len(stats_dict[key]) > 1 and len(val) > 1:
+                    self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
+                if len(stats_dict[key]) > 2 and len(val) > 2:
+                    self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                if len(stats_dict[key]) > 4 and len(val) > 4:
+                    self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
+                if len(stats_dict[key]) != len(val):
+                    log.warning('Key {} has {} baseline entries and {} stats'.format(key, len(val), len(stats_dict[key])))
             else:
                 log.warning('Key {} from baseline not found in stats'.format(key))
             
