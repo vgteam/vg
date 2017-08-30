@@ -396,7 +396,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
 
         images = []
         captions = []
-        for plot_name in 'pr', 'pr.control', 'roc', 'roc.control', 'qq', 'qq.control':
+        for plot_name in 'pr', 'pr.control', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)
