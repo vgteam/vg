@@ -649,7 +649,7 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
     
 }
 
-int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
     bool strip_bonuses) {
     
     int score = 0;
@@ -688,6 +688,7 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
             // Estimate the distance
             int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist > 0) {
+                cerr << "estimated dist between " << make_pos_t(last_pos) << " and " << make_pos_t(next_pos) << " at " << dist << endl;
                 // If it's nonzero, score it as a deletion gap
                 score -= gap_open + (dist - 1) * gap_extension;
             }
@@ -705,6 +706,10 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
     }
     
     return score;
+}
+
+int32_t BaseAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses){
+    return score_gappy_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
 }
 
 int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {

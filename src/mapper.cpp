@@ -4359,12 +4359,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
     
     if (use_approx_distance) {
         // Use an approximation
-        return aligner->score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->score_gappy_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             return approx_distance(last, next);
         }, strip_bonuses);
     } else {
         // Use the exact method, and if we hit the limit, fall back to the approximate method.
-        return aligner->score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->score_gappy_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             auto dist = graph_distance(last, next, max_search);
             if (dist == max_search) {
 #ifdef debug_mapper
