@@ -635,17 +635,11 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // Rescore the alignments as if N/N substitutions are matches so that we
         // can use the score as a proxy for how many matches there are.
         
-        // We need a function to score jumps. But score them all as 0 since we
-        // shouldn't have any.
-        auto ignore_jumps = [](pos_t, pos_t, size_t) {
-            return 0;
-        };
-        
         // Turn N/N subs into matches and score the alignments without end bonuses.
         align_ns(left_subgraph, aln_left);
-        aln_left.set_score(aligner.score_alignment(aln_left, ignore_jumps, true));
+        aln_left.set_score(aligner.score_ungapped_alignment(aln_left, true));
         align_ns(right_subgraph, aln_right);
-        aln_right.set_score(aligner.score_alignment(aln_right, ignore_jumps, true));
+        aln_right.set_score(aligner.score_ungapped_alignment(aln_right, true));
         
         
 #ifdef debug
@@ -694,7 +688,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_alignment(aln, ignore_jumps, true));
+                aln.set_score(aligner.score_ungapped_alignment(aln, true));
 
 #ifdef debug                
                 if (aligned_in_band) {
@@ -805,7 +799,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                 // Rescore with Ns as matches again
                 align_ns(left_subgraph, aln);
-                aln.set_score(aligner.score_alignment(aln, ignore_jumps, true));
+                aln.set_score(aligner.score_ungapped_alignment(aln, true));
                 
 #ifdef debug
                 cerr << "\tScore: " << aln.score() << "/" << (to_align.size() * aligner.match * min_score_factor)
