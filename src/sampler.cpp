@@ -748,10 +748,11 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
             get_id(pos) = edge.from();
             get_is_rev(pos) = !edge.from_start();
         }
+        get_offset(pos) = 0;
         node_length = xg_index.node_length(id(pos));
     }
     
-    get_offset(pos) = remaining;
+    get_offset(pos) += remaining;
     
     return false;
 }
