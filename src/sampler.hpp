@@ -154,6 +154,8 @@ private:
     /// Move forward a certain distance in the graph along a random path, return true if we
     /// can't because we hit a tip or false otherwise
     bool advance_on_graph_by_distance(pos_t& pos, size_t distance);
+    /// Returns the position a given distance from the end of the path, walking backwards
+    pos_t walk_backwards(const Path& path, size_t distance);
     /// Add a deletion to the alignment
     void apply_deletion(Alignment& aln, const pos_t& pos);
     /// Add an insertion to the alignment
