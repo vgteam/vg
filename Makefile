@@ -610,9 +610,9 @@ $(SUBCOMMAND_OBJ_DIR)/genotype_main.o: $(SUBCOMMAND_SRC_DIR)/genotype_main.cpp $
 
 $(SUBCOMMAND_OBJ_DIR)/msga_main.o: $(SUBCOMMAND_SRC_DIR)/msga_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/map_main.o: $(SUBCOMMAND_SRC_DIR)/map_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/map_main.o: $(SUBCOMMAND_SRC_DIR)/map_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/mpmap_main.o: $(SUBCOMMAND_SRC_DIR)/mpmap_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/multipath_mapper.hpp $(SRC_DIR)/mem.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/mpmap_main.o: $(SUBCOMMAND_SRC_DIR)/mpmap_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/multipath_mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/align_main.o: $(SUBCOMMAND_SRC_DIR)/align_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
@@ -622,7 +622,7 @@ $(SUBCOMMAND_OBJ_DIR)/find_main.o: $(SUBCOMMAND_SRC_DIR)/find_main.cpp $(SUBCOMM
 
 $(SUBCOMMAND_OBJ_DIR)/sim_main.o: $(SUBCOMMAND_SRC_DIR)/sim_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/sampler.hpp $(DEPS)
 
-$(SUBCOMMAND_OBJ_DIR)/view_main.o: $(SUBCOMMAND_SRC_DIR)/view_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
+$(SUBCOMMAND_OBJ_DIR)/view_main.o: $(SUBCOMMAND_SRC_DIR)/view_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/alignment.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/stats_main.o: $(SUBCOMMAND_SRC_DIR)/stats_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
 
