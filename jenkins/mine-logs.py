@@ -50,7 +50,7 @@ def testname_to_outstore(test_name):
     toks = test_name.replace('lrc_kir', 'lrc-kir').split('_')
     assert toks[0] == 'test' and len(toks) >= 4
     return 'outstore-{}-{}-{}'.format(
-        toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), toks[3])
+        toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), '-'.join(toks[3:]))
 
 
 def scrape_mapeval_runtimes(text):
