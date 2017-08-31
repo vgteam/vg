@@ -596,7 +596,7 @@ class VGCITest(TestCase):
         context = Context(out_store, overrides)
         with context.get_toil(job_store) as toil:
             try:
-                for rscript in ['roc', 'qq']:
+                for rscript in ['pr', 'qq']:
                     # pull the scripts from where we expect them relative to being in vg/
                     # and put them in the work directory.  This is ugly but keeps the
                     # docker interfacing simple.
