@@ -155,11 +155,11 @@ public:
     VG(void);
 
     /// Construct from protobufs.
-    VG(istream& in, bool showp = false);
+    VG(istream& in, bool showp = false, bool warn_on_duplicates = true);
 
     /// Construct from an arbitrary source of Graph protobuf messages (which
     /// populates the given Graph and returns a flag for whether it's valid).
-    VG(function<bool(Graph&)>& get_next_graph, bool showp = false);
+    VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
 
     /// Construct from sets of nodes and edges. For example, from a subgraph of
     /// another graph.

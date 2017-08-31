@@ -50,7 +50,7 @@ def testname_to_outstore(test_name):
     toks = test_name.replace('lrc_kir', 'lrc-kir').split('_')
     assert toks[0] == 'test' and len(toks) >= 4
     return 'outstore-{}-{}-{}'.format(
-        toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), toks[3])
+        toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), '-'.join(toks[3:]))
 
 
 def scrape_mapeval_runtimes(text):
@@ -92,7 +92,7 @@ def scrape_mapeval_runtimes(text):
                 elif 'paired-end' in read_type:
                     key += '-pe'
                 runtimes[key] += seconds
-            except int:
+            except:
                 pass
 
     return runtimes
@@ -206,7 +206,6 @@ def parse_testcase_xml(testcase):
 
     if testcase.find('system-err') is not None:
         tc['stderr'] = unicode(testcase.find('system-err').text)
-        tc['stderr'] = tc['stdout']
     else:
         tc['stderr'] = None
 
@@ -237,7 +236,7 @@ def get_vgci_warnings(tc):
     if tc['stderr']:
         for line in tc['stderr'].split('\n'):
             # For each line
-            if "WARNING vgci" in line:
+            if "WARNING" in line and "vgci" in line:
                 # If it is a CI warning, keep it
                 warnings.append(line.rstrip())
     return warnings
@@ -396,7 +395,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
 
         images = []
         captions = []
-        for plot_name in 'roc', 'roc.control', 'qq', 'qq.control':
+        for plot_name in 'roc', 'roc.control', 'roc.primary.filter', 'roc.control.primary.filter', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)
@@ -421,9 +420,9 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 i += row_size
             report += '</table>\n'
 
-        # extract running times from stdout (only for mapeval)
+        # extract running times from stderr (only for mapeval)
         map_time_table = None
-        if 'sim' in tc['name']:
+        if tc['stderr'] and 'sim' in tc['name']:
             map_time_table = scrape_mapeval_runtimes(tc['stderr'])
             
         if tc['stdout']:

@@ -38,6 +38,9 @@ class VGCITest(TestCase):
     much slower.  
     """
     def setUp(self):
+        # Make sure logging is available for all the tests
+        logging.basicConfig()
+
         self.workdir = tempfile.mkdtemp()
         self.tempdir = tempfile.mkdtemp()
         
@@ -163,7 +166,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
         
-        sys.stderr.write('Download {}...\n'.format(src))
+        log.info('Download {}...\n'.format(src))
         
         with open(tgt, 'w') as f:
             # Download the file from the URL
@@ -570,7 +573,7 @@ class VGCITest(TestCase):
         return filter_count
             
     def _mapeval_r_plots(self, tag, positive_control=None, negative_control=None,
-                         control_include=['snp1kg', 'primary'], min_reads_for_filter_plots=100):
+                         control_include=['snp1kg', 'primary', 'common1kg'], min_reads_for_filter_plots=100):
         """ Compute the mapeval r plots (ROC and QQ) """
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
@@ -700,10 +703,22 @@ class VGCITest(TestCase):
         if negative_control:
             table_name += ' (**: negative control)'
         self._begin_message(table_name, is_tsv=True)
-        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
+        
+        # How many different columns do we want to see in the stats files?
+        # We need to pad shorter rows with 0s
+        stats_columns = 5 # read count, accuracy, AUC, QQ-plot r value, max F1
+        
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Max F1', 'Baseline F1'])
         for key in sorted(set(baseline_dict.keys() + stats_dict.keys())):
-            sval = stats_dict[key] if key in stats_dict else ['DNE'] * 3
-            bval = baseline_dict[key] if key in baseline_dict else ['DNE'] * 3
+            # What values do we have for the graph this run?
+            sval = list(stats_dict.get(key, []))
+            while len(sval) < stats_columns:
+                sval.append('DNE')
+            # And what baseline values do we have stored?
+            bval = list(baseline_dict.get(key, []))
+            while len(bval) < stats_columns:
+                bval.append('DNE')
+            
             method = key            
             if not key.endswith('-pe'):
                 # to be consistent with plots
@@ -715,15 +730,24 @@ class VGCITest(TestCase):
             def r4(s):
                 return round(s, 4) if isinstance(s, float) else s                
             print '\t'.join(str(r4(x)) for x in [method, sval[1], bval[1],
-                                                 sval[2], bval[2], self.auc_threshold])
+                                                 sval[2], bval[2], sval[4], bval[4]])
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
         for key, val in baseline_dict.iteritems():
             if key in stats_dict:
-                self.assertTrue(stats_dict[key][0] == reads)
-                self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
-                self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                # For each graph we have a baseline and stats for, compare the
+                # columns we actually have in both.
+                if len(stats_dict[key]) > 0:
+                    self.assertTrue(stats_dict[key][0] == reads)
+                if len(stats_dict[key]) > 1 and len(val) > 1:
+                    self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
+                if len(stats_dict[key]) > 2 and len(val) > 2:
+                    self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                if len(stats_dict[key]) > 4 and len(val) > 4:
+                    self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
+                if len(stats_dict[key]) != len(val):
+                    log.warning('Key {} has {} baseline entries and {} stats'.format(key, len(val), len(stats_dict[key])))
             else:
                 log.warning('Key {} from baseline not found in stats'.format(key))
             
@@ -810,7 +834,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
-                      assembly="hg38"):
+                      assembly="hg38", tag_ext=""):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -837,11 +861,8 @@ class VGCITest(TestCase):
         from the baseline graph using the gpbwt and simulate only from the threads
         
         """
-        if multipath:
-            command = "mpmap"
-        else:
-            command = "map"
-        tag = 'sim-{}-{}-{}'.format(region, baseline_graph, command)
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = 'sim-{}-{}{}'.format(region, baseline_graph, tag_ext)
         
         # compute the xg indexes from scratch
         for graph in set([baseline_graph] + test_graphs):
@@ -905,7 +926,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
-                           ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
@@ -924,7 +945,7 @@ class VGCITest(TestCase):
                                score_baseline_graph='primary',
                                positive_control='snp1kg_HG00096',
                                negative_control='snp1kg_minus_HG00096',
-                               sample='HG00096', multipath=True)
+                               sample='HG00096', multipath=True, tag_ext='-mpmap')
         except:
             log.warning('test_sim_brca2_snp1kg_mpmap failed with following error:\n{}\n'.format(
                 traceback.format_exc()))
@@ -942,7 +963,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
-                           sample='HG00096', multipath=True)
+                           sample='HG00096', multipath=True, tag_ext='-mpmap')
         except:
             log.warning('test_sim_mhc_snp1kg_mpmap failed with following error:\n{}\n'.format(
                  traceback.format_exc()))
