@@ -49,7 +49,7 @@ dat.roc %>%
         # And we want a size legend
         scale_size_continuous("number") +
         # And we want a log X axis
-        scale_x_log10(breaks=c(1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e-0), limits=c(1e-8, 1e-0)) +
+        scale_x_log10(breaks=c(1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e-0), limits=c(1e-6, 1e-0)) +
         # And a normal Y axis
         scale_y_continuous(limits=c(0.9, 1.0)) +
         # And we want this cool theme
