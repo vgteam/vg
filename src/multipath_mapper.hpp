@@ -158,8 +158,8 @@ namespace vg {
         
         /// Removes nodes and edges that are not part of any path that has an estimated score
         /// within some amount of the highest scoring path
-        void prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff,
-                                         const vector<size_t>& topological_order);
+        void prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner& aligner,
+                                         int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order);
         
         /// Reorders adjacency list representation of edges so that they follow the indicated
         /// ordering of their target nodes

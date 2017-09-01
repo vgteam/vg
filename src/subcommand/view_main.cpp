@@ -13,6 +13,7 @@
 
 #include "subcommand.hpp"
 
+#include "../multipath_alignment.hpp"
 #include "../vg.hpp"
 
 using namespace std;
@@ -74,6 +75,8 @@ void help_view(char** argv) {
 
          << "    -R, --snarl-in             input VG Snarl format" << endl
          << "    -E, --snarl-traversal-in   input VG SnarlTraversal format" << endl
+         << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
+         << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
          << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl;
     
     // TODO: Can we regularize the option names for input and output types?
@@ -168,11 +171,13 @@ int main_view(int argc, char** argv) {
                 {"snarls", no_argument, 0, 'R'},
                 {"snarltraversals", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
+                {"multipath", no_argument, 0, 'k'},
+                {"multipath-in", no_argument, 0, 'K'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXRED",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:zXREDkK",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -366,6 +371,14 @@ int main_view(int argc, char** argv) {
             }
             break;
             
+        case 'K':
+            input_type = "multipath";
+            break;
+            
+        case 'k':
+            output_type = "multipath";
+            break;
+            
         case 'D':
             expect_duplicates = true;
             break;
@@ -433,7 +446,7 @@ int main_view(int argc, char** argv) {
         });
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
-        assert(input_json == true);
+        assert(input_json);
         JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false, !expect_duplicates);
@@ -446,7 +459,7 @@ int main_view(int argc, char** argv) {
             graph->from_turtle(file_name, rdf_base_uri);
         }
     } else if (input_type == "gam") {
-        if (input_json == false) {
+        if (!input_json) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
@@ -475,16 +488,40 @@ int main_view(int argc, char** argv) {
                 get_input_file(file_name, [&](istream& in) {
                     stream::for_each(in, lambda);
                 });
-            } else {
+            }
+            else if (output_type == "multipath") {
+                vector<MultipathAlignment> buf;
+                function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
+                    buf.emplace_back();
+                    to_multipath_alignment(aln, buf.back());
+                    stream::write_buffered(cout, buf, 1000);
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+                stream::write_buffered(cout, buf, 0);
+            }
+            else {
                 // todo
                 cerr << "[vg view] error: (binary) GAM can only be converted to JSON or FASTQ" << endl;
                 return 1;
             }
         } else {
+            JSONStreamHelper<Alignment> json_helper(file_name);
             if (output_type == "json" || output_type == "gam") {
-                JSONStreamHelper<Alignment> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
-            } else {
+            }
+            else if (output_type == "multipath") {
+                vector<MultipathAlignment> buf;
+                Alignment aln;
+                while (json_helper.get_read_fn()(aln)) {
+                    buf.emplace_back();
+                    to_multipath_alignment(aln, buf.back());
+                    stream::write_buffered(std::cout, buf, 1000);
+                }
+                stream::write_buffered(cout, buf, 0);
+            }
+            else {
                 cerr << "[vg view] error: JSON GAM can only be converted to GAM or JSON" << endl;
                 return 1;
             }
@@ -515,6 +552,98 @@ int main_view(int argc, char** argv) {
         } else {
             cerr << "[vg view] error: BAM can only be converted to GAM" << endl;
             return 1;
+        }
+    } else if (input_type == "multipath") {
+        if (input_json) {
+            JSONStreamHelper<MultipathAlignment> json_helper(file_name);
+            if (output_type == "multipath") {
+                json_helper.write(cout, false);
+            }
+            else if (output_type == "fastq") {
+                MultipathAlignment mp_aln;
+                while (json_helper.get_read_fn()(mp_aln)) {
+                    cout << "@" << mp_aln.name() << endl
+                         << mp_aln.sequence() << endl
+                         << "+" << endl;
+                    if (mp_aln.quality().empty()) {
+                        cout << string(mp_aln.sequence().size(), quality_short_to_char(30)) << endl;
+                    } else {
+                        cout << string_quality_short_to_char(mp_aln.quality()) << endl;
+                    }
+                }
+                
+            }
+            else if (output_type == "gam") {
+                vector<Alignment> buf;
+                MultipathAlignment mp_aln;
+                while (json_helper.get_read_fn()(mp_aln)) {
+                    buf.emplace_back();
+                    optimal_alignment(mp_aln, buf.back());
+                    stream::write_buffered(std::cout, buf, 1000);
+                }
+                stream::write_buffered(cout, buf, 0);
+            }
+            else if (output_type == "json") {
+                json_helper.write(cout, true);
+            }
+            else {
+                cerr << "[vg view] error: Unrecognized output format for MultipathAlignment (GAMP)" << endl;
+                return 1;
+            }
+            return 0;
+        }
+        else {
+            if (output_type == "multipath") {
+                vector<MultipathAlignment> buf;
+                function<void(MultipathAlignment&)> lambda = [&buf](MultipathAlignment& mp_aln) {
+                    buf.push_back(mp_aln);
+                    stream::write_buffered(cout, buf, 1000);
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+                stream::write_buffered(std::cout, buf, 0);
+            }
+            else if (output_type == "fastq") {
+                function<void(MultipathAlignment&)> lambda = [](MultipathAlignment& mp_aln) {
+                    cout << "@" << mp_aln.name() << endl
+                         << mp_aln.sequence() << endl
+                         << "+" << endl;
+                    if (mp_aln.quality().empty()) {
+                        cout << string(mp_aln.sequence().size(), quality_short_to_char(30)) << endl;
+                    } else {
+                        cout << string_quality_short_to_char(mp_aln.quality()) << endl;
+                    }
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+            }
+            else if (output_type == "gam") {
+                vector<Alignment> buf;
+                function<void(MultipathAlignment&)> lambda = [&buf](MultipathAlignment& mp_aln) {
+                    buf.emplace_back();
+                    optimal_alignment(mp_aln, buf.back());
+                    stream::write_buffered(cout, buf, 1000);
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+                stream::write_buffered(std::cout, buf, 0);
+            }
+            else if (output_type == "json") {
+                function<void(MultipathAlignment&)> lambda = [&](MultipathAlignment& mp_aln) {
+                    cout << pb2json(mp_aln) << endl;
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    stream::for_each(in, lambda);
+                });
+            }
+            else {
+                cerr << "[vg view] error: Unrecognized output format for MultipathAlignment (GAMP)" << endl;
+                return 1;
+            }
+            return 0;
         }
     } else if (input_type == "fastq") {
         // The first FASTQ is the filename we already grabbed
@@ -565,7 +694,7 @@ int main_view(int argc, char** argv) {
         cout.flush();
         return 0;
     } else if (input_type == "pileup") {
-        if (input_json == false) {
+        if (!input_json) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Pileup&)> lambda = [](Pileup& p) {
@@ -604,7 +733,7 @@ int main_view(int argc, char** argv) {
         }
         return 0;
     } else if (input_type == "locus") {
-        if (input_json == false) {
+        if (!input_json) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Locus&)> lambda = [](Locus& l) {

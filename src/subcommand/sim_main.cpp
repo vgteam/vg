@@ -289,8 +289,9 @@ int main_sim(int argc, char** argv) {
         Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
         
         NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
-                             fragment_length ? fragment_length : std::numeric_limits<double>::max(),
-                             fragment_std_dev, seed_val);
+                             fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
+                             fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
+                             seed_val);
         
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {

@@ -1,4 +1,4 @@
-/**
+ /**
  * \file mpmap_main.cpp: multipath mapping of reads to a graph
  */
 
@@ -38,6 +38,7 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [3000]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
     << "  -Q, --mq-max OPT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
@@ -123,6 +124,7 @@ int main_mpmap(int argc, char** argv) {
             {"snarls", required_argument, 0, 's'},
             {"snarl-max-cut", required_argument, 0, 'U'},
             {"alt-paths", required_argument, 0, 'a'},
+            {"frag-sample", required_argument, 0, 'b'},
             {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
             {"band-padding", required_argument, 0, 'p'},
@@ -149,7 +151,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:v:Q:p:M:r:W:k:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:v:Q:p:M:r:W:k:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -230,6 +232,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'a':
                 num_alt_alns = atoi(optarg);
+                break;
+                
+            case 'b':
+                frag_length_sample_size = atoi(optarg);
                 break;
                 
             case 'v':
@@ -374,6 +380,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (num_alt_alns <= 0) {
         cerr << "error:[vg mpmap] Number of alternate snarl paths (-a) set to " << num_alt_alns << ", must set to a positive integer." << endl;
+        exit(1);
+    }
+    
+    if (frag_length_sample_size <= 0) {
+        cerr << "error:[vg mpmap] Fragment length distribution sample size (-b) set to " << frag_length_sample_size << ", must set to a positive integer." << endl;
         exit(1);
     }
     
@@ -726,7 +737,7 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         else {
-            cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size << " unambiguous read pair mappings to estimate fragment length ditribution. Mapping read pairs as independent single ended reads." << endl;
+            cerr << "warning:[vg mpmap] Could not find " << frag_length_sample_size << " unambiguous read pair mappings to estimate fragment length ditribution. Mapping read pairs as independent single ended reads. Consider decreasing sample size (-b)." << endl;
             
             // force reversion to multithreaded mode
             multipath_mapper.abandon_fragment_length_distr();

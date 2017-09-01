@@ -253,7 +253,7 @@ namespace vg {
                     optimal_alignment(multipath_aln_1, optimal_aln_1);
                     optimal_alignment(multipath_aln_2, optimal_aln_2);
                     pos_t pos_1 = initial_position(optimal_aln_1.path());
-                    pos_t pos_2 = initial_position(optimal_aln_2.path());
+                    pos_t pos_2 = final_position(optimal_aln_2.path());
                     
                     int64_t fragment_length = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                                             id(pos_2), offset(pos_2), is_rev(pos_2));
@@ -314,14 +314,14 @@ namespace vg {
         if (adjust_alignments_for_base_quality) {
             OrientedDistanceClusterer clusterer1(alignment1, mems1, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
             OrientedDistanceClusterer clusterer2(alignment2, mems2, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
-            clusters1 = clusterer1.clusters(max_mapping_quality);
-            clusters2 = clusterer2.clusters(max_mapping_quality);
+            clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
             OrientedDistanceClusterer clusterer1(alignment1, mems1, *regular_aligner, xindex, max_expected_dist_approx_error);
             OrientedDistanceClusterer clusterer2(alignment2, mems2, *regular_aligner, xindex, max_expected_dist_approx_error);
-            clusters1 = clusterer1.clusters(max_mapping_quality);
-            clusters2 = clusterer2.clusters(max_mapping_quality);
+            clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
+            clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
         // extract graphs around the clusters and get the assignments of MEMs to these graphs
@@ -342,11 +342,12 @@ namespace vg {
         }
         
         // Chebyshev bound for 99% of all fragments
-        size_t max_separation = (size_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
+        int64_t max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
+        int64_t min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
         
         // Compute the pairs of cluster graphs
         vector<pair<size_t, size_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(cluster_mems_1, cluster_mems_2,
-                                                                                              xindex, max_separation);
+                                                                                              xindex, min_separation, max_separation);
 #ifdef debug_multipath_mapper
         cerr << "obtained cluster pairs:" << endl;
         for (int i = 0; i < cluster_pairs.size(); i++) {
@@ -807,8 +808,8 @@ namespace vg {
 #endif
         
         // prune this graph down the paths that have reasonably high likelihood
-        multi_aln_graph.prune_to_high_scoring_paths(adjust_alignments_for_base_quality ? *((BaseAligner*) qual_adj_aligner)
-                                                                                       : *((BaseAligner*) regular_aligner),
+        multi_aln_graph.prune_to_high_scoring_paths(alignment, adjust_alignments_for_base_quality ? *((BaseAligner*) qual_adj_aligner)
+                                                                                                  : *((BaseAligner*) regular_aligner),
                                                     max_suboptimal_path_score_diff, topological_order);
         
 #ifdef debug_multipath_mapper
@@ -3520,8 +3521,8 @@ namespace vg {
         }
     }
     
-    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const BaseAligner& aligner, int32_t max_suboptimal_score_diff,
-                                                              const vector<size_t>& topological_order) {
+    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner& aligner,
+                                                              int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order) {
         
         if (match_nodes.empty()) {
             return;
@@ -3531,10 +3532,14 @@ namespace vg {
 
         vector<int32_t> node_weights(match_nodes.size());
     
+        // TODO: is the lower bound too strict?
+        
         // compute the weight of edges and node matches
         for (size_t i = 0; i < match_nodes.size(); i++) {
             ExactMatchNode& from_node = match_nodes[i];
-            node_weights[i] = aligner.match * (from_node.end - from_node.begin);
+            node_weights[i] = aligner.match * (from_node.end - from_node.begin)
+                              + aligner.full_length_bonus * ((from_node.begin == alignment.sequence().begin())
+                                                             + (from_node.end == alignment.sequence().end()));
             
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 ExactMatchNode& to_node = match_nodes[edge.first];

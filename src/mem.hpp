@@ -232,9 +232,11 @@ public:
      * are in opposite orientations (as would be expected of read pairs) and
      * within the specified distance.
      */
-    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& our_clusters,
-        const vector<cluster_t*>& their_clusters, xg::XG* xgindex,
-        size_t max_inter_cluster_distance);
+    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& left_clusters,
+                                                      const vector<cluster_t*>& right_clusters,
+                                                      xg::XG* xgindex,
+                                                      int64_t min_inter_cluster_distance,
+                                                      int64_t max_inter_cluster_distance);
     
     //static size_t PRUNE_COUNTER;
     //static size_t CLUSTER_TOTAL;
@@ -282,7 +284,8 @@ private:
     static vector<unordered_map<size_t, int64_t>> flatten_distance_tree(size_t num_items,
         const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists);
     
-    /// Fills the tail score fields in nodes
+    /// Returns a vector containing the number of SMEM beginnings to the left and the number of SMEM
+    /// endings to the right of each read position
     vector<pair<size_t, size_t>> compute_tail_mem_coverage(const Alignment& alignment,
                                                            const vector<MaximalExactMatch>& mems);
     

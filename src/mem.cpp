@@ -684,35 +684,6 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     continue;
                 }
                 
-//                int32_t edge_score;
-//                if (between_length < 0) {
-//                    // the MEMs overlap, but this can occur in some insertions and deletions
-//                    // because the SMEM algorithm is "greedy" in taking up as much of the read
-//                    // as possible
-//                    // we can check if this happened directly, but it's expensive
-//                    // so for now we just give it the benefit of the doubt but adjust the edge
-//                    // score so that the matches don't get double counted
-//                    
-//                    int64_t extra_dist = max<int64_t>(0, gap_length);
-//                    
-//                    edge_score = -match_score * between_length
-//                                 + (extra_dist ? -(extra_dist - 1) * gap_extension_score - gap_open_score : 0);
-//                }
-//                else if (between_length > graph_dist) {
-//                    // the read length in between the MEMs is longer than the distance, suggesting a read insert
-//                    edge_score = -mismatch_score * graph_dist - (gap_length - 1) * gap_extension_score
-//                                 - gap_open_score;
-//                }
-//                else if (between_length < graph_dist) {
-//                    // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-//                    edge_score = -mismatch_score * between_length - (gap_length - 1) * gap_extension_score
-//                                 - gap_open_score;
-//                }
-//                else {
-//                    // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-//                    edge_score = -mismatch_score * between_length;
-//                }
-                
                 int32_t edge_score;
                 // TODO: there's an asymmetry here, should I also be checking for graph overlaps and adjusting them down?
                 if (between_length < 0) {
@@ -1225,14 +1196,6 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::compute_tail_mem_coverag
 #endif
     
     return mem_tail_coverage;
-//    int32_t match = aligner ? aligner->match : qual_adj_aligner->match;
-//    int32_t mismatch = aligner ? aligner->mismatch : qual_adj_aligner->mismatch;
-//    for (ODNode& node : nodes) {
-//        size_t min_mismatches_left = mem_tail_coverage[node.mem->begin - alignment.sequence().begin()].first;
-//        size_t min_mismatches_right = mem_tail_coverage[node.mem->end - alignment.sequence().begin()].second;
-//        node.left_tail_score = ((node.mem->begin - alignment.sequence().begin()) - min_mismatches_left) * match - min_mismatches_left * mismatch;
-//        node.right_tail_score = ((alignment.sequence().end() - node.mem->end) - min_mismatches_right) * match - min_mismatches_right * mismatch;
-//    }
 }
 
 void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
@@ -1479,29 +1442,29 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     return std::move(to_return);
 }
 
-vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& our_clusters,
-    const vector<cluster_t*>& their_clusters, xg::XG* xgindex, size_t max_inter_cluster_distance) {
+vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& left_clusters,
+                                                                      const vector<cluster_t*>& right_clusters,
+                                                                      xg::XG* xgindex,
+                                                                      int64_t min_inter_cluster_distance,
+                                                                      int64_t max_inter_cluster_distance) {
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
     vector<pair<size_t, size_t>> to_return;
     
     // We think of the clusters as a single linear ordering, with our clusters coming first.
-    size_t total_clusters = our_clusters.size() + their_clusters.size();
+    size_t total_clusters = left_clusters.size() + right_clusters.size();
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
     unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, xgindex,
         [&](size_t cluster_num) {
             // Get the position that stands in for each cluster. Should reverse the strand for clusters from the other clusterer.
-            if (cluster_num < our_clusters.size()) {
+            // Assumes the clusters are nonempty.
+            if (cluster_num < left_clusters.size()) {
                 // Grab the pos_t for the first thing in the cluster.
-                // Assumes ther cluster is nonempty.
-                return our_clusters[cluster_num]->front().second;
+                return left_clusters[cluster_num]->front().second;
             } else {
                 // Grab the pos_t for this cluster from the other clusterer.
-                pos_t their_pos = their_clusters[cluster_num - our_clusters.size()]->front().second;
-                // Reverse it so that it appears to be on the same strand as consistent clusters from this clusterer.
-                // TODO: won't this make us look at the outside sides of the clusters and not the left sides?
-                return reverse(their_pos, xgindex->node_length(get_id(their_pos)));
+                return right_clusters[cluster_num - left_clusters.size()]->back().second;
             }
         });
         
@@ -1513,14 +1476,13 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
         
         // The linear space may run forward or reverse relative to our read.
         
-        
         // This will hold pairs of relative position and cluster number
         vector<pair<int64_t, size_t>> sorted_pos;
         for (auto& cluster_and_pos : linear_space) {
             // Flip each pair around and put it in the list to sort.
             sorted_pos.emplace_back(cluster_and_pos.second, cluster_and_pos.first);
         }
-        // Sort the list ascending by the forst item (relative position)
+        // Sort the list ascending by the first item (relative position)
         std::sort(sorted_pos.begin(), sorted_pos.end());
         
         // Now scan for opposing pairs within the distance limit.
@@ -1532,42 +1494,31 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
         size_t window_start = 0;
         size_t window_last = 0;
         
-        while (window_last + 1 < sorted_pos.size()) {
-            // We can add another thing to the window.
-            window_last++;
+        for (size_t i = 0; i < sorted_pos.size(); i++) {
+            // we're looking for left to right connections, so don't start from the right
+            if (sorted_pos[i].second >= left_clusters.size()) {
+                continue;
+            }
             
-            // Grab the position of the item we just added
-            auto window_last_pos = sorted_pos[window_last].first;
+            // the interval of linearized coordinates we want to form pairs to
+            int64_t coord_interval_start = sorted_pos[i].first + min_inter_cluster_distance;
+            int64_t coord_interval_end = sorted_pos[i].first + max_inter_cluster_distance;
             
-            while (window_last_pos - sorted_pos[window_start].first > max_inter_cluster_distance) {
-                // While the new thing would make the window too big, eject stuff.
-                // We'll always eventually hit window_last.
+            // move the window bounds forward until it's inside the coordinate interval
+            while (window_start < sorted_pos.size() ? sorted_pos[window_start].first < coord_interval_start : false) {
                 window_start++;
             }
+            while (window_last + 1 < sorted_pos.size() ? sorted_pos[window_last + 1].first < coord_interval_end : false) {
+                window_last++;
+            }
             
-            for (size_t i = window_start; i < window_last; i++) {
-                // Now compare the last item against everything remaining that isn't it.
-                
-                // Get their numbers
-                size_t cluster_a = sorted_pos[i].second;
-                size_t cluster_b = sorted_pos[window_last].second;
-                
-                if (cluster_b < cluster_a) {
-                    // Make sure A is the lower-number cluster.
-                    swap(cluster_a, cluster_b);
+            // add each pair of clusters that's from the two read ends to the return value
+            for (size_t j = window_start; j <= window_last; j++) {
+                if (sorted_pos[j].second >= left_clusters.size()) {
+                    to_return.emplace_back(sorted_pos[i].second, sorted_pos[j].second - left_clusters.size());
                 }
-                
-                if (cluster_a < our_clusters.size() && cluster_b >= our_clusters.size()) {
-                    // cluster A is ours and cluster B is from the other clusterer.
-                    
-                    // Spit out these clusters as a pair
-                    to_return.emplace_back(cluster_a, cluster_b - our_clusters.size());
-                }
-                
-                
             }
         }
-        
     }
     
     return to_return;
