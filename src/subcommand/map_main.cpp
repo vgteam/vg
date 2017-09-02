@@ -31,6 +31,7 @@ void help_map(char** argv) {
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
+         << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
@@ -47,7 +48,6 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
-         << "    -m, --include-bonuses   include bonuses in reported scores" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -114,7 +114,7 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
-    bool strip_bonuses = true;
+    bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
     int min_multimaps = 16;
@@ -143,6 +143,7 @@ int main_map(int argc, char** argv) {
     bool fixed_fragment_model = false;
     bool print_fragment_model = false;
     int fragment_model_update = 10;
+    bool acyclic_graph = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -192,7 +193,7 @@ int main_map(int argc, char** argv) {
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
-                {"include-bonuses", no_argument, 0, 'm'},
+                {"acyclic-graph", no_argument, 0, 'm'},
                 {"seed-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-overlap", required_argument, 0, 'n'},
@@ -264,7 +265,7 @@ int main_map(int argc, char** argv) {
             break;
         
         case 'm':
-            strip_bonuses = false;
+            acyclic_graph = true;
             break;
 
         case 'T':
@@ -633,6 +634,7 @@ int main_map(int argc, char** argv) {
         m->mate_rescues = mate_rescues;
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         m->identity_weight = identity_weight;
+        m->assume_acyclic = acyclic_graph;
         mapper[i] = m;
     }
 

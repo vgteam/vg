@@ -862,6 +862,8 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
                     Aligner* aligner,
+                    bool traceback = true,
+                    bool acyclic = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
@@ -875,6 +877,8 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
+                    bool traceback = true,
+                    bool acyclic = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
@@ -888,6 +892,8 @@ public:
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
+                    bool traceback = true,
+                    bool acyclic = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
@@ -900,6 +906,8 @@ public:
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
+                    bool traceback = true,
+                    bool acyclic = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,
@@ -914,6 +922,8 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner* qual_adj_aligner,
+                                  bool traceback = true,
+                                  bool acyclic = false,
                                   size_t max_query_graph_ratio = 0,
                                   bool pinned_alignment = false,
                                   bool pin_left = false,
@@ -927,6 +937,8 @@ public:
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner* qual_adj_aligner,
+                                  bool traceback = true,
+                                  bool acyclic = false,
                                   size_t max_query_graph_ratio = 0,
                                   bool pinned_alignment = false,
                                   bool pin_left = false,
@@ -1222,6 +1234,8 @@ private:
     Alignment align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
+                    bool traceback = true,
+                    bool acyclic = false,
                     size_t max_query_graph_ratio = 0,
                     bool pinned_alignment = false,
                     bool pin_left = false,

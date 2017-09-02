@@ -184,6 +184,7 @@ public:
     int hit_max;       // ignore or MEMs with more than this many hits
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores
+    bool assume_acyclic; // the indexed graph is acyclic
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
@@ -284,6 +285,7 @@ private:
     Alignment align_to_graph(const Alignment& aln,
                              VG& vg,
                              size_t max_query_graph_ratio,
+                             bool traceback,
                              bool pinned_alignment = false,
                              bool pin_left = false,
                              bool global = false);
@@ -407,11 +409,11 @@ public:
     // helper to cluster subgraph
     void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
-    Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems);
+    Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback);
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool traceback, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

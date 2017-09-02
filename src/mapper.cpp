@@ -24,7 +24,8 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , adjust_alignments_for_base_quality(false)
     , mapping_quality_method(Approx)
     , max_mapping_quality(60)
-    , strip_bonuses(true)
+    , strip_bonuses(false)
+    , assume_acyclic(false)
 {
     init_aligner(default_match, default_mismatch, default_gap_open,
                  default_gap_extension, default_full_length_bonus);
@@ -1362,6 +1363,7 @@ double Mapper::graph_entropy(void) {
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  VG& vg,
                                  size_t max_query_graph_ratio,
+                                 bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global) {
@@ -1370,6 +1372,8 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         //aligner.align_global_banded(aln, graph.graph, band_padding);
         return vg.align(aln,
                         regular_aligner,
+                        traceback,
+                        assume_acyclic,
                         max_query_graph_ratio,
                         pinned_alignment,
                         pin_left,
@@ -1379,6 +1383,8 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
     } else {
         return vg.align_qual_adjusted(aln,
                                       qual_adj_aligner,
+                                      traceback,
+                                      assume_acyclic,
                                       max_query_graph_ratio,
                                       pinned_alignment,
                                       pin_left,
@@ -1455,7 +1461,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     read2.clear_path();
     read2.set_score(0);
 
-    read2 = align_to_graph(read2, *graph, max_query_graph_ratio);
+    read2 = align_to_graph(read2, *graph, max_query_graph_ratio, true);
     delete graph;
 }
 
@@ -1628,7 +1634,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     if (rescue_off_first) {
         bool flip = !mate1.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate1.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
-        Alignment aln2 = align_maybe_flip(mate2, graph, flip);
+        Alignment aln2 = align_maybe_flip(mate2, graph, flip, true);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -1644,7 +1650,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
     } else if (rescue_off_second) {
         bool flip = !mate2.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
             || mate2.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
-        Alignment aln1 = align_maybe_flip(mate1, graph, flip);
+        Alignment aln1 = align_maybe_flip(mate1, graph, flip, true);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -2146,7 +2152,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = align_cluster(read1, cluster1);
+            p.first = align_cluster(read1, cluster1, false);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -2154,7 +2160,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = align_cluster(read2, cluster2);
+            p.second = align_cluster(read2, cluster2, false);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -2692,7 +2698,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         if (to_drop.count(&cluster) && alns.size() >= min_multimaps) continue;
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
-        Alignment candidate = align_cluster(aln, cluster);
+        Alignment candidate = align_cluster(aln, cluster, alns.size() == 0);
         string sig = signature(candidate);
         
 #ifdef debug_mapper
@@ -2705,7 +2711,8 @@ Mapper::align_mem_multi(const Alignment& aln,
         }
 #endif
         
-        if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
+        //if (candidate.identity() > min_identity && !seen_alignments.count(sig)) {
+        if (!seen_alignments.count(sig)) {
             alns.push_back(candidate);
             seen_alignments.insert(sig);
         }
@@ -2737,38 +2744,63 @@ Mapper::align_mem_multi(const Alignment& aln,
         }
     }
 #endif
+
+    vector<Alignment*> aln_ptrs;
+    map<Alignment*, int> aln_index;
+    int idx = 0;
+    for (auto& aln : alns) {
+        aln_ptrs.push_back(&aln);
+        aln_index[&aln] = idx++;
+    }
     // sort alignments by score
     // then by complexity (measured as number of edit operations)
-    std::sort(alns.begin(), alns.end(),
-              [&](const Alignment& a1, const Alignment& a2) {
-                  return a1.score() > a2.score()
-                      || a1.score() == a2.score()
-                      && edit_count(a1) > edit_count(a2);
+    std::sort(aln_ptrs.begin(), aln_ptrs.end(),
+              [&](Alignment* a1, Alignment* a2) {
+                  return a1->score() > a2->score()
+                      || a1->score() == a2->score()
+                      && edit_count(*a1) > edit_count(*a2);
               });
     // remove likely perfect duplicates
-    alns.erase(
+    aln_ptrs.erase(
         std::unique(
-            alns.begin(), alns.end(),
-            [&](const Alignment& aln1,
-                const Alignment& aln2) {
+            aln_ptrs.begin(), aln_ptrs.end(),
+            [&](Alignment* aln1,
+                Alignment* aln2) {
                 return
-                    aln1.score() == aln2.score()
-                    && (aln1.score() == 0
-                        || make_pos_t(aln1.path().mapping(0).position())
-                        == make_pos_t(aln2.path().mapping(0).position()));
+                    aln1->score() == aln2->score()
+                    && (aln1->score() == 0
+                        || make_pos_t(aln1->path().mapping(0).position())
+                        == make_pos_t(aln2->path().mapping(0).position()));
             }),
-        alns.end());
-    // second round of sorting and deduplication
-    alns = score_sort_and_deduplicate_alignments(alns, aln);
-    // and finally, compute the mapping quality
+        aln_ptrs.end());
+    // compute the mapping quality
     compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
-    // prune to max_multimaps
-    filter_and_process_multimaps(alns, keep_multimaps);
+    // get the traceback alignments of the alignments to keep
+    if (alns.size()) {
+        // save the mapping quality
+        double mq = alns.front().mapping_quality();
+        vector<Alignment> best_alns;
+        for (int i = 0; i < keep_multimaps; ++i) {
+            Alignment* alnp = aln_ptrs[i];
+            // only realign if we haven't yet
+            if (alignment_to_length(*alnp)) {
+                auto& cluster = clusters[aln_index[alnp]];
+                Alignment candidate = align_cluster(aln, cluster, true);
+                best_alns.push_back(candidate);
+            }
+        }
+        // second round of sorting and deduplication
+        alns = score_sort_and_deduplicate_alignments(best_alns, aln);
+        // prune to max_multimaps
+        filter_and_process_multimaps(alns, keep_multimaps);
+        // set the mq
+        alns.front().set_mapping_quality(mq);
+    }
 
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool traceback, bool banded_global) {
     Alignment aln = base;
     if (flip) {
         aln.set_sequence(reverse_complement(base.sequence()));
@@ -2788,13 +2820,14 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
     aln = align_to_graph(aln,
                          graph,
                          max_query_graph_ratio,
+                         traceback,
                          pinned_alignment,
                          pinned_reverse,
                          banded_global);
                          
     
                          
-    if (strip_bonuses && !banded_global) {
+    if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
         
         // Find the right aligner to do that with
@@ -2804,7 +2837,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
         
         aln.set_score(aligner->remove_bonuses(aln));
     }
-    if (flip) {
+    if (flip && traceback) {
         aln = reverse_complement_alignment(
             aln,
             (function<int64_t(int64_t)>) ([&](int64_t id) {
@@ -2832,7 +2865,7 @@ double Mapper::compute_uniqueness(const Alignment& aln, const vector<MaximalExac
     return repeated / aln.sequence().length();
 }
 
-Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
+Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback) {
     // poll the mems to see if we should flip
     int count_fwd = 0, count_rev = 0;
     for (auto& mem : mems) {
@@ -2849,10 +2882,10 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     Alignment aln_fwd;
     Alignment aln_rev;
     if (count_fwd) {
-        aln_fwd = align_maybe_flip(aln, graph, false);
+        aln_fwd = align_maybe_flip(aln, graph, false, traceback);
     }
     if (count_rev) {
-        aln_rev = align_maybe_flip(aln, graph, true);
+        aln_rev = align_maybe_flip(aln, graph, true, traceback);
     }
     // TODO check if we have soft clipping on the end of the graph and if so try to expand the context
     if (aln_fwd.score() + aln_rev.score() == 0) {
@@ -3687,7 +3720,7 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_m
     if (alns.empty()) return;
     double max_mq = min(mq_cap, (double)max_mapping_quality);
     BaseAligner* aligner = (alns.front().quality().empty() ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner);
-    int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
+    int sub_overlaps = 0; //sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_mapping_quality(alns, max_mq, true, cluster_mq, use_cluster_mq, sub_overlaps, mq_estimate, identity_weight);
@@ -4499,8 +4532,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // at the mappings, which of the orientations will correspond to the one the
     // alignment is actually in.
 
-    auto surjection_forward = align_to_graph(surjection, graph, max_query_graph_ratio);
-    auto surjection_reverse = align_to_graph(surjection_rc, graph, max_query_graph_ratio);
+    auto surjection_forward = align_to_graph(surjection, graph, max_query_graph_ratio, true);
+    auto surjection_reverse = align_to_graph(surjection_rc, graph, max_query_graph_ratio, true);
 
 #ifdef debug_mapper
 #pragma omp critical (cerr)

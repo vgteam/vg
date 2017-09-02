@@ -784,11 +784,10 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                            nt_table, score_matrix,
                            gap_open, gap_extension, full_length_bonus,
                            pinned ? 0 : full_length_bonus, 15, 2, traceback_aln);
-    assert(traceback_aln);
+
     // traceback either from pinned position or optimal local alignment
     if (traceback_aln) {
         if (pinned) {
-            // trace back pinned alignment
             // trace back pinned alignment
             gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
                                                                            max_alt_alns,
@@ -897,7 +896,12 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             gssw_graph_mapping_destroy(gm);
         }
     } else {
-        assert(false);
+        // get the alignment position and score
+        alignment.set_score(graph->max_node->alignment->score1);
+        Mapping* m = alignment.mutable_path()->add_mapping();
+        Position* p = m->mutable_position();
+        p->set_node_id(graph->max_node->id);
+        //p->set_offset(graph->max_node->alignment->ref_end1); // mark end position; for de-duplication
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);

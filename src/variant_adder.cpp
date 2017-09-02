@@ -495,11 +495,11 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         // Do the alignment in both orientations
         
         // Align in the forward orientation using banded global aligner, unrolling for large deletions.
-        aln = graph.align(to_align, &aligner, 0, false, false, true, 0, max_span);
+        aln = graph.align(to_align, &aligner, true, false, 0, false, false, true, 0, max_span);
         // Align in the reverse orientation using banded global aligner, unrolling for large deletions.
         // TODO: figure out which way our reference path goes through our subgraph and do half the work.
         // Note that if we have reversing edges and a lot of unrolling, we might get the same alignment either way.
-        Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
+        Alignment aln2 = graph.align(reverse_complement(to_align), &aligner, true, false,
             0, false, false, true, 0, max_span);
         
         // Note that the banded global aligner doesn't fill in identity.
@@ -562,9 +562,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
         
         // Do the two pinned tail alignments on the forward strand, pinning
         // opposite ends.
-        Alignment aln_left = left_subgraph.align(left_tail, &aligner,
+        Alignment aln_left = left_subgraph.align(left_tail, &aligner, true, false,
             0, true, true, false, 0, max_span);
-        Alignment aln_right = right_subgraph.align(right_tail, &aligner,
+        Alignment aln_right = right_subgraph.align(right_tail, &aligner, true, false,
             0, true, false, false, 0, max_span);
                 
         if (aln_left.path().mapping_size() < 1 ||
@@ -590,7 +590,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             // edge, and we keep getting the same alignment arbitrarily no
             // matter how we flip the sequence to align?
             aln_left = reverse_complement_alignment(left_subgraph.align(reverse_complement(left_tail), &aligner,
-                0, true, false, false, 0, max_span), node_length_function);
+                                                                        true, false, 0, true, false, false, 0, max_span), node_length_function);
                 
         }
         
@@ -629,7 +629,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             // edge, and we keep getting the same alignment arbitrarily no
             // matter how we flip the sequence to align?
             aln_right = reverse_complement_alignment(right_subgraph.align(reverse_complement(right_tail), &aligner,
-                0, true, true, false, 0, max_span), node_length_function);
+                                                                          true, false, 0, true, true, false, 0, max_span), node_length_function);
         }
         
         // Rescore the alignments as if N/N substitutions are matches so that we
@@ -674,9 +674,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 
                     // Throw it into the aligner with very restrictive banding to see if it's already basically present
                     aln = graph.align(to_align, &aligner,
-                        0, false, false, true, large_alignment_band_padding, max_span);
+                                      true, false, 0, false, false, true, large_alignment_band_padding, max_span);
                     Alignment aln2 = graph.align(reverse_complement(to_align), &aligner,
-                        0, false, false, true, large_alignment_band_padding, max_span);
+                                                 true, false, 0, false, false, true, large_alignment_band_padding, max_span);
                     if (aln2.score() > aln.score()) {
                         // The reverse alignment is better. But spit it back in the
                         // forward orientation.

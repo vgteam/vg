@@ -179,7 +179,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus);
-        alignment = graph->align(seq, &aligner, 0, pinned_alignment, pin_left,
+        alignment = graph->align(seq, &aligner, true, false, 0, pinned_alignment, pin_left,
             banded_global, 0, max(seq.size(), graph->length()), debug);
         
         if (strip_bonuses) {
