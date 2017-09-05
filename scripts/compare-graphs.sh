@@ -10,7 +10,7 @@ GRAPH_NAMES=( snp1kg primary )
 REGION_NAME="BRCA1"
 
 # What cluster should we use?
-CLUSTER_NAME="novakcluster"
+CLUSTER_NAME="novakcluster2"
 # What keypair should we set it up with?
 KEYPAIR_NAME="anovak"
 
@@ -50,12 +50,15 @@ TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:latest toil launch-cluster "${CLUSTER_
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt update
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt install git -y
 
-toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" pip install git+https://github.com/adamnovak/toil-vg.git@2fae08f2cdb86e689244e33cf8a6705b01f42a6c#egg=toil-vg[aws,mesos]
+# For hot deployment to work, toil-vg needs to be in a virtualenv that can see the system Toil
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" virtualenv --system-site-packages venv
+
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install git+https://github.com/adamnovak/toil-vg.git@2fae08f2cdb86e689244e33cf8a6705b01f42a6c
 
 # We need the master's IP to make Mesos go
 MASTER_IP="$(toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" hostname -i)"
 
-toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" toil-vg mapeval \
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
