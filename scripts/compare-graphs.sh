@@ -9,20 +9,30 @@ GRAPH_NAMES=( snp1kg primary )
 # And the region to run
 REGION_NAME="BRCA1"
 
-# What cluster should we use?
-CLUSTER_NAME="novakcluster2"
-# What keypair should we set it up with?
+# What keypair should we set up our cluster with?
 KEYPAIR_NAME="anovak"
 
 # Where do we keep our input files
 INPUT_STORE="https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff"
 
+# What path do we want to dump our output in on the local machine?
+OUTPUT_PATH="./out"
+
+# What's our unique run ID? Should be lower-case and start with a letter for maximum compatibility.
+# See <https://gist.github.com/earthgecko/3089509>
+RUN_ID="run$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 32 | head -n 1)"
+
+# What cluster should we use?
+CLUSTER_NAME="${RUN_ID}"
+
 # Where do we save our results from the various jobs responsible for writing them?
-OUTPUT_STORE="aws:us-west-2:cgl-pipeline-inputs/vg_cgl/comparison-script/run"
-OUTPUT_STORE_URL="s3://cgl-pipeline-inputs/vg_cgl/comparison-script/run"
+OUTPUT_STORE="aws:us-west-2:cgl-pipeline-inputs/vg_cgl/comparison-script/runs/${RUN_ID}"
+OUTPUT_STORE_URL="s3://cgl-pipeline-inputs/vg_cgl/comparison-script/runs/${RUN_ID}"
 
 # Where do we store our jobs?
-JOB_TREE="aws:us-west-2:amntree1"
+JOB_TREE="aws:us-west-2:${RUN_ID}"
+
+echo "Running run ${RUN_ID}"
 
 function get_input_url() {
     # Prints the input URL to download for the given file name
@@ -75,7 +85,7 @@ toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg
     --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --nodeType=t2.large
     
 mkdir -p ./out
-aws s3 sync "${OUTPUT_STORE_URL}" ./out
+aws s3 sync "${OUTPUT_STORE_URL}" "${OUTPUT_PATH}"
 aws s3 rm --recursive "${OUTPUT_STORE_URL}"
 
 toil clean "${JOB_TREE}"
