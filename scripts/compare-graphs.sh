@@ -44,7 +44,7 @@ for GRAPH_STEM in "${GRAPH_NAMES[@]}"; do
     GRAPH_URLS+=(`get_graph_url "${GRAPH_STEM}"`)
 done
 
-TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:latest toil launch-cluster "${CLUSTER_NAME}" --nodeType=t2.micro -z us-west-2a "--keyPairName=${KEYPAIR_NAME}"
+TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:latest toil launch-cluster "${CLUSTER_NAME}" --nodeType=t2.medium -z us-west-2a "--keyPairName=${KEYPAIR_NAME}"
 
 # We need to manually install git to make pip + git work...
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt update
@@ -53,6 +53,9 @@ toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt install git 
 # For hot deployment to work, toil-vg needs to be in a virtualenv that can see the system Toil
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" virtualenv --system-site-packages venv
 
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install numpy
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scipy
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scikit-learn
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install git+https://github.com/adamnovak/toil-vg.git@2fae08f2cdb86e689244e33cf8a6705b01f42a6c
 
 # We need the master's IP to make Mesos go
