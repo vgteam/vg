@@ -173,10 +173,10 @@ void XG::load(istream& in) {
                 i_iv.load(in);
                 r_iv.load(in);
 
-                g_civ.load(in);
+                g_iv.load(in);
                 g_cbv.load(in);
-                g_cbv_rank.load(in);
-                g_cbv_select.load(in);
+                g_cbv_rank.load(in, &g_cbv);
+                g_cbv_select.load(in, &g_cbv);
 
                 s_iv.load(in);
                 s_cbv.load(in);
@@ -444,7 +444,7 @@ size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string nam
     written += i_iv.serialize(out, child, "id_rank_vector");
     written += r_iv.serialize(out, child, "rank_id_vector");
 
-    written += g_civ.serialize(out, child, "graph_vector");
+    written += g_iv.serialize(out, child, "graph_vector");
     written += g_cbv.serialize(out, child, "graph_bit_vector");
     written += g_cbv_rank.serialize(out, child, "graph_bit_vector_rank");
     written += g_cbv_select.serialize(out, child, "graph_bit_vector_select");
@@ -841,8 +841,7 @@ void XG::build(map<id_t, string>& node_label,
         }
     }
 
-    // compress g_iv int g_civ
-    util::assign(g_civ, dac_vector<>(g_iv));
+    util::bit_compress(g_iv);
 
 // Prepare empty vectors for path indexing
 #ifdef VERBOSE_DEBUG
@@ -964,7 +963,7 @@ void XG::build(map<id_t, string>& node_label,
     
 
 #ifdef DEBUG_CONSTRUCTION
-    cerr << "|g_civ| = " << size_in_mega_bytes(g_civ) << endl;
+    cerr << "|g_iv| = " << size_in_mega_bytes(g_iv) << endl;
     cerr << "|g_cbv| = " << size_in_mega_bytes(g_cbv) << endl;
     cerr << "|s_iv| = " << size_in_mega_bytes(s_iv) << endl;
     cerr << "|f_iv| = " << size_in_mega_bytes(f_iv) << endl;
@@ -1025,8 +1024,8 @@ void XG::build(map<id_t, string>& node_label,
     if (print_graph) {
         cerr << "printing graph" << endl;
         // we have to print the relativistic graph manually because the default sdsl printer assumes unsigned integers are stored in it
-        for (size_t i = 0; i < g_civ.size(); ++i) {
-            cerr << " " << (int64_t)g_civ[i];
+        for (size_t i = 0; i < g_iv.size(); ++i) {
+            cerr << " " << (int64_t)g_iv[i];
         } cerr << endl;
         for (int64_t i = 0; i < i_iv.size(); ++i) {
             int64_t id = i_iv[i];
@@ -1038,18 +1037,18 @@ void XG::build(map<id_t, string>& node_label,
             int sequence_size = g_iv[g+1];
             cerr << id << " ";
             for (int64_t j = g+4; j < g+4+sequence_size; ++j) {
-                cerr << revdna3bit(g_civ[j]);
+                cerr << revdna3bit(g_iv[j]);
             } cerr << " : ";
             int64_t t = g + 4 + sequence_size;
             int64_t f = g + 4 + sequence_size + 2 * edges_to_count;
             cerr << " from ";
             for (int64_t j = t; j < f; ) {
-                cerr << i_iv[g_cbv_rank(g+g_civ[j])] << " ";
+                cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << "to ";
             for (int64_t j = f; j < f + 2 * edges_from_count; ) {
-                cerr << i_iv[g_cbv_rank(g+g_civ[j])] << " ";
+                cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << endl;
@@ -1425,15 +1424,15 @@ Edge XG::edge_from_encoding(int64_t from, int64_t to, int type) const {
 }
 
 void XG::idify_graph(Graph& graph) const {
-    // map into the id space; offsets in g_civ contain the actual ids
+    // map into the id space; offsets in gciv contain the actual ids
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
-        node->set_id(g_civ[node->id()]);
+        node->set_id(g_iv[node->id()]);
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* edge = graph.mutable_edge(i);
-        edge->set_from(g_civ[edge->from()]);
-        edge->set_to(g_civ[edge->to()]);
+        edge->set_from(g_iv[edge->from()]);
+        edge->set_to(g_iv[edge->to()]);
     }
 }
 
@@ -1452,7 +1451,7 @@ Graph XG::node_subgraph_g(int64_t g) const {
     string sequence; sequence.resize(sequence_size);
     int i = 0;
     for (int64_t j = g+4; j < g+4+sequence_size; ++j, ++i) {
-        sequence[i] = revdna3bit(g_civ[j]);
+        sequence[i] = revdna3bit(g_iv[j]);
     }
     Node* node = graph.add_node();
     node->set_sequence(sequence);
@@ -1460,13 +1459,13 @@ Graph XG::node_subgraph_g(int64_t g) const {
     int64_t t = g + 4 + sequence_size;
     int64_t f = g + 4 + sequence_size + 2 * edges_to_count;
     for (int64_t j = t; j < f; ) {
-        int64_t from = g+g_civ[j++];
-        int type = g_civ[j++];
+        int64_t from = g+g_iv[j++];
+        int type = g_iv[j++];
         *graph.add_edge() = edge_from_encoding(from, g, type);
     }
     for (int64_t j = f; j < f + 2 * edges_from_count; ) {
-        int64_t to = g+g_civ[j++];
-        int type = g_civ[j++];
+        int64_t to = g+g_iv[j++];
+        int type = g_iv[j++];
         *graph.add_edge() = edge_from_encoding(g, to, type);
     }
     return graph;

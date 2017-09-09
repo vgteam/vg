@@ -421,7 +421,7 @@ private:
     /// edges_from := { edge_from, ... }
     /// edge_to := { edge_type, offset_to_previous_node }
     /// edge_to := { edge_type, offset_to_next_node }
-    dac_vector<> g_civ;
+    //dac_vector<> g_civ;
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;

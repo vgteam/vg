@@ -2944,6 +2944,7 @@ void Mapper::cached_graph_context(VG& graph,
     return;
 }
 
+/*
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) {
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
@@ -2970,6 +2971,15 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     }
     graph.remove_orphan_edges();
     return graph;
+}
+*/
+
+VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) {
+    Graph graph = xindex->cluster_subgraph(aln, mems, expansion);
+    VG vg_graph;
+    vg_graph.extend(graph);
+    vg_graph.remove_orphan_edges();
+    return vg_graph;
 }
 
 VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
