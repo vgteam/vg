@@ -2903,7 +2903,11 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
 }
 
-void Mapper::cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+void Mapper::cached_graph_context(VG& graph,
+                                  const pos_t& pos,
+                                  int length,
+                                  LRUCache<id_t, Node>& node_cache,
+                                  LRUCache<id_t, vector<Edge> >& edge_cache) {
     // walk the graph from this position forward
     // adding the nodes we run into to the graph
     set<pos_t> seen;

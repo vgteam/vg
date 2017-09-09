@@ -37,7 +37,6 @@ namespace vg {
         // for construction
         // needed when constructing an alignable graph from the nodes
         gssw_graph* create_gssw_graph(Graph& g);
-        void topological_sort(list<gssw_node*>& sorted_nodes);
         void visit_node(gssw_node* node,
                         list<gssw_node*>& sorted_nodes,
                         set<gssw_node*>& unmarked_nodes,

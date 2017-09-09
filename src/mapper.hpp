@@ -14,11 +14,13 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
+#include "cached_position.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
 #include "gssw_aligner.hpp"
 #include "mem.hpp"
+#include "cluster.hpp"
 
 namespace vg {
 
