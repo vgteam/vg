@@ -4877,7 +4877,7 @@ void FragmentLengthDistribution::register_fragment_length(int64_t length) {
             }
             else if (lengths.size() % reestimation_frequency == 0) {
                 estimate_distribution();
-            };
+            }
         }
     }
 }
@@ -4907,7 +4907,7 @@ void FragmentLengthDistribution::estimate_distribution() {
         begin++;
         end--;
     }
-    // compute mean
+    // compute cumulants
     double count = 0.0;
     double sum = 0.0;
     double sum_of_sqs = 0.0;

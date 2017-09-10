@@ -1,4 +1,4 @@
- /**
+/**
  * \file mpmap_main.cpp: multipath mapping of reads to a graph
  */
 
@@ -49,8 +49,8 @@ void help_mpmap(char** argv) {
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
-    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [4.0]" << endl
-    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.5]" << endl
+    << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
+    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.33]" << endl
     << "  -R, --prune-ratio FLOAT   prune MEM anchors if their approximate likelihood is this ratio less than the optimal anchors [10000.0]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
@@ -93,7 +93,7 @@ int main_mpmap(int argc, char** argv) {
     int min_mem_length = 1;
     int reseed_length = 32;
     int reseed_diff = 8;
-    double cluster_ratio = 0.5;
+    double cluster_ratio = 0.33;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Approx;
@@ -101,7 +101,7 @@ int main_mpmap(int argc, char** argv) {
     int max_dist_error = 8;
     int num_alt_alns = 4;
     double suboptimal_path_ratio = 10000.0;
-    double likelihood_approx_exp = 4.0;
+    double likelihood_approx_exp = 6.5;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 3000;
@@ -711,19 +711,19 @@ int main_mpmap(int argc, char** argv) {
     
     // GAM input
     if (!gam_file_name.empty()) {
-        ifstream gam_in(gam_file_name);
-        if (!gam_in) {
-            cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
-            exit(1);
-        }
-        
-        if (interleaved_input) {
-            stream::for_each_interleaved_pair_parallel(gam_in, do_paired_alignments);
-        }
-        else {
-            stream::for_each_parallel(gam_in, do_unpaired_alignments);
-        }
-        gam_in.close();
+        function<void(istream&)> execute = [&](istream& gam_in) {
+            if (!gam_in) {
+                cerr << "error:[vg mpmap] Cannot open GAM file " << gam_file_name << endl;
+                exit(1);
+            }
+            if (interleaved_input) {
+                stream::for_each_interleaved_pair_parallel(gam_in, do_paired_alignments);
+            }
+            else {
+                stream::for_each_parallel(gam_in, do_unpaired_alignments);
+            }
+        };
+        get_input_file(gam_file_name, execute);
     }
 
     // take care of any read pairs that we couldn't map unambiguously before the fragment length distribution

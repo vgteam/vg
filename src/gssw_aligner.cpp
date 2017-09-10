@@ -669,10 +669,8 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
                 score -= mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
                 score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
-            } else if (edit_is_insertion(edit)
-                       && !((i == 0 && j == 0)
-                            || (i == path.mapping_size()-1
-                                && j == mapping.edit_size()-1))) {
+            } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
+                                                    (i == path.mapping_size()-1 && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
                 score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
             }
@@ -688,7 +686,6 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
             // Estimate the distance
             int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist > 0) {
-                cerr << "estimated dist between " << make_pos_t(last_pos) << " and " << make_pos_t(next_pos) << " at " << dist << endl;
                 // If it's nonzero, score it as a deletion gap
                 score -= gap_open + (dist - 1) * gap_extension;
             }

@@ -6,11 +6,16 @@
 
 //#define debug_multipath_mapper
 //#define debug_validate_multipath_alignments
+//#define debug_force_frag_distr
+
+#ifdef debug_force_frag_distr
+#define MEAN 997.063
+#define SD 72.7089
+#endif
 
 #include "multipath_mapper.hpp"
 
 namespace vg {
-    
     
     //size_t MultipathMapper::PRUNE_COUNTER = 0;
     //size_t MultipathMapper::SUBGRAPH_TOTAL = 0;
@@ -200,6 +205,7 @@ namespace vg {
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
         
+#ifndef debug_force_frag_distr
         if (!fragment_length_distr.is_finalized()) {
             // we have not estimated a fragment length distribution yet, so we revert to single ended mode and look
             // for unambiguous pairings
@@ -285,6 +291,7 @@ namespace vg {
             
             return;
         }
+#endif
         
         // the fragment length distribution has been estimated, so we can do full paired mode
     
@@ -330,6 +337,24 @@ namespace vg {
         query_cluster_graphs(alignment1, mems1, clusters1, cluster_graphs1);
         query_cluster_graphs(alignment2, mems2, clusters2, cluster_graphs2);
         
+#ifdef debug_multipath_mapper
+        cerr << "obtained independent clusters pairs:" << endl;
+        cerr << "read 1" << endl;
+        for (int i = 0; i < clusters1.size(); i++) {
+            cerr << "\tcluster " << i << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters1[i]) {
+                cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+            }
+        }
+        cerr << "read 2" << endl;
+        for (int i = 0; i < clusters2.size(); i++) {
+            cerr << "\tcluster " << i << endl;
+            for (pair<const MaximalExactMatch*, pos_t>  hit : clusters2[i]) {
+                cerr << "\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
+            }
+        }
+#endif
+        
         // make vectors of cluster pointers for the cluster clustering function
         vector<vector<pair<const MaximalExactMatch*, pos_t>>*> cluster_mems_1, cluster_mems_2;
         cluster_mems_1.resize(cluster_graphs1.size());
@@ -342,8 +367,15 @@ namespace vg {
         }
         
         // Chebyshev bound for 99% of all fragments
-        int64_t max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
-        int64_t min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
+#ifndef debug_force_frag_distr
+        double mean = fragment_length_distr.mean();
+        double stdev = fragment_length_distr.stdev();
+#else
+        double mean = MEAN;
+        double stdev = SD;
+#endif
+        int64_t max_separation = (int64_t) ceil(mean + 10.0 * stdev);
+        int64_t min_separation = (int64_t) mean - 10.0 * stdev;
         
         // Compute the pairs of cluster graphs
         vector<pair<size_t, size_t>> cluster_pairs = OrientedDistanceClusterer::pair_clusters(cluster_mems_1, cluster_mems_2,
@@ -351,7 +383,11 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "obtained cluster pairs:" << endl;
         for (int i = 0; i < cluster_pairs.size(); i++) {
-            cerr << "\tpair " << i << endl;
+            pos_t pos_1 = get<1>(cluster_graphs1[cluster_pairs[i].first]).front().second;
+            pos_t pos_2 = get<1>(cluster_graphs2[cluster_pairs[i].second]).back().second;
+            int64_t dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                         id(pos_2), offset(pos_2), is_rev(pos_2));
+            cerr << "\tpair "  << i << " at distance " << dist << endl;
             cerr << "\t\t read 1" << endl;
             for (pair<const MaximalExactMatch*, pos_t>  hit : get<1>(cluster_graphs1[cluster_pairs[i].first])) {
                 cerr << "\t\t\t" << hit.second << " " <<  hit.first->sequence() << endl;
