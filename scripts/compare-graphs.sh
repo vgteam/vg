@@ -3,16 +3,30 @@
 
 set -e
 
+# What toil-vg should we install?
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f737ddd68313fc9bb7f84046d2adb8e81b42a8e4"
+
+# What Toil should we use?
+TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.10.1
+
 usage() {
     # Print usage to stderr
     exec 1>&2
     printf "Usage: $0 [Options] OUTPUT_PATH KEYPAIR_NAME REGION_NAME GRAPH [GRAPH [GRAPH ...]] \n"
     printf "Options:\n\n"
+    printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
+    printf "\t-t CONTAINER\tUse the given Toil container in the cluster (default: ${TOIL_APPLIANCE_SELF}).\n"
     exit 1
 }
 
-while getopts "h" o; do
+while getopts "hp:t:" o; do
     case "${o}" in
+        p)
+            TOIL_VG_PACKAGE="${OPTARG}"
+            ;;
+        t)
+            TOIL_APPLIANCE_SELF="${OPTARG}"
+            ;;
         *)
             usage
             ;;
@@ -88,7 +102,7 @@ for GRAPH_STEM in "${GRAPH_NAMES[@]}"; do
     GRAPH_URLS+=(`get_graph_url "${GRAPH_STEM}"`)
 done
 
-TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:latest toil launch-cluster "${CLUSTER_NAME}" --nodeType=t2.medium -z us-west-2a "--keyPairName=${KEYPAIR_NAME}"
+TOIL_APPLIANCE_SELF="${TOIL_APPLIANCE_SELF}" toil launch-cluster "${CLUSTER_NAME}" --nodeType=t2.medium -z us-west-2a "--keyPairName=${KEYPAIR_NAME}"
 
 # We need to manually install git to make pip + git work...
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt update
@@ -100,7 +114,7 @@ toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" virtualenv --sys
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install numpy
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scipy
 toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scikit-learn
-toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install git+https://github.com/adamnovak/toil-vg.git@e5dfb2d17b8e3262938b0894847ed5f083a2ccd0
+toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install "${TOIL_VG_PACKAGE}"
 
 # We need the master's IP to make Mesos go
 MASTER_IP="$(toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" hostname -i)"
