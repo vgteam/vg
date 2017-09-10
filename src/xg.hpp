@@ -17,6 +17,7 @@
 #include "hash_map_set.hpp"
 #include "position.hpp"
 #include "mem.hpp"
+#include "graph.hpp"
 
 // We can have DYNAMIC or SDSL-based gPBWTs
 #define MODE_DYNAMIC 1
@@ -174,7 +175,7 @@ public:
     Graph node_subgraph_id(int64_t id) const;
     Graph node_subgraph_g(int64_t g) const;
     /// return a subgraph for a cluster of MEMs from the given alignment
-    Graph cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) const;
+    Graph cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803) const;
     /// provide the graph context up to a given length from the current position; step by nodes
     Graph graph_context_id(const pos_t& pos, int64_t length) const;
     Graph graph_context_g(const pos_t& pos, int64_t length) const;

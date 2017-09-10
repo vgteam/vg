@@ -52,6 +52,7 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 OBJ =
 OBJ += $(OBJ_DIR)/gssw_aligner.o
 OBJ += $(OBJ_DIR)/vg.o
+OBJ += $(OBJ_DIR)/graph.o
 OBJ += $(OBJ_DIR)/xg.o
 OBJ += $(OBJ_DIR)/index.o
 OBJ += $(OBJ_DIR)/mem.o
@@ -400,6 +401,8 @@ $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.h
 $(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(ALGORITHMS_SRC_DIR)/vg_algorithms.hpp $(DEPS)
 
 $(OBJ_DIR)/mem.o: $(SRC_DIR)/mem.cpp $(SRC_DIR)/mem.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(OBJ_DIR)/graph.o: $(SRC_DIR)/graph.cpp $(SRC_DIR)/graph.hpp $(DEPS)
 
 $(OBJ_DIR)/cluster.o: $(SRC_DIR)/cluster.cpp $(SRC_DIR)/cluster.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 

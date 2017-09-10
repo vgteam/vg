@@ -1361,36 +1361,66 @@ double Mapper::graph_entropy(void) {
 
 // todo add options for aligned global and pinned
 Alignment Mapper::align_to_graph(const Alignment& aln,
-                                 VG& vg,
+                                 Graph& graph,
                                  size_t max_query_graph_ratio,
                                  bool traceback,
                                  bool pinned_alignment,
                                  bool pin_left,
                                  bool banded_global) {
-    // check if we have a cached aligner for this thread
-    if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-        //aligner.align_global_banded(aln, graph.graph, band_padding);
-        return vg.align(aln,
-                        regular_aligner,
-                        traceback,
-                        assume_acyclic,
-                        max_query_graph_ratio,
-                        pinned_alignment,
-                        pin_left,
-                        banded_global,
-                        0, // band padding override
-                        aln.sequence().size());
+    // check if we need to make a vg graph to handle this graph
+    if (!is_id_sortable(graph) || has_inversion(graph)) {
+        VG vg;
+        vg.extend(graph);
+        if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+            return vg.align(aln,
+                            regular_aligner,
+                            traceback,
+                            assume_acyclic,
+                            max_query_graph_ratio,
+                            pinned_alignment,
+                            pin_left,
+                            banded_global,
+                            0, // band padding override
+                            aln.sequence().size());
+        } else {
+            return vg.align_qual_adjusted(aln,
+                                          qual_adj_aligner,
+                                          traceback,
+                                          assume_acyclic,
+                                          max_query_graph_ratio,
+                                          pinned_alignment,
+                                          pin_left,
+                                          banded_global,
+                                          0, // band padding override
+                                          aln.sequence().size());
+        }
     } else {
-        return vg.align_qual_adjusted(aln,
-                                      qual_adj_aligner,
-                                      traceback,
-                                      assume_acyclic,
-                                      max_query_graph_ratio,
-                                      pinned_alignment,
-                                      pin_left,
-                                      banded_global,
-                                      0, // band padding override
-                                      aln.sequence().size());
+        // we've got an id-sortable graph and we can directly align with gssw
+        Alignment aligned = aln;
+        if (banded_global) {
+            size_t max_span = aln.sequence().size();
+            size_t band_padding_override = 0;
+            bool permissive_banding = (band_padding_override == 0);
+            size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
+            if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+                regular_aligner->align_global_banded(aligned, graph, band_padding, false);
+            } else {
+                qual_adj_aligner->align_global_banded(aligned, graph, band_padding, false);
+            }
+        } else if (pinned_alignment) {
+            if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+                regular_aligner->align_pinned(aligned, graph, pin_left);
+            } else {
+                qual_adj_aligner->align_pinned(aligned, graph, pin_left);
+            }
+        } else {
+            if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
+                regular_aligner->align(aligned, graph, traceback, false);
+            } else {
+                qual_adj_aligner->align(aligned, graph, traceback, false);
+            }
+        }
+        return aligned;
     }
 }
 
@@ -1398,71 +1428,6 @@ Alignment Mapper::align(const string& seq, int kmer_size, int stride, int max_me
     Alignment aln;
     aln.set_sequence(seq);
     return align(aln, kmer_size, stride, max_mem_length, band_width);
-}
-
-// align read2 near read1's mapping location
-void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window) {
-    if (read1.score() == 0) return; // bail out if we haven't aligned the first
-    // try to recover in region
-    auto& path = read1.path();
-    int64_t idf = path.mapping(0).position().node_id();
-    int64_t idl = path.mapping(path.mapping_size()-1).position().node_id();
-    if(idf > idl) {
-        swap(idf, idl);
-    }
-    // but which way should we expand? this will make things much easier.
-    
-    // We'll look near the leftmost and rightmost nodes, but we won't try and
-    // bridge the whole area of the read, because there may be an ID
-    // discontinuity.
-    int64_t first = max((int64_t)0, idf - pair_window);
-    int64_t last = idl + (int64_t) pair_window;
-    
-    // Now make sure the ranges don't overlap, because if they do we'll
-    // duplicate nodes.
-    
-    // They can only overlap as idf on top of idl, since we swapped them above.
-    // TODO: account at all for orientation? Maybe our left end is in higher
-    // numbers but really does need to look left and not right.
-    if(idf >= idl) {
-        idf--;
-    }
-    
-    VG* graph = new VG;
-
-    if(debug) {
-        cerr << "Rescuing in " << first << "-" << idf << " and " << idl << "-" << last << endl;
-    }
-    
-    // TODO: how do we account for orientation when using ID ranges?
-
-    // Now we need to get the neighborhood by ID and expand outward by actual
-    // edges. How we do this depends on what indexing structures we have.
-    if(xindex) {
-        // should have callback here
-        xindex->get_id_range(first, idf, graph->graph);
-        xindex->get_id_range(idl, last, graph->graph);
-        
-        // don't get the paths (this isn't yet threadsafe in sdsl-lite)
-        xindex->expand_context(graph->graph, context_depth, false);
-        graph->rebuild_indexes();
-    } else {
-        cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
-        exit(1);
-    }
-
-
-    graph->remove_orphan_edges();
-    
-    if(debug) {
-        cerr << "Rescue graph size: " << graph->size() << endl;
-    }
-    
-    read2.clear_path();
-    read2.set_score(0);
-
-    read2 = align_to_graph(read2, *graph, max_query_graph_ratio, true);
-    delete graph;
 }
 
 map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, bool first_hit_only) {
@@ -1621,13 +1586,13 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score) {
 #endif
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
-    VG graph;
     int get_at_least = (!cached_fragment_length_mean ? fragment_max
                         : max((int)cached_fragment_length_stdev * 6 + mate1.sequence().size(),
                               mate1.sequence().size() * 4));
-    cached_graph_context(graph, mate_pos, get_at_least/2, node_cache, edge_cache);
-    cached_graph_context(graph, reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2, node_cache, edge_cache);
-    graph.remove_orphan_edges();
+    Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
+    graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
+    sort_by_id_dedup_and_clean(graph);
+    //graph.remove_orphan_edges();
     //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
@@ -2152,7 +2117,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = align_cluster(read1, cluster1, false);
+            p.first = align_cluster(read1, cluster1, true);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -2160,7 +2125,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = align_cluster(read2, cluster2, false);
+            p.second = align_cluster(read2, cluster2, true);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -2800,9 +2765,13 @@ Mapper::align_mem_multi(const Alignment& aln,
     return alns;
 }
 
-Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool traceback, bool banded_global) {
+Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global) {
     Alignment aln = base;
+    map<id_t, int64_t> node_length;
     if (flip) {
+        for (auto& node : graph.node()) {
+            node_length[node.id()] = node.sequence().size();
+        }
         aln.set_sequence(reverse_complement(base.sequence()));
         if (!base.quality().empty()) {
             aln.set_quality(base.quality());
@@ -2824,9 +2793,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
                          pinned_alignment,
                          pinned_reverse,
                          banded_global);
-                         
-    
-                         
+
     if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
         
@@ -2841,7 +2808,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, VG& graph, bool flip, 
         aln = reverse_complement_alignment(
             aln,
             (function<int64_t(int64_t)>) ([&](int64_t id) {
-                    return (int64_t)graph.get_node(id)->sequence().size();
+                    return node_length[id];
                 }));
     }
     return aln;
@@ -2877,7 +2844,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
         }
     }
     // get the graph
-    VG graph = cluster_subgraph(aln, mems);
+    Graph graph = xindex->cluster_subgraph(aln, mems);
     // and test each direction for which we have MEM hits
     Alignment aln_fwd;
     Alignment aln_rev;
@@ -2903,6 +2870,7 @@ Alignment Mapper::align_cluster(const Alignment& aln, const vector<MaximalExactM
     }
 }
 
+/*
 void Mapper::cached_graph_context(VG& graph,
                                   const pos_t& pos,
                                   int length,
@@ -2943,6 +2911,7 @@ void Mapper::cached_graph_context(VG& graph,
     graph.remove_orphan_edges();
     return;
 }
+*/
 
 /*
 VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) {
@@ -2973,14 +2942,6 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     return graph;
 }
 */
-
-VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion) {
-    Graph graph = xindex->cluster_subgraph(aln, mems, expansion);
-    VG vg_graph;
-    vg_graph.extend(graph);
-    vg_graph.remove_orphan_edges();
-    return vg_graph;
-}
 
 VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems) {
 #ifdef debug_mapper
@@ -4234,9 +4195,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         // reverse the position, we're going backwards to get the graph off the end of where we are
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
-                            VG graph;
                             pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
-                            cached_graph_context(graph, pos_rev, band.sequence().size(), node_cache, edge_cache);
+                            Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size());
+                            sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
@@ -4249,8 +4210,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         //cerr << "soft clip at end " << band.sequence() << endl;
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
-                            VG graph;
-                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size());
+                            sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
@@ -4258,8 +4219,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         //cerr << "internal addition" << endl;
                         int max_score = -std::numeric_limits<int>::max();
                         for (auto& pos : band_ref_pos) {
-                            VG graph;
-                            cached_graph_context(graph, pos, band.sequence().size(), node_cache, edge_cache);
+                            Graph graph = xindex->graph_context_id(pos, band.sequence().size());
+                            sort_by_id_dedup_and_clean(graph);
                             auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
@@ -4546,8 +4507,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // at the mappings, which of the orientations will correspond to the one the
     // alignment is actually in.
 
-    auto surjection_forward = align_to_graph(surjection, graph, max_query_graph_ratio, true);
-    auto surjection_reverse = align_to_graph(surjection_rc, graph, max_query_graph_ratio, true);
+    auto surjection_forward = align_to_graph(surjection, graph.graph, max_query_graph_ratio, true);
+    auto surjection_reverse = align_to_graph(surjection_rc, graph.graph, max_query_graph_ratio, true);
 
 #ifdef debug_mapper
 #pragma omp critical (cerr)

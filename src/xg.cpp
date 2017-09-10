@@ -805,6 +805,7 @@ void XG::build(map<id_t, string>& node_label,
             g_iv[g++] = dna3bit(c);
         }
         // write the edges in id-based format
+        // we will next convert these into relative format
         for (auto& e : to_edges) {
             g_iv[g++] = e.from();
             g_iv[g++] = edge_type(e);
@@ -1493,6 +1494,7 @@ Graph XG::cluster_subgraph(const Alignment& aln, const vector<vg::MaximalExactMa
                                    : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
         graph.MergeFrom(graph_context_id(pos, get_after));
     }
+    sort_by_id_dedup_and_clean(graph);
     return graph;
 }
 

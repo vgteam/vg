@@ -21,6 +21,7 @@
 #include "gssw_aligner.hpp"
 #include "mem.hpp"
 #include "cluster.hpp"
+#include "graph.hpp"
 
 namespace vg {
 
@@ -285,7 +286,7 @@ class Mapper : public BaseMapper {
 private:
     
     Alignment align_to_graph(const Alignment& aln,
-                             VG& vg,
+                             Graph& graph,
                              size_t max_query_graph_ratio,
                              bool traceback,
                              bool pinned_alignment = false,
@@ -371,9 +372,6 @@ public:
                          const Alignment& aln2,
                          double pval);
 
-    // Align read2 to the subgraph near the alignment of read1.
-    // TODO: support banded alignment and intelligently use orientation heuristics
-    void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
     // use the fragment configuration statistics to rescue more precisely
     bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score);
     
@@ -404,18 +402,14 @@ public:
     
     // run through the alignment and attempt to align unaligned parts of the alignment to the graph in the region where they are anchored
     Alignment patch_alignment(const Alignment& aln, int max_patch_length);
-    // get the graph context of a particular cluster, using a given alignment to describe the required size
-    VG cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803);
     // Get the graph context of a particular cluster, not expanding beyond the middles of MEMs.
     VG cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExactMatch>& mems);
-    // helper to cluster subgraph
-    void cached_graph_context(VG& graph, const pos_t& pos, int length, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache);
     // for aligning to a particular MEM cluster
     Alignment align_cluster(const Alignment& aln, const vector<MaximalExactMatch>& mems, bool traceback);
     // compute the uniqueness metric based on the MEMs in the cluster
     double compute_uniqueness(const Alignment& aln, const vector<MaximalExactMatch>& mems);
     // wraps align_to_graph with flipping
-    Alignment align_maybe_flip(const Alignment& base, VG& graph, bool flip, bool traceback, bool banded_global = false);
+    Alignment align_maybe_flip(const Alignment& base, Graph& graph, bool flip, bool traceback, bool banded_global = false);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
