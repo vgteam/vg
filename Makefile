@@ -11,6 +11,7 @@ LIB_DIR:=lib
 INC_DIR:=include
 CPP_DIR:=cpp
 
+
 EXE:=vg
 
 CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g
