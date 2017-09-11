@@ -255,7 +255,7 @@ void BaseAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
     int32_t num_switching_nodes = graph_cigar->length / 2;
     int32_t last_idx = graph_cigar->length - 1;
     for (int32_t i = 0; i < num_switching_nodes; i++) {
-        swap(node_cigars[i], node_cigars[last_idx - i]);
+        std::swap(node_cigars[i], node_cigars[last_idx - i]);
     }
     
     // reverse the actual cigar string for each node cigar
@@ -266,7 +266,7 @@ void BaseAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
         int32_t num_switching_elements = node_cigar->length / 2;
         last_idx = node_cigar->length - 1;
         for (int32_t j = 0; j < num_switching_elements; j++) {
-            swap(elements[j], elements[last_idx - j]);
+            std::swap(elements[j], elements[last_idx - j]);
         }
     }
     

@@ -970,7 +970,7 @@ namespace vg {
             for (size_t i = 0; i < graph.node_size(); i++) {
                 while (index[i] != i) {
                     swap(*graph.mutable_node(i), *graph.mutable_node(index[i]));
-                    swap(index[i], index[index[i]]);
+                    std::swap(index[i], index[index[i]]);
                 }
             }
         };
@@ -1245,7 +1245,7 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             while (index[i] != i) {
                 swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
-                swap(index[i], index[index[i]]);
+                std::swap(index[i], index[index[i]]);
             }
         }
     }
@@ -1336,8 +1336,8 @@ namespace vg {
         for (size_t i = 1; i < multipath_alns.size(); i++) {
             size_t pos = i;
             while (scores[pos] > scores[pos - 1]) {
-                swap(scores[pos], scores[pos - 1]);
-                swap(multipath_alns[pos], multipath_alns[pos - 1]);
+                std::swap(scores[pos], scores[pos - 1]);
+                std::swap(multipath_alns[pos], multipath_alns[pos - 1]);
                 pos--;
                 if (pos == 0) {
                     break;

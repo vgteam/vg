@@ -403,7 +403,7 @@ TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") 
         int64_t start = snarl->start().node_id();
         int64_t end = snarl->end().node_id();
         if (start > end) {
-            swap(start, end);
+            std::swap(start, end);
         }
         REQUIRE((start == 1 && end == 5) == true);
         REQUIRE(snarl->type() != ULTRABUBBLE);
@@ -454,7 +454,7 @@ TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") 
         int64_t start = snarl->start().node_id();
         int64_t end = snarl->end().node_id();
         if (start > end) {
-            swap(start, end);
+            std::swap(start, end);
         }
         REQUIRE((start == 1 && end == 6) == true);
         REQUIRE(snarl->type() == ULTRABUBBLE);

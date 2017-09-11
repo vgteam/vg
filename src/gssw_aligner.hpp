@@ -2,6 +2,7 @@
 #define VG_GSSW_ALIGNER_HPP_INCLUDED
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 #include <set>
 #include <string>

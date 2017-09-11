@@ -19,7 +19,7 @@ CWD:=$(shell pwd)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib -I$(CWD)/$(INC_DIR)/gcsa
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -llzma
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lgcsa2 -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -llzma
 
 ifeq ($(shell uname -s),Darwin)
 	# We may need libraries from Macports
@@ -52,6 +52,7 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 OBJ =
 OBJ += $(OBJ_DIR)/gssw_aligner.o
 OBJ += $(OBJ_DIR)/vg.o
+OBJ += $(OBJ_DIR)/vg.pb.o
 OBJ += $(OBJ_DIR)/graph.o
 OBJ += $(OBJ_DIR)/xg.o
 OBJ += $(OBJ_DIR)/index.o
@@ -373,6 +374,9 @@ $(INC_DIR)/vg_git_version.hpp: .git
 
 include/stream.hpp: src/stream.hpp
 	cp src/stream.hpp include/stream.hpp
+
+$(OBJ_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.o
+	cp $(CPP_DIR)/vg.pb.o $(OBJ_DIR)/vg.pb.o
 
 $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
 
