@@ -11,7 +11,7 @@ TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.10.1
 
 # What's our unique run ID? Should be lower-case and start with a letter for maximum compatibility.
 # See <https://gist.github.com/earthgecko/3089509>
-RUN_ID="run$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 32 | head -n 1)"
+RUN_ID="run$(cat /dev/urandom | LC_CTYPE=C tr -dc 'a-z0-9' | fold -w 32 | head -n 1)"
 
 # What cluster should we use?
 CLUSTER_NAME="${RUN_ID}"
