@@ -121,8 +121,7 @@ fi
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt update
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt install git -y
 
-# Kill the old virtualenv
-$PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" rm -Rf venv
+# Ignore the old virtualenv if re-using a cluster
 
 # For hot deployment to work, toil-vg needs to be in a virtualenv that can see the system Toil
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" virtualenv --system-site-packages venv
