@@ -2126,7 +2126,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = align_cluster(read1, cluster1, false);
+            p.first = align_cluster(read1, cluster1, alns.size()==0);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -2134,7 +2134,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = align_cluster(read2, cluster2, false);
+            p.second = align_cluster(read2, cluster2, alns.size()==0);
         } else {
             p.second = read2;
             p.second.clear_score();
@@ -2219,6 +2219,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     show_alignments("raw");
     
     sort_and_dedup();
+    /*
     if (mate_rescues && fragment_size) {
         // to improve rescue, add in single-ended versions of alignments where both mates map
         vector<pair<Alignment, Alignment> > se_alns;
@@ -2260,6 +2261,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             sort_and_dedup();
         }
     }
+    */
 
 #pragma omp critical
     show_alignments("dedup");
@@ -2307,9 +2309,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 aln2.clear_correct();
                 aln2.clear_path();
             }
+            /*
             if (pair_rescue(aln1, aln2, match, true)) {
                 rescued = true;
             }
+            */
             aln1.clear_fragment();
             aln2.clear_fragment();
             save_frag_lens_to_alns(aln1, aln2);
