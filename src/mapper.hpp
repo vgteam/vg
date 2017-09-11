@@ -373,7 +373,7 @@ public:
                          double pval);
 
     // use the fragment configuration statistics to rescue more precisely
-    bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score);
+    bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,

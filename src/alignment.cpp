@@ -927,7 +927,8 @@ int softclip_end(const Alignment& alignment) {
 }
 
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {
-    if (!aln1.path().mapping_size() || !aln2.path().mapping_size()
+    if (!alignment_to_length(aln1) || !alignment_to_length(aln2)
+        || !aln1.path().mapping_size() || !aln2.path().mapping_size()
         || aln1.sequence().size() != aln2.sequence().size()) {
         return 0;
     }

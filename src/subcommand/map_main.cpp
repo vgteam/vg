@@ -742,8 +742,11 @@ int main_map(int argc, char** argv) {
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (!print_fragment_model) {
                     // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alnp.first);
-                    output_alignments(alnp.second);
+#pragma omp critical (output)
+                    {
+                        output_alignments(alnp.first);
+                        output_alignments(alnp.second);
+                    }
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -829,8 +832,11 @@ int main_map(int argc, char** argv) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (!print_fragment_model) {
-                    output_alignments(alnp.first);
-                    output_alignments(alnp.second);
+#pragma omp critical (output)
+                    {
+                        output_alignments(alnp.first);
+                        output_alignments(alnp.second);
+                    }
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -902,8 +908,11 @@ int main_map(int argc, char** argv) {
                         alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
                         alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
                     }
-                    output_alignments(alnp.first);
-                    output_alignments(alnp.second);
+#pragma omp critical (output)
+                    {
+                        output_alignments(alnp.first);
+                        output_alignments(alnp.second);
+                    }
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
