@@ -537,12 +537,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      xg::XG* xgindex,
                                                      size_t max_expected_dist_approx_error) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
     
-    // the maximum graph distances to the right and left sides detectable from each node
-    vector<pair<size_t, size_t>> maximum_detectable_gaps;
-    
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
-    maximum_detectable_gaps.reserve(mems.size());
     
     for (const MaximalExactMatch& mem : mems) {
         
@@ -566,7 +562,6 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
-            maximum_detectable_gaps.push_back(max_gaps);
 #ifdef debug_od_clusterer
             cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
 #endif
@@ -595,21 +590,21 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
     
-    int64_t match_score, mismatch_score, gap_open_score, gap_extension_score;
+    int64_t match_score, mismatch_score, gap_open_score, gap_extension_score, max_gap;
     if (aligner) {
         match_score = aligner->match;
-        mismatch_score = aligner->mismatch;
         gap_open_score = aligner->gap_open;
         gap_extension_score = aligner->gap_extension;
+        max_gap = aligner->longest_detectable_gap(alignment);
     }
     else {
         match_score = qual_adj_aligner->match;
-        mismatch_score = qual_adj_aligner->mismatch;
         gap_open_score = qual_adj_aligner->gap_open;
         gap_extension_score = qual_adj_aligner->gap_extension;
+        max_gap = qual_adj_aligner->longest_detectable_gap(alignment);
     }
     
-    int64_t allowance = max_expected_dist_approx_error;
+    int64_t forward_gap_length = max_gap + max_expected_dist_approx_error;
     for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
         
         // sort the nodes by relative position
@@ -630,33 +625,34 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             size_t pivot_idx = sorted_pos[i].second;
             ODNode& pivot = nodes[pivot_idx];
             int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
+            int64_t suffix_length = alignment.sequence().end() - pivot.mem->end;
             
             // the limits of how far away we might detect edges to add to the clustering graph
-            int64_t target_low_pos = strand_pos - allowance;
-            int64_t target_hi_pos = strand_pos + pivot_length + maximum_detectable_gaps[pivot_idx].second + allowance;
+            int64_t target_low_pos = strand_pos - max_expected_dist_approx_error;
+            int64_t target_hi_pos = strand_pos + suffix_length + forward_gap_length;
             
             // move the lower boundary of the search interval to the lowest value inside the
             // the target interval
-            while (sorted_pos[low].first < target_low_pos) {
+            while (low < sorted_pos.size() ? sorted_pos[low].first < target_low_pos : false) {
                 low++;
             }
             
             // move the upper boundary of the search interval to the highest value inside the
-            // the target interval (this one can move in either direction because the maximum
-            // detectable gap changes)
+            // the target interval (this one can move in either direction because pivots are
+            // different lengths)
             if (sorted_pos[hi].first > target_hi_pos) {
-                while (sorted_pos[hi].first > target_hi_pos) {
+                while (hi > 0 ?  sorted_pos[hi].first > target_hi_pos : false) {
                     hi--;
                 }
             }
             else {
-                while (hi == last_idx ? false : sorted_pos[hi + 1].first <= target_hi_pos) {
+                while (hi < last_idx ? sorted_pos[hi + 1].first <= target_hi_pos : false) {
                     hi++;
                 }
             }
             
 #ifdef debug_od_clusterer
-            cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
+            cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << "), which is inside the interval (" << target_low_pos << ", " << target_hi_pos << ")" << endl;
 #endif
             
             for (int64_t j = low; j <= hi; j++) {
@@ -668,24 +664,12 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     continue;
                 }
                 
-#ifdef debug_od_clusterer
-                cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
-#endif
-                
                 // the length of the sequence in between the MEMs (can be negative if they overlap)
                 int64_t between_length = next.mem->begin - pivot.mem->end;
                 // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                int64_t graph_dist = max<int64_t>(0, sorted_pos[j].first - strand_pos - pivot_length);
-                // the discrepancy between the graph distance and the read distance
-                int64_t gap_length = abs(graph_dist - between_length);
-                
-                if (gap_length > maximum_detectable_gaps[next_idx].first + allowance) {
-                    // the gap between the MEMs is too long to be believable from the next node
-                    continue;
-                }
+                int64_t graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
                 
                 int32_t edge_score;
-                // TODO: there's an asymmetry here, should I also be checking for graph overlaps and adjusting them down?
                 if (between_length < 0) {
                     // the MEMs overlap, but this can occur in some insertions and deletions
                     // because the SMEM algorithm is "greedy" in taking up as much of the read
@@ -694,15 +678,20 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     // so for now we just give it the benefit of the doubt but adjust the edge
                     // score so that the matches don't get double counted
                     
-                    int64_t extra_dist = max<int64_t>(0, gap_length);
+                    int64_t extra_dist = abs(graph_dist - between_length);
                     
-                    edge_score = -match_score * between_length
-                                 + (extra_dist ? -(extra_dist - 1) * gap_extension_score - gap_open_score : 0);
+                    edge_score = match_score * between_length
+                                 - (extra_dist ? (extra_dist - 1) * gap_extension_score + gap_open_score : 0);
                 }
                 else {
+                    int64_t gap_length = abs(between_length - graph_dist);
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_score = gap_length ? -(gap_length - 1) * gap_extension_score - gap_open_score : 0;
+                    edge_score = gap_length ? -((gap_length - 1) * gap_extension_score + gap_open_score) : 0;
                 }
+                
+#ifdef debug_od_clusterer
+                cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ") with weight " << edge_score << endl;
+#endif
                 
                 // add the edges in
                 pivot.edges_from.emplace_back(next_idx, edge_score);

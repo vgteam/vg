@@ -68,9 +68,9 @@ def scrape_mapeval_runtimes(text):
     for line in text.split('\n'):
         # we want to parse something like
         #host 2017-08-22 11:09:45,362 MainThread INFO toil-rt: Aligned /tmp/toil-55082/aligned-snp1kg_HG00096_0.gam. Process took 4.37375712395 seconds with single-end vg-map
-        search_tok = 'INFO toil-rt: Aligned'
+        search_tok = 'Aligned'
         i = line.find(search_tok)
-        if i >= 0:
+        if i >= 0 and line.find('Process took') > 0:
             try:
                 toks = line[i + len(search_tok) + 1: ].rstrip().split()
                 outputfile = toks[0]
@@ -107,6 +107,7 @@ def join_runtimes(mapeval_table, runtime_dict):
             row.append(runtime_dict[row[0].rstrip('*')])
         else:
             row.append(-1)
+
     return mapeval_table
     
 def parse_begin_message(line):
@@ -395,7 +396,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
 
         images = []
         captions = []
-        for plot_name in 'roc', 'roc.control', 'roc.primary.filter', 'roc.control.primary.filter', 'qq', 'qq.control':
+        for plot_name in 'pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)

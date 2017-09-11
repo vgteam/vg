@@ -24,7 +24,7 @@ KEEP_OUTPUT=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@46f6d50dc03aa66322d4d005524ecf5a964a052d"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@ee424e22971f8a8febc35ede4fb7aaa53a710da3"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -85,6 +85,11 @@ if [ $PLATFORM == "Darwin" ]; then
     NUM_CORES=`sysctl -n hw.ncpu`
 else
     NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+fi
+
+if [ "${NUM_CORES}" == "0" ]; then
+    echo "could not determine NUM_CORES, using 2"
+	 NUM_CORES=2
 fi
 
 # Create Toil venv

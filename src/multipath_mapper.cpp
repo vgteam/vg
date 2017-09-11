@@ -8,9 +8,11 @@
 //#define debug_validate_multipath_alignments
 //#define debug_force_frag_distr
 
+
+// for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 997.063
-#define SD 72.7089
+#define MEAN 1000.0
+#define SD 75.0
 #endif
 
 #include "multipath_mapper.hpp"

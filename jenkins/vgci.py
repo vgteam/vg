@@ -1,4 +1,6 @@
 #!/usr/bin/env python2.7
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 import logging
 import shutil
 import subprocess
@@ -17,6 +19,7 @@ import urllib2
 import shutil
 import glob
 import traceback
+import io
 
 import tsv
 
@@ -72,7 +75,7 @@ class VGCITest(TestCase):
         """ It's a hassle passing parameters through pytest.  Hack
         around for now by loading from a file of key/value pairs. """
         if os.path.isfile('vgci_cfg.tsv'):
-            with open('vgci_cfg.tsv') as f:
+            with io.open('vgci_cfg.tsv', 'r', encoding='utf8') as f:
                 for line in f:
                     toks = line.split()
                     if len(toks) == 2 and toks[0][0] != '#':
@@ -135,7 +138,7 @@ class VGCITest(TestCase):
             
             try:
                 connection = urllib2.urlopen(url)
-                return connection.read()
+                return unicode(connection.read())
             except urllib2.HTTPError as e:
                 if e.code == 404:
                     # Baseline file doesn't yet exist. Give an empty string.
@@ -145,7 +148,7 @@ class VGCITest(TestCase):
                     raise
         else:
             # Assume it's a raw path.
-            with open(os.path.join(self._outstore(tag), path)) as f:
+            with io.open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path), 'r', encoding='utf8') as f:
                 return f.read()
 
     def _get_remote_file(self, src, tgt):
@@ -170,6 +173,7 @@ class VGCITest(TestCase):
         
         with open(tgt, 'w') as f:
             # Download the file from the URL
+            # DON'T use an encoding here; the file may be binary
             connection = urllib2.urlopen(src)
             shutil.copyfileobj(connection, f)
 
@@ -358,7 +362,7 @@ class VGCITest(TestCase):
         else:
             f1_name = 'vcfeval_output_f1.txt'
         f1_path = os.path.join(self._outstore(tag), f1_name)
-        with open(f1_path) as f1_file:
+        with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
         baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
         
@@ -370,7 +374,7 @@ class VGCITest(TestCase):
         self._begin_message('vcfeval Results'.format(
             f1_score, baseline_f1, threshold), is_tsv=True)
         summary_path = f1_path[0:-6] + 'summary.txt'
-        with open(summary_path) as summary_file:
+        with io.open(summary_path, 'r', encoding='utf8') as summary_file:
             for i, line in enumerate(summary_file):
                 if i != 1:
                     toks = line.split()
@@ -380,7 +384,7 @@ class VGCITest(TestCase):
                         toks += [baseline_f1, threshold]
                     elif i > 2:
                         toks += ['N/A', 'N/A']
-                    print '\t'.join([str(tok) for tok in toks])
+                    print '\t'.join([unicode(tok) for tok in toks])
         self._end_message()
 
         self.assertTrue(f1_score >= baseline_f1 - threshold)
@@ -454,7 +458,8 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01 --include-bonuses\' '
+        opts += '--sim_opts \'-p 1000 -v 75 -d 0.01  --include-bonuses\' '
+        opts += '--fastq {} '.format(self._input('platinum_NA12878_MHC.fq.gz'))
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -488,8 +493,8 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = not multipath
-        mapeval_options.vg_paired = not multipath
+        mapeval_options.bwa_paired = True
+        mapeval_options.vg_paired = True
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -549,7 +554,7 @@ class VGCITest(TestCase):
                     name = method[0:-3] if method.endswith('-se') else method
                     score_path = os.path.join(os.path.dirname(position_file),
                                               '{}.compare.primary.scores'.format(name))
-                    with open(score_path) as score_file:
+                    with io.open(score_path, 'r', encoding='utf8') as score_file:
                         for line in score_file:
                             toks = line.split(", ")
                             if int(toks[1]) < 0:
@@ -560,7 +565,7 @@ class VGCITest(TestCase):
 
         # scan postions, filtering all reads in our set
         filter_count = 0
-        with open(position_file) as pf, open(out_file, 'w') as of:
+        with io.open(position_file, 'r', encoding='utf8') as pf, io.open(out_file, 'w', encoding='utf8') as of:
             for i, line in enumerate(pf):
                 toks = line.rstrip().split()
                 if i == 0:
@@ -597,7 +602,7 @@ class VGCITest(TestCase):
         context = Context(out_store, overrides)
         with context.get_toil(job_store) as toil:
             try:
-                for rscript in ['roc', 'qq']:
+                for rscript in ['pr', 'qq']:
                     # pull the scripts from where we expect them relative to being in vg/
                     # and put them in the work directory.  This is ugly but keeps the
                     # docker interfacing simple.
@@ -607,9 +612,9 @@ class VGCITest(TestCase):
                     if positive_control or negative_control:
                         nc_name = 'position.results.no.control.tsv'
                         co_name = 'position.results.control.tsv'
-                        with open(os.path.join(out_store, 'position.results.tsv')) as pr_file,\
-                             open(os.path.join(out_store, nc_name), 'w') as nc_file,\
-                             open(os.path.join(out_store, co_name), 'w') as co_file:
+                        with io.open(os.path.join(out_store, 'position.results.tsv'), 'r', encoding='utf8') as pr_file,\
+                             io.open(os.path.join(out_store, nc_name), 'w', encoding='utf8') as nc_file,\
+                             io.open(os.path.join(out_store, co_name), 'w', encoding='utf8') as co_file:
                             aidx = None
                             for i, line in enumerate(pr_file):
                                 toks = line.rstrip().split()
@@ -687,7 +692,7 @@ class VGCITest(TestCase):
         self._mapeval_r_plots(tag, positive_control, negative_control)
 
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
-        with open(stats_path) as stats:
+        with io.open(stats_path, 'r', encoding='utf8') as stats:
             stats_tsv = stats.read()
         baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
 
@@ -728,9 +733,20 @@ class VGCITest(TestCase):
             if negative_control and key in [negative_control, negative_control + '-pe']:
                 method += '**'
             def r4(s):
-                return round(s, 4) if isinstance(s, float) else s                
-            print '\t'.join(str(r4(x)) for x in [method, sval[1], bval[1],
-                                                 sval[2], bval[2], sval[4], bval[4]])
+                return round(s, 4) if isinstance(s, float) else s 
+                
+            row = [method]
+            for metric_index in [1, 2, 4]:
+                # For each metric, compare stat to baseline
+                stat_val = unicode(r4(sval[metric_index]))
+                baseline_val = unicode(r4(bval[metric_index]))
+                if stat_val != 'DNE' and baseline_val != 'DNE' and sval[metric_index] < bval[metric_index]:
+                    # Stat got worse
+                    stat_val = '↓ {}'.format(stat_val)
+                row.append(stat_val)
+                row.append(baseline_val)
+                               
+            print '\t'.join(row)
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
@@ -777,7 +793,7 @@ class VGCITest(TestCase):
                     baseline_dict = collections.defaultdict(lambda: [0, 0])
                     
                 # Parse out the real stat values
-                score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
                 # Make sure nothing has been removed
                 assert len(score_stats_dict) >= len(baseline_dict)
@@ -795,7 +811,7 @@ class VGCITest(TestCase):
                     # Guess where the file for individual read score differences for this graph is
                     # TODO: get this file's name/ID from the actual Toil code
                     read_comparison_path = os.path.join(self._outstore(tag), '{}.compare.{}.scores'.format(key, compare_against))
-                    for line in open(read_comparison_path):
+                    for line in io.open(read_comparison_path, 'r', encoding='utf8'):
                         if line.strip() == '':
                             continue
                         # Break each line of the CSV

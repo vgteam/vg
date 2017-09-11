@@ -50,7 +50,7 @@ void help_mpmap(char** argv) {
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
-    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.33]" << endl
+    << "  -C, --drop-subgraph FLOAT drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.25]" << endl
     << "  -R, --prune-ratio FLOAT   prune MEM anchors if their approximate likelihood is this ratio less than the optimal anchors [10000.0]" << endl
     << "scoring:" << endl
     << "  -q, --match INT           use this match score [1]" << endl
@@ -93,7 +93,7 @@ int main_mpmap(int argc, char** argv) {
     int min_mem_length = 1;
     int reseed_length = 32;
     int reseed_diff = 8;
-    double cluster_ratio = 0.33;
+    double cluster_ratio = 0.25;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Approx;
@@ -542,7 +542,7 @@ int main_mpmap(int argc, char** argv) {
         }
         snarl_manager = new SnarlManager(snarl_stream);
     }
-    
+        
     MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, snarl_manager);
     
     // set alignment parameters

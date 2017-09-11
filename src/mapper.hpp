@@ -282,6 +282,55 @@ protected:
     FragmentLengthDistribution fragment_length_distr;
 };
 
+/**
+ * Keeps track of statistics about fragment length within the Mapper class.
+ * Belongs to a single thread.
+ */
+class FragmentLengthStatistics {
+public:
+
+    void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
+    
+    string fragment_model_str(void);
+    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int>& approx_frag_lengths, bool is_consistent);
+    
+    // These functions are the authorities on the estimated parameters
+    double fragment_length_stdev(void);
+    double fragment_length_mean(void);
+    double fragment_length_pdf(double length);
+    double fragment_length_pval(double length);
+    bool fragment_orientation(void);
+    bool fragment_direction(void);
+    
+    // These cached versions of the parameters are updated periodically
+    double cached_fragment_length_mean = 0;
+    double cached_fragment_length_stdev = 0;
+    bool cached_fragment_orientation = 0;
+    bool cached_fragment_direction = 1;
+    
+    // These variables are used to manage the periodic updates
+    int since_last_fragment_length_estimate = 0;
+    int fragment_model_update_interval = 10;
+    
+    // These deques are used for the periodic running estimation of the fragment length distribution
+    deque<double> fragment_lengths;
+    deque<bool> fragment_orientations;
+    deque<bool> fragment_directions;
+
+    int fragment_max = 10000; // the maximum length fragment which we will consider when estimating fragment lengths
+    int fragment_size = 0; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
+                       // if consistent pairs should be reported; dynamically estimated at runtime
+    double fragment_sigma = 10; // the number of times the standard deviation above the mean to set the fragment_size
+    int fragment_length_cache_size = 1000;
+    float perfect_pair_identity_threshold = 0.95;
+    bool fixed_fragment_model = true;
+    
+    
+    
+    
+    
+};
+
 class Mapper : public BaseMapper {
 
 
@@ -337,31 +386,15 @@ public:
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
-    // running estimation of fragment length distribution
-    deque<double> fragment_lengths;
-    deque<bool> fragment_orientations;
-    deque<bool> fragment_directions;
-    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2);
-    void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
-    string fragment_model_str(void);
-    double fragment_length_stdev(void);
-    double fragment_length_mean(void);
-    double fragment_length_pdf(double length);
-    double fragment_length_pval(double length);
-    bool fragment_orientation(void);
-    bool fragment_direction(void);
-    double cached_fragment_length_mean;
-    double cached_fragment_length_stdev;
-    bool cached_fragment_orientation;
-    bool cached_fragment_direction;
-    int since_last_fragment_length_estimate;
-    int fragment_model_update_interval;
-    
     double graph_entropy(void);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
     void annotate_with_mean_path_positions(vector<Alignment>& alns);
+    
+    // use the xg index to get the first position of an alignment on a reference path
+    map<string, size_t> alignment_initial_path_positions(const Alignment& aln);
+    void annotate_with_initial_path_positions(Alignment& aln);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -540,18 +573,15 @@ public:
     double identity_weight; // scale mapping quality by the alignment score identity to this power
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
-    int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths
-    int fragment_size; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
-                       // if consistent pairs should be reported; dynamically estimated at runtime
-    double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
-    int fragment_length_cache_size;
-    float perfect_pair_identity_threshold;
-    bool fixed_fragment_model;
+    
     bool simultaneous_pair_alignment;
     int max_band_jump; // the maximum length edit we can detect via banded alignment
     float drop_chain; // drop chains shorter than this fraction of the longest overlapping chain
     float mq_overlap; // consider as alternative mappings any alignment with this overlap with our best
     int mate_rescues;
+    
+    // Keep track of fragment length distribution statistics
+    FragmentLengthStatistics frag_stats;
 
 };
 
