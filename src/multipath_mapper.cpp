@@ -835,14 +835,34 @@ namespace vg {
         multi_aln_graph.topological_sort(topological_order);
         
 #ifdef debug_multipath_mapper
-        cerr << "computed topological sort" << endl;
+        cerr << "computed topological sort, topology is: " << endl;
+        for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
+            cerr << "node " << i << ", " << pb2json(multi_aln_graph.match_nodes[i].path.mapping(0).position()) << " ";
+            for (auto iter = multi_aln_graph.match_nodes[i].begin; iter != multi_aln_graph.match_nodes[i].end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            for (pair<size_t, size_t> edge : multi_aln_graph.match_nodes[i].edges) {
+                cerr << "\tto " << edge.first << ", dist " << edge.second << endl;
+            }
+        }
 #endif
         
         // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
         multi_aln_graph.remove_transitive_edges(topological_order);
         
 #ifdef debug_multipath_mapper
-        cerr << "removed transitive edges" << endl;
+        cerr << "removed transitive edges, topology is:" << endl;
+        for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
+            cerr << "node " << i << ", " << pb2json(multi_aln_graph.match_nodes[i].path.mapping(0).position()) << " ";
+            for (auto iter = multi_aln_graph.match_nodes[i].begin; iter != multi_aln_graph.match_nodes[i].end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            for (pair<size_t, size_t> edge : multi_aln_graph.match_nodes[i].edges) {
+                cerr << "\tto " << edge.first << ", dist " << edge.second << endl;
+            }
+        }
 #endif
         
         // prune this graph down the paths that have reasonably high likelihood
@@ -851,7 +871,17 @@ namespace vg {
                                                     max_suboptimal_path_score_diff, topological_order);
         
 #ifdef debug_multipath_mapper
-        cerr << "pruned to high scoring paths" << endl;
+        cerr << "pruned to high scoring paths, topology is:" << endl;
+        for (size_t i = 0; i < multi_aln_graph.match_nodes.size(); i++) {
+            cerr << "node " << i << ", " << pb2json(multi_aln_graph.match_nodes[i].path.mapping(0).position()) << " ";
+            for (auto iter = multi_aln_graph.match_nodes[i].begin; iter != multi_aln_graph.match_nodes[i].end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+            for (pair<size_t, size_t> edge : multi_aln_graph.match_nodes[i].edges) {
+                cerr << "\tto " << edge.first << ", dist " << edge.second << endl;
+            }
+        }
 #endif
         
         // create a new multipath alignment object and transfer over data from alignment
@@ -2976,7 +3006,6 @@ namespace vg {
                 cerr << "searching backward from start " << start << endl;
 #endif
                 
-                
                 ExactMatchNode& start_node = match_nodes[start];
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
                 
@@ -3058,13 +3087,61 @@ namespace vg {
                         cerr << "connection is overlap colinear, recording to add edge later" << endl;
 #endif
                         
-                        // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                        // the end of this node might not actually block connections since it's going to intersect the middle of the node
+                        // so we need to find predecessors to this end too
+                        
+                        // add any ends directly reachable from the end
+                        for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
+                            end_queue.emplace(candidate_dist + exposed_end.second, exposed_end.first);
+#ifdef debug_multipath_mapper
+                            cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
+#endif
+                        }
+                        
+                        // traverse through any exposes starts to see if we can find other exposed ends
+                        priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> exposed_start_queue;
+                        unordered_set<size_t> traversed_exposed_start;
+                        
+                        // inialize the queue with the directly reachable exposed starts
+                        for (const pair<size_t, size_t>& exposed_start : reachable_starts_from_end[candidate_end]) {
+#ifdef debug_multipath_mapper
+                            cerr << "initializing exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
+#endif
+                            exposed_start_queue.emplace(candidate_dist + exposed_start.second, exposed_start.first);
+                        }
+                        
+                        while (!exposed_start_queue.empty()) {
+                            pair<size_t, size_t> start_here = exposed_start_queue.top();
+                            exposed_start_queue.pop();
+                            if (traversed_exposed_start.count(start_here.second)) {
+                                continue;
+                            }
+                            traversed_exposed_start.insert(start_here.second);
+#ifdef debug_multipath_mapper
+                            cerr << "traversing exposed start " << start_here.second << " at distance " << start_here.first << endl;
+#endif
+                            
+                            // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
+                            // between them and the distance already traversed
+                            for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
+                                end_queue.emplace(start_here.first + end.second, end.first);
+#ifdef debug_multipath_mapper
+                                cerr << "found reachable exposed end " << end.first << " at distance " << start_here.first + end.second << endl;
+#endif
+                            }
+                            
+                            for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
+                                exposed_start_queue.emplace(start_here.first + start_next.second, start_next.first);
+                            }
+                        }
+                        
+                        // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
                         // this connection
                         for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
 #ifdef debug_multipath_mapper
-                            cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second << " from noncolinear shell" << endl;
+                            cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
 #endif
-                            end_queue.emplace(candidate_dist + shell_pred.second + overlap, shell_pred.first);
+                            end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
                         }
                     }
                     else {
@@ -3156,7 +3233,7 @@ namespace vg {
                 vector<pair<size_t, size_t>> overlap_candidates;
                 
                 if (match_path.mapping_size() == 1) {
-                    // TODO: this edge case is a little duplicative, probably could to merge
+                    // TODO: this edge case is a little duplicative, probably could merge
                     
 #ifdef debug_multipath_mapper
                     cerr << "path is one mapping long" << endl;
@@ -3271,7 +3348,7 @@ namespace vg {
                         cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
 #endif
                         // the overlapping node is still not reachable so it is in the noncolinear shell of this node
-                        noncolinear_shell[overlap_candidate.first] = overlap_candidate.second;
+                        noncolinear_shell[overlap_candidate.first] = (start_node.end - start_node.begin) - overlap_candidate.second;
                     }
                 }
             }
@@ -3288,6 +3365,9 @@ namespace vg {
         // sort in descending order of overlap length and group by the node that is being cut among overlaps of same length
         std::sort(confirmed_overlaps.begin(), confirmed_overlaps.end(),
                   std::greater<tuple<size_t, size_t, size_t, size_t>>());
+        
+        // keep track of whether another node is holding the suffix of one of the original nodes because of a split
+        unordered_map<size_t, size_t> node_with_suffix;
         
         // split up each node with an overlap edge onto it
         auto iter = confirmed_overlaps.begin();
@@ -3336,6 +3416,8 @@ namespace vg {
             }
             
             if (mapping_idx == full_path.mapping_size() && !remaining) {
+                // TODO: isn't this case covered by taking the entire range of splits at the same place?
+                
                 // the overlap covered the match, so connect it to the onto node's successors
                 // rather than splitting it into two nodes
                 
@@ -3369,6 +3451,13 @@ namespace vg {
                 // clear the old edges and add a single edge to the suffix
                 onto_node->edges.clear();
                 onto_node->edges.emplace_back(suffix_idx, 0);
+                
+                // keep track of the relationship of suffix nodes to original nodes
+                if (!node_with_suffix.count(get<1>(*iter))) {
+                    // since we take longest overlaps first, only the first split onto a node will change
+                    // which node contains the suffix of the original node
+                    node_with_suffix[get<1>(*iter)] = suffix_idx;
+                }
                 
                 if (remaining) {
                     // the overlap point is in the middle of a node, need to split a mapping
@@ -3414,17 +3503,20 @@ namespace vg {
 #endif
                 
                 while (iter != iter_range_end) {
+                    // index of the node that contains the end of the original node we recorded the overlap from
+                    size_t splitting_idx = node_with_suffix.count(get<2>(*iter)) ? node_with_suffix[get<2>(*iter)] : get<2>(*iter);
+                    
 #ifdef debug_multipath_mapper
-                    cerr << "adding an overlap edge from node " << get<2>(*iter) << " at distance " << get<3>(*iter) << endl;
+                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<3>(*iter) << endl;
                     cerr << "\t";
-                    for (auto node_iter = match_nodes[get<2>(*iter)].begin; node_iter != match_nodes[get<2>(*iter)].end; node_iter++) {
+                    for (auto node_iter = match_nodes[splitting_idx].begin; node_iter != match_nodes[splitting_idx].end; node_iter++) {
                         cerr << *node_iter;
                     }
                     cerr << endl;
 #endif
                     
                     // get the next node that overlaps onto the other node at this index and add the overlap edge
-                    match_nodes[get<2>(*iter)].edges.emplace_back(suffix_idx, get<3>(*iter));
+                    match_nodes[splitting_idx].edges.emplace_back(suffix_idx, get<3>(*iter));
                     
                     iter++;
                 }

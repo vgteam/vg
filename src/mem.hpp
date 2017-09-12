@@ -322,7 +322,7 @@ public:
     /// Score of the exact match this node represents
     int32_t score;
     
-    /// Lower bound on score used in dynamic programming
+    /// Score used in dynamic programming
     int32_t dp_score;
     
     /// Edges from this node that are colinear with the read
