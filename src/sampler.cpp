@@ -909,7 +909,7 @@ pos_t NGSSimulator::sample_start_pos() {
 
 string NGSSimulator::get_read_name() {
     stringstream sstrm;
-    sstrm << "fragment_" << sample_counter;
+    sstrm << "fragment_" << seed << "_" << sample_counter;
     sample_counter++;
     return sstrm.str();
 }
