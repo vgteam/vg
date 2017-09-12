@@ -444,7 +444,7 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01 --include-bonuses\' '
+        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -458,7 +458,6 @@ class VGCITest(TestCase):
             vg_docker = self.vg_docker,
             container = self.container,
             alignment_cores = self.cores,
-            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
