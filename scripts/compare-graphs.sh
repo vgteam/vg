@@ -172,8 +172,8 @@ $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin
     "${JOB_TREE}" \
     "${OUTPUT_STORE}" \
     `get_input_url "${READ_SET}.pos"` \
-    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --preemptableNodeType=r3.8xlarge:0.8 \
-    --defaultPreemptable --maxPreemptableNodes 4 --alphaPacking 1.5
+    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --nodeType=r3.8xlarge \
+    --alphaPacking 2.0
     
 # Make sure the output is public
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/aws s3 sync --acl public-read "${OUTPUT_STORE_URL}" "${OUTPUT_STORE_URL}"
