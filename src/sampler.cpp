@@ -608,8 +608,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     });
     
     string name = get_read_name();
-    aln_pair.first.set_name(name + "/1");
-    aln_pair.second.set_name(name + "/2");
+    aln_pair.first.set_name(name + "_1");
+    aln_pair.second.set_name(name + "_2");
     
     return aln_pair;
 }
@@ -954,7 +954,7 @@ pos_t NGSSimulator::sample_start_pos() {
 
 string NGSSimulator::get_read_name() {
     stringstream sstrm;
-    sstrm << "fragment_" << sample_counter;
+    sstrm << "fragment_" << seed << "_" << sample_counter;
     sample_counter++;
     return sstrm.str();
 }
