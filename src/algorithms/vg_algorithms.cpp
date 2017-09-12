@@ -1872,6 +1872,10 @@ namespace algorithms {
             assert(false);
         }
         
+#ifdef debug_vg_algorithms
+        cerr << "[extract_extending_graph] extracting exending graph from " << pos << " in " << (backward ? "backward" : "forward") << " direction with max search dist " << max_dist << endl;
+#endif
+        
         // TODO: these structs are duplicative with extract_connecting_graph
         
         // a local struct that packages a node traversal with its distance from the first position
@@ -1937,6 +1941,10 @@ namespace algorithms {
             Traversal trav = queue.top();
             queue.pop();
             
+#ifdef debug_vg_algorithms
+            cerr << "[extract_extending_graph] traversing " << trav.id << (trav.rev ? "-" : "+") << " at dist " << trav.dist << endl;
+#endif
+            
             // make sure we haven't traversed this node already
             if (traversed.count(make_pair(trav.id, trav.rev))) {
                 continue;
@@ -1946,6 +1954,10 @@ namespace algorithms {
             
             // which side are we traversing out of?
             for (Edge& edge : (trav.rev ? edges_on_start(trav.id) : edges_on_end(trav.id))) {
+                
+#ifdef debug_vg_algorithms
+                cerr << "[extract_extending_graph] checking edge " << pb2json(edge) << endl;
+#endif
                 
                 // get the orientation and id of the other side of the edge
                 id_t next_id;
@@ -1980,6 +1992,9 @@ namespace algorithms {
                 if (!traversed.count(make_pair(next_id, next_rev)) && dist_thru < max_dist) {
                     // we can add more nodes along same path without going over the max length
                     queue.emplace(next_id, next_rev, dist_thru);
+#ifdef debug_vg_algorithms
+                    cerr << "[extract_extending_graph] enqueuing " << next_id << (next_rev ? "-" : "+") << " at dist " << dist_thru << endl;
+#endif
                 }
             }
         }
@@ -1995,10 +2010,16 @@ namespace algorithms {
                 // does the edge only touch the side of the source node that's not going to be cut?
                 add_edge = !(edge.first.first == id(pos) && edge.first.second != (backward != is_rev(pos))) &&
                            !(edge.second.first == id(pos) && edge.second.second == (backward != is_rev(pos)));
+#ifdef debug_vg_algorithms
+                cerr << "[extract_extending_graph] " << (add_edge ? "" : "not ") << "adding edge " << edge.first.first << (edge.first.second ? "-" : "+") << " -> " << edge.second.first << (edge.second.second ? "-" : "+") << " that touches source node" << endl;
+#endif
             }
             else {
                 // the edge doesn't touch the source node, so it will certainly survive the cut
                 add_edge = true;
+#ifdef debug_vg_algorithms
+                cerr << "[extract_extending_graph] " << "adding edge " << edge.first.first << (edge.first.second ? "-" : "+") << " -> " << edge.second.first << (edge.second.second ? "-" : "+") << " that does not touch source node" << endl;
+#endif
             }
             
             if (add_edge) {

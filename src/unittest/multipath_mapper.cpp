@@ -47,6 +47,9 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     
     // Make a multipath mapper to map against the graph.
     MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
+    // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
+    // short sequences
+    mapper.max_mapping_quality = 10;
     
     SECTION( "MultipathMapper can map a short fake read" ) {
 
@@ -99,13 +102,14 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
         // Here are two reads in opposing, inward-facing directions
         Alignment read1, read2;
         read1.set_sequence("GAT");
-        read2.set_sequence("TGT");
+        read2.set_sequence("ACA");
         
         // Have a list to fill with results
         vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
         
         // Align for just one pair of alignments
-        mapper.multipath_map_paired(read1, read2, 10, results, 1);
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
         
         SECTION("there should be one pair of alignments") {
             REQUIRE(results.size() == 1);
@@ -130,10 +134,10 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
                         REQUIRE(mapping1.position().is_reverse() == false);
                     }
                     
-                    SECTION("the second should be at the end of node 1, reversed") {
+                    SECTION("the second should be further along the same node") {
                         REQUIRE(mapping2.position().node_id() == 1);
-                        REQUIRE(mapping2.position().offset() == 0);
-                        REQUIRE(mapping2.position().is_reverse() == true);
+                        REQUIRE(mapping2.position().offset() == 4);
+                        REQUIRE(mapping2.position().is_reverse() == false);
                     }
                     
                     SECTION("each should have one edit") {

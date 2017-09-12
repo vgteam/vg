@@ -502,21 +502,31 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     unordered_map<size_t, size_t> length_count;
     fastq_unpaired_for_each(ngs_fastq_file, [&](const Alignment& aln) {
         length_count[aln.quality().size()]++;
-    });
-    
-    size_t modal_length = std::max_element(length_count.begin(), length_count.end(),
-                                           [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
-                                               return a.second < b.second;
-                                           })->first;
-    
-    transition_distrs.reserve(modal_length);
-    for (size_t i = 0; i < modal_length; i++) {
-        transition_distrs.emplace_back(seed ? seed + i + 1 : random_device()());
-    }
-    
-    fastq_unpaired_for_each(ngs_fastq_file, [&](const Alignment& aln) {
         record_read_quality(aln);
     });
+    
+    size_t modal_length = 0;
+    size_t modal_length_count = 0;
+    size_t total_reads = 0;
+    for (const pair<size_t, size_t>& length_record : length_count) {
+        if (length_record.second > modal_length_count) {
+            modal_length_count = length_record.second;
+            modal_length = length_record.first;
+        }
+        total_reads += length_record.second;
+    }
+    
+    if (((double) modal_length_count) / total_reads < 0.5) {
+        cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " encompasses less than half of training reads, NGSSimulator is optimized for training data in which most reads are the same length" << endl;
+    }
+    
+    if (modal_length > insert_length_mean - 2.0 * insert_length_stdev) {
+        cerr << "warning:[NGSSimulator] Auto-detected read length of " << modal_length << " is long compared to mean insert length " << insert_length_mean << " and standard deviation " << insert_length_stdev << ", sampling may take additional time and statistical properties of insert length distribution may not reflect input parameters" << endl;
+    }
+    
+    while (transition_distrs.size() > modal_length) {
+        transition_distrs.pop_back();
+    }
     
     finalize();
     
@@ -526,12 +536,8 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
 }
 
 Alignment NGSSimulator::sample_read() {
-#ifdef debug_ngs_sim
-        cerr << "new single ended sample" << endl;
-#endif
     
     Alignment aln;
-    
     // sample a quality string based on the trained distribution
     aln.set_quality(sample_read_quality());
     
@@ -543,9 +549,6 @@ Alignment NGSSimulator::sample_read() {
     // off the end of the graph
     while (!aln.has_path()) {
         pos_t pos = sample_start_pos();
-#ifdef debug_ngs_sim
-        cerr << "attempting walk starting at " << pos << endl;
-#endif
         sample_read_internal(aln, pos);
     }
     
@@ -558,11 +561,19 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     pair<Alignment, Alignment> aln_pair;
     aln_pair.first.set_quality(sample_read_quality());
     aln_pair.second.set_quality(sample_read_quality());
+    
+    // reverse the quality string so that it acts like it's reading from the opposite end
+    // when we walk forward from the beginning of the first read
     std::reverse(aln_pair.second.mutable_quality()->begin(),
                  aln_pair.second.mutable_quality()->end());
     
     
     while (!aln_pair.first.has_path() || !aln_pair.second.has_path()) {
+        int64_t insert_length = (int64_t) round(insert_sampler(prng));
+        if (insert_length < transition_distrs.size()) {
+            // don't make reads where the insert length is shorter than one end of the read
+            continue;
+        }
         
         // align the first end
         pos_t pos = sample_start_pos();
@@ -572,23 +583,26 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             continue;
         }
         
-        // walk out the insert
-        size_t insert_length = (size_t) round(insert_sampler(prng));
-        size_t walked_length = path_from_length(aln_pair.first.path());
-        
-        if (insert_length < walked_length) {
-            continue;
+        // walk out the unsequenced part of the insert in the graph
+        int64_t remaining_length = insert_length - 2 * transition_distrs.size();
+        if (remaining_length >= 0) {
+            // we need to move forward from the end of the first read
+            if (advance_on_graph_by_distance(pos, remaining_length)) {
+                // we hit the end of the graph trying to walk
+                continue;
+            }
+        }
+        else {
+            // we need to walk backwards from the end of the first read
+            pos = walk_backwards(aln_pair.first.path(), -remaining_length);
         }
         
-        size_t remaining_length = insert_length - walked_length;
         
-        if (advance_on_graph_by_distance(pos, remaining_length)) {
-            continue;
-        }
-        
+        // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, pos);
     }
     
+    // unreverse the second read in the pair
     aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
         return xg_index.node_length(node_id);
     });
@@ -757,6 +771,37 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
     return false;
 }
 
+pos_t NGSSimulator::walk_backwards(const Path& path, size_t distance) {
+    // walk backwards until we find the mapping it's on
+    int64_t remaining = distance;
+    int64_t mapping_idx = path.mapping_size() - 1;
+    int64_t mapping_length = mapping_to_length(path.mapping(mapping_idx));
+    while (remaining > mapping_length) {
+        remaining -= mapping_length;
+        mapping_idx--;
+        mapping_length = mapping_to_length(path.mapping(mapping_idx));
+    }
+    const Mapping& mapping = path.mapping(mapping_idx);
+    const Position& mapping_pos = mapping.position();
+    // walk forward from the beginning of the mapping until we've passed where it is on the read
+    int64_t remaining_flipped = mapping_length - remaining;
+    int64_t edit_idx = 0;
+    int64_t prefix_from_length = 0;
+    int64_t prefix_to_length = 0;
+    while (prefix_to_length <= remaining_flipped) {
+        prefix_from_length += mapping.edit(edit_idx).from_length();
+        prefix_to_length += mapping.edit(edit_idx).to_length();
+        edit_idx++;
+    }
+    // use the mapping's position and the distance we traveled on the graph to get the offset of
+    // the beginning of this edit
+    int64_t offset = mapping_pos.offset() + prefix_from_length - mapping.edit(edit_idx).from_length();
+    if (mapping.edit(edit_idx).from_length() > 0) {
+        // if the edit is a match/mismatch, add in the remainder of the edit
+        offset += (remaining_flipped - prefix_to_length + mapping.edit(edit_idx).to_length());
+    }
+    return make_pos_t(mapping_pos.node_id(), mapping_pos.is_reverse(), offset);
+}
 
 void NGSSimulator::apply_aligned_base(Alignment& aln, const pos_t& pos, char graph_char,
                                       char read_char) {
@@ -919,9 +964,11 @@ void NGSSimulator::record_read_quality(const Alignment& aln) {
     if (quality.empty()) {
         return;
     }
-    size_t end = min(quality.size(), transition_distrs.size());
+    while (transition_distrs.size() < quality.size()) {
+        transition_distrs.emplace_back(seed ? seed + transition_distrs.size() + 1 : random_device()());
+    }
     transition_distrs[0].record_transition(0, quality[0]);
-    for (size_t i = 1; i < end; i++) {
+    for (size_t i = 1; i < transition_distrs.size(); i++) {
         transition_distrs[i].record_transition(quality[i - 1], quality[i]);
     }
 }

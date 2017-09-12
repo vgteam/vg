@@ -135,6 +135,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
+            
             try:
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
@@ -457,7 +458,8 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01 --include-bonuses\' '
+        opts += '--sim_opts \'-p 1000 -v 75 -d 0.01  --include-bonuses\' '
+        opts += '--fastq {} '.format(self._input('platinum_NA12878_MHC.fq.gz'))
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -491,8 +493,8 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = not multipath
-        mapeval_options.vg_paired = not multipath
+        mapeval_options.bwa_paired = True
+        mapeval_options.vg_paired = True
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -879,7 +881,6 @@ class VGCITest(TestCase):
         tag = 'sim-{}-{}{}'.format(region, baseline_graph, tag_ext)
         
         # compute the xg indexes from scratch
-        index_bases = []
         for graph in set([baseline_graph] + test_graphs):
             chrom, offset = self._bakeoff_coords(region)        
             vg_path = self._input('{}-{}.vg'.format(graph, region))
@@ -906,7 +907,6 @@ class VGCITest(TestCase):
         for test_graph in test_graphs:
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
-        test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
                              test_graphs, score_baseline_graph, multipath, tag)
         if self.verify:
@@ -956,15 +956,33 @@ class VGCITest(TestCase):
         and off. 
         """
         try:
-            self._test_mapeval(5000, 'BRCA2', 'snp1kg',
+            self._test_mapeval(50000, 'BRCA2', 'snp1kg',
                                ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                                score_baseline_graph='primary',
                                positive_control='snp1kg_HG00096',
                                negative_control='snp1kg_minus_HG00096',
                                sample='HG00096', multipath=True, tag_ext='-mpmap')
         except:
-            log.warning('test_sim_brca2_snp1kg_mpap failed with following error:\n{}\n'.format(
+            log.warning('test_sim_brca2_snp1kg_mpmap failed with following error:\n{}\n'.format(
                 traceback.format_exc()))
+
+
+    @timeout_decorator.timeout(3600)
+    def test_sim_mhc_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off.
+        """
+        try:
+            self._test_mapeval(50000, 'MHC', 'snp1kg',
+                           ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='snp1kg_minus_HG00096',
+                           sample='HG00096', multipath=True, tag_ext='-mpmap')
+        except:
+            log.warning('test_sim_mhc_snp1kg_mpmap failed with following error:\n{}\n'.format(
+                 traceback.format_exc()))
         
 
     @timeout_decorator.timeout(200)

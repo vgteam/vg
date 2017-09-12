@@ -14,7 +14,8 @@ void help_annotate(char** argv) {
          << "    -v, --vg FILE          annotate this graph" << endl
          << "    -g, --gcsa FILE        a GCSA2 index file base name" << endl
          << "    -a, --gam FILE         alignments to annotate" << endl
-         << "    -p, --positions        annotate alignments with reference positions" << endl;
+         << "    -p, --positions        annotate alignments with reference positions" << endl
+         << "    -i, --init-pos         use initial position of alignment instead of mean" << endl;
 }
 
 int main_annotate(int argc, char** argv) {
@@ -30,6 +31,7 @@ int main_annotate(int argc, char** argv) {
     string vg_name;
     string gam_name;
     bool add_positions = false;
+    bool init_pos = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -42,11 +44,12 @@ int main_annotate(int argc, char** argv) {
             {"vg", required_argument, 0, 'v'},
             {"xg-name", required_argument, 0, 'x'},
             {"db-name", required_argument, 0, 'd'},
+            {"init-pos", no_argument, 0, 'i'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:d:v:g:a:p",
+        c = getopt_long (argc, argv, "hx:d:v:g:a:pi",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -78,6 +81,10 @@ int main_annotate(int argc, char** argv) {
         case 'p':
             add_positions = true;
             break;
+            
+        case 'i':
+            init_pos = true;
+            break;
 
         case 'h':
         case '?':
@@ -105,10 +112,15 @@ int main_annotate(int argc, char** argv) {
         if (add_positions) {
             //map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, bool first_hit_only);
             function<void(Alignment&)> lambda = [&](Alignment& aln) {
-                for (auto& ref : mapper.alignment_mean_path_positions(aln)) {
-                    Position* refpos = aln.add_refpos();
-                    refpos->set_name(ref.first);
-                    refpos->set_offset(round(ref.second));
+                if (init_pos) {
+                    mapper.annotate_with_initial_path_positions(aln);
+                }
+                else {
+                    for (auto& ref : mapper.alignment_mean_path_positions(aln)) {
+                        Position* refpos = aln.add_refpos();
+                        refpos->set_name(ref.first);
+                        refpos->set_offset(round(ref.second));
+                    }
                 }
                 buffer.push_back(aln);
                 stream::write_buffered(cout, buffer, 100);

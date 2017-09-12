@@ -2,12 +2,17 @@
 #include <string>
 #include <algorithm>
 #include <cstring>
+#include <sstream>
 
 #include "mem.hpp"
 
 //#define debug_od_clusterer
 
 namespace vg {
+    
+    
+//size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
+//size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
     
 using namespace std;
 
@@ -532,13 +537,8 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      xg::XG* xgindex,
                                                      size_t max_expected_dist_approx_error) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
     
-    
-    // the maximum graph distances to the right and left sides detectable from each node
-    vector<pair<size_t, size_t>> maximum_detectable_gaps;
-    
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
-    maximum_detectable_gaps.reserve(mems.size());
     
     for (const MaximalExactMatch& mem : mems) {
         
@@ -562,7 +562,6 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
 #endif
         for (gcsa::node_type mem_hit : mem.nodes) {
             nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
-            maximum_detectable_gaps.push_back(max_gaps);
 #ifdef debug_od_clusterer
             cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
 #endif
@@ -591,21 +590,21 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
     // now we use the strand clusters and the estimated distances to make the DAG for the
     // approximate MEM alignment
     
-    int64_t match_score, mismatch_score, gap_open_score, gap_extension_score;
+    int64_t match_score, mismatch_score, gap_open_score, gap_extension_score, max_gap;
     if (aligner) {
         match_score = aligner->match;
-        mismatch_score = aligner->mismatch;
         gap_open_score = aligner->gap_open;
         gap_extension_score = aligner->gap_extension;
+        max_gap = aligner->longest_detectable_gap(alignment);
     }
     else {
         match_score = qual_adj_aligner->match;
-        mismatch_score = qual_adj_aligner->mismatch;
         gap_open_score = qual_adj_aligner->gap_open;
         gap_extension_score = qual_adj_aligner->gap_extension;
+        max_gap = qual_adj_aligner->longest_detectable_gap(alignment);
     }
     
-    int64_t allowance = max_expected_dist_approx_error;
+    int64_t forward_gap_length = max_gap + max_expected_dist_approx_error;
     for (const unordered_map<size_t, int64_t>& relative_pos : strand_relative_position) {
         
         // sort the nodes by relative position
@@ -626,33 +625,34 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
             size_t pivot_idx = sorted_pos[i].second;
             ODNode& pivot = nodes[pivot_idx];
             int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
+            int64_t suffix_length = alignment.sequence().end() - pivot.mem->end;
             
             // the limits of how far away we might detect edges to add to the clustering graph
-            int64_t target_low_pos = strand_pos - allowance;
-            int64_t target_hi_pos = strand_pos + pivot_length + maximum_detectable_gaps[pivot_idx].second + allowance;
+            int64_t target_low_pos = strand_pos - max_expected_dist_approx_error;
+            int64_t target_hi_pos = strand_pos + suffix_length + forward_gap_length;
             
             // move the lower boundary of the search interval to the lowest value inside the
             // the target interval
-            while (sorted_pos[low].first < target_low_pos) {
+            while (low < sorted_pos.size() ? sorted_pos[low].first < target_low_pos : false) {
                 low++;
             }
             
             // move the upper boundary of the search interval to the highest value inside the
-            // the target interval (this one can move in either direction because the maximum
-            // detectable gap changes)
+            // the target interval (this one can move in either direction because pivots are
+            // different lengths)
             if (sorted_pos[hi].first > target_hi_pos) {
-                while (sorted_pos[hi].first > target_hi_pos) {
+                while (hi > 0 ?  sorted_pos[hi].first > target_hi_pos : false) {
                     hi--;
                 }
             }
             else {
-                while (hi == last_idx ? false : sorted_pos[hi + 1].first <= target_hi_pos) {
+                while (hi < last_idx ? sorted_pos[hi + 1].first <= target_hi_pos : false) {
                     hi++;
                 }
             }
             
 #ifdef debug_od_clusterer
-            cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << ")" << endl;
+            cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << "), which is inside the interval (" << target_low_pos << ", " << target_hi_pos << ")" << endl;
 #endif
             
             for (int64_t j = low; j <= hi; j++) {
@@ -664,21 +664,10 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     continue;
                 }
                 
-#ifdef debug_od_clusterer
-                cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ")" << endl;
-#endif
-                
                 // the length of the sequence in between the MEMs (can be negative if they overlap)
                 int64_t between_length = next.mem->begin - pivot.mem->end;
                 // the estimated distance between the end of the pivot and the start of the next MEM in the graph
-                int64_t graph_dist = max<int64_t>(0, sorted_pos[j].first - strand_pos - pivot_length);
-                // the discrepancy between the graph distance and the read distance
-                int64_t gap_length = abs(graph_dist - between_length);
-                
-                if (gap_length > maximum_detectable_gaps[next_idx].first + allowance) {
-                    // the gap between the MEMs is too long to be believable from the next node
-                    continue;
-                }
+                int64_t graph_dist = sorted_pos[j].first - strand_pos - pivot_length;
                 
                 int32_t edge_score;
                 if (between_length < 0) {
@@ -689,25 +678,20 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     // so for now we just give it the benefit of the doubt but adjust the edge
                     // score so that the matches don't get double counted
                     
-                    int64_t extra_dist = max<int64_t>(0, gap_length);
+                    int64_t extra_dist = abs(graph_dist - between_length);
                     
-                    edge_score = -match_score * between_length
-                                 + (extra_dist ? -(extra_dist - 1) * gap_extension_score - gap_open_score : 0);
-                }
-                else if (between_length > graph_dist) {
-                    // the read length in between the MEMs is longer than the distance, suggesting a read insert
-                    edge_score = -mismatch_score * graph_dist - (gap_length - 1) * gap_extension_score
-                                 - gap_open_score;
-                }
-                else if (between_length < graph_dist) {
-                    // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
-                    edge_score = -mismatch_score * between_length - (gap_length - 1) * gap_extension_score
-                                 - gap_open_score;
+                    edge_score = match_score * between_length
+                                 - (extra_dist ? (extra_dist - 1) * gap_extension_score + gap_open_score : 0);
                 }
                 else {
+                    int64_t gap_length = abs(between_length - graph_dist);
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_score = -mismatch_score * between_length;
+                    edge_score = gap_length ? -((gap_length - 1) * gap_extension_score + gap_open_score) : 0;
                 }
+                
+#ifdef debug_od_clusterer
+                cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ") with weight " << edge_score << endl;
+#endif
                 
                 // add the edges in
                 pivot.edges_from.emplace_back(next_idx, edge_score);
@@ -1076,6 +1060,132 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
     
     return strand_relative_position;
 }
+    
+vector<pair<size_t, size_t>> OrientedDistanceClusterer::compute_tail_mem_coverage(const Alignment& alignment,
+                                                                                  const vector<MaximalExactMatch>& mems) {
+    
+    // include an index for the past-the-last position on the read
+    vector<pair<size_t, size_t>> mem_tail_coverage(alignment.sequence().size() + 1);
+    
+    if (mems.empty()) {
+        return mem_tail_coverage;
+    }
+    
+    // convert the MEMs to the read interval they cover
+    vector<pair<int64_t, int64_t>> mem_intervals;
+    mem_intervals.reserve(mems.size());
+    for (int64_t i = 0; i < mems.size(); i++) {
+        if (!mems[i].nodes.empty()) {
+            mem_intervals.emplace_back(mems[i].begin - alignment.sequence().begin(),
+                                       mems[i].end - alignment.sequence().begin());
+        }
+    }
+    
+    // ensure that the intervals are sorted lexicographically
+    if (!std::is_sorted(mem_intervals.begin(), mem_intervals.end())) {
+        std::sort(mem_intervals.begin(), mem_intervals.end());
+    }
+    
+    // find number of SMEM beginnings strictly to the left of each position
+    
+    int64_t last_mem_idx = mem_intervals.size() - 1;
+    int64_t mem_idx = 0;
+    size_t smem_count = 0;
+    
+    // iterate through any sub-MEMs contained in the SMEM that share its start position
+    int64_t curr_mem_begin = mem_intervals[mem_idx].first;
+    int64_t curr_mem_end = mem_intervals[mem_idx].second;
+    while (mem_idx < last_mem_idx ? mem_intervals[mem_idx + 1].first == curr_mem_begin : false) {
+        mem_idx++;
+    }
+    for (int64_t i = 0; i < mem_tail_coverage.size(); i++) {
+        
+        mem_tail_coverage[i].first = smem_count;
+        
+        // are we encountering the start of another SMEM
+        if (mem_idx < mem_intervals.size() ? i == mem_intervals[mem_idx].first : false) {
+            smem_count++;
+            // iterate to the next MEM that contains some new sequence
+            curr_mem_end = mem_intervals[mem_idx].second;
+            mem_idx++;
+            while (mem_idx < mems.size() ? mem_intervals[mem_idx].second <= curr_mem_end : false) {
+                mem_idx++;
+            }
+            // iterate through any sub-MEMs contained in the SMEM that share its start position
+            curr_mem_begin = mem_intervals[mem_idx].first;
+            while (mem_idx < last_mem_idx ? mem_intervals[mem_idx + 1].first == curr_mem_begin : false) {
+                mem_idx++;
+            }
+        }
+    }
+    
+    // now use insertion sort to switch the lexicographic ordering
+    for (int64_t i = 1; i < mem_intervals.size(); i++) {
+        int64_t j = i;
+        while (mem_intervals[j].second < mem_intervals[j - 1].second ||
+               (mem_intervals[j].second == mem_intervals[j - 1].second && mem_intervals[j].first < mem_intervals[j - 1].first)) {
+            std::swap(mem_intervals[j], mem_intervals[j - 1]);
+            j--;
+            if (j == 0) {
+                break;
+            }
+        }
+    }
+    
+#ifdef debug_od_clusterer
+    cerr << "reversed lexicographic ordering of intervals" << endl;
+    for (auto interval : mem_intervals) {
+        cerr << "\t" << interval.first << " " << interval.second << endl;
+    }
+#endif
+    
+    // find number of SMEM ends strictly to the right of each position
+    
+    mem_idx = last_mem_idx;
+    smem_count = 0;
+    
+    // iterate through any sub-MEMs contained in the SMEM that share its end position
+    curr_mem_begin = mem_intervals[mem_idx].first;
+    curr_mem_end = mem_intervals[mem_idx].second;
+    while (mem_idx > 0 ? mem_intervals[mem_idx - 1].second == curr_mem_end : false) {
+        mem_idx--;
+    }
+    
+    for (int64_t i = mem_tail_coverage.size() - 1; i >= 0; i--) {
+        
+        mem_tail_coverage[i].second = smem_count;
+        
+        if (mem_idx >= 0 ? i == mem_intervals[mem_idx].second : false) {
+            smem_count++;
+            // iterate to the next MEM that contains some new sequence
+            curr_mem_begin = mem_intervals[mem_idx].first;
+            mem_idx--;
+            while (mem_idx >= 0 ? mem_intervals[mem_idx].first >= curr_mem_begin : false) {
+                mem_idx--;
+            }
+            // iterate through any sub-MEMs contained in the SMEM that share its end position
+            curr_mem_end = mem_intervals[mem_idx].second;
+            while (mem_idx > 0 ? mem_intervals[mem_idx - 1].second == curr_mem_end : false) {
+                mem_idx--;
+            }
+        }
+    }
+    
+#ifdef debug_od_clusterer
+    cerr << "computed left MEM coverage" << endl;
+    for (auto pos : mem_tail_coverage) {
+        cerr << pos.first << " ";
+    }
+    cerr << endl;
+    cerr << "computed right MEM coverage" << endl;
+    for (auto pos : mem_tail_coverage) {
+        cerr << pos.second << " ";
+    }
+    cerr << endl;
+#endif
+    
+    return mem_tail_coverage;
+}
 
 void OrientedDistanceClusterer::topological_order(vector<size_t>& order_out) {
     
@@ -1192,9 +1302,9 @@ void OrientedDistanceClusterer::connected_components(vector<vector<size_t>>& com
 
 void OrientedDistanceClusterer::perform_dp() {
     
-    // as in local alignment, minimum score is the score of node itself
-    for (size_t i = 0; i < nodes.size(); i++) {
-        nodes[i].dp_score = nodes[i].score;
+    for (ODNode& node : nodes) {
+        // as in local alignment, minimum score is the score of node itself
+        node.dp_score = node.score;
     }
     
 #ifdef debug_od_clusterer
@@ -1225,7 +1335,8 @@ void OrientedDistanceClusterer::perform_dp() {
     }
 }
 
-vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(int32_t max_qual_score) {
+vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters(int32_t max_qual_score,
+                                                                                 int32_t log_likelihood_approx_factor) {
     
     vector<vector<pair<const MaximalExactMatch*, pos_t>>> to_return;
     if (nodes.size() == 0) {
@@ -1246,7 +1357,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     connected_components(components);
     
     // find the node with the highest DP score in each connected component
-    // each record is a pair of (score, node index)
+    // each record is a pair of (score lower bound, node index)
     vector<pair<int32_t, size_t>> component_traceback_ends(components.size(),
                                                            pair<int32_t, size_t>(numeric_limits<int32_t>::min(), 0));
     for (size_t i = 0; i < components.size(); i++) {
@@ -1260,6 +1371,8 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
             }
         }
     }
+//#pragma omp atomic
+//    CLUSTER_TOTAL += component_traceback_ends.size();
     
     std::make_heap(component_traceback_ends.begin(), component_traceback_ends.end());
     
@@ -1267,7 +1380,7 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     // TODO: this approximation could break down sometimes, need to look into it
     int32_t top_score = component_traceback_ends.front().first;
     const BaseAligner* base_aligner = aligner ? (BaseAligner*) aligner : (BaseAligner*) qual_adj_aligner;
-    int32_t suboptimal_score_cutoff = top_score - base_aligner->mapping_quality_score_diff(max_qual_score);
+    int32_t suboptimal_score_cutoff = top_score - log_likelihood_approx_factor * base_aligner->mapping_quality_score_diff(max_qual_score);
     
     while (!component_traceback_ends.empty()) {
         // get the next highest scoring traceback end
@@ -1285,8 +1398,11 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
         // cluster, don't bother forming it
         if (traceback_end.first < suboptimal_score_cutoff) {
 #ifdef debug_od_clusterer
-            cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << endl;
+            cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << " and cutoff " << suboptimal_score_cutoff << endl;
 #endif
+            
+//#pragma omp atomic
+//            PRUNE_COUNTER += component_traceback_ends.size() + 1;
             break;
         }
         
@@ -1315,29 +1431,29 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     return std::move(to_return);
 }
 
-vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& our_clusters,
-    const vector<cluster_t*>& their_clusters, xg::XG* xgindex, size_t max_inter_cluster_distance) {
+vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& left_clusters,
+                                                                      const vector<cluster_t*>& right_clusters,
+                                                                      xg::XG* xgindex,
+                                                                      int64_t min_inter_cluster_distance,
+                                                                      int64_t max_inter_cluster_distance) {
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
     vector<pair<size_t, size_t>> to_return;
     
     // We think of the clusters as a single linear ordering, with our clusters coming first.
-    size_t total_clusters = our_clusters.size() + their_clusters.size();
+    size_t total_clusters = left_clusters.size() + right_clusters.size();
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
     unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, xgindex,
         [&](size_t cluster_num) {
             // Get the position that stands in for each cluster. Should reverse the strand for clusters from the other clusterer.
-            if (cluster_num < our_clusters.size()) {
+            // Assumes the clusters are nonempty.
+            if (cluster_num < left_clusters.size()) {
                 // Grab the pos_t for the first thing in the cluster.
-                // Assumes ther cluster is nonempty.
-                return our_clusters[cluster_num]->front().second;
+                return left_clusters[cluster_num]->front().second;
             } else {
                 // Grab the pos_t for this cluster from the other clusterer.
-                pos_t their_pos = their_clusters[cluster_num - our_clusters.size()]->front().second;
-                // Reverse it so that it appears to be on the same strand as consistent clusters from this clusterer.
-                // TODO: won't this make us look at the outside sides of the clusters and not the left sides?
-                return reverse(their_pos, xgindex->node_length(get_id(their_pos)));
+                return right_clusters[cluster_num - left_clusters.size()]->back().second;
             }
         });
         
@@ -1349,14 +1465,13 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
         
         // The linear space may run forward or reverse relative to our read.
         
-        
         // This will hold pairs of relative position and cluster number
         vector<pair<int64_t, size_t>> sorted_pos;
         for (auto& cluster_and_pos : linear_space) {
             // Flip each pair around and put it in the list to sort.
             sorted_pos.emplace_back(cluster_and_pos.second, cluster_and_pos.first);
         }
-        // Sort the list ascending by the forst item (relative position)
+        // Sort the list ascending by the first item (relative position)
         std::sort(sorted_pos.begin(), sorted_pos.end());
         
         // Now scan for opposing pairs within the distance limit.
@@ -1368,42 +1483,31 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
         size_t window_start = 0;
         size_t window_last = 0;
         
-        while (window_last + 1 < sorted_pos.size()) {
-            // We can add another thing to the window.
-            window_last++;
+        for (size_t i = 0; i < sorted_pos.size(); i++) {
+            // we're looking for left to right connections, so don't start from the right
+            if (sorted_pos[i].second >= left_clusters.size()) {
+                continue;
+            }
             
-            // Grab the position of the item we just added
-            auto window_last_pos = sorted_pos[window_last].first;
+            // the interval of linearized coordinates we want to form pairs to
+            int64_t coord_interval_start = sorted_pos[i].first + min_inter_cluster_distance;
+            int64_t coord_interval_end = sorted_pos[i].first + max_inter_cluster_distance;
             
-            while (window_last_pos - sorted_pos[window_start].first > max_inter_cluster_distance) {
-                // While the new thing would make the window too big, eject stuff.
-                // We'll always eventually hit window_last.
+            // move the window bounds forward until it's inside the coordinate interval
+            while (window_start < sorted_pos.size() ? sorted_pos[window_start].first < coord_interval_start : false) {
                 window_start++;
             }
+            while (window_last + 1 < sorted_pos.size() ? sorted_pos[window_last + 1].first < coord_interval_end : false) {
+                window_last++;
+            }
             
-            for (size_t i = window_start; i < window_last; i++) {
-                // Now compare the last item against everything remaining that isn't it.
-                
-                // Get their numbers
-                size_t cluster_a = sorted_pos[i].second;
-                size_t cluster_b = sorted_pos[window_last].second;
-                
-                if (cluster_b < cluster_a) {
-                    // Make sure A is the lower-number cluster.
-                    swap(cluster_a, cluster_b);
+            // add each pair of clusters that's from the two read ends to the return value
+            for (size_t j = window_start; j <= window_last; j++) {
+                if (sorted_pos[j].second >= left_clusters.size()) {
+                    to_return.emplace_back(sorted_pos[i].second, sorted_pos[j].second - left_clusters.size());
                 }
-                
-                if (cluster_a < our_clusters.size() && cluster_b >= our_clusters.size()) {
-                    // cluster A is ours and cluster B is from the other clusterer.
-                    
-                    // Spit out these clusters as a pair
-                    to_return.emplace_back(cluster_a, cluster_b - our_clusters.size());
-                }
-                
-                
             }
         }
-        
     }
     
     return to_return;
