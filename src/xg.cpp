@@ -833,11 +833,11 @@ void XG::build(map<id_t, string>& node_label,
         int64_t t = g + 4 + sequence_size;
         int64_t f = g + 4 + sequence_size + 2 * edges_to_count;
         for (int64_t j = t; j < f; ) {
-            g_iv[j] = g_cbv_select(g_iv[j]) - g;
+            g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
         for (int64_t j = f; j < f + 2 * edges_from_count; ) {
-            g_iv[j] = g_cbv_select(g_iv[j]) - g;
+            g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
     }
@@ -1426,14 +1426,12 @@ Edge XG::edge_from_encoding(int64_t from, int64_t to, int type) const {
 
 void XG::idify_graph(Graph& graph) const {
     // map into the id space; offsets in gciv contain the actual ids
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* node = graph.mutable_node(i);
-        node->set_id(g_iv[node->id()]);
+    for (auto& node : *graph.mutable_node()) {
+        node.set_id(g_iv[node.id()]);
     }
-    for (int i = 0; i < graph.edge_size(); ++i) {
-        Edge* edge = graph.mutable_edge(i);
-        edge->set_from(g_iv[edge->from()]);
-        edge->set_to(g_iv[edge->to()]);
+    for (auto& edge : *graph.mutable_edge()) {
+        edge.set_from(g_iv[edge.from()]);
+        edge.set_to(g_iv[edge.to()]);
     }
 }
 
@@ -1528,15 +1526,14 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
                 // add the node and its edges to the graph
                 Graph node_graph = node_subgraph_g(id(next));
                 graph.MergeFrom(node_graph);
-                Node node = node_graph.node(0);
+                const Node& node = node_graph.node(0);
                 nextd = nextd == 0 ? node.sequence().size() : min(nextd, (int)node.sequence().size());
                 // where to next
                 // look at the next positions we could reach
                 pos_t pos = next;
                 if (!is_rev(pos)) {
                     // we are on the forward strand, the next things from this node come off the end
-                    for (int i = 0; i < node_graph.edge_size(); ++i) {
-                        auto& edge = node_graph.edge(i);
+                    for (auto& edge : node_graph.edge()) {
                         if((edge.to() == id(pos) && edge.to_end()) || (edge.from() == id(pos) && !edge.from_start())) {
                             id_t nid = (edge.from() == id(pos) ?
                                         edge.to()
@@ -1546,8 +1543,7 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
                     }
                 } else {
                     // we are on the reverse strand, the next things from this node come off the start
-                    for (int i = 0; i < node_graph.edge_size(); ++i) {
-                        auto& edge = node_graph.edge(i);
+                    for (auto& edge : node_graph.edge()) {
                         if((edge.to() == id(pos) && !edge.to_end()) || (edge.from() == id(pos) && edge.from_start())) {
                             id_t nid = (edge.to() == id(pos) ?
                                         edge.from()
@@ -2388,7 +2384,7 @@ int64_t XG::min_approx_path_distance(const vector<string>& names,
 int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, bool rev1,
                                                   int64_t id2, size_t offset2, bool rev2,
                                                   size_t max_search_dist) const {
-    
+
 #ifdef debug_algorithms
     cerr << "[XG] estimating oriented distance between " << id1 << "[" << offset1 << "]" << (rev1 ? "-" : "+") << " and " << id2 << "[" << offset2 << "]" << (rev2 ? "-" : "+") << " with max search distance of " << max_search_dist << endl;
 #endif
@@ -2738,6 +2734,39 @@ size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
     size_t p = path_rank(name)-1;
     size_t position_rank = paths[p]->offsets_rank(pos+1);
     return paths[p]->offsets_select(position_rank);
+}
+
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2) const {
+    Alignment aln;
+    const XGPath& path = *paths[path_rank(name)-1];
+    size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
+    int64_t trim_start = pos1 - first_node_start;
+    {
+        Mapping* first_mapping = aln.mutable_path()->add_mapping();
+        *first_mapping = mapping_at_path_position(name, pos1);
+        Edit* e = first_mapping->add_edit();
+        e->set_to_length(node_length(first_mapping->position().node_id())-trim_start);
+        e->set_from_length(e->to_length());
+    }
+    // get p to point to the next step (or past it, if we're a feature on a single node)
+    int64_t p = (int64_t)pos1 + node_length(aln.path().mapping(0).position().node_id()) - trim_start;
+    while (p < pos2) {
+        Mapping m = mapping_at_path_position(name, p);
+        Edit* e = m.add_edit();
+        e->set_to_length(node_length(m.position().node_id()));
+        e->set_from_length(e->to_length());
+        *aln.mutable_path()->add_mapping() = m;
+        p += mapping_from_length(aln.path().mapping(aln.path().mapping_size()-1));
+    }
+    // trim to the target
+    int64_t trim_end = p - pos2;
+    if (trim_start) {
+        *aln.mutable_path() = cut_path(aln.path(), trim_start).second;
+    }
+    if (trim_end) {
+        *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
+    }
+    return aln;
 }
 
 Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {

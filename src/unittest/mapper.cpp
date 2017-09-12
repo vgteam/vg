@@ -246,6 +246,9 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     // Load the JSON
     Graph proto_graph;
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    ofstream f("out.json");
+    f << graph_json;
+    f.close();
     
     // Make it into a VG
     VG graph;
