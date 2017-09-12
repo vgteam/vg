@@ -9,6 +9,9 @@ TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f737ddd68313fc9bb7f84
 # What Toil should we use?
 TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.10.1
 
+# What vg should we use?
+VG_DOCKER_OPTS=()
+
 # What's our unique run ID? Should be lower-case and start with a letter for maximum compatibility.
 # See <https://gist.github.com/earthgecko/3089509>
 RUN_ID="run$(cat /dev/urandom | LC_CTYPE=C tr -dc 'a-z0-9' | fold -w 32 | head -n 1)"
@@ -25,10 +28,11 @@ usage() {
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t CONTAINER\tUse the given Toil container in the cluster (default: ${TOIL_APPLIANCE_SELF}).\n"
     printf "\t-c CLUSTER\tUse the given existing Toil cluster.\n"
+    printf "\t-v DOCKER\tUse the given Docker image specifier for vg.\n"
     exit 1
 }
 
-while getopts "hp:t:c:z" o; do
+while getopts "hp:t:c:v:" o; do
     case "${o}" in
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -39,6 +43,9 @@ while getopts "hp:t:c:z" o; do
         c)
             CLUSTER_NAME="${OPTARG}"
             MANAGE_CLUSTER=0
+            ;;
+        v)
+            VG_DOCKER_OPTS=("--vg_docker" "${OPTARG}")
             ;;
         *)
             usage
@@ -126,16 +133,25 @@ $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" apt inst
 # For hot deployment to work, toil-vg needs to be in a virtualenv that can see the system Toil
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" virtualenv --system-site-packages venv
 
+$PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install pyyaml
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install aws
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install numpy
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scipy
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install scikit-learn
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/pip install "${TOIL_VG_PACKAGE}"
 
+# Make a config so that we use lots of cores for alignments
+$PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg generate-config --whole_genome --config vg.conf
+
 # We need the master's IP to make Mesos go
 MASTER_IP="$($PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" hostname -i)"
 
+# Make sure we download the outstore whether we break now or not
+set +e
+
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
+    --config vg.conf \
+    "${VG_DOCKER_OPTS[@]}" \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
@@ -146,7 +162,8 @@ $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin
     "${JOB_TREE}" \
     "${OUTPUT_STORE}" \
     `get_input_url "comparison-${REGION_NAME}.pos"` \
-    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --nodeType=t2.large
+    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --preemptableNodeType=r3.8xlarge:0.8 \
+    --defaultPreemptable --maxPreemptableNodes 4
     
 # Make sure the output is public
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/aws s3 sync --acl public-read "${OUTPUT_STORE_URL}" "${OUTPUT_STORE_URL}"
