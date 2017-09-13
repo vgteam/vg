@@ -46,75 +46,6 @@ using namespace vg;
     }
 
 
-void help_deconstruct(char** argv){
-    cerr << "usage: " << argv[0] << " deconstruct [options] -p <PATH> <my_graph>.vg" << endl
-         << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
-         << "options: " << endl
-         << "--path / -p     REQUIRED: A reference path to deconstruct against." << endl
-         << endl;
-}
-
-int main_deconstruct(int argc, char** argv){
-    //cerr << "WARNING: EXPERIMENTAL" << endl;
-    if (argc <= 2) {
-        help_deconstruct(argv);
-        return 1;
-    }
-
-    vector<string> refpaths;
-    string graphname;
-    string outfile = "";
-    
-    int c;
-    optind = 2; // force optind past command positional argument
-    while (true) {
-        static struct option long_options[] =
-            {
-                {"help", no_argument, 0, 'h'},
-                {"path", required_argument, 0, 'p'},
-                {0, 0, 0, 0}
-
-            };
-
-            int option_index = 0;
-            c = getopt_long (argc, argv, "hp:",
-                    long_options, &option_index);
-
-            // Detect the end of the options.
-            if (c == -1)
-                break;
-
-            switch (c)
-            {
-                case 'p':
-                    refpaths = split(optarg, ",");
-                    break;
-                case '?':
-                case 'h':
-                    help_deconstruct(argv);
-                    return 1;
-                default:
-                    help_deconstruct(argv);
-                    abort();
-            }
-
-        }
-        graphname = argv[optind];
-        vg::VG* graph;
-        if (!graphname.empty()){
-            ifstream gstream(graphname);
-            graph = new vg::VG(gstream);
-        }
-
-        // load graph
-
-        // Deconstruct
-        Deconstructor dd;
-        dd.deconstruct(refpaths, graph);
-    return 0;
-}
-
-
 void help_sort(char** argv){
     cerr << "usage: " << argv[0] << " sort [options] -i <input_file> -r <reference_name> > sorted.vg " << endl
          << "options: " << endl
@@ -235,8 +166,7 @@ void vg_help(char** argv) {
      });
          
      // Also announce all the old-style hardcoded commands
-     cerr << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
-         << "  -- genotype      compute genotypes from aligned reads" << endl
+         cerr << "  -- genotype      compute genotypes from aligned reads" << endl
          << "  -- sort          sort variant graph using max flow algorithm or Eades fast heuristic algorithm" << endl
          << "  -- test          run unit tests" << endl;
 }
@@ -263,9 +193,7 @@ int main(int argc, char *argv[])
     //omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
-    if (command == "deconstruct"){
-        return main_deconstruct(argc, argv);
-    } else if (command == "test") {
+    if (command == "test") {
         return main_test(argc, argv);
     } else if (command == "sort") {
         return main_sort(argc, argv);
