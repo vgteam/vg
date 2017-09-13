@@ -1309,6 +1309,7 @@ Mapper::Mapper(xg::XG* xidex,
     , max_multimaps(1)
     , min_multimaps(4)
     , max_attempts(0)
+    , min_cluster_length(0)
     , softclip_threshold(0)
     , max_softclip_iterations(10)
     , min_identity(0)
