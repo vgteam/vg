@@ -47,6 +47,7 @@ void help_mpmap(char** argv) {
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
     << "  -W, --reseed-diff INT     require internal MEMs to have length within tåhis much of the SMEM's length [8]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
+    << "  -K, --clust-length INT  minimum MEM length to anchor multipath alignments [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
@@ -91,6 +92,7 @@ int main_mpmap(int argc, char** argv) {
     int buffer_size = 100;
     int hit_max = 128;
     int min_mem_length = 1;
+    int min_clustering_mem_length = 0;
     int reseed_length = 32;
     int reseed_diff = 8;
     double cluster_ratio = 0.2;
@@ -133,6 +135,7 @@ int main_mpmap(int argc, char** argv) {
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
             {"min-mem-length", required_argument, 0, 'k'},
+            {"clustlength", required_argument, 0, 'K'},
             {"hit-max", required_argument, 0, 'c'},
             {"max-dist-error", required_argument, 0, 'd'},
             {"approx-exp", required_argument, 0, 'w'},
@@ -151,7 +154,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:v:Q:p:M:r:W:k:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -283,6 +286,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'k':
                 min_mem_length = atoi(optarg);
+                break;
+                
+            case 'K':
+                min_clustering_mem_length = atoi(optarg);
                 break;
                 
             case 'c':
@@ -553,10 +560,16 @@ int main_mpmap(int argc, char** argv) {
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;
-    multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
+    multipath_mapper.min_mem_length = min_mem_length;
+    if (min_clustering_mem_length) {
+        multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
+    }
+    else {
+        multipath_mapper.set_automatic_min_clustering_length();
+    }
     
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
@@ -761,6 +774,7 @@ int main_mpmap(int argc, char** argv) {
     }
     cout.flush();
     
+    //cerr << "MEM length filtering efficiency: " << ((double) OrientedDistanceClusterer::MEM_FILTER_COUNTER) / OrientedDistanceClusterer::MEM_TOTAL << " (" << OrientedDistanceClusterer::MEM_FILTER_COUNTER << "/" << OrientedDistanceClusterer::MEM_TOTAL << ")" << endl;
     //cerr << "MEM cluster filtering efficiency: " << ((double) OrientedDistanceClusterer::PRUNE_COUNTER) / OrientedDistanceClusterer::CLUSTER_TOTAL << " (" << OrientedDistanceClusterer::PRUNE_COUNTER << "/" << OrientedDistanceClusterer::CLUSTER_TOTAL << ")" << endl;
     //cerr << "subgraph filtering efficiency: " << ((double) MultipathMapper::PRUNE_COUNTER) / MultipathMapper::SUBGRAPH_TOTAL << " (" << MultipathMapper::PRUNE_COUNTER << "/" << MultipathMapper::SUBGRAPH_TOTAL << ")" << endl;
     

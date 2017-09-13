@@ -207,13 +207,15 @@ public:
                               const vector<MaximalExactMatch>& mems,
                               const QualAdjAligner& aligner,
                               xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error = 8);
+                              size_t max_expected_dist_approx_error = 8,
+                              size_t min_mem_length = 1);
     
     OrientedDistanceClusterer(const Alignment& alignment,
                               const vector<MaximalExactMatch>& mems,
                               const Aligner& aligner,
                               xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error = 8);
+                              size_t max_expected_dist_approx_error = 8,
+                              size_t min_mem_length = 1);
     
     /// Each hit contains a pointer to the original MEM and the position of that
     /// particular hit in the graph.
@@ -240,6 +242,8 @@ public:
     
     //static size_t PRUNE_COUNTER;
     //static size_t CLUSTER_TOTAL;
+    //static size_t MEM_FILTER_COUNTER;
+    //static size_t MEM_TOTAL;
     
 private:
     class ODNode;
@@ -252,7 +256,8 @@ private:
                               const Aligner* aligner,
                               const QualAdjAligner* qual_adj_aligner,
                               xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error);
+                              size_t max_expected_dist_approx_error,
+                              size_t min_mem_length);
     
     /**
      * Given a certain number of items, and a callback to get each item's

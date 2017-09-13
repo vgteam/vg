@@ -68,11 +68,13 @@ namespace vg {
         // cluster the MEMs
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters;
         if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error,
+                                                min_clustering_mem_length);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
-            OrientedDistanceClusterer clusterer(alignment, mems, *regular_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer(alignment, mems, *regular_aligner, xindex, max_expected_dist_approx_error,
+                                                min_clustering_mem_length);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
@@ -321,14 +323,18 @@ namespace vg {
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters1;
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters2;
         if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *qual_adj_aligner, xindex, max_expected_dist_approx_error,
+                                                 min_clustering_mem_length);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *qual_adj_aligner, xindex, max_expected_dist_approx_error,
+                                                 min_clustering_mem_length);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *regular_aligner, xindex, max_expected_dist_approx_error);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *regular_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *regular_aligner, xindex, max_expected_dist_approx_error,
+                                                 min_clustering_mem_length);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *regular_aligner, xindex, max_expected_dist_approx_error,
+                                                 min_clustering_mem_length);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
@@ -1642,6 +1648,10 @@ namespace vg {
     void MultipathMapper::set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio) {
         double log_base = adjust_alignments_for_base_quality ? qual_adj_aligner->log_base : regular_aligner->log_base;
         max_suboptimal_path_score_diff = (int32_t) ceil(log(maximum_acceptable_ratio) / log_base);
+    }
+    
+    void MultipathMapper::set_automatic_min_clustering_length(double random_mem_probability) {
+        min_clustering_mem_length = max<int>(log(1.0 - pow(random_mem_probability, 1.0 / xindex->seq_length)) / log(0.25), 1);
     }
     
     bool MultipathMapper::validate_multipath_alignment(const MultipathAlignment& multipath_aln) const {

@@ -13,6 +13,8 @@ namespace vg {
     
 //size_t OrientedDistanceClusterer::PRUNE_COUNTER = 0;
 //size_t OrientedDistanceClusterer::CLUSTER_TOTAL = 0;
+//size_t OrientedDistanceClusterer::MEM_FILTER_COUNTER = 0;
+//size_t OrientedDistanceClusterer::MEM_TOTAL = 0;
     
 using namespace std;
 
@@ -516,8 +518,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const vector<MaximalExactMatch>& mems,
                                                      const QualAdjAligner& aligner,
                                                      xg::XG* xgindex,
-                                                     size_t max_expected_dist_approx_error) :
-    OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error) {
+                                                     size_t max_expected_dist_approx_error,
+                                                     size_t min_mem_length) :
+    OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error, min_mem_length) {
     // nothing else to do
 }
 
@@ -525,8 +528,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const vector<MaximalExactMatch>& mems,
                                                      const Aligner& aligner,
                                                      xg::XG* xgindex,
-                                                     size_t max_expected_dist_approx_error) :
-    OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error) {
+                                                     size_t max_expected_dist_approx_error,
+                                                     size_t min_mem_length) :
+    OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error, min_mem_length) {
     // nothing else to do
 }
 
@@ -535,24 +539,29 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const Aligner* aligner,
                                                      const QualAdjAligner* qual_adj_aligner,
                                                      xg::XG* xgindex,
-                                                     size_t max_expected_dist_approx_error) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
+                                                     size_t max_expected_dist_approx_error,
+                                                     size_t min_mem_length) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
     
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
     
     for (const MaximalExactMatch& mem : mems) {
         
+//#pragma omp atomic
+//        MEM_TOTAL += mem.nodes.size();
+        
+        if (mem.length() < min_mem_length) {
+//#pragma omp atomic
+//            MEM_FILTER_COUNTER += mem.nodes.size();
+            continue;
+        }
+        
         // calculate the longest gaps we could detect to the left and right of this MEM
-        pair<size_t, size_t> max_gaps;
         int32_t mem_score;
         if (aligner) {
-            max_gaps.first = aligner->longest_detectable_gap(alignment, mem.begin);
-            max_gaps.second = aligner->longest_detectable_gap(alignment, mem.end);
             mem_score = aligner->score_exact_match(mem.begin, mem.end);
         }
         else {
-            max_gaps.first = qual_adj_aligner->longest_detectable_gap(alignment, mem.begin);
-            max_gaps.second = qual_adj_aligner->longest_detectable_gap(alignment, mem.end);
             mem_score = qual_adj_aligner->score_exact_match(mem.begin, mem.end, alignment.quality().begin()
                                                             + (mem.begin - alignment.sequence().begin()));
         }

@@ -60,6 +60,10 @@ namespace vg {
         /// validate alignment score.
         bool validate_multipath_alignment(const MultipathAlignment& multipath_aln) const;
         
+        /// Sets the minimum clustering MEM length to the approximate length that a MEM would have to be to
+        /// have at most the given probability of occurring in random sequence of the same size as the graph
+        void set_automatic_min_clustering_length(double random_mem_probability = 0.5);
+        
         // parameters
         
         int64_t max_snarl_cut_size = 5;
@@ -70,6 +74,7 @@ namespace vg {
         int32_t max_suboptimal_path_score_diff = 20;
         size_t num_mapping_attempts = 1;
         double log_likelihood_approx_factor = 1.0;
+        size_t min_clustering_mem_length = 0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
