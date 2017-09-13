@@ -27,7 +27,6 @@
 #include "bubbles.hpp"
 #include "readfilter.hpp"
 #include "distributions.hpp"
-#include "unittest/driver.hpp"
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
 
@@ -43,14 +42,6 @@ using namespace vg;
             << endl;
     }
 
-
-// No help_test is necessary because the unit testing library takes care of
-// complaining about missing options.
-
-int main_test(int argc, char** argv){
-    // Forward arguments along to the main unit test driver
-    return vg::unittest::run_unit_tests(argc, argv);
-}
 
 void vg_help(char** argv) {
     cerr << "vg: variation graph tool, version " << VG_VERSION_STRING << endl
@@ -69,9 +60,8 @@ void vg_help(char** argv) {
      });
          
      // Also announce all the old-style hardcoded commands
-         cerr << "  -- genotype      compute genotypes from aligned reads" << endl
-         << "  -- test          run unit tests" << endl;
-}
+         cerr << "  -- genotype      compute genotypes from aligned reads" << endl;
+ }
 
 int main(int argc, char *argv[])
 {
@@ -95,14 +85,8 @@ int main(int argc, char *argv[])
     //omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
-    if (command == "test") {
-        return main_test(argc, argv);
-    } else {
-        cerr << "error:[vg] command " << command << " not found" << endl;
-        vg_help(argv);
-        return 1;
-    }
-
-    return 0;
+    cerr << "error:[vg] command " << command << " not found" << endl;
+    vg_help(argv);
+    return 1;
 
 }

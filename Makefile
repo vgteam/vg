@@ -166,6 +166,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/stats_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/filter_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/version_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/test_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/sort_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/deconstruct_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/locify_main.o
@@ -633,6 +634,8 @@ $(SUBCOMMAND_OBJ_DIR)/align_main.o: $(SUBCOMMAND_SRC_DIR)/align_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/version_main.o: $(SUBCOMMAND_SRC_DIR)/version_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/version.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/test_main.o: $(SUBCOMMAND_SRC_DIR)/test_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(UNITTEST_SRC_DIR)/driver.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/sort_main.o: $(SUBCOMMAND_SRC_DIR)/sort_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/flow_sort.hpp $(DEPS)
 
