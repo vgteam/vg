@@ -25,13 +25,13 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
 bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
 bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
 
-size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lambda);
-size_t fastq_paired_interleaved_for_each(string& filename, function<void(Alignment&, Alignment&)> lambda);
-size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda);
+size_t fastq_unpaired_for_each(const string& filename, function<void(Alignment&)> lambda);
+size_t fastq_paired_interleaved_for_each(const string& filename, function<void(Alignment&, Alignment&)> lambda);
+size_t fastq_paired_two_files_for_each(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda);
 // parallel versions of above
-size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
-size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda);
-size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda);
+size_t fastq_unpaired_for_each_parallel(const string& filename, function<void(Alignment&)> lambda);
+size_t fastq_paired_interleaved_for_each_parallel(const string& filename, function<void(Alignment&, Alignment&)> lambda);
+size_t fastq_paired_two_files_for_each_parallel(const string& file1, const string& file2, function<void(Alignment&, Alignment&)> lambda);
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,

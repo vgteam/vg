@@ -1,4 +1,6 @@
 #!/usr/bin/env python2.7
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 import logging
 import shutil
 import subprocess
@@ -16,6 +18,8 @@ import timeout_decorator
 import urllib2
 import shutil
 import glob
+import traceback
+import io
 
 import tsv
 
@@ -37,6 +41,9 @@ class VGCITest(TestCase):
     much slower.  
     """
     def setUp(self):
+        # Make sure logging is available for all the tests
+        logging.basicConfig()
+
         self.workdir = tempfile.mkdtemp()
         self.tempdir = tempfile.mkdtemp()
         
@@ -68,7 +75,7 @@ class VGCITest(TestCase):
         """ It's a hassle passing parameters through pytest.  Hack
         around for now by loading from a file of key/value pairs. """
         if os.path.isfile('vgci_cfg.tsv'):
-            with open('vgci_cfg.tsv') as f:
+            with io.open('vgci_cfg.tsv', 'r', encoding='utf8') as f:
                 for line in f:
                     toks = line.split()
                     if len(toks) == 2 and toks[0][0] != '#':
@@ -115,6 +122,8 @@ class VGCITest(TestCase):
             return 19, 54025633
         elif region == 'MHC':
             return 6, 28510119
+        elif 'CHR' in region:
+            return int(region.replace('CHR', '')), 0
         
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
@@ -128,7 +137,7 @@ class VGCITest(TestCase):
             # And download it
             try:
                 connection = urllib2.urlopen(url)
-                return connection.read()
+                return unicode(connection.read())
             except urllib2.HTTPError as e:
                 if e.code == 404:
                     # Baseline file doesn't yet exist. Give an empty string.
@@ -138,7 +147,7 @@ class VGCITest(TestCase):
                     raise
         else:
             # Assume it's a raw path.
-            with open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path)) as f:
+            with io.open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path), 'r', encoding='utf8') as f:
                 return f.read()
 
     def _get_remote_file(self, src, tgt):
@@ -159,8 +168,11 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             src = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
         
+        log.info('Download {}...\n'.format(src))
+        
         with open(tgt, 'w') as f:
             # Download the file from the URL
+            # DON'T use an encoding here; the file may be binary
             connection = urllib2.urlopen(src)
             shutil.copyfileobj(connection, f)
 
@@ -349,7 +361,7 @@ class VGCITest(TestCase):
         else:
             f1_name = 'vcfeval_output_f1.txt'
         f1_path = os.path.join(self._outstore(tag), f1_name)
-        with open(f1_path) as f1_file:
+        with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
         baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
         
@@ -361,7 +373,7 @@ class VGCITest(TestCase):
         self._begin_message('vcfeval Results'.format(
             f1_score, baseline_f1, threshold), is_tsv=True)
         summary_path = f1_path[0:-6] + 'summary.txt'
-        with open(summary_path) as summary_file:
+        with io.open(summary_path, 'r', encoding='utf8') as summary_file:
             for i, line in enumerate(summary_file):
                 if i != 1:
                     toks = line.split()
@@ -371,7 +383,7 @@ class VGCITest(TestCase):
                         toks += [baseline_f1, threshold]
                     elif i > 2:
                         toks += ['N/A', 'N/A']
-                    print '\t'.join([str(tok) for tok in toks])
+                    print '\t'.join([unicode(tok) for tok in toks])
         self._end_message()
 
         self.assertTrue(f1_score >= baseline_f1 - threshold)
@@ -398,7 +410,8 @@ class VGCITest(TestCase):
             self._verify_f1('NA12878', tag)
 
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
-                        test_index_bases, test_names, score_baseline_name, tag):
+                        test_index_bases, test_names, score_baseline_name,
+                        multipath, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -458,7 +471,9 @@ class VGCITest(TestCase):
             vg_docker = self.vg_docker,
             container = self.container,
             alignment_cores = self.cores,
-            map_opts = ['--include-bonuses'], # Make sure we have the actual scores used to decide on alignments
+            # Make sure we have the actual scores used to decide on alignments
+            # Also try and make the fragment model more stable and consistent.
+            map_opts = ['--include-bonuses', '--frag-calc', '1000'], 
             # Toil options
             realTimeLogging = True,
             logLevel = "INFO",
@@ -476,14 +491,20 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = True
-        mapeval_options.vg_paired = True
+        mapeval_options.bwa_paired = not multipath
+        mapeval_options.vg_paired = not multipath
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
         mapeval_options.gam_input_reads = make_url(os.path.join(out_store, 'sim.gam'))
+        # We have 150 bp reads reduced to a point position, at a resolution of
+        # only the nearest 100 bp (on the primary graph). How close do two such
+        # point positions need to be to say the read is in the right place?
+        mapeval_options.mapeval_threshold = 200
         if score_baseline_name is not None:
             mapeval_options.compare_gam_scores = score_baseline_name
+        mapeval_options.multipath = multipath
+            
         
         # Make Toil
         with context.get_toil(job_store) as toil:
@@ -531,7 +552,7 @@ class VGCITest(TestCase):
                     name = method[0:-3] if method.endswith('-se') else method
                     score_path = os.path.join(os.path.dirname(position_file),
                                               '{}.compare.primary.scores'.format(name))
-                    with open(score_path) as score_file:
+                    with io.open(score_path, 'r', encoding='utf8') as score_file:
                         for line in score_file:
                             toks = line.split(", ")
                             if int(toks[1]) < 0:
@@ -542,7 +563,7 @@ class VGCITest(TestCase):
 
         # scan postions, filtering all reads in our set
         filter_count = 0
-        with open(position_file) as pf, open(out_file, 'w') as of:
+        with io.open(position_file, 'r', encoding='utf8') as pf, io.open(out_file, 'w', encoding='utf8') as of:
             for i, line in enumerate(pf):
                 toks = line.rstrip().split()
                 if i == 0:
@@ -555,7 +576,7 @@ class VGCITest(TestCase):
         return filter_count
             
     def _mapeval_r_plots(self, tag, positive_control=None, negative_control=None,
-                         control_include=['snp1kg', 'primary'], min_reads_for_filter_plots=100):
+                         control_include=['snp1kg', 'primary', 'common1kg'], min_reads_for_filter_plots=100):
         """ Compute the mapeval r plots (ROC and QQ) """
         out_store = self._outstore(tag)
         out_store_name = self._outstore_name(tag)
@@ -579,7 +600,7 @@ class VGCITest(TestCase):
         context = Context(out_store, overrides)
         with context.get_toil(job_store) as toil:
             try:
-                for rscript in ['roc', 'qq']:
+                for rscript in ['pr', 'qq']:
                     # pull the scripts from where we expect them relative to being in vg/
                     # and put them in the work directory.  This is ugly but keeps the
                     # docker interfacing simple.
@@ -589,9 +610,9 @@ class VGCITest(TestCase):
                     if positive_control or negative_control:
                         nc_name = 'position.results.no.control.tsv'
                         co_name = 'position.results.control.tsv'
-                        with open(os.path.join(out_store, 'position.results.tsv')) as pr_file,\
-                             open(os.path.join(out_store, nc_name), 'w') as nc_file,\
-                             open(os.path.join(out_store, co_name), 'w') as co_file:
+                        with io.open(os.path.join(out_store, 'position.results.tsv'), 'r', encoding='utf8') as pr_file,\
+                             io.open(os.path.join(out_store, nc_name), 'w', encoding='utf8') as nc_file,\
+                             io.open(os.path.join(out_store, co_name), 'w', encoding='utf8') as co_file:
                             aidx = None
                             for i, line in enumerate(pr_file):
                                 toks = line.rstrip().split()
@@ -669,7 +690,7 @@ class VGCITest(TestCase):
         self._mapeval_r_plots(tag, positive_control, negative_control)
 
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
-        with open(stats_path) as stats:
+        with io.open(stats_path, 'r', encoding='utf8') as stats:
             stats_tsv = stats.read()
         baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
 
@@ -679,16 +700,28 @@ class VGCITest(TestCase):
         baseline_dict = self._tsv_to_dict(baseline_tsv)
 
         # print out a table of mapeval results
-        table_name = 'mape eval results'
+        table_name = 'map eval results'
         if positive_control:
             table_name += ' (*: positive control)'
         if negative_control:
             table_name += ' (**: negative control)'
         self._begin_message(table_name, is_tsv=True)
-        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Threshold'])
+        
+        # How many different columns do we want to see in the stats files?
+        # We need to pad shorter rows with 0s
+        stats_columns = 5 # read count, accuracy, AUC, QQ-plot r value, max F1
+        
+        print '\t'.join(['Method', 'Acc.', 'Baseline Acc.', 'AUC', 'Baseline AUC', 'Max F1', 'Baseline F1'])
         for key in sorted(set(baseline_dict.keys() + stats_dict.keys())):
-            sval = stats_dict[key] if key in stats_dict else ['DNE'] * 3
-            bval = baseline_dict[key] if key in baseline_dict else ['DNE'] * 3
+            # What values do we have for the graph this run?
+            sval = list(stats_dict.get(key, []))
+            while len(sval) < stats_columns:
+                sval.append('DNE')
+            # And what baseline values do we have stored?
+            bval = list(baseline_dict.get(key, []))
+            while len(bval) < stats_columns:
+                bval.append('DNE')
+            
             method = key            
             if not key.endswith('-pe'):
                 # to be consistent with plots
@@ -697,16 +730,38 @@ class VGCITest(TestCase):
                 method += '*'
             if negative_control and key in [negative_control, negative_control + '-pe']:
                 method += '**'
-            print '\t'.join(str(x) for x in [method, sval[1], bval[1],
-                                             sval[2], bval[2], self.auc_threshold])
+            def r4(s):
+                return round(s, 4) if isinstance(s, float) else s 
+                
+            row = [method]
+            for metric_index in [1, 2, 4]:
+                # For each metric, compare stat to baseline
+                stat_val = unicode(r4(sval[metric_index]))
+                baseline_val = unicode(r4(bval[metric_index]))
+                if stat_val != 'DNE' and baseline_val != 'DNE' and sval[metric_index] < bval[metric_index]:
+                    # Stat got worse
+                    stat_val = '↓ {}'.format(stat_val)
+                row.append(stat_val)
+                row.append(baseline_val)
+                               
+            print '\t'.join(row)
         self._end_message()
 
         # test the mapeval results, only looking at baseline keys
         for key, val in baseline_dict.iteritems():
             if key in stats_dict:
-                self.assertTrue(stats_dict[key][0] == reads)
-                self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
-                self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                # For each graph we have a baseline and stats for, compare the
+                # columns we actually have in both.
+                if len(stats_dict[key]) > 0:
+                    self.assertTrue(stats_dict[key][0] == reads)
+                if len(stats_dict[key]) > 1 and len(val) > 1:
+                    self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
+                if len(stats_dict[key]) > 2 and len(val) > 2:
+                    self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                if len(stats_dict[key]) > 4 and len(val) > 4:
+                    self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
+                if len(stats_dict[key]) != len(val):
+                    log.warning('Key {} has {} baseline entries and {} stats'.format(key, len(val), len(stats_dict[key])))
             else:
                 log.warning('Key {} from baseline not found in stats'.format(key))
             
@@ -736,7 +791,7 @@ class VGCITest(TestCase):
                     baseline_dict = collections.defaultdict(lambda: [0, 0])
                     
                 # Parse out the real stat values
-                score_stats_dict = self._tsv_to_dict(open(score_stats_path).read())
+                score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
                 # Make sure nothing has been removed
                 assert len(score_stats_dict) >= len(baseline_dict)
@@ -754,7 +809,7 @@ class VGCITest(TestCase):
                     # Guess where the file for individual read score differences for this graph is
                     # TODO: get this file's name/ID from the actual Toil code
                     read_comparison_path = os.path.join(self._outstore(tag), '{}.compare.{}.scores'.format(key, compare_against))
-                    for line in open(read_comparison_path):
+                    for line in io.open(read_comparison_path, 'r', encoding='utf8'):
                         if line.strip() == '':
                             continue
                         # Break each line of the CSV
@@ -792,12 +847,17 @@ class VGCITest(TestCase):
 
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
-                      positive_control=None, negative_control=None, sample=None):
+                      positive_control=None, negative_control=None, sample=None, multipath=False,
+                      assembly="hg38", tag_ext=""):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
         (snp1kg, primary, etc.) and realign them against all the graphs in the
         test_graph list.
+        
+        If a sample is specified, baseline_graph must be a graph with allele
+        paths in it (--alt_paths passed to toil-vg construct) so that the subset
+        of the graph for that sample can be used for read simulation.
         
         Needs to know the bekeoff region that is being run, in order to look up
         the actual graphs files for each graph type.
@@ -815,7 +875,8 @@ class VGCITest(TestCase):
         from the baseline graph using the gpbwt and simulate only from the threads
         
         """
-        tag = 'sim-{}-{}'.format(region, baseline_graph)
+        assert not tag_ext or tag_ext.startswith('-')
+        tag = 'sim-{}-{}{}'.format(region, baseline_graph, tag_ext)
         
         # compute the xg indexes from scratch
         index_bases = []
@@ -832,7 +893,7 @@ class VGCITest(TestCase):
                 vg_path = self._input('{}_all_samples-{}.vg'.format(baseline_graph, region))
             else:
                 vg_path = self._input('{}-{}.vg'.format(baseline_graph, region))
-            vcf_path = self._input('1kg_hg38-{}.vcf.gz'.format(region))            
+            vcf_path = self._input('1kg_{}-{}.vcf.gz'.format(assembly, region))            
             xg_path, thread1_xg_path, thread2_xg_path = self._make_thread_indexes(
                 sample, vg_path, vcf_path, region, tag)
             sim_xg_paths = [thread1_xg_path, thread2_xg_path]
@@ -847,11 +908,12 @@ class VGCITest(TestCase):
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, tag)
+                             test_graphs, score_baseline_graph, multipath, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag)
 
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
@@ -866,6 +928,7 @@ class VGCITest(TestCase):
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
                            
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
@@ -875,6 +938,34 @@ class VGCITest(TestCase):
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
+
+    @timeout_decorator.timeout(16000)        
+    def test_sim_chr21_snp1kg(self):
+        self._test_mapeval(300000, 'CHR21', 'snp1kg',
+                           ['primary', 'snp1kg', 'common1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           score_baseline_graph='primary',
+                           positive_control='snp1kg_HG00096',
+                           negative_control='snp1kg_minus_HG00096',
+                           sample='HG00096',
+                           assembly="hg19")
+
+    @timeout_decorator.timeout(3600)
+    def test_sim_brca2_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off. 
+        """
+        try:
+            self._test_mapeval(5000, 'BRCA2', 'snp1kg',
+                               ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                               score_baseline_graph='primary',
+                               positive_control='snp1kg_HG00096',
+                               negative_control='snp1kg_minus_HG00096',
+                               sample='HG00096', multipath=True, tag_ext='-mpmap')
+        except:
+            log.warning('test_sim_brca2_snp1kg_mpap failed with following error:\n{}\n'.format(
+                traceback.format_exc()))
+        
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):
@@ -947,6 +1038,7 @@ class VGCITest(TestCase):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         self._test_bakeoff('MHC', 'primary', True)
 
+    @skip("skipping test to keep runtime down (baseline missing as well)")        
     @timeout_decorator.timeout(10000)        
     def test_map_mhc_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC snp1kg graph """

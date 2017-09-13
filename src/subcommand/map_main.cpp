@@ -598,17 +598,17 @@ int main_map(int argc, char** argv) {
         m->extra_multimaps = extra_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
-        m->fixed_fragment_model = fixed_fragment_model;
-        m->fragment_max = fragment_max;
-        m->fragment_sigma = fragment_sigma;
+        m->frag_stats.fixed_fragment_model = fixed_fragment_model;
+        m->frag_stats.fragment_max = fragment_max;
+        m->frag_stats.fragment_sigma = fragment_sigma;
         if (fragment_mean) {
-            m->fragment_size = fragment_size;
-            m->cached_fragment_length_mean = fragment_mean;
-            m->cached_fragment_length_stdev = fragment_stdev;
-            m->cached_fragment_orientation = fragment_orientation;
-            m->cached_fragment_direction = fragment_direction;
+            m->frag_stats.fragment_size = fragment_size;
+            m->frag_stats.cached_fragment_length_mean = fragment_mean;
+            m->frag_stats.cached_fragment_length_stdev = fragment_stdev;
+            m->frag_stats.cached_fragment_orientation = fragment_orientation;
+            m->frag_stats.cached_fragment_direction = fragment_direction;
         }
-        m->fragment_model_update_interval = fragment_model_update;
+        m->frag_stats.fragment_model_update_interval = fragment_model_update;
         m->max_mapping_quality = max_mapping_quality;
         m->use_cluster_mq = use_cluster_mq;
         m->mate_rescues = mate_rescues;
@@ -747,7 +747,7 @@ int main_map(int argc, char** argv) {
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
-                    if (our_mapper->fragment_size != 0
+                    if (our_mapper->frag_stats.fragment_size != 0
                         && !our_mapper->imperfect_pairs_to_retry.empty()) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
@@ -767,7 +767,7 @@ int main_map(int argc, char** argv) {
             { // clean up buffered alignments that weren't perfect
                 auto our_mapper = mapper[omp_get_thread_num()];
                 // if we haven't yet computed these, assume we couldn't get an estimate for fragment size
-                our_mapper->fragment_size = fragment_max;
+                our_mapper->frag_stats.fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
@@ -837,7 +837,7 @@ int main_map(int argc, char** argv) {
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
-                    if (our_mapper->fragment_size != 0
+                    if (our_mapper->frag_stats.fragment_size != 0
                         && !our_mapper->imperfect_pairs_to_retry.empty()) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
@@ -856,7 +856,7 @@ int main_map(int argc, char** argv) {
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
-                our_mapper->fragment_size = fragment_max;
+                our_mapper->frag_stats.fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
@@ -914,7 +914,7 @@ int main_map(int argc, char** argv) {
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
-                    if (our_mapper->fragment_size != 0
+                    if (our_mapper->frag_stats.fragment_size != 0
                         && !our_mapper->imperfect_pairs_to_retry.empty()) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
@@ -933,7 +933,7 @@ int main_map(int argc, char** argv) {
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
-                our_mapper->fragment_size = fragment_max;
+                our_mapper->frag_stats.fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
@@ -976,9 +976,9 @@ int main_map(int argc, char** argv) {
     }
 
     if (print_fragment_model) {
-        if (mapper[0]->fragment_size) {
+        if (mapper[0]->frag_stats.fragment_size) {
             // we've calculated our fragment size, so print it and bail out
-            cout << mapper[0]->fragment_model_str() << endl;
+            cout << mapper[0]->frag_stats.fragment_model_str() << endl;
         } else {
             cerr << "[vg map] Error: could not calculate fragment model" << endl;
         }

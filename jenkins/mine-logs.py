@@ -1,8 +1,10 @@
 #!/usr/bin/env python2.7
+# -*- coding: utf-8 -*-
 """
 Mine the Jenkins test log XML and the test output files and generate a report
 of how good VG is at various tasks.
 """
+from __future__ import unicode_literals
 import logging
 import subprocess
 import tempfile
@@ -10,11 +12,18 @@ import os
 import sys
 import re
 import argparse
-import xml.etree.ElementTree as ET
+# We need to use cElementTree because normal ElementTree thinks perfectly
+# respectable UTF-8 characters aren't allowed in UTF-8 XML.
+import xml.etree.cElementTree as ET
 import textwrap
 import shutil
 import datetime
 import cgi
+import io
+import traceback
+from collections import defaultdict
+
+
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__, 
@@ -39,16 +48,73 @@ def testname_to_outstore(test_name):
     convert something like test_full_brca2_cactus to oustore-full-BRCA2-cactus
     """
     toks = test_name.replace('lrc_kir', 'lrc-kir').split('_')
-    assert toks[0] == 'test' and len(toks) == 4
+    assert toks[0] == 'test' and len(toks) >= 4
     return 'outstore-{}-{}-{}'.format(
-        toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), toks[3])
+        toks[1], toks[2].replace('lrc-kir', 'lrc_kir').upper(), '-'.join(toks[3:]))
 
 
+def scrape_mapeval_runtimes(text):
+    """ toil-vg mapeval uses the RealtimeLogger to print the running times of 
+    each call to vg map (or vg mpmap).  We piece that information together
+    here 
+    
+    I would rather this be in vgci.py, but don't have access to the log there. 
+    So scrape it out here then add it to the table from vgci.py with join_runtimes below
+
+    Todo: save the log into the workdir and mine from vgci.py
+    """
+    
+    runtimes = defaultdict(int)
+    for line in text.split('\n'):
+        # we want to parse something like
+        #host 2017-08-22 11:09:45,362 MainThread INFO toil-rt: Aligned /tmp/toil-55082/aligned-snp1kg_HG00096_0.gam. Process took 4.37375712395 seconds with single-end vg-map
+        search_tok = 'Aligned'
+        i = line.find(search_tok)
+        if i >= 0 and line.find('Process took') > 0:
+            try:
+                toks = line[i + len(search_tok) + 1: ].rstrip().split()
+                outputfile = toks[0]
+                seconds = round(float(toks[3]), 1)
+                read_type = toks[-2]
+                method = toks[-1]
+                # name will be something like tmpdir/aligned-primary_0.gam.
+                # so we cut down to just primary_0
+                name = os.path.basename(outputfile)[8:-5]
+                # then strip the _0
+                name = name[0:name.rfind('_')]
+                # and any tags for paired end
+                name = name.replace('-pe','').replace('-se','').replace('-mp','')
+                key = method if 'bwa' in method else name
+                if 'mpmap' in method:
+                    key += '-mp'
+                if 'single-end' in read_type:
+                    key += '-se'
+                elif 'paired-end' in read_type:
+                    key += '-pe'
+                runtimes[key] += seconds
+            except:
+                pass
+
+    return runtimes
+        
+def join_runtimes(mapeval_table, runtime_dict):
+    """ Tack on some mapping runtimes that we mined above to the mapeval table that was printed 
+    by the jenkins tests """
+    mapeval_table[0].append("Map Time (s)")
+    for i in range(1, len(mapeval_table)):
+        row = mapeval_table[i]
+        if row[0].rstrip('*') in runtime_dict:
+            row.append(runtime_dict[row[0].rstrip('*')])
+        else:
+            row.append(-1)
+
+    return mapeval_table
+    
 def parse_begin_message(line):
     """ Return True, name, is_tsv if tag found otherwise False, None, None """
     try:
         if 'VGCI' in line:
-            elem = ET.fromstring(line.encode('ascii').rstrip() + '</VGCI>')
+            elem = ET.fromstring(line.encode('utf8').rstrip() + '</VGCI>')
             if elem.tag == 'VGCI':
                 return True, elem.get('name'), elem.get('tsv', 'false').lower() == 'true'
     except:
@@ -59,7 +125,7 @@ def parse_end_message(line):
     """ Return True if line marks end of a report """
     try:
         if 'VGCI' in line:
-            elem = ET.fromstring('<VGCI>' + line.encode('ascii').rstrip())
+            elem = ET.fromstring('<VGCI>' + line.encode('utf8').rstrip())
             if elem.tag == 'VGCI':
                 return True
     except:
@@ -126,31 +192,35 @@ def parse_testcase_xml(testcase):
     Flatten fields of interest from a TestCase XML element into a dict,
     where anything not found is None
     """
+    
+    # We need to emit only Unicode things, but we may get str or Unicode
+    # depending on if the parser thinks we have UTF-8 or ASCII data in a field.
+    
     tc = dict()
-    tc['name'] = testcase.get('name')
+    tc['name'] = unicode(testcase.get('name'))
     tc['time'] = int(float(testcase.get('time', 0)))
 
     if testcase.find('system-out') is not None:
-        tc['stdout'] = testcase.find('system-out').text
+        tc['stdout'] = unicode(testcase.find('system-out').text)
     else:
         tc['stdout'] = None
 
     if testcase.find('system-err') is not None:
-        tc['stderr'] = testcase.find('system-err').text
+        tc['stderr'] = unicode(testcase.find('system-err').text)
     else:
         tc['stderr'] = None
 
     if testcase.find('skipped') is not None:
         tc['skipped'] = True
-        tc['skip-msg'] = testcase.find('skipped').text
+        tc['skip-msg'] = unicode(testcase.find('skipped').text)
     else:
         tc['skipped'] = False
         tc['skip-msg'] = None
 
     failure = testcase.find('failure')
     if failure is not None:
-        tc['fail-txt'] = failure.text
-        tc['fail-msg'] = failure.get('message')
+        tc['fail-txt'] = unicode(failure.text)
+        tc['fail-msg'] = unicode(failure.get('message'))
         tc['failed'] = True
     else:
         tc['fail-txt'] = None
@@ -167,7 +237,7 @@ def get_vgci_warnings(tc):
     if tc['stderr']:
         for line in tc['stderr'].split('\n'):
             # For each line
-            if "WARNING vgci" in line:
+            if "WARNING" in line and "vgci" in line:
                 # If it is a CI warning, keep it
                 warnings.append(line.rstrip())
     return warnings
@@ -235,6 +305,7 @@ def html_header(xml_root):
     """
     try:
         report = '<!DOCTYPE html><html><head>\n'
+        report += '<meta charset="utf-8"/>\n'
         report += '<title>vg Test Report</title>\n'
         report += '<style> table {\n'
         report += 'font-famiiy: arial, sans-serif; border-collaped: collapse; width: 100%;}\n'
@@ -255,6 +326,14 @@ def html_header(xml_root):
                                                          os.getenv('ghprbPullId'))
         elif build_number:
             report += ' for merge to master'
+            
+        if ts['fails'] is not None and int(ts['fails']) >= 1:
+            # Some tests failed
+            report += ' 👿' + '🔥' * int(ts['fails'])
+        else:
+            # All tests passed
+            report += ' 😄'
+            
         report += '</h2>\n'
 
         report += '<p> {} tests passed, {} tests failed and {} tests skipped in {} seconds'.format(
@@ -263,7 +342,7 @@ def html_header(xml_root):
 
         if build_number:
             report += '<p> <a href=http://jenkins.cgcloud.info/job/vg/{}/>'.format(build_number)
-            report += 'Jenkins test page </a></ap>\n'
+            report += 'Jenkins test page </a></p>\n'
 
         report += '<p> Report generated on {} </p>\n'.format(str(datetime.datetime.now()))
         
@@ -317,7 +396,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
 
         images = []
         captions = []
-        for plot_name in 'roc', 'roc.control', 'qq', 'qq.control':
+        for plot_name in 'pr', 'pr.control', 'pr.primary.filter', 'pr.control.primary.filter', 'qq', 'qq.control':
             plot_path = os.path.join(outstore, '{}.svg'.format(plot_name))
             if os.path.isfile(plot_path):
                 new_name = '{}-{}.svg'.format(tc['name'], plot_name)
@@ -342,12 +421,19 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 i += row_size
             report += '</table>\n'
 
+        # extract running times from stderr (only for mapeval)
+        map_time_table = None
+        if tc['stderr'] and 'sim' in tc['name']:
+            map_time_table = scrape_mapeval_runtimes(tc['stderr'])
+            
         if tc['stdout']:
             # extract only things in <VCGI> tags from stdout
             messages = scrape_messages(tc['stdout'])
             for message in messages:                
-                name, body = message[0], message[1]
+                name, body = message[0], message[1]                    
                 if isinstance(body, list):
+                    if name and name.startswith('map eval results') and map_time_table:
+                        body = join_runtimes(body, map_time_table)
                     report += html_table(body, name)
                 else:
                     if name:
@@ -375,13 +461,13 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                 # warnings file
                 if len(warnings) > max_warnings:
                     warn_name = '{}-warnings.txt'.format(tc['name'])
-                    with open(os.path.join(report_dir, warn_name), 'w') as warn_file:
+                    with io.open(os.path.join(report_dir, warn_name), 'w', encoding='utf8') as warn_file:
                         for warning in warnings:
                             warn_file.write(warning + '\n')
 
             # entire stderr output (which also includes warnings, should we filter?)
             err_name = '{}-stderr.txt'.format(tc['name'])
-            with open(os.path.join(report_dir, err_name), 'w') as err_file:
+            with io.open(os.path.join(report_dir, err_name), 'w', encoding='utf8') as err_file:
                 err_file.write(tc['stderr'])
 
             # link to warnings and stderr
@@ -402,7 +488,7 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
         os.makedirs(html_dir)
         
     html_path = os.path.join(html_dir, html_name)
-    with open(html_path, 'w') as html_file:
+    with io.open(html_path, 'w', encoding='utf8') as html_file:
         header = html_header(xml_root)
         html_file.write(header)
         
@@ -411,8 +497,9 @@ def write_html_report(xml_root, work_dir, html_dir, html_name = 'index.html'):
             try:
                 tc = parse_testcase_xml(testcase)
                 parsed_testcases.append(tc)
-            except:
-                logger.warning('Unexpected error parsing testcase XML {}'.format(testcase))
+            except Exception as err:
+                logging.warning('Unexpected error parsing testcase XML {}'.format(testcase))
+                print(traceback.format_exc())
 
         # sort test cases so failed first, then sim, the by name
         def sort_key(tc):
@@ -440,7 +527,7 @@ def main(args):
 
     # Write our Markdown summary
     markdown = md_summary(xml_root)
-    with open(options.md_out, 'w') as md_file:
+    with io.open(options.md_out, 'w', encoding='utf8') as md_file:
         md_file.write(markdown)
 
     # Write our HTML report

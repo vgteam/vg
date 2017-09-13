@@ -13,7 +13,7 @@ using namespace gfak;
 
 
 // construct from a stream of protobufs
-VG::VG(istream& in, bool showp) {
+VG::VG(istream& in, bool showp, bool warn_on_duplicates) {
 
     // set up uninitialized values
     init();
@@ -25,10 +25,10 @@ VG::VG(istream& in, bool showp) {
 
     // the graph is read in chunks, which are attached to this graph
     uint64_t i = 0;
-    function<void(Graph&)> lambda = [this, &i](Graph& g) {
+    function<void(Graph&)> lambda = [this, &i, &warn_on_duplicates](Graph& g) {
         update_progress(++i);
-        // We expect these to not overlap in nodes or edges, so complain if they do.
-        extend(g, true);
+        // We usually expect these to not overlap in nodes or edges, so complain unless we've been told not to.
+        extend(g, warn_on_duplicates);
     };
 
     stream::for_each(in, lambda, handle_count);
@@ -47,7 +47,7 @@ VG::VG(istream& in, bool showp) {
 }
 
 // construct from an arbitrary source of Graph protobuf messages
-VG::VG(function<bool(Graph&)>& get_next_graph, bool showp) {
+VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicates) {
     // set up uninitialized values
     init();
     show_progress = showp;
@@ -60,8 +60,8 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp) {
     bool got_subgraph = get_next_graph(subgraph);
     while(got_subgraph) {
         // If there is a valid subgraph, add it to ourselves.
-        // We expect these to not overlap in nodes or edges, so complain if they do.
-        extend(subgraph, true);
+        // We usually expect these to not overlap in nodes or edges, so complain unless we've been told not to.
+        extend(subgraph, warn_on_duplicates);
         // Try and load the next subgraph, if it exists.
         got_subgraph = get_next_graph(subgraph);
     }

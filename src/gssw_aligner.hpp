@@ -69,7 +69,6 @@ namespace vg {
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
         
-        
     public:
 
         double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
@@ -171,9 +170,14 @@ namespace vg {
         /// length).
         ///
         /// May include full length bonus or not. TODO: bool flags are bad.
-        virtual int32_t score_alignment(const Alignment& aln,
+        virtual int32_t score_gappy_alignment(const Alignment& aln,
             const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
             bool strip_bonuses = false);
+        
+        /// Use the score values in the aligner to score the given alignment assuming
+        /// that there are no gaps between Mappings in the Path
+        virtual int32_t score_ungapped_alignment(const Alignment& aln,
+                                                 bool strip_bonuses = false);
             
         /// Without necessarily rescoring the entire alignment, return the score
         /// of the given alignment with bonuses removed. Assumes that bonuses

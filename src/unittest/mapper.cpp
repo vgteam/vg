@@ -285,9 +285,9 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
         
         // We want one alignment.
         REQUIRE(results.size() == 1);
-        // We want its first mapping to be to 1436 like the optimal alignment.
+        // We want its first mapping to be to 1433 like the optimal alignment.
         REQUIRE(results.front().path().mapping_size() >= 1);
-        REQUIRE(results.front().path().mapping(0).position().node_id() == 1436);
+        REQUIRE(results.front().path().mapping(0).position().node_id() == 1433);
     
     }
     

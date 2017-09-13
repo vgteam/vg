@@ -649,7 +649,7 @@ size_t BaseAligner::longest_detectable_gap(const Alignment& alignment) const {
     
 }
 
-int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
+int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,
     bool strip_bonuses) {
     
     int score = 0;
@@ -668,13 +668,13 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
             } else if (edit_is_sub(edit)) {
                 score -= mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
-                score -= gap_open + edit.from_length() * gap_extension;
+                score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
             } else if (edit_is_insertion(edit)
                        && !((i == 0 && j == 0)
                             || (i == path.mapping_size()-1
                                 && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
-                score -= gap_open + edit.to_length() * gap_extension;
+                score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
             }
             read_offset += edit.to_length();
         }
@@ -689,7 +689,7 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
             int dist = estimate_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size());
             if (dist > 0) {
                 // If it's nonzero, score it as a deletion gap
-                score -= gap_open + dist * gap_extension;
+                score -= gap_open + (dist - 1) * gap_extension;
             }
         }
     }
@@ -705,6 +705,10 @@ int32_t BaseAligner::score_alignment(const Alignment& aln, const function<size_t
     }
     
     return score;
+}
+
+int32_t BaseAligner::score_ungapped_alignment(const Alignment& aln, bool strip_bonuses){
+    return score_gappy_alignment(aln, [](pos_t, pos_t, size_t){return (size_t) 0;}, strip_bonuses);
 }
 
 int32_t BaseAligner::remove_bonuses(const Alignment& aln, bool pinned, bool pin_left) {

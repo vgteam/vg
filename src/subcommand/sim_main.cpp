@@ -26,19 +26,21 @@ void help_sim(char** argv) {
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE    use the xg index in FILE" << endl
-         << "    -l, --read-length N   write reads of length N" << endl
-         << "    -n, --num-reads N     simulate N reads" << endl
-         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
-         << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
-         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
-         << "    -f, --forward-only    don't simulate from the reverse strand" << endl
-         << "    -p, --frag-len N      make paired end reads with given fragment length N" << endl
-         << "    -v, --frag-std-dev N  use this standard deviation for fragment length estimation" << endl
-         << "    -N, --allow-Ns        allow reads to be sampled from the graph with Ns in them" << endl
-         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
-         << "    -J, --json-out        write alignments in json" << endl
-         << "    -m, --include-bonuses include bonuses in reported scores" << endl;
+         << "    -x, --xg-name FILE          use the xg index in FILE" << endl
+         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-N,-f)" << endl
+         << "    -l, --read-length N         write reads of length N" << endl
+         << "    -n, --num-reads N           simulate N reads" << endl
+         << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
+         << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
+         << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
+         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -f that are indels (default 0.0)" << endl
+         << "    -f, --forward-only          don't simulate from the reverse strand" << endl
+         << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
+         << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
+         << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
+         << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
+         << "    -J, --json-out              write alignments in json" << endl
+         << "    -m, --include-bonuses       include bonuses in reported scores" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -61,6 +63,8 @@ int main_sim(int argc, char** argv) {
     bool reads_may_contain_Ns = false;
     string xg_name;
     bool strip_bonuses = true;
+    double indel_prop = 0.0;
+    string fastq_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -69,6 +73,7 @@ int main_sim(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
+            {"fastq", required_argument, 0, 'F'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
@@ -76,8 +81,9 @@ int main_sim(int argc, char** argv) {
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
             {"allow-Ns", no_argument, 0, 'N'},
-            {"base-error", required_argument, 0, 'e'},
-            {"indel-error", required_argument, 0, 'i'},
+            {"base-rate", required_argument, 0, 'e'},
+            {"indel-rate", required_argument, 0, 'i'},
+            {"indel-err-prop", required_argument, 0, 'd'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
             {"include-bonuses", no_argument, 0, 'm'},
@@ -85,7 +91,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nm",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:NmF:d:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -97,6 +103,10 @@ int main_sim(int argc, char** argv) {
 
         case 'x':
             xg_name = optarg;
+            break;
+            
+        case 'F':
+            fastq_name = optarg;
             break;
 
         case 'l':
@@ -117,6 +127,10 @@ int main_sim(int argc, char** argv) {
 
         case 'i':
             indel_error = atof(optarg);
+            break;
+            
+        case 'd':
+            indel_prop = atof(optarg);
             break;
 
         case 'f':
@@ -176,92 +190,154 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: could not open xg index" << endl;
         return 1;
     }
-
-    // Make a sample to sample reads with
-    Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
     
-    // Make a Mapper to score reads, with the default parameters
-    Mapper rescorer(xgidx, nullptr, nullptr);
-    // Include the full length bonuses if requested.
-    rescorer.strip_bonuses = strip_bonuses;
-    // We define a function to score a generated alignment under the mapper
-    auto rescore = [&] (Alignment& aln) {
-        // Score using exact distance.
-        aln.set_score(rescorer.score_alignment(aln, false));
-    };
-    
-    size_t max_iter = 1000;
-    int nonce = 1;
-    for (int i = 0; i < num_reads; ++i) {
-        // For each read we are going to generate
+    if (fastq_name.empty()) {
+        // Use the fixed error rate sampler
         
-        if (fragment_length) {
-            // fragment_lenght is nonzero so make it two paired reads
-            auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+        // Make a sample to sample reads with
+        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
+        
+        // Make a Mapper to score reads, with the default parameters
+        Mapper rescorer(xgidx, nullptr, nullptr);
+        // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
+        // TODO: is it safe to change the default?
+        rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
+        // Include the full length bonuses if requested.
+        rescorer.strip_bonuses = strip_bonuses;
+        // We define a function to score a generated alignment under the mapper
+        auto rescore = [&] (Alignment& aln) {
+            // Score using exact distance.
+            aln.set_score(rescorer.score_alignment(aln, false));
+        };
+        
+        size_t max_iter = 1000;
+        int nonce = 1;
+        for (int i = 0; i < num_reads; ++i) {
+            // For each read we are going to generate
             
-            size_t iter = 0;
-            while (iter++ < max_iter) {
-                // For up to max_iter iterations
-                if (alns.front().sequence().size() < read_length
-                    || alns.back().sequence().size() < read_length) {
-                    // If our read was too short, try again
-                    alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
-                }
-            }
-            
-            // write the alignment or its string
-            if (align_out) {
-                // write it out as requested
+            if (fragment_length) {
+                // fragment_lenght is nonzero so make it two paired reads
+                auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                 
-                // We will need scores
-                rescore(alns.front());
-                rescore(alns.back());
-                
-                if (json_out) {
-                    cout << pb2json(alns.front()) << endl;
-                    cout << pb2json(alns.back()) << endl;
-                } else {
-                    function<Alignment(uint64_t)> lambda = [&alns](uint64_t n) { return alns[n]; };
-                    stream::write(cout, 2, lambda);
-                }
-            } else {
-                cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
-            }
-        } else {
-            // Do single-end reads
-            auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
-            
-            size_t iter = 0;
-            while (iter++ < max_iter) {
-                // For up to max_iter iterations
-                if (aln.sequence().size() < read_length) {
-                    // If our read is too short, try again
-                    auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
-                    if (aln_prime.sequence().size() > aln.sequence().size()) {
-                        // But only keep the new try if it is longer
-                        aln = aln_prime;
+                size_t iter = 0;
+                while (iter++ < max_iter) {
+                    // For up to max_iter iterations
+                    if (alns.front().sequence().size() < read_length
+                        || alns.back().sequence().size() < read_length) {
+                        // If our read was too short, try again
+                        alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                     }
                 }
-            }
-            
-            // write the alignment or its string
-            if (align_out) {
-                // write it out as requested
                 
-                // We will need scores
-                rescore(aln);
-                
-                if (json_out) {
-                    cout << pb2json(aln) << endl;
+                // write the alignment or its string
+                if (align_out) {
+                    // write it out as requested
+                    
+                    // We will need scores
+                    rescore(alns.front());
+                    rescore(alns.back());
+                    
+                    if (json_out) {
+                        cout << pb2json(alns.front()) << endl;
+                        cout << pb2json(alns.back()) << endl;
+                    } else {
+                        function<Alignment(uint64_t)> lambda = [&alns](uint64_t n) { return alns[n]; };
+                        stream::write(cout, 2, lambda);
+                    }
                 } else {
-                    function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
-                    stream::write(cout, 1, lambda);
+                    cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
                 }
             } else {
-                cout << aln.sequence() << endl;
+                // Do single-end reads
+                auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+                
+                size_t iter = 0;
+                while (iter++ < max_iter) {
+                    // For up to max_iter iterations
+                    if (aln.sequence().size() < read_length) {
+                        // If our read is too short, try again
+                        auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
+                        if (aln_prime.sequence().size() > aln.sequence().size()) {
+                            // But only keep the new try if it is longer
+                            aln = aln_prime;
+                        }
+                    }
+                }
+                
+                // write the alignment or its string
+                if (align_out) {
+                    // write it out as requested
+                    
+                    // We will need scores
+                    rescore(aln);
+                    
+                    if (json_out) {
+                        cout << pb2json(aln) << endl;
+                    } else {
+                        function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
+                        stream::write(cout, 1, lambda);
+                    }
+                } else {
+                    cout << aln.sequence() << endl;
+                }
+            }
+        }
+        
+    }
+    else {
+        // Use the trained error rate aligner
+        Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
+        
+        NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
+                             fragment_length ? fragment_length : std::numeric_limits<double>::max(),
+                             fragment_std_dev, seed_val);
+        
+        if (fragment_length) {
+            for (size_t i = 0; i < num_reads; i++) {
+                pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
+                read_pair.first.set_score(aligner.score_ungapped_alignment(read_pair.first, strip_bonuses));
+                read_pair.second.set_score(aligner.score_ungapped_alignment(read_pair.second, strip_bonuses));
+                
+                if (align_out) {
+                    if (json_out) {
+                        cout << pb2json(read_pair.first) << endl;
+                        cout << pb2json(read_pair.second) << endl;
+                    }
+                    else {
+                        function<Alignment(uint64_t)> lambda = [&read_pair](uint64_t n) {
+                            return n % 2 ? read_pair.first : read_pair.second;
+                        };
+                        stream::write(cout, 2, lambda);
+                    }
+                }
+                else {
+                    cout << read_pair.first.sequence() << "\t" << read_pair.second.sequence() << endl;
+                }
+            }
+        }
+        else {
+            for (size_t i = 0; i < num_reads; i++) {
+                Alignment read = sampler.sample_read();
+                read.set_score(aligner.score_ungapped_alignment(read, strip_bonuses));
+                
+                if (align_out) {
+                    if (json_out) {
+                        cout << pb2json(read) << endl;
+                    }
+                    else {
+                        function<Alignment(uint64_t)> lambda = [&read](uint64_t n) {
+                            return read;
+                        };
+                        stream::write(cout, 1, lambda);
+                    }
+                }
+                else {
+                    cout << read.sequence() << endl;
+                }
             }
         }
     }
+    
 
     return 0;
 }

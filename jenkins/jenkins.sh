@@ -24,7 +24,7 @@ KEEP_OUTPUT=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@257ef64daa0a7a2ba2eb6f98918915983d0f89b5"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f737ddd68313fc9bb7f84046d2adb8e81b42a8e4"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
@@ -81,6 +81,11 @@ set -e
 
 # Maximum number of minutes that can have passed since new vg docker image built
 NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+if [ "${NUM_CORES}" == "0" ]; then
+    echo "could not determine NUM_CORES, using 2"
+	 NUM_CORES=2
+fi
+
 # Create Toil venv
 if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf .env

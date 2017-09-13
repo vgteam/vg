@@ -1319,18 +1319,6 @@ Mapper::Mapper(xg::XG* xidex,
     , extra_multimaps(512)
     , band_multimaps(4)
     , always_rescue(false)
-    , fragment_size(0)
-    , fragment_max(1e4)
-    , fragment_sigma(10)
-    , fragment_length_cache_size(1000)
-    , cached_fragment_length_mean(0)
-    , cached_fragment_length_stdev(0)
-    , cached_fragment_orientation(0)
-    , cached_fragment_direction(1)
-    , fixed_fragment_model(true)
-    , since_last_fragment_length_estimate(0)
-    , fragment_model_update_interval(10)
-    , perfect_pair_identity_threshold(0.95)
     , max_cluster_mapping_quality(1024)
     , use_cluster_mq(false)
     , simultaneous_pair_alignment(true)
@@ -1476,9 +1464,9 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
-    bool same_orientation = cached_fragment_orientation;
-    bool forward_direction = cached_fragment_direction;
-    int64_t delta = cached_fragment_length_mean;
+    bool same_orientation = frag_stats.cached_fragment_orientation;
+    bool forward_direction = frag_stats.cached_fragment_direction;
+    int64_t delta = frag_stats.cached_fragment_length_mean;
     // which way is our delta?
     // we are on the forward strand
     id_t target;
@@ -1534,7 +1522,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback) {
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
-    if (!fragment_size) return false;
+    if (!frag_stats.fragment_size) return false;
     //double hang_threshold = 0.9;
     //double retry_threshold = 0.7;
     double perfect_score = mate1.sequence().size() * match_score;
@@ -1586,8 +1574,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
 #endif
     auto& node_cache = get_node_cache();
     auto& edge_cache = get_edge_cache();
-    int get_at_least = (!cached_fragment_length_mean ? fragment_max
-                        : max((int)cached_fragment_length_stdev * 6 + mate1.sequence().size(),
+    int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
+                        : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
                               mate1.sequence().size() * 4));
     Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
     graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
@@ -1597,8 +1585,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
-        bool flip = !mate1.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
-            || mate1.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
+        bool flip = !mate1.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation
+            || mate1.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation;
         Alignment aln2 = align_maybe_flip(mate2, graph, flip, traceback);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1613,8 +1601,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
             return false;
         }
     } else if (rescue_off_second) {
-        bool flip = !mate2.path().mapping(0).position().is_reverse() && !cached_fragment_orientation
-            || mate2.path().mapping(0).position().is_reverse() && cached_fragment_orientation;
+        bool flip = !mate2.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation
+            || mate2.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation;
         Alignment aln1 = align_maybe_flip(mate1, graph, flip, traceback);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1666,8 +1654,8 @@ bool Mapper::pair_consistent(const Alignment& aln1,
     if (aln1.fragment_size() == 0) {
         // use the approximate distance
         int len = approx_fragment_length(aln1, aln2);
-        if (len > 0 && len < fragment_size
-            || !fragment_size && len > 0 && len < fragment_max) {
+        if (len > 0 && len < frag_stats.fragment_size
+            || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
             length_ok = true;
         }
     } else {
@@ -1675,9 +1663,9 @@ bool Mapper::pair_consistent(const Alignment& aln1,
         assert(aln1.fragment_size() == aln2.fragment_size());
         for (size_t i = 0; i < aln1.fragment_size(); ++i) {
             int len = abs(aln1.fragment(i).length());
-            if (fragment_size && len > 0 && (pval > 0 && fragment_length_pval(len) > pval
-                                             || len < fragment_size)
-                || !fragment_size && len > 0 && len < fragment_max) {
+            if (frag_stats.fragment_size && len > 0 && (pval > 0 && frag_stats.fragment_length_pval(len) > pval
+                                             || len < frag_stats.fragment_size)
+                || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
                 length_ok = true;
                 break;
             }
@@ -1685,7 +1673,7 @@ bool Mapper::pair_consistent(const Alignment& aln1,
     }
     bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
     bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
-    bool same_orientation = cached_fragment_orientation;
+    bool same_orientation = frag_stats.cached_fragment_orientation;
     bool orientation_ok = same_orientation && aln1_is_rev == aln2_is_rev
         || !same_orientation && aln1_is_rev != aln2_is_rev;
     return length_ok && orientation_ok;
@@ -1733,13 +1721,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             //<< "read 2 " << read2.sequence() << endl
             //<< "read 1 " << pb2json(read1) << endl
             //<< "read 2 " << pb2json(read2) << endl
-             << "fragment model " << fragment_max << ", "
-             << fragment_size << ", "
-             << cached_fragment_length_mean << ", "
-             << cached_fragment_length_stdev << ", "
-             << cached_fragment_orientation << ", "
-             << cached_fragment_direction << ", "
-             << since_last_fragment_length_estimate << ", " << endl;
+             << "fragment model " << frag_stats.fragment_max << ", "
+             << frag_stats.fragment_size << ", "
+             << frag_stats.cached_fragment_length_mean << ", "
+             << frag_stats.cached_fragment_length_stdev << ", "
+             << frag_stats.cached_fragment_orientation << ", "
+             << frag_stats.cached_fragment_direction << ", "
+             << frag_stats.since_last_fragment_length_estimate << ", " << endl;
     }
 
     pair<vector<Alignment>, vector<Alignment>> results;
@@ -1817,7 +1805,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // are the two mems in a different fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
-            int max_length = fragment_max;
+            int max_length = frag_stats.fragment_max;
             int64_t dist = abs(approx_dist);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1852,18 +1840,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                     }
 #endif
                     return -std::numeric_limits<double>::max();
-                } else if (fragment_size) {
+                } else if (frag_stats.fragment_size) {
                     // exclude cases that don't match our model
-                    if (!cached_fragment_orientation
+                    if (!frag_stats.cached_fragment_orientation
                         && is_rev(m1_pos) == is_rev(m2_pos)
-                        || cached_fragment_orientation
+                        || frag_stats.cached_fragment_orientation
                         && is_rev(m1_pos) != is_rev(m2_pos)
-                        || dist > fragment_size) {
+                        || dist > frag_stats.fragment_size) {
 #ifdef debug_mapper
 #pragma omp critical
                         {
                             if (debug) cerr << "bad orientations or dist of " << dist
-                                << " beyond fragment_size of " << fragment_size << endl;
+                                << " beyond fragment_size of " << frag_stats.fragment_size << endl;
                         }
 #endif
                         return -std::numeric_limits<double>::max();
@@ -1874,7 +1862,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                             if (debug) cerr << "OK with known fragment size" << endl;
                         }
 #endif
-                        return fragment_length_pval(dist) * read1.sequence().size();
+                        return frag_stats.fragment_length_pval(dist) * read1.sequence().size();
                     }
                 } else {
 #ifdef debug_mapper
@@ -1981,15 +1969,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         
         // What band width during the alignment should the chainer plan for?
         int band_width = max((int)(read1.sequence().size() + read2.sequence().size()),
-                             (int)(fragment_size ? fragment_size : fragment_max));
+                             (int)(frag_stats.fragment_size ? frag_stats.fragment_size : frag_stats.fragment_max));
         
 #ifdef debug_mapper
 #pragma omp critical
         {
             if (debug) {
                 cerr << "Invoking MEM chainer with band width " << band_width
-                << ", fragment size " << fragment_size << ", fragment_max " 
-                << fragment_max << endl;
+                << ", fragment size " << frag_stats.fragment_size << ", frag_stats.fragment_max " 
+                << frag_stats.fragment_max << endl;
             }
         }
 #endif
@@ -2184,7 +2172,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln1 = p->first;
             auto& aln2 = p->second;
             if (aln1.fragment_size() == 0) {
-                save_frag_lens_to_alns(aln1, aln2);
+                auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0));
             }
         }
         // sort the aligned pairs by score
@@ -2192,7 +2181,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                   [&](pair<Alignment, Alignment>* pair1,
                       pair<Alignment, Alignment>* pair2) {
                       double weight1=0, weight2=0;
-                      if (fragment_size) {
+                      if (frag_stats.fragment_size) {
                           weight1 = pair1->first.fragment_score();
                           weight2 = pair2->first.fragment_score();
                       }
@@ -2220,7 +2209,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     sort_and_dedup();
     /*
-    if (mate_rescues && fragment_size) {
+    if (mate_rescues && frag_stats.fragment_size) {
         // to improve rescue, add in single-ended versions of alignments where both mates map
         vector<pair<Alignment, Alignment> > se_alns;
         Alignment mate1 = read1; mate1.clear_path(); mate1.clear_score();
@@ -2316,7 +2305,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             */
             aln1.clear_fragment();
             aln2.clear_fragment();
-            save_frag_lens_to_alns(aln1, aln2);
+            auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0));
         }
     }
     sort_and_dedup();
@@ -2372,7 +2362,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results.first.clear();
         results.second.clear();
     }
-
+    
+    // Before we update the fragment length distribution, remember the
+    // distribution used here.
+    
+    stringstream fragment_dist;
+    fragment_dist << frag_stats.fragment_size
+        << ':' << frag_stats.cached_fragment_length_mean 
+        << ':' << frag_stats.cached_fragment_length_stdev 
+        << ':' << frag_stats.cached_fragment_orientation 
+        << ':' << frag_stats.cached_fragment_direction;
+    
     // we tried to align
     // if we don't have a fragment_size yet determined
     // and we didn't get a perfect, unambiguous hit on both reads
@@ -2393,20 +2393,20 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // push the result into our deque of fragment lengths
             if (results.first.size() == 1
                 && results.second.size() == 1
-                && results.first.front().identity() > perfect_pair_identity_threshold
-                && results.second.front().identity() > perfect_pair_identity_threshold
-                && (fragment_size && abs(length) < fragment_size
-                    || !fragment_size && abs(length) < fragment_max)) { // hard cutoff
+                && results.first.front().identity() > frag_stats.perfect_pair_identity_threshold
+                && results.second.front().identity() > frag_stats.perfect_pair_identity_threshold
+                && (frag_stats.fragment_size && abs(length) < frag_stats.fragment_size
+                    || !frag_stats.fragment_size && abs(length) < frag_stats.fragment_max)) { // hard cutoff
                 //cerr << "aln\tperfect alignments" << endl;
-                record_fragment_configuration(length, aln1, aln2);
-            } else if (!fragment_size) {
+                frag_stats.record_fragment_configuration(length, aln1, aln2);
+            } else if (!frag_stats.fragment_size) {
                 imperfect_pair = true;
                 break;
             }
         }
     }
 
-    if (!retrying && imperfect_pair && fragment_max) {
+    if (!retrying && imperfect_pair && frag_stats.fragment_max) {
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
@@ -2428,13 +2428,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.clear_score();
         aln.clear_identity();
     }
-
+    
     // Make sure to link up alignments even if they aren't mapped.
     for (auto& aln : results.first) {
         aln.set_name(read1.name());
         aln.mutable_fragment_next()->set_name(read2.name());
         aln.set_sequence(read1.sequence());
         aln.set_quality(read1.quality());
+        aln.set_fragment_length_distribution(fragment_dist.str());
     }
 
     for (auto& aln : results.second) {
@@ -2442,6 +2443,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.mutable_fragment_prev()->set_name(read1.name());
         aln.set_sequence(read2.sequence());
         aln.set_quality(read2.quality());
+        aln.set_fragment_length_distribution(fragment_dist.str());
     }
 
     // if we have references, annotate the alignments with their reference positions
@@ -2605,6 +2607,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     double mq_cap = max_mapping_quality;
 
     {
+        // Estimate the maximum mapping quality we can get if the alignments based on the good MEMs are the best ones.
         int mem_max_length = 0;
         for (auto& mem : mems) if (mem.primary && mem.match_count) mem_max_length = max(mem_max_length, (int)mem.length());
         double maybe_max = estimate_max_possible_mapping_quality(aln.sequence().size(),
@@ -2614,8 +2617,9 @@ Mapper::align_mem_multi(const Alignment& aln,
         if (maybe_max < maybe_mq_threshold) {
             mq_cap = maybe_max;
         }
+        // TODO: why should we limit our number of MEM chains to examine to max_multimaps / max estimated mapping quality?
         total_multimaps = max(min_multimaps, (int)round(total_multimaps/maybe_max));
-        if (debug) cerr << "maybe_mq " << aln.name() << " " << maybe_max << " " << total_multimaps << " " << mem_max_length << " " << longest_lcp << endl;
+        if (debug) cerr << "maybe_mq " << aln.name() << " max estimate: " << maybe_max << " estimated multimap limit: " << total_multimaps << " max mem length: " << mem_max_length << " longest LCP: " << longest_lcp << endl;
     }
 
     double avg_node_len = average_node_length();
@@ -3001,7 +3005,7 @@ VG Mapper::cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch
     // Even if the MEM is right up against the start of the read, it may not be
     // part of the best alignment. Make sure to have some padding.
     // TODO: how much padding?
-    int padding = 1;
+    int padding = 5;
     int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
     VG graph;
     if (get_before) {
@@ -3108,7 +3112,7 @@ map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, cons
     return lengths;
 }
 
-string Mapper::fragment_model_str(void) {
+string FragmentLengthStatistics::fragment_model_str(void) {
     stringstream s;
     s << fragment_size << ":"
       << cached_fragment_length_mean << ":"
@@ -3130,8 +3134,9 @@ int Mapper::first_approx_pair_fragment_length(const Alignment& aln1, const Align
     return -1;
 }
 
-void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
-    auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
+    const map<string, int>& approx_frag_lengths, bool is_consistent) {
+    
     for (auto& j : approx_frag_lengths) {
         Path fragment;
         fragment.set_name(j.first);
@@ -3139,11 +3144,11 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
         fragment.set_length(length);
         *aln1.add_fragment() = fragment;
         *aln2.add_fragment() = fragment;
-        if (fragment_size && pair_consistent(aln1, aln2, 0)) {
+        if (fragment_size && is_consistent) {
             double pval = fragment_length_pval(abs(length));
             double score = pval > 0.01 ? 10 + pval : 0;
             //auto p = signature(aln1, aln2);
-            //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << cached_fragment_length_mean << endl;
+            //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << frag_stats.cached_fragment_length_mean << endl;
             aln1.set_fragment_score(score);
             aln2.set_fragment_score(score);
         } else if (length < fragment_max) {
@@ -3156,7 +3161,7 @@ void Mapper::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2) {
     }
 }
 
-void Mapper::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
+void FragmentLengthStatistics::record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2) {
     if (fixed_fragment_model) return;
     // record the relative orientations
     assert(aln1.path().mapping(0).has_position() && aln2.path().mapping(0).has_position());
@@ -3202,26 +3207,26 @@ void Mapper::record_fragment_configuration(int length, const Alignment& aln1, co
     }
 }
 
-double Mapper::fragment_length_stdev(void) {
+double FragmentLengthStatistics::fragment_length_stdev(void) {
     return stdev(fragment_lengths);
 }
 
-double Mapper::fragment_length_mean(void) {
+double FragmentLengthStatistics::fragment_length_mean(void) {
     double sum = std::accumulate(fragment_lengths.begin(), fragment_lengths.end(), 0.0);
     return sum / fragment_lengths.size();
 }
 
-double Mapper::fragment_length_pdf(double length) {
+double FragmentLengthStatistics::fragment_length_pdf(double length) {
     return normal_pdf(length, cached_fragment_length_mean, cached_fragment_length_stdev);
 }
 
 // that the value is at least as extreme as this one
-double Mapper::fragment_length_pval(double length) {
+double FragmentLengthStatistics::fragment_length_pval(double length) {
     double x = abs(length-cached_fragment_length_mean)/cached_fragment_length_stdev;
     return 1 - phi(-x,x);
 }
 
-bool Mapper::fragment_orientation(void) {
+bool FragmentLengthStatistics::fragment_orientation(void) {
     int count_same = 0;
     int count_diff = 0;
     for (auto& same_strand : fragment_orientations) {
@@ -3231,7 +3236,7 @@ bool Mapper::fragment_orientation(void) {
     return count_same > count_diff;
 }
 
-bool Mapper::fragment_direction(void) {
+bool FragmentLengthStatistics::fragment_direction(void) {
     int count_fwd = 0;
     int count_rev = 0;
     for (auto& go_forward : fragment_directions) {
@@ -3302,7 +3307,7 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
                 cerr << "p/c " << prev << " " << curr << endl;
             }
             if (prev != -1) {
-                if (curr - prev <= fragment_size) {
+                if (curr - prev <= frag_stats.fragment_size) {
                     // in cluster
 #ifdef debug_mapper
 #pragma omp critical
@@ -4436,12 +4441,12 @@ int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) 
     
     if (use_approx_distance) {
         // Use an approximation
-        return aligner->score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->score_gappy_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             return approx_distance(last, next);
         }, strip_bonuses);
     } else {
         // Use the exact method, and if we hit the limit, fall back to the approximate method.
-        return aligner->score_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
+        return aligner->score_gappy_alignment(aln, [&](pos_t last, pos_t next, size_t max_search) {
             auto dist = graph_distance(last, next, max_search);
             if (dist == max_search) {
 #ifdef debug_mapper
