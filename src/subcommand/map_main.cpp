@@ -32,7 +32,6 @@ void help_map(char** argv) {
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
-        //<< "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
@@ -63,6 +62,7 @@ void help_map(char** argv) {
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
+         << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
@@ -143,6 +143,7 @@ int main_map(int argc, char** argv) {
     bool print_fragment_model = false;
     int fragment_model_update = 10;
     bool acyclic_graph = false;
+    bool refpos_table = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -204,11 +205,12 @@ int main_map(int argc, char** argv) {
                 {"print-frag-model", no_argument, 0, 'p'},
                 {"frag-calc", required_argument, 0, 'F'},
                 {"id-mq-weight", required_argument, 0, '7'},
+                {"refpos-table", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v",
                          long_options, &option_index);
 
 
@@ -397,6 +399,10 @@ int main_map(int argc, char** argv) {
             output_json = true;
             break;
 
+        case 'v':
+            refpos_table = true;
+            break;
+
         case 'I':
         {
             vector<string> parts = split_delims(string(optarg), ":");
@@ -538,7 +544,10 @@ int main_map(int argc, char** argv) {
 
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
-    auto output_alignments = [&output_buffer, &output_json, &buffer_size](vector<Alignment>& alignments) {
+    auto output_alignments = [&output_buffer,
+                              &output_json,
+                              &buffer_size,
+                              &refpos_table](vector<Alignment>& alignments) {
         // for(auto& alignment : alignments){
         //     cerr << "This is in output_alignments" << alignment.DebugString() << endl;
         // }
@@ -549,6 +558,19 @@ int main_map(int argc, char** argv) {
                 string json = pb2json(alignment);
 #pragma omp critical (cout)
                 cout << json << "\n";
+            }
+        } else if (refpos_table) {
+            for(auto& alignment : alignments) {
+                Position refpos;
+                if (alignment.refpos_size()) {
+                    refpos = alignment.refpos(0);
+                }
+#pragma omp critical (cout)
+                cout << alignment.name() << "\t"
+                     << refpos.name() << "\t"
+                     << refpos.offset() << "\t"
+                     << alignment.mapping_quality() << "\t"
+                     << alignment.score() << "\n";
             }
         } else {
             // Otherwise write them through the buffer for our thread
