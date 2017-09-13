@@ -26,21 +26,18 @@ void help_sim(char** argv) {
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE          use the xg index in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-N,-f)" << endl
-         << "    -l, --read-length N         write reads of length N" << endl
-         << "    -n, --num-reads N           simulate N reads" << endl
-         << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
-         << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
-         << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
-         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -f that are indels (default 0.0)" << endl
-         << "    -f, --forward-only          don't simulate from the reverse strand" << endl
-         << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
-         << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
-         << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
-         << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
-         << "    -J, --json-out              write alignments in json" << endl
-         << "    -m, --include-bonuses       include bonuses in reported scores" << endl;
+         << "    -x, --xg-name FILE    use the xg index in FILE" << endl
+         << "    -l, --read-length N   write reads of length N" << endl
+         << "    -n, --num-reads N     simulate N reads" << endl
+         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
+         << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
+         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
+         << "    -f, --forward-only    don't simulate from the reverse strand" << endl
+         << "    -p, --frag-len N      make paired end reads with given fragment length N" << endl
+         << "    -v, --frag-std-dev N  use this standard deviation for fragment length estimation" << endl
+         << "    -N, --allow-Ns        allow reads to be sampled from the graph with Ns in them" << endl
+         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
+         << "    -J, --json-out        write alignments in json" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -86,12 +83,11 @@ int main_sim(int argc, char** argv) {
             {"indel-err-prop", required_argument, 0, 'd'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
-            {"include-bonuses", no_argument, 0, 'm'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:NmF:d:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:N",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -158,10 +154,6 @@ int main_sim(int argc, char** argv) {
             fragment_std_dev = atof(optarg);
             break;
             
-        case 'm':
-            strip_bonuses = false;
-            break;
-
         case 'h':
         case '?':
             help_sim(argv);
@@ -190,6 +182,17 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: could not open xg index" << endl;
         return 1;
     }
+
+    // Make a sample to sample reads with
+    Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
+    
+    // Make a Mapper to score reads, with the default parameters
+    Mapper rescorer(xgidx, nullptr, nullptr);
+    // We define a function to score a generated alignment under the mapper
+    auto rescore = [&] (Alignment& aln) {
+        // Score using exact distance.
+        aln.set_score(rescorer.score_alignment(aln, false));
+    };
     
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler

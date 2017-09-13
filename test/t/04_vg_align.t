@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 17
 
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 
@@ -13,13 +13,9 @@ is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-
 
 is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 0 -j | jq '.score') 48 "alignment score is as expected"
 
-is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 --include-bonuses -j | jq '.score') 58 "full length bonus works"
+is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -j | jq '.score') 58 "full length bonus works and is included by default"
 
-is $(vg align x.vg -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --full-l-bonus 5 -j | jq '.score') 48 "full length bonus removed by default"
-
-is $(vg align  x.vg -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA --full-l-bonus 5 --include-bonuses --pinned --pin-left -j - | jq '.score') 37 "bonuses are included on only one end for pinned alignments"
-
-is $(vg align  x.vg -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA --full-l-bonus 5 --pinned --pin-left -j - | jq '.score') 32 "bonuses are removed by default for pinned alignments"
+is $(vg align  x.vg -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA --full-l-bonus 5 --pinned --pin-left -j - | jq '.score') 37 "bonuses are included on only one end for pinned alignments"
 
 is $(vg align  x.vg --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 --full-l-bonus 0 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | jq '.score') 96 "scoring parameters are respected"
 
