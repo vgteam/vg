@@ -59,7 +59,7 @@ int main_sim(int argc, char** argv) {
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
     string xg_name;
-    bool strip_bonuses = true;
+    bool strip_bonuses = false;
     double indel_prop = 0.0;
     string fastq_name;
 

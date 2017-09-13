@@ -224,7 +224,7 @@ public:
     int64_t node_at_path_position(const string& name, size_t pos) const;
     Mapping mapping_at_path_position(const string& name, size_t pos) const;
     size_t node_start_at_path_position(const string& name, size_t pos) const;
-    Alignment target_alignment(const string& name, size_t pos1, size_t pos2) const;
+    Alignment target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const;
     size_t path_length(const string& name) const;
     size_t path_length(size_t rank) const;
     // if node is on path, return it.  otherwise, return next node (in id space)

@@ -2736,7 +2736,7 @@ size_t XG::node_start_at_path_position(const string& name, size_t pos) const {
     return paths[p]->offsets_select(position_rank);
 }
 
-Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2) const {
+Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2, const string& feature) const {
     Alignment aln;
     const XGPath& path = *paths[path_rank(name)-1];
     size_t first_node_start = path.offsets_select(path.offsets_rank(pos1+1));
@@ -2766,6 +2766,7 @@ Alignment XG::target_alignment(const string& name, size_t pos1, size_t pos2) con
     if (trim_end) {
         *aln.mutable_path() = cut_path(aln.path(), path_from_length(aln.path()) - trim_end).first;
     }
+    aln.set_name(feature);
     return aln;
 }
 
