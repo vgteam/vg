@@ -722,7 +722,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     
     // a simulated annealing parameter loosely inspired by the cutoff for an Erdos-Renyi random graph
     // to be connected with probability approaching 1
-    size_t current_max_num_probes = 2 * ((size_t) ceil(log(num_items)));
+    size_t current_max_num_probes = 3;
+    size_t decrement_frequency = ceil(log(num_items));
     
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
@@ -746,7 +747,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         cerr << "checked " << pairs_checked << " pairs with directly calculated merges " << direct_merges_remaining << " and maintained merges " << num_possible_merges_remaining << endl;
 #endif
         
-        if (pairs_checked % num_items == 0 && pairs_checked != 0) {
+        if (pairs_checked % decrement_frequency == 0 && pairs_checked != 0) {
             current_max_num_probes--;
 #ifdef debug_od_clusterer
             cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
@@ -801,7 +802,7 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
         const pos_t& pos_2 = get_position(node_pair.second);
         
         int64_t oriented_dist = xgindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                                               id(pos_2), offset(pos_2), is_rev(pos_2));
+                                                                               id(pos_2), offset(pos_2), is_rev(pos_2), 50);
         
 #ifdef debug_od_clusterer
         cerr << "distance between " << pos_1 << " and " << pos_2 << " estimated at " << oriented_dist << endl;
