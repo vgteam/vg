@@ -37,71 +37,6 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
-void help_concat(char** argv) {
-    cerr << "usage: " << argv[0] << " concat [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
-        << "Concatenates graphs in order by adding edges from the tail nodes of the" << endl
-        << "predecessor to the head nodes of the following graph. Node IDs are" << endl
-        << "compacted, so care should be taken if consistent IDs are required." << endl;
-}
-
-int main_concat(int argc, char** argv) {
-
-    if (argc == 2) {
-        help_concat(argv);
-        return 1;
-    }
-
-    int c;
-    optind = 2; // force optind past command positional argument
-    while (true) {
-        static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {0, 0, 0, 0}
-        };
-
-        int option_index = 0;
-        c = getopt_long (argc, argv, "h",
-                long_options, &option_index);
-
-        // Detect the end of the options.
-        if (c == -1)
-            break;
-
-        switch (c)
-        {
-            case 'h':
-            case '?':
-                help_concat(argv);
-                exit(1);
-                break;
-
-            default:
-                abort ();
-        }
-    }
-
-    list<VG*> graphs;
-
-    while (optind < argc) {
-        VG* graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = new VG(in);
-        });
-        graphs.push_back(graph);
-    }
-
-    VG merged;
-    for (list<VG*>::iterator g = graphs.begin(); g != graphs.end(); ++g) {
-        merged.append(**g);
-    }
-
-    // output
-    merged.serialize_to_ostream(std::cout);
-
-    return 0;
-}
-
 void help_ids(char** argv) {
     cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
         << "options:" << endl
@@ -991,7 +926,6 @@ void vg_help(char** argv) {
          << "  -- paths         traverse paths in the graph" << endl
          << "  -- join          combine graphs via a new head" << endl
          << "  -- ids           manipulate node ids" << endl
-         << "  -- concat        concatenate graphs tail-to-head" << endl
          << "  -- genotype      compute genotypes from aligned reads" << endl
          << "  -- sort          sort variant graph using max flow algorithm or Eades fast heuristic algorithm" << endl
          << "  -- test          run unit tests" << endl;
@@ -1027,8 +961,6 @@ int main(int argc, char *argv[])
         return main_join(argc, argv);
     } else if (command == "ids") {
         return main_ids(argc, argv);
-    } else if (command == "concat") {
-        return main_concat(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
     } else if (command == "locify"){
