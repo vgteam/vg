@@ -170,6 +170,22 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/view_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/stats_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/filter_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/version_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/bugs_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/test_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/sort_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/deconstruct_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/locify_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/paths_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/join_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/ids_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/concat_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/kmers_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/circularize_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/pileup_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/compare_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/validate_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/translate_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -410,7 +426,7 @@ $(OBJ_DIR)/graph.o: $(SRC_DIR)/graph.cpp $(SRC_DIR)/graph.hpp $(DEPS)
 
 $(OBJ_DIR)/cluster.o: $(SRC_DIR)/cluster.cpp $(SRC_DIR)/cluster.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/stream.hpp $(DEPS) $(SRC_DIR)/utility.hpp $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/readfilter.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/progressive.hpp $(SRC_DIR)/index.hpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(SRC_DIR)/utility.hpp $(INC_DIR)/globalDefs.hpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(DEPS)
 
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(DEPS)
 
@@ -620,6 +636,38 @@ $(SUBCOMMAND_OBJ_DIR)/mpmap_main.o: $(SUBCOMMAND_SRC_DIR)/mpmap_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/align_main.o: $(SUBCOMMAND_SRC_DIR)/align_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/gssw_aligner.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/version_main.o: $(SUBCOMMAND_SRC_DIR)/version_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/version.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/bugs_main.o: $(SUBCOMMAND_SRC_DIR)/bugs_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/test_main.o: $(SUBCOMMAND_SRC_DIR)/test_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(UNITTEST_SRC_DIR)/driver.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/sort_main.o: $(SUBCOMMAND_SRC_DIR)/sort_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/flow_sort.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/deconstruct_main.o: $(SUBCOMMAND_SRC_DIR)/deconstruct_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/deconstructor.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/locify_main.o: $(SUBCOMMAND_SRC_DIR)/locify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(SRC_DIR)/convert.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/paths_main.o: $(SUBCOMMAND_SRC_DIR)/paths_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/join_main.o: $(SUBCOMMAND_SRC_DIR)/join_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/ids_main.o: $(SUBCOMMAND_SRC_DIR)/ids_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/vg_set.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/concat_main.o: $(SUBCOMMAND_SRC_DIR)/concat_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/kmers_main.o: $(SUBCOMMAND_SRC_DIR)/kmers_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/vg_set.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/circularize_main.o: $(SUBCOMMAND_SRC_DIR)/circularize_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/pileup_main.o: $(SUBCOMMAND_SRC_DIR)/pileup_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/pileup.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/compare_main.o: $(SUBCOMMAND_SRC_DIR)/compare_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/validate_main.o: $(SUBCOMMAND_SRC_DIR)/validate_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/translate_main.o: $(SUBCOMMAND_SRC_DIR)/translate_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/translator.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/find_main.o: $(SUBCOMMAND_SRC_DIR)/find_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(DEPS)
 
