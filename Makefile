@@ -166,6 +166,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/stats_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/filter_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/version_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/locify_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/paths_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/join_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/ids_main.o
@@ -630,6 +631,8 @@ $(SUBCOMMAND_OBJ_DIR)/align_main.o: $(SUBCOMMAND_SRC_DIR)/align_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/version_main.o: $(SUBCOMMAND_SRC_DIR)/version_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/version.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/locify_main.o: $(SUBCOMMAND_SRC_DIR)/locify_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(SRC_DIR)/convert.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/paths_main.o: $(SUBCOMMAND_SRC_DIR)/paths_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(DEPS)
 
