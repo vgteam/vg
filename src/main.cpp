@@ -1829,23 +1829,6 @@ int main_sort(int argc, char *argv[]) {
     return 0;
 }
 
-void help_version(char** argv){
-    cerr << "usage: " << argv[0] << " version" << endl
-         << "options: " << endl
-         << endl;
-}
-
-int main_version(int argc, char** argv){
-
-    if (argc != 2) {
-        help_version(argv);
-        return 1;
-    }
-
-    cout << VG_VERSION_STRING << endl;
-    return 0;
-}
-
 // No help_test is necessary because the unit testing library takes care of
 // complaining about missing options.
 
@@ -1884,8 +1867,7 @@ void vg_help(char** argv) {
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
          << "  -- sort          sort variant graph using max flow algorithm or Eades fast heuristic algorithm" << endl
-         << "  -- test          run unit tests" << endl
-         << "  -- version       version information" << endl;
+         << "  -- test          run unit tests" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -1932,8 +1914,6 @@ int main(int argc, char *argv[])
         return main_circularize(argc, argv);
     }  else if (command == "translate") {
         return main_translate(argc, argv);
-    }  else if (command == "version") {
-        return main_version(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
     } else if (command == "locify"){
