@@ -439,6 +439,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            double indel_error_proportion,
                            double insert_length_mean,
                            double insert_length_stdev,
+                           double error_multiplier,
                            size_t seed) :
       xg_index(xg_index)
     , node_cache(100)
@@ -486,7 +487,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     // memoize phred conversions
     phred_prob.resize(256);
     for (int i = 1; i < phred_prob.size(); i++) {
-        phred_prob[i] = phred_to_prob(i);
+        phred_prob[i] = error_multiplier * phred_to_prob(i);
     }
     
     for (size_t i = 0; i < alphabet.size(); i++) {

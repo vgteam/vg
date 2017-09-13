@@ -34,6 +34,7 @@ void help_sim(char** argv) {
          << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
          << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
          << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -F that are indels (default 0.0)" << endl
+         << "    -S, --scale-err FLOAT       scale trained error probabilities from -F by this much (default 1.0)" << endl
          << "    -f, --forward-only          don't simulate from the reverse strand" << endl
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
@@ -64,6 +65,7 @@ int main_sim(int argc, char** argv) {
     string xg_name;
     bool strip_bonuses = true;
     double indel_prop = 0.0;
+    double error_scale_factor = 1.0;
     string fastq_name;
 
     int c;
@@ -84,6 +86,7 @@ int main_sim(int argc, char** argv) {
             {"base-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
             {"indel-err-prop", required_argument, 0, 'd'},
+            {"scale-err", required_argument, 0, 'S'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
             {"include-bonuses", no_argument, 0, 'm'},
@@ -91,7 +94,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:NmF:d:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:NmF:d:s:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -131,6 +134,10 @@ int main_sim(int argc, char** argv) {
             
         case 'd':
             indel_prop = atof(optarg);
+            break;
+            
+        case 'S':
+            error_scale_factor = atof(optarg);
             break;
 
         case 'f':
@@ -292,7 +299,7 @@ int main_sim(int argc, char** argv) {
         NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
                              fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
-                             seed_val);
+                             error_scale_factor, seed_val);
         
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {

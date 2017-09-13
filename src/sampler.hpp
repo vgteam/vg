@@ -116,6 +116,7 @@ public:
                  double indel_error_proportion = 0.01,
                  double insert_length_mean = 1000.0,
                  double insert_length_stdev = 75.0,
+                 double error_multiplier = 1.0,
                  size_t seed = 0);
     
     /// Sample an individual read and alignment
