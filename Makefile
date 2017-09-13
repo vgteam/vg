@@ -166,6 +166,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/stats_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/filter_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/version_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/pileup_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/compare_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/validate_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/translate_main.o
@@ -623,6 +624,8 @@ $(SUBCOMMAND_OBJ_DIR)/align_main.o: $(SUBCOMMAND_SRC_DIR)/align_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/surject_main.o: $(SUBCOMMAND_SRC_DIR)/surject_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/version_main.o: $(SUBCOMMAND_SRC_DIR)/version_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/version.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/pileup_main.o: $(SUBCOMMAND_SRC_DIR)/pileup_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/pileup.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/compare_main.o: $(SUBCOMMAND_SRC_DIR)/compare_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(DEPS)
 
