@@ -8,6 +8,7 @@
 #include "path.hpp"
 #include "position.hpp"
 #include "vg.pb.h"
+#include "xg.hpp"
 
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
@@ -125,6 +126,8 @@ void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);
+
+void parse_bed_regions(istream& bedstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 
 }
 
