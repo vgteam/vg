@@ -1010,7 +1010,7 @@ int main_map(int argc, char** argv) {
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
         auto& output_buf = output_buffer[i];
-        if (!output_json) {
+        if (!output_json && !refpos_table) {
             stream::write_buffered(cout, output_buf, 0);
         }
     }

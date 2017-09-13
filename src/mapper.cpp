@@ -2806,12 +2806,9 @@ Mapper::align_mem_multi(const Alignment& aln,
         aln_index[&aln] = idx++;
     }
     // sort alignments by score
-    // then by complexity (measured as number of edit operations)
     std::sort(aln_ptrs.begin(), aln_ptrs.end(),
               [&](Alignment* a1, Alignment* a2) {
-                  return a1->score() > a2->score()
-                      || a1->score() == a2->score()
-                      && edit_count(*a1) > edit_count(*a2);
+                  return a1->score() > a2->score();
               });
     // remove likely perfect duplicates
     aln_ptrs.erase(
