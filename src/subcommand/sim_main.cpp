@@ -27,7 +27,7 @@ void help_sim(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-N,-f)" << endl
+         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
          << "    -n, --num-reads N           simulate N reads" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
@@ -290,7 +290,7 @@ int main_sim(int argc, char** argv) {
         
         NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
                              fragment_length ? fragment_length : std::numeric_limits<double>::max(),
-                             fragment_std_dev, seed_val);
+                             fragment_std_dev, !reads_may_contain_Ns, seed_val);
         
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {
