@@ -457,7 +457,7 @@ void BaseAligner::compute_mapping_quality(vector<Alignment>& alignments,
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
         exit(EXIT_FAILURE);
     }
-    
+
     if (alignments.empty()) {
         return;
     }

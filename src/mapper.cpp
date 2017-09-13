@@ -2174,7 +2174,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln2 = p->second;
             if (aln1.fragment_size() == 0) {
                 auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0));
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
             }
         }
         // sort the aligned pairs by score
@@ -2208,7 +2208,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #pragma omp critical
     show_alignments("raw");
     
-    sort_and_dedup();
+    //sort_and_dedup();
     /*
     if (mate_rescues && frag_stats.fragment_size) {
         // to improve rescue, add in single-ended versions of alignments where both mates map
@@ -2253,6 +2253,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     */
 
+    for (auto& p : aln_ptrs) {
+        auto& aln1 = p->first;
+        auto& aln2 = p->second;
+        auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+        frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
+    }
+    
+    sort_and_dedup();
+    
 #pragma omp critical
     show_alignments("dedup");
     // calculate cluster mapping quality
@@ -2267,14 +2276,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #endif
     }
 
-    // so broken... we are throwing out the candidate reads
     // realign to generate traceback if needed
     int i = 0;
     bool rescued = false;
     for (auto& p : aln_ptrs) {
         auto& aln1 = p->first;
         auto& aln2 = p->second;
-        if (++i > max(2, max_multimaps)) {
+        if (++i > max_multimaps) {
             //aln1.clear_fragment();
             //aln2.clear_fragment();
         } else {
@@ -2307,10 +2315,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             aln1.clear_fragment();
             aln2.clear_fragment();
             auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0));
+            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
         }
     }
-    sort_and_dedup();
 
     int read1_max_score = 0;
     int read2_max_score = 0;
@@ -2819,14 +2826,10 @@ Mapper::align_mem_multi(const Alignment& aln,
                         == make_pos_t(aln2->path().mapping(0).position()));
             }),
         aln_ptrs.end());
-    // compute the mapping quality
-    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
-    // get the traceback alignments of the alignments to keep
     if (alns.size()) {
-        // save the mapping quality
-        double mq = alns.front().mapping_quality();
         vector<Alignment> best_alns;
-        for (int i = 0; i < min((int)alns.size(), keep_multimaps); ++i) {
+        int i = 0;
+        for ( ; i < min((int)alns.size(), keep_multimaps); ++i) {
             Alignment* alnp = aln_ptrs[i];
             // only realign if we haven't yet
             if (!alignment_to_length(*alnp)) {
@@ -2835,13 +2838,15 @@ Mapper::align_mem_multi(const Alignment& aln,
                 best_alns.push_back(candidate);
             }
         }
-        // second round of sorting and deduplication
+        for ( ; i < aln_ptrs.size(); ++i) {
+            best_alns.push_back(*aln_ptrs[i]);
+        }
         alns = score_sort_and_deduplicate_alignments(best_alns, aln);
-        // prune to max_multimaps
-        filter_and_process_multimaps(alns, keep_multimaps);
-        // set the mq
-        alns.front().set_mapping_quality(mq);
     }
+    // compute the mapping quality
+    compute_mapping_qualities(alns, cluster_mq, mq_cap, max_mapping_quality);
+    // final filter step
+    filter_and_process_multimaps(alns, keep_multimaps);
 
     return alns;
 }
