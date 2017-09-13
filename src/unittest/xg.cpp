@@ -266,7 +266,7 @@ TEST_CASE("Target to alignment extraction", "[xg-target-to-aln]") {
         REQUIRE(alignment_from_length(target) == 20 - 10);
     }
 
-    SECTION("Subpath getting gives us the expected 13bp alignment") {
+    SECTION("Subpath getting gives us the expected 14bp alignment") {
         Alignment target = xg_index.target_alignment("path", 0, 14);
         REQUIRE(alignment_from_length(target) == 14);
     }

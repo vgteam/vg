@@ -1252,9 +1252,11 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
             gssw_graph_mapping_destroy(gm);
         }
     } else {
-        // just set the score of the alignment
-        // XXXX TODO
-        assert(false);
+        // get the alignment position and score
+        alignment.set_score(graph->max_node->alignment->score1);
+        Mapping* m = alignment.mutable_path()->add_mapping();
+        Position* p = m->mutable_position();
+        p->set_node_id(graph->max_node->id);
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);

@@ -2821,7 +2821,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         // save the mapping quality
         double mq = alns.front().mapping_quality();
         vector<Alignment> best_alns;
-        for (int i = 0; i < keep_multimaps; ++i) {
+        for (int i = 0; i < min((int)alns.size(), keep_multimaps); ++i) {
             Alignment* alnp = aln_ptrs[i];
             // only realign if we haven't yet
             if (!alignment_to_length(*alnp)) {
@@ -2862,6 +2862,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
     }
     bool pinned_alignment = false;
     bool pinned_reverse = false;
+
     aln = align_to_graph(aln,
                          graph,
                          max_query_graph_ratio,
@@ -3789,8 +3790,8 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
     double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
     BaseAligner* aligner = (pair_alns.first.front().quality().empty() ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner);
-    int sub_overlaps1 = sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
-    int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
+    int sub_overlaps1 = 0; //sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
+    int sub_overlaps2 = 0; //sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     vector<double> frag_weights;
     for (int i = 0; i < pair_alns.first.size(); ++i) {
         auto& aln1 = pair_alns.first[i];
@@ -4278,7 +4279,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                             pos_t pos_rev = reverse(pos, xg_cached_node_length(id(pos), xindex, get_node_cache()));
                             Graph graph = xindex->graph_context_id(pos_rev, band.sequence().size());
                             sort_by_id_dedup_and_clean(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                         // TODO
@@ -4292,7 +4293,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         for (auto& pos : band_ref_pos) {
                             Graph graph = xindex->graph_context_id(pos, band.sequence().size());
                             sort_by_id_dedup_and_clean(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     } else {
@@ -4301,7 +4302,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
                         for (auto& pos : band_ref_pos) {
                             Graph graph = xindex->graph_context_id(pos, band.sequence().size());
                             sort_by_id_dedup_and_clean(graph);
-                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), false);
+                            auto proposed_band = align_maybe_flip(band, graph, is_rev(pos), true);
                             if (proposed_band.score() > max_score) { band = proposed_band; max_score = band.score(); }
                         }
                     }
@@ -4587,8 +4588,10 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // at the mappings, which of the orientations will correspond to the one the
     // alignment is actually in.
 
-    auto surjection_forward = align_to_graph(surjection, graph.graph, max_query_graph_ratio, true);
-    auto surjection_reverse = align_to_graph(surjection_rc, graph.graph, max_query_graph_ratio, true);
+    Graph subgraph = graph.graph;
+    sort_by_id_dedup_and_clean(subgraph);
+    auto surjection_forward = align_to_graph(surjection, subgraph, max_query_graph_ratio, true);
+    auto surjection_reverse = align_to_graph(surjection_rc, subgraph, max_query_graph_ratio, true);
 
 #ifdef debug_mapper
 #pragma omp critical (cerr)

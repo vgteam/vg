@@ -32,7 +32,7 @@ void help_map(char** argv) {
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
          << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
-         << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
+        //<< "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
@@ -119,7 +119,6 @@ int main_map(int argc, char** argv) {
     int extra_multimaps = 512;
     int min_multimaps = 16;
     int max_mapping_quality = 60;
-    int method_code = 1;
     int maybe_mq_threshold = 60;
     double identity_weight = 2;
     string gam_input;
@@ -198,7 +197,6 @@ int main_map(int argc, char** argv) {
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-overlap", required_argument, 0, 'n'},
                 {"try-at-least", required_argument, 0, 'l'},
-                {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
                 {"approx-mq-cap", required_argument, 0, 'E'},
@@ -210,7 +208,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:m7:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:",
                          long_options, &option_index);
 
 
@@ -394,10 +392,6 @@ int main_map(int argc, char** argv) {
             extra_multimaps = atoi(optarg);
             break;
 
-        case 'v':
-            method_code = atoi(optarg);
-            break;
-
         case 'X':
             compare_gam = true;
             output_json = true;
@@ -473,21 +467,7 @@ int main_map(int argc, char** argv) {
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
-    MappingQualityMethod mapping_quality_method;
-    if (method_code == 0) {
-        mapping_quality_method = None;
-    }
-    else if (method_code == 1) {
-        mapping_quality_method = Approx;
-    }
-    else if (method_code == 2) {
-        mapping_quality_method = Exact;
-    }
-    else {
-        cerr << "error:[vg map] unrecognized mapping quality method command line arg '" << method_code << "'" << endl;
-        return 1;
-    }
-
+    MappingQualityMethod mapping_quality_method = Approx;
 
     string file_name;
     if (optind < argc) {
