@@ -101,14 +101,10 @@ class HandleGraph {
     /// orientation.
     virtual string get_sequence(const handle_t& handle) const = 0;
     
-    /// Loop over all the handles to next nodes. Passes them to a callback which
-    /// returns false to stop iterating and true to continue.
-    virtual void get_next(const handle_t& handle, const function<bool(const handle_t&)>& iteratee) = 0;
-    
-    /// Loop over all the handles to previous nodes. Passes them to a callback which
-    /// returns false to stop iterating and true to continue.
-    virtual void get_prev(const handle_t& handle, const function<bool(const handle_t&)>& iteratee) = 0;
-    
+    /// Loop over all the handles to next/previous (right/left) nodes. Passes
+    /// them to a callback which returns false to stop iterating and true to
+    /// continue.
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) = 0;
 };
 
 }

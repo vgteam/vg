@@ -1632,7 +1632,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
     return true;
 }
 
-void XG::get_next(const handle_t& handle, const function<bool(const handle_t&)>& iteratee) {
+void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) {
 
     // Unpack the handle
     size_t g = as_integer(handle) & LOW_BITS;
@@ -1649,37 +1649,11 @@ void XG::get_next(const handle_t& handle, const function<bool(const handle_t&)>&
     size_t to_start = g + G_NODE_HEADER_LENGTH + sequence_size;
     size_t from_start = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
     
-    // We will look for all the edges on the right, which means we have to check the from and to edges
-    if (do_edges(g, to_start, edges_to_count, true, false, is_reverse, iteratee)) {
+    // We will look for all the edges on the appropriate side, which means we have to check the from and to edges
+    if (do_edges(g, to_start, edges_to_count, true, go_left, is_reverse, iteratee)) {
         // All the edges where we're to were accepted, so do the edges where we're from
-        do_edges(g, from_start, edges_from_count, false, false, is_reverse, iteratee);
+        do_edges(g, from_start, edges_from_count, false, go_left, is_reverse, iteratee);
     }
-}
-
-void XG::get_prev(const handle_t& handle, const function<bool(const handle_t&)>& iteratee) {
-    // TODO: get_next and get_prev differ by a bool, so we should unify them.
-
-    // Unpack the handle
-    size_t g = as_integer(handle) & LOW_BITS;
-    bool is_reverse = get_is_reverse(handle);
-    
-    // How much sequence is there?
-    size_t sequence_size = g_iv[g + G_NODE_LENGTH_OFFSET];
-
-    // How many edges are there of each type?
-    size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
-    size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
-    
-    // Where does each edge run start? 
-    size_t to_start = g + G_NODE_HEADER_LENGTH + sequence_size;
-    size_t from_start = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
-    
-    // We will look for all the edges on the left, which means we have to check the from and to edges
-    if (do_edges(g, to_start, edges_to_count, true, true, is_reverse, iteratee)) {
-        // All the edges where we're to were accepted, so do the edges where we're from
-        do_edges(g, from_start, edges_from_count, false, true, is_reverse, iteratee);
-    }
-
 }
 
 vector<Edge> XG::edges_of(int64_t id) const {
