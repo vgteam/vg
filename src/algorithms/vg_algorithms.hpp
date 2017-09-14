@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "position.hpp"
+#include "cached_position.hpp"
 #include "xg.hpp"
 #include "vg.hpp"
 #include "vg.pb.h"

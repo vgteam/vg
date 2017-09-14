@@ -421,8 +421,8 @@ bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
         
         if(!found) {
             // Check the other articulation of the edge
-            swap(from_id, to_id);
-            swap(from_start, to_end);
+            std::swap(from_id, to_id);
+            std::swap(from_start, to_end);
             from_start = !from_start;
             to_end = !to_end;
             

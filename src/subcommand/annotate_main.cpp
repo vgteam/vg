@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream.hpp"
+#include "../alignment.hpp"
 
 using namespace vg;
 using namespace vg::subcommand;
@@ -10,6 +11,7 @@ using namespace vg::subcommand;
 void help_annotate(char** argv) {
     cerr << "usage: " << argv[0] << " annotate [options] >output.{gam,vg}" << endl
          << "    -x, --xg-name FILE     an xg index describing a graph" << endl
+         << "    -b, --bed-name FILE    a bed file describing a subpath" << endl
          << "    -d, --db-name DIR      a rocksdb index of a GAM" << endl
          << "    -v, --vg FILE          annotate this graph" << endl
          << "    -g, --gcsa FILE        a GCSA2 index file base name" << endl
@@ -28,6 +30,7 @@ int main_annotate(int argc, char** argv) {
     string rocksdb_name;
     string gcsa_name;
     string vg_name;
+    string bed_name;
     string gam_name;
     bool add_positions = false;
 
@@ -41,12 +44,13 @@ int main_annotate(int argc, char** argv) {
             {"positions", no_argument, 0, 'p'},
             {"vg", required_argument, 0, 'v'},
             {"xg-name", required_argument, 0, 'x'},
+            {"bed-name", required_argument, 0, 'b'},
             {"db-name", required_argument, 0, 'd'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:d:v:g:a:p",
+        c = getopt_long (argc, argv, "hx:d:v:g:a:pb:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -73,6 +77,10 @@ int main_annotate(int argc, char** argv) {
 
         case 'a':
             gam_name = optarg;
+            break;
+
+        case 'b':
+            bed_name = optarg;
             break;
 
         case 'p':
@@ -118,8 +126,16 @@ int main_annotate(int argc, char** argv) {
                 });
             stream::write_buffered(cout, buffer, 0); // flush
         }
+    } else if (!bed_name.empty()) {
+        vector<Alignment> buffer;
+        if (add_positions) {
+            ifstream bed_stream(bed_name.c_str());
+
+            parse_bed_regions(bed_stream, xg_index, &buffer);
+            stream::write_buffered(cout, buffer, 0); // flush
+        }
     } else {
-        cerr << "only GAM annotation is implemented" << endl;
+        cerr << "only GAM or BED annotation is implemented" << endl;
         return 1;
     }
 

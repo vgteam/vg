@@ -573,7 +573,7 @@ void Index::parse_edge(const string& key, const string& value, char& type, int64
         if(from_start && to_end) {
             // If we got that it should be both, we can replace it with the
             // normal end to start edge going the other way.
-            swap(id1, id2);
+            std::swap(id1, id2);
             from_start = to_end = false;
         }
 

@@ -240,8 +240,8 @@ namespace vg {
             haplo_nodes_1.first->next->prev = haplo_nodes_2.first;
             haplo_nodes_1.second->prev->next = haplo_nodes_2.second;
             
-            swap(haplo_nodes_1.first->next, haplo_nodes_2.first->next);
-            swap(haplo_nodes_1.second->prev, haplo_nodes_2.second->prev);
+            std::swap(haplo_nodes_1.first->next, haplo_nodes_2.first->next);
+            std::swap(haplo_nodes_1.second->prev, haplo_nodes_2.second->prev);
         }
         // else two deletions and nothing will change
         

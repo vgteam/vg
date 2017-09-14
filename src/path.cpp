@@ -1832,6 +1832,7 @@ decompose(const Path& path,
 }
 
 double overlap(const Path& p1, const Path& p2) {
+    if (p1.mapping_size() == 0 || p2.mapping_size() == 0) return 0;
     map<pos_t, int> ref1, ref2;
     map<pos_t, Edit> edit1, edit2;
     decompose(p1, ref1, edit1);
