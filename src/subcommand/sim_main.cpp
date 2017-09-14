@@ -39,7 +39,7 @@ void help_sim(char** argv) {
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
          << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
-         << "    -J, --json-out              write alignments in json" << endl
+         << "    -J, --json-out              write alignments in json" << endl;
 }
 
 int main_sim(int argc, char** argv) {
