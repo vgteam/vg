@@ -1456,7 +1456,7 @@ Mapping reverse_complement_mapping(const Mapping& m,
     
 void reverse_complement_mapping_in_place(Mapping* m,
                                          const function<int64_t(id_t)>& node_length) {
-    
+        
     Position* pos = m->mutable_position();
     pos->set_is_reverse(!pos->is_reverse());
     pos->set_offset(node_length(pos->node_id()) - pos->offset() - mapping_from_length(*m));
