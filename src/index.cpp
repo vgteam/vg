@@ -409,7 +409,14 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
 const string Index::key_for_alignment(const Alignment& alignment) {
     string key;
     if (alignment.has_path()) {
-        key = key_for_alignment_prefix(alignment.path().mapping(0).position().node_id());
+        // key the alignment by the lowest node id it maps to
+        int64_t min_id = 0;
+        for (auto& mapping : alignment.path().mapping()) {
+            if (mapping.position().node_id() < min_id || min_id == 0) {
+                min_id = mapping.position().node_id();
+            }
+        }
+        key = key_for_alignment_prefix(min_id);
     } else {
         // make our key using the alignment, to try to bin similar alignments together
         key = key_for_alignment_prefix(0) + alignment.sequence().substr(0,32);
