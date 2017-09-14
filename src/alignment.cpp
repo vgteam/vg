@@ -1033,4 +1033,41 @@ pair<string, string> signature(const Alignment& aln1, const Alignment& aln2) {
     return make_pair(signature(aln1), signature(aln2));
 }
 
+void parse_bed_regions(istream& bedstream,
+                       xg::XG* xgindex,
+                       vector<Alignment>* out_alignments) {
+    out_alignments->clear();
+    if (!bedstream) {
+        cerr << "Unable to open bed file." << endl;
+        return;
+    }
+    string row;
+    string seq;
+    size_t sbuf;
+    size_t ebuf;
+    string name;
+
+    for (int line = 1; getline(bedstream, row); ++line) {
+        if (row.size() < 2 || row[0] == '#') {
+            continue;
+        }
+        istringstream ss(row);
+        ss >> seq;
+        ss >> sbuf;
+        ss >> ebuf;
+
+        if (ss.fail()) {
+            cerr << "Error parsing bed line " << line << ": " << row << endl;
+        } else {
+            ss >> name;
+            assert(sbuf < ebuf);
+            // convert from BED-style to 0-based inclusive coordinates
+            ebuf -= 1;
+            Alignment alignment = xgindex->target_alignment(seq, sbuf, ebuf, name);
+
+            out_alignments->push_back(alignment);
+        }
+    }
+}
+
 }
