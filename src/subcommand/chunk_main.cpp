@@ -30,7 +30,7 @@ void help_chunk(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
-         << "    -a, --gam-index FILE     chunk this gam index (made with vg index -N) instead of the graph" << endl
+         << "    -a, --gam-index FILE     chunk this gam index (made with vg index -a) instead of the graph" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive)\n"
@@ -51,7 +51,7 @@ void help_chunk(char** argv) {
          << "    -c, --context STEPS      expand the context of the chunk this many steps [0]" << endl
          << "    -T, --trace              Trace haplotype threads in chunks (and only expand forward from input coordinates)" << endl
          << "    -f, --fully-contained    Only return GAM alignments that are fully contained within chunk" << endl
-         << "    -A, --search-all         Search all nodes of alignment as opposed just the minimum" << endl
+         << "    -A, --search-all         Search all nodes of alignment as opposed just the minimum (gam index must be made with -N)" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
