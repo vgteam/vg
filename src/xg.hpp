@@ -16,7 +16,6 @@
 #include "sdsl/suffix_arrays.hpp"
 #include "hash_map_set.hpp"
 #include "position.hpp"
-#include "mem.hpp"
 #include "graph.hpp"
 #include "path.hpp"
 
@@ -231,10 +230,6 @@ public:
     // (or end of graph reached).  if forward is false, go backwards...
     void get_id_range_by_length(int64_t id1, int64_t length, Graph& g, bool forward) const;
     
-    // TODO: This brings in a dependency on MEMs and should not be here but in cluster.hpp
-    /// return a subgraph for a cluster of MEMs from the given alignment
-    Graph cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803) const;
-
     ////////////////////////////////////////////////////////////////////////////
     // Here is the paths API
     ////////////////////////////////////////////////////////////////////////////

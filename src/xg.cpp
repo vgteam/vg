@@ -1470,32 +1470,6 @@ Graph XG::node_subgraph_g(int64_t g) const {
     return graph;
 }
 
-Graph XG::cluster_subgraph(const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) const {
-    assert(mems.size());
-    auto& start_mem = mems.front();
-    auto start_pos = make_pos_t(start_mem.nodes.front());
-    auto rev_start_pos = reverse(start_pos, node_length(id(start_pos)));
-    // Even if the MEM is right up against the start of the read, it may not be
-    // part of the best alignment. Make sure to have some padding.
-    // TODO: how much padding?
-    Graph graph;
-    int padding = 1;
-    int get_before = padding + (int)(expansion * (int)(start_mem.begin - aln.sequence().begin()));
-    if (get_before) {
-        graph.MergeFrom(graph_context_id(rev_start_pos, get_before));
-    }
-    for (int i = 0; i < mems.size(); ++i) {
-        auto& mem = mems[i];
-        auto pos = make_pos_t(mem.nodes.front());
-        int get_after = padding + (i+1 == mems.size() ?
-                                   expansion * (int)(aln.sequence().end() - mem.begin)
-                                   : expansion * max(mem.length(), (int)(mems[i+1].end - mem.begin)));
-        graph.MergeFrom(graph_context_id(pos, get_after));
-    }
-    sort_by_id_dedup_and_clean(graph);
-    return graph;
-}
-
 Graph XG::graph_context_id(const pos_t& pos, int64_t length) const {
     pos_t g = pos;
     get_id(g) = g_cbv_select(id_to_rank(id(pos)));
