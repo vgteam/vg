@@ -90,7 +90,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:N",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:",
                 long_options, &option_index);
 
         // Detect the end of the options.
