@@ -457,7 +457,7 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
-        opts += '--sim_opts \'-p 1000 -v 75 -d 0.01  --include-bonuses\' '
+        opts += '--sim_opts \'-p 1000 -v 75 -d 0.01 \' '
         opts += '--fastq {} '.format(self._input('platinum_NA12878_MHC.fq.gz'))
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(

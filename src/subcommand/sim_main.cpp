@@ -40,7 +40,6 @@ void help_sim(char** argv) {
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
          << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
          << "    -J, --json-out              write alignments in json" << endl
-         << "    -m, --include-bonuses       include bonuses in reported scores" << endl;
 }
 
 int main_sim(int argc, char** argv) {
