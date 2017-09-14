@@ -1427,11 +1427,11 @@ Edge XG::edge_from_encoding(int64_t from, int64_t to, int type) const {
 void XG::idify_graph(Graph& graph) const {
     // map into the id space; offsets in gciv contain the actual ids
     for (auto& node : *graph.mutable_node()) {
-        node.set_id(g_iv[node.id()]);
+        node.set_id(g_iv[node.id()+G_NODE_ID_OFFSET]);
     }
     for (auto& edge : *graph.mutable_edge()) {
-        edge.set_from(g_iv[edge.from()]);
-        edge.set_to(g_iv[edge.to()]);
+        edge.set_from(g_iv[edge.from()+G_NODE_ID_OFFSET]);
+        edge.set_to(g_iv[edge.to()+G_NODE_ID_OFFSET]);
     }
 }
 
@@ -1538,16 +1538,26 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
 }
 
 handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
+    // Handles will be g vector index with is_reverse in the high bit
     
+    // Where in the g vector do we need to be
+    size_t handle = g_cbv_select(id_to_rank(node_id));
+    // And set the high bit if it's reverse
+    handle |= ((size_t) is_reverse) << 63;
+    return as_handle(handle);
 }
 
 id_t XG::get_id(const handle_t& handle) const {
+    // Go get the g offset and then look up the noder ID
+    return g_iv[as_integer(handle) & 0x7FFFFFFFFFFFFFFF + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
+    return as_integer(handle) & (1 << 63);
 }
 
 size_t XG::get_length(const handle_t& handle) const {
+    return g_iv[as_integer(handle) & 0x7FFFFFFFFFFFFFFF + G_NODE_LENGHT_OFFSET]
 }
 
 string XG::get_sequence(const handle_t& handle) const {

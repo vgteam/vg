@@ -39,12 +39,12 @@ inline const int64_t& as_integer(const handle_t& handle) {
 }
 
 /// View an integer as a handle
-inline handle_t& as_integer(int64_t& value) {
+inline handle_t& as_handle(int64_t& value) {
     return reinterpret_cast<handle_t&>(value);
 }
 
 /// View a const integer as a const handle
-inline const handle_t& as_integer(const int64_t& value) {
+inline const handle_t& as_handle(const int64_t& value) {
     return reinterpret_cast<const handle_t&>(value);
 }
 
