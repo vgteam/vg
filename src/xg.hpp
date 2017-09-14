@@ -114,9 +114,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 2;
+    const static uint32_t MAX_INPUT_VERSION = 3;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 2;
+    const static uint32_t OUTPUT_VERSION = 3;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -454,9 +454,10 @@ private:
     /// 
     /// Encoding designed for efficient compression, cache locality, and relativistic traversal of the graph.
     ///
-    /// node := { header, sequence, edges_to, edges_from }
-    /// header := { node_id, node_length, edges_to_count, edges_from_count }
+    /// node := { header, edges_to, edges_from }
+    /// header := { node_id, node_start, node_length, edges_to_count, edges_from_count }
     /// node_id := integer
+    /// node_start := integer (offset in s_iv)
     /// node_length := integer
     /// edges_to_count := integer
     /// edges_from_count := integer
@@ -464,7 +465,6 @@ private:
     /// edges_from := { edge_from, ... }
     /// edge_to := { edge_type, offset_to_previous_node }
     /// edge_to := { edge_type, offset_to_next_node }
-    //dac_vector<> g_civ;
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;
