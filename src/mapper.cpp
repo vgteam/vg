@@ -1430,7 +1430,7 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
         // Collect all the unique nodes visited by the first algnment
         ids.insert(aln.path().mapping(i).position().node_id());
     }
-    map<string, map<int, vector<id_t> > > node_positions;
+    map<string, map<int64_t, vector<id_t> > > node_positions;
     for(auto id : ids) {
         for (auto& ref : node_positions_in_paths(gcsa::Node::encode(id, 0))) {
             auto& name = ref.first;
@@ -1802,7 +1802,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // are the two mems in a different fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
-            int max_length = frag_stats.fragment_max;
+            int64_t max_length = frag_stats.fragment_max;
             int64_t dist = abs(approx_dist);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1965,8 +1965,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // We're going to run the chainer because we want to calculate alignments
         
         // What band width during the alignment should the chainer plan for?
-        int band_width = max((int)(read1.sequence().size() + read2.sequence().size()),
-                             (int)(frag_stats.fragment_size ? frag_stats.fragment_size : frag_stats.fragment_max));
+        int64_t band_width = max((int64_t)(read1.sequence().size() + read2.sequence().size()),
+                             (int64_t)(frag_stats.fragment_size ? frag_stats.fragment_size : frag_stats.fragment_max));
         
 #ifdef debug_mapper
 #pragma omp critical
@@ -1981,7 +1981,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
         MEMChainModel chainer({ read1.sequence().size(), read2.sequence().size() },
                               { mems1, mems2 },
-                              [&](pos_t n) -> int {
+                              [&](pos_t n) -> int64_t {
                                 return approx_position(n);
                               },
                               transition_weight,
@@ -2606,7 +2606,7 @@ Mapper::align_mem_multi(const Alignment& aln,
         int duplicate_coverage = mems_overlap_length(m1, m2);
         pos_t m1_pos = make_pos_t(m1.nodes.front());
         pos_t m2_pos = make_pos_t(m2.nodes.front());
-        int max_length = aln.sequence().size();
+        int64_t max_length = aln.sequence().size();
         int64_t approx_dist = abs(approx_distance(m1_pos, m2_pos));
         
 #ifdef debug_mapper
@@ -3092,7 +3092,7 @@ string FragmentLengthStatistics::fragment_model_str(void) {
     return s.str();
 }
 
-int Mapper::first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+int64_t Mapper::first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     auto pos1 = alignment_mean_path_positions(aln1);
     auto pos2 = alignment_mean_path_positions(aln2);
     for (auto& p : pos1) {

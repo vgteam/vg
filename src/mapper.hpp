@@ -525,7 +525,7 @@ public:
 
     // fargment length estimation
     map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    int first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    int64_t first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     

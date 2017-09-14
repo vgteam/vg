@@ -219,8 +219,8 @@ public:
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
-    int min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
-                              int64_t id2, bool is_rev2, size_t offset2) const;
+    int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
+                                  int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t node_at_path_position(const string& name, size_t pos) const;
     Mapping mapping_at_path_position(const string& name, size_t pos) const;
     size_t node_start_at_path_position(const string& name, size_t pos) const;
