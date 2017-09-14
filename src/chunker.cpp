@@ -104,37 +104,34 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context,
 
 int64_t PathChunker::extract_gam_for_subgraph(VG& subgraph, Index& index,
                                               ostream* out_stream,
-                                              bool only_fully_contained) {
+                                              bool only_fully_contained,
+                                              bool search_all_positions,
+                                              bool unsorted_index) {
 
     // Build the set of all the node IDs to operate on
+    bool contiguous = true;
     vector<vg::id_t> graph_ids;
     subgraph.for_each_node([&](Node* node) {
         // Put all the ids in the set
         graph_ids.push_back(node->id());
+        contiguous = contiguous && (graph_ids.size() < 2 ||
+                                    graph_ids[graph_ids.size() - 1] == graph_ids[graph_ids.size() - 2] + 1);
     });
 
-    return extract_gam_for_ids(graph_ids, index, out_stream, false,
-                               only_fully_contained);
+    return extract_gam_for_ids(graph_ids, index, out_stream, contiguous,
+                               only_fully_contained,
+                               search_all_positions,
+                               unsorted_index);
 }
 
-int64_t PathChunker::extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index,
-                                              ostream* out_stream,
-                                              bool only_fully_contained) {
-    
-    vector<vg::id_t> graph_ids;
-    for (vg::id_t i = start; i <= end; ++i) {
-        graph_ids.push_back(i);
-    }
-    
-    return extract_gam_for_ids(graph_ids, index, out_stream, true,
-                               only_fully_contained);
-}
-
-int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
+int64_t PathChunker::extract_gam_for_ids(vector<vg::id_t>& graph_ids,
                                          Index& index, ostream* out_stream,
                                          bool contiguous,
-                                         bool only_fully_contained) {
-  
+                                         bool only_fully_contained,
+                                         bool search_all_positions,
+                                         bool unsorted_index) {
+
+
     // Load all the reads matching the graph into memory
     vector<Alignment> gam_buffer;
     int64_t gam_count = 0;
@@ -178,27 +175,43 @@ int64_t PathChunker::extract_gam_for_ids(const vector<vg::id_t>& graph_ids,
     };
 
     function<void(const Alignment&)> write_alignment = [&](const Alignment& alignment) {
-        // flush our buffer if it's too big
-        if (gam_buffer.size() > gam_buffer_size) {
-            stream::write(*out_stream, gam_buffer.size(), write_buffer_elem);
-            gam_count += gam_buffer.size();
-            gam_buffer.clear();
-        }
-        
-        // add to buffer
-        if (in_range(alignment)) {
+        if ((!only_fully_contained && !unsorted_index) || in_range(alignment)) {
             gam_buffer.push_back(alignment);
+            stream::write_buffered(*out_stream, gam_buffer, gam_buffer_size);
         }
     };
 
-    index.for_alignment_to_nodes(graph_ids, write_alignment);
-
-    // flush buffer 
-    if (gam_buffer.size() > 0) {
-        stream::write(*out_stream, gam_buffer.size(), write_buffer_elem);
-        gam_count += gam_buffer.size();
-        gam_buffer.clear();
+    if (search_all_positions) {
+        // we accept node_id_ranges as vectors of size 2
+        if (contiguous && graph_ids.size() == 2 && graph_ids[1] != graph_ids[0] + 1) {
+            vg::id_t last = graph_ids[1];
+            graph_ids.resize(1);
+            for (vg::id_t i = graph_ids[0] + 1; i <= last; ++i) {
+                graph_ids.push_back(i);
+            }
+        }
+        index.for_alignment_to_nodes(graph_ids, write_alignment);
+    } else {
+        if (contiguous) {
+            index.for_alignment_in_range(*graph_ids.begin(), *graph_ids.end(), write_alignment);
+        } else {
+            std::sort(graph_ids.begin(), graph_ids.end());
+            size_t range_start = 0;
+            size_t range_end = 1;
+            for (; range_end < graph_ids.size(); ++range_end) {
+                if (graph_ids[range_end] > graph_ids[range_end - 1] + 1) {
+                    index.for_alignment_in_range(graph_ids[range_start], graph_ids[range_end - 1], write_alignment);
+                    range_start = range_end;
+                }
+            }
+            if (range_end > range_start) {
+                index.for_alignment_in_range(graph_ids[range_start], graph_ids[range_end - 1], write_alignment);
+            }
+        }
     }
+    
+    // flush buffer
+    stream::write_buffered(*out_stream, gam_buffer, 0);
 
     delete id_lookup;
     if (filter_count > 0) {

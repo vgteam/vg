@@ -51,6 +51,7 @@ void help_chunk(char** argv) {
          << "    -c, --context STEPS      expand the context of the chunk this many steps [0]" << endl
          << "    -T, --trace              Trace haplotype threads in chunks (and only expand forward from input coordinates)" << endl
          << "    -f, --fully-contained    Only return GAM alignments that are fully contained within chunk" << endl
+         << "    -A, --search-all         Search all nodes of alignment as opposed just the minimum" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
@@ -79,6 +80,7 @@ int main_chunk(int argc, char** argv) {
     int threads = 1;
     bool trace = false;
     bool fully_contained = false;
+    bool search_all_positions = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -101,12 +103,13 @@ int main_chunk(int argc, char** argv) {
             {"id-range", no_argument, 0, 'R'},
             {"trace", required_argument, 0, 'T'},
             {"fully-contained", no_argument, 0, 'f'},
+            {"search-all-positions", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:Tft:",
+        c = getopt_long (argc, argv, "hx:a:gp:P:s:o:e:E:b:c:r:R:TfAt:",
                 long_options, &option_index);
 
 
@@ -178,6 +181,10 @@ int main_chunk(int argc, char** argv) {
         case 'f':
             fully_contained = true;
             break;
+
+        case 'A':
+            search_all_positions = true;
+            break;
             
         case 't':
             threads = atoi(optarg);
@@ -196,11 +203,6 @@ int main_chunk(int argc, char** argv) {
 
     omp_set_num_threads(threads);            
 
-    // check for invalid options combinations, of which there are many
-    if (xg_file.empty()) {
-        cerr << "error:[vg chunk] xg index (-x) required" << endl;
-        return 1;
-    }
     // need at most one of -p, -P, -e, -r, -R,  as an input
     if ((region_string.empty() ? 0 : 1) + (path_list_file.empty() ? 0 : 1) + (in_bed_file.empty() ? 0 : 1) +
         (node_ranges_file.empty() ? 0 : 1) + (node_range_string.empty() ? 0 : 1) > 1) {
@@ -222,13 +224,20 @@ int main_chunk(int argc, char** argv) {
 
     // Load our index
     xg::XG xindex;
-    ifstream in(xg_file.c_str());
-    if (!in) {
-        cerr << "error:[vg chunk] unable to load xg index file" << endl;
-        return 1;
+    if (chunk_graph || trace || context_steps > 0 || !id_range) {
+        if (xg_file.empty()) {
+            cerr << "error:[vg chunk] xg index (-x) required" << endl;
+            return 1;
+        }
+
+        ifstream in(xg_file.c_str());
+        if (!in) {
+            cerr << "error:[vg chunk] unable to load xg index file" << endl;
+            return 1;
+        }
+        xindex.load(in);
+        in.close();
     }
-    xindex.load(in);
-    in.close();
 
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index gam_index;
@@ -443,11 +452,13 @@ int main_chunk(int argc, char** argv) {
                 exit(1);
             }
             if (subgraph != NULL) {
-                chunker.extract_gam_for_subgraph(*subgraph, gam_index, &out_gam_file, fully_contained);
+                chunker.extract_gam_for_subgraph(*subgraph, gam_index, &out_gam_file,
+                                                 fully_contained, search_all_positions);
             } else {
                 assert(id_range == true);
-                chunker.extract_gam_for_id_range(region.start, region.end, gam_index, &out_gam_file,
-                                                 fully_contained);
+                vector<vg::id_t> region_id_range = {region.start, region.end};
+                chunker.extract_gam_for_ids(region_id_range, gam_index, &out_gam_file,
+                                            true, fully_contained, search_all_positions);
             }
         }
 
