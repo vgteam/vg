@@ -1441,7 +1441,7 @@ Graph XG::node_subgraph_id(int64_t id) const {
     return graph;
 }
 
-/// returns the graph with graph offsets rather than ids on edges and 
+/// returns the graph with graph offsets rather than ids on edges and nodes
 Graph XG::node_subgraph_g(int64_t g) const {
     Graph graph;
     int edges_to_count = g_iv[g+2];
