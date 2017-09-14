@@ -29,7 +29,7 @@ public:
     // xg index used for all path splitting and subgraphing operations
     xg::XG* xg;
     // number of gams to write at once
-    size_t gam_buffer_size = 1000;
+    size_t gam_buffer_size = 100;
 
     PathChunker(xg::XG* xg = NULL);
     ~PathChunker();
@@ -55,15 +55,16 @@ public:
     /** Extract all alignments that touch a node in a subgraph and write them 
      * to an output stream using the rocksdb index (and this->gam_buffer_size) */
     int64_t extract_gam_for_subgraph(VG& subgraph, Index& index, ostream* out_stream,
-                                     bool only_fully_contained = false);
+                                     bool only_fully_contained = false,
+                                     bool search_all_positions = false,
+                                     bool unsorted_index = false);                                     
     
-    /** Like above, but for (inclusive) node id range */
-    int64_t extract_gam_for_id_range(vg::id_t start, vg::id_t end, Index& index, ostream* out_stream,
-                                     bool only_fully_contained = false);
-
     /** More general interface used by above two functions */
-    int64_t extract_gam_for_ids(const vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream,
-                                bool contiguous = false, bool only_fully_contained = false);
+    int64_t extract_gam_for_ids(vector<vg::id_t>& graph_ids, Index& index, ostream* out_stream,
+                                bool contiguous_id_range = false,
+                                bool only_fully_contained = false,
+                                bool search_all_positions = false,
+                                bool unsorted_index = false);
     
 };
 
