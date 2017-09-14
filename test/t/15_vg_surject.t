@@ -41,10 +41,10 @@ is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surjec
 #    100 "vg surject produces valid CRAM output"
 
 echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
-is "$(vg surject -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
+is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
 
 echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7, "sequence": "GATTACA"}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > read.gam
-is "$(vg surject -x x.xg read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
+is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
 
 echo '{"name": "read/1", "sequence": "GATT", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 4, "to_length": 4, "sequence": "GATT"}]}]}, "fragment_next": {"name": "read/2"}}{"name": "read/2", "sequence": "ACA", "path": {
 "mapping": [{"position": {"node_id": 1, "offset": 4}, "edit": [{"from_length": 3, "to_length": 3, "sequence": "ACA"}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > reads.gam
@@ -72,8 +72,8 @@ rm -rf f.xg f.gcsa
 
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >minigiab.vg
 vg index -k 11 -g m.gcsa -x m.xg minigiab.vg
-is $(vg map -b minigiab/NA12878.chr22.tiny.bam -x m.xg -g m.gcsa | vg surject -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from BAM input"
-is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
+is $(vg map -b minigiab/NA12878.chr22.tiny.bam -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from BAM input"
+is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
 
 rm -rf minigiab.vg* m.xg m.gcsa
 

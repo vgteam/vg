@@ -80,8 +80,8 @@ vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz x.vg
 is $? 0 "building an xg index containing a gPBWT"
 
-xg -i x.xg -x > part.vg
-is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 4 "the gPBWT can be queried for two threads for each haplotype"
+vg find -t -x x.xg >part.vg
+is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 2 "the gPBWT can be queried for two threads for each haplotype"
 
 is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L - | wc -l) 1 "a specific thread may be pulled from the graph by name"
 
