@@ -439,6 +439,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            double indel_error_proportion,
                            double insert_length_mean,
                            double insert_length_stdev,
+                           bool retry_on_Ns,
                            size_t seed) :
       xg_index(xg_index)
     , node_cache(100)
@@ -448,6 +449,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     , indel_error_prop(indel_error_proportion)
     , insert_mean(insert_length_mean)
     , insert_sd(insert_length_stdev)
+    , retry_on_Ns(retry_on_Ns)
     , prng(seed ? seed : random_device()())
     , start_pos_sampler(1, xg_index.seq_length)
     , strand_sampler(0, 1)
@@ -547,6 +549,14 @@ Alignment NGSSimulator::sample_read() {
         cerr << "attempting walk starting at " << pos << endl;
 #endif
         sample_read_internal(aln, pos);
+        
+        // make sure we didn't sample sequence from
+        if (retry_on_Ns) {
+            if (aln.sequence().find('N') != string::npos) {
+                aln.clear_path();
+                aln.clear_sequence();
+            }
+        }
     }
     
     aln.set_name(get_read_name());
@@ -568,6 +578,13 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         pos_t pos = sample_start_pos();
         sample_read_internal(aln_pair.first, pos);
         
+        if (retry_on_Ns) {
+            if (aln_pair.first.sequence().find('N') != string::npos) {
+                aln_pair.first.clear_path();
+                aln_pair.first.clear_sequence();
+            }
+        }
+        
         if (!aln_pair.first.has_path()) {
             continue;
         }
@@ -587,6 +604,13 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         }
         
         sample_read_internal(aln_pair.second, pos);
+        
+        if (retry_on_Ns) {
+            if (aln_pair.second.sequence().find('N') != string::npos) {
+                aln_pair.second.clear_path();
+                aln_pair.second.clear_sequence();
+            }
+        }
     }
     
     aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
@@ -657,9 +681,9 @@ void NGSSimulator::sample_read_internal(Alignment& aln, pos_t& curr_pos) {
         }
         
         // get the true graph char, possibly with a substitution polymorphism
-        char poly_graph_char = graph_char != 'N' ? graph_char : alphabet[background_sampler(prng)];
+        char poly_graph_char = graph_char;
         if (prob_sampler(prng) < sub_poly_rate) {
-            poly_graph_char = mutation_alphabets[poly_graph_char][mut_sampler(prng)];
+            poly_graph_char = mutation_alphabets[poly_graph_char != 'N' ? poly_graph_char : alphabet[background_sampler(prng)]][mut_sampler(prng)];
         }
         
         // by default the read matches the true graph char
@@ -668,7 +692,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, pos_t& curr_pos) {
         // sample substitution errors with the remaining err sample
         if (err_sample < err_prob) {
             // substitution error
-            read_char = mutation_alphabets[read_char][mut_sampler(prng)];
+            read_char = mutation_alphabets[read_char != 'N' ? read_char : alphabet[background_sampler(prng)]][mut_sampler(prng)];
         }
         
 #ifdef debug_ngs_sim
