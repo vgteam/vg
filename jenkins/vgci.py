@@ -919,7 +919,7 @@ class VGCITest(TestCase):
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
