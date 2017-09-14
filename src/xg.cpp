@@ -1573,7 +1573,11 @@ string XG::get_sequence(const handle_t& handle) const {
         sequence[i] = revdna3bit(g_iv[i + g + G_NODE_HEADER_LENGTH]);
     }
     
-    return sequence;
+    if (as_integer(handle) & HIGH_BIT) {
+        return reverse_complement(sequence);
+    } else {
+        return sequence;
+    }
 }
 
 bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) {
