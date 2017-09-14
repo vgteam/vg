@@ -1964,7 +1964,7 @@ void BandedGlobalAligner<IntType>::graph_edge_lists(Graph& g, bool outgoing_edge
         id_t to = edge.to();
         // We know the edge can't be reversing (since we align to DAGs), but it might be doubly reversing.
         if (edge.from_start() && edge.to_end()) {
-            swap(from, to);
+            std::swap(from, to);
         }
         
         if (outgoing_edges) {

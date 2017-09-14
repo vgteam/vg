@@ -624,7 +624,6 @@ int main_mpmap(int argc, char** argv) {
     // convert to unpaired single path alignments and write stdout buffer
     auto output_single_path_alignments = [&](vector<MultipathAlignment>& mp_alns) {
         auto& output_buf = single_path_output_buffer[omp_get_thread_num()];
-        
         // add optimal alignments to the output buffer
         for (MultipathAlignment& mp_aln : mp_alns) {
             output_buf.emplace_back();
@@ -675,7 +674,6 @@ int main_mpmap(int argc, char** argv) {
                                                       [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
             }
         }
-        
         stream::write_buffered(cout, output_buf, buffer_size);
     };
     
@@ -693,9 +691,10 @@ int main_mpmap(int argc, char** argv) {
     
     // do paired multipath alignment and write to buffer
     function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
-        
         // get reads on the same strand so that oriented distance estimation works correctly
         if (!same_strand) {
+            // remove the path so we won't try to RC it (the path may not refer to this graph)
+            alignment_2.clear_path();
             reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
         }
         

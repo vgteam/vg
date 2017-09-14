@@ -334,7 +334,7 @@ static void ultrabubble_recurse(VG& graph, stList* chains_list,
 
             // try to keep bubble sides sorted to be more consistent with superbubbles
             if (child_side2 < child_side1) {
-                swap(child_side1, child_side2);
+                std::swap(child_side1, child_side2);
             }
                 
             ultrabubble_recurse(graph, child_bubble->chains, child_side1, child_side2, new_node);

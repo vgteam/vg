@@ -31,7 +31,7 @@ void help_map(char** argv) {
          << "    -n, --mq-overlap FLOAT  scale MQ by count of alignments with this overlap in the query with the primary [0.5]" << endl
          << "    -P, --min-ident FLOAT   accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N    skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -v, --mq-method OPT     mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
+         << "    -m, --acyclic-graph     improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT    band width for long read alignment [256]" << endl
          << "    -J, --band-jump INT     the maximum jump we can see between bands (maximum length variant we can detect) [{-w}]" << endl
          << "    -I, --fragment STR      fragment length distribution specification STR=m:μ:σ:o:d [10000:0:0:0:1]" << endl
@@ -47,7 +47,6 @@ void help_map(char** argv) {
          << "    -o, --gap-open INT      use this gap open penalty [6]" << endl
          << "    -y, --gap-extend INT    use this gap extension penalty [1]" << endl
          << "    -L, --full-l-bonus INT  the full-length alignment bonus [5]" << endl
-         << "    -m, --include-bonuses   include bonuses in reported scores" << endl
          << "    -A, --qual-adjust       perform base quality adjusted alignments (requires base quality input)" << endl
          << "input:" << endl
          << "    -s, --sequence STR      align a string to the graph in graph.vg using partial order alignment" << endl
@@ -63,6 +62,7 @@ void help_map(char** argv) {
          << "    -j, --output-json       output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size INT   buffer this many alignments together before outputting in GAM [100]" << endl
          << "    -X, --compare           realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
+         << "    -v, --refpos-table      for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary    produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT produce up to INT alignments for each read [1]" << endl
          << "    -B, --band-multi INT    consider this many alignments of each band in banded alignment [4]" << endl
@@ -114,12 +114,11 @@ int main_map(int argc, char** argv) {
     int8_t gap_open = 6;
     int8_t gap_extend = 1;
     int8_t full_length_bonus = 5;
-    bool strip_bonuses = true;
+    bool strip_bonuses = false;
     bool qual_adjust_alignments = false;
     int extra_multimaps = 512;
     int min_multimaps = 16;
     int max_mapping_quality = 60;
-    int method_code = 1;
     int maybe_mq_threshold = 60;
     double identity_weight = 2;
     string gam_input;
@@ -143,6 +142,8 @@ int main_map(int argc, char** argv) {
     bool fixed_fragment_model = false;
     bool print_fragment_model = false;
     int fragment_model_update = 10;
+    bool acyclic_graph = false;
+    bool refpos_table = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -192,12 +193,11 @@ int main_map(int argc, char** argv) {
                 {"fragment", required_argument, 0, 'I'},
                 {"fragment-x", required_argument, 0, 'S'},
                 {"full-l-bonus", required_argument, 0, 'L'},
-                {"include-bonuses", no_argument, 0, 'm'},
+                {"acyclic-graph", no_argument, 0, 'm'},
                 {"seed-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-overlap", required_argument, 0, 'n'},
                 {"try-at-least", required_argument, 0, 'l'},
-                {"mq-method", required_argument, 0, 'v'},
                 {"mq-max", required_argument, 0, 'Q'},
                 {"mate-rescues", required_argument, 0, 'O'},
                 {"approx-mq-cap", required_argument, 0, 'E'},
@@ -205,11 +205,12 @@ int main_map(int argc, char** argv) {
                 {"print-frag-model", no_argument, 0, 'p'},
                 {"frag-calc", required_argument, 0, 'F'},
                 {"id-mq-weight", required_argument, 0, '7'},
+                {"refpos-table", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:v:V:O:L:n:E:X:UpF:m7:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6aH:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:n:E:X:UpF:m7:v",
                          long_options, &option_index);
 
 
@@ -264,7 +265,7 @@ int main_map(int argc, char** argv) {
             break;
         
         case 'm':
-            strip_bonuses = false;
+            acyclic_graph = true;
             break;
 
         case 'T':
@@ -393,13 +394,13 @@ int main_map(int argc, char** argv) {
             extra_multimaps = atoi(optarg);
             break;
 
-        case 'v':
-            method_code = atoi(optarg);
-            break;
-
         case 'X':
             compare_gam = true;
             output_json = true;
+            break;
+
+        case 'v':
+            refpos_table = true;
             break;
 
         case 'I':
@@ -472,21 +473,7 @@ int main_map(int argc, char** argv) {
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
 
-    MappingQualityMethod mapping_quality_method;
-    if (method_code == 0) {
-        mapping_quality_method = None;
-    }
-    else if (method_code == 1) {
-        mapping_quality_method = Approx;
-    }
-    else if (method_code == 2) {
-        mapping_quality_method = Exact;
-    }
-    else {
-        cerr << "error:[vg map] unrecognized mapping quality method command line arg '" << method_code << "'" << endl;
-        return 1;
-    }
-
+    MappingQualityMethod mapping_quality_method = Approx;
 
     string file_name;
     if (optind < argc) {
@@ -557,7 +544,10 @@ int main_map(int argc, char** argv) {
 
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
-    auto output_alignments = [&output_buffer, &output_json, &buffer_size](vector<Alignment>& alignments) {
+    auto output_alignments = [&output_buffer,
+                              &output_json,
+                              &buffer_size,
+                              &refpos_table](vector<Alignment>& alignments) {
         // for(auto& alignment : alignments){
         //     cerr << "This is in output_alignments" << alignment.DebugString() << endl;
         // }
@@ -568,6 +558,19 @@ int main_map(int argc, char** argv) {
                 string json = pb2json(alignment);
 #pragma omp critical (cout)
                 cout << json << "\n";
+            }
+        } else if (refpos_table) {
+            for(auto& alignment : alignments) {
+                Position refpos;
+                if (alignment.refpos_size()) {
+                    refpos = alignment.refpos(0);
+                }
+#pragma omp critical (cout)
+                cout << alignment.name() << "\t"
+                     << refpos.name() << "\t"
+                     << refpos.offset() << "\t"
+                     << alignment.mapping_quality() << "\t"
+                     << alignment.score() << "\n";
             }
         } else {
             // Otherwise write them through the buffer for our thread
@@ -633,6 +636,7 @@ int main_map(int argc, char** argv) {
         m->mate_rescues = mate_rescues;
         m->max_band_jump = max_band_jump > -1 ? max_band_jump : band_width;
         m->identity_weight = identity_weight;
+        m->assume_acyclic = acyclic_graph;
         mapper[i] = m;
     }
 
@@ -740,8 +744,11 @@ int main_map(int argc, char** argv) {
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (!print_fragment_model) {
                     // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alnp.first);
-                    output_alignments(alnp.second);
+#pragma omp critical (output)
+                    {
+                        output_alignments(alnp.first);
+                        output_alignments(alnp.second);
+                    }
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -827,8 +834,11 @@ int main_map(int argc, char** argv) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (!print_fragment_model) {
-                    output_alignments(alnp.first);
-                    output_alignments(alnp.second);
+#pragma omp critical (output)
+                    {
+                        output_alignments(alnp.first);
+                        output_alignments(alnp.second);
+                    }
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -900,8 +910,11 @@ int main_map(int argc, char** argv) {
                         alnp.first.front().set_correct(overlap(aln1.path(), alnp.first.front().path()));
                         alnp.second.front().set_correct(overlap(aln2.path(), alnp.second.front().path()));
                     }
-                    output_alignments(alnp.first);
-                    output_alignments(alnp.second);
+#pragma omp critical (output)
+                    {
+                        output_alignments(alnp.first);
+                        output_alignments(alnp.second);
+                    }
                 }
             };
             function<void(Alignment&,Alignment&)> lambda =
@@ -997,7 +1010,7 @@ int main_map(int argc, char** argv) {
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
         auto& output_buf = output_buffer[i];
-        if (!output_json) {
+        if (!output_json && !refpos_table) {
             stream::write_buffered(cout, output_buf, 0);
         }
     }

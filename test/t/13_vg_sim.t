@@ -14,7 +14,7 @@ vg index -x x.xg x.vg
 is $(vg sim -l 100 -n 100 -x x.xg | wc -l) 100 \
     "vg sim creates the correct number of reads"
     
-is $(vg sim -s 1337 -l 100 -n 1 -e 0.0 -i 0.0 -J -x x.xg --include-bonuses | jq .score) 110 "end bonuses can be included"
+is $(vg sim -s 1337 -l 100 -n 1 -e 0.0 -i 0.0 -J -x x.xg | jq .score) 110 "end bonuses are included"
 
 is $(vg sim -l 100 -n 100 -a -x x.xg | vg view -a - | wc -l) 100 \
    "alignments may be generated rather than read sequences"

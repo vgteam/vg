@@ -269,6 +269,7 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     // Make a multipath mapper to map against the graph.
     Mapper mapper(&xg_index, gcsaidx, lcpidx);
     mapper.set_alignment_scores(1, 4, 6, 1, 5);
+    //mapper.debug = true;
     
     SECTION( "Mapper can map a read starting with a node-border MEM" ) {
     
@@ -282,7 +283,8 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
         
         // We want one alignment.
         REQUIRE(results.size() == 1);
-        // We want its first mapping to be to 1436 like the optimal alignment.
+
+        // We want its first mapping to be to 1433 like the optimal alignment.
         REQUIRE(results.front().path().mapping_size() >= 1);
         REQUIRE(results.front().path().mapping(0).position().node_id() == 1436);
     

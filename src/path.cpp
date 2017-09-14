@@ -1456,7 +1456,7 @@ Mapping reverse_complement_mapping(const Mapping& m,
     
 void reverse_complement_mapping_in_place(Mapping* m,
                                          const function<int64_t(id_t)>& node_length) {
-    
+        
     Position* pos = m->mutable_position();
     pos->set_is_reverse(!pos->is_reverse());
     pos->set_offset(node_length(pos->node_id()) - pos->offset() - mapping_from_length(*m));
@@ -1887,6 +1887,7 @@ decompose(const Path& path,
 }
 
 double overlap(const Path& p1, const Path& p2) {
+    if (p1.mapping_size() == 0 || p2.mapping_size() == 0) return 0;
     map<pos_t, int> ref1, ref2;
     map<pos_t, Edit> edit1, edit2;
     decompose(p1, ref1, edit1);

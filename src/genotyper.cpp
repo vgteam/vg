@@ -853,7 +853,7 @@ namespace vg {
                             // be traversed through.
 
                             // Flip the site around and try again
-                            swap(site.start, site.end);
+                            std::swap(site.start, site.end);
                             vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site, reads_by_name);
                             if(reverse_paths.size() != 0) {
                                 // We actually got some paths. Use them
@@ -862,7 +862,7 @@ namespace vg {
                                 cerr << "Warning! Corrected inside-out site " << site.end << " - " << site.start << endl;
                             } else {
                                 // Put original start and end back for complaining
-                                swap(site.start, site.end);
+                                std::swap(site.start, site.end);
                             }
                         }
 
@@ -1119,7 +1119,7 @@ namespace vg {
         if(referenceIntervalStart > referenceIntervalPastEnd) {
             // Everything we know about the site is backwards relative to the reference. Flip it around frontways.
             site_is_reverse = true;
-            swap(first_id, last_id);
+            std::swap(first_id, last_id);
             // Recalculate reference positions Use the end node, which we've now
             // made first_id, to get the length offset to the start of the actual
             // internal variable bit.
@@ -2724,7 +2724,7 @@ namespace vg {
             bool site_is_reverse = bounds.second;
             if(site_is_reverse) {
                 // Make sure our first and last IDs are actually accurate.
-                swap(first_id, last_id);
+                std::swap(first_id, last_id);
             }
 
             // Get the string for the reference allele
@@ -2968,7 +2968,7 @@ namespace vg {
                 size_t high_alt = allele_to_alt.at(locus.genotype(i).allele(1));
                 if(low_alt > high_alt) {
                     // Flip them to be the right way around
-                    swap(low_alt, high_alt);
+                    std::swap(low_alt, high_alt);
                 }
 
                 // Compute the position as (sort of) specified in the VCF spec

@@ -1137,7 +1137,7 @@ namespace vg {
                 if (graph.node(idx).sequence().empty()) {
                     end--;
                     removed_nodes.insert(graph.node(idx).id());
-                    swap(*graph.mutable_node(idx), *graph.mutable_node(end));
+                    std::swap(*graph.mutable_node(idx), *graph.mutable_node(end));
                 }
                 else {
                     idx++;
@@ -1153,7 +1153,7 @@ namespace vg {
                     Edge* edge = graph.mutable_edge(idx);
                     if (removed_nodes.count(edge->from()) || removed_nodes.count(edge->to())) {
                         end--;
-                        swap(*edge, *graph.mutable_edge(end));
+                        std::swap(*edge, *graph.mutable_edge(end));
                     }
                     else {
                         idx++;
@@ -1224,8 +1224,8 @@ namespace vg {
             // in place permutation according to the topological order
             for (size_t i = 0; i < graph.node_size(); i++) {
                 while (index[i] != i) {
-                    swap(*graph.mutable_node(i), *graph.mutable_node(index[i]));
-                    swap(index[i], index[index[i]]);
+                    std::swap(*graph.mutable_node(i), *graph.mutable_node(index[i]));
+                    std::swap(index[i], index[index[i]]);
                 }
             }
         };
@@ -1498,8 +1498,8 @@ namespace vg {
         // in place permutation according to the topological order
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             while (index[i] != i) {
-                swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
-                swap(index[i], index[index[i]]);
+                std::swap(*multipath_aln.mutable_subpath(i), *multipath_aln.mutable_subpath(index[i]));
+                std::swap(index[i], index[index[i]]);
             }
         }
     }
@@ -1594,8 +1594,8 @@ namespace vg {
         for (size_t i = 1; i < multipath_alns.size(); i++) {
             size_t pos = i;
             while (scores[pos] > scores[pos - 1]) {
-                swap(scores[pos], scores[pos - 1]);
-                swap(multipath_alns[pos], multipath_alns[pos - 1]);
+                std::swap(scores[pos], scores[pos - 1]);
+                std::swap(multipath_alns[pos], multipath_alns[pos - 1]);
                 pos--;
                 if (pos == 0) {
                     break;
@@ -1627,8 +1627,8 @@ namespace vg {
         for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
             size_t pos = i;
             while (scores[pos] > scores[pos - 1]) {
-                swap(scores[pos], scores[pos - 1]);
-                swap(multipath_aln_pairs[pos], multipath_aln_pairs[pos - 1]);
+                std::swap(scores[pos], scores[pos - 1]);
+                std::swap(multipath_aln_pairs[pos], multipath_aln_pairs[pos - 1]);
                 pos--;
                 if (pos == 0) {
                     break;
