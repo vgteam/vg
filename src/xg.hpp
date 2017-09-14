@@ -194,6 +194,11 @@ public:
     Graph graph_context_g(const pos_t& pos, int64_t length) const;
     
     /// return an edge from the three-part encoding used in the graph vector
+    /// Edge type encoding:
+    /// 1: end to start
+    /// 2: end to end
+    /// 3: start to start
+    /// 4: start to end
     Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
     void idify_graph(Graph& graph) const;
     
@@ -498,7 +503,7 @@ private:
     
     // Let's define some offset ints
     const static int G_NODE_ID_OFFSET = 0;
-    const static int G_NODE_LENGHT_OFFSET = 1;
+    const static int G_NODE_LENGTH_OFFSET = 1;
     const static int G_NODE_TO_COUNT_OFFSET = 2;
     const static int G_NODE_FROM_COUNT_OFFSET = 3;
     const static int G_NODE_HEADER_LENGTH = 4;
@@ -506,6 +511,24 @@ private:
     const static int G_EDGE_TYPE_OFFSET = 0;
     const static int G_EDGE_OFFSET_OFFSET = 1;
     const static int G_EDGE_LENGTH = 2;
+    
+    // And some masks
+    const static size_t HIGH_BIT = (size_t)1 << 63;
+    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
+    
+    /// This is a utility function for the edge exploration. It says whether we
+    /// want to visit an edge depending on its type, whether we're the to or
+    /// from node, whether we want to look left or right, and whether we're
+    /// forward or reverse on the node.
+    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse);
+    
+    // This loops over the given number of edge records for the given g node,
+    // starting at the given start g vector position. For all the edges that are
+    // wanted by edge_filter given the is_to, want_left, and is_reverse flags,
+    // the iteratee is called. Returns true if the iteratee never returns false,
+    // or false (and stops iteration) as soon as the iteratee returns false.
+    bool do_edges(const size_t& g, const size_t& start, const size_t& count,
+        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee);
     
     ////////////////////////////////////////////////////////////////////////////
     // Here are the bits we need to keep around to talk about the sequence
