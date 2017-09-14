@@ -63,7 +63,7 @@ int main_sim(int argc, char** argv) {
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
     string xg_name;
-    bool strip_bonuses = true;
+    bool strip_bonuses = false;
     double indel_prop = 0.0;
     double error_scale_factor = 1.0;
     string fastq_name;
@@ -89,7 +89,6 @@ int main_sim(int argc, char** argv) {
             {"scale-err", required_argument, 0, 'S'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
-            {"include-bonuses", no_argument, 0, 'm'},
             {0, 0, 0, 0}
         };
 
@@ -165,10 +164,6 @@ int main_sim(int argc, char** argv) {
             fragment_std_dev = atof(optarg);
             break;
             
-        case 'm':
-            strip_bonuses = false;
-            break;
-
         case 'h':
         case '?':
             help_sim(argv);
@@ -197,6 +192,17 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: could not open xg index" << endl;
         return 1;
     }
+
+    // Make a sample to sample reads with
+    Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
+    
+    // Make a Mapper to score reads, with the default parameters
+    Mapper rescorer(xgidx, nullptr, nullptr);
+    // We define a function to score a generated alignment under the mapper
+    auto rescore = [&] (Alignment& aln) {
+        // Score using exact distance.
+        aln.set_score(rescorer.score_alignment(aln, false));
+    };
     
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler

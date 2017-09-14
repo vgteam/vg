@@ -20,6 +20,9 @@ RUN_ID="run$(cat /dev/urandom | LC_CTYPE=C tr -dc 'a-z0-9' | fold -w 32 | head -
 CLUSTER_NAME="${RUN_ID}"
 MANAGE_CLUSTER=1
 
+# What input reads and position truth set should we use?
+READ_STEM="comparison"
+
 usage() {
     # Print usage to stderr
     exec 1>&2
@@ -29,10 +32,11 @@ usage() {
     printf "\t-t CONTAINER\tUse the given Toil container in the cluster (default: ${TOIL_APPLIANCE_SELF}).\n"
     printf "\t-c CLUSTER\tUse the given existing Toil cluster.\n"
     printf "\t-v DOCKER\tUse the given Docker image specifier for vg.\n"
+    printf "\t-r READS\tUse the given read set stem (default: ${READ_STEM}).\n"
     exit 1
 }
 
-while getopts "hp:t:c:v:" o; do
+while getopts "hp:t:c:v:r:" o; do
     case "${o}" in
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -46,6 +50,9 @@ while getopts "hp:t:c:v:" o; do
             ;;
         v)
             VG_DOCKER_OPTS=("--vg_docker" "${OPTARG}")
+            ;;
+        r)
+            READ_STEM="${OPTARG}"
             ;;
         *)
             usage
@@ -149,21 +156,24 @@ MASTER_IP="$($PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NA
 # Make sure we download the outstore whether we break now or not
 set +e
 
+# What truth/read set should we use?
+READ_SET="${READ_STEM}-${REGION_NAME}"
+
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
     --config vg.conf \
     "${VG_DOCKER_OPTS[@]}" \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
     --gam-names "${GRAPH_NAMES[@]}" \
-    --gam_input_reads `get_input_url "comparison-${REGION_NAME}.gam"` \
+    --gam_input_reads `get_input_url "${READ_SET}.gam"` \
     --bwa --bwa-paired --vg-paired \
     --mapeval-threshold 200 \
     --realTimeLogging --logInfo \
     "${JOB_TREE}" \
     "${OUTPUT_STORE}" \
-    `get_input_url "comparison-${REGION_NAME}.pos"` \
-    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --preemptableNodeType=r3.8xlarge:0.8 \
-    --defaultPreemptable --maxPreemptableNodes 4
+    `get_input_url "${READ_SET}.pos"` \
+    --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --nodeType=r3.8xlarge \
+    --alphaPacking 2.0
     
 # Make sure the output is public
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/aws s3 sync --acl public-read "${OUTPUT_STORE_URL}" "${OUTPUT_STORE_URL}"

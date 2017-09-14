@@ -405,7 +405,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     
                     if (backward) {
                         // We're scanning the other way
-                        swap(here_traversal, next_traversal);
+                        std::swap(here_traversal, next_traversal);
                     }
                     
                     // Make sure we have an edge so we can traverse this node and then the node we're going to.

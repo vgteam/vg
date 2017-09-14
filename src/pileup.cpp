@@ -97,7 +97,7 @@ void Pileups::for_each_edge_pileup(const function<void(EdgePileup&)>& lambda) {
 
 EdgePileup* Pileups::get_edge_pileup(pair<NodeSide, NodeSide> sides) {
     if (sides.second < sides.first) {
-        swap(sides.first, sides.second);
+        std::swap(sides.first, sides.second);
     }
     auto p = _edge_pileups.find(sides);
     return p != _edge_pileups.end() ? p->second : NULL;
@@ -106,7 +106,7 @@ EdgePileup* Pileups::get_edge_pileup(pair<NodeSide, NodeSide> sides) {
 // get a pileup.  if it's null, create a new one and insert it.
 EdgePileup* Pileups::get_create_edge_pileup(pair<NodeSide, NodeSide> sides) {
     if (sides.second < sides.first) {
-        swap(sides.first, sides.second);
+        std::swap(sides.first, sides.second);
     }
     EdgePileup* p = get_edge_pileup(sides);
     if (p == NULL) {
@@ -718,9 +718,9 @@ void Pileups::make_delete(string& seq, bool is_reverse, const pair<const Mapping
     // canonical order
     if (make_pair(make_pair(from_id, from_offset), from_start) >
         make_pair(make_pair(to_id, to_offset), to_end)) {
-        swap(from_id, to_id);
-        swap(from_offset, to_offset);
-        swap(from_start, to_end);
+        std::swap(from_id, to_id);
+        std::swap(from_offset, to_offset);
+        std::swap(from_start, to_end);
         from_start = !from_start;
         to_end = !to_end;
     }
