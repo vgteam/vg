@@ -1524,11 +1524,9 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     if (!frag_stats.fragment_size) return false;
-    //double hang_threshold = 0.9;
-    //double retry_threshold = 0.7;
+    double hang_threshold = 0.9;
+    double retry_threshold = 0.7;
     double perfect_score = mate1.sequence().size() * match_score;
-    double hang_threshold = 0.6;
-    //double retry_threshold = perfect_score * 0.5;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
@@ -1541,7 +1539,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
-    if (mate1_id >= mate2_id && mate1_id > hang_threshold && !consistent) {
+    if (mate1_id > mate2_id && (mate1_id > hang_threshold && (mate2_id < retry_threshold || !consistent))) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -1552,7 +1550,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
-    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && !consistent) {
+    } else if (mate2_id > mate1_id && (mate2_id > hang_threshold && (mate1_id < retry_threshold || !consistent))) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
@@ -1573,8 +1571,6 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     }
     if (id(mate_pos) == 0) return false; // can't rescue because the selected mate is unaligned
 #endif
-    auto& node_cache = get_node_cache();
-    auto& edge_cache = get_edge_cache();
     int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
                         : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
                               mate1.sequence().size() * 4));
@@ -1586,8 +1582,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
-        bool flip = !mate1.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation
-            || mate1.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation;
+        bool flip = !mate1.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation
+            || mate1.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation;
         Alignment aln2 = align_maybe_flip(mate2, graph, flip, traceback);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1596,14 +1592,14 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
         }
 #endif
-        if (aln2.score() > mate2.score()) {
+        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > hang_threshold) {
             mate2 = aln2;
         } else {
             return false;
         }
     } else if (rescue_off_second) {
-        bool flip = !mate2.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation
-            || mate2.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation;
+        bool flip = !mate2.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation
+            || mate2.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation;
         Alignment aln1 = align_maybe_flip(mate1, graph, flip, traceback);
 #ifdef debug_mapper
 #pragma omp critical
@@ -1612,7 +1608,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
         }
 #endif
-        if (aln1.score() > mate1.score()) {
+        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > hang_threshold) {
             mate1 = aln1;
         } else {
             return false;
@@ -2205,65 +2201,36 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                            }),
             aln_ptrs.end());
     };
-#pragma omp critical
     show_alignments("raw");
-    
-    //sort_and_dedup();
-    /*
+
+    sort_and_dedup();
+    show_alignments("dedup");
+
+    map<Alignment*, bool> rescued_aln;
     if (mate_rescues && frag_stats.fragment_size) {
-        // to improve rescue, add in single-ended versions of alignments where both mates map
-        vector<pair<Alignment, Alignment> > se_alns;
-        Alignment mate1 = read1; mate1.clear_path(); mate1.clear_score();
-        Alignment mate2 = read2; mate2.clear_path(); mate2.clear_score();
-        int j = 0;
-        for (auto& p : alns) {
-            if (se_alns.size() >= total_multimaps) break;
-            if (p.first.score() && p.second.score()) {
-                se_alns.push_back(make_pair(p.first, mate2));
-                se_alns.push_back(make_pair(mate1, p.second));
-                auto c = cluster_ptrs[j];
-                cluster_ptrs.push_back(make_pair(c.first, nullptr));
-                cluster_ptrs.push_back(make_pair(nullptr, c.second));
-            }
-            ++j;
-        }
-        for (auto& p : se_alns) {
-            p.first.clear_fragment();
-            p.second.clear_fragment();
-        }
-        if (se_alns.size()) {
-            alns.insert(alns.end(), se_alns.begin(), se_alns.end());
-            update_aln_ptrs();
-            sort_and_dedup();
-        }
         // go through the pairs and see if we need to rescue one side off the other
         bool rescued = false;
-        j = 0;
-        vector<pair<Alignment, Alignment> > rescues;
+        int j = 0;
         for (auto& p : aln_ptrs) {
             if (++j > mate_rescues) break;
-            if (pair_rescue(p->first, p->second, match, false)) {
+            auto& aln1 = p->first;
+            auto& aln2 = p->second;
+            int score1 = aln1.score();
+            int score2 = aln2.score();
+            if (pair_rescue(aln1, aln2, match, false)) {
+                if (score1 < aln1.score()) rescued_aln[&aln1] = true;
+                if (score2 < aln2.score()) rescued_aln[&aln2] = true;
                 rescued = true;
+                auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
             }
         }
-        show_alignments("rescue");
         if (rescued) {
             sort_and_dedup();
+            show_alignments("rescue");
         }
     }
-    */
 
-    for (auto& p : aln_ptrs) {
-        auto& aln1 = p->first;
-        auto& aln2 = p->second;
-        auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-        frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
-    }
-    
-    sort_and_dedup();
-    
-#pragma omp critical
-    show_alignments("dedup");
     // calculate cluster mapping quality
 
     if (use_cluster_mq) {
@@ -2307,11 +2274,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 aln2.clear_correct();
                 aln2.clear_path();
             }
-            /*
-            if (pair_rescue(aln1, aln2, match, true)) {
-                rescued = true;
+            if (rescued_aln[&aln1] || rescued_aln[&aln2]) {
+                if (pair_rescue(aln1, aln2, match, true)) {
+                    rescued = true;
+                }
             }
-            */
             aln1.clear_fragment();
             aln2.clear_fragment();
             auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
