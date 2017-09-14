@@ -18,6 +18,7 @@
 #include "position.hpp"
 #include "graph.hpp"
 #include "path.hpp"
+#include "handle.hpp"
 
 // We can have DYNAMIC or SDSL-based gPBWTs
 #define MODE_DYNAMIC 1
@@ -62,7 +63,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG {
+class XG : public HandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -198,6 +199,28 @@ public:
     
     /// a numerical code for the edge type (based on the two reversal flags)
     int edge_type(const Edge& edge) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the handle graph API
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the handle for the node with the given ID in the given orientation
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    /// Get the ID from a handle
+    virtual id_t get_id(const handle_t& handle) const;
+    /// Get the orientation of a handle
+    virtual bool get_is_reverse(const handle_t& handle) const;
+    /// Get the length of a node
+    virtual size_t get_length(const handle_t& handle) const;
+    /// Get the sequence of a node, presented in the handle's local forward
+    /// orientation.
+    virtual string get_sequence(const handle_t& handle) const;
+    /// Loop over all the handles to next nodes. Passes them to a callback which
+    /// returns false to stop iterating and true to continue.
+    virtual void get_next(const handle_t& handle, const function<bool(const handle_t&)>& iteratee);
+    /// Loop over all the handles to previous nodes. Passes them to a callback which
+    /// returns false to stop iterating and true to continue.
+    virtual void get_prev(const handle_t& handle, const function<bool(const handle_t&)>& iteratee);
 
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -464,13 +487,25 @@ private:
     /// edges_from := { edge_from, ... }
     /// edge_to := { edge_type, offset_to_previous_node }
     /// edge_to := { edge_type, offset_to_next_node }
-    //dac_vector<> g_civ;
+    /// Note that sequence is the *actual sequence bases*!
+    /// TODO: we should move it out into a sequence vector again.
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;
     rrr_vector<> g_cbv;
     rrr_vector<>::rank_1_type g_cbv_rank;
     rrr_vector<>::select_1_type g_cbv_select;
+    
+    // Let's define some offset ints
+    const static int G_NODE_ID_OFFSET = 0;
+    const static int G_NODE_LENGHT_OFFSET = 1;
+    const static int G_NODE_TO_COUNT_OFFSET = 2;
+    const static int G_NODE_FROM_COUNT_OFFSET = 3;
+    const static int G_NODE_HEADER_LENGTH = 4;
+    
+    const static int G_EDGE_TYPE_OFFSET = 0;
+    const static int G_EDGE_OFFSET_OFFSET = 1;
+    const static int G_EDGE_LENGTH = 2;
     
     ////////////////////////////////////////////////////////////////////////////
     // Here are the bits we need to keep around to talk about the sequence

@@ -827,16 +827,16 @@ void XG::build(map<id_t, string>& node_label,
         // find the start of the node's record in g_iv
         int64_t g = g_cbv_select(id_to_rank(id));
         // get to the edges to
-        int edges_to_count = g_iv[g+2];
-        int edges_from_count = g_iv[g+3];
-        int sequence_size = g_iv[g+1];
-        int64_t t = g + 4 + sequence_size;
-        int64_t f = g + 4 + sequence_size + 2 * edges_to_count;
+        int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+        int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+        int sequence_size = g_iv[g+G_NODE_LENGHT_OFFSET];
+        int64_t t = g + G_NODE_HEADER_LENGTH + sequence_size;
+        int64_t f = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
         for (int64_t j = t; j < f; ) {
             g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
-        for (int64_t j = f; j < f + 2 * edges_from_count; ) {
+        for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
             g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
         }
@@ -1033,22 +1033,22 @@ void XG::build(map<id_t, string>& node_label,
             // find the start of the node's record in g_iv
             int64_t g = g_cbv_select(id_to_rank(id));
             // get to the edges to
-            int edges_to_count = g_iv[g+2];
-            int edges_from_count = g_iv[g+3];
-            int sequence_size = g_iv[g+1];
+            int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+            int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+            int sequence_size = g_iv[g+G_NODE_LENGHT_OFFSET];
             cerr << id << " ";
-            for (int64_t j = g+4; j < g+4+sequence_size; ++j) {
+            for (int64_t j = g+G_NODE_HEADER_LENGTH; j < g+G_NODE_HEADER_LENGTH+sequence_size; ++j) {
                 cerr << revdna3bit(g_iv[j]);
             } cerr << " : ";
-            int64_t t = g + 4 + sequence_size;
-            int64_t f = g + 4 + sequence_size + 2 * edges_to_count;
+            int64_t t = g + G_NODE_HEADER_LENGTH + sequence_size;
+            int64_t f = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
             cerr << " from ";
             for (int64_t j = t; j < f; ) {
                 cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
             cerr << "to ";
-            for (int64_t j = f; j < f + 2 * edges_from_count; ) {
+            for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
                 cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
                 j += 2;
             }
@@ -1444,25 +1444,25 @@ Graph XG::node_subgraph_id(int64_t id) const {
 /// returns the graph with graph offsets rather than ids on edges and nodes
 Graph XG::node_subgraph_g(int64_t g) const {
     Graph graph;
-    int edges_to_count = g_iv[g+2];
-    int edges_from_count = g_iv[g+3];
-    int sequence_size = g_iv[g+1];
+    int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
+    int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
+    int sequence_size = g_iv[g+G_NODE_LENGHT_OFFSET];
     string sequence; sequence.resize(sequence_size);
     int i = 0;
-    for (int64_t j = g+4; j < g+4+sequence_size; ++j, ++i) {
+    for (int64_t j = g+G_NODE_HEADER_LENGTH; j < g+G_NODE_HEADER_LENGTH+sequence_size; ++j, ++i) {
         sequence[i] = revdna3bit(g_iv[j]);
     }
     Node* node = graph.add_node();
     node->set_sequence(sequence);
     node->set_id(g);
-    int64_t t = g + 4 + sequence_size;
-    int64_t f = g + 4 + sequence_size + 2 * edges_to_count;
+    int64_t t = g + G_NODE_HEADER_LENGTH + sequence_size;
+    int64_t f = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
         *graph.add_edge() = edge_from_encoding(from, g, type);
     }
-    for (int64_t j = f; j < f + 2 * edges_from_count; ) {
+    for (int64_t j = f; j < f + G_EDGE_LENGTH * edges_from_count; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
         *graph.add_edge() = edge_from_encoding(g, to, type);
@@ -1472,7 +1472,7 @@ Graph XG::node_subgraph_g(int64_t g) const {
 
 Graph XG::graph_context_id(const pos_t& pos, int64_t length) const {
     pos_t g = pos;
-    get_id(g) = g_cbv_select(id_to_rank(id(pos)));
+    vg::get_id(g) = g_cbv_select(id_to_rank(id(pos)));
     Graph graph = graph_context_g(g, length);
     idify_graph(graph);
     return graph;
@@ -1535,6 +1535,28 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
         nexts = todo;
     }
     return graph;
+}
+
+handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
+    
+}
+
+id_t XG::get_id(const handle_t& handle) const {
+}
+
+bool XG::get_is_reverse(const handle_t& handle) const {
+}
+
+size_t XG::get_length(const handle_t& handle) const {
+}
+
+string XG::get_sequence(const handle_t& handle) const {
+}
+
+void XG::get_next(const handle_t& handle, const function<bool(const handle_t&)>& iteratee) {
+}
+
+void XG::get_prev(const handle_t& handle, const function<bool(const handle_t&)>& iteratee) {
 }
 
 vector<Edge> XG::edges_of(int64_t id) const {
