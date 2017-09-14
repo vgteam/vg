@@ -26,7 +26,7 @@ dat.roc <- dat %>%
     arrange(-mq) %>% 
     # Define the parts of the confusion matrix that can really exist, at each MAPQ.
     # Based on cumulative sums of all positive and negative reads in bins of that MAPQ or higher.
-    mutate(TP = cumsum(Positive), FP = cumsum(Negative), FN = sum(Positive+Negative) - cumsum(Positive)) %>%
+    mutate(TP = cumsum(Positive), FP = cumsum(Negative), FN = nrow(dat) - cumsum(Positive)) %>%
     # Given the confusion matrix entries, calculate Precision and Recall for each MAPQ
     mutate(Precision = TP / (TP + FP), Recall = TP / (TP + FN));
 
