@@ -576,7 +576,6 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         
         // align the first end
         pos_t pos = sample_start_pos();
-        cerr << "starting read 1 at " << pos << endl;
         sample_read_internal(aln_pair.first, pos);
         
         if (retry_on_Ns) {
@@ -604,7 +603,6 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             continue;
         }
         
-        cerr << "starting read 2 at " << pos << endl;
         sample_read_internal(aln_pair.second, pos);
         
         if (retry_on_Ns) {
@@ -614,7 +612,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             }
         }
     }
-        
+    
     aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
         return xg_index.node_length(node_id);
     });
