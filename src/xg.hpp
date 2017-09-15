@@ -18,6 +18,7 @@
 #include "position.hpp"
 #include "graph.hpp"
 #include "path.hpp"
+#include "handle.hpp"
 
 // We can have DYNAMIC or SDSL-based gPBWTs
 #define MODE_DYNAMIC 1
@@ -62,7 +63,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG {
+class XG : public HandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -193,11 +194,36 @@ public:
     Graph graph_context_g(const pos_t& pos, int64_t length) const;
     
     /// return an edge from the three-part encoding used in the graph vector
+    /// Edge type encoding:
+    /// 1: end to start
+    /// 2: end to end
+    /// 3: start to start
+    /// 4: start to end
     Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
     void idify_graph(Graph& graph) const;
     
     /// a numerical code for the edge type (based on the two reversal flags)
     int edge_type(const Edge& edge) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the handle graph API
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the handle for the node with the given ID in the given orientation
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    /// Get the ID from a handle
+    virtual id_t get_id(const handle_t& handle) const;
+    /// Get the orientation of a handle
+    virtual bool get_is_reverse(const handle_t& handle) const;
+    /// Get the length of a node
+    virtual size_t get_length(const handle_t& handle) const;
+    /// Get the sequence of a node, presented in the handle's local forward
+    /// orientation.
+    virtual string get_sequence(const handle_t& handle) const;
+    /// Loop over all the handles to next/previous (right/left) nodes. Passes
+    /// them to a callback which returns false to stop iterating and true to
+    /// continue.
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee);
 
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -471,6 +497,36 @@ private:
     rrr_vector<> g_cbv;
     rrr_vector<>::rank_1_type g_cbv_rank;
     rrr_vector<>::select_1_type g_cbv_select;
+    
+    // Let's define some offset ints
+    const static int G_NODE_ID_OFFSET = 0;
+    const static int G_NODE_SEQ_START_OFFSET = 1;
+    const static int G_NODE_LENGTH_OFFSET = 2;
+    const static int G_NODE_TO_COUNT_OFFSET = 3;
+    const static int G_NODE_FROM_COUNT_OFFSET = 4;
+    const static int G_NODE_HEADER_LENGTH = 5;
+    
+    const static int G_EDGE_TYPE_OFFSET = 0;
+    const static int G_EDGE_OFFSET_OFFSET = 1;
+    const static int G_EDGE_LENGTH = 2;
+    
+    // And some masks
+    const static size_t HIGH_BIT = (size_t)1 << 63;
+    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
+    
+    /// This is a utility function for the edge exploration. It says whether we
+    /// want to visit an edge depending on its type, whether we're the to or
+    /// from node, whether we want to look left or right, and whether we're
+    /// forward or reverse on the node.
+    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse);
+    
+    // This loops over the given number of edge records for the given g node,
+    // starting at the given start g vector position. For all the edges that are
+    // wanted by edge_filter given the is_to, want_left, and is_reverse flags,
+    // the iteratee is called. Returns true if the iteratee never returns false,
+    // or false (and stops iteration) as soon as the iteratee returns false.
+    bool do_edges(const size_t& g, const size_t& start, const size_t& count,
+        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee);
     
     ////////////////////////////////////////////////////////////////////////////
     // Here are the bits we need to keep around to talk about the sequence
