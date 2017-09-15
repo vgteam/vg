@@ -405,7 +405,7 @@ public:
     bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback);
 
     /// assuming the read has only been score-aligned, realign from the end position backwards
-    void realign_from_start_position(Alignment& aln);
+    Alignment realign_from_start_position(const Alignment& aln);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,

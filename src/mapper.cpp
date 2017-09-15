@@ -1462,7 +1462,7 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     bool aln_is_rev = aln.path().mapping(0).position().is_reverse();
     int64_t aln_pos = approx_alignment_position(aln);
-    if (debug) cerr << "aln pos " << aln_pos << endl;
+    //if (debug) cerr << "aln pos " << aln_pos << endl;
     // can't find the alignment position
     if (aln_pos < 0) return make_pos_t(0, false, 0);
     bool same_orientation = frag_stats.cached_fragment_orientation;
@@ -1618,13 +1618,13 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     return true;
 }
 
-void Mapper::realign_from_start_position(Alignment& aln) {
-    if (!aln.path().mapping_size()) return;
+Alignment Mapper::realign_from_start_position(const Alignment& aln) {
+    if (!aln.path().mapping_size()) return aln;
     pos_t pos = make_pos_t(aln.path().mapping(0).position());
     int get_at_least = 2 * aln.sequence().size();
     Graph graph = xindex->graph_context_id(pos, get_at_least);
     sort_by_id_dedup_and_clean(graph);
-    aln = align_maybe_flip(aln, graph, is_rev(pos), true);
+    return align_maybe_flip(aln, graph, is_rev(pos), true);
 }
 
 bool Mapper::alignments_consistent(const map<string, double>& pos1,
@@ -2113,10 +2113,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // break the cluster into two pieces
         auto& cluster1 = *cluster_ptr.first;
         auto& cluster2 = *cluster_ptr.second;
+        alns.emplace_back();
         if ((to_drop1.count(&cluster1) || to_drop2.count(&cluster2)) && alns.size() >= min_multimaps) {
             continue;
         }
-        alns.emplace_back();
         auto& p = alns.back();
         if (cluster1.size()) {
             p.first = align_cluster(read1, cluster1, alns.size()==0);
@@ -2137,10 +2137,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto pair_sig = signature(p.first, p.second);
         if (seen_alignments.count(pair_sig)) {
             alns.pop_back();
+            alns.emplace_back();
         } else {
             seen_alignments.insert(pair_sig);
         }
     }
+    assert(cluster_ptrs.size() == alns.size());
 
     vector<pair<Alignment, Alignment>*> aln_ptrs;
     map<pair<Alignment, Alignment>*, int> aln_index;
@@ -2258,29 +2260,37 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         auto& aln1 = p->first;
         auto& aln2 = p->second;
         if (++i > max_multimaps) {
+            // we don't need to realign because we are not emitting this multimap
             //aln1.clear_fragment();
             //aln2.clear_fragment();
         } else {
+            // we give exactly the same cluster to the alignments to get the traceback
+            assert(aln_index.find(p) != aln_index.end());
             auto cluster_ptr = cluster_ptrs[aln_index[p]];
             if (cluster_ptr.first != nullptr && cluster_ptr.first->size()) {
-                if (!alignment_to_length(aln1)) {
+                if (!alignment_to_length(aln1)) { // traceback needs to be generated
                     aln1 = align_cluster(read1, *cluster_ptr.first, true);
                 }
             }
+            // same for the second mate
             if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
                 if (!alignment_to_length(aln2)) {
                     aln2 = align_cluster(read2, *cluster_ptr.second, true);
                 }
             }
+            // TODO figure out correctly how we realigned or used cluster
+            
+            // see if we rescued to generate the alignment
             if (rescued_aln[&aln1] || rescued_aln[&aln2]) {
                 // realign based on alignment end position
                 if (!alignment_to_length(aln1)) {
-                    realign_from_start_position(aln1);
+                    aln1 = realign_from_start_position(aln1);
                 }
                 if (!alignment_to_length(aln2)) {
-                    realign_from_start_position(aln2);
+                    aln2 = realign_from_start_position(aln2);
                 }
             }
+            // we can reassign based on paths to get a more accurate fragment estimate
             aln1.clear_fragment();
             aln2.clear_fragment();
             auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
@@ -2288,6 +2298,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
+    //sort_and_dedup();
+    show_alignments("end");
+    
     int read1_max_score = 0;
     int read2_max_score = 0;
     // build up the results
