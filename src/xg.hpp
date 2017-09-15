@@ -115,9 +115,9 @@ public:
                bool is_sorted_dag);
                
     // What's the maximum XG version number we can read with this code?
-    const static uint32_t MAX_INPUT_VERSION = 2;
+    const static uint32_t MAX_INPUT_VERSION = 3;
     // What's the version we serialize?
-    const static uint32_t OUTPUT_VERSION = 2;
+    const static uint32_t OUTPUT_VERSION = 3;
                
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
@@ -480,9 +480,10 @@ private:
     /// 
     /// Encoding designed for efficient compression, cache locality, and relativistic traversal of the graph.
     ///
-    /// node := { header, sequence, edges_to, edges_from }
-    /// header := { node_id, node_length, edges_to_count, edges_from_count }
+    /// node := { header, edges_to, edges_from }
+    /// header := { node_id, node_start, node_length, edges_to_count, edges_from_count }
     /// node_id := integer
+    /// node_start := integer (offset in s_iv)
     /// node_length := integer
     /// edges_to_count := integer
     /// edges_from_count := integer
@@ -501,10 +502,11 @@ private:
     
     // Let's define some offset ints
     const static int G_NODE_ID_OFFSET = 0;
-    const static int G_NODE_LENGTH_OFFSET = 1;
-    const static int G_NODE_TO_COUNT_OFFSET = 2;
-    const static int G_NODE_FROM_COUNT_OFFSET = 3;
-    const static int G_NODE_HEADER_LENGTH = 4;
+    const static int G_NODE_START_OFFSET = 1;
+    const static int G_NODE_LENGTH_OFFSET = 2;
+    const static int G_NODE_TO_COUNT_OFFSET = 3;
+    const static int G_NODE_FROM_COUNT_OFFSET = 4;
+    const static int G_NODE_HEADER_LENGTH = 5;
     
     const static int G_EDGE_TYPE_OFFSET = 0;
     const static int G_EDGE_OFFSET_OFFSET = 1;

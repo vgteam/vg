@@ -11,7 +11,7 @@ plan tests 6
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.vg.xg -g tiny.vg.gcsa -k 16 tiny.vg
 vg sim -s 1337 -n 100 -x tiny.vg.xg -l 30 > reads.txt
-vg map -r reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
+vg map -T reads.txt -g tiny.vg.gcsa -x tiny.vg.xg > tiny.gam
 vg index -d tiny.gam.index -N tiny.gam
 
 vg genotype tiny.vg tiny.gam.index > /dev/null
