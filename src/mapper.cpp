@@ -1536,7 +1536,9 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     double mate1_id = (double) mate1.score() / perfect_score;
     double mate2_id = (double) mate2.score() / perfect_score;
     pos_t mate_pos;
-    if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    //cerr << "---------------------------" << pb2json(mate1) << endl << pb2json(mate2) << endl;
+    //if (debug) cerr << "pair rescue: mate1 " << signature(mate1) << " " << mate1_id << " mate2 " << signature(mate2) << " " << mate2_id << " consistent? " << consistent << endl;
+    //cerr << "---------------------------" << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
     if (mate1_id > mate2_id && (mate1_id > hang_threshold && (mate2_id < retry_threshold || !consistent))) {
@@ -1569,22 +1571,19 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     {
         if (debug) cerr << "aiming for " << mate_pos << endl;
     }
-    if (id(mate_pos) == 0) return false; // can't rescue because the selected mate is unaligned
 #endif
+    if (id(mate_pos) == 0) return false; // can't rescue because the selected mate is unaligned
     int get_at_least = (!frag_stats.cached_fragment_length_mean ? frag_stats.fragment_max
                         : max((int)frag_stats.cached_fragment_length_stdev * 6 + mate1.sequence().size(),
                               mate1.sequence().size() * 4));
     Graph graph = xindex->graph_context_id(mate_pos, get_at_least/2);
     graph.MergeFrom(xindex->graph_context_id(reverse(mate_pos, get_node_length(id(mate_pos))), get_at_least/2));
     sort_by_id_dedup_and_clean(graph);
-    //graph.remove_orphan_edges();
     //if (debug) cerr << "rescue got graph " << pb2json(graph.graph) << endl;
     // if we're reversed, align the reverse sequence and flip it back
     // align against it
     if (rescue_off_first) {
-        bool flip = !mate1.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation
-            || mate1.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation;
-        Alignment aln2 = align_maybe_flip(mate2, graph, flip, traceback);
+        Alignment aln2 = align_maybe_flip(mate2, graph, is_rev(mate_pos), traceback);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -1592,15 +1591,14 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
         }
 #endif
-        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > hang_threshold) {
+        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > hang_threshold && pair_consistent(mate1, aln2, 0.01)) {
+            //cerr << "rescued aln2" << endl;
             mate2 = aln2;
         } else {
             return false;
         }
     } else if (rescue_off_second) {
-        bool flip = !mate2.path().mapping(0).position().is_reverse() && frag_stats.cached_fragment_orientation
-            || mate2.path().mapping(0).position().is_reverse() && !frag_stats.cached_fragment_orientation;
-        Alignment aln1 = align_maybe_flip(mate1, graph, flip, traceback);
+        Alignment aln1 = align_maybe_flip(mate1, graph, is_rev(mate_pos), traceback);
 #ifdef debug_mapper
 #pragma omp critical
         {
@@ -1608,7 +1606,8 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
         }
 #endif
-        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > hang_threshold) {
+        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > hang_threshold && pair_consistent(aln1, mate2, 0.01)) {
+            //cerr << "rescued aln1" << endl;
             mate1 = aln1;
         } else {
             return false;
@@ -1648,7 +1647,7 @@ bool Mapper::pair_consistent(const Alignment& aln1,
                              double pval) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
-    if (aln1.fragment_size() == 0) {
+    if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
         // use the approximate distance
         int len = approx_fragment_length(aln1, aln2);
         if (len > 0 && len < frag_stats.fragment_size
@@ -2168,7 +2167,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         for (auto& p : aln_ptrs) {
             auto& aln1 = p->first;
             auto& aln2 = p->second;
-            if (aln1.fragment_size() == 0) {
+            if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
                 auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
                 frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
             }
@@ -2855,7 +2854,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
         
         aln.set_score(aligner->remove_bonuses(aln));
     }
-    if (flip && traceback) {
+    if (flip) {
         aln = reverse_complement_alignment(
             aln,
             (function<int64_t(int64_t)>) ([&](int64_t id) {
@@ -3069,8 +3068,8 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
 }
 
 // estimate the fragment length as the difference in mean positions of both alignments
-map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
-    map<string, int> lengths;
+map<string, int64_t> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+    map<string, int64_t> lengths;
     auto pos1 = alignment_mean_path_positions(aln1);
     auto pos2 = alignment_mean_path_positions(aln2);
     for (auto& p : pos1) {
@@ -3105,7 +3104,7 @@ int64_t Mapper::first_approx_pair_fragment_length(const Alignment& aln1, const A
 }
 
 void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2,
-    const map<string, int>& approx_frag_lengths, bool is_consistent) {
+    const map<string, int64_t>& approx_frag_lengths, bool is_consistent) {
     
     for (auto& j : approx_frag_lengths) {
         Path fragment;
