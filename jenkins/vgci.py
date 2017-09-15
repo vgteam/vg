@@ -951,7 +951,7 @@ class VGCITest(TestCase):
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
         and off. 
         """
-        self._test_mapeval(20, 'BRCA2', 'snp1kg',
+        self._test_mapeval(50000, 'BRCA2', 'snp1kg',
                            ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
