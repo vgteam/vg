@@ -52,8 +52,6 @@ dat.roc %>%
         scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(2, 6)) +
         # Label it
         ylab("1 - Precision") +
-        # And a normal X axis
-        scale_x_continuous(limits=c(0.9, 1.0)) +
         # And we want this cool theme
         theme_bw()
 
