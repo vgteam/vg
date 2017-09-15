@@ -396,13 +396,16 @@ public:
                                const map<string, double>& pos2,
                                int fragment_size_bound);
 
-    // use the fragment length annotations to assess if the pair is consistent or not
+    /// use the fragment length annotations to assess if the pair is consistent or not
     bool pair_consistent(const Alignment& aln1,
                          const Alignment& aln2,
                          double pval);
 
-    // use the fragment configuration statistics to rescue more precisely
+    /// use the fragment configuration statistics to rescue more precisely
     bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback);
+
+    /// assuming the read has only been score-aligned, realign from the end position backwards
+    void realign_from_start_position(Alignment& aln);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,

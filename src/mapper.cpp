@@ -1541,7 +1541,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     //cerr << "---------------------------" << endl;
     //if (debug) cerr << "mate1: " << pb2json(mate1) << endl;
     //if (debug) cerr << "mate2: " << pb2json(mate2) << endl;
-    if (mate1_id > mate2_id && (mate1_id > hang_threshold && (mate2_id < retry_threshold || !consistent))) {
+    if (mate1_id > mate2_id && mate1_id > hang_threshold && mate2_id < retry_threshold && !consistent) {
         // retry off mate1
 #ifdef debug_mapper
 #pragma omp critical
@@ -1552,7 +1552,7 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
         rescue_off_first = true;
         // record id and direction to second mate
         mate_pos = likely_mate_position(mate1, true);
-    } else if (mate2_id > mate1_id && (mate2_id > hang_threshold && (mate1_id < retry_threshold || !consistent))) {
+    } else if (mate2_id > mate1_id && mate2_id > hang_threshold && mate1_id < retry_threshold && !consistent) {
         // retry off mate2
 #ifdef debug_mapper
 #pragma omp critical
@@ -1616,6 +1616,15 @@ bool Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bo
     // if the new alignment is better
     // set the old alignment to it
     return true;
+}
+
+void Mapper::realign_from_start_position(Alignment& aln) {
+    if (!aln.path().mapping_size()) return;
+    pos_t pos = make_pos_t(aln.path().mapping(0).position());
+    int get_at_least = 2 * aln.sequence().size();
+    Graph graph = xindex->graph_context_id(pos, get_at_least);
+    sort_by_id_dedup_and_clean(graph);
+    aln = align_maybe_flip(aln, graph, is_rev(pos), true);
 }
 
 bool Mapper::alignments_consistent(const map<string, double>& pos1,
@@ -2257,25 +2266,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 if (!alignment_to_length(aln1)) {
                     aln1 = align_cluster(read1, *cluster_ptr.first, true);
                 }
-            } else {
-                aln1.clear_score();
-                aln1.clear_identity();
-                aln1.clear_correct();
-                aln1.clear_path();
             }
             if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
                 if (!alignment_to_length(aln2)) {
                     aln2 = align_cluster(read2, *cluster_ptr.second, true);
                 }
-            } else {
-                aln2.clear_score();
-                aln2.clear_identity();
-                aln2.clear_correct();
-                aln2.clear_path();
             }
             if (rescued_aln[&aln1] || rescued_aln[&aln2]) {
-                if (pair_rescue(aln1, aln2, match, true)) {
-                    rescued = true;
+                // realign based on alignment end position
+                if (!alignment_to_length(aln1)) {
+                    realign_from_start_position(aln1);
+                }
+                if (!alignment_to_length(aln2)) {
+                    realign_from_start_position(aln2);
                 }
             }
             aln1.clear_fragment();
