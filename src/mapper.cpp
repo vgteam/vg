@@ -2209,7 +2209,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     show_alignments("raw");
     
     //sort_and_dedup();
-    /*
+    
     if (mate_rescues && frag_stats.fragment_size) {
         // to improve rescue, add in single-ended versions of alignments where both mates map
         vector<pair<Alignment, Alignment> > se_alns;
@@ -2251,7 +2251,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             sort_and_dedup();
         }
     }
-    */
+    
 
     for (auto& p : aln_ptrs) {
         auto& aln1 = p->first;
@@ -2307,11 +2307,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 aln2.clear_correct();
                 aln2.clear_path();
             }
-            /*
+            
             if (pair_rescue(aln1, aln2, match, true)) {
                 rescued = true;
             }
-            */
+            
             aln1.clear_fragment();
             aln2.clear_fragment();
             auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
