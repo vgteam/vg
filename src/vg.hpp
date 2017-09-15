@@ -50,6 +50,8 @@
 #include "nodetraversal.hpp"
 #include "nodeside.hpp"
 
+#include "handle.hpp"
+
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
@@ -81,9 +83,45 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive {
+class VG : public Progressive, public HandleGraph {
 
 public:
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Handle-based interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the handle for the node with the given ID in the given orientation
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    
+    /// Get the ID from a handle
+    virtual id_t get_id(const handle_t& handle) const;
+    
+    /// Get the orientation of a handle
+    virtual bool get_is_reverse(const handle_t& handle) const;
+    
+    /// Get the length of a node
+    virtual size_t get_length(const handle_t& handle) const;
+    
+    /// Get the sequence of a node, presented in the handle's local forward
+    /// orientation.
+    virtual string get_sequence(const handle_t& handle) const;
+    
+    /// Loop over all the handles to next/previous (right/left) nodes. Passes
+    /// them to a callback which returns false to stop iterating and true to
+    /// continue.
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee);
+    
+private:
+    // We have some masks for cramming things into handles
+    const static size_t HIGH_BIT = (size_t)1 << 63;
+    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
+    
+public:
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Actual backing storage
+    ////////////////////////////////////////////////////////////////////////////
 
     /// Protobuf-based representation.
     // NB: we can't subclass this safely, so it's best as a member

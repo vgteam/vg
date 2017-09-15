@@ -7,6 +7,7 @@
 #include "gssw_aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
+#include "xg.hpp"
 
 #include <functional>
 #include <string>
@@ -301,6 +302,10 @@ public:
         return nodes[i].dp_score < nodes[j].dp_score;
     }
 };
+
+/// return a subgraph form an xg for a cluster of MEMs from the given alignment
+Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803);
+
 }
 
 #endif

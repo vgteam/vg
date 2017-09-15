@@ -16,9 +16,9 @@
 #include "sdsl/suffix_arrays.hpp"
 #include "hash_map_set.hpp"
 #include "position.hpp"
-#include "mem.hpp"
 #include "graph.hpp"
 #include "path.hpp"
+#include "handle.hpp"
 
 // We can have DYNAMIC or SDSL-based gPBWTs
 #define MODE_DYNAMIC 1
@@ -63,8 +63,12 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG {
+class XG : public HandleGraph {
 public:
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here are the ways we can construct XG objects (from graph data or files)
+    ////////////////////////////////////////////////////////////////////////////
     
     XG(void) : seq_length(0),
                node_count(0),
@@ -122,27 +126,17 @@ public:
                      sdsl::structure_tree_node* v = NULL,
                      std::string name = "");
                      
-                     
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Basic API
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // General public statisitcs
     size_t seq_length;
     size_t node_count;
     size_t edge_count;
     size_t path_count;
     
-    // We need the w function, which we call the "where_to" function. It tells
-    // you, from a given visit at a given side, what visit offset if you go to
-    // another side.
-    int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side) const;
-    
-    // This is another version of the where_to function which requires that you
-    // supply two vectors of edges.
-    // edges_into_new -> edges going into new_side
-    // edges_out_of_old -> edges coming out of current_side
-    // this is to save the overhead of re-extracting these edge-vectors in cases
-    // where you're calling where_to between the same two sides (but with 
-    // different offsets) many times. Otherwise use version above
-    int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side,
-      vector<Edge>& edges_into_new, vector<Edge>& edges_out_of_old) const;
-
     const uint64_t* sequence_data(void) const;
     const size_t sequence_bit_size(void) const;
     size_t id_to_rank(int64_t id) const;
@@ -155,13 +149,29 @@ public:
     size_t node_length(int64_t id) const;
     char pos_char(int64_t id, bool is_rev, size_t off) const; // character at position
     string pos_substr(int64_t id, bool is_rev, size_t off, size_t len = 0) const; // substring in range
-    Edge edge_for_entity(size_t rank) const;
+    
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the old low-level API that needs to be restated in terms of the 
+    // locally traversable graph API and then removed.
+    ////////////////////////////////////////////////////////////////////////////
+
+    bool entity_is_node(size_t rank) const;
+    size_t entity_rank_as_node_rank(size_t rank) const;
+    /// Returns true if the given edge is present in the given orientation, and false otherwise.
+    bool has_edge(int64_t id1, bool is_start, int64_t id2, bool is_end) const;
+    /// Returns true if the given edge is present in either orientation, and false otherwise.
+    bool has_edge(const Edge& edge) const;
+    
     vector<Edge> edges_of(int64_t id) const;
     vector<Edge> edges_to(int64_t id) const;
     vector<Edge> edges_from(int64_t id) const;
     vector<Edge> edges_on_start(int64_t id) const;
     vector<Edge> edges_on_end(int64_t id) const;
+    
+    // TODO: get rid of these entity-based things
     size_t node_rank_as_entity(int64_t id) const;
+    Edge edge_for_entity(size_t rank) const;
     /// Get the rank of the edge, or numeric_limits<size_t>.max() if no such edge exists.
     /// Edge must be specified in canonical orientation.
     size_t edge_rank_as_entity(int64_t id1, bool from_start, int64_t id2, bool to_end) const;
@@ -170,25 +180,85 @@ public:
     // Given an edge which is in the graph in some orientation, return the edge
     // oriented as it actually appears.
     Edge canonicalize(const Edge& edge) const;
-    /// a numerical code for the edge type (based on the two reversal flags)
-    int edge_type(const Edge& edge) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the new locally traversable graph storage API
+    ////////////////////////////////////////////////////////////////////////////
+    
     /// use the unified graph storage to return a node subgraph
     Graph node_subgraph_id(int64_t id) const;
     Graph node_subgraph_g(int64_t g) const;
-    /// return a subgraph for a cluster of MEMs from the given alignment
-    Graph cluster_subgraph(const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803) const;
+    
     /// provide the graph context up to a given length from the current position; step by nodes
     Graph graph_context_id(const pos_t& pos, int64_t length) const;
     Graph graph_context_g(const pos_t& pos, int64_t length) const;
+    
     /// return an edge from the three-part encoding used in the graph vector
+    /// Edge type encoding:
+    /// 1: end to start
+    /// 2: end to end
+    /// 3: start to start
+    /// 4: start to end
     Edge edge_from_encoding(int64_t from, int64_t to, int type) const;
     void idify_graph(Graph& graph) const;
-    bool entity_is_node(size_t rank) const;
-    size_t entity_rank_as_node_rank(size_t rank) const;
-    /// Returns true if the given edge is present in the given orientation, and false otherwise.
-    bool has_edge(int64_t id1, bool is_start, int64_t id2, bool is_end) const;
-    /// Returns true if the given edge is present in either orientation, and false otherwise.
-    bool has_edge(const Edge& edge) const;
+    
+    /// a numerical code for the edge type (based on the two reversal flags)
+    int edge_type(const Edge& edge) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the handle graph API
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the handle for the node with the given ID in the given orientation
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    /// Get the ID from a handle
+    virtual id_t get_id(const handle_t& handle) const;
+    /// Get the orientation of a handle
+    virtual bool get_is_reverse(const handle_t& handle) const;
+    /// Get the length of a node
+    virtual size_t get_length(const handle_t& handle) const;
+    /// Get the sequence of a node, presented in the handle's local forward
+    /// orientation.
+    virtual string get_sequence(const handle_t& handle) const;
+    /// Loop over all the handles to next/previous (right/left) nodes. Passes
+    /// them to a callback which returns false to stop iterating and true to
+    /// continue.
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Higher-level graph API
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // use_steps flag toggles whether dist refers to steps or length in base pairs
+    void neighborhood(int64_t id, size_t dist, Graph& g, bool use_steps = true) const;
+    void for_path_range(const string& name, int64_t start, int64_t stop, function<void(int64_t node_id)> lambda, bool is_rev = false) const;
+    void get_path_range(const string& name, int64_t start, int64_t stop, Graph& g, bool is_rev = false) const;
+    // basic method to query regions of the graph
+    // add_paths flag allows turning off the (potentially costly, and thread-locking) addition of paths
+    // when these are not necessary
+    // use_steps flag toggles whether dist refers to steps or length in base pairs
+    void expand_context(Graph& g, size_t dist, bool add_paths = true, bool use_steps = true,
+                        bool expand_forward = true, bool expand_backward = true,
+                        int64_t until_node = 0) const;
+
+    // expand by steps (original and default)
+    void expand_context_by_steps(Graph& g, size_t steps, bool add_paths = true,
+                                 bool expand_forward = true, bool expand_backward = true,
+                                 int64_t until_node = 0) const;
+    // expand by length
+    void expand_context_by_length(Graph& g, size_t length, bool add_paths = true,
+                                  bool expand_forward = true, bool expand_backward = true,
+                                  int64_t until_node = 0) const;
+    // get the nodes one step from the graph
+    void get_connected_nodes(Graph& g) const;
+    void get_id_range(int64_t id1, int64_t id2, Graph& g) const;
+    // walk forward in id space, collecting nodes, until at least length bases covered
+    // (or end of graph reached).  if forward is false, go backwards...
+    void get_id_range_by_length(int64_t id1, int64_t length, Graph& g, bool forward) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the paths API
+    ////////////////////////////////////////////////////////////////////////////
 
     // Pull out the path with the given name.
     Path path(const string& name) const;
@@ -200,6 +270,7 @@ public:
     size_t max_path_rank(void) const;
     // Get the name of the path at the given rank. Ranks begin at 1.
     string path_name(size_t rank) const;
+    // TODO: remove this entity-based thing
     vector<size_t> paths_of_entity(size_t rank) const;
     vector<size_t> paths_of_node(int64_t id) const;
     vector<size_t> paths_of_edge(int64_t id1, bool from_start, int64_t id2, bool to_end) const;
@@ -208,6 +279,7 @@ public:
     bool path_contains_edge(const string& name,
                             int64_t id1, bool from_start,
                             int64_t id2, bool to_end) const;
+    // TODO: remove this entity-based thing
     bool path_contains_entity(const string& name, size_t rank) const;
     void add_paths_to_graph(map<int64_t, Node*>& nodes, Graph& g) const;
     size_t node_occs_in_path(int64_t id, const string& name) const;
@@ -256,34 +328,9 @@ public:
                                                   int64_t id2, size_t offset2, bool rev2,
                                                   size_t max_search_dist = 100) const;
     
-    // use_steps flag toggles whether dist refers to steps or length in base pairs
-    void neighborhood(int64_t id, size_t dist, Graph& g, bool use_steps = true) const;
-    void for_path_range(const string& name, int64_t start, int64_t stop, function<void(int64_t node_id)> lambda, bool is_rev = false) const;
-    void get_path_range(const string& name, int64_t start, int64_t stop, Graph& g, bool is_rev = false) const;
-    // basic method to query regions of the graph
-    // add_paths flag allows turning off the (potentially costly, and thread-locking) addition of paths
-    // when these are not necessary
-    // use_steps flag toggles whether dist refers to steps or length in base pairs
-    void expand_context(Graph& g, size_t dist, bool add_paths = true, bool use_steps = true,
-                        bool expand_forward = true, bool expand_backward = true,
-                        int64_t until_node = 0) const;
-
-    // expand by steps (original and default)
-    void expand_context_by_steps(Graph& g, size_t steps, bool add_paths = true,
-                                 bool expand_forward = true, bool expand_backward = true,
-                                 int64_t until_node = 0) const;
-    // expand by length
-    void expand_context_by_length(Graph& g, size_t length, bool add_paths = true,
-                                  bool expand_forward = true, bool expand_backward = true,
-                                  int64_t until_node = 0) const;
-    // get the nodes one step from the graph
-    void get_connected_nodes(Graph& g) const;
-    void get_id_range(int64_t id1, int64_t id2, Graph& g) const;
-    // walk forward in id space, collecting nodes, until at least length bases covered
-    // (or end of graph reached).  if forward is false, go backwards...
-    void get_id_range_by_length(int64_t id1, int64_t length, Graph& g, bool forward) const;
-    
-    // gPBWT interface
+    ////////////////////////////////////////////////////////////////////////////
+    // gPBWT API
+    ////////////////////////////////////////////////////////////////////////////
     
 #if GPBWT_MODE == MODE_SDSL
     // We keep our strings in instances of this cool run-length-compressed wavelet tree.
@@ -291,6 +338,21 @@ public:
 #elif GPBWT_MODE == MODE_DYNAMIC
     using rank_select_int_vector = dyn::rle_str;
 #endif
+
+    // We need the w function, which we call the "where_to" function. It tells
+    // you, from a given visit at a given side, what visit offset if you go to
+    // another side.
+    int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side) const;
+    
+    // This is another version of the where_to function which requires that you
+    // supply two vectors of edges.
+    // edges_into_new -> edges going into new_side
+    // edges_out_of_old -> edges coming out of current_side
+    // this is to save the overhead of re-extracting these edge-vectors in cases
+    // where you're calling where_to between the same two sides (but with 
+    // different offsets) many times. Otherwise use version above
+    int64_t where_to(int64_t current_side, int64_t visit_offset, int64_t new_side,
+      vector<Edge>& edges_into_new, vector<Edge>& edges_out_of_old) const;
     
     // We define a thread visit that's much smaller than a Protobuf Mapping.
     struct ThreadMapping {
@@ -409,6 +471,11 @@ public:
     
 private:
 
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is the New Way (locally traversable graph storage)
+    // Everything should be rewritten in terms of these members
+    ////////////////////////////////////////////////////////////////////////////
+
     /// locally traversable graph storage
     /// 
     /// Encoding designed for efficient compression, cache locality, and relativistic traversal of the graph.
@@ -423,13 +490,47 @@ private:
     /// edges_from := { edge_from, ... }
     /// edge_to := { edge_type, offset_to_previous_node }
     /// edge_to := { edge_type, offset_to_next_node }
-    //dac_vector<> g_civ;
+    /// Note that sequence is the *actual sequence bases*!
+    /// TODO: we should move it out into a sequence vector again.
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;
     rrr_vector<> g_cbv;
     rrr_vector<>::rank_1_type g_cbv_rank;
     rrr_vector<>::select_1_type g_cbv_select;
+    
+    // Let's define some offset ints
+    const static int G_NODE_ID_OFFSET = 0;
+    const static int G_NODE_LENGTH_OFFSET = 1;
+    const static int G_NODE_TO_COUNT_OFFSET = 2;
+    const static int G_NODE_FROM_COUNT_OFFSET = 3;
+    const static int G_NODE_HEADER_LENGTH = 4;
+    
+    const static int G_EDGE_TYPE_OFFSET = 0;
+    const static int G_EDGE_OFFSET_OFFSET = 1;
+    const static int G_EDGE_LENGTH = 2;
+    
+    // And some masks
+    const static size_t HIGH_BIT = (size_t)1 << 63;
+    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
+    
+    /// This is a utility function for the edge exploration. It says whether we
+    /// want to visit an edge depending on its type, whether we're the to or
+    /// from node, whether we want to look left or right, and whether we're
+    /// forward or reverse on the node.
+    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse);
+    
+    // This loops over the given number of edge records for the given g node,
+    // starting at the given start g vector position. For all the edges that are
+    // wanted by edge_filter given the is_to, want_left, and is_reverse flags,
+    // the iteratee is called. Returns true if the iteratee never returns false,
+    // or false (and stops iteration) as soon as the iteratee returns false.
+    bool do_edges(const size_t& g, const size_t& start, const size_t& count,
+        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Here are the bits we need to keep around to talk about the sequence
+    ////////////////////////////////////////////////////////////////////////////
     
     // sequence/integer vector
     int_vector<> s_iv;
@@ -443,12 +544,20 @@ private:
     rrr_vector<> s_cbv;
     rrr_vector<>::rank_1_type s_cbv_rank;
     rrr_vector<>::select_1_type s_cbv_select;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // And here are the bits for tracking actual node IDs
+    ////////////////////////////////////////////////////////////////////////////
 
     // maintain old ids from input, ranked as in s_iv and s_bv
     int_vector<> i_iv;
     int64_t min_id; // id ranges don't have to start at 0
     int64_t max_id;
     int_vector<> r_iv; // ids-id_min is the rank
+
+    ////////////////////////////////////////////////////////////////////////////
+    // This is the Old Way that should be extirpated and of which we shall not speak
+    ////////////////////////////////////////////////////////////////////////////
 
     // maintain forward links
     int_vector<> f_iv;
@@ -476,11 +585,9 @@ private:
     // edge table, allows o(1) determination of edge existence
     int_vector<> e_iv;
 
-    //csa_wt<> e_csa;
-    //csa_sada<> e_csa;
-
-    // allows lookups of id->rank mapping
-    //wt_int<> i_wt;
+    ////////////////////////////////////////////////////////////////////////////
+    // Here is path storage
+    ////////////////////////////////////////////////////////////////////////////
 
     // paths: serialized as bitvectors over nodes and edges
     int_vector<> pn_iv; // path names
@@ -494,13 +601,16 @@ private:
     // the growth in required memory is quadratic but the stored matrix is sparse
     vector<XGPath*> paths; // path entity membership
 
+    // TODO: Entities are going away so this needs to change too
     // entity->path membership
     int_vector<> ep_iv;
     bit_vector ep_bv; // entity delimiters in ep_iv
     rank_support_v<1> ep_bv_rank;
     bit_vector::select_1_type ep_bv_select;
 
-    // Succinct thread storage
+    ////////////////////////////////////////////////////////////////////////////
+    // Succinct thread storage (the gPBWT)
+    ////////////////////////////////////////////////////////////////////////////
     
     // Threads are haplotype paths in the graph with no edits allowed, starting
     // and stopping at node boundaries.

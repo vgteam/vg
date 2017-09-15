@@ -70,6 +70,72 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicat
     paths.to_graph(graph);
 }
 
+handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
+    // Handle is ID in low bits and orientation in high bit
+    
+    // Where in the g vector do we need to be
+    size_t handle = node_id;
+    // And set the high bit if it's reverse
+    if (is_reverse) handle |= HIGH_BIT;
+    return as_handle(handle);
+}
+
+id_t VG::get_id(const handle_t& handle) const {
+    return as_integer(handle) & LOW_BITS;
+}
+
+bool VG::get_is_reverse(const handle_t& handle) const {
+    return as_integer(handle) & HIGH_BIT;
+}
+
+size_t VG::get_length(const handle_t& handle) const {
+    return get_sequence(handle).size();
+}
+
+string VG::get_sequence(const handle_t& handle) const {
+    
+    auto found = node_by_id.find(get_id(handle));
+    
+    if (found != node_by_id.end()) {
+        // We found a node. Grab its sequence
+        auto sequence = (*found).second->sequence();
+        
+        if (as_integer(handle) & HIGH_BIT) {
+            // Needs to be reverse-complemented
+            return reverse_complement(sequence);
+        } else {
+            return sequence;
+        }
+    } else {
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+    }
+    
+    
+    
+}
+
+void VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) {
+    // Are we reverse?
+    bool is_reverse = get_is_reverse(handle);
+    
+    // Which edges will we look at?
+    auto& edge_set = (go_left != is_reverse) ? edges_on_start : edges_on_end;
+    
+    // Look up edges of this node specifically
+    auto found = edge_set.find(get_id(handle));
+    if (found != edge_set.end()) {
+        // There are (or may be) edges
+        for (auto& id_and_flip : found->second) {
+            // For each edge destination and the flag that says if we flip orientation or not
+            bool new_reverse = (is_reverse != id_and_flip.second);
+            if (!iteratee(get_handle(id_and_flip.first, new_reverse))) {
+                // Iteratee said to stop
+                return;
+            }
+        }
+    }
+}
+
 void VG::clear_paths(void) {
     paths.clear();
     graph.clear_path(); // paths.clear() should do this too

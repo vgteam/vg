@@ -187,6 +187,7 @@ SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/pileup_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/compare_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/validate_main.o
 SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/translate_main.o
+SUBCOMMAND_OBJ += $(SUBCOMMAND_OBJ_DIR)/xg_main.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -681,6 +682,8 @@ $(SUBCOMMAND_OBJ_DIR)/stats_main.o: $(SUBCOMMAND_SRC_DIR)/stats_main.cpp $(SUBCO
 $(SUBCOMMAND_OBJ_DIR)/vectorize_main.o: $(SUBCOMMAND_SRC_DIR)/vectorize_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/vectorizer.hpp $(SRC_DIR)/mapper.hpp $(DEPS)
 
 $(SUBCOMMAND_OBJ_DIR)/filter_main.o: $(SUBCOMMAND_SRC_DIR)/filter_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/readfilter.hpp $(DEPS)
+
+$(SUBCOMMAND_OBJ_DIR)/xg_main.o: $(SUBCOMMAND_SRC_DIR)/xg_main.cpp $(SUBCOMMAND_SRC_DIR)/subcommand.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/stream.hpp $(SRC_DIR)/xg.hpp $(DEPS)
 
 
 ########################
