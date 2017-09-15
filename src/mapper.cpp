@@ -2307,11 +2307,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 aln2.clear_correct();
                 aln2.clear_path();
             }
-            /*
+            
             if (pair_rescue(aln1, aln2, match, true)) {
                 rescued = true;
             }
-            */
+            
             aln1.clear_fragment();
             aln2.clear_fragment();
             auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
