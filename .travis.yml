@@ -40,6 +40,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; cd /usr/local/lib/ && ln -s /usr/local/Cellar/snappy/1.1.1/lib/libsnappy.1.dylib && ln -s /usr/local/Cellar/snappy/1.1.1/lib/libsnappy.a && ln -s /usr/local/Cellar/snappy/1.1.1/lib/libsnappy.dylib; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
