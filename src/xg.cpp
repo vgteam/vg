@@ -2803,10 +2803,10 @@ int64_t XG::min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                   int64_t id2, bool is_rev2, size_t offset2) const {
     auto dist = distance_in_paths(id1, is_rev1, offset1,
                                   id2, is_rev2, offset2);
-    int64_t min_dist = std::numeric_limits<int64_t>::max();
+    size_t min_dist = std::numeric_limits<size_t>::max();
     for (auto& c : dist) {
         for (auto& o : c.second) {
-            if (abs(o) < abs(min_dist)) {
+            if (o <  min_dist) {
                 min_dist = o;
             }
         }
