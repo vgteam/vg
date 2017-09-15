@@ -49,9 +49,6 @@
 [submodule "deps/raptor"]
 	path = deps/raptor
 	url = https://github.com/vgteam/raptor.git
-[submodule "deps/snappy"]
-	path = deps/snappy
-	url = https://github.com/google/snappy.git
 [submodule "deps/Complete-Striped-Smith-Waterman-Library"]
 	path = deps/ssw
 	url = https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
