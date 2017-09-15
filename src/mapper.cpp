@@ -1622,13 +1622,21 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     return make_pair(rescued1, rescued2);
 }
 
-Alignment Mapper::realign_from_start_position(const Alignment& aln) {
+Alignment Mapper::realign_from_start_position(const Alignment& aln, int extra, int iteration) {
     if (!aln.path().mapping_size()) return aln;
+    if (iteration > 3) return aln;
+    int score = aln.score();
     pos_t pos = make_pos_t(aln.path().mapping(0).position());
-    int get_at_least = 2 * aln.sequence().size();
-    Graph graph = xindex->graph_context_id(pos, get_at_least);
+    int get_at_least = 1.61803 * aln.sequence().size() + extra;
+    Graph graph = xindex->graph_context_id(pos, get_at_least/1.61803);
+    graph.MergeFrom(xindex->graph_context_id(reverse(pos, get_node_length(id(pos))), get_at_least*(1-1/1.61803)));
     sort_by_id_dedup_and_clean(graph);
-    return align_maybe_flip(aln, graph, is_rev(pos), true);
+    Alignment result = align_maybe_flip(aln, graph, is_rev(pos), true);
+    if (result.score() >= score) {
+        return result;
+    } else {
+        return realign_from_start_position(aln, 2*extra, ++iteration);
+    }
 }
 
 bool Mapper::alignments_consistent(const map<string, double>& pos1,
@@ -2258,44 +2266,62 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     // realign to generate traceback if needed
     int i = 0;
+    bool rescored = false;
     bool rescued = false;
-    for (auto& p : aln_ptrs) {
-        auto& aln1 = p->first;
-        auto& aln2 = p->second;
-        if (++i > max_multimaps) {
-            // we don't need to realign because we are not emitting this multimap
-            //aln1.clear_fragment();
-            //aln2.clear_fragment();
-        } else {
-            // we give exactly the same cluster to the alignments to get the traceback
-            assert(aln_index.find(p) != aln_index.end());
-            auto cluster_ptr = cluster_ptrs[aln_index[p]];
-            if (rescued_aln[&aln1]) {
-                assert(!alignment_to_length(aln1) && aln1.path().mapping(0).has_position());
-                // realign based on alignment end position
-                aln1 = realign_from_start_position(aln1);
-            } else if (cluster_ptr.first != nullptr && cluster_ptr.first->size()) {
-                if (!alignment_to_length(aln1)) { // traceback needs to be generated
-                    aln1 = align_cluster(read1, *cluster_ptr.first, true);
+    
+    auto traceback_alns = [&](void) {
+        rescored = false;
+        rescued = false;
+        for (auto& p : aln_ptrs) {
+            auto& aln1 = p->first;
+            auto& aln2 = p->second;
+            if (++i > max_multimaps) {
+                // we don't need to realign because we are not emitting this multimap
+                //aln1.clear_fragment();
+                //aln2.clear_fragment();
+            } else {
+                // we give exactly the same cluster to the alignments to get the traceback
+                assert(aln_index.find(p) != aln_index.end());
+                auto cluster_ptr = cluster_ptrs[aln_index[p]];
+                auto s1 = aln1.score();
+                auto s2 = aln2.score();
+                if (rescued_aln[&aln1]) {
+                    assert(!alignment_to_length(aln1) && aln1.path().mapping(0).has_position());
+                    // realign based on alignment end position
+                    aln1 = realign_from_start_position(aln1, aln1.sequence().size()/1.61803, 0);
+                } else if (cluster_ptr.first != nullptr && cluster_ptr.first->size()) {
+                    if (!alignment_to_length(aln1)) { // traceback needs to be generated
+                        aln1 = align_cluster(read1, *cluster_ptr.first, true);
+                    }
                 }
-            }
-            if (rescued_aln[&aln2]) {
-                assert(!alignment_to_length(aln2) && aln2.path().mapping(0).has_position());
-                // realign based on alignment end position
-                aln2 = realign_from_start_position(aln2);
-            } else if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
-                if (!alignment_to_length(aln2)) { // traceback needs to be generated
-                    aln2 = align_cluster(read2, *cluster_ptr.second, true);
+                if (rescued_aln[&aln2]) {
+                    assert(!alignment_to_length(aln2) && aln2.path().mapping(0).has_position());
+                    // realign based on alignment end position
+                    aln2 = realign_from_start_position(aln2, aln2.sequence().size()/1.61803, 0);
+                } else if (cluster_ptr.second != nullptr && cluster_ptr.second->size()) {
+                    if (!alignment_to_length(aln2)) { // traceback needs to be generated
+                        aln2 = align_cluster(read2, *cluster_ptr.second, true);
+                    }
                 }
+                assert(aln1.score() >= s1);
+                assert(aln2.score() >= s2);
+                if (aln1.score() > s1 || aln2.score() > s2) rescored = true;
+                // we can reassign based on paths to get a more accurate fragment estimate
+                aln1.clear_fragment();
+                aln2.clear_fragment();
+                auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+                frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
             }
-            // we can reassign based on paths to get a more accurate fragment estimate
-            aln1.clear_fragment();
-            aln2.clear_fragment();
-            auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
-            frag_stats.save_frag_lens_to_alns(aln1, aln2, approx_frag_lengths, pair_consistent(aln1, aln2, 0.01));
         }
+    };
+    
+    // traceback alignments
+    traceback_alns();
+    if (rescored) {
+        // sync if we need to
+        sort_and_dedup();
+        traceback_alns();
     }
-
     show_alignments("end");
     
     int read1_max_score = 0;

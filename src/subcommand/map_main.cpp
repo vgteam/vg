@@ -40,7 +40,7 @@ void help_map(char** argv) {
          << "    -p, --print-frag-model  suppress alignment output and print the fragment model on stdout as per {-I} format" << endl
          << "    -F, --frag-calc INT     update the fragment model every INT perfect pairs [10]" << endl
          << "    -S, --fragment-x FLOAT  calculate max fragment size as frag_mean+frag_sd*FLOAT [10]" << endl
-         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [0]" << endl
+         << "    -O, --mate-rescues INT  attempt up to INT mate rescues per pair [4]" << endl
          << "scoring:" << endl
          << "    -q, --match INT         use this match score [1]" << endl
          << "    -z, --mismatch INT      use this mismatch penalty [4]" << endl
@@ -138,7 +138,7 @@ int main_map(int argc, char** argv) {
     int kmer_size = 0; // if we set to positive, we'd revert to the old kmer based mapper
     int kmer_stride = 0;
     int pair_window = 64; // unused
-    int mate_rescues = 0;
+    int mate_rescues = 4;
     bool fixed_fragment_model = false;
     bool print_fragment_model = false;
     int fragment_model_update = 10;
