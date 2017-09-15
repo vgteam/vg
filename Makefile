@@ -289,7 +289,7 @@ $(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
 .rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
 	rm -rf $(LIB_DIR)/libprotobuf* $(LIB_DIR)/libprotoc*
 	rm -Rf include/google/protobuf/
-	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
+	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && DIST_LANG=cpp && ./configure --prefix="$(CWD)"  && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -345,7 +345,7 @@ $(INC_DIR)/dynamic.hpp: $(DYNAMIC_DIR)/include/*.hpp $(DYNAMIC_DIR)/include/inte
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h) 
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
-$(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp
+$(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp $(INC_DIR)/Variant.h
 	+cd $(DEP_DIR)/libVCFH && $(MAKE) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp $(DEP_DIR)/gfakluge/src/*.hpp $(DEP_DIR)/gfakluge/src/*.cpp
@@ -465,7 +465,7 @@ $(OBJ_DIR)/progressive.o: $(SRC_DIR)/progressive.cpp $(SRC_DIR)/progressive.hpp 
 
 $(OBJ_DIR)/path_index.o: $(SRC_DIR)/path_index.cpp $(SRC_DIR)/path_index.hpp $(DEPS)
 
-## TODO vcflib build loses variant.h
+## TODO vcflib build loses Variant.h
 $(OBJ_DIR)/deconstructor.o: $(SRC_DIR)/deconstructor.cpp $(SRC_DIR)/deconstructor.hpp $(LIB_DIR)/libvcfh.a $(SRC_DIR)/bubbles.hpp $(DEPS)
 
 $(OBJ_DIR)/vectorizer.o: $(SRC_DIR)/vectorizer.cpp $(SRC_DIR)/vectorizer.hpp $(DEPS)
@@ -730,7 +730,7 @@ clean-vg:
 	$(RM) -r $(OBJ_DIR)/*.o
 	$(RM) -r $(CPP_DIR)/*.o $(CPP_DIR)/*.cc $(CPP_DIR)/*.h
 
-clean:
+clean: clean-rocksdb clean-protobuf clean-vcflib
 	$(RM) -r $(BIN_DIR)
 	$(RM) -r $(LIB_DIR)
 	$(RM) -r $(UNITTEST_OBJ_DIR)
@@ -739,8 +739,6 @@ clean:
 	$(RM) -r $(INC_DIR)
 	$(RM) -r $(CPP_DIR)
 	$(RM) -r share/
-	cd $(DEP_DIR) && cd protobuf && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
 	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
 	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
@@ -749,11 +747,25 @@ clean:
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
-	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
+	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE
 	## TODO bash-tap
-	## TODO sha1
+
+clean-rocksdb:
+	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
+	rm -f $(LIB_DIR)/librocksdb.a 
+	rm -rf $(INC_DIR)/rocksdb/
+
+clean-protobuf:
+	cd $(DEP_DIR) && cd protobuf && $(MAKE) clean
+	rm -f $(LIB_DIR)/libprotobuf.a
+	rm -rf $(INC_DIR)/google/protobuf/
+
+clean-vcflib:
+	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
+	rm -f $(LIB_DIR)/libvcfh.a
+	cd $(INC_DIR) && rm -f BedReader.h convert.h join.h mt19937ar.h split.h Variant.h vec128int.h veclib_types.h
