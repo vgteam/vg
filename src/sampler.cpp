@@ -576,6 +576,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         
         // align the first end
         pos_t pos = sample_start_pos();
+        cerr << "starting read 1 at " << pos << endl;
         sample_read_internal(aln_pair.first, pos);
         
         if (retry_on_Ns) {
@@ -603,6 +604,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             continue;
         }
         
+        cerr << "starting read 2 at " << pos << endl;
         sample_read_internal(aln_pair.second, pos);
         
         if (retry_on_Ns) {
@@ -612,7 +614,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             }
         }
     }
-    
+        
     aln_pair.second = reverse_complement_alignment(aln_pair.second, [&](id_t node_id) {
         return xg_index.node_length(node_id);
     });
@@ -795,6 +797,7 @@ void NGSSimulator::apply_aligned_base(Alignment& aln, const pos_t& pos, char gra
         Position* mapping_pos = new_mapping->mutable_position();
         mapping_pos->set_node_id(id(pos));
         mapping_pos->set_is_reverse(is_rev(pos));
+        mapping_pos->set_offset(offset(pos));
         
         Edit* new_edit = new_mapping->add_edit();
         new_edit->set_from_length(1);
@@ -901,6 +904,7 @@ void NGSSimulator::apply_insertion(Alignment& aln, const pos_t& pos) {
         Position* mapping_pos = new_mapping->mutable_position();
         mapping_pos->set_node_id(id(pos));
         mapping_pos->set_is_reverse(is_rev(pos));
+        mapping_pos->set_offset(offset(pos));
         
         Edit* new_edit = new_mapping->add_edit();
         new_edit->set_to_length(1);
