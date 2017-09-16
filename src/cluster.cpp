@@ -1380,8 +1380,7 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
     }
     
     return to_return;
-    
-};
+}
 
 Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
