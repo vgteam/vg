@@ -47,6 +47,19 @@ string reverse_complement(const string& seq) {
     }
     return rc;
 }
+    
+void reverse_complement_in_place(string& seq) {
+    size_t swap_size = seq.size() / 2;
+    for (size_t i = 0, j = seq.size() - 1; i < swap_size; i++, j--) {
+        char tmp = seq[i];
+        seq[i] = complement[seq[j]];
+        seq[j] = complement[tmp];
+    }
+    
+    if (seq.size() % 2) {
+        seq[swap_size] = complement[seq[swap_size]];
+    }
+}
 
 bool is_all_n(const string& seq) {
     for (auto& c : seq) {

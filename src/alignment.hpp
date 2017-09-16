@@ -97,6 +97,7 @@ const string hash_alignment(const Alignment& aln);
 // ends of their nodes. Offsets will be updated to count unused bases from node
 // start when considering the node in its new orientation.
 Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
+void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(id_t)>& node_length);
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);

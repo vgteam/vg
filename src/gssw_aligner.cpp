@@ -671,10 +671,8 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
                 score -= mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
                 score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
-            } else if (edit_is_insertion(edit)
-                       && !((i == 0 && j == 0)
-                            || (i == path.mapping_size()-1
-                                && j == mapping.edit_size()-1))) {
+            } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
+                                                    (i == path.mapping_size()-1 && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
                 score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
             }

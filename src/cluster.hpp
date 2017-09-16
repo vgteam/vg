@@ -145,7 +145,7 @@ public:
     void display(ostream& out);
     void clear_scores(void);
 };
-
+    
 class OrientedDistanceClusterer {
 public:
     OrientedDistanceClusterer(const Alignment& alignment,
@@ -166,10 +166,10 @@ public:
     
     /// Each cluster is a vector of hits.
     using cluster_t = vector<hit_t>;
-                              
+    
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
-    vector<cluster_t> clusters(int32_t max_qual_score = 60);
+    vector<cluster_t> clusters(int32_t max_qual_score = 60, int32_t log_likelihood_approx_factor = 0);
     
     /**
      * Given two vectors of clusters, an xg index, and a maximum separation,
@@ -177,9 +177,14 @@ public:
      * are in opposite orientations (as would be expected of read pairs) and
      * within the specified distance.
      */
-    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& our_clusters,
-        const vector<cluster_t*>& their_clusters, xg::XG* xgindex,
-        size_t max_inter_cluster_distance);
+    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& left_clusters,
+                                                      const vector<cluster_t*>& right_clusters,
+                                                      xg::XG* xgindex,
+                                                      int64_t min_inter_cluster_distance,
+                                                      int64_t max_inter_cluster_distance);
+    
+    //static size_t PRUNE_COUNTER;
+    //static size_t CLUSTER_TOTAL;
     
 private:
     class ODNode;
@@ -208,8 +213,8 @@ private:
      * strand.
      */
     static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, xg::XG* xgindex,
-        const function<pos_t(size_t)>& get_position);
-        
+                                                                                    const function<pos_t(size_t)>& get_position);
+    
     /**
      * Given a number of nodes, and a map from node pair to signed relative
      * distance on a consistent strand (defining a forrest of trees, as
@@ -222,7 +227,12 @@ private:
      * true in graph space.
      */
     static vector<unordered_map<size_t, int64_t>> flatten_distance_tree(size_t num_items,
-        const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists);
+                                                                        const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists);
+    
+    /// Returns a vector containing the number of SMEM beginnings to the left and the number of SMEM
+    /// endings to the right of each read position
+    vector<pair<size_t, size_t>> compute_tail_mem_coverage(const Alignment& alignment,
+                                                           const vector<MaximalExactMatch>& mems);
     
     /// Fills input vectors with indices of source and sink nodes
     void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out);
@@ -245,18 +255,19 @@ private:
 class OrientedDistanceClusterer::ODNode {
 public:
     ODNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) :
-            mem(&mem), start_pos(start_pos), score(score) {}
+    mem(&mem), start_pos(start_pos), score(score) {}
     ODNode() = default;
     ~ODNode() = default;
     
-    MaximalExactMatch const* mem;
+    const MaximalExactMatch* mem;
     
     /// Position of GCSA hit in the graph
     pos_t start_pos;
+    
     /// Score of the exact match this node represents
     int32_t score;
     
-    /// Score during dynamic programming
+    /// Score used in dynamic programming
     int32_t dp_score;
     
     /// Edges from this node that are colinear with the read
@@ -269,7 +280,7 @@ public:
 class OrientedDistanceClusterer::ODEdge {
 public:
     ODEdge(size_t to_idx, int32_t weight) :
-            to_idx(to_idx), weight(weight) {}
+    to_idx(to_idx), weight(weight) {}
     ODEdge() = default;
     ~ODEdge() = default;
     

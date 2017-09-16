@@ -529,7 +529,7 @@ def main(args):
     # Load up the XML
     xml_tree = ET.parse(options.xml_in)
     xml_root = xml_tree.getroot()
-
+    
     # Write our Markdown summary
     markdown = md_summary(xml_root)
     with io.open(options.md_out, 'w', encoding='utf8') as md_file:

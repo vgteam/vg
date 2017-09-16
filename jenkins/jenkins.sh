@@ -80,7 +80,13 @@ fi
 set -e
 
 # Maximum number of minutes that can have passed since new vg docker image built
-NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l | tr -d '[:space:]'`
+PLATFORM=`uname -s`
+if [ $PLATFORM == "Darwin" ]; then
+    NUM_CORES=`sysctl -n hw.ncpu`
+else
+    NUM_CORES=`cat /proc/cpuinfo | grep "^processor" | wc -l`
+fi
+
 if [ "${NUM_CORES}" == "0" ]; then
     echo "could not determine NUM_CORES, using 2"
 	 NUM_CORES=2

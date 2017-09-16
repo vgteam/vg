@@ -103,7 +103,7 @@ public:
     void unlock_determinization();
     
     /// Record an observed fragment length
-    void register_fragment_length(size_t length);
+    void register_fragment_length(int64_t length);
 
     /// Robust mean of the distribution observed so far
     double mean();
@@ -154,6 +154,12 @@ public:
     void set_alignment_threads(int new_thread_count);
     
     void set_cache_size(int new_cache_size);
+    
+    /// Returns true if fragment length distribution has been fixed
+    bool has_fixed_fragment_length_distr();
+    
+    /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
+    void abandon_fragment_length_distr();
     
     // MEM-based mapping
     // find maximal exact matches
@@ -390,6 +396,10 @@ public:
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
     void annotate_with_mean_path_positions(vector<Alignment>& alns);
+    
+    // use the xg index to get the first position of an alignment on a reference path
+    map<string, size_t> alignment_initial_path_positions(const Alignment& aln);
+    void annotate_with_initial_path_positions(Alignment& aln);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,

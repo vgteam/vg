@@ -27,13 +27,14 @@ void help_sim(char** argv) {
          << endl
          << "options:" << endl
          << "    -x, --xg-name FILE          use the xg index in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
+         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-N,-f)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
-         << "    -n, --num-reads N           simulate N reads" << endl
+         << "    -n, --num-reads N           simulate N reads or read pairs" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
          << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
          << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
-         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -f that are indels (default 0.0)" << endl
+         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -F that are indels (default 0.0)" << endl
+         << "    -S, --scale-err FLOAT       scale trained error probabilities from -F by this much (default 1.0)" << endl
          << "    -f, --forward-only          don't simulate from the reverse strand" << endl
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
@@ -63,6 +64,7 @@ int main_sim(int argc, char** argv) {
     string xg_name;
     bool strip_bonuses = false;
     double indel_prop = 0.0;
+    double error_scale_factor = 1.0;
     string fastq_name;
 
     int c;
@@ -83,13 +85,14 @@ int main_sim(int argc, char** argv) {
             {"base-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
             {"indel-err-prop", required_argument, 0, 'd'},
+            {"scale-err", required_argument, 0, 'S'},
             {"frag-len", required_argument, 0, 'p'},
             {"frag-std-dev", required_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:s:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -129,6 +132,10 @@ int main_sim(int argc, char** argv) {
             
         case 'd':
             indel_prop = atof(optarg);
+            break;
+            
+        case 'S':
+            error_scale_factor = atof(optarg);
             break;
 
         case 'f':
@@ -290,12 +297,14 @@ int main_sim(int argc, char** argv) {
         
     }
     else {
-        // Use the trained error rate aligner
+        // Use the trained error rate
+        
         Aligner aligner(default_match, default_mismatch, default_gap_open, default_gap_extension, 5);
         
         NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
-                             fragment_length ? fragment_length : std::numeric_limits<double>::max(),
-                             fragment_std_dev, !reads_may_contain_Ns, seed_val);
+                             fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
+                             fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
+                             error_scale_factor, !reads_may_contain_Ns, seed_val);
         
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {
