@@ -803,7 +803,7 @@ Alignment reverse_complement_alignment(const Alignment& aln,
     string quality = aln.quality();
     std::reverse(quality.begin(), quality.end());
     reversed.set_quality(quality);
-    
+
     if(aln.has_path()) {
         // Now invert the order of the mappings, and for each mapping, flip the
         // is_reverse flag, and adjust offsets to count from the other end. The
