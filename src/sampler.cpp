@@ -841,6 +841,7 @@ void NGSSimulator::apply_aligned_base(Alignment& aln, const pos_t& pos, char gra
         Position* mapping_pos = new_mapping->mutable_position();
         mapping_pos->set_node_id(id(pos));
         mapping_pos->set_is_reverse(is_rev(pos));
+        mapping_pos->set_offset(offset(pos));
         
         Edit* new_edit = new_mapping->add_edit();
         new_edit->set_from_length(1);
@@ -947,6 +948,7 @@ void NGSSimulator::apply_insertion(Alignment& aln, const pos_t& pos) {
         Position* mapping_pos = new_mapping->mutable_position();
         mapping_pos->set_node_id(id(pos));
         mapping_pos->set_is_reverse(is_rev(pos));
+        mapping_pos->set_offset(offset(pos));
         
         Edit* new_edit = new_mapping->add_edit();
         new_edit->set_to_length(1);

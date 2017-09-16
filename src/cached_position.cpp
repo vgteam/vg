@@ -214,13 +214,13 @@ set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx, LRUCach
     return nexts;
 }
 
-int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+int64_t xg_cached_distance(pos_t pos1, pos_t pos2, int64_t maximum, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     //cerr << "distance from " << pos1 << " to " << pos2 << endl;
     if (pos1 == pos2) return 0;
-    int adj = (offset(pos1) == xg_cached_node_length(id(pos1), xgidx, node_cache) ? 0 : 1);
+    int64_t adj = (offset(pos1) == xg_cached_node_length(id(pos1), xgidx, node_cache) ? 0 : 1);
     set<pos_t> seen;
     set<pos_t> nexts = xg_cached_next_pos(pos1, false, xgidx, node_cache, edge_cache);
-    int distance = 0;
+    int64_t distance = 0;
     while (!nexts.empty()) {
         set<pos_t> todo;
         for (auto& next : nexts) {
@@ -244,10 +244,10 @@ int xg_cached_distance(pos_t pos1, pos_t pos2, int maximum, xg::XG* xgidx, LRUCa
         nexts = todo;
         ++distance;
     }
-    return numeric_limits<int>::max();
+    return numeric_limits<int64_t>::max();
 }
 
-set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int64_t distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     // handle base case
     //size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
     if (rev) {
@@ -260,7 +260,7 @@ set<pos_t> xg_cached_positions_bp_from(pos_t pos, int distance, bool rev, xg::XG
     } else {
         set<pos_t> seen;
         set<pos_t> nexts = xg_cached_next_pos(pos, false, xgidx, node_cache, edge_cache);
-        int walked = 0;
+        int64_t walked = 0;
         while (!nexts.empty()) {
             if (walked+1 == distance) {
                 for (auto& next : nexts) {

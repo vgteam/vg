@@ -158,8 +158,7 @@ void XG::load(istream& in) {
         ////////////////////////////////////////////////////////////////////////
         switch (file_version) {
         
-        case 0:
-        case 2:
+        case 3:
             {
                 sdsl::read_member(seq_length, in);
                 sdsl::read_member(node_count, in);
@@ -783,8 +782,7 @@ void XG::build(map<id_t, string>& node_label,
     // now that we've set up our sequence indexes, we can build the locally traversable graph storage
     // calculate g_iv size
     size_t g_iv_size =
-        node_count * 4 // record headers
-        + s_iv.size() // node sequences
+        node_count * 5 // record headers
         + edge_count * 4; // edges (stored twice) plus edge types
     util::assign(g_iv, int_vector<>(g_iv_size));
     util::assign(g_bv, bit_vector(g_iv_size));
@@ -797,13 +795,10 @@ void XG::build(map<id_t, string>& node_label,
         // now build up the record
         g_bv[g] = 1; // mark record start for later query
         g_iv[g++] = n.id(); // save id
+        g_iv[g++] = node_start(n.id());
         g_iv[g++] = n.sequence().size(); // sequence length
         g_iv[g++] = to_edges.size(); // edges_to
         g_iv[g++] = from_edges.size(); // edges_from
-        // write the node's sequence
-        for (auto c : n.sequence()) {
-            g_iv[g++] = dna3bit(c);
-        }
         // write the edges in id-based format
         // we will next convert these into relative format
         for (auto& e : to_edges) {
@@ -830,8 +825,8 @@ void XG::build(map<id_t, string>& node_label,
         int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
         int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
         int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
-        int64_t t = g + G_NODE_HEADER_LENGTH + sequence_size;
-        int64_t f = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
+        int64_t t = g + G_NODE_HEADER_LENGTH;
+        int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
         for (int64_t j = t; j < f; ) {
             g_iv[j] = g_cbv_select(id_to_rank(g_iv[j])) - g;
             j += 2;
@@ -1036,12 +1031,13 @@ void XG::build(map<id_t, string>& node_label,
             int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
             int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
             int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
+            size_t seq_start = g_iv[g+G_NODE_SEQ_START_OFFSET];
             cerr << id << " ";
-            for (int64_t j = g+G_NODE_HEADER_LENGTH; j < g+G_NODE_HEADER_LENGTH+sequence_size; ++j) {
-                cerr << revdna3bit(g_iv[j]);
+            for (int64_t j = seq_start; j < seq_start+sequence_size; ++j) {
+                cerr << revdna3bit(s_iv[j]);
             } cerr << " : ";
-            int64_t t = g + G_NODE_HEADER_LENGTH + sequence_size;
-            int64_t f = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
+            int64_t t = g + G_NODE_HEADER_LENGTH;
+            int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
             cerr << " from ";
             for (int64_t j = t; j < f; ) {
                 cerr << i_iv[g_cbv_rank(g+g_iv[j])] << " ";
@@ -1447,16 +1443,17 @@ Graph XG::node_subgraph_g(int64_t g) const {
     int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];
     int edges_from_count = g_iv[g+G_NODE_FROM_COUNT_OFFSET];
     int sequence_size = g_iv[g+G_NODE_LENGTH_OFFSET];
+    size_t seq_start = g_iv[g+G_NODE_SEQ_START_OFFSET];
     string sequence; sequence.resize(sequence_size);
     int i = 0;
-    for (int64_t j = g+G_NODE_HEADER_LENGTH; j < g+G_NODE_HEADER_LENGTH+sequence_size; ++j, ++i) {
-        sequence[i] = revdna3bit(g_iv[j]);
+    for (int64_t j = seq_start; j < seq_start+sequence_size; ++j, ++i) {
+        sequence[i] = revdna3bit(s_iv[j]);
     }
     Node* node = graph.add_node();
     node->set_sequence(sequence);
     node->set_id(g);
-    int64_t t = g + G_NODE_HEADER_LENGTH + sequence_size;
-    int64_t f = g + G_NODE_HEADER_LENGTH + sequence_size + G_EDGE_LENGTH * edges_to_count;
+    int64_t t = g + G_NODE_HEADER_LENGTH;
+    int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
@@ -2802,14 +2799,14 @@ map<string, vector<size_t> > XG::distance_in_paths(int64_t id1, bool is_rev1, si
     return dist;
 }
 
-int XG::min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
-                              int64_t id2, bool is_rev2, size_t offset2) const {
+int64_t XG::min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
+                                  int64_t id2, bool is_rev2, size_t offset2) const {
     auto dist = distance_in_paths(id1, is_rev1, offset1,
                                   id2, is_rev2, offset2);
-    int min_dist = std::numeric_limits<int>::max();
+    size_t min_dist = std::numeric_limits<size_t>::max();
     for (auto& c : dist) {
         for (auto& o : c.second) {
-            if (abs(o) < abs(min_dist)) {
+            if (o <  min_dist) {
                 min_dist = o;
             }
         }
