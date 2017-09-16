@@ -37,7 +37,7 @@ dat.roc <- dat.roc[complete.cases(dat.roc), ]
 # Now we pipe that into ggplot and use + to assemble a bunch of ggplot layers together into a plot.
 dat.roc %>% 
     # Make a base plot mapping each of these variable names to each of these "aesthetic" attributes (like x position and color)
-    ggplot(aes( x= 1 - Precision, y = Recall, color = aligner, label=mq)) + 
+    ggplot(aes(x = Recall, y = -log10(1 - Precision), color = aligner, label=mq)) + 
         # We will use a line plot
         geom_line() + 
         # There will be cool floating labels
@@ -45,13 +45,13 @@ dat.roc %>%
         # There will be points with variable sizes
         geom_point(aes(size=Positive+Negative)) +
         # We manually assign these selected colors
-        scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee")) +
+        scale_color_manual(values=c("#1f78b4","#a6cee3","#e31a1c","#fb9a99","#33a02c","#b2df8a","#6600cc","#e5ccff","#ff8000","#ffe5cc","#5c415d","#9a7c9b", "#458b74", "#76eec6", "#698b22", "#b3ee3a", "#008b8b", "#00eeee")) +
         # And we want a size legend
         scale_size_continuous("number") +
-        # And we want a log X axis
-        scale_x_log10(breaks=c(1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1e-0), limits=c(1e-6, 1e-2)) +
-        # And a normal Y axis
-        scale_y_continuous(limits=c(0.9, 1.0)) +
+        # And we want a fake log Y axis
+        scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(2, 6)) +
+        # Label it
+        ylab("1 - Precision") +
         # And we want this cool theme
         theme_bw()
 

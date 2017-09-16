@@ -27,7 +27,7 @@ using namespace std;
 class OptionInterface {
 public:
     /**
-     * Get the long oiption text without --, like "foos-to-bar".
+     * Get the long option text without --, like "foos-to-bar".
      */
     virtual const string& get_long_option() const = 0;
     
@@ -109,7 +109,7 @@ private:
  *
  * TODO: right now every option must have a long option and a char short option.
  * In theory we can use any int as an ID for a long option. We should support
- * long options with untypable or non-char option IDs.
+ * long options with untypeable or non-char option IDs.
  */
 class ConfigurableParser {
 public:

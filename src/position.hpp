@@ -1,5 +1,5 @@
-#ifndef VG_POS_HPP_INCLUDED
-#define VG_POS_HPP_INCLUDED
+#ifndef VG_POSITION_HPP_INCLUDED
+#define VG_POSITION_HPP_INCLUDED
 
 #include "vg.pb.h"
 #include "types.hpp"

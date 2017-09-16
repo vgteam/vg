@@ -7,6 +7,7 @@
 #include "gssw_aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
+#include "xg.hpp"
 
 #include <functional>
 #include <string>
@@ -133,7 +134,7 @@ public:
     MEMChainModel(
         const vector<size_t>& aln_lengths,
         const vector<vector<MaximalExactMatch> >& matches,
-        const function<int(pos_t)>& approx_position,
+        const function<int64_t(pos_t)>& approx_position,
         const function<double(const MaximalExactMatch&, const MaximalExactMatch&)>& transition_weight,
         int band_width = 10,
         int position_depth = 1,
@@ -306,6 +307,10 @@ public:
         return nodes[i].dp_score < nodes[j].dp_score;
     }
 };
+
+/// return a subgraph form an xg for a cluster of MEMs from the given alignment
+Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion = 1.61803);
+
 }
 
 #endif

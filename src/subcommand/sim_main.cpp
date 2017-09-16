@@ -26,22 +26,21 @@ void help_sim(char** argv) {
          << "Samples sequences from the xg-indexed graph." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE          use the xg index in FILE" << endl
-         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-N,-f)" << endl
+         << "    -S, --scale-err FLOAT       scale trained error probabilities from -F by this much (default 1.0)" << endl
+         << "    -F, --fastq FILE            superpose errors matching the error profile of NGS reads in FILE (ignores -l,-f)" << endl
          << "    -l, --read-length N         write reads of length N" << endl
-         << "    -n, --num-reads N           simulate N reads or read pairs" << endl
+         << "    -n, --num-reads N           simulate N reads" << endl
          << "    -s, --random-seed N         use this specific seed for the PRNG" << endl
          << "    -e, --sub-rate FLOAT        base substitution rate (default 0.0)" << endl
          << "    -i, --indel-rate FLOAT      indel rate (default 0.0)" << endl
-         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -F that are indels (default 0.0)" << endl
-         << "    -S, --scale-err FLOAT       scale trained error probabilities from -F by this much (default 1.0)" << endl
+         << "    -d, --indel-err-prop FLOAT  proportion of trained errors from -f that are indels (default 0.0)" << endl
+         << "    -x, --xg-name FILE          use the xg index in FILE" << endl
          << "    -f, --forward-only          don't simulate from the reverse strand" << endl
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
          << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
-         << "    -J, --json-out              write alignments in json" << endl
-         << "    -m, --include-bonuses       include bonuses in reported scores" << endl;
+         << "    -J, --json-out              write alignments in json" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -93,7 +92,11 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
+<<<<<<< HEAD
         c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:NmF:d:s:",
+=======
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:Nd:F:",
+>>>>>>> upstream/master
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -305,7 +308,7 @@ int main_sim(int argc, char** argv) {
         NGSSimulator sampler(*xgidx, fastq_name, base_error, indel_error, indel_prop,
                              fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
                              fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
-                             error_scale_factor, seed_val);
+                             error_scale_factor, !reads_may_contain_Ns, seed_val);
         
         if (fragment_length) {
             for (size_t i = 0; i < num_reads; i++) {

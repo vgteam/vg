@@ -440,6 +440,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            double insert_length_mean,
                            double insert_length_stdev,
                            double error_multiplier,
+                           bool retry_on_Ns,
                            size_t seed) :
       xg_index(xg_index)
     , node_cache(100)
@@ -449,6 +450,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     , indel_error_prop(indel_error_proportion)
     , insert_mean(insert_length_mean)
     , insert_sd(insert_length_stdev)
+    , retry_on_Ns(retry_on_Ns)
     , prng(seed ? seed : random_device()())
     , start_pos_sampler(1, xg_index.seq_length)
     , strand_sampler(0, 1)
@@ -551,6 +553,14 @@ Alignment NGSSimulator::sample_read() {
     while (!aln.has_path()) {
         pos_t pos = sample_start_pos();
         sample_read_internal(aln, pos);
+        
+        // make sure we didn't sample sequence from
+        if (retry_on_Ns) {
+            if (aln.sequence().find('N') != string::npos) {
+                aln.clear_path();
+                aln.clear_sequence();
+            }
+        }
     }
     
     aln.set_name(get_read_name());
@@ -580,6 +590,13 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         pos_t pos = sample_start_pos();
         sample_read_internal(aln_pair.first, pos);
         
+        if (retry_on_Ns) {
+            if (aln_pair.first.sequence().find('N') != string::npos) {
+                aln_pair.first.clear_path();
+                aln_pair.first.clear_sequence();
+            }
+        }
+        
         if (!aln_pair.first.has_path()) {
             continue;
         }
@@ -601,6 +618,13 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
         
         // align the second end starting at the walked position
         sample_read_internal(aln_pair.second, pos);
+        
+        if (retry_on_Ns) {
+            if (aln_pair.second.sequence().find('N') != string::npos) {
+                aln_pair.second.clear_path();
+                aln_pair.second.clear_sequence();
+            }
+        }
     }
     
     // unreverse the second read in the pair
@@ -672,9 +696,9 @@ void NGSSimulator::sample_read_internal(Alignment& aln, pos_t& curr_pos) {
         }
         
         // get the true graph char, possibly with a substitution polymorphism
-        char poly_graph_char = graph_char != 'N' ? graph_char : alphabet[background_sampler(prng)];
+        char poly_graph_char = graph_char;
         if (prob_sampler(prng) < sub_poly_rate) {
-            poly_graph_char = mutation_alphabets[poly_graph_char][mut_sampler(prng)];
+            poly_graph_char = mutation_alphabets[poly_graph_char != 'N' ? poly_graph_char : alphabet[background_sampler(prng)]][mut_sampler(prng)];
         }
         
         // by default the read matches the true graph char
@@ -683,7 +707,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, pos_t& curr_pos) {
         // sample substitution errors with the remaining err sample
         if (err_sample < err_prob) {
             // substitution error
-            read_char = mutation_alphabets[read_char][mut_sampler(prng)];
+            read_char = mutation_alphabets[read_char != 'N' ? read_char : alphabet[background_sampler(prng)]][mut_sampler(prng)];
         }
         
 #ifdef debug_ngs_sim
@@ -817,6 +841,7 @@ void NGSSimulator::apply_aligned_base(Alignment& aln, const pos_t& pos, char gra
         Position* mapping_pos = new_mapping->mutable_position();
         mapping_pos->set_node_id(id(pos));
         mapping_pos->set_is_reverse(is_rev(pos));
+        mapping_pos->set_offset(offset(pos));
         
         Edit* new_edit = new_mapping->add_edit();
         new_edit->set_from_length(1);
@@ -923,6 +948,7 @@ void NGSSimulator::apply_insertion(Alignment& aln, const pos_t& pos) {
         Position* mapping_pos = new_mapping->mutable_position();
         mapping_pos->set_node_id(id(pos));
         mapping_pos->set_is_reverse(is_rev(pos));
+        mapping_pos->set_offset(offset(pos));
         
         Edit* new_edit = new_mapping->add_edit();
         new_edit->set_to_length(1);
