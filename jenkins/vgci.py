@@ -458,7 +458,7 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
+        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.01 -i 0.0002\' '
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -957,7 +957,7 @@ class VGCITest(TestCase):
                            sample='HG00096', multipath=True, tag_ext='-mpmap')
 
 
-    @timeout_decorator.timeout(3600)
+    @timeout_decorator.timeout(7200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
