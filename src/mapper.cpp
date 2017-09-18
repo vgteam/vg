@@ -1716,9 +1716,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     bool only_top_scoring_pair,
     bool retrying) {
     
+    // Copy only the parts of the alignments we want to keep.
+    Alignment aln1, aln2;
+    aln1.set_name(first_mate.name());
+    aln1.set_sequence(first_mate.sequence());
+    aln1.set_quality(first_mate.quality());
+    aln2.set_name(second_mate.name());
+    aln2.set_sequence(second_mate.sequence());
+    aln2.set_quality(second_mate.quality());
+    
+    
     // Align each end
-    auto first_alignments = align_multi(first_mate);
-    auto second_alignments = align_multi(second_mate);
+    auto first_alignments = align_multi(aln1);
+    auto second_alignments = align_multi(aln2);
     
     // if we have references, annotate the alignments with their reference positions
     annotate_with_mean_path_positions(first_alignments);
@@ -1730,7 +1740,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         assert(!retrying);
         
         // If the reads can be a perfect pair, we will pair and emit them.
-        // Otherwise, we will postpone them.œ
+        // Otherwise, we will postpone them.
         bool can_be_perfect_pair = false;
         
         // Compute fragment lengths for the pair of the top two alignments
@@ -1767,7 +1777,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
             return make_pair(first_alignments, second_alignments);
         } else {
             // We aren't a perfect pair, so queue for later
-            imperfect_pairs_to_retry.push_back(make_pair(first_mate, second_mate));
+            imperfect_pairs_to_retry.push_back(make_pair(aln1, aln2));
             queued_resolve_later = true;
             
             // Give back no alignments
@@ -1803,7 +1813,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     if (consistent_pairs.empty()) {
         // No consistent mapping! Return unmapped inputs.
         // TODO: copy and clear their paths?
-        return make_pair(vector<Alignment>{first_mate}, vector<Alignment>{second_mate});
+        return make_pair(vector<Alignment>{aln1}, vector<Alignment>{aln2});
     }
     
     sort(consistent_pairs.begin(), consistent_pairs.end(), [](const pair<Alignment, Alignment>& a, const pair<Alignment, Alignment>& b) -> bool { 
