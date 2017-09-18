@@ -911,7 +911,7 @@ class VGCITest(TestCase):
                                  positive_control, negative_control, tag,
                                  acc_threshold)
 
-    #@skip("skipping test to keep runtime down")
+    @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """

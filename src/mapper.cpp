@@ -1853,7 +1853,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
             // Compute fragment lengths
             auto approx_frag_lengths = approx_pair_fragment_length(alignment_pair.first, alignment_pair.second);
             // Add them to the alignments, and mark the pair as consistent
-            frag_stats.save_frag_lens_to_alns(alignment_pair.first, alignment_pair.second, approx_frag_lengths, consistent);                        
+            frag_stats.save_frag_lens_to_alns(alignment_pair.first, alignment_pair.second, approx_frag_lengths, consistent);
+            
+            // Put the pair in the list of consistent pairs
+            consistent_pairs.push_back(make_pair(first_alignment, second_alignment));   
         }
     }
     
