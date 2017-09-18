@@ -1551,7 +1551,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
     //return make_pos_t(target, target_is_rev, 0);
 }
 
-pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback) {
+pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, int full_length_bonus, bool traceback) {
     auto pair_sig = signature(mate1, mate2);
     // bail out if we can't figure out how far to go
     bool rescued1 = false;
@@ -1559,7 +1559,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     if (!frag_stats.fragment_size) return make_pair(false, false);
     double hang_threshold = 0.9;
     double retry_threshold = 0.7;
-    double perfect_score = mate1.sequence().size() * match_score;
+    double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
     // based on our statistics about the alignments
@@ -1748,15 +1748,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int8_t match;
     int8_t gap_extension;
     int8_t gap_open;
+    int8_t full_length_bonus;
     if (read1.quality().empty() || !adjust_alignments_for_base_quality) {
         match = regular_aligner->match;
         gap_extension = regular_aligner->gap_extension;
         gap_open = regular_aligner->gap_open;
+        full_length_bonus = regular_aligner->full_length_bonus;
     }
     else {
         match = qual_adj_aligner->match;
         gap_extension = qual_adj_aligner->gap_extension;
         gap_open = qual_adj_aligner->gap_open;
+        full_length_bonus = qual_adj_aligner->full_length_bonus;
     }
     int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
@@ -2270,7 +2273,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln2 = p->second;
             int score1 = aln1.score();
             int score2 = aln2.score();
-            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, false);
+            pair<bool, bool> rescues = pair_rescue(aln1, aln2, match, full_length_bonus, false);
             rescued_aln[&aln1] = rescues.first;
             rescued_aln[&aln2] = rescues.second;
             rescued |= rescues.first || rescues.second;
