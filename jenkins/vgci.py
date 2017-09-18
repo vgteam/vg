@@ -791,9 +791,6 @@ class VGCITest(TestCase):
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
-                # Make sure nothing has been removed
-                assert len(score_stats_dict) >= len(baseline_dict)
-                    
                 for key in score_stats_dict.iterkeys():
                     # For every kind of graph
                     
@@ -918,10 +915,8 @@ class VGCITest(TestCase):
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096')
                            
     @skip("skipping test to keep runtime down")
@@ -929,7 +924,7 @@ class VGCITest(TestCase):
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
@@ -938,10 +933,8 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096',
                            assembly="hg19")
 
