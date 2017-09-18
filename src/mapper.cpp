@@ -1727,6 +1727,34 @@ bool Mapper::pair_consistent(const Alignment& aln1,
     return length_ok && orientation_ok;
 }
 
+pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_trivial(
+    const Alignment& first_mate,
+    const Alignment& second_mate,
+    bool& queued_resolve_later,
+    int max_mem_length,
+    bool only_top_scoring_pair,
+    bool retrying) {
+    
+    // Align each end
+    auto first_alignments = align_multi(first_mate);
+    auto second_alignments = align_multi(second_mate);
+    
+    // Make sure we have the same number of each
+    size_t min_size = min(first_alignments.size(), second_alignments.size());
+    
+    if (only_top_scoring_pair) {
+        // Do at most one pair
+        min_size = min(min_size, (size_t) 1);
+    }
+    
+    first_alignments.resize(min_size);
+    second_alignments.resize(min_size);
+    
+    // Just pair them up arbitrarily
+    return make_pair(first_alignments, second_alignments);
+    
+}
+
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     const Alignment& first_mate,
     const Alignment& second_mate,
