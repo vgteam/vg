@@ -2040,7 +2040,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               },
                               transition_weight,
                               band_width);
-        clusters = chainer.traceback(total_multimaps, true, debug);
+        clusters = chainer.traceback(total_multimaps, false, debug);
     }
 
     auto show_clusters = [&](void) {
