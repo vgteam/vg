@@ -97,7 +97,7 @@ int main_map(int argc, char** argv) {
     string read_group;
     string fastq1, fastq2;
     bool interleaved_input = false;
-    int band_width = 256;
+    int band_width = 1000;
     int band_multimaps = 4;
     int max_band_jump = -1;
     bool always_rescue = false;
@@ -765,7 +765,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi_trivial(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -773,7 +773,7 @@ int main_map(int argc, char** argv) {
                         && !our_mapper->imperfect_pairs_to_retry.empty()) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
-                            auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                            auto alnp = our_mapper->align_paired_multi_trivial(p.first, p.second,
                                                                        queued_resolve_later,
                                                                        max_mem_length,
                                                                        top_pairs_only,
@@ -792,7 +792,7 @@ int main_map(int argc, char** argv) {
                 our_mapper->frag_stats.fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
-                    auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                    auto alnp = our_mapper->align_paired_multi_trivial(p.first, p.second,
                                                                queued_resolve_later,
                                                                max_mem_length,
                                                                top_pairs_only,
@@ -932,7 +932,7 @@ int main_map(int argc, char** argv) {
                  &output_func](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
+                auto alnp = our_mapper->align_paired_multi_trivial(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -940,7 +940,7 @@ int main_map(int argc, char** argv) {
                         && !our_mapper->imperfect_pairs_to_retry.empty()) {
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
-                            auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                            auto alnp = our_mapper->align_paired_multi_trivial(p.first, p.second,
                                                                        queued_resolve_later,
                                                                        max_mem_length,
                                                                        top_pairs_only,
@@ -958,7 +958,7 @@ int main_map(int argc, char** argv) {
                 our_mapper->frag_stats.fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
-                    auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                    auto alnp = our_mapper->align_paired_multi_trivial(p.first, p.second,
                                                                queued_resolve_later,
                                                                max_mem_length,
                                                                top_pairs_only,
