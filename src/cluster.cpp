@@ -590,8 +590,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     
     // a simulated annealing parameter loosely inspired by the cutoff for an Erdos-Renyi random graph
     // to be connected with probability approaching 1
-    size_t current_max_num_probes = 3;
-    size_t decrement_frequency = ceil(log(num_items));
+    size_t current_max_num_probes = 2;
+    size_t decrement_frequency = ceil(log(num_items) * num_items);
     
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
