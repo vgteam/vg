@@ -97,7 +97,7 @@ int main_map(int argc, char** argv) {
     string read_group;
     string fastq1, fastq2;
     bool interleaved_input = false;
-    int band_width = 256;
+    int band_width = 1000;
     int band_multimaps = 4;
     int max_band_jump = -1;
     bool always_rescue = false;
