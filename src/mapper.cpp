@@ -1777,8 +1777,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     // Make sure to specify a multimap count >max_multimaps
     double cluster_mq1 = 0;
     double cluster_mq2 = 0;
-    auto first_alignments = align_multi_internal(true, aln1, 0, 0, 0, 1000, cluster_mq1, min_multimaps, extra_multimaps, nullptr);
-    auto second_alignments = align_multi_internal(true, aln2, 0, 0, 0, 1000, cluster_mq2, min_multimaps, extra_multimaps, nullptr);
+    auto first_alignments = align_multi_internal(true, aln1, 0, 0, 0, 1000, cluster_mq1, 2, extra_multimaps, nullptr);
+    auto second_alignments = align_multi_internal(true, aln2, 0, 0, 0, 1000, cluster_mq2, 2, extra_multimaps, nullptr);
     
     if (first_alignments.empty()) {
         // Make sure we have at least an unmapped alignment of the first end
