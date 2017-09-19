@@ -1624,7 +1624,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
         }
 #endif
-        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > hang_threshold && pair_consistent(mate1, aln2, 0.01)) {
+        if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
             //cerr << "rescued aln2" << endl;
             mate2 = aln2;
             rescued2 = true;
@@ -1640,7 +1640,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
         }
 #endif
-        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > hang_threshold && pair_consistent(aln1, mate2, 0.01)) {
+        if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
             //cerr << "rescued aln1" << endl;
             mate1 = aln1;
             rescued1 = true;
@@ -2019,8 +2019,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // We're going to run the chainer because we want to calculate alignments
         
         // What band width during the alignment should the chainer plan for?
-        int64_t band_width = max((int64_t)(read1.sequence().size() + read2.sequence().size()),
-                             (int64_t)(frag_stats.fragment_size ? frag_stats.fragment_size : frag_stats.fragment_max));
+        int64_t band_width = frag_stats.fragment_max;
         
 #ifdef debug_mapper
 #pragma omp critical
@@ -2040,7 +2039,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                               },
                               transition_weight,
                               band_width);
-        clusters = chainer.traceback(total_multimaps, false, debug);
+        clusters = chainer.traceback(total_multimaps, true, debug);
     }
 
     auto show_clusters = [&](void) {
