@@ -1402,67 +1402,77 @@ Mapping reverse_complement_mapping(const Mapping& m,
     if(m.has_position() && m.position().node_id() != 0) {
         Position* p = reversed.mutable_position();
         
-        if(m.edit_size() == 0) {
-            // This is an old-style perfect match mapping with no edits.
-            
-            // The offset becomes unused bases after the mapping
-            size_t unused_bases_after = p->offset();
-            size_t used_bases = node_length(p->node_id()) - unused_bases_after;
-            
-            // There are now no unused bases before
-            p->set_offset(0);
-            // And we are on the other strand
-            p->set_is_reverse(!p->is_reverse());
-            
-            // But we have to have a mapping in there in order to actually
-            // specify that we're ending at the not-at-the-end position where we
-            // used to start.
-            Edit* edit = reversed.add_edit();
-            edit->set_from_length(used_bases);
-            edit->set_to_length(used_bases);
-        } else {
-            // We have edits; we may not be a full-length perfect match.
-        
-            // How many node bases are used by the mapping?
-            size_t used_bases = mapping_from_length(m);
-            // How many are taken up by the offset on the other strand?
-            size_t unused_bases_after = p->offset();
-            // The remainder ought to be taken up by the offset on this strand.
-            size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
+        // How many node bases are used by the mapping?
+        size_t used_bases = mapping_from_length(m);
+        // How many are taken up by the offset on the other strand?
+        size_t unused_bases_after = p->offset();
+        // The remainder ought to be taken up by the offset on this strand.
+        size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
             
     #ifdef debug
-            cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", "
-                << used_bases << ", " << unused_bases_after << endl;
+        cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", "
+             << used_bases << ", " << unused_bases_after << endl;
     #endif
             
-            // Adopt the new offset
-            p->set_offset(unused_bases_before);
-            // Toggle the reversed-ness flag
-            p->set_is_reverse(!p->is_reverse());
-            
-        }
+        // Adopt the new offset
+        p->set_offset(unused_bases_before);
+        // Toggle the reversed-ness flag
+        p->set_is_reverse(!p->is_reverse());
     }
 
     // Clear out all the edits. TODO: we wasted time copying them
     reversed.clear_edit();
 
-    for(size_t i = m.edit_size() - 1; i != (size_t) -1; i--) {
+    for (int64_t i = m.edit_size() - 1; i >= 0; i--) {
         // For each edit in reverse order, put it in reverse complemented
         *reversed.add_edit() = reverse_complement_edit(m.edit(i));
     }
 
     return reversed;
 }
+    
+void reverse_complement_mapping_in_place(Mapping* m,
+                                         const function<int64_t(id_t)>& node_length) {
+        
+    Position* pos = m->mutable_position();
+    pos->set_is_reverse(!pos->is_reverse());
+    pos->set_offset(node_length(pos->node_id()) - pos->offset() - mapping_from_length(*m));
+    
+    size_t swap_size = m->edit_size() / 2;
+    for (size_t i = 0, j = m->edit_size() - 1; i < swap_size; i++, j--) {
+        Edit* e1 = m->mutable_edit(i);
+        Edit* e2 = m->mutable_edit(j);
+        
+        int64_t from_length_tmp = e1->from_length();
+        int64_t to_length_tmp = e1->to_length();
+        string sequence_tmp = e1->sequence();
+        
+        e1->set_from_length(e2->from_length());
+        e1->set_to_length(e2->to_length());
+        e1->set_sequence(reverse_complement(e2->sequence()));
+        
+        e2->set_from_length(from_length_tmp);
+        e2->set_to_length(to_length_tmp);
+        e2->set_sequence(reverse_complement(sequence_tmp));
+    }
+    
+    
+    if (m->edit_size() % 2) {
+        Edit* e = m->mutable_edit(swap_size);
+        reverse_complement_in_place(*e->mutable_sequence());
+    }
+}
 
 Path reverse_complement_path(const Path& path,
                              const function<int64_t(id_t)>& node_length) {
+
     // Make a new reversed path
     Path reversed = path;
 
     // Clear out all the mappings. TODO: we wasted time copying them
     reversed.clear_mapping();
 
-    for(size_t i = path.mapping_size() - 1; i != (size_t) -1; i--) {
+    for(int64_t i = path.mapping_size() - 1; i >= 0; i--) {
         // For each mapping in reverse order, put it in reverse complemented and
         // measured from the other end of the node.
         *reversed.add_mapping() = reverse_complement_mapping(path.mapping(i), node_length);
@@ -1474,6 +1484,29 @@ Path reverse_complement_path(const Path& path,
     return reversed;
 }
 
+void reverse_complement_path_in_place(Path* path,
+                                      const function<int64_t(id_t)>& node_length) {
+    
+    size_t swap_size = path->mapping_size() / 2;
+    for (size_t i = 0, j = path->mapping_size() - 1; i < swap_size; i++, j--) {
+        Mapping* m1 = path->mutable_mapping(i);
+        Mapping* m2 = path->mutable_mapping(j);
+        
+        reverse_complement_mapping_in_place(m1, node_length);
+        reverse_complement_mapping_in_place(m2, node_length);
+        
+        int64_t rank_tmp = m1->rank();
+        m1->set_rank(m2->rank());
+        m2->set_rank(rank_tmp);
+        
+        std::swap(*m1, *m2);
+    }
+    
+    if (path->mapping_size() % 2) {
+        reverse_complement_mapping_in_place(path->mutable_mapping(swap_size), node_length);
+    }
+}
+    
 // ref-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     Mapping left, right;

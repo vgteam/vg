@@ -48,8 +48,6 @@ class VGCITest(TestCase):
         self.tempdir = tempfile.mkdtemp()
         
         self.f1_threshold = 0.005
-        self.acc_threshold = 0.02
-        self.auc_threshold = 0.05
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
@@ -135,6 +133,7 @@ class VGCITest(TestCase):
             # Convert to a public HTTPS URL
             url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
             # And download it
+            
             try:
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
@@ -488,8 +487,8 @@ class VGCITest(TestCase):
         # things as file IDs?
         mapeval_options = get_default_mapeval_options(os.path.join(out_store, 'true.pos'))
         mapeval_options.bwa = True
-        mapeval_options.bwa_paired = not multipath
-        mapeval_options.vg_paired = not multipath
+        mapeval_options.bwa_paired = True
+        mapeval_options.vg_paired = True
         mapeval_options.fasta = make_url(fasta_path)
         mapeval_options.index_bases = [make_url(x) for x in test_index_bases]
         mapeval_options.gam_names = test_names
@@ -667,7 +666,7 @@ class VGCITest(TestCase):
         return stats_dict
 
     def _verify_mapeval(self, reads, read_source_graph, score_baseline_name,
-                        positive_control, negative_control, tag):
+                        positive_control, negative_control, tag, acc_threshold):
         """
         Check the simulated mapping evaluation results.
         
@@ -752,9 +751,13 @@ class VGCITest(TestCase):
                 if len(stats_dict[key]) > 0:
                     self.assertTrue(stats_dict[key][0] == reads)
                 if len(stats_dict[key]) > 1 and len(val) > 1:
-                    self.assertTrue(stats_dict[key][1] >= val[1] - self.acc_threshold)
+                    # Compare accuracy stats
+                    self.assertTrue(stats_dict[key][1] >= val[1] - acc_threshold)
                 if len(stats_dict[key]) > 2 and len(val) > 2:
-                    self.assertTrue(stats_dict[key][2] >= val[2] - self.auc_threshold)
+                    # Compare AUC stats. Make sure to patch up 0 AUCs from perfect classification.
+                    new_auc = stats_dict[key][2] if stats_dict[key][2] != 0 else 1
+                    old_auc = val[2] if val[2] != 0 else 1
+                    self.assertTrue(new_auc >= old_auc - acc_threshold)
                 if len(stats_dict[key]) > 4 and len(val) > 4:
                     self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
                 if len(stats_dict[key]) != len(val):
@@ -790,9 +793,6 @@ class VGCITest(TestCase):
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
-                # Make sure nothing has been removed
-                assert len(score_stats_dict) >= len(baseline_dict)
-                    
                 for key in score_stats_dict.iterkeys():
                     # For every kind of graph
                     
@@ -823,7 +823,9 @@ class VGCITest(TestCase):
                     if not baseline_dict.has_key(key):
                         # We might get new graphs that aren't in the baseline file.
                         log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
-                        baseline_dict[key] = [0, 0]
+                        # Store 0 for the read count, and 1 for the portion that got worse.
+                        # We need a conservative default baseline so new tests will pass.
+                        baseline_dict[key] = [0, 1]
                     
                     # Report on its stats after dumping reads, so that if there are
                     # too many bad reads and the stats are terrible we still can see
@@ -845,7 +847,7 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
-                      assembly="hg38", tag_ext=""):
+                      assembly="hg38", tag_ext="", acc_threshold=0):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -876,7 +878,6 @@ class VGCITest(TestCase):
         tag = 'sim-{}-{}{}'.format(region, baseline_graph, tag_ext)
         
         # compute the xg indexes from scratch
-        index_bases = []
         for graph in set([baseline_graph] + test_graphs):
             chrom, offset = self._bakeoff_coords(region)        
             vg_path = self._input('{}-{}.vg'.format(graph, region))
@@ -903,12 +904,12 @@ class VGCITest(TestCase):
         for test_graph in test_graphs:
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
-        test_xg_paths = os.path.join(self._outstore(tag), tag + '.xg')
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
                              test_graphs, score_baseline_graph, multipath, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
-                                 positive_control, negative_control, tag)
+                                 positive_control, negative_control, tag,
+                                 acc_threshold)
 
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
@@ -919,32 +920,29 @@ class VGCITest(TestCase):
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
-                           sample='HG00096')
+                           sample='HG00096', acc_threshold=0.02)
                            
     @skip("skipping test to keep runtime down")
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
-                           sample='HG00096')
+                           sample='HG00096', acc_threshold=0.02)
 
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096',
-                           assembly="hg19")
+                           assembly="hg19",
+                           acc_threshold=0.002)
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
@@ -952,17 +950,23 @@ class VGCITest(TestCase):
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on
         and off. 
         """
-        try:
-            self._test_mapeval(5000, 'BRCA2', 'snp1kg',
-                               ['primary', 'snp1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
-                               score_baseline_graph='primary',
-                               positive_control='snp1kg_HG00096',
-                               negative_control='snp1kg_minus_HG00096',
-                               sample='HG00096', multipath=True, tag_ext='-mpmap')
-        except:
-            log.warning('test_sim_brca2_snp1kg_mpap failed with following error:\n{}\n'.format(
-                traceback.format_exc()))
-        
+        self._test_mapeval(50000, 'BRCA2', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', multipath=True, tag_ext='-mpmap')
+
+
+    @timeout_decorator.timeout(3600)
+    def test_sim_mhc_snp1kg_mpmap(self):
+        """ multipath mapper test, which is a smaller version of above.  we catch all errors
+        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        and off.
+        """
+        self._test_mapeval(50000, 'MHC', 'snp1kg',
+                           ['primary', 'snp1kg'],
+                           score_baseline_graph='primary',
+                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           acc_threshold=0.02)        
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):

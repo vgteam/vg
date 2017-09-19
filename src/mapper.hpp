@@ -103,7 +103,7 @@ public:
     void unlock_determinization();
     
     /// Record an observed fragment length
-    void register_fragment_length(size_t length);
+    void register_fragment_length(int64_t length);
 
     /// Robust mean of the distribution observed so far
     double mean();
@@ -154,6 +154,12 @@ public:
     void set_alignment_threads(int new_thread_count);
     
     void set_cache_size(int new_cache_size);
+    
+    /// Returns true if fragment length distribution has been fixed
+    bool has_fixed_fragment_length_distr();
+    
+    /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
+    void abandon_fragment_length_distr();
     
     // MEM-based mapping
     // find maximal exact matches
@@ -290,7 +296,7 @@ public:
     void record_fragment_configuration(int length, const Alignment& aln1, const Alignment& aln2);
     
     string fragment_model_str(void);
-    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int>& approx_frag_lengths, bool is_consistent);
+    void save_frag_lens_to_alns(Alignment& aln1, Alignment& aln2, const map<string, int64_t>& approx_frag_lengths, bool is_consistent);
     
     // These functions are the authorities on the estimated parameters
     double fragment_length_stdev(void);
@@ -307,19 +313,19 @@ public:
     bool cached_fragment_direction = 1;
     
     // These variables are used to manage the periodic updates
-    int since_last_fragment_length_estimate = 0;
-    int fragment_model_update_interval = 10;
+    int64_t since_last_fragment_length_estimate = 0;
+    int64_t fragment_model_update_interval = 10;
     
     // These deques are used for the periodic running estimation of the fragment length distribution
     deque<double> fragment_lengths;
     deque<bool> fragment_orientations;
     deque<bool> fragment_directions;
 
-    int fragment_max = 10000; // the maximum length fragment which we will consider when estimating fragment lengths
-    int fragment_size = 0; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
+    int64_t fragment_max = 10000; // the maximum length fragment which we will consider when estimating fragment lengths
+    int64_t fragment_size = 0; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
                        // if consistent pairs should be reported; dynamically estimated at runtime
     double fragment_sigma = 10; // the number of times the standard deviation above the mean to set the fragment_size
-    int fragment_length_cache_size = 1000;
+    int64_t fragment_length_cache_size = 1000;
     float perfect_pair_identity_threshold = 0.95;
     bool fixed_fragment_model = true;
     
@@ -390,19 +396,26 @@ public:
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignment_mean_path_positions(const Alignment& aln, bool first_hit_only = true);
     void annotate_with_mean_path_positions(vector<Alignment>& alns);
+    
+    // use the xg index to get the first position of an alignment on a reference path
+    map<string, size_t> alignment_initial_path_positions(const Alignment& aln);
+    void annotate_with_initial_path_positions(Alignment& aln);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
                                const map<string, double>& pos2,
                                int fragment_size_bound);
 
-    // use the fragment length annotations to assess if the pair is consistent or not
+    /// use the fragment length annotations to assess if the pair is consistent or not
     bool pair_consistent(const Alignment& aln1,
                          const Alignment& aln2,
                          double pval);
 
-    // use the fragment configuration statistics to rescue more precisely
-    bool pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback);
+    /// use the fragment configuration statistics to rescue more precisely
+    pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, int match_score, bool traceback);
+
+    /// assuming the read has only been score-aligned, realign from the end position backwards
+    Alignment realign_from_start_position(const Alignment& aln, int extra, int iteration);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -547,8 +560,8 @@ public:
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
 
     // fargment length estimation
-    map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
-    int first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    map<string, int64_t> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
+    int64_t first_approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     // uses the cached information about the graph in the xg index to get an approximate node length
     double average_node_length(void);
     

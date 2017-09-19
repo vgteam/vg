@@ -304,14 +304,19 @@ def html_header(xml_root):
     Make an HTML header for the test suite XML
     """
     try:
-        report = '<!DOCTYPE html><html><head>\n'
-        report += '<meta charset="utf-8"/>\n'
-        report += '<title>vg Test Report</title>\n'
-        report += '<style> table {\n'
-        report += 'font-famiiy: arial, sans-serif; border-collaped: collapse; width: 100%;}\n'
-        report += 'td, dh { border: 1px solid #dddddd; text-align: left; padding: 8px;}\n'
-        report += 'tr:nth-child(even) { background-color: #dddddd;}\n'
-        report += '</style></head><body>\n'
+        report = '''
+<!DOCTYPE html><html><head>
+<meta charset="utf-8"/>
+<title>vg Test Report</title>
+<style> table {
+font-family: arial, sans-serif; border-collapse: collapse; width: 100%;}
+td, dh { border: 1px solid #dddddd; text-align: left; padding: 8px;}
+tr:nth-child(even) { background-color: #dddddd;}
+html { background-image: url("https://source.unsplash.com/random"); background-size: cover; }
+body { background-color: rgba(255, 255, 255, 0.8); width: 80%; padding: 1em; border-radius: 1em; margin: auto; margin-top: 1em; margin-bottom: 1em; }
+h1, h2, h3, h4, h5, h6 { font-family: sans-serif; } 
+</style></head><body>
+'''
 
         # will have to modify this if we ever add another test suite
         testsuite = xml_root
@@ -524,7 +529,7 @@ def main(args):
     # Load up the XML
     xml_tree = ET.parse(options.xml_in)
     xml_root = xml_tree.getroot()
-
+    
     # Write our Markdown summary
     markdown = md_summary(xml_root)
     with io.open(options.md_out, 'w', encoding='utf8') as md_file:

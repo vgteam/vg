@@ -117,6 +117,7 @@ public:
                  double indel_error_proportion = 0.01,
                  double insert_length_mean = 1000.0,
                  double insert_length_stdev = 75.0,
+                 double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
                  size_t seed = 0);
     
@@ -156,6 +157,8 @@ private:
     /// Move forward a certain distance in the graph along a random path, return true if we
     /// can't because we hit a tip or false otherwise
     bool advance_on_graph_by_distance(pos_t& pos, size_t distance);
+    /// Returns the position a given distance from the end of the path, walking backwards
+    pos_t walk_backwards(const Path& path, size_t distance);
     /// Add a deletion to the alignment
     void apply_deletion(Alignment& aln, const pos_t& pos);
     /// Add an insertion to the alignment

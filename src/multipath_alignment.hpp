@@ -11,6 +11,7 @@
 #include <vector>
 #include <list>
 #include <unordered_map>
+#include <algorithm>
 #include "vg.pb.h"
 #include "path.hpp"
 #include "alignment.hpp"
@@ -55,6 +56,15 @@ namespace vg {
     void rev_comp_multipath_alignment(const MultipathAlignment& multipath_aln,
                                       const function<int64_t(int64_t)>& node_length,
                                       MultipathAlignment& rev_comp_out);
+    
+    /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
+    ///
+    ///  Args:
+    ///    multipath_aln     multipath alignment to reverse complement in place
+    ///    node_length       a function that returns the length of a node sequence from its node ID
+    ///
+    void rev_comp_multipath_alignment_in_place(MultipathAlignment* multipath_aln,
+                                               const function<int64_t(int64_t)>& node_length);
     
     /// Converts a Alignment into a Multipath alignment with one Subpath and stores it in an object
     ///

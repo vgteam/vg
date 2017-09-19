@@ -671,10 +671,8 @@ int32_t BaseAligner::score_gappy_alignment(const Alignment& aln, const function<
                 score -= mismatch * edit.sequence().size();
             } else if (edit_is_deletion(edit)) {
                 score -= edit.from_length() ? gap_open + (edit.from_length() - 1) * gap_extension : 0;
-            } else if (edit_is_insertion(edit)
-                       && !((i == 0 && j == 0)
-                            || (i == path.mapping_size()-1
-                                && j == mapping.edit_size()-1))) {
+            } else if (edit_is_insertion(edit) && !((i == 0 && j == 0) ||
+                                                    (i == path.mapping_size()-1 && j == mapping.edit_size()-1))) {
                 // todo how do we score this qual adjusted?
                 score -= edit.to_length() ? gap_open + (edit.to_length() - 1) * gap_extension : 0;
             }
@@ -907,7 +905,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         Mapping* m = alignment.mutable_path()->add_mapping();
         Position* p = m->mutable_position();
         p->set_node_id(graph->max_node->id);
-        //p->set_offset(graph->max_node->alignment->ref_end1); // mark end position; for de-duplication
+        p->set_offset(graph->max_node->alignment->ref_end1); // mark end position; for de-duplication
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
@@ -1263,6 +1261,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         Mapping* m = alignment.mutable_path()->add_mapping();
         Position* p = m->mutable_position();
         p->set_node_id(graph->max_node->id);
+        p->set_offset(graph->max_node->alignment->ref_end1); // mark end position; for de-duplication
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
