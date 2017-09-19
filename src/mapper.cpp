@@ -1899,6 +1899,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         less_good.second.set_mapping_quality(0);        
     }
     
+    // Just average the mapping qualities for the best pair
+    double average_mapq = (best.first.mapping_quality() + best.second.mapping_quality()) / 2;
+    best.first.set_mapping_quality(average_mapq);
+    best.second.set_mapping_quality(average_mapq);
+    
     for (int j = 0; j < best.first.fragment_size(); ++j) {
         // Go through all the lengths for the primary pair and feed them into
         // the fragment length distribution if the pair is perfect
@@ -1921,18 +1926,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         }
     }
     
-    // Cram the alignments into a pair of vectors so we can do mapping qualities.
+    // Cram the alignments into a pair of vectors
     pair<vector<Alignment>, vector<Alignment>> results;
-    
     for (auto alns : consistent_pairs) {
         // Copy the alignments into this other internal format
         results.first.push_back(alns.first);
         results.second.push_back(alns.second);
     }
-    
-    // Compute the mapping qualities
-    compute_mapping_qualities(results, (cluster_mq1 + cluster_mq2) / 2.0,
-        max_mapping_quality, max_mapping_quality, max_mapping_quality, max_mapping_quality);
     
     if (results.first.size() > max(max_multimaps, 1)) {
         // Trim to correct size
