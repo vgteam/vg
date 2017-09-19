@@ -1557,7 +1557,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     bool rescued1 = false;
     bool rescued2 = false;
     if (!frag_stats.fragment_size) return make_pair(false, false);
-    double hang_threshold = 0.9;
+    double hang_threshold = 0.6;
     double retry_threshold = 0.7;
     double perfect_score = mate1.sequence().size() * match_score;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
@@ -1622,6 +1622,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         {
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
+            if (debug) cerr << "need score " << hang_threshold * perfect_score
+                            << " and consistent " << pair_consistent(mate1, aln2, 0.01) << endl;
         }
 #endif
         if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > hang_threshold && pair_consistent(mate1, aln2, 0.01)) {
@@ -1638,6 +1640,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         {
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
+            if (debug) cerr << "need score " << hang_threshold * perfect_score
+                            << " and consistent " << pair_consistent(aln1, mate2, 0.01) << endl;
         }
 #endif
         if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > hang_threshold && pair_consistent(aln1, mate2, 0.01)) {
@@ -1763,6 +1767,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     bool only_top_scoring_pair,
     bool retrying) {
     
+    // Guess whether we're doing quality-adjusted alignment, and figure out our
+    // match score for use during rescue.
+    int8_t match;
+    if (first_mate.quality().empty() || !adjust_alignments_for_base_quality) {
+        match = regular_aligner->match;
+    } else {
+        match = qual_adj_aligner->match;
+    }
+    
     // Copy only the parts of the alignments we want to keep.
     Alignment aln1, aln2;
     aln1.set_name(first_mate.name());
@@ -1843,6 +1856,29 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     }
     
     // Otherwise, use the distribution
+    
+    // We want to rescue each off the other if possible. Grab the real best
+    // alignment of each read (which still may be unmapped) and an unmapped
+    // alignment of the other.
+    Alignment real1 = first_alignments.front();
+    Alignment rescue1 = aln1;
+    Alignment real2 = second_alignments.front();
+    Alignment rescue2 = aln2;
+    
+    assert(frag_stats.fragment_size);
+    
+    // Try and rescue each off the other
+    pair_rescue(real1, rescue2, match, true);
+    pair_rescue(rescue1, real2, match, true);
+    
+    if (real2.score() && rescue1.score()) {
+        // Save the rescue products if they have nonzero score.
+        first_alignments.push_back(rescue1);
+    }
+    if (real1.score() && rescue2.score()) {
+        // Save the rescue products if they have nonzero score.
+        second_alignments.push_back(rescue2);
+    }
     
     // Make a list of pairs of consistent alignments
     vector<pair<Alignment, Alignment>> consistent_pairs;
