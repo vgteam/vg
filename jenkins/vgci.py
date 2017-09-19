@@ -794,7 +794,7 @@ class VGCITest(TestCase):
                 except:
                     # Maybe there's no baseline file saved yet
                     # Synthesize one of the right shape
-                    baseline_dict = collections.defaultdict(lambda: [0, 0])
+                    baseline_dict = collections.defaultdict(lambda: [0, 1])
                     
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
@@ -832,7 +832,7 @@ class VGCITest(TestCase):
                     if not baseline_dict.has_key(key):
                         # We might get new graphs that aren't in the baseline file.
                         log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
-                        baseline_dict[key] = [0, 0]
+                        baseline_dict[key] = [0, 1]
                     
                     # Report on its stats after dumping reads, so that if there are
                     # too many bad reads and the stats are terrible we still can see
