@@ -1874,15 +1874,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 #endif
                 return -std::numeric_limits<double>::max();
             } else {
-                if (xindex->path_count) {
-                    dist = abs(xindex->min_approx_path_distance({}, id(m1_pos), id(m2_pos)));
-                }
-#ifdef debug_mapper
-#pragma omp critical
-                {
-                    if (debug) cerr << "---> true distance from " << m1_pos << " to " << m2_pos << " = "<< dist << endl;
-                }
-#endif
+
                 if (dist >= max_length) {
 #ifdef debug_mapper
 #pragma omp critical
