@@ -751,9 +751,13 @@ class VGCITest(TestCase):
                 if len(stats_dict[key]) > 0:
                     self.assertTrue(stats_dict[key][0] == reads)
                 if len(stats_dict[key]) > 1 and len(val) > 1:
+                    # Compare accuracy stats
                     self.assertTrue(stats_dict[key][1] >= val[1] - acc_threshold)
                 if len(stats_dict[key]) > 2 and len(val) > 2:
-                    self.assertTrue(stats_dict[key][2] >= val[2] - acc_threshold)
+                    # Compare AUC stats. Make sure to patch up 0 AUCs from perfect classification.
+                    new_auc = stats_dict[key][2] if stats_dict[key][2] != 0 else 1
+                    old_auc = val[2] if val[2] != 0 else 1
+                    self.assertTrue(new_auc >= old_auc - acc_threshold)
                 if len(stats_dict[key]) > 4 and len(val) > 4:
                     self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
                 if len(stats_dict[key]) != len(val):
@@ -789,9 +793,6 @@ class VGCITest(TestCase):
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
                     
-                # Make sure nothing has been removed
-                assert len(score_stats_dict) >= len(baseline_dict)
-                    
                 for key in score_stats_dict.iterkeys():
                     # For every kind of graph
                     
@@ -822,7 +823,9 @@ class VGCITest(TestCase):
                     if not baseline_dict.has_key(key):
                         # We might get new graphs that aren't in the baseline file.
                         log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
-                        baseline_dict[key] = [0, 0]
+                        # Store 0 for the read count, and 1 for the portion that got worse.
+                        # We need a conservative default baseline so new tests will pass.
+                        baseline_dict[key] = [0, 1]
                     
                     # Report on its stats after dumping reads, so that if there are
                     # too many bad reads and the stats are terrible we still can see
@@ -917,10 +920,8 @@ class VGCITest(TestCase):
         # sufficiently good. Compare all realignment scores agaisnt the scores
         # for the primary graph.
         self._test_mapeval(100000, 'BRCA1', 'snp1kg',
-                           ['primary', 'snp1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096', acc_threshold=0.02)
                            
     @skip("skipping test to keep runtime down")
@@ -928,7 +929,7 @@ class VGCITest(TestCase):
     def test_sim_mhc_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for MHC primary graph """        
         self._test_mapeval(100000, 'MHC', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'cactus', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg', 'common1kg'],
                            score_baseline_graph='primary',
                            positive_control='snp1kg_HG00096',
                            negative_control='snp1kg_minus_HG00096',
@@ -937,10 +938,8 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
-                           ['primary', 'snp1kg', 'common1kg', 'snp1kg_HG00096', 'snp1kg_minus_HG00096'],
+                           ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           positive_control='snp1kg_HG00096',
-                           negative_control='snp1kg_minus_HG00096',
                            sample='HG00096',
                            assembly="hg19",
                            acc_threshold=0.002)
