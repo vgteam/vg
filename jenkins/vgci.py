@@ -751,9 +751,13 @@ class VGCITest(TestCase):
                 if len(stats_dict[key]) > 0:
                     self.assertTrue(stats_dict[key][0] == reads)
                 if len(stats_dict[key]) > 1 and len(val) > 1:
+                    # Compare accuracy stats
                     self.assertTrue(stats_dict[key][1] >= val[1] - acc_threshold)
                 if len(stats_dict[key]) > 2 and len(val) > 2:
-                    self.assertTrue(stats_dict[key][2] >= val[2] - acc_threshold)
+                    # Compare AUC stats. Make sure to patch up 0 AUCs from perfect classification.
+                    new_auc = stats_dict[key][2] if stats_dict[key][2] != 0 else 1
+                    old_auc = val[2] if val[2] != 0 else 1
+                    self.assertTrue(new_auc >= old_auc - acc_threshold)
                 if len(stats_dict[key]) > 4 and len(val) > 4:
                     self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
                 if len(stats_dict[key]) != len(val):
