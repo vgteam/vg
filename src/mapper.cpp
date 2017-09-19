@@ -1773,9 +1773,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     aln2.set_quality(second_mate.quality());
     
     
-    // Align each end
-    auto first_alignments = align_multi(aln1);
-    auto second_alignments = align_multi(aln2);
+    // Align each end, asking for a few multimaps
+    // Make sure to specify a multimap count >max_multimaps
+    double cluster_mq1 = 0;
+    double cluster_mq2 = 0;
+    auto first_alignments = align_multi_internal(true, aln1, 0, 0, 0, 1000, cluster_mq1, min_multimaps, extra_multimaps, nullptr);
+    auto second_alignments = align_multi_internal(true, aln2, 0, 0, 0, 1000, cluster_mq2, min_multimaps, extra_multimaps, nullptr);
     
     if (first_alignments.empty()) {
         // Make sure we have at least an unmapped alignment of the first end
@@ -1919,8 +1922,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     }
     
     // Cram the alignments into a pair of vectors so we can do mapping qualities.
-    auto results = make_pair(vector<Alignment>{best.first}, vector<Alignment>{best.second});
-    compute_mapping_qualities(results, 0, max_mapping_quality, max_mapping_quality, max_mapping_quality, max_mapping_quality);
+    pair<vector<Alignment>, vector<Alignment>> results;
+    
+    for (auto alns : consistent_pairs) {
+        // Copy the alignments into this other internal format
+        results.first.push_back(alns.first);
+        results.second.push_back(alns.second);
+    }
+    
+    // Compute the mapping qualities
+    compute_mapping_qualities(results, (cluster_mq1 + cluster_mq2) / 2.0,
+        max_mapping_quality, max_mapping_quality, max_mapping_quality, max_mapping_quality);
+    
+    if (results.first.size() > max(max_multimaps, 1)) {
+        // Trim to correct size
+        results.first.resize(max(max_multimaps, 1));
+        results.second.resize(max(max_multimaps, 1));
+    }
     
     return results;
 }
