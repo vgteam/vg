@@ -362,7 +362,11 @@ class VGCITest(TestCase):
         f1_path = os.path.join(self._outstore(tag), f1_name)
         with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
-        baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+        try:
+            baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+        except:
+            # no baseline: assume we're running test for first time and compare to 0
+            baseline_f1 = 0
         
         # compare with threshold
         if not threshold:
@@ -688,12 +692,18 @@ class VGCITest(TestCase):
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
         with io.open(stats_path, 'r', encoding='utf8') as stats:
             stats_tsv = stats.read()
-        baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
-
         # Dict from aligner to a list of float stat values, in order
         stats_dict = self._tsv_to_dict(stats_tsv)
-        # Dict from aligner to a list of float stat values, in order
-        baseline_dict = self._tsv_to_dict(baseline_tsv)
+            
+        try:
+            baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
+
+            # Dict from aligner to a list of float stat values, in order
+            baseline_dict = self._tsv_to_dict(baseline_tsv)
+        except:
+            # Not having a baseline isn't an error.  Assume we're running test
+            # for first time and compare everything against 0's. 
+            baseline_dict = collections.defaultdict(float)
 
         # print out a table of mapeval results
         table_name = 'map eval results'
