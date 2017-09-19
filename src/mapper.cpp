@@ -1777,6 +1777,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     auto first_alignments = align_multi(aln1);
     auto second_alignments = align_multi(aln2);
     
+    if (first_alignments.empty()) {
+        // Make sure we have at least an unmapped alignment of the first end
+        first_alignments.push_back(aln1);
+    }
+    if (second_alignments.empty()) {
+        // Make sure we have at least an unmapped alignment of the second end
+        second_alignments.push_back(aln2);
+    }
+    
     // if we have references, annotate the alignments with their reference positions
     annotate_with_mean_path_positions(first_alignments);
     annotate_with_mean_path_positions(second_alignments);
