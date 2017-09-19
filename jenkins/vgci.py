@@ -823,7 +823,9 @@ class VGCITest(TestCase):
                     if not baseline_dict.has_key(key):
                         # We might get new graphs that aren't in the baseline file.
                         log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
-                        baseline_dict[key] = [0, 0]
+                        # Store 0 for the read count, and 1 for the portion that got worse.
+                        # We need a conservative default baseline so new tests will pass.
+                        baseline_dict[key] = [0, 1]
                     
                     # Report on its stats after dumping reads, so that if there are
                     # too many bad reads and the stats are terrible we still can see
