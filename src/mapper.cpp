@@ -1905,7 +1905,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                             if (debug) cerr << "OK with known fragment size" << endl;
                         }
 #endif
-                        return frag_stats.fragment_length_pval(dist) * read1.sequence().size();
+                        return frag_stats.fragment_length_pval(dist) * (m1.length() + m2.length());
                     }
                 } else {
 #ifdef debug_mapper
@@ -1914,7 +1914,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         if (debug) cerr << "OK with no fragment size" << endl;
                     }
 #endif
-                    return 1.0/dist;
+                    return 1.0/dist * (m1.length() + m2.length());
                 }
             }
         } else if (m1.fragment > m2.fragment) {
