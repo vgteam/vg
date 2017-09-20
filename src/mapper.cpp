@@ -1851,20 +1851,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         //double uniqueness = 2.0 / (m1.match_count + m2.match_count);
 
         // approximate distance by node lengths
-        int64_t approx_dist = approx_distance(m1_pos, m2_pos);
+        int64_t approx_dist = abs(approx_distance(m1_pos, m2_pos));
 
         // are the two mems in a different fragment?
         // we handle the distance metric differently in these cases
         if (m1.fragment < m2.fragment) {
             int64_t max_length = frag_stats.fragment_max;
-            int64_t dist = abs(approx_dist);
 #ifdef debug_mapper
 #pragma omp critical
             {
                 if (debug) cerr << "between fragment approx distance " << approx_dist << endl;
             }
 #endif
-            if (dist >= max_length) {
+            if (approx_dist >= max_length) {
                 // Seem to be too far appart
 #ifdef debug_mapper
 #pragma omp critical
@@ -1875,7 +1874,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 return -std::numeric_limits<double>::max();
             } else {
 
-                if (dist >= max_length) {
+                if (approx_dist >= max_length) {
 #ifdef debug_mapper
 #pragma omp critical
                     {
@@ -1889,7 +1888,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         && is_rev(m1_pos) == is_rev(m2_pos)
                         || frag_stats.cached_fragment_orientation
                         && is_rev(m1_pos) != is_rev(m2_pos)
-                        || dist > frag_stats.fragment_size) {
+                        || approx_dist > frag_stats.fragment_size) {
 #ifdef debug_mapper
 #pragma omp critical
                         {
@@ -1905,7 +1904,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                             if (debug) cerr << "OK with known fragment size" << endl;
                         }
 #endif
-                        return frag_stats.fragment_length_pval(dist) * (m1.length() + m2.length());
+                        return frag_stats.fragment_length_pval(approx_dist) * (m1.length() + m2.length());
                     }
                 } else {
 #ifdef debug_mapper
@@ -1914,7 +1913,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                         if (debug) cerr << "OK with no fragment size" << endl;
                     }
 #endif
-                    return 1.0/dist * (m1.length() + m2.length());
+                    return 1.0/approx_dist * (m1.length() + m2.length());
                 }
             }
         } else if (m1.fragment > m2.fragment) {
@@ -1932,7 +1931,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // find the difference in m1.end and m2.begin
             // find the positional difference in the graph between m1.end and m2.begin
             int duplicate_coverage = mems_overlap_length(m1, m2);
-            approx_dist = abs(approx_dist);
 #ifdef debug_mapper
 #pragma omp critical
             {
@@ -1960,7 +1958,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                     if (debug) cerr << "---> true distance " << distance << endl;
                 }
 #endif
-                if (distance == max_length) {
+                if (distance >= max_length) {
 #ifdef debug_mapper
 #pragma omp critical
                     {
