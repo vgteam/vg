@@ -237,7 +237,7 @@ then
     aws s3 cp --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
 
     # if we're merging the PR (and not just testing it), we publish results to the baseline
-    [ -z ${ghprbActualCommit} ]
+    if [ -z ${ghprbActualCommit} ]
     then
         echo "Updating baseline"
         aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
