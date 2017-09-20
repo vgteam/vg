@@ -2774,9 +2774,15 @@ Mapper::align_mem_multi(const Alignment& aln,
     for (auto& cluster : clusters) {
         if (alns.size() >= total_multimaps) { break; }
         // skip if we've filtered the cluster
-        if (to_drop.count(&cluster) && alns.size() >= min_multimaps) continue;
+        if (to_drop.count(&cluster) && alns.size() >= min_multimaps) {
+            alns.push_back(aln);
+            continue;
+        }
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
-        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) continue;
+        if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) {
+            alns.emplace_back(aln);
+            continue;
+        }
         Alignment candidate = align_cluster(aln, cluster, false);
         string sig = signature(candidate);
 
