@@ -410,7 +410,7 @@ class VGCITest(TestCase):
 
     def _mapeval_vg_run(self, reads, base_xg_path, sim_xg_paths, fasta_path,
                         test_index_bases, test_names, score_baseline_name,
-                        multipath, tag):
+                        multipath, sim_opts, sim_fastq, tag):
         """ Wrap toil-vg mapeval. 
         
         Evaluates realignments (to the linear reference and to a set of graphs)
@@ -456,7 +456,10 @@ class VGCITest(TestCase):
         # note, using the same seed only means something if using same
         # number of chunks.  we make that explicit here
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, 8, 8)
-        opts += '--sim_opts \'-l 150 -p 500 -v 50 -e 0.05 -i 0.01\' '
+        if sim_opts:
+            opts += '--sim_opts \'{}\' '.format(sim_opts)
+        if sim_fastq:
+            opts += '--fastq {} '.format(sim_fastq)
         opts += '--annotate_xg {} '.format(base_xg_path)
         cmd = 'toil-vg sim {} {} {} {} --gam {}'.format(
             job_store, ' '.join(sim_xg_paths), reads / 2, out_store, opts)
@@ -847,7 +850,8 @@ class VGCITest(TestCase):
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
                       positive_control=None, negative_control=None, sample=None, multipath=False,
-                      assembly="hg38", tag_ext="", acc_threshold=0):
+                      assembly="hg38", tag_ext="", acc_threshold=0,
+                      sim_opts='-l 150 -p 500 -v 50 -e 0.05 -i 0.01', sim_fastq=None):
         """ Run simulation on a bakeoff graph
         
         Simulate the given number of reads from the given baseline_graph
@@ -905,7 +909,7 @@ class VGCITest(TestCase):
             test_tag = '{}-{}'.format(test_graph, region)
             test_index_bases.append(os.path.join(self._outstore(tag), test_tag))
         self._mapeval_vg_run(reads, xg_path, sim_xg_paths, fasta_path, test_index_bases,
-                             test_graphs, score_baseline_graph, multipath, tag)
+                             test_graphs, score_baseline_graph, multipath, sim_opts, sim_fastq, tag)
         if self.verify:
             self._verify_mapeval(reads, baseline_graph, score_baseline_graph,
                                  positive_control, negative_control, tag,
@@ -955,7 +959,6 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap')
 
-
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
@@ -966,7 +969,9 @@ class VGCITest(TestCase):
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
-                           acc_threshold=0.02)        
+                           acc_threshold=0.02,
+                           sim_opts='-d 0.01 -p 1000 -v 75.0 -S 5',
+                           sim_fastq=self._input('platinum_NA12878_MHC.fq.gz'))
 
     @timeout_decorator.timeout(200)
     def test_map_brca1_primary(self):
