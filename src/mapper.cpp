@@ -1812,6 +1812,24 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         second_alignments.push_back(aln2);
     }
     
+    // We need a function to strip all duplicates from a vector and leave it in order.
+    auto deduplicate = [](vector<Alignment>& to_deduplicate) {
+        set<string> seen;
+        vector<Alignment> deduplicated;
+        
+        for (auto& aln : to_deduplicate) {
+            // Make a signature for each alignment
+            auto sig = signature(aln);
+            if (!seen.count(sig)) {
+                // Only keep alignments with new signatures
+                seen.insert(sig);
+                deduplicated.push_back(aln);
+            }
+        }
+        
+        swap(deduplicated, to_deduplicate);
+    };
+    
     // if we have references, annotate the alignments with their reference positions
     annotate_with_mean_path_positions(first_alignments);
     annotate_with_mean_path_positions(second_alignments);
@@ -1893,6 +1911,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         second_alignments.push_back(rescue2);
     }
     
+    // We might have duplicates from the rescue. Remove them.
+    deduplicate(first_alignments);
+    deduplicate(second_alignments);
+    
     // Make a list of pairs of consistent alignments
     vector<pair<Alignment, Alignment>> consistent_pairs;
     
@@ -1931,21 +1953,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     
     // Grab the best pair
     auto& best = consistent_pairs.front();
-    // Mark it primary
-    best.first.set_is_secondary(false);
-    best.second.set_is_secondary(false);
-    for (size_t i = 1; i < consistent_pairs.size(); i++) {
-        // And mark the others as secondary
-        auto& less_good = consistent_pairs[i];
-        less_good.first.set_is_secondary(true);
-        less_good.second.set_is_secondary(true);
-        
-        // And zero their MAPQs
-        less_good.first.set_mapping_quality(0);
-        less_good.second.set_mapping_quality(0);        
-    }
-    
-    // TODO: primary MAPQs
     
     for (int j = 0; j < best.first.fragment_size(); ++j) {
         // Go through all the lengths for the primary pair and feed them into
@@ -1969,7 +1976,46 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         }
     }
     
-    return make_pair(vector<Alignment>{best.first}, vector<Alignment>{best.second});
+    // Mark the best pair primary
+    best.first.set_is_secondary(false);
+    best.second.set_is_secondary(false);
+    
+    // Start off the results with that best pair
+    auto results = make_pair(vector<Alignment>{best.first}, vector<Alignment>{best.second});
+    
+    // Then copy over all the other multimappings
+    for (auto& aln : first_alignments) {
+        results.first.push_back(aln);
+    }
+    for (auto& aln : second_alignments) {
+        results.second.push_back(aln);
+    }
+    
+    // Deduplicate all the results, leaving the best pair first and then having any other unique mappings
+    deduplicate(results.first);
+    deduplicate(results.second);
+    
+    for (size_t i = 1; i < results.first.size(); i++) {
+        // Mark all secondaries for the first read
+        results.first[i].set_is_secondary(true);
+        results.first[i].set_mapping_quality(0);
+    }
+    for (size_t i = 1; i < results.second.size(); i++) {
+        // Mark all secondaries for the second read
+        results.second[i].set_is_secondary(true);
+        results.second[i].set_mapping_quality(0);
+    }
+    
+    compute_mapping_qualities(results, 0, max_mapping_quality, max_mapping_quality, max_mapping_quality, max_mapping_quality);
+    
+    // Make the results actually be exactly as before.
+    //results.first.resize(1);
+    //results.second.resize(1);
+    
+    results.first.resize(min(min(results.first.size(), results.second.size()), (size_t)max_multimaps));
+    results.second.resize(min(min(results.first.size(), results.second.size()), (size_t)max_multimaps));
+    
+    return results;
 }
 
             
