@@ -2251,6 +2251,31 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     sort_and_dedup();
     show_alignments("dedup");
 
+    // now add back in single-ended versions of everything
+    vector<pair<Alignment, Alignment> > se_alns;
+    vector<pair<vector<MaximalExactMatch>*, vector<MaximalExactMatch>*> > se_cluster_ptrs;
+    for (auto& p : aln_ptrs) {
+        auto& aln1 = p->first;
+        auto& aln2 = p->second;
+        // if both mates are aligned, add each single end into the mix
+        if (aln1.score() && aln2.score()) {
+            auto cluster_ptr = cluster_ptrs[aln_index[p]];
+            alns.emplace_back();
+            auto& p = alns.back();
+            p.first = aln1;
+            p.second = read2;
+            cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
+            alns.emplace_back();
+            auto& q = alns.back();
+            q.first = read1;
+            q.second = aln2;
+            cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
+        }
+    }
+    update_aln_ptrs();
+    sort_and_dedup();
+    show_alignments("singles");
+
     map<Alignment*, bool> rescued_aln;
     if (mate_rescues && frag_stats.fragment_size) {
         // go through the pairs and see if we need to rescue one side off the other
