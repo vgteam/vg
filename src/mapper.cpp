@@ -1770,10 +1770,13 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     // Guess whether we're doing quality-adjusted alignment, and figure out our
     // match score for use during rescue.
     int8_t match;
+    int8_t full_length_bonus;
     if (first_mate.quality().empty() || !adjust_alignments_for_base_quality) {
         match = regular_aligner->match;
+        full_length_bonus = regular_aligner->full_length_bonus;
     } else {
         match = qual_adj_aligner->match;
+        full_length_bonus = qual_adj_aligner->full_length_bonus;
     }
     
     // Copy only the parts of the alignments we want to keep.
@@ -1868,8 +1871,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
     assert(frag_stats.fragment_size);
     
     // Try and rescue each off the other
-    pair_rescue(real1, rescue2, match, true);
-    pair_rescue(rescue1, real2, match, true);
+    pair_rescue(real1, rescue2, match, full_length_bonus, true);
+    pair_rescue(rescue1, real2, match, full_length_bonus, true);
     
     if (real2.score() && rescue1.score()) {
         // Save the rescue products if they have nonzero score.
