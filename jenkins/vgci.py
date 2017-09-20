@@ -362,7 +362,11 @@ class VGCITest(TestCase):
         f1_path = os.path.join(self._outstore(tag), f1_name)
         with io.open(f1_path, 'r', encoding='utf8') as f1_file:
             f1_score = float(f1_file.readline().strip())
-        baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+        try:
+            baseline_f1 = float(self._read_baseline_file(tag, f1_name).strip())
+        except:
+            # no baseline: assume we're running test for first time and compare to 0
+            baseline_f1 = 0
         
         # compare with threshold
         if not threshold:
@@ -688,12 +692,18 @@ class VGCITest(TestCase):
         stats_path = os.path.join(self._outstore(tag), 'stats.tsv')
         with io.open(stats_path, 'r', encoding='utf8') as stats:
             stats_tsv = stats.read()
-        baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
-
         # Dict from aligner to a list of float stat values, in order
         stats_dict = self._tsv_to_dict(stats_tsv)
-        # Dict from aligner to a list of float stat values, in order
-        baseline_dict = self._tsv_to_dict(baseline_tsv)
+            
+        try:
+            baseline_tsv = self._read_baseline_file(tag, 'stats.tsv')
+
+            # Dict from aligner to a list of float stat values, in order
+            baseline_dict = self._tsv_to_dict(baseline_tsv)
+        except:
+            # Not having a baseline isn't an error.  Assume we're running test
+            # for first time and compare everything against 0's. 
+            baseline_dict = collections.defaultdict(float)
 
         # print out a table of mapeval results
         table_name = 'map eval results'
@@ -788,7 +798,7 @@ class VGCITest(TestCase):
                 except:
                     # Maybe there's no baseline file saved yet
                     # Synthesize one of the right shape
-                    baseline_dict = collections.defaultdict(lambda: [0, 0])
+                    baseline_dict = collections.defaultdict(lambda: [0, 1])
                     
                 # Parse out the real stat values
                 score_stats_dict = self._tsv_to_dict(io.open(score_stats_path, 'r', encoding='utf8').read())
@@ -823,6 +833,7 @@ class VGCITest(TestCase):
                     if not baseline_dict.has_key(key):
                         # We might get new graphs that aren't in the baseline file.
                         log.warning('Key {} missing from score baseline dict for {}. Inserting...'.format(key, compare_against))
+
                         # Store 0 for the read count, and 1 for the portion that got worse.
                         # We need a conservative default baseline so new tests will pass.
                         baseline_dict[key] = [0, 1]
