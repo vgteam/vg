@@ -1727,6 +1727,224 @@ bool Mapper::pair_consistent(const Alignment& aln1,
     return length_ok && orientation_ok;
 }
 
+pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_trivial(
+    const Alignment& first_mate,
+    const Alignment& second_mate,
+    bool& queued_resolve_later,
+    int max_mem_length,
+    bool only_top_scoring_pair,
+    bool retrying) {
+    
+    // Align each end
+    auto first_alignments = align_multi(first_mate);
+    auto second_alignments = align_multi(second_mate);
+    
+    // Make sure we have the same number of each
+    size_t min_size = min(first_alignments.size(), second_alignments.size());
+    
+    if (only_top_scoring_pair) {
+        // Do at most one pair
+        min_size = min(min_size, (size_t) 1);
+    }
+    
+    first_alignments.resize(min_size);
+    second_alignments.resize(min_size);
+    
+    // Just pair them up arbitrarily
+    return make_pair(first_alignments, second_alignments);
+    
+}
+
+pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
+    const Alignment& first_mate,
+    const Alignment& second_mate,
+    bool& queued_resolve_later,
+    int max_mem_length,
+    bool only_top_scoring_pair,
+    bool retrying) {
+    
+    // Copy only the parts of the alignments we want to keep.
+    Alignment aln1, aln2;
+    aln1.set_name(first_mate.name());
+    aln1.set_sequence(first_mate.sequence());
+    aln1.set_quality(first_mate.quality());
+    aln2.set_name(second_mate.name());
+    aln2.set_sequence(second_mate.sequence());
+    aln2.set_quality(second_mate.quality());
+    
+    
+    // Align each end, asking for a few multimaps
+    // Make sure to specify a multimap count >max_multimaps
+    double cluster_mq1 = 0;
+    double cluster_mq2 = 0;
+    auto first_alignments = align_multi_internal(true, aln1, 0, 0, 0, 1000, cluster_mq1, 2, extra_multimaps, nullptr);
+    auto second_alignments = align_multi_internal(true, aln2, 0, 0, 0, 1000, cluster_mq2, 2, extra_multimaps, nullptr);
+    
+    if (first_alignments.empty()) {
+        // Make sure we have at least an unmapped alignment of the first end
+        first_alignments.push_back(aln1);
+    }
+    if (second_alignments.empty()) {
+        // Make sure we have at least an unmapped alignment of the second end
+        second_alignments.push_back(aln2);
+    }
+    
+    // if we have references, annotate the alignments with their reference positions
+    annotate_with_mean_path_positions(first_alignments);
+    annotate_with_mean_path_positions(second_alignments);
+    
+    if (!frag_stats.fragment_size) {
+        // There's no distribution ready yet
+        
+        assert(!retrying);
+        
+        // If the reads can be a perfect pair, we will pair and emit them.
+        // Otherwise, we will postpone them.
+        bool can_be_perfect_pair = false;
+        
+        // Compute fragment lengths for the pair of the top two alignments
+        auto approx_frag_lengths = approx_pair_fragment_length(first_alignments.front(), second_alignments.front());
+        // Add them to the alignments, and mark the pair as consistent or not
+        frag_stats.save_frag_lens_to_alns(first_alignments.front(), second_alignments.front(), approx_frag_lengths,
+            pair_consistent(first_alignments.front(), second_alignments.front(), 0.01));
+        
+        for (int j = 0; j < first_alignments.front().fragment_size(); ++j) {
+            // Consider all the possible fragment lengths between these reads
+            int length = first_alignments.front().fragment(j).length();
+            
+            // Are the top two hits a perfect pair, on this separation?
+            bool perfect_pair = first_alignments.size() == 1
+                && second_alignments.size() == 1
+                && first_alignments.front().identity() > frag_stats.perfect_pair_identity_threshold
+                && second_alignments.front().identity() > frag_stats.perfect_pair_identity_threshold
+                && (frag_stats.fragment_size && abs(length) < frag_stats.fragment_size
+                    || !frag_stats.fragment_size && abs(length) < frag_stats.fragment_max);
+                    
+            if (perfect_pair) {
+                // If so, record it.
+                // We'll record the perfect-ness for every length that fits the criteria
+                frag_stats.record_fragment_configuration(length, first_alignments.front(), second_alignments.front());
+            }
+            
+            // Remember we can have a perfect pair and so we should emit this pair.
+            can_be_perfect_pair |= perfect_pair;
+            
+        }
+        
+        if (can_be_perfect_pair) {
+            // Return the perfect pair we have
+            return make_pair(first_alignments, second_alignments);
+        } else {
+            // We aren't a perfect pair, so queue for later
+            imperfect_pairs_to_retry.push_back(make_pair(aln1, aln2));
+            queued_resolve_later = true;
+            
+            // Give back no alignments
+            return make_pair(vector<Alignment>(), vector<Alignment>());
+        }
+        
+    }
+    
+    // Otherwise, use the distribution
+    
+    // Make a list of pairs of consistent alignments
+    vector<pair<Alignment, Alignment>> consistent_pairs;
+    
+    for (const auto& first_alignment : first_alignments) {
+        for (const auto& second_alignment : second_alignments) {
+            // For each possible pair
+            auto alignment_pair = make_pair(first_alignment, second_alignment);
+
+            bool consistent = pair_consistent(alignment_pair.first, alignment_pair.second, 0.01);            
+
+            if (!consistent) {
+                // This pair is inconsistent, so filter it.
+                continue;
+            }
+
+            // Compute fragment lengths
+            auto approx_frag_lengths = approx_pair_fragment_length(alignment_pair.first, alignment_pair.second);
+            // Add them to the alignments, and mark the pair as consistent
+            frag_stats.save_frag_lens_to_alns(alignment_pair.first, alignment_pair.second, approx_frag_lengths, consistent);
+            
+            // Put the pair in the list of consistent pairs
+            consistent_pairs.push_back(make_pair(first_alignment, second_alignment));   
+        }
+    }
+    
+    if (consistent_pairs.empty()) {
+        // No consistent mapping! Return unmapped inputs.
+        // TODO: copy and clear their paths?
+        return make_pair(vector<Alignment>{aln1}, vector<Alignment>{aln2});
+    }
+    
+    sort(consistent_pairs.begin(), consistent_pairs.end(), [](const pair<Alignment, Alignment>& a, const pair<Alignment, Alignment>& b) -> bool { 
+        // Sort the list of pairs by total score, descending
+        return a.first.score() + a.second.score() > b.first.score() + b.second.score();
+    });
+    
+    // Grab the best pair
+    auto& best = consistent_pairs.front();
+    // Mark it primary
+    best.first.set_is_secondary(false);
+    best.second.set_is_secondary(false);
+    for (size_t i = 1; i < consistent_pairs.size(); i++) {
+        // And mark the others as secondary
+        auto& less_good = consistent_pairs[i];
+        less_good.first.set_is_secondary(true);
+        less_good.second.set_is_secondary(true);
+        
+        // And zero their MAPQs
+        less_good.first.set_mapping_quality(0);
+        less_good.second.set_mapping_quality(0);        
+    }
+    
+    // Just average the mapping qualities for the best pair
+    double average_mapq = (best.first.mapping_quality() + best.second.mapping_quality()) / 2;
+    best.first.set_mapping_quality(average_mapq);
+    best.second.set_mapping_quality(average_mapq);
+    
+    for (int j = 0; j < best.first.fragment_size(); ++j) {
+        // Go through all the lengths for the primary pair and feed them into
+        // the fragment length distribution if the pair is perfect
+    
+        // Consider all the possible fragment lengths between these reads
+        int length = best.first.fragment(j).length();
+        
+        // Are the top two hits a perfect pair, on this separation?
+        bool perfect_pair = first_alignments.size() == 1
+            && second_alignments.size() == 1
+            && best.first.identity() > frag_stats.perfect_pair_identity_threshold
+            && best.second.identity() > frag_stats.perfect_pair_identity_threshold
+            && (frag_stats.fragment_size && abs(length) < frag_stats.fragment_size
+                || !frag_stats.fragment_size && abs(length) < frag_stats.fragment_max);
+                
+        if (perfect_pair) {
+            // If so, record it.
+            // We'll record the perfect-ness for every length that fits the criteria
+            frag_stats.record_fragment_configuration(length, best.first, best.second);
+        }
+    }
+    
+    // Cram the alignments into a pair of vectors
+    pair<vector<Alignment>, vector<Alignment>> results;
+    for (auto alns : consistent_pairs) {
+        // Copy the alignments into this other internal format
+        results.first.push_back(alns.first);
+        results.second.push_back(alns.second);
+    }
+    
+    if (results.first.size() > max(max_multimaps, 1)) {
+        // Trim to correct size
+        results.first.resize(max(max_multimaps, 1));
+        results.second.resize(max(max_multimaps, 1));
+    }
+    
+    return results;
+}
+
+            
+
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     const Alignment& first_mate,
     const Alignment& second_mate,
