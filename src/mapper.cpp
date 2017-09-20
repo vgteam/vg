@@ -1557,8 +1557,8 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
     bool rescued1 = false;
     bool rescued2 = false;
     if (!frag_stats.fragment_size) return make_pair(false, false);
-    double hang_threshold = 0.6;
-    double retry_threshold = 0.7;
+    double hang_threshold = 0.5;
+    double retry_threshold = 0.5;
     double perfect_score = mate1.sequence().size() * match_score + full_length_bonus;
     bool consistent = (mate1.score() > 0 && mate2.score() > 0 && pair_consistent(mate1, mate2, 0.01));
     //double retry_threshold = mate1.sequence().size() * aligner->match * 0.3;
@@ -1627,7 +1627,12 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         }
 #endif
         if (aln2.score() > mate2.score() && (double)aln2.score()/perfect_score > retry_threshold && pair_consistent(mate1, aln2, 0.0001)) {
-            //cerr << "rescued aln2" << endl;
+#ifdef debug_mapper
+#pragma omp critical
+            {
+                if (debug)cerr << "rescued aln2" << endl;
+            }
+#endif
             mate2 = aln2;
             rescued2 = true;
         } else {
@@ -1645,7 +1650,12 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2, int mat
         }
 #endif
         if (aln1.score() > mate1.score() && (double)aln1.score()/perfect_score > retry_threshold && pair_consistent(aln1, mate2, 0.0001)) {
-            //cerr << "rescued aln1" << endl;
+#ifdef debug_mapper
+#pragma omp critical
+            {
+                if (debug)cerr << "rescued aln1" << endl;
+            }
+#endif
             mate1 = aln1;
             rescued1 = true;
         } else {
