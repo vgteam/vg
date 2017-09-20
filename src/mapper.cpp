@@ -2801,11 +2801,13 @@ Mapper::align_mem_multi(const Alignment& aln,
         // skip if we've filtered the cluster
         if (to_drop.count(&cluster) && alns.size() >= min_multimaps) {
             alns.push_back(aln);
+            used_clusters.push_back(&cluster);
             continue;
         }
         // skip if we've got enough multimaps to get MQ and we're under the min cluster length
         if (min_cluster_length && cluster_coverage(cluster) < min_cluster_length && alns.size() > 1) {
             alns.emplace_back(aln);
+            used_clusters.push_back(&cluster);
             continue;
         }
         Alignment candidate = align_cluster(aln, cluster, false);
@@ -2828,6 +2830,8 @@ Mapper::align_mem_multi(const Alignment& aln,
         }
 
     }
+    
+    assert(alns.size() == used_clusters.size());
 
 #pragma omp critical
     if (debug) {
@@ -2881,14 +2885,14 @@ Mapper::align_mem_multi(const Alignment& aln,
                         == make_pos_t(aln2->path().mapping(0).position()));
             }),
         aln_ptrs.end());
-    if (alns.size()) {
+    if (aln_ptrs.size()) {
         vector<Alignment> best_alns;
         int i = 0;
-        for ( ; i < min((int)alns.size(), keep_multimaps); ++i) {
-            Alignment* alnp = aln_ptrs[i];
+        for ( ; i < min((int)aln_ptrs.size(), keep_multimaps); ++i) {
+            Alignment* alnp = aln_ptrs.at(i);
             // only realign if we haven't yet
             if (!alignment_to_length(*alnp)) {
-                auto& cluster = *used_clusters[aln_index[alnp]];
+                auto& cluster = *used_clusters.at(aln_index.at(alnp));
                 Alignment candidate = align_cluster(aln, cluster, true);
                 best_alns.push_back(candidate);
             }
