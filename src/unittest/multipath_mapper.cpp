@@ -64,11 +64,12 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
         // Make a MEM hit
         mems.emplace_back(read.begin(), read.begin() + 5, make_pair(5, 5), 1);
         // Drop it on some arbitrary node
-        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
-        
         // Do it again
         mems.emplace_back(read.begin() + 2, read.end(), make_pair(6, 6), 1);
-        mem_hits.emplace_back(&mems.back(), make_pos_t(888, false, 3));
+        
+        // Point into vector *after* it's done.
+        mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
+        mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
         auto covered = MultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
@@ -77,12 +78,12 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
     SECTION("Two abutting hits cover the string") {
         // Make a MEM hit
         mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
-        // Drop it on some arbitrary node
-        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
-        
         // Do it again
         mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
-        mem_hits.emplace_back(&mems.back(), make_pos_t(888, false, 3));
+
+        // Point into vector *after* it's done.
+        mem_hits.emplace_back(&mems[0], make_pos_t(999, false, 3));
+        mem_hits.emplace_back(&mems[1], make_pos_t(888, false, 3));
         
         auto covered = MultipathMapper::read_coverage(mem_hits);
         REQUIRE(covered == read.size());
