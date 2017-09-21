@@ -730,7 +730,7 @@ class VGCITest(TestCase):
             if negative_control and key in [negative_control, negative_control + '-pe']:
                 method += '**'
             def r4(s):
-                return round(s, 4) if isinstance(s, float) else s 
+                return round(s, 5) if isinstance(s, float) else s 
                 
             row = [method]
             for metric_index in [1, 2, 4]:
