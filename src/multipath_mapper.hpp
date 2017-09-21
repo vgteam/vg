@@ -79,8 +79,13 @@ namespace vg {
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
         
-        // We often pass around clusters of MEMs and their graph positions.
+        /// We often pass around clusters of MEMs and their graph positions.
         using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
+        
+        /// This represents a graph for a cluster, and holds a pointer to the
+        /// actual extracted graph, the MEM cluster it was extracted for, and
+        /// the number of bases of read coverage that that MEM cluster provides.
+        using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
         
         ////////////////////////////////////////////////////////////////////////
         // Testable utility methods
@@ -98,7 +103,7 @@ namespace vg {
                                          const Alignment& alignment,
                                          const vector<MaximalExactMatch>& mems,
                                          const vector<memcluster_t>& clusters,
-                                         vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs_out);
+                                         vector<clustergraph_t>& cluster_graphs_out);
         
     private:
         
@@ -113,7 +118,7 @@ namespace vg {
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,
                                      MappingQualityMethod mapq_method,
-                                     vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs,
+                                     vector<clustergraph_t>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
                                      size_t max_alt_mappings);
         
@@ -126,7 +131,7 @@ namespace vg {
         void query_cluster_graphs(const Alignment& alignment,
                                   const vector<MaximalExactMatch>& mems,
                                   const vector<memcluster_t>& clusters,
-                                  vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs_out);
+                                  vector<clustergraph_t>& cluster_graphs_out);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
