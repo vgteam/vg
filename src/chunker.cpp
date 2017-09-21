@@ -193,7 +193,7 @@ int64_t PathChunker::extract_gam_for_ids(vector<vg::id_t>& graph_ids,
         index.for_alignment_to_nodes(graph_ids, write_alignment);
     } else {
         if (contiguous) {
-            index.for_alignment_in_range(*graph_ids.begin(), *graph_ids.end(), write_alignment);
+            index.for_alignment_in_range(graph_ids[0], graph_ids[graph_ids.size() - 1], write_alignment);
         } else {
             std::sort(graph_ids.begin(), graph_ids.end());
             size_t range_start = 0;
