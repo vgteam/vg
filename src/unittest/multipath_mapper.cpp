@@ -11,6 +11,85 @@
 namespace vg {
 namespace unittest {
     
+TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipathmapper]" ) {
+
+    // Make up some MEMs
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs
+    vector<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
+    
+    // We need a fake read
+    string read("GATTACA");
+    
+    SECTION("No hits cover no bases") {
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == 0);
+    }
+    
+    SECTION("A hit of zero length covers 0 bases") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin(), make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == 0);
+    }
+    
+    SECTION("A hit that one-past-the-ends just after its start position covers 1 base") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin() + 1, make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == 1);
+    }
+    
+    SECTION("A hit that ends at the end of the string covers the string") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.end(), make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == read.size());
+    }
+    
+    SECTION("Two overlapping hits still only cover the string once") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin() + 5, make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        // Do it again
+        mems.emplace_back(read.begin() + 2, read.end(), make_pair(6, 6), 1);
+        mem_hits.emplace_back(&mems.back(), make_pos_t(888, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == read.size());
+    }
+    
+    SECTION("Two abutting hits cover the string") {
+        // Make a MEM hit
+        mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        // Drop it on some arbitrary node
+        mem_hits.emplace_back(&mems.back(), make_pos_t(999, false, 3));
+        
+        // Do it again
+        mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
+        mem_hits.emplace_back(&mems.back(), make_pos_t(888, false, 3));
+        
+        auto covered = MultipathMapper::read_coverage(mem_hits);
+        REQUIRE(covered == read.size());
+    }
+
+}
+    
 TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][multipathmapper]" ) {
     
     string graph_json = R"({
