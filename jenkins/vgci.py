@@ -957,7 +957,8 @@ class VGCITest(TestCase):
         self._test_mapeval(50000, 'BRCA2', 'snp1kg',
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           sample='HG00096', multipath=True, tag_ext='-mpmap')
+                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           acc_threshold=0.02)
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg_mpmap(self):
