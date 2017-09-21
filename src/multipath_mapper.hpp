@@ -88,6 +88,15 @@ namespace vg {
         /// Computes the number of read bases a cluster of MEM hits covers.
         static int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
         
+        /// Backing cluster graph finding algorithm.
+        static void query_cluster_graphs(const BaseAligner* aligner,
+                                         xg::XG* xindex,
+                                         LRUCache<long int, vg::Node>& node_cache,
+                                         const Alignment& alignment,
+                                         const vector<MaximalExactMatch>& mems,
+                                         const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
+                                         vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out);
+        
     private:
         
         /// Wrapped internal function that allows some code paths to circumvent the current

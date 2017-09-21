@@ -527,6 +527,19 @@ namespace vg {
                                                const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
                                                vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out) {
         
+        // Call the static implementation and point it at the parts of us it needs
+        query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters, cluster_graphs_out);
+                                               
+    }
+    
+    void MultipathMapper::query_cluster_graphs(const BaseAligner* aligner,
+                                               xg::XG* xindex,
+                                               LRUCache<long int, vg::Node>& node_cache,
+                                               const Alignment& alignment,
+                                               const vector<MaximalExactMatch>& mems,
+                                               const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
+                                               vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out) {
+        
         // we will ensure that nodes are in only one cluster, use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
         
@@ -553,7 +566,6 @@ namespace vg {
             forward_max_dist.reserve(cluster.size());
             backward_max_dist.reserve(cluster.size());
             
-            auto aligner = get_aligner();
             for (auto& mem_hit : cluster) {
                 // get the start position of the MEM
                 positions.push_back(mem_hit.second);
@@ -575,7 +587,7 @@ namespace vg {
             
             // extract the protobuf Graph in place in the VG
             algorithms::extract_containing_graph(*xindex, graph, positions, forward_max_dist,
-                                                 backward_max_dist, &get_node_cache());
+                                                 backward_max_dist, &node_cache);
             
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
