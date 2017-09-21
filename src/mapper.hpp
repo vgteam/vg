@@ -175,7 +175,9 @@ public:
                    double& lcp_avg,
                    int max_mem_length = 0,
                    int min_mem_length = 1,
-                   int reseed_length = 0);
+                   int reseed_length = 0,
+                   bool use_lcp_reseed_heuristic = true,
+                   bool use_diff_based_fast_reseed = false);
     
     // Use the GCSA2 index to find super-maximal exact matches.
     vector<MaximalExactMatch>
@@ -203,7 +205,7 @@ protected:
     /// Locate the sub-MEMs contained in the last MEM of the mems vector that have ending positions
     /// before the end the next SMEM, label each of the sub-MEMs with the indices of all of the SMEMs
     /// that contain it
-    void find_sub_mems(vector<MaximalExactMatch>& mems,
+    void find_sub_mems(const vector<MaximalExactMatch>& mems,
                        string::const_iterator next_mem_end,
                        int min_mem_length,
                        vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
@@ -211,7 +213,7 @@ protected:
     /// Provides same semantics as find_sub_mems but with a different algorithm. This algorithm uses the
     /// min_mem_length as a pruning tool instead of the LCP index. It can be expected to be faster when both
     /// the min_mem_length reasonably large relative to the reseed_length (e.g. 1/2 of SMEM size or similar).
-    void find_sub_mems_fast(vector<MaximalExactMatch>& mems,
+    void find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                             string::const_iterator next_mem_end,
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
