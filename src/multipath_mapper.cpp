@@ -67,12 +67,14 @@ namespace vg {
         
         // cluster the MEMs
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters;
+        // TODO: Making OrientedDistanceClusterers is the only place we actually
+        // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer(alignment, mems, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer(alignment, mems, *get_qual_adj_aligner(), xindex, max_expected_dist_approx_error);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
-            OrientedDistanceClusterer clusterer(alignment, mems, *regular_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer(alignment, mems, *get_regular_aligner(), xindex, max_expected_dist_approx_error);
             clusters = clusterer.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         
@@ -230,15 +232,8 @@ namespace vg {
                 MultipathAlignment& multipath_aln_1 = multipath_alns_1.front();
                 MultipathAlignment& multipath_aln_2 = multipath_alns_2.front();
                 
-                int32_t match_score, full_length_bonus;
-                if (adjust_alignments_for_base_quality) {
-                    match_score = qual_adj_aligner->match;
-                    full_length_bonus = qual_adj_aligner->full_length_bonus;
-                }
-                else {
-                    match_score = regular_aligner->match;
-                    full_length_bonus = regular_aligner->full_length_bonus;
-                }
+                auto match_score = get_aligner()->match;
+                auto full_length_bonus = get_aligner()->full_length_bonus;
                 
                 // score possible of a perfect match (at full base quality)
                 int32_t max_score_1 = multipath_aln_1.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
@@ -320,15 +315,21 @@ namespace vg {
         
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters1;
         vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters2;
+        // TODO: Making OrientedDistanceClusterers is the only place we actually
+        // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *qual_adj_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_qual_adj_aligner(), xindex,
+                                                 max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_qual_adj_aligner(), xindex, 
+                                                 max_expected_dist_approx_error);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
         else {
-            OrientedDistanceClusterer clusterer1(alignment1, mems1, *regular_aligner, xindex, max_expected_dist_approx_error);
-            OrientedDistanceClusterer clusterer2(alignment2, mems2, *regular_aligner, xindex, max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer1(alignment1, mems1, *get_regular_aligner(), xindex,
+                                                 max_expected_dist_approx_error);
+            OrientedDistanceClusterer clusterer2(alignment2, mems2, *get_regular_aligner(), xindex,
+                                                 max_expected_dist_approx_error);
             clusters1 = clusterer1.clusters(max_mapping_quality, log_likelihood_approx_factor);
             clusters2 = clusterer2.clusters(max_mapping_quality, log_likelihood_approx_factor);
         }
@@ -552,27 +553,15 @@ namespace vg {
             forward_max_dist.reserve(cluster.size());
             backward_max_dist.reserve(cluster.size());
             
-            if (adjust_alignments_for_base_quality) {
-                for (auto& mem_hit : cluster) {
-                    // get the start position of the MEM
-                    positions.push_back(mem_hit.second);
-                    // search far enough away to get any hit detectable without soft clipping
-                    forward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->end)
-                                               + (alignment.sequence().end() - mem_hit.first->begin));
-                    backward_max_dist.push_back(qual_adj_aligner->longest_detectable_gap(alignment, mem_hit.first->begin)
-                                                + (mem_hit.first->begin - alignment.sequence().begin()));
-                }
-            }
-            else {
-                for (auto& mem_hit : cluster) {
-                    // get the start position of the MEM
-                    positions.push_back(mem_hit.second);
-                    // search far enough away to get any hit detectable without soft clipping
-                    forward_max_dist.push_back(regular_aligner->longest_detectable_gap(alignment, mem_hit.first->end)
-                                               + (alignment.sequence().end() - mem_hit.first->begin));
-                    backward_max_dist.push_back(regular_aligner->longest_detectable_gap(alignment, mem_hit.first->begin)
-                                                + (mem_hit.first->begin - alignment.sequence().begin()));
-                }
+            auto aligner = get_aligner();
+            for (auto& mem_hit : cluster) {
+                // get the start position of the MEM
+                positions.push_back(mem_hit.second);
+                // search far enough away to get any hit detectable without soft clipping
+                forward_max_dist.push_back(aligner->longest_detectable_gap(alignment, mem_hit.first->end)
+                                           + (alignment.sequence().end() - mem_hit.first->begin));
+                backward_max_dist.push_back(aligner->longest_detectable_gap(alignment, mem_hit.first->begin)
+                                            + (mem_hit.first->begin - alignment.sequence().begin()));
             }
             
             
@@ -794,9 +783,7 @@ namespace vg {
 #endif
         
         // the longest path we could possibly align to (full gap and a full sequence)
-        size_t target_length = alignment.sequence().size() +
-                               (adjust_alignments_for_base_quality ? qual_adj_aligner->longest_detectable_gap(alignment)
-                                                                   : regular_aligner->longest_detectable_gap(alignment));
+        size_t target_length = alignment.sequence().size() + get_aligner()->longest_detectable_gap(alignment);
         
         // convert from bidirected to directed
         unordered_map<id_t, pair<id_t, bool> > node_trans;
@@ -866,8 +853,7 @@ namespace vg {
 #endif
         
         // prune this graph down the paths that have reasonably high likelihood
-        multi_aln_graph.prune_to_high_scoring_paths(alignment, adjust_alignments_for_base_quality ? *((BaseAligner*) qual_adj_aligner)
-                                                                                                  : *((BaseAligner*) regular_aligner),
+        multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                     max_suboptimal_path_score_diff, topological_order);
         
 #ifdef debug_multipath_mapper
@@ -896,26 +882,16 @@ namespace vg {
 #endif
         
         // add a subpath for each of the exact match nodes
-        if (adjust_alignments_for_base_quality) {
-            for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
-                ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
-                Subpath* subpath = multipath_aln_out.add_subpath();
-                *subpath->mutable_path() = match_node.path;
-                int32_t match_score = qual_adj_aligner->score_exact_match(match_node.begin, match_node.end,
-                                                                          alignment.quality().begin() + (match_node.begin - alignment.sequence().begin()));
-                subpath->set_score(match_score + qual_adj_aligner->full_length_bonus * ((match_node.begin == alignment.sequence().begin()) +
-                                                                                        (match_node.end == alignment.sequence().end())));
-            }
-        }
-        else {
-            for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
-                ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
-                Subpath* subpath = multipath_aln_out.add_subpath();
-                *subpath->mutable_path() = match_node.path;
-                int32_t match_score = regular_aligner->score_exact_match(match_node.begin, match_node.end);
-                subpath->set_score(match_score + regular_aligner->full_length_bonus * ((match_node.begin == alignment.sequence().begin()) +
-                                                                                       (match_node.end == alignment.sequence().end())));
-            }
+        for (int64_t j = 0; j < multi_aln_graph.match_nodes.size(); j++) {
+            ExactMatchNode& match_node = multi_aln_graph.match_nodes[j];
+            Subpath* subpath = multipath_aln_out.add_subpath();
+            *subpath->mutable_path() = match_node.path;
+            int32_t match_score = get_aligner()->score_exact_match(match_node.begin, match_node.end,
+                alignment.quality().begin() + (match_node.begin - alignment.sequence().begin()));
+                
+            subpath->set_score(match_score + get_aligner()->full_length_bonus *
+                ((match_node.begin == alignment.sequence().begin()) +
+                (match_node.end == alignment.sequence().end())));
         }
         
 #ifdef debug_multipath_mapper
@@ -959,8 +935,7 @@ namespace vg {
                                        final_mapping_position.offset() + mapping_from_length(final_mapping) - 1);
             
             // the longest gap that could be detected at this position in the read
-            size_t src_max_gap = adjust_alignments_for_base_quality ? qual_adj_aligner->longest_detectable_gap(alignment, src_match_node.end)
-                                                                    : regular_aligner->longest_detectable_gap(alignment, src_match_node.end);
+            size_t src_max_gap = get_aligner()->longest_detectable_gap(alignment, src_match_node.end);
             
             unordered_set<pair<size_t, size_t>> edges_for_removal;
             
@@ -973,14 +948,13 @@ namespace vg {
 #endif
                 
                 size_t intervening_length = dest_match_node.begin - src_match_node.end;
-                size_t max_dist = intervening_length + std::min(src_max_gap, adjust_alignments_for_base_quality ?
-                                                                qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin)
-                                                                : regular_aligner->longest_detectable_gap(alignment, dest_match_node.begin)) + 1;
+                size_t max_dist = intervening_length +
+                    std::min(src_max_gap, get_aligner()->longest_detectable_gap(alignment, dest_match_node.begin)) + 1;
                 
 #ifdef debug_multipath_mapper
-                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << (adjust_alignments_for_base_quality ?
-                qual_adj_aligner->longest_detectable_gap(alignment, dest_match_node.begin)
-                : regular_aligner->longest_detectable_gap(alignment, dest_match_node.begin)) << endl;
+                cerr << "read dist: " << intervening_length << ", source max gap: "
+                     << src_max_gap << ", dest max gap "
+                     << get_aligner()->longest_detectable_gap(alignment, dest_match_node.begin) << endl;
 #endif
                 
                 // extract the graph between the matches
@@ -1020,14 +994,8 @@ namespace vg {
                 // TODO a better way of choosing the number of alternate alignments
                 // TODO alternate alignments restricted only to distinct node paths?
                 vector<Alignment> alt_alignments;
-                if (adjust_alignments_for_base_quality) {
-                    qual_adj_aligner->align_global_banded_multi(intervening_sequence, alt_alignments,
-                                                                connecting_graph, num_alt_alns, band_padding, true);
-                }
-                else {
-                    regular_aligner->align_global_banded_multi(intervening_sequence, alt_alignments,
-                                                               connecting_graph, num_alt_alns, band_padding, true);
-                }
+                get_aligner()->align_global_banded_multi(intervening_sequence, alt_alignments,
+                                                         connecting_graph, num_alt_alns, band_padding, true);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_mapper
@@ -1234,8 +1202,7 @@ namespace vg {
                     Subpath* sink_subpath = multipath_aln_out.mutable_subpath(j);
                     
                     int64_t target_length = (alignment.sequence().end() - match_node.end) +
-                                            (adjust_alignments_for_base_quality ? qual_adj_aligner->longest_detectable_gap(alignment, match_node.end)
-                                                                               : regular_aligner->longest_detectable_gap(alignment, match_node.end));
+                                            get_aligner()->longest_detectable_gap(alignment, match_node.end);
                     pos_t end_pos = final_position(match_node.path);
                     // want past-the-last instead of last index here
                     get_offset(end_pos)++;
@@ -1269,8 +1236,7 @@ namespace vg {
                         // edge case for when a read keeps going past the end of a graph
                         alt_alignments.emplace_back();
                         Alignment& tail_alignment = alt_alignments.back();
-                        tail_alignment.set_score(adjust_alignments_for_base_quality ? qual_adj_aligner->score_gap(right_tail_sequence.sequence().size())
-                                                                                    : regular_aligner->score_gap(right_tail_sequence.sequence().size()));
+                        tail_alignment.set_score(get_aligner()->score_gap(right_tail_sequence.sequence().size()));
                         Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
                         
                         // add a soft clip
@@ -1294,12 +1260,7 @@ namespace vg {
                     }
                     else {
                         // align against the graph
-                        if (adjust_alignments_for_base_quality) {
-                            qual_adj_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                        }
-                        else {
-                            regular_aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                        }
+                        get_aligner()->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                     }
                     
 #ifdef debug_multipath_mapper
@@ -1338,8 +1299,7 @@ namespace vg {
                 if (match_node.begin != alignment.sequence().begin()) {
                     
                     int64_t target_length = (match_node.begin - alignment.sequence().begin()) +
-                                            (adjust_alignments_for_base_quality ? qual_adj_aligner->longest_detectable_gap(alignment, match_node.begin)
-                                                                               : regular_aligner->longest_detectable_gap(alignment, match_node.begin));
+                                            get_aligner()->longest_detectable_gap(alignment, match_node.begin);
                     pos_t begin_pos = initial_position(match_node.path);
 
                     
@@ -1369,8 +1329,7 @@ namespace vg {
                         // edge case for when a read keeps going past the end of a graph
                         alt_alignments.emplace_back();
                         Alignment& tail_alignment = alt_alignments.back();
-                        tail_alignment.set_score(adjust_alignments_for_base_quality ? qual_adj_aligner->score_gap(left_tail_sequence.sequence().size())
-                                                                                    : regular_aligner->score_gap(left_tail_sequence.sequence().size()));
+                        tail_alignment.set_score(get_aligner()->score_gap(left_tail_sequence.sequence().size()));
                         Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
                         
                         // add a soft clip
@@ -1388,12 +1347,7 @@ namespace vg {
                         tail_trans[node_id] = node_id;
                     }
                     else {
-                        if (adjust_alignments_for_base_quality) {
-                            qual_adj_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
-                        }
-                        else {
-                            regular_aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
-                        }
+                        get_aligner()->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                     }
                     
 #ifdef debug_multipath_mapper
@@ -1528,8 +1482,7 @@ namespace vg {
     
     void MultipathMapper::strip_full_length_bonuses(MultipathAlignment& mulipath_aln) const {
         
-        int32_t full_length_bonus = adjust_alignments_for_base_quality ? qual_adj_aligner->full_length_bonus
-                                                                       : regular_aligner->full_length_bonus;
+        int32_t full_length_bonus = get_aligner()->full_length_bonus;
         // strip bonus from source paths
         if (mulipath_aln.start_size()) {
             // use the precomputed list of sources if we have it
@@ -1598,8 +1551,7 @@ namespace vg {
         }
         
         if (mapq_method != None) {
-            int32_t raw_mapq = adjust_alignments_for_base_quality ? qual_adj_aligner->compute_mapping_quality(scores, mapq_method == Approx)
-                                                                  : regular_aligner->compute_mapping_quality(scores, mapq_method == Approx);
+            int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapq_method == Approx);
             multipath_alns.front().set_mapping_quality(min<int32_t>(raw_mapq, max_mapping_quality));
         }
     }
@@ -1631,8 +1583,7 @@ namespace vg {
         }
         
         if (mapping_quality_method != None) {
-            int32_t raw_mapq = adjust_alignments_for_base_quality ? qual_adj_aligner->compute_mapping_quality(scores, mapping_quality_method == Approx)
-                                                                  : regular_aligner->compute_mapping_quality(scores, mapping_quality_method == Approx);
+            int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
             int32_t mapq = min<int32_t>(mapq, max_mapping_quality);
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
@@ -1640,7 +1591,7 @@ namespace vg {
     }
     
     void MultipathMapper::set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio) {
-        double log_base = adjust_alignments_for_base_quality ? qual_adj_aligner->log_base : regular_aligner->log_base;
+        double log_base = get_aligner()->log_base;
         max_suboptimal_path_score_diff = (int32_t) ceil(log(maximum_acceptable_ratio) / log_base);
     }
     
@@ -3651,7 +3602,7 @@ namespace vg {
         }
     }
     
-    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner& aligner,
+    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
                                                               int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order) {
         
         if (match_nodes.empty()) {
@@ -3667,8 +3618,8 @@ namespace vg {
         // compute the weight of edges and node matches
         for (size_t i = 0; i < match_nodes.size(); i++) {
             ExactMatchNode& from_node = match_nodes[i];
-            node_weights[i] = aligner.match * (from_node.end - from_node.begin)
-                              + aligner.full_length_bonus * ((from_node.begin == alignment.sequence().begin())
+            node_weights[i] = aligner->match * (from_node.end - from_node.begin)
+                              + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
                                                              + (from_node.end == alignment.sequence().end()));
             
             for (const pair<size_t, size_t>& edge : from_node.edges) {
@@ -3681,19 +3632,19 @@ namespace vg {
                     // the read length in between the MEMs is longer than the distance, suggesting a read insert
                     // and potentially another mismatch on the other end
                     int64_t gap_length = read_dist - graph_dist;
-                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner.gap_extension - aligner.gap_open
-                                                             - (graph_dist > 0) * aligner.mismatch;
+                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner->gap_extension - aligner->gap_open
+                                                             - (graph_dist > 0) * aligner->mismatch;
                 }
                 else if (read_dist < graph_dist) {
                     // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
                     // and potentially another mismatch on the other end
                     int64_t gap_length = graph_dist - read_dist;
-                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner.gap_extension -aligner.gap_open
-                                                             - (read_dist > 0) * aligner.mismatch;
+                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner->gap_extension - aligner->gap_open
+                                                             - (read_dist > 0) * aligner->mismatch;
                 }
                 else {
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-                    edge_weights[make_pair(i, edge.first)] = -((graph_dist > 0) + (graph_dist > 1)) * aligner.mismatch;
+                    edge_weights[make_pair(i, edge.first)] = -((graph_dist > 0) + (graph_dist > 1)) * aligner->mismatch;
                 }
             }
         }

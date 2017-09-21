@@ -1061,6 +1061,15 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return match * (seq_end - seq_begin);
 }
 
+int32_t Aligner::score_exact_match(const string& sequence, const string& base_quality) const {
+    return score_exact_match(sequence);
+}
+
+int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                   string::const_iterator base_qual_begin) const {
+    return score_exact_match(seq_begin, seq_end);
+}
+
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,

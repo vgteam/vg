@@ -1240,6 +1240,22 @@ LRUCache<id_t, vector<Edge> >& BaseMapper::get_edge_cache(void) {
     return *edge_cache[tid];
 }
 
+BaseAligner* BaseMapper::get_aligner(bool have_qualities) const {
+    return (have_qualities && adjust_alignments_for_base_quality) ?
+        (BaseAligner*) qual_adj_aligner :
+        (BaseAligner*) regular_aligner;
+}
+
+QualAdjAligner* BaseMapper::get_qual_adj_aligner() const {
+    assert(qual_adj_aligner != nullptr);
+    return qual_adj_aligner;
+}
+
+Aligner* BaseMapper::get_regular_aligner() const {
+    assert(regular_aligner != nullptr);
+    return regular_aligner;
+}
+
 void BaseMapper::clear_aligners(void) {
     delete qual_adj_aligner;
     delete regular_aligner;
@@ -1370,7 +1386,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
         vg.extend(graph);
         if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
             return vg.align(aln,
-                            regular_aligner,
+                            get_regular_aligner(),
                             traceback,
                             assume_acyclic,
                             max_query_graph_ratio,
@@ -1381,7 +1397,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                             aln.sequence().size());
         } else {
             return vg.align_qual_adjusted(aln,
-                                          qual_adj_aligner,
+                                          get_qual_adj_aligner(),
                                           traceback,
                                           assume_acyclic,
                                           max_query_graph_ratio,
@@ -1399,23 +1415,11 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             size_t band_padding_override = 0;
             bool permissive_banding = (band_padding_override == 0);
             size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-                regular_aligner->align_global_banded(aligned, graph, band_padding, false);
-            } else {
-                qual_adj_aligner->align_global_banded(aligned, graph, band_padding, false);
-            }
+            get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, false);
         } else if (pinned_alignment) {
-            if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-                regular_aligner->align_pinned(aligned, graph, pin_left);
-            } else {
-                qual_adj_aligner->align_pinned(aligned, graph, pin_left);
-            }
+            get_aligner(!aln.quality().empty())->align_pinned(aligned, graph, pin_left);
         } else {
-            if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-                regular_aligner->align(aligned, graph, traceback, false);
-            } else {
-                qual_adj_aligner->align(aligned, graph, traceback, false);
-            }
+            get_aligner(!aln.quality().empty())->align(aligned, graph, traceback, false);
         }
         return aligned;
     }
@@ -1745,19 +1749,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     read2.set_quality(second_mate.quality());
 
     double avg_node_len = average_node_length();
-    int8_t match;
-    int8_t gap_extension;
-    int8_t gap_open;
-    if (read1.quality().empty() || !adjust_alignments_for_base_quality) {
-        match = regular_aligner->match;
-        gap_extension = regular_aligner->gap_extension;
-        gap_open = regular_aligner->gap_open;
-    }
-    else {
-        match = qual_adj_aligner->match;
-        gap_extension = qual_adj_aligner->gap_extension;
-        gap_open = qual_adj_aligner->gap_open;
-    }
+    auto aligner = get_aligner(!read1.quality().empty());
+    int8_t match = aligner->match;
+    int8_t gap_extension = aligner->gap_extension;
+    int8_t gap_open = aligner->gap_open;
+
     int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
 
@@ -2632,19 +2628,10 @@ Mapper::align_mem_multi(const Alignment& aln,
     }
 //#endif
     
-    int match;
-    int gap_extension;
-    int gap_open;
-    if (aln.quality().empty() || !adjust_alignments_for_base_quality) {
-        match = regular_aligner->match;
-        gap_extension = regular_aligner->gap_extension;
-        gap_open = regular_aligner->gap_open;
-    }
-    else {
-        match = qual_adj_aligner->match;
-        gap_extension = qual_adj_aligner->gap_extension;
-        gap_open = qual_adj_aligner->gap_open;
-    }
+    auto aligner = get_aligner(!aln.quality().empty());
+    int8_t match = aligner->match;
+    int8_t gap_extension = aligner->gap_extension;
+    int8_t gap_open = aligner->gap_open;
 
     int total_multimaps = max(max_multimaps, additional_multimaps);
     double mq_cap = max_mapping_quality;
@@ -2915,13 +2902,7 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, Graph& graph, bool fli
 
     if (strip_bonuses && !banded_global && traceback) {
         // We want to remove the bonuses
-        
-        // Find the right aligner to do that with
-        BaseAligner* aligner = adjust_alignments_for_base_quality ?
-            (BaseAligner*) qual_adj_aligner :
-            (BaseAligner*) regular_aligner;
-        
-        aln.set_score(aligner->remove_bonuses(aln));
+        aln.set_score(get_aligner()->remove_bonuses(aln));
     }
     if (flip) {
         aln = reverse_complement_alignment(
@@ -3083,7 +3064,7 @@ VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExa
     backward_max_dist.reserve(mems.size());
     
     // What aligner are we using?
-    BaseAligner* aligner = adjust_alignments_for_base_quality ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner;
+    BaseAligner* aligner = get_aligner();
     
     for (const auto& mem : mems) {
         // get the start position of the MEM
@@ -3525,19 +3506,10 @@ vector<Alignment> Mapper::make_bands(const Alignment& read, int band_width, vect
 
 vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int max_mem_length, int band_width) {
 
-    int match;
-    int gap_extension;
-    int gap_open;
-    if (read.quality().empty() || !adjust_alignments_for_base_quality) {
-        match = regular_aligner->match;
-        gap_extension = regular_aligner->gap_extension;
-        gap_open = regular_aligner->gap_open;
-    }
-    else {
-        match = qual_adj_aligner->match;
-        gap_extension = qual_adj_aligner->gap_extension;
-        gap_open = qual_adj_aligner->gap_open;
-    }
+    auto aligner = get_aligner(!read.quality().empty());
+    int8_t match = aligner->match;
+    int8_t gap_extension = aligner->gap_extension;
+    int8_t gap_open = aligner->gap_open;
 
     int total_multimaps = max(max_multimaps, extra_multimaps);
 
@@ -3814,7 +3786,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap) {
     if (alns.empty()) return;
     double max_mq = min(mq_cap, (double)max_mapping_quality);
-    BaseAligner* aligner = (alns.front().quality().empty() ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner);
+    BaseAligner* aligner = get_aligner();
     int sub_overlaps = 0; //sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
@@ -3832,7 +3804,7 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
     double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
-    BaseAligner* aligner = (pair_alns.first.front().quality().empty() ? (BaseAligner*) regular_aligner : (BaseAligner*) qual_adj_aligner);
+    BaseAligner* aligner = get_aligner();
     int sub_overlaps1 = 0; //sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
     int sub_overlaps2 = 0; //sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     vector<double> frag_weights;
@@ -3853,7 +3825,7 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
 }
 
 double Mapper::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {
-    return regular_aligner->estimate_max_possible_mapping_quality(length, min_diffs, next_min_diffs);
+    return get_aligner()->estimate_max_possible_mapping_quality(length, min_diffs, next_min_diffs);
 }
 
 vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment) {
@@ -4475,7 +4447,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln, int max_patch_length) {
 int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
     
     // Find the right aligner to score with
-    BaseAligner* aligner = adjust_alignments_for_base_quality ? (BaseAligner*) qual_adj_aligner : (BaseAligner*) regular_aligner;
+    BaseAligner* aligner = get_aligner();
     
     if (use_approx_distance) {
         // Use an approximation
