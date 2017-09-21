@@ -1452,7 +1452,7 @@ namespace vg {
         }
     }
     
-    int64_t MultipathMapper::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const {
+    int64_t MultipathMapper::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) {
         if (mem_hits.empty()) {
             return 0;
         }

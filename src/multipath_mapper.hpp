@@ -33,6 +33,11 @@ namespace vg {
     
     class MultipathMapper : public BaseMapper  {
     public:
+    
+        ////////////////////////////////////////////////////////////////////////
+        // Interface
+        ////////////////////////////////////////////////////////////////////////
+    
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         SnarlManager* snarl_manager = nullptr);
         ~MultipathMapper();
@@ -74,6 +79,15 @@ namespace vg {
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
         
+        ////////////////////////////////////////////////////////////////////////
+        // Testable utility methods
+        ////////////////////////////////////////////////////////////////////////
+        
+        // TODO: should we break these out into another class or something?
+        
+        /// Computes the number of read bases a cluster of MEM hits covers.
+        static int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
+        
     private:
         
         /// Wrapped internal function that allows some code paths to circumvent the current
@@ -107,9 +121,6 @@ namespace vg {
         void multipath_align(const Alignment& alignment, VG* vg,
                              vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
-        
-        /// Computes the number of read bases a cluster of MEM hits covers.
-        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const;
         
         /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
         void topologically_order_subpaths(MultipathAlignment& multipath_aln) const;
