@@ -66,7 +66,7 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters;
+        vector<memcluster_t> clusters;
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
@@ -90,7 +90,7 @@ namespace vg {
 #endif
         
         // extract graphs around the clusters
-        vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>> cluster_graphs;
+        vector<tuple<VG*, memcluster_t, size_t>> cluster_graphs;
         query_cluster_graphs(alignment, mems, clusters, cluster_graphs);
         
         // actually perform the alignments and post-process to meeth MultipathAlignment invariants
@@ -119,7 +119,7 @@ namespace vg {
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
                                                   MappingQualityMethod mapq_method,
-                                                  vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs,
+                                                  vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs,
                                                   vector<MultipathAlignment>& multipath_alns_out,
                                                   size_t max_alt_mappings) {
     
@@ -130,8 +130,8 @@ namespace vg {
         
         // sort the cluster graphs descending by unique sequence coverage
         std::sort(cluster_graphs.begin(), cluster_graphs.end(),
-                  [](const tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>& cluster_graph_1,
-                     const tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>& cluster_graph_2) {
+                  [](const tuple<VG*, memcluster_t, size_t>& cluster_graph_1,
+                     const tuple<VG*, memcluster_t, size_t>& cluster_graph_2) {
             return get<2>(cluster_graph_1) > get<2>(cluster_graph_2);
         });
         
@@ -313,8 +313,8 @@ namespace vg {
         
         // obtain clusters
         
-        vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters1;
-        vector<vector<pair<const MaximalExactMatch*, pos_t>>> clusters2;
+        vector<memcluster_t> clusters1;
+        vector<memcluster_t> clusters2;
         // TODO: Making OrientedDistanceClusterers is the only place we actually
         // need to distinguish between regular_aligner and qual_adj_aligner
         if (adjust_alignments_for_base_quality) {
@@ -335,8 +335,8 @@ namespace vg {
         }
         
         // extract graphs around the clusters and get the assignments of MEMs to these graphs
-        vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>> cluster_graphs1;
-        vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>> cluster_graphs2;
+        vector<tuple<VG*, memcluster_t, size_t>> cluster_graphs1;
+        vector<tuple<VG*, memcluster_t, size_t>> cluster_graphs2;
         query_cluster_graphs(alignment1, mems1, clusters1, cluster_graphs1);
         query_cluster_graphs(alignment2, mems2, clusters2, cluster_graphs2);
         
@@ -359,7 +359,7 @@ namespace vg {
 #endif
         
         // make vectors of cluster pointers for the cluster clustering function
-        vector<vector<pair<const MaximalExactMatch*, pos_t>>*> cluster_mems_1, cluster_mems_2;
+        vector<memcluster_t*> cluster_mems_1, cluster_mems_2;
         cluster_mems_1.resize(cluster_graphs1.size());
         cluster_mems_2.resize(cluster_graphs2.size());
         for (size_t i = 0; i < cluster_mems_1.size(); i++) {
@@ -469,8 +469,8 @@ namespace vg {
                 VG* vg1 = get<0>(cluster_graphs1[cluster_pair.first]);
                 VG* vg2 = get<0>(cluster_graphs2[cluster_pair.second]);
                 
-                vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first]);
-                vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.second]);
+                memcluster_t& graph_mems1 = get<1>(cluster_graphs1[cluster_pair.first]);
+                memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.second]);
                 
 #ifdef debug_multipath_mapper
                 cerr << "performing alignments to subgraphs " << pb2json(vg1->graph) << " and " << pb2json(vg2->graph) << endl;
@@ -524,8 +524,8 @@ namespace vg {
     
     void MultipathMapper::query_cluster_graphs(const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
-                                               const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                               vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out) {
+                                               const vector<memcluster_t>& clusters,
+                                               vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs_out) {
         
         // Call the static implementation and point it at the parts of us it needs
         query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters, cluster_graphs_out);
@@ -537,8 +537,8 @@ namespace vg {
                                                LRUCache<long int, vg::Node>& node_cache,
                                                const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
-                                               const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                               vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out) {
+                                               const vector<memcluster_t>& clusters,
+                                               vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs_out) {
         
         // we will ensure that nodes are in only one cluster, use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
@@ -557,7 +557,7 @@ namespace vg {
             
             // gather the parameters for subgraph extraction from the MEM hits
             
-            const vector<pair<const MaximalExactMatch*, pos_t>>& cluster = clusters[i];
+            const memcluster_t& cluster = clusters[i];
             vector<pos_t> positions;
             vector<size_t> forward_max_dist;
             vector<size_t> backward_max_dist;
@@ -748,7 +748,7 @@ namespace vg {
             cerr << "adding cluster graph " << cluster_graph.first << " to return vector at index " << cluster_graphs_out.size() << endl;
 #endif
             cluster_to_idx[cluster_graph.first] = cluster_graphs_out.size();
-            cluster_graphs_out.emplace_back(cluster_graph.second, vector<pair<const MaximalExactMatch*, pos_t>>(), 0);
+            cluster_graphs_out.emplace_back(cluster_graph.second, memcluster_t(), 0);
         }
 
         
@@ -787,7 +787,7 @@ namespace vg {
     }
     
     void MultipathMapper::multipath_align(const Alignment& alignment, VG* vg,
-                                          vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
+                                          memcluster_t& graph_mems,
                                           MultipathAlignment& multipath_aln_out) const {
 
 #ifdef debug_multipath_mapper
@@ -1464,7 +1464,7 @@ namespace vg {
         }
     }
     
-    int64_t MultipathMapper::read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) {
+    int64_t MultipathMapper::read_coverage(const memcluster_t& mem_hits) {
         if (mem_hits.empty()) {
             return 0;
         }
@@ -1910,7 +1910,7 @@ namespace vg {
         return 0.5773502691896258 * (4.0 * coverage / root_len - root_len);
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const vector<pair<const MaximalExactMatch*, pos_t>>& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      SnarlManager* cutting_snarls, int64_t max_snarl_cut_size) {

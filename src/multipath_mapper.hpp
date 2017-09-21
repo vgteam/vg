@@ -79,6 +79,9 @@ namespace vg {
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
         
+        // We often pass around clusters of MEMs and their graph positions.
+        using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
+        
         ////////////////////////////////////////////////////////////////////////
         // Testable utility methods
         ////////////////////////////////////////////////////////////////////////
@@ -86,7 +89,7 @@ namespace vg {
         // TODO: should we break these out into another class or something?
         
         /// Computes the number of read bases a cluster of MEM hits covers.
-        static int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits);
+        static int64_t read_coverage(const memcluster_t& mem_hits);
         
         /// Backing cluster graph finding algorithm.
         static void query_cluster_graphs(const BaseAligner* aligner,
@@ -94,8 +97,8 @@ namespace vg {
                                          LRUCache<long int, vg::Node>& node_cache,
                                          const Alignment& alignment,
                                          const vector<MaximalExactMatch>& mems,
-                                         const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                         vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out);
+                                         const vector<memcluster_t>& clusters,
+                                         vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs_out);
         
     private:
         
@@ -110,7 +113,7 @@ namespace vg {
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,
                                      MappingQualityMethod mapq_method,
-                                     vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs,
+                                     vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
                                      size_t max_alt_mappings);
         
@@ -122,13 +125,13 @@ namespace vg {
         /// input cluster contributed to, in merged_into_out.
         void query_cluster_graphs(const Alignment& alignment,
                                   const vector<MaximalExactMatch>& mems,
-                                  const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                  vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out);
+                                  const vector<memcluster_t>& clusters,
+                                  vector<tuple<VG*, memcluster_t, size_t>>& cluster_graphs_out);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         void multipath_align(const Alignment& alignment, VG* vg,
-                             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
+                             memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         
         /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
@@ -164,7 +167,7 @@ namespace vg {
     class MultipathAlignmentGraph {
     public:
         // removes duplicate sub-MEMs contained in parent MEMs
-        MultipathAlignmentGraph(VG& vg, const vector<pair<const MaximalExactMatch*, pos_t>>& hits,
+        MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
