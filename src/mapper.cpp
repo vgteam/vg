@@ -2006,12 +2006,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi_easy(
         results.second[i].set_mapping_quality(0);
     }
     
+    // Cache the mapping qualities for the primary alignments that came from the single-ended mapper
+    auto mapq1 = results.first.front().mapping_quality();
+    auto mapq2 = results.second.front().mapping_quality();
+
+    // Compute new paired-end mapping qualities.
+    // We don't have useful upper bounds so don't specify them.
     compute_mapping_qualities(results, 0, max_mapping_quality, max_mapping_quality, max_mapping_quality, max_mapping_quality);
     
-    // Make the results actually be exactly as before.
-    //results.first.resize(1);
-    //results.second.resize(1);
+    if (mapq1 != 0) {
+        // We had a mapping quality for read 1 already, so use it.
+        results.first.front().set_mapping_quality(mapq1);
+    }
+    if (mapq2 != 0) {
+        // We had a mapping quality for read 2 already, so use it.
+        results.second.front().set_mapping_quality(mapq2);
+    }
+    // We only take the paired-end mapping quality if we had a read that used to
+    // be a secondary mapping or a rescue and got promoted due to its pair
+    // partner.
     
+    // Limit to requested number of multimaps
     results.first.resize(min(min(results.first.size(), results.second.size()), (size_t)max_multimaps));
     results.second.resize(min(min(results.first.size(), results.second.size()), (size_t)max_multimaps));
     
