@@ -2154,7 +2154,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         auto& p = alns.back();
         if (cluster1.size()) {
-            p.first = align_cluster(read1, cluster1, alns.size()==0);
+            p.first = align_cluster(read1, cluster1, false);
         } else {
             p.first = read1;
             p.first.clear_score();
@@ -2162,7 +2162,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             p.first.clear_path();
         }
         if (cluster2.size()) {
-            p.second = align_cluster(read2, cluster2, alns.size()==0);
+            p.second = align_cluster(read2, cluster2, false);
         } else {
             p.second = read2;
             p.second.clear_score();
