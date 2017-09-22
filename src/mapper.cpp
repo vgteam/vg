@@ -2260,17 +2260,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // if both mates are aligned, add each single end into the mix
         if (aln1.score() && aln2.score()) {
             auto cluster_ptr = cluster_ptrs[aln_index[p]];
-            alns.emplace_back();
-            auto& p = alns.back();
+            se_alns.emplace_back();
+            auto& p = se_alns.back();
             p.first = aln1;
             p.second = read2;
-            cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
-            alns.emplace_back();
-            auto& q = alns.back();
+            se_cluster_ptrs.push_back(make_pair(cluster_ptr.first, nullptr));
+            se_alns.emplace_back();
+            auto& q = se_alns.back();
             q.first = read1;
             q.second = aln2;
-            cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
+            se_cluster_ptrs.push_back(make_pair(nullptr, cluster_ptr.second));
         }
+    }
+    int k = 0;
+    for (auto& se_aln : se_alns) {
+        alns.push_back(se_aln);
+        cluster_ptrs.push_back(se_cluster_ptrs[k]);
+        ++k;
     }
     update_aln_ptrs();
     sort_and_dedup();
