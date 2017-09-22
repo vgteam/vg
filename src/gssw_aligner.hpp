@@ -116,6 +116,13 @@ namespace vg {
         /// Compute the score of an exact match in the given alignment, from the
         /// given offset, of the given length.
         virtual int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length) = 0;
+        /// Compute the score of an exact match of the given sequence with the given qualities.
+        /// Qualities may be ignored by some implementations.
+        virtual int32_t score_exact_match(const string& sequence, const string& base_quality) const = 0;
+        /// Compute the score of an exact match of the given range of sequence with the given qualities.
+        /// Qualities may be ignored by some implementations.
+        virtual int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                          string::const_iterator base_qual_begin) const = 0;
         
         /// Returns the score of an insert or deletion of the given length
         int32_t score_gap(size_t gap_length);
@@ -261,6 +268,9 @@ namespace vg {
         
         
         int32_t score_exact_match(const Alignment& aln, size_t read_offset, size_t length);
+        int32_t score_exact_match(const string& sequence, const string& base_quality) const;
+        int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                  string::const_iterator base_qual_begin) const;
         int32_t score_exact_match(const string& sequence) const;
         int32_t score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end) const;
 

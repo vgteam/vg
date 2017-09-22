@@ -33,6 +33,11 @@ namespace vg {
     
     class MultipathMapper : public BaseMapper  {
     public:
+    
+        ////////////////////////////////////////////////////////////////////////
+        // Interface
+        ////////////////////////////////////////////////////////////////////////
+    
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         SnarlManager* snarl_manager = nullptr);
         ~MultipathMapper();
@@ -79,6 +84,37 @@ namespace vg {
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
         
+        /// We often pass around clusters of MEMs and their graph positions.
+        using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
+        
+        /// This represents a graph for a cluster, and holds a pointer to the
+        /// actual extracted graph, a list of assigned MEMs, and the number of
+        /// bases of read coverage that that MEM cluster provides (which serves
+        /// as a priority).
+        using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
+        
+        ////////////////////////////////////////////////////////////////////////
+        // Testable utility methods
+        ////////////////////////////////////////////////////////////////////////
+        
+        // TODO: should we break these out into another class or something?
+        
+        /// Computes the number of read bases a cluster of MEM hits covers.
+        static int64_t read_coverage(const memcluster_t& mem_hits);
+        
+        /// Extracts a subgraph around each cluster of MEMs that encompasses any
+        /// graph position reachable with local alignment anchored at the MEMs.
+        /// If any subgraphs overlap, they are merged into one subgraph. Returns
+        /// a vector of all the merged cluster subgraphs, their MEMs assigned
+        /// from the mems vector according to the MEMs' hits, and their read
+        /// coverages in bp. The caller must delete the VG objects produced!
+        static vector<clustergraph_t> query_cluster_graphs(const BaseAligner* aligner,
+                                                           xg::XG* xindex,
+                                                           LRUCache<id_t, vg::Node>& node_cache,
+                                                           const Alignment& alignment,
+                                                           const vector<MaximalExactMatch>& mems,
+                                                           const vector<memcluster_t>& clusters);
+        
     private:
         
         /// Wrapped internal function that allows some code paths to circumvent the current
@@ -88,33 +124,46 @@ namespace vg {
                                     vector<MultipathAlignment>& multipath_alns_out,
                                     size_t max_alt_mappings);
         
+        /// Before the fragment length distribution has been estimated, look for an unambiguous mapping of
+        /// the reads using the single ended routine, and if we find it record the fragment length. If we
+        /// don't find one, add the read pair to a buffer instead of the output vector.
+        void attempt_unpaired_multipath_map_of_pair(const Alignment& alignment1, const Alignment& alignment2,
+                                                    vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                                    vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
+                                                    size_t max_alt_mappings);
+        
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
         void align_to_cluster_graphs(const Alignment& alignment,
                                      MappingQualityMethod mapq_method,
-                                     vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs,
+                                     vector<clustergraph_t>& cluster_graphs,
                                      vector<MultipathAlignment>& multipath_alns_out,
                                      size_t max_alt_mappings);
         
-        /// Extracts a subgraph around each cluster of MEMs that encompasses any
-        /// graph position reachable with local alignment anchored at the MEMs.
-        /// If any subgraphs overlap, they are merged into one subgraph. Also
-        /// returns a map from each cluster subgraph to a vector containing the
-        /// MEM hits in that graph. Also keeps track of which output graph each
-        /// input cluster contributed to, in merged_into_out.
-        void query_cluster_graphs(const Alignment& alignment,
-                                  const vector<MaximalExactMatch>& mems,
-                                  const vector<vector<pair<const MaximalExactMatch*, pos_t>>>& clusters,
-                                  vector<tuple<VG*, vector<pair<const MaximalExactMatch*, pos_t>>, size_t>>& cluster_graphs_out);
+        /// After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining
+        /// which cluster graph pairs meet the fragment length distance constraints, perform multipath
+        /// alignment
+        void align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
+                                          vector<clustergraph_t>& cluster_graphs1,
+                                          vector<clustergraph_t>& cluster_graphs2,
+                                          vector<pair<size_t, size_t>>& cluster_pairs,
+                                          vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
+                                          size_t max_alt_mappings);
+        
+        
+        /// Extract reachable (according to the Mapper's aligner) subgraphs from
+        /// each MEM cluster from the mapper's XG index, using the mapper's node
+        /// cache.
+        /// The caller must delete the VG objects produced!
+        vector<clustergraph_t> query_cluster_graphs(const Alignment& alignment,
+                                                    const vector<MaximalExactMatch>& mems,
+                                                    const vector<memcluster_t>& clusters);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         void multipath_align(const Alignment& alignment, VG* vg,
-                             vector<pair<const MaximalExactMatch*, pos_t>>& graph_mems,
+                             memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
-        
-        /// Computes the number of read bases a cluster of MEM hits covers.
-        int64_t read_coverage(const vector<pair<const MaximalExactMatch*, pos_t>>& mem_hits) const;
         
         /// Reorders the Subpaths in the MultipathAlignment to be in topological order (required by .proto specifications)
         void topologically_order_subpaths(MultipathAlignment& multipath_aln) const;
@@ -149,7 +198,7 @@ namespace vg {
     class MultipathAlignmentGraph {
     public:
         // removes duplicate sub-MEMs contained in parent MEMs
-        MultipathAlignmentGraph(VG& vg, const vector<pair<const MaximalExactMatch*, pos_t>>& hits,
+        MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 SnarlManager* cutting_snarls = nullptr, int64_t max_snarl_cut_size = 5);
@@ -163,7 +212,7 @@ namespace vg {
         
         /// Removes nodes and edges that are not part of any path that has an estimated score
         /// within some amount of the highest scoring path
-        void prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner& aligner,
+        void prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
                                          int32_t max_suboptimal_score_diff, const vector<size_t>& topological_order);
         
         /// Reorders adjacency list representation of edges so that they follow the indicated

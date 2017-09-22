@@ -285,11 +285,24 @@ protected:
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
     
+    FragmentLengthDistribution fragment_length_distr;
+
+    /// Get the appropriate aligner to use, based on
+    /// adjust_alignments_for_base_quality. By setting have_qualities to false,
+    /// you can force the non-quality-adjusted aligner, for reads that lack
+    /// quality scores.
+    BaseAligner* get_aligner(bool have_qualities = true) const;
+    
+    // Sometimes you really do need the two kinds of aligners, to pass to code
+    // that expects one or the other.
+    QualAdjAligner* get_qual_adj_aligner() const;
+    Aligner* get_regular_aligner() const;
+
+private:
     // GSSW aligners
     QualAdjAligner* qual_adj_aligner = nullptr;
-    Aligner* regular_aligner = nullptr;
-    
-    FragmentLengthDistribution fragment_length_distr;
+    Aligner* regular_aligner = nullptr;    
+
 };
 
 /**
