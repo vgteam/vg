@@ -91,7 +91,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
 
 }
 
-TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][multipathmapper][broken]" ) {
+TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][multipathmapper]" ) {
     
     string graph_json = R"({
         "node": [{"id": 1, "sequence": "GATTACA"}],
@@ -401,6 +401,62 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
             }
         }
     
+    }
+    
+    // Clean up the GCSA/LCP index
+    delete gcsaidx;
+    delete lcpidx;
+}
+
+TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][multipathmapper]" ) {
+    
+    string graph_json = R"({"node":[{"sequence":"CTTCTCATCCCTCCTCAAGGGCCTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAGATG","id":12},{"sequence":"A","id":2},{"sequence":"CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTTT","id":3},{"sequence":"TTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAATGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTT","id":4},{"sequence":"CAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTA","id":5},{"sequence":"CTGACAGCAGAGGTTTGCTGTGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT","id":6},{"sequence":"ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCTTCTGGCTTTTCATTGTCAAC","id":7},{"sequence":"ACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCTCACCGTGATCTTCAAGTTTGAAAATTGCATCTCAAATCTA","id":8},{"sequence":"AGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTGTATACGATGTAACTCTGTTCGGGCACTGGTGAAAGATAA","id":9},{"sequence":"CAGAGGAAATGCCTGGCTTTTTATCAGAACATGTTTCCAAGCTTATCCCTTTTCCCAGCTCTCCTTGTCCCTCCCAAGATCTCTTCACTGGCCTCTTATC","id":10},{"sequence":"TTTACTGTTACCAAATCTTTCCAGAAGCTGCTCTTTCCCTCAATTGTTCATTTGTCTTCTTGTCCAGGAATGAACCACTGCTCTCTTCTTGTCAGATCAG","id":11}],"path":[{"name":"x","mapping":[{"position":{"node_id":3},"edit":[{"from_length":100,"to_length":100}],"rank":1},{"position":{"node_id":4},"edit":[{"from_length":100,"to_length":100}],"rank":2},{"position":{"node_id":5},"edit":[{"from_length":100,"to_length":100}],"rank":3},{"position":{"node_id":6},"edit":[{"from_length":100,"to_length":100}],"rank":4},{"position":{"node_id":7},"edit":[{"from_length":100,"to_length":100}],"rank":5},{"position":{"node_id":8},"edit":[{"from_length":100,"to_length":100}],"rank":6},{"position":{"node_id":9},"edit":[{"from_length":100,"to_length":100}],"rank":7},{"position":{"node_id":10},"edit":[{"from_length":100,"to_length":100}],"rank":8},{"position":{"node_id":11},"edit":[{"from_length":100,"to_length":100}],"rank":9},{"position":{"node_id":12},"edit":[{"from_length":100,"to_length":100}],"rank":10},{"position":{"node_id":2},"edit":[{"from_length":1,"to_length":1}],"rank":11}]}],"edge":[{"from":12,"to":2},{"from":3,"to":4},{"from":4,"to":5},{"from":5,"to":6},{"from":6,"to":7},{"from":7,"to":8},{"from":8,"to":9},{"from":9,"to":10},{"from":10,"to":11},{"from":11,"to":12}]})";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG graph;
+    graph.extend(proto_graph);
+    
+    // Configure GCSA temp directory to the system temp directory
+    gcsa::TempFile::setDirectory(find_temp_dir());
+    // And make it quiet
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+    
+    // Make pointers to fill in
+    gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
+    
+    // Build the GCSA index
+    graph.build_gcsa_lcp(gcsaidx, lcpidx, 16, false, false, 3);
+    
+    // Build the xg index
+    xg::XG xg_index(proto_graph);
+    
+    // Make a multipath mapper to map against the graph.
+    MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
+    // Lower the max mapping quality so that it thinks it can find unambiguous mappings of
+    // short sequences
+    mapper.max_mapping_quality = 10;
+    
+    SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
+        // Here are two reads in opposing, inward-facing directions
+        Alignment read1, read2;
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read2.set_sequence("AAGGA");
+        
+        // Have a list to fill with results
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
+        
+        // Align for just one pair of alignments
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        
+        // The second read was ambiguous so we should have buffered this read.
+        REQUIRE(results.empty());
+        REQUIRE(buffer.size() == 1);
     }
     
     // Clean up the GCSA/LCP index
