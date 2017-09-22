@@ -44,7 +44,6 @@ rocksdb::Options Index::GetOptions(bool read_only) {
     }
     options.max_open_files = -1;
     options.allow_mmap_reads = true;
-    options.disableDataSync = true; // like disableWAL above
 
     // set up table format
     rocksdb::BlockBasedTableOptions topt;
@@ -76,13 +75,8 @@ rocksdb::Options Index::GetOptions(bool read_only) {
     options.level0_file_num_compaction_trigger = 5;
     options.target_file_size_base = 16 * size_t(1<<30);
     options.access_hint_on_compaction_start = rocksdb::Options::AccessHint::SEQUENTIAL;
-    options.compaction_readahead_size = 16 << 20;
 
     if (bulk_load) {
-        // vector memtable provides much faster loading provided there's no
-        // concurrent reading happening
-        options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
-
         // disable write throttling because we'll have other logic to let
         // background compactions converge.
         options.level0_slowdown_writes_trigger = (1<<30);
