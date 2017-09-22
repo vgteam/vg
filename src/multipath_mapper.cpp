@@ -524,7 +524,7 @@ namespace vg {
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
         // Call the static implementation and point it at the parts of us it needs
-        return query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters);
+        return move(query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters));
                                                
     }
     
@@ -781,7 +781,7 @@ namespace vg {
             });
         }
         
-        return cluster_graphs_out;
+        return move(cluster_graphs_out);
         
         
     }

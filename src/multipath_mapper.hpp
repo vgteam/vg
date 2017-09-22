@@ -83,8 +83,9 @@ namespace vg {
         using memcluster_t = vector<pair<const MaximalExactMatch*, pos_t>>;
         
         /// This represents a graph for a cluster, and holds a pointer to the
-        /// actual extracted graph, the MEM cluster it was extracted for, and
-        /// the number of bases of read coverage that that MEM cluster provides.
+        /// actual extracted graph, a list of assigned MEMs, and the number of
+        /// bases of read coverage that that MEM cluster provides (which serves
+        /// as a priority).
         using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
         
         ////////////////////////////////////////////////////////////////////////
@@ -99,9 +100,9 @@ namespace vg {
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable with local alignment anchored at the MEMs.
         /// If any subgraphs overlap, they are merged into one subgraph. Returns
-        /// a vector of all the merged cluster subgraphs, their MEMs, and their
-        /// read coverages in bp.
-        /// The caller must delete the VG objects produced!
+        /// a vector of all the merged cluster subgraphs, their MEMs assigned
+        /// from the mems vector according to the MEMs' hits, and their read
+        /// coverages in bp. The caller must delete the VG objects produced!
         static vector<clustergraph_t> query_cluster_graphs(const BaseAligner* aligner,
                                                            xg::XG* xindex,
                                                            LRUCache<id_t, vg::Node>& node_cache,

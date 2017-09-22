@@ -91,7 +91,7 @@ TEST_CASE( "MultipathMapper::read_coverage works", "[multipath][mapping][multipa
 
 }
 
-TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][multipathmapper]" ) {
+TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][multipathmapper][broken]" ) {
     
     string graph_json = R"({
         "node": [{"id": 1, "sequence": "GATTACA"}],
@@ -144,7 +144,12 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     
     SECTION("a single MEM produces one graph with the whole node") {
         
+        // Make MEMs
         mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        // Fill in MEM hits with node_types
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 0));
+        
+        // Make a cluster
         clusters.resize(1);
         clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 0));
         
@@ -157,11 +162,14 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(results.size() == 1);
         // It has one node
         REQUIRE(get<0>(results[0])->node_count() == 1);
-        // It came from one MEM hit
+        // It contains the one MEM we fed in
         REQUIRE(get<1>(results[0]).size() == 1);
-        // Which was our MEM hit we fed in
-        REQUIRE(get<1>(results[0])[0] == clusters.back()[0]);
-        // It covers 3 bases, like the MEM does
+        MultipathMapper::memcluster_t& assigned_mems = get<1>(results[0]);
+        const MaximalExactMatch* mem = assigned_mems[0].first;
+        pos_t where = assigned_mems[0].second;
+        REQUIRE(mem == &mems.back());
+        REQUIRE(where == make_pos_t(1, false, 0));
+        // It covers 3 bases from that MEM
         REQUIRE(get<2>(results[0]) == 3);
         
         for (auto cluster_graph : results) {
@@ -175,7 +183,9 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     
         // We will use two fake overlapping MEMs
         mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 0));
         mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 3));
         clusters.resize(1);
         clusters.back().emplace_back(&mems[0], make_pos_t(1, false, 0));
         clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 3));
@@ -191,8 +201,10 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(get<0>(results[0])->node_count() == 1);
         // It came from two MEM hits
         REQUIRE(get<1>(results[0]).size() == 2);
-        // Which were our MEM hits we fed in
-        REQUIRE(get<1>(results[0]) == clusters.back());
+        // They are hits of the two MEMs we fed in at the right places
+        set<pair<const MaximalExactMatch*, pos_t>> found{get<1>(results[0]).begin(), get<1>(results[0]).end()};
+        set<pair<const MaximalExactMatch*, pos_t>> wanted{clusters.back().begin(), clusters.back().end()};
+        REQUIRE(found == wanted);
         // It covers all 7 bases, like the MEMs do together
         REQUIRE(get<2>(results[0]) == 7);
         
@@ -203,11 +215,14 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     
     }
     
+    
     SECTION("two MEMs close together in two clusters make one graph") {
     
         // We will use two fake overlapping MEMs
         mems.emplace_back(read.begin(), read.begin() + 3, make_pair(5, 5), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 0));
         mems.emplace_back(read.begin() + 3, read.end(), make_pair(6, 6), 1);
+        mems.back().nodes.push_back(gcsa::Node::encode(1, 3));
         clusters.resize(2);
         clusters.front().emplace_back(&mems[0], make_pos_t(1, false, 0));
         clusters.back().emplace_back(&mems[1], make_pos_t(1, false, 3));
@@ -223,9 +238,10 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         REQUIRE(get<0>(results[0])->node_count() == 1);
         // It came from two MEM hits
         REQUIRE(get<1>(results[0]).size() == 2);
-        // Which were our MEM hits we fed in
-        REQUIRE(get<1>(results[0])[0] == clusters.front()[0]);
-        REQUIRE(get<1>(results[0])[1] == clusters.back()[0]);
+        // They are hits of the two MEMs we fed in at the right places
+        set<pair<const MaximalExactMatch*, pos_t>> found{get<1>(results[0]).begin(), get<1>(results[0]).end()};
+        set<pair<const MaximalExactMatch*, pos_t>> wanted{clusters.front()[0], clusters.back()[0]};
+        REQUIRE(found == wanted);
         // It covers all 7 bases, like the MEMs do together
         REQUIRE(get<2>(results[0]) == 7);
         
@@ -235,9 +251,6 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         }
     
     }
-    
-    
-    
 }
     
 TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][multipathmapper]" ) {
