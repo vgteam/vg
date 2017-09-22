@@ -1702,7 +1702,8 @@ bool Mapper::pair_consistent(const Alignment& aln1,
     if (aln1.fragment_size() == 0 || aln2.fragment_size() == 0) {
         // use the approximate distance
         int len = approx_fragment_length(aln1, aln2);
-        if (len > 0 && len < frag_stats.fragment_size
+        if (frag_stats.fragment_size && len > 0 && (pval > 0 && frag_stats.fragment_length_pval(len) > pval
+                                                    || len < frag_stats.fragment_size)
             || !frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max) {
             length_ok = true;
         }
