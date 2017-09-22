@@ -341,7 +341,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     
     SECTION( "MultipathMapper can map two tiny paired reads" ) {
     
-        // Here are two reads in opposing, inward-facing directions
+        // Here are two reads on the same strand, as the mapper requires.
         Alignment read1, read2;
         read1.set_sequence("GAT");
         read2.set_sequence("ACA");
@@ -442,10 +442,10 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
     mapper.max_mapping_quality = 10;
     
     SECTION( "MultipathMapper buffers pairs that don't map the first time" ) {
-        // Here are two reads in opposing, inward-facing directions
+        // Here are two reads on the same strand
         Alignment read1, read2;
         read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
-        read2.set_sequence("AAGGA");
+        read2.set_sequence("TCCTT");
         
         // Have a list to fill with results
         vector<pair<MultipathAlignment, MultipathAlignment>> results;
@@ -457,6 +457,24 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
         // The second read was ambiguous so we should have buffered this read.
         REQUIRE(results.empty());
         REQUIRE(buffer.size() == 1);
+    }
+    
+    SECTION( "MultipathMapper does not buffer unambiguous pairs" ) {
+        // Here are two reads on the same strand
+        Alignment read1, read2;
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read2.set_sequence("TCCTTGACTTCTTGAAACA");
+        
+        // Have a list to fill with results
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
+        
+        // Align for just one pair of alignments
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        
+        // The pair was not ambiguous so we should have produced a result.
+        REQUIRE(results.size() == 1);
+        REQUIRE(buffer.empty());
     }
     
     // Clean up the GCSA/LCP index
