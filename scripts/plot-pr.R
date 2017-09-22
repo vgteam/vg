@@ -37,7 +37,7 @@ dat.roc <- dat.roc[complete.cases(dat.roc), ]
 # Now we pipe that into ggplot and use + to assemble a bunch of ggplot layers together into a plot.
 dat.roc %>% 
     # Make a base plot mapping each of these variable names to each of these "aesthetic" attributes (like x position and color)
-    ggplot(aes(x = Recall, y = -log10(1 - Precision), color = aligner, label=mq)) + 
+    ggplot(aes(x = -log10(1 - Recall), y = -log10(1 - Precision), color = aligner, label=mq)) + 
         # We will use a line plot
         geom_line() + 
         # There will be cool floating labels
@@ -52,6 +52,10 @@ dat.roc %>%
         scale_y_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(2, 6)) +
         # Label it
         ylab("1 - Precision") +
+        # And we want a fake log X axis
+        scale_x_continuous(labels=c("1e-0","1e-1","1e-2","1e-3","1e-4","1e-5","1e-6","1e-7"), breaks=c(0,1,2,3,4,5,6,7), limits=c(2, 6)) +
+        # Label it
+        ylab("1 - Recall") +
         # And we want this cool theme
         theme_bw()
 
