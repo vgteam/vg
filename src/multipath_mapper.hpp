@@ -96,7 +96,12 @@ namespace vg {
         /// Computes the number of read bases a cluster of MEM hits covers.
         static int64_t read_coverage(const memcluster_t& mem_hits);
         
-        /// Backing cluster graph finding algorithm.
+        /// Extracts a subgraph around each cluster of MEMs that encompasses any
+        /// graph position reachable with local alignment anchored at the MEMs.
+        /// If any subgraphs overlap, they are merged into one subgraph. Returns
+        /// a vector of all the merged cluster subgraphs, their MEMs, and their
+        /// read coverages in bp.
+        /// The caller must delete the VG objects produced!
         static vector<clustergraph_t> query_cluster_graphs(const BaseAligner* aligner,
                                                            xg::XG* xindex,
                                                            LRUCache<id_t, vg::Node>& node_cache,
@@ -121,11 +126,11 @@ namespace vg {
                                      vector<MultipathAlignment>& multipath_alns_out,
                                      size_t max_alt_mappings);
         
-        /// Extracts a subgraph around each cluster of MEMs that encompasses any
-        /// graph position reachable with local alignment anchored at the MEMs.
-        /// If any subgraphs overlap, they are merged into one subgraph. Returns
-        /// a vector of all the merged cluster subgraphs, their MEMs, and their
-        /// read coverages in bp.
+        
+        /// Extract reachable (according to the Mapper's aligner) subgraphs from
+        /// each MEM cluster from the mapper's XG index, using the mapper's node
+        /// cache.
+        /// The caller must delete the VG objects produced!
         vector<clustergraph_t> query_cluster_graphs(const Alignment& alignment,
                                                     const vector<MaximalExactMatch>& mems,
                                                     const vector<memcluster_t>& clusters);
