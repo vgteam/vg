@@ -15,7 +15,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
     , min_mem_length(1)
     , mem_reseed_length(0)
     , fast_reseed(true)
-    , fast_reseed_length_diff(8)
+    , fast_reseed_length_diff(0.75)
     , hit_max(0)
     , cache_size(128)
     , alignment_threads(1)
@@ -369,7 +369,8 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
             if (use_diff_based_fast_reseed) {
                 find_sub_mems_fast(mems,
                                    match.begin,
-                                   max<int>(mem_length - fast_reseed_length_diff, min_mem_length),
+                                   max<int>(ceil(fast_reseed_length_diff * mem_length),
+                                            min_mem_length),
                                    sub_mems);
             }
             else {

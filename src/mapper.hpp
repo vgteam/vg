@@ -191,7 +191,7 @@ public:
     int min_mem_length; // a mem must be >= this length
     int mem_reseed_length; // the length above which we reseed MEMs to get potentially missed hits
     bool fast_reseed; // use the fast reseed algorithm
-    int fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
+    double fast_reseed_length_diff; // how much smaller than its parent a sub-MEM can be in the fast reseed algorithm
     int hit_max;       // ignore or MEMs with more than this many hits
     
     bool strip_bonuses; // remove any bonuses used by the aligners from the final reported scores

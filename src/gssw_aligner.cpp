@@ -534,8 +534,7 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         exit(EXIT_FAILURE);
     }
     
-    size_t size = min(
-                      alignment_pairs.first.size(),
+    size_t size = min(alignment_pairs.first.size(),
                       alignment_pairs.second.size());
     
     if (size == 0) {
