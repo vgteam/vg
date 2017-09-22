@@ -1129,7 +1129,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     }
     
     if (align_quality.length() != align_sequence.length()) {
-        cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment." << endl;
+        cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment at the command line." << endl;
         exit(EXIT_FAILURE);
     }
     

@@ -115,6 +115,10 @@ public:
     /// distribution estimate
     bool is_finalized();
     
+    /// Returns the max sample size up to which the distribution will continue to reestimate
+    /// parameters
+    size_t max_sample_size();
+    
 private:
     multiset<double> lengths;
     bool is_fixed = false;

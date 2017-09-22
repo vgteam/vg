@@ -5072,4 +5072,8 @@ double FragmentLengthDistribution::stdev() {
 bool FragmentLengthDistribution::is_finalized() {
     return is_fixed;
 }
+    
+size_t FragmentLengthDistribution::max_sample_size() {
+    return maximum_sample_size;
+}
 }

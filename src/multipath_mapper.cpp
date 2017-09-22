@@ -6,13 +6,14 @@
 
 //#define debug_multipath_mapper
 //#define debug_validate_multipath_alignments
+//#define debug_report_frag_distr
 //#define debug_force_frag_distr
 
 
 // for debugging: choose a fixed fragment length distribution at compile time here
 #ifdef debug_force_frag_distr
-#define MEAN 1000.0
-#define SD 75.0
+#define MEAN 1000.25
+#define SD 71.1867
 #endif
 
 #include "multipath_mapper.hpp"
@@ -292,6 +293,18 @@ namespace vg {
 #endif
                 ambiguous_pair_buffer.emplace_back(alignment1, alignment2);
             }
+            
+#ifdef debug_report_frag_distr
+            if (fragment_length_distr.is_finalized()) {
+                cerr << "finalized read distribution with " << fragment_length_distr.max_sample_size() << " measurements on read pair " << alignment1.name() << ", " << alignment2.name() << endl;
+                cerr << "mean: " << fragment_length_distr.mean() << endl;
+                cerr << "std dev: " << fragment_length_distr.stdev() << endl;
+                cerr << "ambiguous buffer contains pairs:" << endl;
+                for (pair<Alignment,Alignment>& aln_pair : ambiguous_pair_buffer) {
+                    cerr << "\t" << aln_pair.first.name() << ", " << aln_pair.second.name() << endl;
+                }
+            }
+#endif
             
             return;
         }

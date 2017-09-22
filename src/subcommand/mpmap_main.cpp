@@ -692,6 +692,7 @@ int main_mpmap(int argc, char** argv) {
     // do paired multipath alignment and write to buffer
     function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
+        // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -745,6 +746,13 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
                 pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
+                // we reverse complemented the alignment on the first pass, so switch back so we don't break
+                // the alignment function'gits expectations
+                // TODO: slightly wasteful, inelegant
+                if (!same_strand) {
+                    reverse_complement_alignment_in_place(&aln_pair.second,
+                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
         }
@@ -757,6 +765,13 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
                 pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
+                // we reverse complemented the alignment on the first pass, so switch back so we don't break
+                // the alignment function's expectations
+                // TODO: slightly wasteful, inelegant
+                if (!same_strand) {
+                    reverse_complement_alignment_in_place(&aln_pair.second,
+                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                }
                 do_unpaired_alignments(aln_pair.first);
                 do_unpaired_alignments(aln_pair.second);
             }
