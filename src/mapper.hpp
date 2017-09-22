@@ -94,6 +94,10 @@ public:
     FragmentLengthDistribution(void);
     ~FragmentLengthDistribution();
     
+    
+    /// Instead of estimating anything, just use these parameters.
+    void force_parameters(double mean, double stddev);
+    
     /// Switches the entire program to single-threaded mode until reaching the maximum
     /// sample size so that estimation is deterministic. After reaching the maximum, the
     /// thread count is automatically switched back.
@@ -164,6 +168,10 @@ public:
     
     /// Gives up on deterministic estimation regardless of whether the distribution has been fixed
     void abandon_fragment_length_distr();
+    
+    /// Use the given fragment length distribution parameters instead of
+    /// estimating them.
+    void force_fragment_length_distr(double mean, double stddev);
     
     // MEM-based mapping
     // find maximal exact matches

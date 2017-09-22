@@ -457,6 +457,10 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
         // The second read was ambiguous so we should have buffered this read.
         REQUIRE(results.empty());
         REQUIRE(buffer.size() == 1);
+        
+        // Did we buffer the right thing?
+        REQUIRE(buffer[0].first.sequence() == read1.sequence());
+        REQUIRE(buffer[0].second.sequence() == read2.sequence());
     }
     
     SECTION( "MultipathMapper does not buffer unambiguous pairs" ) {
@@ -475,6 +479,39 @@ TEST_CASE( "MultipathMapper can map to a bigger graph", "[multipath][mapping][mu
         // The pair was not ambiguous so we should have produced a result.
         REQUIRE(results.size() == 1);
         REQUIRE(buffer.empty());
+        
+        // Did we map the right thing?
+        REQUIRE(results[0].first.sequence() == read1.sequence());
+        REQUIRE(results[0].second.sequence() == read2.sequence());
+    }
+    
+    // Fix the distribution
+    mapper.force_fragment_length_distr(100, 200);
+    
+    SECTION( "MultipathMapper aligns ambiguous pairs after the fragment length distribution is set" ) {
+        // Here are two reads on the same strand
+        Alignment read1, read2;
+        read1.set_sequence("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAT");
+        read2.set_sequence("TCCTT");
+        
+        // Have a list to fill with results
+        vector<pair<MultipathAlignment, MultipathAlignment>> results;
+        vector<pair<Alignment, Alignment>> buffer;
+        
+        // Align for just one pair of alignments
+        mapper.multipath_map_paired(read1, read2, results, buffer, 1);
+        
+        // The distribution has been estimated so we should have produced a result.
+        REQUIRE(results.size() == 1);
+        REQUIRE(buffer.empty());
+        
+        // Did we map the right thing?
+        REQUIRE(results[0].first.sequence() == read1.sequence());
+        REQUIRE(results[0].second.sequence() == read2.sequence());
+        
+        // But it should have MAPQ 0 for the second, ambiguously-placed read.
+        REQUIRE(results[0].second.mapping_quality() == 0);
+        // TODO: It also zeros MAPQ for the first read; is that smart?
     }
     
     // Clean up the GCSA/LCP index
