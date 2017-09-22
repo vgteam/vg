@@ -97,13 +97,12 @@ namespace vg {
         static int64_t read_coverage(const memcluster_t& mem_hits);
         
         /// Backing cluster graph finding algorithm.
-        static void query_cluster_graphs(const BaseAligner* aligner,
-                                         xg::XG* xindex,
-                                         LRUCache<id_t, vg::Node>& node_cache,
-                                         const Alignment& alignment,
-                                         const vector<MaximalExactMatch>& mems,
-                                         const vector<memcluster_t>& clusters,
-                                         vector<clustergraph_t>& cluster_graphs_out);
+        static vector<clustergraph_t> query_cluster_graphs(const BaseAligner* aligner,
+                                                           xg::XG* xindex,
+                                                           LRUCache<id_t, vg::Node>& node_cache,
+                                                           const Alignment& alignment,
+                                                           const vector<MaximalExactMatch>& mems,
+                                                           const vector<memcluster_t>& clusters);
         
     private:
         
@@ -124,14 +123,12 @@ namespace vg {
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable with local alignment anchored at the MEMs.
-        /// If any subgraphs overlap, they are merged into one subgraph. Also
-        /// returns a map from each cluster subgraph to a vector containing the
-        /// MEM hits in that graph. Also keeps track of which output graph each
-        /// input cluster contributed to, in merged_into_out.
-        void query_cluster_graphs(const Alignment& alignment,
-                                  const vector<MaximalExactMatch>& mems,
-                                  const vector<memcluster_t>& clusters,
-                                  vector<clustergraph_t>& cluster_graphs_out);
+        /// If any subgraphs overlap, they are merged into one subgraph. Returns
+        /// a vector of all the merged cluster subgraphs, their MEMs, and their
+        /// read coverages in bp.
+        vector<clustergraph_t> query_cluster_graphs(const Alignment& alignment,
+                                                    const vector<MaximalExactMatch>& mems,
+                                                    const vector<memcluster_t>& clusters);
         
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.

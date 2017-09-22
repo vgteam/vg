@@ -90,8 +90,7 @@ namespace vg {
 #endif
         
         // extract graphs around the clusters
-        vector<clustergraph_t> cluster_graphs;
-        query_cluster_graphs(alignment, mems, clusters, cluster_graphs);
+        auto cluster_graphs = query_cluster_graphs(alignment, mems, clusters);
         
         // actually perform the alignments and post-process to meeth MultipathAlignment invariants
         align_to_cluster_graphs(alignment, mapq_method, cluster_graphs, multipath_alns_out, max_alt_mappings);
@@ -335,10 +334,8 @@ namespace vg {
         }
         
         // extract graphs around the clusters and get the assignments of MEMs to these graphs
-        vector<clustergraph_t> cluster_graphs1;
-        vector<clustergraph_t> cluster_graphs2;
-        query_cluster_graphs(alignment1, mems1, clusters1, cluster_graphs1);
-        query_cluster_graphs(alignment2, mems2, clusters2, cluster_graphs2);
+        auto cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
+        auto cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
         
 #ifdef debug_multipath_mapper
         cerr << "obtained independent clusters pairs:" << endl;
@@ -522,23 +519,24 @@ namespace vg {
         }
     }
     
-    void MultipathMapper::query_cluster_graphs(const Alignment& alignment,
+    auto MultipathMapper::query_cluster_graphs(const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
-                                               const vector<memcluster_t>& clusters,
-                                               vector<clustergraph_t>& cluster_graphs_out) {
+                                               const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
         // Call the static implementation and point it at the parts of us it needs
-        query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters, cluster_graphs_out);
+        return query_cluster_graphs(get_aligner(), xindex, get_node_cache(), alignment, mems, clusters);
                                                
     }
     
-    void MultipathMapper::query_cluster_graphs(const BaseAligner* aligner,
+    auto MultipathMapper::query_cluster_graphs(const BaseAligner* aligner,
                                                xg::XG* xindex,
                                                LRUCache<id_t, vg::Node>& node_cache,
                                                const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
-                                               const vector<memcluster_t>& clusters,
-                                               vector<clustergraph_t>& cluster_graphs_out) {
+                                               const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
+        
+        // We populate this with all the cluster graphs.
+        vector<clustergraph_t> cluster_graphs_out;
         
         // we will ensure that nodes are in only one cluster, use this to record which one
         unordered_map<id_t, size_t> node_id_to_cluster;
@@ -782,6 +780,8 @@ namespace vg {
                 return hit_1.first->length() > hit_2.first->length();
             });
         }
+        
+        return cluster_graphs_out;
         
         
     }
