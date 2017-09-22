@@ -534,7 +534,7 @@ namespace vg {
     
     void MultipathMapper::query_cluster_graphs(const BaseAligner* aligner,
                                                xg::XG* xindex,
-                                               LRUCache<long int, vg::Node>& node_cache,
+                                               LRUCache<id_t, vg::Node>& node_cache,
                                                const Alignment& alignment,
                                                const vector<MaximalExactMatch>& mems,
                                                const vector<memcluster_t>& clusters,
