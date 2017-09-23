@@ -385,7 +385,7 @@ class VGCITest(TestCase):
                     print '\t'.join([unicode(tok) for tok in toks])
         self._end_message()
 
-        self.assertTrue(f1_score >= baseline_f1 - threshold)
+        self.assertGreaterEqual(f1_score, baseline_f1 - threshold)
 
     def _test_bakeoff(self, region, graph, skip_indexing):
         """ Run bakeoff F1 test for NA12878 """
@@ -730,7 +730,7 @@ class VGCITest(TestCase):
             if negative_control and key in [negative_control, negative_control + '-pe']:
                 method += '**'
             def r4(s):
-                return round(s, 4) if isinstance(s, float) else s 
+                return round(s, 5) if isinstance(s, float) else s 
                 
             row = [method]
             for metric_index in [1, 2, 4]:
@@ -752,17 +752,17 @@ class VGCITest(TestCase):
                 # For each graph we have a baseline and stats for, compare the
                 # columns we actually have in both.
                 if len(stats_dict[key]) > 0:
-                    self.assertTrue(stats_dict[key][0] == reads)
+                    self.assertEqual(stats_dict[key][0], reads)
                 if len(stats_dict[key]) > 1 and len(val) > 1:
                     # Compare accuracy stats
-                    self.assertTrue(stats_dict[key][1] >= val[1] - acc_threshold)
+                    self.assertGreaterEqual(stats_dict[key][1], val[1] - acc_threshold)
                 if len(stats_dict[key]) > 2 and len(val) > 2:
                     # Compare AUC stats. Make sure to patch up 0 AUCs from perfect classification.
                     new_auc = stats_dict[key][2] if stats_dict[key][2] != 0 else 1
                     old_auc = val[2] if val[2] != 0 else 1
-                    self.assertTrue(new_auc >= old_auc - acc_threshold)
+                    self.assertGreaterEqual(new_auc, old_auc - acc_threshold)
                 if len(stats_dict[key]) > 4 and len(val) > 4:
-                    self.assertTrue(stats_dict[key][4] >= val[4] - self.f1_threshold)
+                    self.assertGreaterEqual(stats_dict[key][4], val[4] - self.f1_threshold)
                 if len(stats_dict[key]) != len(val):
                     log.warning('Key {} has {} baseline entries and {} stats'.format(key, len(val), len(stats_dict[key])))
             else:
@@ -836,7 +836,7 @@ class VGCITest(TestCase):
                     print '{} vs. {} Worse: {} Baseline: {}  Threshold: {}'.format(
                         key, compare_against, score_stats_dict[key][1], baseline_dict[key][1], self.worse_threshold)
                     # Make sure all the reads came through
-                    assert score_stats_dict[key][0] == reads
+                    self.assertEqual(score_stats_dict[key][0], reads)
                     
                     if not key.endswith('-pe'):
                         # Skip paired-end cases because their pair partners can
@@ -845,7 +845,7 @@ class VGCITest(TestCase):
                         # based on the assignment of reads to threads.
                     
                         # Make sure not too many got worse
-                        assert score_stats_dict[key][1] <= baseline_dict[key][1] + self.worse_threshold
+                        self.assertLessEqual(score_stats_dict[key][1], baseline_dict[key][1] + self.worse_threshold)
 
             
     def _test_mapeval(self, reads, region, baseline_graph, test_graphs, score_baseline_graph=None,
@@ -942,7 +942,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(16000)        
     def test_sim_chr21_snp1kg(self):
         self._test_mapeval(300000, 'CHR21', 'snp1kg',
-                           ['primary', 'snp1kg'],
+                           ['primary', 'snp1kg', 'thresholded10'],
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
@@ -957,7 +957,8 @@ class VGCITest(TestCase):
         self._test_mapeval(50000, 'BRCA2', 'snp1kg',
                            ['primary', 'snp1kg'],
                            score_baseline_graph='primary',
-                           sample='HG00096', multipath=True, tag_ext='-mpmap')
+                           sample='HG00096', multipath=True, tag_ext='-mpmap',
+                           acc_threshold=0.02)
 
     @timeout_decorator.timeout(3600)
     def test_sim_mhc_snp1kg_mpmap(self):

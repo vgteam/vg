@@ -139,6 +139,7 @@ def scrape_messages(text):
 
     messages = []
     msg = None
+    name = None
     
     for line in text.split('\n'):
         is_msg, msg_name, is_tsv = parse_begin_message(line)
@@ -307,7 +308,7 @@ def html_header(xml_root):
         report = '''
 <!DOCTYPE html><html><head>
 <meta charset="utf-8"/>
-<title>vg Test Report</title>
+<title>''' + escape(os.getenv('ghprbPullTitle', 'master')) + ''': vg Test Report</title>
 <style> table {
 font-family: arial, sans-serif; border-collapse: collapse; width: 100%;}
 td, dh { border: 1px solid #dddddd; text-align: left; padding: 8px;}
@@ -327,8 +328,9 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
 
         report += '<h2>vg Test Report'
         if os.getenv('ghprbPullId'):
-            report += ' for <a href={}>PR {}</a>'.format(os.getenv('ghprbPullLink'),
-                                                         os.getenv('ghprbPullId'))
+            report += ' for <a href={}>PR {}: {}</a>'.format(os.getenv('ghprbPullLink'),
+                                                             os.getenv('ghprbPullId'),
+                                                             escape(os.getenv('ghprbPullTitle')))
         elif build_number:
             report += ' for merge to master'
             
