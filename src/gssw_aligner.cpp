@@ -564,7 +564,6 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         mapping_quality = prob_to_phred(sqrt(phred_to_prob(cluster_mq + mapping_quality)));
     }
 
-    mapping_quality /= 2; // ow oof ouch
     double mapping_quality1 = mapping_quality;
     double mapping_quality2 = mapping_quality;
 
@@ -581,6 +580,9 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
     auto& max_aln2 = alignment_pairs.second[max_idx];
     int len2 = max(alignment_to_length(max_aln2), alignment_from_length(max_aln2));
     double identity2 = 1. - (double)(len2 * match - max_aln2.score()) / (match + mismatch) / len2;
+
+    mapping_quality1 /= 2; // ow oof ouch
+    mapping_quality2 /= 2; // my bones hurt
 
     mapping_quality1 *= pow(identity1, identity_weight);
     mapping_quality2 *= pow(identity2, identity_weight);
