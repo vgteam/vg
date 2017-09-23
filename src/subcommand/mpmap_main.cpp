@@ -38,7 +38,7 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
-    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000s]" << endl
+    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
     << "  -Q, --mq-max OPT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
@@ -381,7 +381,7 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if ((interleaved_input || !fastq_name_2.empty()) && same_strand) {
+    if (!interleaved_input && fastq_name_2.empty() && same_strand) {
         cerr << "warning:[vg mpmap] Ignoring same strand parameter (-d) because no paired end input provided." << endl;
     }
     

@@ -125,8 +125,8 @@ namespace vg {
                                     size_t max_alt_mappings);
         
         /// Before the fragment length distribution has been estimated, look for an unambiguous mapping of
-        /// the reads using the single ended routine, and if we find it record the fragment length. If we
-        /// don't find one, add the read pair to a buffer instead of the output vector.
+        /// the reads using the single ended routine. If we find one record the fragment length and report
+        /// the pair, if we don't find one, add the read pair to a buffer instead of the output vector.
         void attempt_unpaired_multipath_map_of_pair(const Alignment& alignment1, const Alignment& alignment2,
                                                     vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                     vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,

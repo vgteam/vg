@@ -1646,9 +1646,19 @@ namespace vg {
             }
         }
         
+#ifdef debug_multipath_mapper
+        cerr << "scores obtained of multi-mappings:" << endl;
+        for (auto score : scores) {
+            cerr << "\t" << score << endl;
+        }
+#endif
+        
         if (mapping_quality_method != None) {
             int32_t raw_mapq = get_aligner()->compute_mapping_quality(scores, mapping_quality_method == Approx);
-            int32_t mapq = min<int32_t>(mapq, max_mapping_quality);
+#ifdef debug_multipath_mapper
+            cerr << "scores yield a raw MAPQ of " << raw_mapq << endl;
+#endif
+            int32_t mapq = min<int32_t>(raw_mapq, max_mapping_quality);
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
         }
