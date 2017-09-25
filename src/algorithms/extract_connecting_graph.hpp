@@ -1,6 +1,12 @@
 #ifndef VG_EXTRACT_CONNECTING_GRAPH_HPP
 #define VG_EXTRACT_CONNECTING_GRAPH_HPP
 
+/**
+ * \file extract_connecting_graph.cpp
+ *
+ * Implementation for the extract_connecting_graph algorithm.
+ */
+
 #include <unordered_map>
 
 #include "../position.hpp"

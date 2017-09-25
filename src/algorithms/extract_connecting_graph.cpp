@@ -1,7 +1,7 @@
 /**
- * \file extract_connecting_graphs.cpp
+ * \file extract_connecting_graph.cpp
  *
- * Implementation for the extract_connecting_graphs algorithm.
+ * Implementation for the extract_connecting_graph algorithm.
  */
  
 #include "extract_connecting_graph.hpp"
