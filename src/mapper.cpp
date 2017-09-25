@@ -1242,6 +1242,10 @@ bool BaseMapper::has_fixed_fragment_length_distr() {
 void BaseMapper::abandon_fragment_length_distr() {
     fragment_length_distr.unlock_determinization();
 }
+
+void BaseMapper::force_fragment_length_distr(double mean, double stddev) {
+    fragment_length_distr.force_parameters(mean, stddev);
+}
     
 // TODO: this strategy of dropping the index down to 0 works for vg map's approach of having a copy of
 // the mapper for each thread, but it's dangerous when one mapper is using multiple threads
@@ -4962,6 +4966,13 @@ FragmentLengthDistribution::FragmentLengthDistribution() : FragmentLengthDistrib
     
 FragmentLengthDistribution::~FragmentLengthDistribution() {
     
+}
+
+void FragmentLengthDistribution::force_parameters(double mean, double stddev) {
+    is_fixed = true;
+    mu = mean;
+    sigma = stddev;
+    unlock_determinization();
 }
 
 void FragmentLengthDistribution::register_fragment_length(int64_t length) {
