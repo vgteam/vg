@@ -1805,27 +1805,25 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;
 
-    {
-        int mem_max_length1 = 0;
-        for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
-        double maybe_max1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
-                                                                  read1.sequence().size()/max(1.0, (double)mem_max_length1),
-                                                                  read1.sequence().size()/longest_lcp1);
-        int mem_max_length2 = 0;
-        for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_max_length2 = max(mem_max_length2, (int)mem.length());
-        double maybe_max2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
-                                                                  read2.sequence().size()/max(1.0, (double)mem_max_length2),
-                                                                  read2.sequence().size()/longest_lcp2);
-        // use the estimated mapping quality to avoid hard work when the results are likely noninformative
-        double maybe_min = min(maybe_max1, maybe_max2);
-        if (maybe_min < maybe_mq_threshold) {
-            mq_cap1 = maybe_min;
-            mq_cap2 = maybe_min;
-        }
-        total_multimaps = max(min_multimaps, (int)round(total_multimaps/min(maybe_max1,maybe_max2)));
-        if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_max1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << endl;
-        if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_max2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << endl;
+    int mem_max_length1 = 0;
+    for (auto& mem : mems1) if (mem.primary && mem.match_count) mem_max_length1 = max(mem_max_length1, (int)mem.length());
+    double maybe_mq1 = estimate_max_possible_mapping_quality(read1.sequence().size(),
+                                                             read1.sequence().size()/max(1.0, (double)mem_max_length1),
+                                                             read1.sequence().size()/longest_lcp1);
+    int mem_max_length2 = 0;
+    for (auto& mem : mems2) if (mem.primary && mem.match_count) mem_max_length2 = max(mem_max_length2, (int)mem.length());
+    double maybe_mq2 = estimate_max_possible_mapping_quality(read2.sequence().size(),
+                                                             read2.sequence().size()/max(1.0, (double)mem_max_length2),
+                                                             read2.sequence().size()/longest_lcp2);
+    // use the estimated mapping quality to avoid hard work when the results are likely noninformative
+    double maybe_min = min(maybe_mq1, maybe_mq2);
+    if (maybe_min < maybe_mq_threshold) {
+        mq_cap1 = maybe_min;
+        mq_cap2 = maybe_min;
     }
+    total_multimaps = max(min_multimaps, (int)round(total_multimaps/min(maybe_mq1,maybe_mq2)));
+    if (debug) cerr << "maybe_mq1 " << read1.name() << " " << maybe_mq1 << " " << total_multimaps << " " << mem_max_length1 << " " << longest_lcp1 << endl;
+    if (debug) cerr << "maybe_mq2 " << read2.name() << " " << maybe_mq2 << " " << total_multimaps << " " << mem_max_length2 << " " << longest_lcp2 << endl;
 
 //#ifdef debug_mapper
 #pragma omp critical
@@ -2385,27 +2383,23 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     
     int read1_max_score = 0;
     int read2_max_score = 0;
+    // we must be considering more than one pair to do the paired-end mq calculation
+    int possible_pairs = 0;
+
     // build up the results
     i = 0;
     for (auto& p : aln_ptrs) {
-        //if (++i > max(2, max_multimaps)) break;
         read1_max_score = max(p->first.score(), read1_max_score);
         read2_max_score = max(p->second.score(), read2_max_score);
         results.first.push_back(p->first);
         results.second.push_back(p->second);
+        possible_pairs += p->first.score() && p->second.score();
     }
 
-    /*
-    cerr << "hey with " << results.first.size() << endl;
-    for (auto& r1 : results.first) {
-        cerr << "read1: " << pb2json(r1) << endl;
-    }
-    for (auto& r2 : results.second) {
-        cerr << "read2: " << pb2json(r2) << endl;
-    }
-    */
-
+    // calculate paired end quality if the model assumptions are not obviously violated
     if (results.first.size() && results.second.size()
+        && maybe_mq1 + maybe_mq2 > 10
+        && (possible_pairs > 1 || maybe_mq1 + maybe_mq2 > 30)
         && pair_consistent(results.first.front(), results.second.front(), 0.01)) {
         compute_mapping_qualities(results, cluster_mq, mq_cap1, mq_cap2, max_mapping_quality, max_mapping_quality);
     } else {
@@ -3223,8 +3217,6 @@ void FragmentLengthStatistics::save_frag_lens_to_alns(Alignment& aln1, Alignment
         if (fragment_size && is_consistent) {
             double pval = fragment_length_pval(abs(length));
             double score = pval > 0.01 ? 10 + pval : 0;
-            //auto p = signature(aln1, aln2);
-            //cerr << "frag len " << p.first << " " << p.second << " || " << length << " @ " << score << " " << fragment_length_pdf(length) << " " << frag_stats.cached_fragment_length_mean << endl;
             aln1.set_fragment_score(score);
             aln2.set_fragment_score(score);
         } else if (length < fragment_max) {
