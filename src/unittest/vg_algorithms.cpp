@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <set>
 #include "catch.hpp"
-#include "algorithms/vg_algorithms.hpp"
+#include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/extract_containing_graph.hpp"
+#include "algorithms/extract_extending_graph.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
