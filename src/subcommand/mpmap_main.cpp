@@ -38,15 +38,16 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -U, --snarl-max-cut INT   do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT       align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
-    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [3000]" << endl
+    << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -v, --mq-method OPT       mapping quality method: 0 - none, 1 - fast approximation, 2 - exact [1]" << endl
     << "  -Q, --mq-max OPT          cap mapping quality estimates at this much [60]" << endl
     << "  -p, --band-padding INT    pad dynamic programming bands in inter-MEM alignment by this much [2]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [64]" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT   reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [32]" << endl
-    << "  -W, --reseed-diff INT     require internal MEMs to have length within tåhis much of the SMEM's length [8]" << endl
+    << "  -W, --reseed-diff FLOAT   require internal MEMs to have length within tåhis much of the SMEM's length [0.6]" << endl
     << "  -k, --min-mem-length INT  minimum MEM length to anchor multipath alignments [1]" << endl
+    << "  -K, --clust-length INT  minimum MEM length to anchor multipath alignments [automatic]" << endl
     << "  -c, --hit-max INT         ignore MEMs that occur greater than this many times in the graph (0 for no limit) [128]" << endl
     << "  -d, --max-dist-error INT  maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT    let the approximate likelihood miscalculate likelihood ratios by this power [6.5]" << endl
@@ -91,8 +92,9 @@ int main_mpmap(int argc, char** argv) {
     int buffer_size = 100;
     int hit_max = 128;
     int min_mem_length = 1;
+    int min_clustering_mem_length = 0;
     int reseed_length = 32;
-    int reseed_diff = 8;
+    double reseed_diff = 0.6;
     double cluster_ratio = 0.2;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
@@ -104,7 +106,7 @@ int main_mpmap(int argc, char** argv) {
     double likelihood_approx_exp = 6.5;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
-    size_t frag_length_sample_size = 3000;
+    size_t frag_length_sample_size = 1000;
     double frag_length_robustness_fraction = 0.95;
     bool same_strand = false;
     
@@ -133,6 +135,7 @@ int main_mpmap(int argc, char** argv) {
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
             {"min-mem-length", required_argument, 0, 'k'},
+            {"clustlength", required_argument, 0, 'K'},
             {"hit-max", required_argument, 0, 'c'},
             {"max-dist-error", required_argument, 0, 'd'},
             {"approx-exp", required_argument, 0, 'w'},
@@ -151,7 +154,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:v:Q:p:M:r:W:k:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:f:G:ieSs:u:a:b:v:Q:p:M:r:W:k:K:c:d:w:C:R:q:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -278,11 +281,15 @@ int main_mpmap(int argc, char** argv) {
                 break;
                 
             case 'W':
-                reseed_diff = atoi(optarg);
+                reseed_diff = atof(optarg);
                 break;
                 
             case 'k':
                 min_mem_length = atoi(optarg);
+                break;
+                
+            case 'K':
+                min_clustering_mem_length = atoi(optarg);
                 break;
                 
             case 'c':
@@ -374,7 +381,7 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if ((interleaved_input || !fastq_name_2.empty()) && same_strand) {
+    if (!interleaved_input && fastq_name_2.empty() && same_strand) {
         cerr << "warning:[vg mpmap] Ignoring same strand parameter (-d) because no paired end input provided." << endl;
     }
     
@@ -422,8 +429,8 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (reseed_diff <= 0 && reseed_length != 0) {
-        cerr << "error:[vg mpmap] Reseeding length difference (-W) set to " << reseed_diff << ", must set to a positive integer if reseeding." << endl;
+    if ((reseed_diff < 0 || reseed_diff > 1.0) && reseed_length != 0) {
+        cerr << "error:[vg mpmap] Reseeding length difference (-W) set to " << reseed_diff << ", must set to a number between 0.0 and 1.0." << endl;
         exit(1);
     }
     
@@ -553,10 +560,16 @@ int main_mpmap(int argc, char** argv) {
     
     // set mem finding parameters
     multipath_mapper.hit_max = hit_max;
-    multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.mem_reseed_length = reseed_length;
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
+    multipath_mapper.min_mem_length = min_mem_length;
+    if (min_clustering_mem_length) {
+        multipath_mapper.min_clustering_mem_length = min_clustering_mem_length;
+    }
+    else {
+        multipath_mapper.set_automatic_min_clustering_length();
+    }
     
     // set mapping quality parameters
     multipath_mapper.mapping_quality_method = mapq_method;
@@ -679,6 +692,7 @@ int main_mpmap(int argc, char** argv) {
     // do paired multipath alignment and write to buffer
     function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
+        // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -732,6 +746,13 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
                 pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
+                // we reverse complemented the alignment on the first pass, so switch back so we don't break
+                // the alignment functions expectations
+                // TODO: slightly wasteful, inelegant
+                if (!same_strand) {
+                    reverse_complement_alignment_in_place(&aln_pair.second,
+                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
         }
@@ -744,6 +765,13 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp parallel for
             for (size_t i = 0; i < ambiguous_pair_buffer.size(); i++) {
                 pair<Alignment, Alignment>& aln_pair = ambiguous_pair_buffer[i];
+                // we reverse complemented the alignment on the first pass, so switch back so we don't break
+                // the alignment function's expectations
+                // TODO: slightly wasteful, inelegant
+                if (!same_strand) {
+                    reverse_complement_alignment_in_place(&aln_pair.second,
+                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                }
                 do_unpaired_alignments(aln_pair.first);
                 do_unpaired_alignments(aln_pair.second);
             }
@@ -760,6 +788,7 @@ int main_mpmap(int argc, char** argv) {
     }
     cout.flush();
     
+    //cerr << "MEM length filtering efficiency: " << ((double) OrientedDistanceClusterer::MEM_FILTER_COUNTER) / OrientedDistanceClusterer::MEM_TOTAL << " (" << OrientedDistanceClusterer::MEM_FILTER_COUNTER << "/" << OrientedDistanceClusterer::MEM_TOTAL << ")" << endl;
     //cerr << "MEM cluster filtering efficiency: " << ((double) OrientedDistanceClusterer::PRUNE_COUNTER) / OrientedDistanceClusterer::CLUSTER_TOTAL << " (" << OrientedDistanceClusterer::PRUNE_COUNTER << "/" << OrientedDistanceClusterer::CLUSTER_TOTAL << ")" << endl;
     //cerr << "subgraph filtering efficiency: " << ((double) MultipathMapper::PRUNE_COUNTER) / MultipathMapper::SUBGRAPH_TOTAL << " (" << MultipathMapper::PRUNE_COUNTER << "/" << MultipathMapper::SUBGRAPH_TOTAL << ")" << endl;
     

@@ -534,8 +534,7 @@ void BaseAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
         exit(EXIT_FAILURE);
     }
     
-    size_t size = min(
-                      alignment_pairs.first.size(),
+    size_t size = min(alignment_pairs.first.size(),
                       alignment_pairs.second.size());
     
     if (size == 0) {
@@ -1061,6 +1060,15 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return match * (seq_end - seq_begin);
 }
 
+int32_t Aligner::score_exact_match(const string& sequence, const string& base_quality) const {
+    return score_exact_match(sequence);
+}
+
+int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::const_iterator seq_end,
+                                   string::const_iterator base_qual_begin) const {
+    return score_exact_match(seq_begin, seq_end);
+}
+
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,
@@ -1130,7 +1138,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     }
     
     if (align_quality.length() != align_sequence.length()) {
-        cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment." << endl;
+        cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment at the command line." << endl;
         exit(EXIT_FAILURE);
     }
     

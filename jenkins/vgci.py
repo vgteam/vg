@@ -960,7 +960,7 @@ class VGCITest(TestCase):
                            sample='HG00096', multipath=True, tag_ext='-mpmap',
                            acc_threshold=0.02)
 
-    @timeout_decorator.timeout(3600)
+    @timeout_decorator.timeout(7200)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
         so jenkins doesn't report failures.  vg is run only in single ended with multipath on

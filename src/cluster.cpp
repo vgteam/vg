@@ -377,8 +377,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const vector<MaximalExactMatch>& mems,
                                                      const QualAdjAligner& aligner,
                                                      xg::XG* xgindex,
-                                                     size_t max_expected_dist_approx_error) :
-OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error) {
+                                                     size_t max_expected_dist_approx_error,
+                                                     size_t min_mem_length) :
+OrientedDistanceClusterer(alignment, mems, nullptr, &aligner, xgindex, max_expected_dist_approx_error, min_mem_length) {
     // nothing else to do
 }
 
@@ -386,8 +387,9 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const vector<MaximalExactMatch>& mems,
                                                      const Aligner& aligner,
                                                      xg::XG* xgindex,
-                                                     size_t max_expected_dist_approx_error) :
-OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error) {
+                                                     size_t max_expected_dist_approx_error,
+                                                     size_t min_mem_length) :
+OrientedDistanceClusterer(alignment, mems, &aligner, nullptr, xgindex, max_expected_dist_approx_error, min_mem_length) {
     // nothing else to do
 }
 
@@ -396,24 +398,29 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const Aligner* aligner,
                                                      const QualAdjAligner* qual_adj_aligner,
                                                      xg::XG* xgindex,
-                                                     size_t max_expected_dist_approx_error) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
+                                                     size_t max_expected_dist_approx_error,
+                                                     size_t min_mem_length) : aligner(aligner), qual_adj_aligner(qual_adj_aligner) {
     
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
     
     for (const MaximalExactMatch& mem : mems) {
         
+        //#pragma omp atomic
+        //        MEM_TOTAL += mem.nodes.size();
+        
+        if (mem.length() < min_mem_length) {
+            //#pragma omp atomic
+            //            MEM_FILTER_COUNTER += mem.nodes.size();
+            continue;
+        }
+        
         // calculate the longest gaps we could detect to the left and right of this MEM
-        pair<size_t, size_t> max_gaps;
         int32_t mem_score;
         if (aligner) {
-            max_gaps.first = aligner->longest_detectable_gap(alignment, mem.begin);
-            max_gaps.second = aligner->longest_detectable_gap(alignment, mem.end);
             mem_score = aligner->score_exact_match(mem.begin, mem.end);
         }
         else {
-            max_gaps.first = qual_adj_aligner->longest_detectable_gap(alignment, mem.begin);
-            max_gaps.second = qual_adj_aligner->longest_detectable_gap(alignment, mem.end);
             mem_score = qual_adj_aligner->score_exact_match(mem.begin, mem.end, alignment.quality().begin()
                                                             + (mem.begin - alignment.sequence().begin()));
         }
@@ -583,8 +590,8 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     
     // a simulated annealing parameter loosely inspired by the cutoff for an Erdos-Renyi random graph
     // to be connected with probability approaching 1
-    size_t current_max_num_probes = 3;
-    size_t decrement_frequency = ceil(log(num_items));
+    size_t current_max_num_probes = 2;
+    size_t decrement_frequency = ceil(log(num_items) * num_items);
     
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
@@ -1307,17 +1314,17 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
     
     // Compute distance trees for sets of clusters that are distance-able on consistent strands.
     unordered_map<pair<size_t, size_t>, int64_t> distance_tree = get_on_strand_distance_tree(total_clusters, xgindex,
-         [&](size_t cluster_num) {
-             // Get the position that stands in for each cluster. Should reverse the strand for clusters from the other clusterer.
-             // Assumes the clusters are nonempty.
-             if (cluster_num < left_clusters.size()) {
-                 // Grab the pos_t for the first thing in the cluster.
-                 return left_clusters[cluster_num]->front().second;
-             } else {
-                 // Grab the pos_t for this cluster from the other clusterer.
-                 return right_clusters[cluster_num - left_clusters.size()]->back().second;
-             }
-         });
+                                                                                             [&](size_t cluster_num) {
+                                                                                                 // Get the position that stands in for each cluster. Should reverse the strand for clusters from the other clusterer.
+                                                                                                 // Assumes the clusters are nonempty.
+                                                                                                 if (cluster_num < left_clusters.size()) {
+                                                                                                     // Grab the pos_t for the first thing in the cluster.
+                                                                                                     return left_clusters[cluster_num]->front().second;
+                                                                                                 } else {
+                                                                                                     // Grab the pos_t for this cluster from the other clusterer.
+                                                                                                     return right_clusters[cluster_num - left_clusters.size()]->back().second;
+                                                                                                 }
+                                                                                             });
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
     vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_clusters, distance_tree);
@@ -1400,7 +1407,6 @@ Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::
     sort_by_id_dedup_and_clean(graph);
     return graph;
 }
-
 
 }
 
