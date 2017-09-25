@@ -3018,18 +3018,14 @@ void VG::sort(void) {
     // Join heads to a root to ensure stable topo sort
     Node* root = join_heads();
     // Topologically sort, which orders and orients all the nodes.
-    deque<NodeTraversal> sorted_nodes;
+    vector<NodeTraversal> sorted_nodes;
     topological_sort(sorted_nodes);
     // destroy the root node
-    sorted_nodes.pop_front();
-    destroy_node(root);
+    destroy_node(root->id());
     // organize the nodes in the order from the topological sort
-    deque<NodeTraversal>::iterator n = sorted_nodes.begin();
-    int i = 0;
-    for ( ; i < graph.node_size() && n != sorted_nodes.end();
-          ++i, ++n) {
+    for (size_t i = 0 ; i < graph.node_size(); ++i) {
         // Put the nodes in the order we got
-        swap_nodes(graph.mutable_node(i), (*n).node);
+        swap_nodes(graph.mutable_node(i), sorted_nodes[i + 1].node);
     }
 }
 
@@ -3043,12 +3039,12 @@ void VG::dfs(
     const function<void(Edge*)>& edge_curr_fn,  // called when we meet an edge in the current tree component
     const function<void(Edge*)>& edge_cross_fn, // called when we meet an edge in an already-traversed tree component
     const vector<NodeTraversal>* sources,       // start only at these node traversals
-    const set<NodeTraversal>* sinks             // when hitting a sink, don't keep walking
+    const unordered_set<NodeTraversal>* sinks             // when hitting a sink, don't keep walking
     ) {
 
     // to maintain search state
     enum SearchState { PRE = 0, CURR, POST };
-    map<NodeTraversal, SearchState> state; // implicitly constructed entries will be PRE.
+    unordered_map<NodeTraversal, SearchState> state; // implicitly constructed entries will be PRE.
 
     // to maintain stack frames
     struct Frame {
@@ -3061,9 +3057,7 @@ void VG::dfs(
     };
 
     // maintains edges while the node traversal's frame is on the stack
-    map<NodeTraversal, vector<Edge*> > edges;
-    // records when we're on the stack
-    set<NodeTraversal> in_frame;
+    unordered_map<NodeTraversal, vector<Edge*> > edges;
 
     // do dfs from given root.  returns true if terminated via break condition, false otherwise
     function<bool(NodeTraversal&)> dfs_single_source = [&](NodeTraversal& root) {
@@ -3190,7 +3184,7 @@ void VG::dfs(
 void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
              const function<void(NodeTraversal)>& node_end_fn,
              const vector<NodeTraversal>* sources,
-             const set<NodeTraversal>* sinks) {
+             const unordered_set<NodeTraversal>* sinks) {
     auto edge_noop = [](Edge* e) { };
     dfs(node_begin_fn,
         node_end_fn,
@@ -3332,7 +3326,7 @@ vector<Edge> VG::break_cycles(void) {
 }
 
 bool VG::is_acyclic(void) {
-    set<NodeTraversal> seen;
+    unordered_set<NodeTraversal> seen;
     bool acyclic = true;
     dfs([&](NodeTraversal trav) {
             // When a node orientation is first visited
@@ -3410,13 +3404,13 @@ vector<unordered_set<id_t>> VG::weakly_connected_components(void) {
 
 // keeping all components would be redundant, as every node is a self-component
 void VG::keep_multinode_strongly_connected_components(void) {
-    set<id_t> keep;
+    unordered_set<id_t> keep;
     for (auto& c : multinode_strongly_connected_components()) {
         for (auto& id : c) {
             keep.insert(id);
         }
     }
-    set<Node*> remove;
+    unordered_set<Node*> remove;
     for_each_node([&](Node* n) {
             if (!keep.count(n->id())) {
                 remove.insert(n);
@@ -3982,7 +3976,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     right = parts.back();
 }
 
-void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
+void VG::divide_node(Node* node, vector<int>& positions, vector<Node*>& parts) {
 
 #ifdef debug_divide
 #pragma omp critical (cerr)
@@ -8494,13 +8488,16 @@ while N is nonempty do
                     (This helps start at natural entry points to cycles)
     return L (a topologically sorted order and orientation)
 */
-void VG::topological_sort(deque<NodeTraversal>& l) {
+void VG::topological_sort(vector<NodeTraversal>& l) {
     //assert(is_valid());
 
 #ifdef debug
 #pragma omp critical (cerr)
     cerr << "=====================STARTING SORT==========================" << endl;
 #endif
+    
+    l.clear();
+    l.reserve(graph.node_size());
 
     // using a map instead of a set ensures a stable sort across different systems
     map<id_t, NodeTraversal> s;
@@ -9740,7 +9737,7 @@ void VG::orient_nodes_forward(set<id_t>& nodes_flipped) {
     nodes_flipped.clear();
 
     // First do the topological sort to order and orient
-    deque<NodeTraversal> order_and_orientation;
+    vector<NodeTraversal> order_and_orientation;
     topological_sort(order_and_orientation);
 #ifdef debug
 #pragma omp critical (cerr)
