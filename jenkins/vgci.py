@@ -950,7 +950,7 @@ class VGCITest(TestCase):
                            score_baseline_graph='primary',
                            sample='HG00096',
                            assembly="hg19",
-                           acc_threshold=0.002)
+                           acc_threshold=0.0075)
 
     @timeout_decorator.timeout(3600)
     def test_sim_brca2_snp1kg_mpmap(self):
