@@ -1591,7 +1591,7 @@ namespace vg {
         }
         
         // query the scores of the optimal alignments
-        vector<int32_t> scores(multipath_alns.size(), 0);
+        vector<double> scores(multipath_alns.size(), 0.0);
         for (size_t i = 0; i < multipath_alns.size(); i++) {
             scores[i] = optimal_alignment_score(multipath_alns[i]);
         }
@@ -1632,26 +1632,30 @@ namespace vg {
             return;
         }
         
+        double log_base = get_aligner()->log_base;
+        
         // query the scores of the optimal alignments
-        vector<int32_t> scores(multipath_aln_pairs.size(), 0);
+        vector<double> scores(multipath_aln_pairs.size(), 0.0);
         for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
             pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair = multipath_aln_pairs[i];
-            scores[i] = optimal_alignment_score(multipath_aln_pair.first) + optimal_alignment_score(multipath_aln_pair.second);
+            int32_t alignment_score = optimal_alignment_score(multipath_aln_pair.first) + optimal_alignment_score(multipath_aln_pair.second);
+            double frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
+            scores[i] = alignment_score + frag_score;
         }
         
-#ifndef debug_force_frag_distr
-        double mean = fragment_length_distr.mean();
-#else
-        double mean = MEAN;
-#endif
+//#ifndef debug_force_frag_distr
+//        double mean = fragment_length_distr.mean();
+//#else
+//        double mean = MEAN;
+//#endif
         
         // sort the multipath alignments by score, breaking ties by inter-cluster distance
         // (insertion sort because they are probably nearly ordered)
         for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
             size_t pos = i;
-            while (scores[pos] > scores[pos - 1] ||
-                   (scores[pos] == scores[pos - 1] &&
-                    abs(cluster_pairs[pos].second - mean) < abs(cluster_pairs[pos - 1].second - mean))) {
+            while (scores[pos] > scores[pos - 1]) {// ||
+//                   (scores[pos] == scores[pos - 1] &&
+//                    abs(cluster_pairs[pos].second - mean) < abs(cluster_pairs[pos - 1].second - mean))) {
                 std::swap(scores[pos], scores[pos - 1]);
                 std::swap(multipath_aln_pairs[pos], multipath_aln_pairs[pos - 1]);
                 std::swap(cluster_pairs[pos], cluster_pairs[pos - 1]);
@@ -1663,9 +1667,9 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
-        cerr << "scores obtained of multi-mappings:" << endl;
-        for (auto score : scores) {
-            cerr << "\t" << score << endl;
+        cerr << "scores and distances obtained of multi-mappings:" << endl;
+        for (int i = 0; i < multipath_aln_pairs.size(); i++) {
+            cerr << "\talign:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second) << ", length: " << cluster_pairs[i].second << ", combined: " << scores[i] << endl;
         }
 #endif
         
@@ -1678,6 +1682,18 @@ namespace vg {
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
         }
+    }
+            
+    double MultipathMapper::fragment_length_log_likelihood(int64_t length) const {
+#ifndef debug_force_frag_distr
+        double mean = fragment_length_distr.mean();
+        double stdev = fragment_length_distr.stdev();
+#else
+        double mean = MEAN;
+        double stdev = SD;
+#endif
+        double dev = length - mean;
+        return -dev * dev / (2.0 * stdev * stdev);
     }
     
     void MultipathMapper::set_suboptimal_path_likelihood_ratio(double maximum_acceptable_ratio) {
@@ -2043,17 +2059,12 @@ namespace vg {
                     for (int64_t j : node_matches[injected_id]) {
                         ExactMatchNode& match_node = match_nodes[j];
                         
-                        int64_t relative_offset = begin - match_node.begin;
+                        if (begin < match_node.begin || end > match_node.end) {
 #ifdef debug_multipath_mapper
-                        cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
-#endif
-                        
-                        if (relative_offset < 0 || relative_offset + (end - begin) >= match_node.end - match_node.begin) {
-#ifdef debug_multipath_mapper
-                            if (relative_offset < 0) {
+                            if (begin < match_node.begin) {
                                 cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
                             }
-                            else if (relative_offset + (end - begin) >= match_node.end - match_node.begin) {
+                            else if (end > match_node.end) {
                                 cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
                             }
 #endif
@@ -2061,6 +2072,11 @@ namespace vg {
                             // it cannot be contained in it
                             continue;
                         }
+                        
+                        int64_t relative_offset = begin - match_node.begin;
+#ifdef debug_multipath_mapper
+                        cerr << "the match on node " << j << " has an relative offset of " << relative_offset << " to the this MEM in the read" << endl;
+#endif
                         
                         Path& path = match_node.path;
                         

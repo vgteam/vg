@@ -179,6 +179,9 @@ namespace vg {
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
         
+        /// Computes the log-likelihood of a given fragment length in the trained distribution
+        double fragment_length_log_likelihood(int64_t length) const;
+        
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;
         

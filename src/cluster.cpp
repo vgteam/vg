@@ -527,8 +527,11 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                 int64_t next_idx = sorted_pos[j].second;
                 ODNode& next = nodes[next_idx];
                 
-                if (next.mem->begin <= pivot.mem->begin || next.mem->end <= pivot.mem->end) {
+                if (next.mem->begin < pivot.mem->begin || next.mem->end < pivot.mem->end || j == i) {
                     // the MEMs cannot be colinear along the read (also filters out j == i)
+                    // note: we allow identical start/end positions here even though they can't techinically
+                    // overlap because it tends to soak up redundant sub-MEMs into the same connected component
+                    // so that they don't get their own cluster
                     continue;
                 }
                 
@@ -549,7 +552,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                     int64_t extra_dist = abs(graph_dist - between_length);
                     
                     edge_score = match_score * between_length
-                    - (extra_dist ? (extra_dist - 1) * gap_extension_score + gap_open_score : 0);
+                                 - (extra_dist ? (extra_dist - 1) * gap_extension_score + gap_open_score : 0);
                 }
                 else {
                     int64_t gap_length = abs(between_length - graph_dist);
@@ -1223,6 +1226,21 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     // find the weakly connected components, which should correspond to mappings
     vector<vector<size_t>> components;
     connected_components(components);
+    
+#ifdef debug_od_clusterer
+    cerr << "traceback returns the following components: " << endl;
+    for (size_t i = 0; i < components.size(); i++)  {
+        vector<size_t>& component = components[i];
+        cerr << "\tcomponent " << i << ":" << endl;
+        for (size_t idx : component) {
+            cerr << "\t\t" << idx << " " << nodes[idx].start_pos << " ";
+            for (auto iter = nodes[idx].mem->begin; iter != nodes[idx].mem->end; iter++) {
+                cerr << *iter;
+            }
+            cerr << endl;
+        }
+    }
+#endif
     
     // find the node with the highest DP score in each connected component
     // each record is a pair of (score lower bound, node index)
