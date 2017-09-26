@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # compare-graphs.sh: compare a set of graph against each other using toil-vg mapeval on AWS
 
-set -e
+set -ex
 
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@f737ddd68313fc9bb7f84046d2adb8e81b42a8e4"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@7defead1d6418c1313e4a163cf57f788f0e51445"
 
 # What Toil should we use?
 TOIL_APPLIANCE_SELF=quay.io/ucsc_cgl/toil:3.10.1
@@ -20,8 +20,20 @@ RUN_ID="run$(cat /dev/urandom | LC_CTYPE=C tr -dc 'a-z0-9' | fold -w 32 | head -
 CLUSTER_NAME="${RUN_ID}"
 MANAGE_CLUSTER=1
 
+# Should we delete the job store when we exit?
+# We do by default, and if the run finishes successfully.
+# We don't if we're asked to keep it and Toil errors out.
+REMOVE_JOBSTORE=1
+
+# Should we delete the outstore at the end of the script, if we're deleting the
+# jobstore?
+REMOVE_OUTSTORE=1
+
 # What input reads and position truth set should we use?
 READ_STEM="comparison"
+
+# Should we restart?
+RESTART_ARG=""
 
 usage() {
     # Print usage to stderr
@@ -33,10 +45,13 @@ usage() {
     printf "\t-c CLUSTER\tUse the given existing Toil cluster.\n"
     printf "\t-v DOCKER\tUse the given Docker image specifier for vg.\n"
     printf "\t-r READS\tUse the given read set stem (default: ${READ_STEM}).\n"
+    printf "\t-R RUN_ID\tUse or restart the given run ID.\n"
+    printf "\t-k \tKeep the out store and job store in case of error.\n"
+    printf "\t-s \tRestart a failed run.\n"
     exit 1
 }
 
-while getopts "hp:t:c:v:r:" o; do
+while getopts "hp:t:c:v:r:R:ks" o; do
     case "${o}" in
         p)
             TOIL_VG_PACKAGE="${OPTARG}"
@@ -53,6 +68,17 @@ while getopts "hp:t:c:v:r:" o; do
             ;;
         r)
             READ_STEM="${OPTARG}"
+            ;;
+        R)
+            # This doesn't change the cluster name, which will still be the old run ID if not manually set.
+            # That's probably fine.
+            RUN_ID="${OPTARG}"
+            ;;
+        k)
+            REMOVE_JOBSTORE=0
+            ;;
+        k)
+            RESTART_ARG="--restart"
             ;;
         *)
             usage
@@ -113,9 +139,18 @@ function get_graph_url() {
 # Make sure we don't leave the cluster running or data laying around on exit.
 function clean_up() {
     set +e
-    aws s3 rm --recursive "${OUTPUT_STORE_URL}"
-    $PREFIX toil clean "${JOB_TREE}"
+    if [[ "${REMOVE_JOBSTORE}" == "1" ]]; then
+        # Delete the Toil intermediates we could have used to restart the job
+        $PREFIX toil clean "${JOB_TREE}"
+        
+        if [[ "${REMOVE_OUTSTORE}" == "1" ]]; then
+            # Toil is happily done and we downloaded things OK
+            # Delete the outputs
+            $PREFIX aws s3 rm --recursive "${OUTPUT_STORE_URL}"
+        fi
+    fi
     if [[ "${MANAGE_CLUSTER}" == "1" ]]; then
+        # Destroy the cluster
         $PREFIX toil destroy-cluster "${CLUSTER_NAME}" -z us-west-2a
     fi
 }
@@ -161,6 +196,7 @@ READ_SET="${READ_STEM}-${REGION_NAME}"
 
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/toil-vg mapeval \
     --config vg.conf \
+    ${RESTART_ARG} \
     "${VG_DOCKER_OPTS[@]}" \
     --fasta `get_input_url "${REGION_NAME}.fa"` \
     --index-bases "${GRAPH_URLS[@]}" \
@@ -174,11 +210,26 @@ $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin
     `get_input_url "${READ_SET}.pos"` \
     --batchSystem mesos --provisioner=aws "--mesosMaster=${MASTER_IP}:5050" --nodeType=r3.8xlarge \
     --alphaPacking 2.0
+TOIL_ERROR="$?"
     
 # Make sure the output is public
 $PREFIX toil ssh-cluster --insecure --zone=us-west-2a "${CLUSTER_NAME}" venv/bin/aws s3 sync --acl public-read "${OUTPUT_STORE_URL}" "${OUTPUT_STORE_URL}"
     
 mkdir -p "${OUTPUT_PATH}"
 aws s3 sync "${OUTPUT_STORE_URL}" "${OUTPUT_PATH}"
+DOWNLOAD_ERROR="$?"
+
+if [[ "${TOIL_ERROR}" == "0" ]]; then
+    # Toil completed successfully.
+    # We will delete the job store
+    REMOVE_JOBSTORE=1
+fi
+
+if [[ ! "${DOWNLOAD_ERROR}" == "0" ]]; then
+    # Download failed
+    # We will keep the out store
+    # (we also keep if if Toil fails and we're keeping the jobstore)
+    REMOVE_OUTSTORE=0
+fi
 
 # Cluster, tree, and output will get cleaned up by the exit trap
