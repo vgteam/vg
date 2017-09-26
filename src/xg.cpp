@@ -1577,7 +1577,7 @@ string XG::get_sequence(const handle_t& handle) const {
     }
 }
 
-bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) {
+bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const {
     // Return true if we want an edge of the given type, where we are the from
     // or to node (according to is_to), when we are looking off the right or
     // left side of the node (according to want_left), and when the node is
@@ -1602,7 +1602,7 @@ bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) {
 }
 
 bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, bool is_to,
-    bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) {
+    bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const {
 
     // OK go over all those edges
     
@@ -1633,7 +1633,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
     return true;
 }
 
-void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) {
+void XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
 
     // Unpack the handle
     size_t g = as_integer(handle) & LOW_BITS;

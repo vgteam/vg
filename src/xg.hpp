@@ -223,7 +223,7 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
-    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee);
+    virtual void follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
 
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -518,7 +518,7 @@ private:
     /// want to visit an edge depending on its type, whether we're the to or
     /// from node, whether we want to look left or right, and whether we're
     /// forward or reverse on the node.
-    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse);
+    bool edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const;
     
     // This loops over the given number of edge records for the given g node,
     // starting at the given start g vector position. For all the edges that are
@@ -526,7 +526,7 @@ private:
     // the iteratee is called. Returns true if the iteratee never returns false,
     // or false (and stops iteration) as soon as the iteratee returns false.
     bool do_edges(const size_t& g, const size_t& start, const size_t& count,
-        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee);
+        bool is_to, bool want_left, bool is_reverse, const function<bool(const handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Here are the bits we need to keep around to talk about the sequence
