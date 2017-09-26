@@ -129,8 +129,7 @@ namespace vg {
         /// the pair, if we don't find one, add the read pair to a buffer instead of the output vector.
         void attempt_unpaired_multipath_map_of_pair(const Alignment& alignment1, const Alignment& alignment2,
                                                     vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                                    vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
-                                                    size_t max_alt_mappings);
+                                                    vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer);
         
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment
@@ -146,7 +145,7 @@ namespace vg {
         void align_to_cluster_graph_pairs(const Alignment& alignment1, const Alignment& alignment2,
                                           vector<clustergraph_t>& cluster_graphs1,
                                           vector<clustergraph_t>& cluster_graphs2,
-                                          vector<pair<size_t, size_t>>& cluster_pairs,
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                           size_t max_alt_mappings);
         
@@ -175,7 +174,10 @@ namespace vg {
         void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
-        void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs) const;
+        /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
+        /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
+        void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
+                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
         
         /// Computes the Z-score of the number of matches against an equal length random DNA string.
         double read_coverage_z_score(int64_t coverage, const Alignment& alignment) const;

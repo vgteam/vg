@@ -174,16 +174,15 @@ public:
     vector<cluster_t> clusters(int32_t max_qual_score = 60, int32_t log_likelihood_approx_factor = 0);
     
     /**
-     * Given two vectors of clusters, an xg index, and a maximum separation,
-     * returns a vector of pairs of cluster numbers (one in each vector) that
-     * are in opposite orientations (as would be expected of read pairs) and
-     * within the specified distance.
+     * Given two vectors of clusters, an xg index, an bounds on the distance between clusters,
+     * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
+     * distance
      */
-    static vector<pair<size_t, size_t>> pair_clusters(const vector<cluster_t*>& left_clusters,
-                                                      const vector<cluster_t*>& right_clusters,
-                                                      xg::XG* xgindex,
-                                                      int64_t min_inter_cluster_distance,
-                                                      int64_t max_inter_cluster_distance);
+    static vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const vector<cluster_t*>& left_clusters,
+                                                                     const vector<cluster_t*>& right_clusters,
+                                                                     xg::XG* xgindex,
+                                                                     int64_t min_inter_cluster_distance,
+                                                                     int64_t max_inter_cluster_distance);
     
     //static size_t PRUNE_COUNTER;
     //static size_t CLUSTER_TOTAL;
@@ -206,7 +205,7 @@ private:
     
     /**
      * Given a certain number of items, and a callback to get each item's
-     * position, build a distance forrest with trees for items that we can
+     * position, build a distance forest with trees for items that we can
      * verify are on the same strand of the same molecule.
      *
      * We use the distance approximation to cluster the MEM hits according to

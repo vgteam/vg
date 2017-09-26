@@ -1300,14 +1300,14 @@ vector<OrientedDistanceClusterer::cluster_t> OrientedDistanceClusterer::clusters
     return std::move(to_return);
 }
 
-vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& left_clusters,
-                                                                      const vector<cluster_t*>& right_clusters,
-                                                                      xg::XG* xgindex,
-                                                                      int64_t min_inter_cluster_distance,
-                                                                      int64_t max_inter_cluster_distance) {
+vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clusters(const vector<cluster_t*>& left_clusters,
+                                                                                     const vector<cluster_t*>& right_clusters,
+                                                                                     xg::XG* xgindex,
+                                                                                     int64_t min_inter_cluster_distance,
+                                                                                     int64_t max_inter_cluster_distance) {
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
-    vector<pair<size_t, size_t>> to_return;
+    vector<pair<pair<size_t, size_t>, int64_t>> to_return;
     
     // We think of the clusters as a single linear ordering, with our clusters coming first.
     size_t total_clusters = left_clusters.size() + right_clusters.size();
@@ -1345,6 +1345,8 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
         
         // Now scan for opposing pairs within the distance limit.
         // TODO: this is going to be O(n^2) in the number of clusters in range.
+        // Note: but only if there are a lot of clusters within the range, if the
+        // clusters are distributed sparsely it will be approximately linear
         
         // Keep a cursor to the start of the window and the end of the window.
         // When adding each new thing to the window, eject anything too far
@@ -1373,7 +1375,9 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::pair_clusters(const vect
             // add each pair of clusters that's from the two read ends to the return value
             for (size_t j = window_start; j <= window_last; j++) {
                 if (sorted_pos[j].second >= left_clusters.size()) {
-                    to_return.emplace_back(sorted_pos[i].second, sorted_pos[j].second - left_clusters.size());
+                    to_return.emplace_back(make_pair(sorted_pos[i].second,
+                                                     sorted_pos[j].second - left_clusters.size()),
+                                           sorted_pos[j].first - sorted_pos[i].first);
                 }
             }
         }

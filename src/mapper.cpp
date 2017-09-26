@@ -1501,12 +1501,21 @@ map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln, 
 }
     
 map<string, size_t> Mapper::alignment_initial_path_positions(const Alignment& aln) {
+#ifdef debug_mapper
+    cerr << "finding initial path positions for read " << aln.name() << endl;
+#endif
     map<string, size_t> to_return;
     for (size_t i = 0; i < aln.path().mapping_size(); i++){
         const Position& pos = aln.path().mapping(i).position();
         map<string, vector<size_t>> path_positions = xindex->position_in_paths(pos.node_id(), pos.is_reverse(), pos.offset());
         for (const pair<string, vector<size_t>>& path_record : path_positions) {
             if (!to_return.count(path_record.first)) {
+#ifdef debug_mapper
+                cerr << "found first occurrence of path " << path_record.first << " on " << i << "-th mapping with position " << pb2json(aln.path().mapping(i).position()) << ", which occurs " << path_record.second.size() << " times on this path:" << endl;
+                for (auto off : path_record.second) {
+                    cerr << "\t" << off << endl;
+                }
+#endif
                 to_return[path_record.first] = *min_element(path_record.second.begin(), path_record.second.end());
             }
         }
@@ -5044,19 +5053,19 @@ void FragmentLengthDistribution::estimate_distribution() {
     sigma = sqrt(raw_var * robust_estimation_fraction / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }
     
-double FragmentLengthDistribution::mean() {
+double FragmentLengthDistribution::mean() const {
     return mu;
 }
 
-double FragmentLengthDistribution::stdev() {
+double FragmentLengthDistribution::stdev() const {
     return sigma;
 }
 
-bool FragmentLengthDistribution::is_finalized() {
+bool FragmentLengthDistribution::is_finalized() const {
     return is_fixed;
 }
     
-size_t FragmentLengthDistribution::max_sample_size() {
+size_t FragmentLengthDistribution::max_sample_size() const {
     return maximum_sample_size;
 }
 }

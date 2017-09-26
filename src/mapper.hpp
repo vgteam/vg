@@ -110,18 +110,18 @@ public:
     void register_fragment_length(int64_t length);
 
     /// Robust mean of the distribution observed so far
-    double mean();
+    double mean() const;
     
     /// Robust standard deviation of the distribution observed so far
-    double stdev();
+    double stdev() const;
     
     /// Returns true if the maximum sample size has been reached, which finalizes the
     /// distribution estimate
-    bool is_finalized();
+    bool is_finalized() const;
     
     /// Returns the max sample size up to which the distribution will continue to reestimate
     /// parameters
-    size_t max_sample_size();
+    size_t max_sample_size() const;
     
 private:
     multiset<double> lengths;
