@@ -1788,6 +1788,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int8_t match = aligner->match;
     int8_t gap_extension = aligner->gap_extension;
     int8_t gap_open = aligner->gap_open;
+    int8_t full_length_bonus = aligner->full_length_bonus;
 
     int total_multimaps = max(max_multimaps, extra_multimaps);
     double cluster_mq = 0;
