@@ -286,30 +286,10 @@ namespace algorithms {
     
     unordered_map<id_t, id_t> extract_extending_graph(VG& vg, Graph& g, int64_t max_dist, pos_t pos,
                                                       bool backward, bool preserve_cycles_on_src){
-        return extract_extending_graph_internal(g, max_dist, pos, backward, preserve_cycles_on_src,
-                                                [&](id_t id) {
-                                                    vector<Edge> to_return;
-                                                    for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                        if ((edge->from() == id && edge->from_start())
-                                                            || (edge->to() == id && !edge->to_end())) {
-                                                            to_return.push_back(*edge);
-                                                        }
-                                                    }
-                                                    return to_return;
-                                                },
-                                                [&](id_t id) {
-                                                    vector<Edge> to_return;
-                                                    for (Edge* edge : vg.edges_of(vg.get_node(id))) {
-                                                        if ((edge->from() == id && !edge->from_start())
-                                                            || (edge->to() == id && edge->to_end())) {
-                                                            to_return.push_back(*edge);
-                                                        }
-                                                    }
-                                                    return to_return;
-                                                },
-                                                [&](id_t id) {
-                                                    return vg.get_node(id)->sequence();
-                                                });
+        
+        // Just view the vg as a handle graph                                              
+        return extract_extending_graph(&vg, g, max_dist, pos, backward, preserve_cycles_on_src);
+                                                      
     }
     
     unordered_map<id_t, id_t> extract_extending_graph(xg::XG& xg_index, Graph& g, int64_t max_dist, pos_t pos,
